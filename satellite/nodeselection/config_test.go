@@ -4,6 +4,7 @@
 package nodeselection
 
 import (
+	"math"
 	"testing"
 
 	"github.com/jtolio/mito"
@@ -207,6 +208,60 @@ func TestTargetType(t *testing.T) {
 		return 0
 	}))
 	require.Equal(t, "ScoreNode", r.Name())
+}
+
+func TestCompare(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// Create two score nodes for testing
+	scoreNode1 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return float64(node.FreeDisk)
+	})
+
+	scoreNode2 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return float64(node.PieceCount)
+	})
+
+	// Create nodes with different values
+	node1 := &SelectedNode{FreeDisk: 10, PieceCount: 5}
+	node2 := &SelectedNode{FreeDisk: 10, PieceCount: 3}
+	node3 := &SelectedNode{FreeDisk: 5, PieceCount: 10}
+
+	compareFunc := Compare(scoreNode1, scoreNode2)
+	compareFn := compareFunc(storj.NodeID{})
+
+	// Test cases
+	require.Equal(t, 0, compareFn(node1, node1), "Node should be equal to itself")
+	require.Equal(t, 1, compareFn(node1, node2), "Node1 and Node2 have same FreeDisk, but Node1 has higher PieceCount")
+	require.Equal(t, -1, compareFn(node2, node1), "Node2 and Node1 have same FreeDisk, but Node2 has lower PieceCount")
+	require.Equal(t, 1, compareFn(node1, node3), "Node1 has higher FreeDisk than Node3, so first score decides")
+	require.Equal(t, -1, compareFn(node3, node1), "Node3 has lower FreeDisk than Node1, so first score decides")
+
+	// Test with NaN values
+	nodeNaN1 := &SelectedNode{FreeDisk: 0, PieceCount: 0} // Will return NaN for both scores
+	nodeNaN2 := &SelectedNode{FreeDisk: 5, PieceCount: 0} // Will return NaN for second score
+
+	scoreNodeNaN1 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		if node.FreeDisk == 0 {
+			return math.NaN()
+		}
+		return float64(node.FreeDisk)
+	})
+
+	scoreNodeNaN2 := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		if node.PieceCount == 0 {
+			return math.NaN()
+		}
+		return float64(node.PieceCount)
+	})
+
+	compareNaNFunc := Compare(scoreNodeNaN1, scoreNodeNaN2)
+	compareNaNFn := compareNaNFunc(storj.NodeID{})
+
+	require.Equal(t, 0, compareNaNFn(nodeNaN1, nodeNaN1), "Both nodes have NaN for both scores")
+	require.Equal(t, 1, compareNaNFn(nodeNaN1, nodeNaN2), "First node has NaN for first score, second has value")
+	require.Equal(t, -1, compareNaNFn(nodeNaN2, nodeNaN1), "Second node has NaN for first score, first has value")
 }
 
 func TestArithmetic(t *testing.T) {
