@@ -363,5 +363,32 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, errs.New("unsupported type for exponentiation: %T", a)
 		}
 	}
+	in["round"] = func(a any) (val any, err error) {
+		switch av := a.(type) {
+		case int:
+			return av, nil
+		case int64:
+			return av, nil
+		case float64:
+			return math.Round(av), nil
+		case float32:
+			return float32(math.Round(float64(av))), nil
+		case NodeValue:
+			return NodeValue(func(node SelectedNode) float64 {
+				return math.Round(av(node))
+			}), nil
+		case ScoreNodeFunc:
+			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+				return math.Round(av(uplink, node))
+			}), nil
+		case ScoreNode:
+			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+				return math.Round(av.Get(uplink)(node))
+			}), nil
+
+		default:
+			return nil, errs.New("unsupported type for round: %T", a)
+		}
+	}
 	return in
 }

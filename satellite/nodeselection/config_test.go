@@ -363,6 +363,61 @@ func TestArithmetic(t *testing.T) {
 			require.Equal(t, 5.0, i)
 		})
 	})
+
+	t.Run("round", func(t *testing.T) {
+		t.Run("integer", func(t *testing.T) {
+			res, err := mito.Eval("round(5)", env)
+			require.NoError(t, err)
+			require.Equal(t, int64(5), res)
+		})
+
+		t.Run("float", func(t *testing.T) {
+			res, err := mito.Eval("round(5.4)", env)
+			require.NoError(t, err)
+			require.Equal(t, 5.0, res)
+		})
+
+		t.Run("float rounding up", func(t *testing.T) {
+			res, err := mito.Eval("round(5.6)", env)
+			require.NoError(t, err)
+			require.Equal(t, 6.0, res)
+		})
+
+		t.Run("negative float rounding", func(t *testing.T) {
+			res, err := mito.Eval("round(-5.6)", env)
+			require.NoError(t, err)
+			require.Equal(t, -6.0, res)
+		})
+
+		t.Run("node_value", func(t *testing.T) {
+			nodeWithFloat := SelectedNode{
+				FreeDisk: 2,
+			}
+
+			res, err := mito.Eval("round(node_value(\"free_disk\"))", env)
+			require.NoError(t, err)
+			i := res.(NodeValue)(nodeWithFloat)
+			require.Equal(t, 2.0, i)
+		})
+
+		t.Run("expression result", func(t *testing.T) {
+			res, err := mito.Eval("round(2.5 + 0.1)", env)
+			require.NoError(t, err)
+			require.Equal(t, 3.0, res)
+		})
+
+		t.Run("score node", func(t *testing.T) {
+			scoreNodeFloat := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+				return 4.7
+			})
+			env["floatScoreTracker"] = scoreNodeFloat
+
+			res, err := mito.Eval("round(floatScoreTracker)", env)
+			require.NoError(t, err)
+			i := res.(ScoreNode).Get(storj.NodeID{})(&node)
+			require.Equal(t, 5.0, i)
+		})
+	})
 }
 
 type mockTracker struct {
