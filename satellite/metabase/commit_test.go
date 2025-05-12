@@ -5331,6 +5331,8 @@ func BenchmarkCommitSegment(b *testing.B) {
 		})
 		require.NoError(b, err)
 
+		limiter = sync2.NewLimiter(10)
+
 		b.Run("Mutations", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				limiter.Go(ctx, func() {
