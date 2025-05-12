@@ -19,6 +19,19 @@ import (
 	"storj.io/common/storj"
 )
 
+func convertToCompareNodes(arg any) (CompareNodes, error) {
+	if comparer, ok := arg.(CompareNodes); ok {
+		return comparer, nil
+	}
+	if scoreNode, ok := arg.(ScoreNode); ok {
+		return Compare(scoreNode), nil
+	}
+	if uploadSuccessTracker, ok := arg.(UploadSuccessTracker); ok {
+		return Compare(uploadSuccessTracker), nil
+	}
+	return nil, errs.New("argument for choiceofn/choiceoftwo must be CompareNodes, ScoreNode, or UploadSuccessTracker, got %T", arg)
+}
+
 // placementConfig is the representation of YAML based placement configuration.
 type placementConfig struct {
 
@@ -315,12 +328,33 @@ func SelectorFromString(expr string, environment *PlacementConfigEnvironment) (N
 		"unvetted": func(newNodeRatio float64, def NodeSelectorInit) (NodeSelectorInit, error) {
 			return UnvettedSelector(newNodeRatio, def), nil
 		},
-		"nodelist":    AllowedNodesFromFile,
-		"filter":      FilterSelector,
-		"choiceofn":   ChoiceOfN,
-		"choiceoftwo": ChoiceOfTwo,
+		"nodelist": AllowedNodesFromFile,
+		"filter":   FilterSelector,
+		"compare": func(scoreNodes ...ScoreNode) (CompareNodes, error) {
+			return Compare(scoreNodes...), nil
+		},
+		"choiceofn": func(comparerArg any, n int64, delegate NodeSelectorInit) (NodeSelectorInit, error) {
+			comparer, err := convertToCompareNodes(comparerArg)
+			if err != nil {
+				return nil, errs.Wrap(err)
+			}
+			return ChoiceOfN(comparer, n, delegate), nil
+		},
+		"choiceoftwo": func(comparerArg any, delegate NodeSelectorInit) (NodeSelectorInit, error) {
+			comparer, err := convertToCompareNodes(comparerArg)
+			if err != nil {
+				return nil, errs.Wrap(err)
+			}
+			return ChoiceOfTwo(comparer, delegate), nil
+		},
 		// DEPRECATED: use choiceoftwo. It's only here for backward-compatibility.
-		"pow2":   ChoiceOfTwo,
+		"pow2": func(comparerArg any, delegate NodeSelectorInit) (NodeSelectorInit, error) {
+			comparer, err := convertToCompareNodes(comparerArg)
+			if err != nil {
+				return nil, errs.Wrap(err)
+			}
+			return ChoiceOfTwo(comparer, delegate), nil
+		},
 		"stream": Stream,
 		"choiceofns": func(n int64, score any) func(NodeStream) NodeStream {
 			score, err := ConvertType(score, reflect.TypeOf(new(ScoreNode)).Elem())
