@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc/codes"
@@ -827,7 +826,6 @@ func (s *SpannerAdapter) commitPendingObjectSegmentWithMutations(ctx context.Con
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
 		TransactionTag: "commit-pending-object-segment-mutations",
-		ReadLockMode:   spannerpb.TransactionOptions_ReadWrite_OPTIMISTIC,
 	})
 
 	return Error.Wrap(err)
