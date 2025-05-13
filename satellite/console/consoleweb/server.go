@@ -371,7 +371,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/disable", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.DisableUserMFA))))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/generate-secret-key", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/mfa/regenerate-recovery-codes", server.withCSRFProtection(server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.RegenerateMFARecoveryCodes))))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/logout", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.Logout)))).Methods(http.MethodPost, http.MethodOptions)
+	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token", server.withCSRFProtection(server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token)))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/token-by-api-key", server.ipRateLimiter.Limit(http.HandlerFunc(authController.TokenByAPIKey))).Methods(http.MethodPost, http.MethodOptions)
 	authRouter.Handle("/bad-passwords", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetBadPasswords))).Methods(http.MethodGet, http.MethodOptions)
