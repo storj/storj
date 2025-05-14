@@ -54,4 +54,6 @@ type DB interface {
 	QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) ([]*BucketUsage, error)
 	// QueryAllAttribution queries all partner bucket usage data.
 	QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) ([]*BucketUsage, error)
+	// BackfillPlacementBatch updates up to batchSize rows of value_attributions.placement from bucket_metainfos.
+	BackfillPlacementBatch(ctx context.Context, batchSize int) (int64, bool, error)
 }
