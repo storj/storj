@@ -264,7 +264,7 @@
                             </p>
 
                             <p class="mt-6">
-                                Need help figuring out if Storj is a fit for your business? <a href="https://meetings.hubspot.com/tom144/meeting-with-tom-troy" target="_blank" class="link font-weight-bold">Schedule a meeting</a>.
+                                Need help figuring out if Storj is a fit for your business? <a href="https://www.storj.io/landing/get-in-touch" target="_blank" class="link font-weight-bold">Schedule a meeting</a>.
                             </p>
                         </v-card-text>
                     </v-card>
