@@ -139,6 +139,7 @@ func TestCollectBucketTallies(t *testing.T) {
 				encryptedMetadata := testrand.Bytes(1024)
 				encryptedMetadataNonce := testrand.Nonce()
 				encryptedMetadataKey := testrand.Bytes(265)
+				encryptedETag := testrand.Bytes(265)
 
 				metabasetest.BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
@@ -147,6 +148,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedETag:                 encryptedETag,
 					},
 				}.Check(ctx, t, db)
 
@@ -162,7 +164,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						PendingObjectCount: 1,
 						TotalSegments:      0,
 						TotalBytes:         0,
-						MetadataSize:       1024,
+						MetadataSize:       int64(len(encryptedMetadata) + len(encryptedETag)),
 					},
 					{
 						BucketLocation: metabase.BucketLocation{
@@ -299,7 +301,7 @@ func bucketTallyFromRaw(m metabase.RawObject) metabase.BucketTally {
 		ObjectCount:   1,
 		TotalSegments: int64(m.SegmentCount),
 		TotalBytes:    m.TotalEncryptedSize,
-		MetadataSize:  int64(len(m.EncryptedMetadata)),
+		MetadataSize:  int64(len(m.EncryptedMetadata) + len(m.EncryptedETag)),
 	}
 }
 
