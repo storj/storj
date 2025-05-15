@@ -9,6 +9,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"storj.io/storj/shared/dbutil/spannerutil"
@@ -35,6 +36,8 @@ type CollectBucketTallies struct {
 	AsOfSystemTime     time.Time
 	AsOfSystemInterval time.Duration
 	Now                time.Time
+
+	UsePartitionQuery bool
 }
 
 // Verify verifies CollectBucketTallies request fields.
@@ -116,6 +119,12 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 
 // CollectBucketTallies collect limited bucket tallies from given bucket locations.
 func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if opts.UsePartitionQuery {
+		return s.collectBucketTalliesWithPartitionedQuery(ctx, opts)
+	}
+
 	fromTuple, err := spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_bucket_name"}, true)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -156,4 +165,88 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 			&bucketTally.PendingObjectCount,
 		)
 	})
+}
+
+func (s *SpannerAdapter) collectBucketTalliesWithPartitionedQuery(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
+	tb := spanner.StrongRead()
+	if !opts.AsOfSystemTime.IsZero() {
+		tb = spanner.ReadTimestamp(opts.AsOfSystemTime)
+	}
+	txn, err := s.client.BatchReadOnlyTransaction(ctx, tb)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer txn.Close()
+
+	fromTuple, err := spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_bucket_name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	toTuple, err := spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_bucket_name"}, []string{"project_id", "bucket_name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	stmt := spanner.Statement{
+		SQL: `
+			SELECT
+				project_id, bucket_name, total_encrypted_size, segment_count, COALESCE(length(encrypted_metadata), 0), status
+			FROM objects
+			WHERE ` + fromTuple + `
+				AND ` + toTuple + `
+				AND (expires_at IS NULL OR expires_at > @when)
+		`,
+		Params: map[string]any{
+			"from_project_id":  opts.From.ProjectID,
+			"from_bucket_name": opts.From.BucketName,
+			"to_project_id":    opts.To.ProjectID,
+			"to_bucket_name":   opts.To.BucketName,
+			"when":             opts.Now,
+		},
+	}
+
+	partitions, err := txn.PartitionQueryWithOptions(ctx, stmt, spanner.PartitionOptions{
+		PartitionBytes: 0,
+		MaxPartitions:  0,
+	}, spanner.QueryOptions{
+		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	bucketTallies := map[BucketLocation]BucketTally{}
+	for _, partition := range partitions {
+		iter := txn.Execute(ctx, partition)
+		err := iter.Do(func(r *spanner.Row) error {
+			var bucketLocation BucketLocation
+			var totalEncryptedSize int64
+			var segmentCount int64
+			var encryptedMetadataSize int64
+			var status ObjectStatus
+			if err := r.Columns(&bucketLocation.ProjectID, &bucketLocation.BucketName, &totalEncryptedSize, &segmentCount, &encryptedMetadataSize, &status); err != nil {
+				return Error.Wrap(err)
+			}
+
+			bucketTally, ok := bucketTallies[bucketLocation]
+			if !ok {
+				bucketTally = BucketTally{
+					BucketLocation: bucketLocation,
+				}
+			}
+			bucketTally.TotalBytes += totalEncryptedSize
+			bucketTally.TotalSegments += segmentCount
+			bucketTally.MetadataSize += encryptedMetadataSize
+			bucketTally.ObjectCount++
+			if status == Pending {
+				bucketTally.PendingObjectCount++
+			}
+			bucketTallies[bucketLocation] = bucketTally
+			return nil
+		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+	return maps.Values(bucketTallies), nil
 }
