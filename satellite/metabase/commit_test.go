@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -53,27 +54,67 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.BeginObjectNextVersion{
-				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream:      objectStream,
-					Encryption:        metabasetest.DefaultEncryption,
-					EncryptedMetadata: testrand.BytesInt(32),
-				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
-			}.Check(ctx, t, db)
+			type scenario struct {
+				set []*[]byte
+				err string
+			}
 
-			metabasetest.BeginObjectNextVersion{
-				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream:                  objectStream,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+			opts := metabase.BeginObjectNextVersion{}
+			scenarios := []scenario{
+				{
+					set: []*[]byte{&opts.EncryptedMetadata},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
 				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
-			}.Check(ctx, t, db)
+				{
+					set: []*[]byte{&opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+				},
+			}
+			for i, scenario := range scenarios {
+				t.Log(i)
+
+				stream := objectStream
+				stream.ObjectKey = metabase.ObjectKey(fmt.Sprint(i))
+				opts = metabase.BeginObjectNextVersion{
+					ObjectStream: stream,
+					Encryption:   metabasetest.DefaultEncryption,
+				}
+				for _, f := range scenario.set {
+					*f = testrand.BytesInt(32)
+				}
+
+				metabasetest.BeginObjectNextVersion{
+					Opts:     opts,
+					Version:  -1,
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  scenario.err,
+				}.Check(ctx, t, db)
+			}
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -496,6 +537,57 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("begin object next version with metadata+etag", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objectStream.Version = metabase.NextVersion
+
+			encryptedMetadata := testrand.BytesInt(64)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
+			encryptedETag := testrand.Bytes(32)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+					EncryptedETag:                 encryptedETag,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    metabase.DefaultVersion,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+						EncryptedETag:                 encryptedETag,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -529,27 +621,67 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			objectStream.Version = 1
+			type scenario struct {
+				set []*[]byte
+				err string
+			}
 
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream:      objectStream,
-					Encryption:        metabasetest.DefaultEncryption,
-					EncryptedMetadata: testrand.BytesInt(32),
+			opts := metabase.BeginObjectExactVersion{}
+			scenarios := []scenario{
+				{
+					set: []*[]byte{&opts.EncryptedMetadata},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
-			}.Check(ctx, t, db)
+				{
+					set: []*[]byte{&opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
 
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream:                  objectStream,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
-			}.Check(ctx, t, db)
+				{
+					set: []*[]byte{&opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+				},
+			}
+			for i, scenario := range scenarios {
+				t.Log(i)
+
+				stream := objectStream
+				stream.Version = 5
+				stream.ObjectKey = metabase.ObjectKey(fmt.Sprint(i))
+				opts = metabase.BeginObjectExactVersion{
+					ObjectStream: stream,
+					Encryption:   metabasetest.DefaultEncryption,
+				}
+				for _, f := range scenario.set {
+					*f = testrand.BytesInt(32)
+				}
+
+				metabasetest.BeginObjectExactVersion{
+					Opts:     opts,
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  scenario.err,
+				}.Check(ctx, t, db)
+			}
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -989,6 +1121,56 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("begin object exact version with metadata+etag", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
+			objectStream.Version = 100
+
+			encryptedMetadata := testrand.BytesInt(64)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataEncryptedKey := testrand.BytesInt(32)
+			encryptedETag := testrand.BytesInt(32)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+					EncryptedETag:                 encryptedETag,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  objectStream.ProjectID,
+							BucketName: objectStream.BucketName,
+							ObjectKey:  objectStream.ObjectKey,
+							Version:    objectStream.Version,
+							StreamID:   objectStream.StreamID,
+						},
+						CreatedAt: now,
+						Status:    metabase.Pending,
+
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataEncryptedKey,
+						EncryptedETag:                 encryptedETag,
 
 						Encryption:             metabasetest.DefaultEncryption,
 						ZombieDeletionDeadline: &zombieDeadline,
@@ -2441,37 +2623,68 @@ func TestCommitObject(t *testing.T) {
 		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.CommitObject{
-				Opts: metabase.CommitObject{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.DefaultVersion,
-						StreamID:   obj.StreamID,
-					},
-					OverrideEncryptedMetadata: true,
-					EncryptedMetadata:         testrand.BytesInt(32),
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
-			}.Check(ctx, t, db)
+			type scenario struct {
+				set []*[]byte
+				err string
+			}
 
-			metabasetest.CommitObject{
-				Opts: metabase.CommitObject{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.DefaultVersion,
-						StreamID:   obj.StreamID,
-					},
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+			opts := metabase.CommitObject{}
+			scenarios := []scenario{
+				{
+					set: []*[]byte{&opts.EncryptedMetadata},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
-			}.Check(ctx, t, db)
+				{
+					set: []*[]byte{&opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+				},
+			}
+			for i, scenario := range scenarios {
+				t.Log(i)
+
+				stream := obj
+				stream.ObjectKey = metabase.ObjectKey(fmt.Sprint(i))
+				opts = metabase.CommitObject{
+					ObjectStream: stream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					OverrideEncryptedMetadata: true,
+				}
+				for _, f := range scenario.set {
+					*f = testrand.BytesInt(32)
+				}
+
+				metabasetest.CommitObject{
+					Opts:     opts,
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  scenario.err,
+				}.Check(ctx, t, db)
+			}
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -3028,18 +3241,20 @@ func TestCommitObject(t *testing.T) {
 
 			now := time.Now()
 
-			expectedMetadata := testrand.Bytes(memory.KiB)
-			expectedMetadataKey := testrand.Bytes(32)
-			expectedMetadataNonce := testrand.Nonce().Bytes()
+			encryptedMetadata := testrand.Bytes(memory.KiB)
+			encryptedMetadataKey := testrand.Bytes(32)
+			encryptedMetadataNonce := testrand.Nonce().Bytes()
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 
-					EncryptedMetadata:             expectedMetadata,
-					EncryptedMetadataEncryptedKey: expectedMetadataKey,
-					EncryptedMetadataNonce:        expectedMetadataNonce,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -3059,9 +3274,10 @@ func TestCommitObject(t *testing.T) {
 
 						Encryption: metabasetest.DefaultEncryption,
 
-						EncryptedMetadata:             expectedMetadata,
-						EncryptedMetadataEncryptedKey: expectedMetadataKey,
-						EncryptedMetadataNonce:        expectedMetadataNonce,
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedMetadataNonce:        encryptedMetadataNonce,
+						EncryptedETag:                 encryptedETag,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -3072,9 +3288,10 @@ func TestCommitObject(t *testing.T) {
 
 			now := time.Now()
 
-			expectedMetadata := testrand.Bytes(memory.KiB)
-			expecedMetadataKey := testrand.Bytes(32)
-			expecedMetadataNonce := testrand.Nonce().Bytes()
+			encryptedMetadata := testrand.Bytes(memory.KiB)
+			encryptedMetadataKey := testrand.Bytes(32)
+			encryptedMetadataNonce := testrand.Nonce().Bytes()
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -3084,6 +3301,7 @@ func TestCommitObject(t *testing.T) {
 					EncryptedMetadata:             testrand.Bytes(memory.KiB),
 					EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedETag:                 testrand.Bytes(32),
 				},
 			}.Check(ctx, t, db)
 
@@ -3093,9 +3311,10 @@ func TestCommitObject(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 
 					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             expectedMetadata,
-					EncryptedMetadataEncryptedKey: expecedMetadataKey,
-					EncryptedMetadataNonce:        expecedMetadataNonce,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedMetadataNonce:        encryptedMetadataNonce,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -3108,9 +3327,10 @@ func TestCommitObject(t *testing.T) {
 
 						Encryption: metabasetest.DefaultEncryption,
 
-						EncryptedMetadata:             expectedMetadata,
-						EncryptedMetadataEncryptedKey: expecedMetadataKey,
-						EncryptedMetadataNonce:        expecedMetadataNonce,
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedMetadataNonce:        encryptedMetadataNonce,
+						EncryptedETag:                 encryptedETag,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -3129,6 +3349,7 @@ func TestCommitObject(t *testing.T) {
 					EncryptedMetadata:             testrand.Bytes(memory.KiB),
 					EncryptedMetadataEncryptedKey: testrand.Bytes(32),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedETag:                 testrand.Bytes(32),
 				},
 			}.Check(ctx, t, db)
 
@@ -3141,6 +3362,7 @@ func TestCommitObject(t *testing.T) {
 					EncryptedMetadata:             nil,
 					EncryptedMetadataEncryptedKey: nil,
 					EncryptedMetadataNonce:        nil,
+					EncryptedETag:                 nil,
 				},
 			}.Check(ctx, t, db)
 
@@ -4465,37 +4687,73 @@ func TestCommitInlineObject(t *testing.T) {
 		t.Run("invalid EncryptedMetadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.CommitObject{
-				Opts: metabase.CommitObject{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.DefaultVersion,
-						StreamID:   obj.StreamID,
-					},
-					OverrideEncryptedMetadata: true,
-					EncryptedMetadata:         testrand.BytesInt(32),
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
-			}.Check(ctx, t, db)
+			type scenario struct {
+				set []*[]byte
+				err string
+			}
 
-			metabasetest.CommitObject{
-				Opts: metabase.CommitObject{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.DefaultVersion,
-						StreamID:   obj.StreamID,
-					},
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadataEncryptedKey: testrand.BytesInt(32),
+			opts := metabase.CommitInlineObject{}
+			scenarios := []scenario{
+				{
+					set: []*[]byte{&opts.EncryptedMetadata},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
-			}.Check(ctx, t, db)
+				{
+					set: []*[]byte{&opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadata, &opts.EncryptedETag, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+				},
+				{
+					set: []*[]byte{&opts.EncryptedMetadataNonce, &opts.EncryptedMetadataEncryptedKey},
+					err: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+				},
+			}
+			for i, scenario := range scenarios {
+				t.Log(i)
+
+				stream := obj
+				stream.ObjectKey = metabase.ObjectKey(fmt.Sprint(i))
+				opts = metabase.CommitInlineObject{
+					ObjectStream: stream,
+					Encryption:   metabasetest.DefaultEncryption,
+
+					CommitInlineSegment: metabase.CommitInlineSegment{
+						ObjectStream:      obj,
+						InlineData:        []byte{1, 2, 3},
+						EncryptedKey:      []byte{1, 2, 3},
+						EncryptedKeyNonce: []byte{1, 2, 3},
+					},
+				}
+				for _, f := range scenario.set {
+					*f = testrand.BytesInt(32)
+				}
+
+				metabasetest.CommitInlineObject{
+					Opts:     opts,
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  scenario.err,
+				}.Check(ctx, t, db)
+			}
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})

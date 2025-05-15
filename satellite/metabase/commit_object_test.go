@@ -117,6 +117,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -130,6 +131,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -164,6 +166,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedETag:                 encryptedETag,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -191,6 +194,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -204,6 +208,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 					DisallowDelete:                true,
 				},
 			}.Check(ctx, t, db)
@@ -224,6 +229,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedETag:                 encryptedETag,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -256,6 +262,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -269,6 +276,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 					DisallowDelete:                true,
 				},
 				ErrClass: &metabase.ErrPermissionDenied,
@@ -318,6 +326,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -331,6 +340,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				},
 				ExpectVersion: obj.Version + 1,
 			}.Check(ctx, t, db)
@@ -351,6 +361,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedETag:                 encryptedETag,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -385,6 +396,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -398,6 +410,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 
 					Versioned: true,
 				},
@@ -421,6 +434,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedETag:                 encryptedETag,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -455,6 +469,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -468,6 +483,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -489,6 +505,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedETag:                 encryptedETag,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
