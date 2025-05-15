@@ -35,6 +35,7 @@ type RawObject struct {
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
+	EncryptedETag                 []byte
 
 	// TotalPlainSize is 0 for a migrated object.
 	TotalPlainSize     int64
@@ -173,7 +174,7 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 			project_id, bucket_name, object_key, version, stream_id,
 			created_at, expires_at,
 			status, segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
 			zombie_deletion_deadline,
@@ -203,6 +204,7 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 			&obj.EncryptedMetadataNonce,
 			&obj.EncryptedMetadata,
 			&obj.EncryptedMetadataEncryptedKey,
+			&obj.EncryptedETag,
 
 			&obj.TotalPlainSize,
 			&obj.TotalEncryptedSize,
@@ -242,7 +244,7 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 		"project_id", "bucket_name", "object_key", "version", "stream_id",
 		"created_at", "expires_at",
 		"status", "segment_count",
-		"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key",
+		"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key", "encrypted_etag",
 		"total_plain_size", "total_encrypted_size", "fixed_segment_size",
 		"encryption", "zombie_deletion_deadline", "retention_mode", "retain_until",
 	}), func(row *spanner.Row, obj *RawObject) error {
@@ -262,6 +264,7 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 			&obj.EncryptedMetadataNonce,
 			&obj.EncryptedMetadata,
 			&obj.EncryptedMetadataEncryptedKey,
+			&obj.EncryptedETag,
 
 			&obj.TotalPlainSize,
 			&obj.TotalEncryptedSize,
@@ -412,6 +415,7 @@ func (ctr *copyFromRawObjects) Columns() []string {
 		"encrypted_metadata_nonce",
 		"encrypted_metadata",
 		"encrypted_metadata_encrypted_key",
+		"encrypted_etag",
 
 		"total_plain_size",
 		"total_encrypted_size",
@@ -440,6 +444,7 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 		obj.EncryptedMetadataNonce,
 		obj.EncryptedMetadata,
 		obj.EncryptedMetadataEncryptedKey,
+		obj.EncryptedETag,
 
 		obj.TotalPlainSize,
 		obj.TotalEncryptedSize,
