@@ -35,6 +35,8 @@ type Config struct {
 
 	ListLimit          int           `help:"how many buckets to query in a batch" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
+	FixedReadTimestamp bool          `help:"whether to use fixed (start of process) timestamp for DB reads from objects table" default:"true" testDefault:"false"`
+	UsePartitionQuery  bool          `help:"whether to use partition query for DB reads from objects table" default:"false"`
 }
 
 // Service is the tally service for data stored on each storage node.
@@ -300,21 +302,17 @@ func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bu
 func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// NOTE: this is the current time according to the first database adapter,
-	// not necessarily the current time according to the others. This is only
-	// used to specify an AS OF SYSTEM TIME when the underlying adapter is
-	// CockroachDB, so the mismatch is probably acceptable for this usage.
-	startingTime, err := observer.metabase.Now(ctx)
-	if err != nil {
-		return err
-	}
-
-	return observer.fillBucketTallies(ctx, startingTime)
+	return observer.fillBucketTallies(ctx)
 }
 
 // fillBucketTallies collects all bucket tallies and fills observer's buckets map with results.
-func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, startingTime time.Time) (err error) {
+func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	startTime := time.Time{}
+	if observer.config.FixedReadTimestamp {
+		startTime = time.Now()
+	}
 
 	return observer.bucketsDB.IterateBucketLocations(ctx, observer.config.ListLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
 		fromBucket := bucketLocations[0]
@@ -335,9 +333,10 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 		tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
 			From:               fromBucket,
 			To:                 toBucket,
-			AsOfSystemTime:     startingTime,
+			AsOfSystemTime:     startTime,
 			AsOfSystemInterval: observer.config.AsOfSystemInterval,
 			Now:                observer.Now,
+			UsePartitionQuery:  observer.config.UsePartitionQuery,
 		})
 		if err != nil {
 			return err
