@@ -1616,6 +1616,9 @@ server.private-address: 127.0.0.1:7778
 # as of system interval
 # tally.as-of-system-interval: -5m0s
 
+# whether to use fixed (start of process) timestamp for DB reads from objects table
+# tally.fixed-read-timestamp: true
+
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
 
@@ -1633,6 +1636,9 @@ server.private-address: 127.0.0.1:7778
 
 # how large should be insert into tallies
 # tally.save-tallies-batch-size: 10000
+
+# whether to use partition query for DB reads from objects table
+# tally.use-partition-query: false
 
 # whether to enable node tally with ranged loop
 # tally.use-ranged-loop: true
