@@ -71,6 +71,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -85,6 +86,27 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			object.EncryptedMetadata = encryptedMetadata
 			object.EncryptedMetadataNonce = encryptedMetadataNonce[:]
 			object.EncryptedMetadataEncryptedKey = encryptedMetadataKey
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object.Location(),
+					StreamID:                      object.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    encryptedETag,
+				},
+			}.Check(ctx, t, db)
+
+			object.EncryptedETag = encryptedETag
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -106,6 +128,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(256)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -114,12 +137,16 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
 			object2.EncryptedMetadata = encryptedMetadata
 			object2.EncryptedMetadataNonce = encryptedMetadataNonce[:]
 			object2.EncryptedMetadataEncryptedKey = encryptedMetadataKey
+			object2.EncryptedETag = encryptedETag
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -138,6 +165,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(256)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -146,12 +174,16 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
 			object.EncryptedMetadata = encryptedMetadata
 			object.EncryptedMetadataNonce = encryptedMetadataNonce[:]
 			object.EncryptedMetadataEncryptedKey = encryptedMetadataKey
+			object.EncryptedETag = encryptedETag
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -209,6 +241,38 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
+			}.Check(ctx, t, db)
+
+			// verify we cannot update the metadata with set etag of a deleted object
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object.Location(),
+					StreamID:                      object.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    []byte{1, 2, 3},
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
+			}.Check(ctx, t, db)
+
+			// verify cannot update the metadata with etag of the delete marker either
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                marker.Location(),
+					StreamID:                      marker.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    []byte{1, 2, 3},
 				},
 				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object with specified version and committed status is missing",
@@ -283,6 +347,38 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				ErrText:  "object with specified version and committed status is missing",
 			}.Check(ctx, t, db)
 
+			// verify we cannot update the metadata with etag of a deleted object
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object2.Location(),
+					StreamID:                      object2.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    []byte{1, 2, 3},
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
+			}.Check(ctx, t, db)
+
+			// verify cannot update the metadata with etag of the delete marker either
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                marker.Location(),
+					StreamID:                      marker.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    []byte{1, 2, 3},
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
+			}.Check(ctx, t, db)
+
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(object),
@@ -323,6 +419,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -337,6 +434,29 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			object2.EncryptedMetadata = encryptedMetadata
 			object2.EncryptedMetadataNonce = encryptedMetadataNonce[:]
 			object2.EncryptedMetadataEncryptedKey = encryptedMetadataKey
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+					metabase.RawObject(marker),
+					metabase.RawObject(object2),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object2.Location(),
+					StreamID:                      object2.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+					SetEncryptedETag: true,
+					EncryptedETag:    encryptedETag,
+				},
+			}.Check(ctx, t, db)
+
+			object2.EncryptedETag = encryptedETag
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -366,6 +486,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -386,6 +507,116 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					metabase.RawObject(object),
 					metabase.RawObject(object2),
 					metabase.RawObject(object3),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object3.Location(),
+					StreamID:                      object3.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					SetEncryptedETag:              true,
+					EncryptedETag:                 encryptedETag,
+				},
+			}.Check(ctx, t, db)
+
+			object3.EncryptedETag = encryptedETag
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+					metabase.RawObject(object2),
+					metabase.RawObject(object3),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("disallow accidental dismissal of encryptedETag", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.RandObjectStream()
+			obj2 := metabasetest.RandObjectStream()
+			object1 := metabasetest.CreateObjectVersioned(ctx, t, db, obj1, 0)
+			object2 := metabasetest.CreateObject(ctx, t, db, obj2, 0)
+
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(256)
+
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object1.Location(),
+					StreamID:                      object1.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					SetEncryptedETag:              true,
+					EncryptedETag:                 encryptedETag,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object2.Location(),
+					StreamID:                      object2.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					SetEncryptedETag:              true,
+					EncryptedETag:                 encryptedETag,
+				},
+			}.Check(ctx, t, db)
+
+			object1.EncryptedMetadata = encryptedMetadata
+			object1.EncryptedMetadataNonce = encryptedMetadataNonce[:]
+			object1.EncryptedMetadataEncryptedKey = encryptedMetadataKey
+			object1.EncryptedETag = encryptedETag
+
+			object2.EncryptedMetadata = encryptedMetadata
+			object2.EncryptedMetadataNonce = encryptedMetadataNonce[:]
+			object2.EncryptedMetadataEncryptedKey = encryptedMetadataKey
+			object2.EncryptedETag = encryptedETag
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object1),
+					metabase.RawObject(object2),
+				},
+			}.Check(ctx, t, db)
+
+			// check that we cannot update when "SetEncryptedETag = false"
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object1.Location(),
+					StreamID:                      object1.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
+			}.Check(ctx, t, db)
+
+			// check that we cannot update when "SetEncryptedETag = false"
+			metabasetest.UpdateObjectLastCommittedMetadata{
+				Opts: metabase.UpdateObjectLastCommittedMetadata{
+					ObjectLocation:                object2.Location(),
+					StreamID:                      object2.StreamID,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "object with specified version and committed status is missing",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object1),
+					metabase.RawObject(object2),
 				},
 			}.Check(ctx, t, db)
 		})
