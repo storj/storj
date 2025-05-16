@@ -328,8 +328,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	projectsRouter.Handle("/{id}/members", http.HandlerFunc(projectsController.GetMembersAndInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateMemberRole))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members/{memberID}", http.HandlerFunc(projectsController.GetMember)).Methods(http.MethodGet, http.MethodOptions)
-	projectsRouter.Handle("/{id}/invite/{email}", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(projectsController.InviteUser)))).Methods(http.MethodPost, http.MethodOptions)
-	projectsRouter.Handle("/{id}/reinvite", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(projectsController.ReinviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/invite/{email}", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.InviteUser)))).Methods(http.MethodPost, http.MethodOptions)
+	projectsRouter.Handle("/{id}/reinvite", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(projectsController.ReinviteUsers)))).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/config", http.HandlerFunc(projectsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
@@ -411,9 +411,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		varBlocker := newVarBlockerMiddleWare(&server, config.VarPartners, allowedRoutes)
 		paymentsRouter.Use(varBlocker.withVarBlocker)
 
-		paymentsRouter.Handle("/attempt-payments", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.TriggerAttemptPayment)))).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.Handle("/payment-methods", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.AddCardByPaymentMethodID)))).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.AddCreditCard)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/attempt-payments", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.TriggerAttemptPayment)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/payment-methods", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/cards", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard)))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.withCSRFProtection(http.HandlerFunc(paymentController.UpdateCreditCard))).Methods(http.MethodPut, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.withCSRFProtection(http.HandlerFunc(paymentController.MakeCreditCardDefault))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet, http.MethodOptions)
@@ -432,7 +432,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/wallet/payments-with-confirmations", paymentController.WalletPaymentsWithConfirmations).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/invoice-history", paymentController.InvoiceHistory).Methods(http.MethodGet, http.MethodOptions)
-		paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(server.withCSRFProtection(http.HandlerFunc(paymentController.ApplyCouponCode)))).Methods(http.MethodPatch, http.MethodOptions)
+		paymentsRouter.Handle("/coupon/apply", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode)))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/placement-pricing", paymentController.GetPartnerPlacementPriceModel).Methods(http.MethodGet, http.MethodOptions)
@@ -487,9 +487,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		router.HandleFunc(analyticsConfig.HubSpot.AccountObjectCreatedWebhookEndpoint, analyticsController.AccountObjectCreated).Methods(http.MethodPost, http.MethodOptions)
 	}
 	analyticsRouter := router.PathPrefix(analyticsPath).Subrouter()
+	analyticsRouter.Use(server.withCSRFProtection)
 	analyticsRouter.Use(server.withCORS)
 	analyticsRouter.Use(server.withAuth)
-	analyticsRouter.Use(server.withCSRFProtection)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/join-cunofs-beta", analyticsController.JoinCunoFSBeta).Methods(http.MethodPost, http.MethodOptions)
@@ -920,27 +920,25 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 
 		defer mon.Task()(&ctx)(&err)
 
-		csrfHeaderToken := r.Header.Get("X-CSRF-Token")
-		if csrfHeaderToken == "" {
-			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token missing in request header"))
-			return
-		}
-
 		csrfCookie, err := r.Cookie(csrf.CookieName)
 		if err != nil {
 			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("CSRF token cookie missing"))
 			return
 		}
 
+		csrfHeaderToken := r.Header.Get("X-CSRF-Token")
+
 		if csrfHeaderToken != csrfCookie.Value {
 			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, errs.New("Invalid CSRF token"))
 			return
 		}
 
-		err = server.service.ValidateSecurityToken(csrfHeaderToken)
-		if err != nil {
-			web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, err)
-			return
+		if csrfHeaderToken != "" {
+			err = server.service.ValidateSecurityToken(csrfHeaderToken)
+			if err != nil {
+				web.ServeJSONError(ctx, server.log, w, http.StatusForbidden, err)
+				return
+			}
 		}
 
 		handler.ServeHTTP(w, r)
@@ -951,7 +949,6 @@ func (server *Server) withCSRFProtection(handler http.Handler) http.Handler {
 func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-	w.Header().Set(contentType, applicationJSON)
 
 	csrfToken := ""
 	if server.config.CSRFProtectionEnabled {
@@ -1040,6 +1037,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 	}
+
+	w.Header().Set(contentType, applicationJSON)
 
 	err := json.NewEncoder(w).Encode(&cfg)
 	if err != nil {

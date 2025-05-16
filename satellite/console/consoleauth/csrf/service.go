@@ -48,16 +48,35 @@ func (s *Service) GenerateSecurityToken() (string, error) {
 func (s *Service) SetCookie(w http.ResponseWriter) (token string, err error) {
 	token, err = s.GenerateSecurityToken()
 	if err != nil {
+		onError(w)
 		return "", err
 	}
 
-	http.SetCookie(w, &http.Cookie{
+	cookie := &http.Cookie{
 		Name:     CookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-	})
+	}
+
+	if err = cookie.Valid(); err != nil {
+		onError(w)
+		return "", err
+	}
+
+	http.SetCookie(w, cookie)
 
 	return token, nil
+}
+
+func onError(w http.ResponseWriter) {
+	// Set a fallback cookie with an empty value to not block user actions.
+	http.SetCookie(w, &http.Cookie{
+		Name:     CookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
 }
