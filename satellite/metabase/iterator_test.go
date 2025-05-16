@@ -104,6 +104,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -118,6 +119,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -140,6 +142,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				}},
 			}.Check(ctx, t, db)
 
@@ -721,6 +724,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},
+					EncryptedETag:                 []byte{6},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -740,6 +744,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.Equal(t, entry.EncryptedMetadata, []byte{3})
 				require.Equal(t, entry.EncryptedMetadataEncryptedKey, []byte{4})
 				require.Equal(t, entry.EncryptedMetadataNonce, []byte{5})
+				require.Equal(t, entry.EncryptedETag, []byte{6})
 			}
 		})
 
@@ -754,6 +759,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},
+					EncryptedETag:                 []byte{6},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -773,6 +779,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.Nil(t, entry.EncryptedMetadataNonce)
 				require.Nil(t, entry.EncryptedMetadata)
 				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
+				require.Nil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -788,6 +795,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},
+					EncryptedETag:                 []byte{6},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -822,6 +830,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.NotNil(t, entry.EncryptedMetadataNonce)
 				require.NotNil(t, entry.EncryptedMetadata)
 				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
+				require.NotNil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -2032,6 +2041,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -2046,6 +2056,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -2068,6 +2079,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				}},
 			}.Check(ctx, t, db)
 
@@ -2649,6 +2661,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},
+					EncryptedETag:                 []byte{6},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2668,6 +2681,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				require.Equal(t, entry.EncryptedMetadata, []byte{3})
 				require.Equal(t, entry.EncryptedMetadataEncryptedKey, []byte{4})
 				require.Equal(t, entry.EncryptedMetadataNonce, []byte{5})
+				require.Equal(t, entry.EncryptedETag, []byte{6})
 			}
 		})
 
@@ -2682,6 +2696,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},
+					EncryptedETag:                 []byte{6},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2701,6 +2716,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				require.Nil(t, entry.EncryptedMetadataNonce)
 				require.Nil(t, entry.EncryptedMetadata)
 				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
+				require.Nil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -2716,6 +2732,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					EncryptedMetadata:             []byte{3},
 					EncryptedMetadataEncryptedKey: []byte{4},
 					EncryptedMetadataNonce:        []byte{5},
+					EncryptedETag:                 []byte{6},
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2750,6 +2767,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				require.NotNil(t, entry.EncryptedMetadataNonce)
 				require.NotNil(t, entry.EncryptedMetadata)
 				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
+				require.NotNil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -4192,6 +4210,7 @@ func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 		EncryptedMetadataNonce:        m.EncryptedMetadataNonce,
 		EncryptedMetadata:             m.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: m.EncryptedMetadataEncryptedKey,
+		EncryptedETag:                 m.EncryptedETag,
 		TotalEncryptedSize:            m.TotalEncryptedSize,
 		TotalPlainSize:                m.TotalPlainSize,
 		FixedSegmentSize:              m.FixedSegmentSize,

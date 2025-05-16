@@ -24,6 +24,7 @@ type PendingObjectEntry struct {
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
+	EncryptedETag                 []byte
 
 	Encryption storj.EncryptionParameters
 }
