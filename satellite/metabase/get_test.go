@@ -390,6 +390,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			retention := metabase.Retention{
 				Mode:        storj.ComplianceMode,
@@ -403,11 +404,13 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					Retention:    retention,
 				},
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
+					ObjectStream: obj,
+
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-					OverrideEncryptedMetadata:     true,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Run(ctx, t, db, obj, 0)
 
@@ -423,6 +426,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 					Retention:                     retention,
 				},
 			}.Check(ctx, t, db)
@@ -436,6 +440,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 					Retention:                     retention,
 				},
 			}}.Check(ctx, t, db)
@@ -597,6 +602,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 					EncryptedMetadata:             copiedObj.EncryptedMetadata,
 					EncryptedMetadataNonce:        copiedObj.EncryptedMetadataNonce,
 					EncryptedMetadataEncryptedKey: copiedObj.EncryptedMetadataEncryptedKey,
+					EncryptedETag:                 copiedObj.EncryptedETag,
 				},
 			}}.Check(ctx, t, db)
 		})
