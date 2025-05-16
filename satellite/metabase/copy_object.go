@@ -58,6 +58,7 @@ type FinishCopyObject struct {
 	NewEncryptedMetadata         []byte
 	NewEncryptedMetadataKeyNonce storj.Nonce
 	NewEncryptedMetadataKey      []byte
+	NewEncryptedETag             []byte
 
 	NewSegmentKeys []EncryptedKeyAndNonce
 
@@ -108,12 +109,23 @@ func (finishCopy FinishCopyObject) Verify() error {
 	}
 
 	if finishCopy.OverrideMetadata {
-		if finishCopy.NewEncryptedMetadata == nil && (!finishCopy.NewEncryptedMetadataKeyNonce.IsZero() || finishCopy.NewEncryptedMetadataKey != nil) {
-			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-		} else if finishCopy.NewEncryptedMetadata != nil && (finishCopy.NewEncryptedMetadataKeyNonce.IsZero() || finishCopy.NewEncryptedMetadataKey == nil) {
-			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+		var nonce []byte
+		if !finishCopy.NewEncryptedMetadataKeyNonce.IsZero() {
+			nonce = finishCopy.NewEncryptedMetadataKeyNonce.Bytes()
+		}
+		// check whether new metadata is valid
+		err := encryptedMetadata{
+			EncryptedMetadata:             finishCopy.NewEncryptedMetadata,
+			EncryptedMetadataNonce:        nonce,
+			EncryptedMetadataEncryptedKey: finishCopy.NewEncryptedMetadataKey,
+			EncryptedETag:                 finishCopy.NewEncryptedETag,
+		}.Verify()
+		if err != nil {
+			return err
 		}
 	} else {
+		// otherwise check that we are setting reencrypted keys
+		// TODO: this should validate against the database that it matches it
 		switch {
 		case finishCopy.NewEncryptedMetadataKeyNonce.IsZero() && len(finishCopy.NewEncryptedMetadataKey) != 0:
 			return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
@@ -395,7 +407,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 				project_id, bucket_name, object_key, version, stream_id,
 				status, expires_at, segment_count,
 				encryption,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				zombie_deletion_deadline,
 				retention_mode, retain_until
@@ -403,17 +415,17 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
 				$9,
-				$10, $11, $12,
-				$13, $14, $15,
+				$10, $11, $12, $13,
+				$14, $15, $16,
 				null,
-				$16, $17
+				$17, $18
 			)
 			RETURNING
 				created_at`,
 		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
 		newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 		encryptionParameters{&sourceObject.Encryption},
-		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey,
+		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey, opts.NewEncryptedETag,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
 		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 		timeWrapper{&opts.Retention.RetainUntil},
@@ -471,7 +483,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 				project_id, bucket_name, object_key, version, stream_id,
 				status, expires_at, segment_count,
 				encryption,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				zombie_deletion_deadline,
 				retention_mode, retain_until
@@ -479,7 +491,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 				@project_id, @bucket_name, @object_key, @version, @stream_id,
 				@status, @expires_at, @segment_count,
 				@encryption,
-				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
 				NULL,
 				@retention_mode, @retain_until
@@ -500,6 +512,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"encrypted_metadata":               copyMetadata,
 			"encrypted_metadata_nonce":         opts.NewEncryptedMetadataKeyNonce,
 			"encrypted_metadata_encrypted_key": opts.NewEncryptedMetadataKey,
+			"encrypted_etag":                   opts.NewEncryptedETag,
 			"total_plain_size":                 sourceObject.TotalPlainSize,
 			"total_encrypted_size":             sourceObject.TotalEncryptedSize,
 			"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
@@ -565,7 +578,7 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 			stream_id, status,
 			created_at, expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
@@ -578,7 +591,7 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 		)
@@ -608,7 +621,7 @@ func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx contex
 				stream_id, status,
 				created_at, expires_at,
 				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption
 			FROM objects
@@ -628,7 +641,7 @@ func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx contex
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
 			spannerutil.Int(&object.SegmentCount),
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
 		)

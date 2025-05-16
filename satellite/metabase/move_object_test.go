@@ -167,7 +167,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataKeyNonce is missing",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -207,7 +207,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataKey:      nil,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataKey is missing",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -245,17 +245,24 @@ func TestFinishMoveObject(t *testing.T) {
 			conflictObjStream.ProjectID = moveObjStream.ProjectID
 			metabasetest.CreateObject(ctx, t, db, conflictObjStream, 0)
 
-			newNonce := testrand.Nonce()
-			newMetadataKey := testrand.Bytes(265)
-
-			now := time.Now()
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
 					NewBucket:                    conflictObjStream.BucketName,
 					ObjectStream:                 moveObjStream,
 					NewEncryptedObjectKey:        conflictObjStream.ObjectKey,
-					NewEncryptedMetadataKeyNonce: newNonce,
-					NewEncryptedMetadataKey:      newMetadataKey,
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					NewEncryptedMetadataKey:      testrand.Bytes(265),
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+			}.Check(ctx, t, db)
+
+			now := time.Now()
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					NewBucket:             conflictObjStream.BucketName,
+					ObjectStream:          moveObjStream,
+					NewEncryptedObjectKey: conflictObjStream.ObjectKey,
 				},
 			}.Check(ctx, t, db)
 
@@ -395,6 +402,7 @@ func TestFinishMoveObject(t *testing.T) {
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
 					EncryptedMetadata:             testrand.Bytes(64),
 					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
@@ -540,13 +548,10 @@ func TestFinishMoveObject(t *testing.T) {
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj,
-					OverrideEncryptedMetadata: true,
+					ObjectStream: obj,
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
-			newEncryptedMetadataKeyNonce := testrand.Nonce()
-			newEncryptedMetadataKey := testrand.Bytes(32)
 			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, newObj.SegmentCount)
 			expectedEncryptedSize := 1060
 			expectedSegments := make([]metabase.RawSegment, newObj.SegmentCount)
@@ -565,6 +570,8 @@ func TestFinishMoveObject(t *testing.T) {
 				expectedSegments[i].EncryptedSize = int32(expectedEncryptedSize)
 			}
 
+			newEncryptedMetadataKeyNonce := testrand.Nonce()
+			newEncryptedMetadataKey := testrand.Bytes(32)
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
 					NewBucket:                    newBucketName,
@@ -574,7 +581,17 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
-				ErrText: "",
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+			}.Check(ctx, t, db)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					NewBucket:             newBucketName,
+					ObjectStream:          obj,
+					NewSegmentKeys:        newEncryptedKeysNonces,
+					NewEncryptedObjectKey: newObjectKey,
+				},
 			}.Check(ctx, t, db)
 
 			newObj.ObjectKey = newObjectKey

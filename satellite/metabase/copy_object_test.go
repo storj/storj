@@ -166,6 +166,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
 					NewEncryptedMetadataKey:      []byte{1, 2, 3},
 					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					NewEncryptedETag:             []byte{1},
 					NewStreamID:                  newStreamID,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -184,6 +185,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewBucket:                    newBucketName,
 					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
 					NewEncryptedMetadataKey:      []byte{1, 2, 3},
+					NewEncryptedETag:             []byte{1},
 					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -291,7 +293,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewStreamID:                  newStreamID,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -311,7 +313,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewEncryptedMetadata: testrand.BytesInt(256),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
