@@ -122,8 +122,9 @@ func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts Del
 				WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
 				`+streamIDFilter+`
 				RETURNING
-					version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-					encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
+					version, stream_id, created_at, expires_at, status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+					total_plain_size, total_encrypted_size,
 					fixed_segment_size, encryption,
 					retention_mode, retain_until
 			), deleted_segments AS (
@@ -168,8 +169,9 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 	err = withRows(p.db.QueryContext(ctx, `
 		WITH objects_to_delete AS (
 			SELECT
-				version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
+				version, stream_id, created_at, expires_at, status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
 			FROM objects
@@ -220,7 +222,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			&object.Version, &object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 			lockModeWrapper{
@@ -450,7 +452,7 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 					status = `+statusPending+`
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count,
-					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 					total_plain_size, total_encrypted_size, fixed_segment_size, encryption,
 					retention_mode, retain_until
 			), deleted_segments AS (
@@ -526,7 +528,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 		err = rows.Scan(&object.Version, &object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 			lockModeWrapper{
@@ -548,7 +550,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 
 const collectDeletedObjectsSpannerFields = " " +
 	`version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-	encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
+	encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag, total_plain_size, total_encrypted_size,
 	fixed_segment_size, encryption, retention_mode, retain_until`
 
 // collectDeletedObjectsSpanner reads in the results of an object deletion from the database.
@@ -560,7 +562,7 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 			err := row.Columns(&object.Version, &object.StreamID,
 				&object.CreatedAt, &object.ExpiresAt,
 				&object.Status, spannerutil.Int(&object.SegmentCount),
-				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				encryptionParameters{&object.Encryption},
 				lockModeWrapper{
@@ -672,7 +674,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlain(ctx context.Context, op
 					version, stream_id,
 					created_at, expires_at,
 					status, segment_count,
-					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 					total_plain_size, total_encrypted_size, fixed_segment_size,
 					encryption,
 					retention_mode, retain_until
@@ -702,8 +704,9 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 	err = withRows(p.db.QueryContext(ctx, `
 		WITH objects_to_delete AS (
 			SELECT
-				version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-				encrypted_metadata, encrypted_metadata_encrypted_key, total_plain_size, total_encrypted_size,
+				version, stream_id, created_at, expires_at, status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
 			FROM objects
@@ -756,7 +759,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			&object.Version, &object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 			lockModeWrapper{

@@ -365,6 +365,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -372,6 +373,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Run(ctx, t, db, obj, 0)
 
@@ -951,6 +953,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							EncryptedMetadata:             testrand.Bytes(64),
 							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+							EncryptedETag:                 testrand.Bytes(32),
 						},
 					}.Run(ctx, t, db, originalObjStream, byte(numberOfSegments))
 
@@ -997,6 +1000,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							EncryptedMetadata:             testrand.Bytes(64),
 							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+							EncryptedETag:                 testrand.Bytes(32),
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
@@ -1038,6 +1042,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							EncryptedMetadata:             testrand.Bytes(64),
 							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+							EncryptedETag:                 testrand.Bytes(32),
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
@@ -1079,6 +1084,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 							EncryptedMetadata:             testrand.Bytes(64),
 							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
 							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+							EncryptedETag:                 testrand.Bytes(32),
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
@@ -1175,6 +1181,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
+			encryptedETag := testrand.Bytes(32)
 
 			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -1182,6 +1189,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedETag:                 encryptedETag,
 				},
 			}.Run(ctx, t, db, obj, 0)
 
