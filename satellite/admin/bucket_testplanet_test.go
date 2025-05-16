@@ -72,10 +72,6 @@ func TestAdminBucketPlacementAPI(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		noAttributionBucket := "no-attribution"
-		err = uplink.CreateBucket(ctx, sat, noAttributionBucket)
-		require.NoError(t, err)
-
 		testCases := []struct {
 			name    string
 			project uuid.UUID
@@ -97,13 +93,6 @@ func TestAdminBucketPlacementAPI(t *testing.T) {
 				bucket:  []byte(filledBucket),
 				status:  http.StatusBadRequest,
 				body:    `{"error":"bucket must be empty","detail":""}`,
-			},
-			{
-				name:    "bucket with no attribution",
-				project: project.ID,
-				bucket:  []byte(noAttributionBucket),
-				status:  http.StatusNotFound,
-				body:    `{"error":"bucket attribution does not exist","detail":""}`,
 			},
 			{
 				name:    "validated",

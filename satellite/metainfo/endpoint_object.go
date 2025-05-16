@@ -176,7 +176,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, false); err != nil {
+	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil, bucket.Placement, false, false); err != nil {
 		return nil, err
 	}
 
@@ -592,7 +592,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
 	}
 
-	if err := endpoint.ensureAttribution(ctx, beginObjectReq.Header, keyInfo, beginObjectReq.Bucket, nil, false); err != nil {
+	if err := endpoint.ensureAttribution(ctx, beginObjectReq.Header, keyInfo, beginObjectReq.Bucket, nil, bucket.Placement, false, false); err != nil {
 		return nil, nil, nil, err
 	}
 

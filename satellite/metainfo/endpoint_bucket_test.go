@@ -471,7 +471,7 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		sat := planet.Satellites[0]
 		projectID := planet.Uplinks[0].Projects[0].ID
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		bucketName := "bucket"
+		bucket1 := "bucket1"
 
 		// change the default_placement of the project
 		err := planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, storj.EU)
@@ -481,55 +481,67 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte(bucketName),
+			Name:      []byte(bucket1),
 			Placement: []byte("Poland"),
 		})
 		// cannot create bucket with custom placement if there is project default.
 		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementConflictingValues))
 
+		// create a new bucket with default placement
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name: []byte(bucketName),
+			Name: []byte(bucket1),
 		})
 		require.NoError(t, err)
 
 		// check if placement is set to project default
-		placement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), projectID)
+		placement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucket1), projectID)
 		require.NoError(t, err)
 		require.Equal(t, storj.EU, placement)
 
 		// delete the bucket
-		err = planet.Satellites[0].API.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID)
+		err = planet.Satellites[0].API.DB.Buckets().DeleteBucket(ctx, []byte(bucket1), projectID)
 		require.NoError(t, err)
 
 		// change the default_placement of the project
 		err = planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, storj.DefaultPlacement)
 		require.NoError(t, err)
 
+		// recreate bucket with different placement fails because attribution already exists with original placement
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte(bucketName),
+			Name:      []byte(bucket1),
+			Placement: []byte("Poland"),
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already attributed to a different placement constraint")
+
+		// create brand new bucket with placement
+		bucket2 := "bucket2"
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      []byte(bucket2),
 			Placement: []byte("Poland"),
 		})
 		require.NoError(t, err)
 
-		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), projectID)
+		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucket2), projectID)
 		require.NoError(t, err)
 		require.Equal(t, storj.PlacementConstraint(40), placement)
 
-		// delete the bucket
-		err = planet.Satellites[0].API.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID)
-		require.NoError(t, err)
-
+		// new bucket with invalid placement returns error
+		bucket3 := "bucket3"
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte(bucketName),
+			Name:      []byte(bucket3),
 			Placement: []byte("EU"), // invalid placement
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
@@ -544,14 +556,14 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte(bucketName),
+			Name:      []byte("bucket3"),
 			Placement: []byte("EU"), // invalid placement
 		})
 		require.NoError(t, err)
 
 		// placement should be set to default event though a placement was passed
 		// because self-serve placement is disabled.
-		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), projectID)
+		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte("bucket3"), projectID)
 		require.NoError(t, err)
 		require.Equal(t, storj.DefaultPlacement, placement)
 	})

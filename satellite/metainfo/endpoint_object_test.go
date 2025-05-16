@@ -1219,6 +1219,8 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
+		require.NoError(t, planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, planet.Uplinks[0].Projects[0].ID, storj.EU))
+
 		bucketName := "testbucket"
 		deleteBucket := func(bucketName string) func() error {
 			return func() error {

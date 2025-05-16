@@ -11,6 +11,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/drpc/drpccache"
@@ -27,14 +28,11 @@ const MaxUserAgentLength = 500
 // to only ensure the attribution exists in the value attributions db.
 //
 // Assumes that the user has permissions sufficient for authenticating.
-func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte, forceBucketUpdate bool) (err error) {
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte, placement storj.PlacementConstraint, validatePlacement, forceBucketUpdate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
-	}
-	if len(header.UserAgent) == 0 && len(keyInfo.UserAgent) == 0 && len(projectUserAgent) == 0 {
-		return nil
 	}
 
 	if !forceBucketUpdate {
@@ -65,7 +63,7 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		return err
 	}
 
-	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, userAgent, forceBucketUpdate)
+	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, userAgent, placement, validatePlacement, forceBucketUpdate)
 	if errs2.IsRPC(err, rpcstatus.NotFound) || errs2.IsRPC(err, rpcstatus.AlreadyExists) {
 		return nil
 	}
@@ -113,18 +111,33 @@ func TrimUserAgent(userAgent []byte) ([]byte, error) {
 	return userAgent, nil
 }
 
-func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, userAgent []byte, forceBucketUpdate bool) (err error) {
+func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, userAgent []byte, placement storj.PlacementConstraint, validatePlacement, forceBucketUpdate bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
 
+	if !forceBucketUpdate && len(userAgent) == 0 {
+		// no user agent, nothing to do
+		return nil
+	}
+
 	// check if attribution is set for given bucket
 	attrInfo, err := endpoint.attributions.Get(ctx, projectID, bucketName)
 	if err == nil {
+		if validatePlacement && attrInfo.Placement != nil && *attrInfo.Placement != placement {
+			return rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %q already attributed to a different placement constraint", bucketName)
+		}
+
 		if !forceBucketUpdate {
-			// bucket has already an attribution, no need to update
+			if attrInfo.UserAgent == nil {
+				// set user agent if not set
+				err = endpoint.attributions.UpdateUserAgent(ctx, projectID, string(bucketName), userAgent)
+				if err != nil {
+					return endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket attribution")
+				}
+			}
 			return nil
 		}
 	} else if !attribution.ErrBucketNotAttributed.Has(err) {
@@ -163,6 +176,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 			ProjectID:  projectID,
 			BucketName: bucketName,
 			UserAgent:  userAgent,
+			Placement:  &placement,
 		})
 		if err != nil {
 			return endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket attribution")

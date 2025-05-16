@@ -203,13 +203,30 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockDisabledForProject, projectNoLockErrMsg)
 	}
 
+	bucketReq, err := convertProtoToBucket(req, keyInfo)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	var exists bool
+	if endpoint.config.SelfServePlacementSelectEnabled && req.Placement != nil {
+		if project.DefaultPlacement != storj.DefaultPlacement {
+			return nil, rpcstatus.Error(rpcstatus.PlacementConflictingValues, "conflicting placement values")
+		}
+		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
+			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
+		}
+	} else {
+		bucketReq.Placement = project.DefaultPlacement
+	}
+
 	// checks if bucket exists before updates it or makes a new entry
-	exists, err := endpoint.buckets.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	exists, err = endpoint.buckets.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to check if bucket exists")
 	} else if exists {
 		// When the bucket exists, try to set the attribution.
-		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), nil, true); err != nil {
+		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), nil, bucketReq.Placement, false, true); err != nil {
 			return nil, err
 		}
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
@@ -226,21 +243,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 	if bucketCount >= *maxBuckets {
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, fmt.Sprintf("number of allocated buckets (%d) exceeded", endpoint.config.ProjectLimits.MaxBuckets))
-	}
-
-	bucketReq, err := convertProtoToBucket(req, keyInfo)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-	if endpoint.config.SelfServePlacementSelectEnabled && req.Placement != nil {
-		if project.DefaultPlacement != storj.DefaultPlacement {
-			return nil, rpcstatus.Error(rpcstatus.PlacementConflictingValues, "conflicting placement values")
-		}
-		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
-			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
-		}
-	} else {
-		bucketReq.Placement = project.DefaultPlacement
 	}
 
 	if endpoint.config.UseBucketLevelObjectVersioning {
@@ -266,6 +268,12 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Object Lock may only be enabled for versioned buckets")
 	}
 
+	if attribution, err := endpoint.attributions.Get(ctx, keyInfo.ProjectID, req.GetName()); err == nil {
+		if attribution.Placement != nil && *attribution.Placement != bucketReq.Placement {
+			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %s already attributed to a different placement constraint", bucketReq.Name)
+		}
+	}
+
 	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
 	if err != nil {
 		if buckets.ErrBucketAlreadyExists.Has(err) {
@@ -275,7 +283,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// Once we have created the bucket, we can try setting the attribution.
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), project.UserAgent, true); err != nil {
+	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), project.UserAgent, bucket.Placement, true, true); err != nil {
 		return nil, err
 	}
 
