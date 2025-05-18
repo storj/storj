@@ -62,11 +62,6 @@ func (stats *NodeSelectionStats) Path() string {
 
 // Handler implements debug.Extension.
 func (stats *NodeSelectionStats) Handler(writer http.ResponseWriter, request *http.Request) {
-	if request.URL.Path != "/node-selection/counts" {
-		http.NotFound(writer, request)
-		return
-	}
-
 	writer.Header().Set("Content-Type", "text/plain")
 	buf := bufio.NewWriter(writer)
 
