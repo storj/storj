@@ -33,6 +33,9 @@ type SuccessTracker interface {
 	// node.
 	Get(node *nodeselection.SelectedNode) float64
 
+	// Range iterates over all nodes and calls the function with the actual value.
+	Range(fn func(storj.NodeID, float64))
+
 	// BumpGeneration should be called periodically to clear out stale
 	// information.
 	BumpGeneration()
@@ -77,11 +80,11 @@ type SuccessTrackers struct {
 }
 
 // NewSuccessTrackers creates a new success tracker.
-func NewSuccessTrackers(approvedUplinks []storj.NodeID, newTracker func() SuccessTracker) *SuccessTrackers {
-	global := newTracker()
+func NewSuccessTrackers(approvedUplinks []storj.NodeID, newTracker func(id storj.NodeID) SuccessTracker) *SuccessTrackers {
+	global := newTracker(storj.NodeID{})
 	trackers := make(map[storj.NodeID]SuccessTracker, len(approvedUplinks))
 	for _, uplink := range approvedUplinks {
-		trackers[uplink] = newTracker()
+		trackers[uplink] = newTracker(uplink)
 	}
 
 	return &SuccessTrackers{
@@ -151,6 +154,18 @@ func NewPercentSuccessTracker() SuccessTracker {
 // NewStochasticPercentSuccessTracker creates a new percent-based success tracker with a stochastic chance of bumping a node's generation.
 func NewStochasticPercentSuccessTracker(chanceToSkip float32) SuccessTracker {
 	return &percentSuccessTracker{chanceToSkip: chanceToSkip}
+}
+
+// Range implements SuccessTracker.
+func (t *percentSuccessTracker) Range(fn func(storj.NodeID, float64)) {
+	t.data.Range(func(k, v interface{}) bool {
+		nodeID, ok := k.(storj.NodeID)
+		value, ok2 := v.(*nodeCounterArray)
+		if ok && ok2 {
+			fn(nodeID, readCounters(value))
+		}
+		return true
+	})
 }
 
 func (t *percentSuccessTracker) Increment(node storj.NodeID, success bool) {
@@ -337,6 +352,18 @@ func (t *parameterizedSuccessTracker) Get(node *nodeselection.SelectedNode) floa
 	return t.score(ctr.Load())
 }
 
+// Range implements SuccessTracker.
+func (t *parameterizedSuccessTracker) Range(fn func(storj.NodeID, float64)) {
+	t.data.Range(func(k, v interface{}) bool {
+		nodeID, ok := k.(storj.NodeID)
+		ctr, ok2 := v.(*atomic.Uint64)
+		if ok && ok2 {
+			fn(nodeID, t.score(ctr.Load()))
+		}
+		return true
+	})
+}
+
 func (t *parameterizedSuccessTracker) BumpGeneration() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -434,6 +461,18 @@ func (t *bigBitshiftSuccessTracker) Get(node *nodeselection.SelectedNode) float6
 	}
 	ctr, _ := ctrI.(*bigBitList)
 	return ctr.get()
+}
+
+// Range implements SuccessTracker.
+func (t *bigBitshiftSuccessTracker) Range(fn func(storj.NodeID, float64)) {
+	t.data.Range(func(k, v interface{}) bool {
+		nodeID, ok := k.(storj.NodeID)
+		ctr, ok2 := v.(*bigBitList)
+		if ok && ok2 {
+			fn(nodeID, ctr.get())
+		}
+		return true
+	})
 }
 
 // BumpGeneration implements SuccessTracker.
