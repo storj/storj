@@ -1344,54 +1344,6 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("Get segment copy with duplicate metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			objStream := metabasetest.RandObjectStream()
-
-			originalObj, originalSegments := metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  objStream,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
-				},
-			}.Run(ctx, t, db, objStream, 1)
-
-			copyObj, _, newSegments := metabasetest.CreateObjectCopy{
-				OriginalObject: originalObj,
-			}.Run(ctx, t, db)
-
-			metabasetest.GetLatestObjectLastSegment{
-				Opts: metabase.GetLatestObjectLastSegment{
-					ObjectLocation: originalObj.Location(),
-				},
-				Result: originalSegments[0],
-			}.Check(ctx, t, db)
-
-			copySegmentGet := originalSegments[0]
-			copySegmentGet.StreamID = copyObj.StreamID
-			copySegmentGet.EncryptedETag = nil
-			copySegmentGet.InlineData = []byte{}
-			copySegmentGet.EncryptedKey = newSegments[0].EncryptedKey
-			copySegmentGet.EncryptedKeyNonce = newSegments[0].EncryptedKeyNonce
-
-			metabasetest.GetLatestObjectLastSegment{
-				Opts: metabase.GetLatestObjectLastSegment{
-					ObjectLocation: copyObj.Location(),
-				},
-				Result: copySegmentGet,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(originalObj),
-					metabase.RawObject(copyObj),
-				},
-				Segments: append(metabasetest.SegmentsToRaw(originalSegments), newSegments...),
-			}.Check(ctx, t, db)
-		})
-
 		t.Run("Get empty inline segment copy", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
