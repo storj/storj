@@ -122,13 +122,13 @@
                                             </template>
                                         </template>
                                         <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
-                                            Storage {{ formatPrice(pricingForLocation.storageMBMonthCents) }}
+                                            {{ formatToGBDollars(pricingForLocation.storageMBMonthCents) }}/GB-month stored
                                             <template v-if="isGettingPricing" #prepend>
                                                 <v-progress-circular indeterminate :size="20" />
                                             </template>
                                         </v-chip>
                                         <v-chip v-if="pricingForLocation" variant="tonal">
-                                            Download {{ formatPrice(pricingForLocation.egressMBCents) }}
+                                            {{ formatToGBDollars(pricingForLocation.egressMBCents) }}/GB download
                                             <template v-if="isGettingPricing" #prepend>
                                                 <v-progress-circular indeterminate :size="20" />
                                             </template>
@@ -440,7 +440,7 @@ import {
 import { ArrowRight, Check } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
-import { formatPrice } from '@/utils/strings';
+import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
@@ -911,6 +911,10 @@ async function onCreate(): Promise<void> {
 
     step.value = CreateStep.Success;
     emit('created', bucketName.value);
+}
+
+function formatToGBDollars(price: string): string {
+    return formatPrice(decimalShift(price, CENTS_MB_TO_DOLLARS_GB_SHIFT));
 }
 
 watchEffect(() => {
