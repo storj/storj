@@ -85,6 +85,9 @@ export class FrontendConfig {
     zkSyncContractAddress: string;
     newDetailedUsageReportEnabled: boolean;
     minimumChargeEnabled: boolean;
+    storageMBMonthCents: string;
+    egressMBCents: string;
+    segmentMonthCents: string;
 }
 
 export class MultiCaptchaConfig {

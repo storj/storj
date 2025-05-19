@@ -71,9 +71,12 @@ import { useNotify } from '@/composables/useNotify';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
+import { useConfigStore } from '@/store/modules/configStore';
+import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
 
 import InfoBullet from '@/components/dialogs/upgradeAccountFlow/InfoBullet.vue';
 
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 const { smAndDown } = useDisplay();
@@ -88,11 +91,11 @@ const emit = defineEmits<{
 }>();
 
 const storagePrice = ref<string>('Storage');
-const storagePriceInfo = ref<string>('$0.004 GB / month');
-const segmentInfo = ref<string>('$0.0000088 segment per month');
+const storagePriceInfo = ref<string>('');
+const segmentInfo = ref<string>('');
+const downloadInfo = ref<string>('');
 const projectsInfo = ref<string>('3 projects + more on request');
 const downloadPrice = ref<string>('Download');
-const downloadInfo = ref<string>('$0.007 GB');
 const downloadMoreInfo = ref<string>('');
 
 /**
@@ -131,6 +134,12 @@ function freeUsageValue(value: number): string {
  * If applicable, loads additional clarifying text based on user partner.
  */
 onBeforeMount(async () => {
+    const storage = formatPrice(decimalShift(configStore.state.config.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+    const egress = formatPrice(decimalShift(configStore.state.config.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+    const segment = formatPrice(decimalShift(configStore.state.config.segmentMonthCents, 2));
+    storagePriceInfo.value = `${storage} per GB-month`;
+    downloadInfo.value = `${egress} per GB`;
+    segmentInfo.value = `${segment} per segment-month`;
     try {
         const partner = usersStore.state.user.partner;
         const config = (await import('@/configs/upgradeConfig.json')).default;

@@ -88,21 +88,21 @@
 
                             <p class="text-body-2 my-2">
                                 <v-icon :icon="Check" size="14" class="mr-2" />
-                                Storage $0.004 per GB per month
+                                Storage {{ storagePrice }}
                             </p>
 
                             <v-divider />
 
                             <p class="text-body-2 my-2">
                                 <v-icon :icon="Check" size="14" class="mr-2" />
-                                Download bandwidth $0.007 per GB
+                                Download bandwidth {{ egressPrice }}
                             </p>
 
                             <v-divider />
 
                             <p class="text-body-2 my-2">
                                 <v-icon :icon="Check" size="14" class="mr-2" />
-                                Per-segment fee of $0.0000088
+                                Per-segment fee of {{ segmentPrice }}
                             </p>
 
                             <v-divider />
@@ -142,12 +142,30 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/components';
 import { ArrowRight, Check, ChevronLeft } from 'lucide-vue-next';
+import { computed } from 'vue';
+
+import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
+
+const configStore = useConfigStore();
 
 const emit = defineEmits<{
     freeClick: [];
     proClick: [];
     back: [];
 }>();
+
+const storagePrice = computed(() => {
+    const storage =  formatPrice(decimalShift(configStore.state.config.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+    return `${storage} per GB-month`;
+});
+
+const egressPrice = computed(() => {
+    const egress = formatPrice(decimalShift(configStore.state.config.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+    return `${egress} per GB`;
+});
+
+const segmentPrice = computed(() => formatPrice(decimalShift(configStore.state.config.segmentMonthCents, 2)));
 </script>

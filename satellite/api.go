@@ -855,6 +855,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			// setup account management api keys
 			peer.Console.RestKeys = peer.Console.Service
 
+			prices, err := config.Payments.UsagePrice.ToModel()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
 			peer.Console.Endpoint = consoleweb.NewServer(
 				peer.Log.Named("console:endpoint"),
 				consoleConfig,
@@ -877,6 +882,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Analytics,
 				config.Payments.PackagePlans,
 				config.Payments.MinimumCharge,
+				prices,
 			)
 
 			peer.Servers.Add(lifecycle.Item{

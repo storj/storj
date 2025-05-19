@@ -89,6 +89,9 @@ type FrontendConfig struct {
 	ZkSyncContractAddress             string                `json:"zkSyncContractAddress"`
 	NewDetailedUsageReportEnabled     bool                  `json:"newDetailedUsageReportEnabled"`
 	MinimumChargeEnabled              bool                  `json:"minimumChargeEnabled"`
+	StorageMBMonthCents               string                `json:"storageMBMonthCents"`
+	EgressMBCents                     string                `json:"egressMBCents"`
+	SegmentMonthCents                 string                `json:"segmentMonthCents"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

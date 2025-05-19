@@ -44,6 +44,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
@@ -178,6 +179,7 @@ type Server struct {
 
 	packagePlans        paymentsconfig.PackagePlans
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig
+	usagePrices         payments.ProjectUsagePriceModel
 
 	errorTemplate *template.Template
 }
@@ -243,7 +245,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
 	csrfService *csrf.Service, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans,
-	minimumChargeConfig paymentsconfig.MinimumChargeConfig) *Server {
+	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -263,6 +265,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
 		minimumChargeConfig:             minimumChargeConfig,
+		usagePrices:                     usagePrices,
 		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 	}
 
@@ -1040,6 +1043,9 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
 		MinimumChargeEnabled:              server.minimumChargeConfig.Amount > 0,
+		StorageMBMonthCents:               server.usagePrices.StorageMBMonthCents.String(),
+		EgressMBCents:                     server.usagePrices.EgressMBCents.String(),
+		SegmentMonthCents:                 server.usagePrices.SegmentMonthCents.String(),
 	}
 
 	w.Header().Set(contentType, applicationJSON)
