@@ -40,7 +40,9 @@ func Module(ball *mud.Ball) {
 			return nil, errs.New("Unknown success tracker kind %q", cfg.SuccessTrackerKind)
 		}
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(newTracker())
-		return NewSuccessTrackers(trustedUplinks, newTracker), nil
+		return NewSuccessTrackers(trustedUplinks, func(id storj.NodeID) SuccessTracker {
+			return newTracker()
+		}), nil
 
 	})
 
