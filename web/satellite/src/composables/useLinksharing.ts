@@ -23,6 +23,13 @@ export enum ShareType {
     Bucket = 'bucket',
 }
 
+export class ShareInfo {
+    public constructor(
+        public readonly url: string,
+        public readonly freeTrialExpiration: Date | null = null,
+    ) { }
+}
+
 export function useLinksharing() {
     const agStore = useAccessGrantsStore();
     const configStore = useConfigStore();
@@ -42,15 +49,15 @@ export function useLinksharing() {
         return selectedProject.value.edgeURLOverrides?.publicLinksharing || configStore.state.config.publicLinksharingURL;
     });
 
-    async function generateFileOrFolderShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<string> {
+    async function generateFileOrFolderShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<ShareInfo> {
         return generateShareURL(bucketName, prefix, objectKey, type);
     }
 
-    async function generateBucketShareURL(bucketName: string): Promise<string> {
+    async function generateBucketShareURL(bucketName: string): Promise<ShareInfo> {
         return generateShareURL(bucketName, '', '', ShareType.Bucket);
     }
 
-    async function generateShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<string> {
+    async function generateShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<ShareInfo> {
         let fullPath = bucketName;
         if (prefix) fullPath = `${fullPath}/${prefix}`;
         if (objectKey) fullPath = `${fullPath}/${objectKey}`;
@@ -74,7 +81,7 @@ export function useLinksharing() {
         if (objectKey) url = `${url}/${encodeURIComponent(objectKey.trim())}`;
         if (type === ShareType.Folder) url = `${url}/`;
 
-        return url;
+        return new ShareInfo(url, creds.freeTierRestrictedExpiration);
     }
 
     async function downloadPrefix(bucketName: string, prefix: string, format: DownloadPrefixFormat): Promise<void> {

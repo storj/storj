@@ -45,6 +45,12 @@
                             Public link sharing. Anyone with the link can view your shared {{ shareText.toLowerCase() }}. No sign-in required.
                         </v-alert>
                     </v-col>
+                    <v-col v-if="shareInfo?.freeTrialExpiration" cols="12" class="pt-0">
+                        <v-alert type="warning" variant="tonal">
+                            This link will expire at {{ shareInfo.freeTrialExpiration.toLocaleString() }}.
+                            <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> your account to avoid expiration limits on future links.
+                        </v-alert>
+                    </v-col>
                     <v-col cols="12" class="pt-0">
                         <v-tabs v-model="shareTab" color="primary" class="border-b-thin" center-active>
                             <v-tab value="links"><component :is="Link" :size="16" class="mr-2" />Links</v-tab>
@@ -203,8 +209,9 @@ import { Check, Copy, Code2, Download, Eye, Link, Share, Share2 } from 'lucide-v
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/composables/useNotify';
-import { ShareType, useLinksharing } from '@/composables/useLinksharing';
+import { ShareInfo, ShareType, useLinksharing } from '@/composables/useLinksharing';
 import { EXTENSION_PREVIEW_TYPES, PreviewType, SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
+import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -225,6 +232,7 @@ const emit = defineEmits<{
 
 const model = defineModel<boolean>({ required: true });
 
+const appStore = useAppStore();
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectStore = useProjectsStore();
@@ -235,8 +243,10 @@ const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing(
 const shareTab = ref<ShareTabType>('links');
 const innerContent = ref<VCard | null>(null);
 const isLoading = ref<boolean>(true);
-const link = ref<string>('');
-const rawLink = ref<string>('');
+const shareInfo = ref<ShareInfo | null>(null);
+
+const link = computed<string>(() => shareInfo.value?.url || '');
+const rawLink = computed<string>(() => props.file?.type === 'file' ? link.value.replace('/s/', '/raw/') : '');
 
 const copiedTimeout = ref<ReturnType<typeof setTimeout> | null>(null);
 const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
@@ -320,24 +330,20 @@ watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
     }
 
     isLoading.value = true;
-    link.value = '';
-    rawLink.value = '';
+    shareInfo.value = null;
     analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED, { project_id: projectStore.state.selectedProject.id });
 
     try {
         if (!props.file) {
-            link.value = await generateBucketShareURL(props.bucketName);
+            shareInfo.value = await generateBucketShareURL(props.bucketName);
         } else {
-            link.value = await generateFileOrFolderShareURL(
+            shareInfo.value = await generateFileOrFolderShareURL(
                 props.bucketName,
                 filePath.value,
                 props.file.Key,
                 // TODO: replace magic string type of BrowserObject.type with some constant/enum.
                 props.file.type === 'folder' ? ShareType.Folder : ShareType.Object,
             );
-            // If the shared item is a file, generate a raw link.
-            // string.replace() replaces only the first occurrence of the substring.
-            if (props.file.type === 'file') rawLink.value = link.value.replace('/s/', '/raw/');
         }
     } catch (error) {
         error.message = `Unable to get sharing URL. ${error.message}`;

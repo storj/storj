@@ -166,12 +166,18 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
 
         const result = await response.json();
 
+        let freeTierRestrictedExpiration: Date | null = null;
+        if (result.freeTierRestrictedExpiration) {
+            freeTierRestrictedExpiration = new Date(result.freeTierRestrictedExpiration);
+        }
+
         return new EdgeCredentials(
             result.id,
             new Date(result.created_at),
             result.access_key_id,
             result.secret_key,
             result.endpoint,
+            freeTierRestrictedExpiration,
         );
     }
 

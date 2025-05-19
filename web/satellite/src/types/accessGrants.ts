@@ -120,5 +120,6 @@ export class EdgeCredentials {
         public accessKeyId: string = '',
         public secretKey: string = '',
         public endpoint: string = '',
+        public freeTierRestrictedExpiration: Date | null = null,
     ) {}
 }
