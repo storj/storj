@@ -351,6 +351,14 @@ func (users *users) UpdateVerificationReminders(ctx context.Context, id uuid.UUI
 }
 
 // Insert is a method for inserting user into the database.
+//
+// It always insert the user fields ID, Email, FullName and PasswordHash. The ID cannot be zero.
+// The rest of the fields are optional.
+//
+// NOTE this method ignores the user fields: CreatedAt, Status, FinalInvoiceGenerated, MFAEnabled,
+// MFASecretKey, MfaRecoveryCodes, VerificationReminders, TrialNotifications, FailedLoginCount,
+// LoginLockoutExpiration, UpgradeTime, NewUnverifiedEmail, EmailChangeVerificationStep,
+// HubspotObjectID.
 func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
