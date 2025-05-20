@@ -71,7 +71,6 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
-			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -92,6 +91,8 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 					metabase.RawObject(object),
 				},
 			}.Check(ctx, t, db)
+
+			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -419,7 +420,6 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
-			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -443,6 +443,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			encryptedETag := testrand.Bytes(32)
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
 					ObjectLocation:                object2.Location(),
@@ -486,7 +487,6 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
-			encryptedETag := testrand.Bytes(32)
 
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
@@ -510,6 +510,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			encryptedETag := testrand.Bytes(32)
 			metabasetest.UpdateObjectLastCommittedMetadata{
 				Opts: metabase.UpdateObjectLastCommittedMetadata{
 					ObjectLocation:                object3.Location(),
