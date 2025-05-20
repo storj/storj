@@ -40,6 +40,12 @@ type ImportConfig struct {
 	MaxImport int `help:"maximum number of jobs to import in a single batch" default:"1000"`
 }
 
+// StatConfig holds the configuration for jobqtool's stat subcommand.
+type StatConfig struct {
+	Config
+	Histogram bool `help:"Stat should include histogram statistic" default:"true"`
+}
+
 // PeekConfig holds the configuration for jobqtool's peek subcommand.
 type PeekConfig struct {
 	Config
@@ -53,6 +59,7 @@ var (
 	runCfg    Config
 	importCfg ImportConfig
 	peekCfg   PeekConfig
+	statCfg   StatConfig
 
 	rootCmd = &cobra.Command{
 		Use:          "jobqtool",
@@ -112,7 +119,7 @@ func init() {
 	process.Bind(rootCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(lenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(truncateCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(statCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(statCmd, &statCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(peekCmd, &peekCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(importCmd, &importCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(cleanCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -126,23 +133,23 @@ func init() {
 	rootCmd.AddCommand(trimCmd)
 }
 
-func prepareConnection(ctx context.Context) (*jobq.Client, error) {
-	identity, err := runCfg.Identity.Load()
+func prepareConnection(ctx context.Context, cfg Config) (*jobq.Client, error) {
+	identity, err := cfg.Identity.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load identity: %w", err)
 	}
-	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.TLS)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, cfg.TLS)
 	if err != nil {
 		return nil, fmt.Errorf("creating revocation database: %w", err)
 	}
-	tlsOpts, err := tlsopts.NewOptions(identity, runCfg.TLS, revocationDB)
+	tlsOpts, err := tlsopts.NewOptions(identity, cfg.TLS, revocationDB)
 	if err != nil {
 		return nil, fmt.Errorf("TLS options: %w", err)
 	}
 
-	serverNodeURL, err := storj.ParseNodeURL(runCfg.Server)
+	serverNodeURL, err := storj.ParseNodeURL(cfg.Server)
 	if err != nil {
-		return nil, fmt.Errorf("invalid server URL %q: %w", runCfg.Server, err)
+		return nil, fmt.Errorf("invalid server URL %q: %w", cfg.Server, err)
 	}
 	dialer := jobq.NewDialer(tlsOpts)
 
@@ -156,7 +163,7 @@ func prepareConnection(ctx context.Context) (*jobq.Client, error) {
 
 func lenCommand(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	drpcConn, err := prepareConnection(ctx)
+	drpcConn, err := prepareConnection(ctx, runCfg)
 	if err != nil {
 		return err
 	}
@@ -184,7 +191,7 @@ func lenCommand(cmd *cobra.Command, args []string) error {
 
 func truncateCommand(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	drpcConn, err := prepareConnection(ctx)
+	drpcConn, err := prepareConnection(ctx, runCfg)
 	if err != nil {
 		return err
 	}
@@ -203,7 +210,7 @@ func truncateCommand(cmd *cobra.Command, args []string) error {
 
 func statCommand(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	drpcConn, err := prepareConnection(ctx)
+	drpcConn, err := prepareConnection(ctx, statCfg.Config)
 	if err != nil {
 		return err
 	}
@@ -215,13 +222,13 @@ func statCommand(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid placement %q: %w", args[0], err)
 		}
-		jobStat, err := drpcConn.Stat(ctx, storj.PlacementConstraint(placement))
+		jobStat, err := drpcConn.Stat(ctx, storj.PlacementConstraint(placement), statCfg.Histogram)
 		if err != nil {
 			return fmt.Errorf("querying queue statistics: %w", err)
 		}
 		jobStats = []jobq.QueueStat{jobStat}
 	} else {
-		jobStats, err = drpcConn.StatAll(ctx)
+		jobStats, err = drpcConn.StatAll(ctx, statCfg.Histogram)
 		if err != nil {
 			return fmt.Errorf("querying all queue statistics: %w", err)
 		}
@@ -246,6 +253,9 @@ func statCommand(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Printf("  min segment health: %.6f\n", stat.MinSegmentHealth)
 		fmt.Printf("  max segment health: %.6f\n", stat.MaxSegmentHealth)
+		for _, h := range stat.Histogram {
+			fmt.Println("    count:", h.Count, ", missing:", h.NumMissing, ", oop:", h.NumOutOfPlacement, ", exemplar:", h.Examplar)
+		}
 	}
 	if !outputJobs {
 		fmt.Println("(no jobs)")
@@ -255,7 +265,7 @@ func statCommand(cmd *cobra.Command, args []string) error {
 
 func importCommand(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	drpcConn, err := prepareConnection(ctx)
+	drpcConn, err := prepareConnection(ctx, importCfg.Config)
 	if err != nil {
 		return err
 	}
@@ -356,7 +366,7 @@ func count(bools []bool) int {
 
 func peekCommand(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	drpcConn, err := prepareConnection(ctx)
+	drpcConn, err := prepareConnection(ctx, peekCfg.Config)
 	if err != nil {
 		return err
 	}
@@ -388,7 +398,7 @@ func peekCommand(cmd *cobra.Command, args []string) error {
 
 func cleanCommand(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	drpcConn, err := prepareConnection(ctx)
+	drpcConn, err := prepareConnection(ctx, runCfg)
 	if err != nil {
 		return err
 	}
@@ -436,7 +446,7 @@ func cleanCommand(cmd *cobra.Command, args []string) error {
 
 func trimCommand(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	drpcConn, err := prepareConnection(ctx)
+	drpcConn, err := prepareConnection(ctx, runCfg)
 	if err != nil {
 		return err
 	}

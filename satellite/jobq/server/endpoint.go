@@ -204,7 +204,7 @@ func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (
 	mon.Task()(&ctx)(&err)
 
 	if req.AllPlacements {
-		return se.statAll(ctx)
+		return se.statAll(ctx, req.WithHistogram)
 	}
 	placement := storj.PlacementConstraint(req.Placement)
 	q, err := se.queues.GetQueue(placement)
@@ -215,33 +215,52 @@ func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (
 	if err != nil {
 		return nil, err
 	}
+	rps := &pb.QueueStat{
+		Placement:        req.Placement,
+		Count:            repairStat.Count,
+		MaxInsertedAt:    repairStat.MaxInsertedAt,
+		MinInsertedAt:    repairStat.MinInsertedAt,
+		MaxAttemptedAt:   nil, // see statAll for an explanation of why these are nil
+		MinAttemptedAt:   nil,
+		MinSegmentHealth: repairStat.MinSegmentHealth,
+		MaxSegmentHealth: repairStat.MaxSegmentHealth,
+	}
+	rys := &pb.QueueStat{
+		Placement:        req.Placement,
+		Count:            retryStat.Count,
+		MaxInsertedAt:    retryStat.MaxInsertedAt,
+		MinInsertedAt:    retryStat.MinInsertedAt,
+		MaxAttemptedAt:   retryStat.MaxAttemptedAt,
+		MinAttemptedAt:   retryStat.MinAttemptedAt,
+		MinSegmentHealth: retryStat.MinSegmentHealth,
+		MaxSegmentHealth: retryStat.MaxSegmentHealth,
+	}
+	if req.WithHistogram {
+		rps.Histogram = histToProto(repairStat.Histogram)
+		rys.Histogram = histToProto(retryStat.Histogram)
+	}
+
 	return &pb.JobQueueStatResponse{
 		Stats: []*pb.QueueStat{
-			{
-				Placement:        req.Placement,
-				Count:            repairStat.Count,
-				MaxInsertedAt:    repairStat.MaxInsertedAt,
-				MinInsertedAt:    repairStat.MinInsertedAt,
-				MaxAttemptedAt:   nil, // see statAll for an explanation of why these are nil
-				MinAttemptedAt:   nil,
-				MinSegmentHealth: repairStat.MinSegmentHealth,
-				MaxSegmentHealth: repairStat.MaxSegmentHealth,
-			},
-			{
-				Placement:        req.Placement,
-				Count:            retryStat.Count,
-				MaxInsertedAt:    retryStat.MaxInsertedAt,
-				MinInsertedAt:    retryStat.MinInsertedAt,
-				MaxAttemptedAt:   retryStat.MaxAttemptedAt,
-				MinAttemptedAt:   retryStat.MinAttemptedAt,
-				MinSegmentHealth: retryStat.MinSegmentHealth,
-				MaxSegmentHealth: retryStat.MaxSegmentHealth,
-			},
+			rps, rys,
 		},
 	}, nil
 }
 
-func (se *JobqEndpoint) statAll(ctx context.Context) (*pb.JobQueueStatResponse, error) {
+func histToProto(histogram []jobq.HistogramItem) (res []*pb.QueueStatHistogram) {
+	for _, h := range histogram {
+		res = append(res, &pb.QueueStatHistogram{
+			Count:             h.Count,
+			NumOutOfPlacement: int32(h.NumOutOfPlacement),
+			NumMissing:        int32(h.NumMissing),
+			ExamplarStreamId:  h.Examplar.StreamID[:],
+			ExemplarPosition:  h.Examplar.Position,
+		})
+	}
+	return res
+}
+
+func (se *JobqEndpoint) statAll(ctx context.Context, histogram bool) (*pb.JobQueueStatResponse, error) {
 	queues := se.queues.GetAllQueues()
 	pbStats := make([]*pb.QueueStat, 0, len(queues))
 	for placement, q := range queues {
@@ -256,7 +275,7 @@ func (se *JobqEndpoint) statAll(ctx context.Context) (*pb.JobQueueStatResponse, 
 		// code if we show repairStats as having no AttemptedAt, and retryStats
 		// as having it set. This isn't perfect (it is in fact possible for
 		// repairStats to have AttemptedAt set), but it may be good enough.
-		pbStats = append(pbStats, &pb.QueueStat{
+		repair := &pb.QueueStat{
 			Placement:        int32(placement),
 			Count:            repairStat.Count,
 			MaxInsertedAt:    repairStat.MaxInsertedAt,
@@ -265,7 +284,8 @@ func (se *JobqEndpoint) statAll(ctx context.Context) (*pb.JobQueueStatResponse, 
 			MinAttemptedAt:   nil,
 			MinSegmentHealth: repairStat.MinSegmentHealth,
 			MaxSegmentHealth: repairStat.MaxSegmentHealth,
-		}, &pb.QueueStat{
+		}
+		retry := &pb.QueueStat{
 			Placement:        int32(placement),
 			Count:            retryStat.Count,
 			MaxInsertedAt:    retryStat.MaxInsertedAt,
@@ -274,7 +294,13 @@ func (se *JobqEndpoint) statAll(ctx context.Context) (*pb.JobQueueStatResponse, 
 			MinAttemptedAt:   retryStat.MinAttemptedAt,
 			MinSegmentHealth: retryStat.MinSegmentHealth,
 			MaxSegmentHealth: retryStat.MaxSegmentHealth,
-		})
+		}
+		if histogram {
+			repair.Histogram = histToProto(repairStat.Histogram)
+			retry.Histogram = histToProto(retryStat.Histogram)
+		}
+		pbStats = append(pbStats, repair, retry)
+
 	}
 	return &pb.JobQueueStatResponse{
 		Stats: pbStats,
