@@ -5005,15 +5005,16 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	return row
 }
 
-// GetUsageReportHeaders returns headers for the usage report.
-func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) []string {
+// GetUsageReportHeaders returns headers for the usage report. It includes a disclaimer for pricing if
+// the new detailed usage report is enabled and cost is requested.
+func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer []string, headers []string) {
 	if !s.config.NewDetailedUsageReportEnabled {
-		return []string{
+		return nil, []string{
 			"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Egress GB",
 			"ObjectCount objects-hour", "SegmentCount segments-hour", "Since", "Before",
 		}
 	}
-	headers := []string{
+	headers = []string{
 		"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Storage TB-months",
 		"Storage Price (Estimated)", "Egress GB", "Egress TB", "Egress Price (Estimated)",
 		"ObjectCount objects-hour", "SegmentCount segments-hour", "Segment Months",
@@ -5034,7 +5035,13 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) []string {
 		headers = updateHeaders
 	}
 
-	return headers
+	if param.IncludeCost {
+		disclaimer = []string{"Disclaimer: The actual billed amount may differ due to custom billing, discounts, or coupons applied at the time of invoicing."}
+		// append empty columns so that disclaimerRow is the same length as csvHeaders
+		disclaimer = append(disclaimer, make([]string, len(headers)-1)...)
+	}
+
+	return disclaimer, headers
 }
 
 // transformProjectReportItem modifies the project report item, converting GB values to TB and

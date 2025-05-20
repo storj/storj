@@ -174,15 +174,14 @@ func (ul *UsageLimits) UsageReport(w http.ResponseWriter, r *http.Request) {
 
 	wr := csv.NewWriter(w)
 
-	csvHeaders := ul.service.GetUsageReportHeaders(param)
-	disclaimerRow := []string{"Disclaimer: The actual billed amount may differ due to custom billing, discounts, or coupons applied at the time of invoicing."}
-	// append empty columns so that disclaimerRow is the same length as csvHeaders
-	disclaimerRow = append(disclaimerRow, make([]string, len(csvHeaders)-1)...)
+	disclaimerRow, csvHeaders := ul.service.GetUsageReportHeaders(param)
 
-	err = wr.Write(disclaimerRow)
-	if err != nil {
-		ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
-		return
+	if len(disclaimerRow) > 0 {
+		err = wr.Write(disclaimerRow)
+		if err != nil {
+			ul.serveJSONError(ctx, w, http.StatusInternalServerError, errs.New("Error writing CSV data"))
+			return
+		}
 	}
 	err = wr.Write(csvHeaders)
 	if err != nil {

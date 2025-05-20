@@ -256,25 +256,38 @@ func TestTotalUsageReport(t *testing.T) {
 			reader := csv.NewReader(strings.NewReader(string(body)))
 			records, err := reader.ReadAll()
 			require.NoError(t, err)
-			require.Len(t, records, 3)
-
-			require.Contains(t, records[0][0], "Disclaimer")
-
-			expectedHeaders := service.GetUsageReportHeaders(para)
-			for i, header := range expectedHeaders {
-				require.Equal(t, header, records[1][i])
+			if newReportEnabled && para.IncludeCost {
+				require.Len(t, records, 3)
+				require.Contains(t, records[0][0], "Disclaimer")
+			} else {
+				require.Len(t, records, 2)
 			}
 
-			require.Equal(t, project1.Name, records[2][0])
-			require.Equal(t, project1.PublicID.String(), records[2][1])
+			disclaimerRow, expectedHeaders := service.GetUsageReportHeaders(para)
+			if newReportEnabled && para.IncludeCost {
+				require.NotEmpty(t, disclaimerRow)
+			} else {
+				require.Empty(t, disclaimerRow)
+			}
+
+			disclaimerIndex := -1
+			if newReportEnabled && para.IncludeCost {
+				disclaimerIndex = 0
+			}
+			for i, header := range expectedHeaders {
+				require.Equal(t, header, records[disclaimerIndex+1][i])
+			}
+
+			require.Equal(t, project1.Name, records[disclaimerIndex+2][0])
+			require.Equal(t, project1.PublicID.String(), records[disclaimerIndex+2][1])
 			if !newReportEnabled {
-				require.Equal(t, bucketName, records[2][2])
+				require.Equal(t, bucketName, records[disclaimerIndex+2][2])
 				return
 			}
 			if !para.GroupByProject {
-				require.Equal(t, bucketName, records[2][2])
+				require.Equal(t, bucketName, records[disclaimerIndex+2][2])
 			} else {
-				require.Equal(t, expectedCSVValue, records[2][2])
+				require.Equal(t, expectedCSVValue, records[disclaimerIndex+2][2])
 			}
 
 			startIndex := 3
@@ -282,7 +295,7 @@ func TestTotalUsageReport(t *testing.T) {
 				startIndex = 2
 			}
 			for i := startIndex; i < len(expectedHeaders)-3; i++ {
-				require.Equal(t, expectedCSVValue, records[2][i])
+				require.Equal(t, expectedCSVValue, records[disclaimerIndex+2][i])
 			}
 		}
 
@@ -321,22 +334,23 @@ func TestTotalUsageReport(t *testing.T) {
 				reader := csv.NewReader(strings.NewReader(string(body)))
 				records, err := reader.ReadAll()
 				require.NoError(t, err)
-				require.Len(t, records, 4)
+				require.Len(t, records, 3)
 
-				expectedHeaders := service.GetUsageReportHeaders(param)
+				disclaimerRow, expectedHeaders := service.GetUsageReportHeaders(param)
+				require.Empty(t, disclaimerRow)
 				for i, header := range expectedHeaders {
-					require.Equal(t, header, records[1][i])
+					require.Equal(t, header, records[0][i])
 				}
 
-				require.Equal(t, project1.Name, records[2][0])
-				require.Equal(t, project2.Name, records[3][0])
-				require.Equal(t, project1.PublicID.String(), records[2][1])
-				require.Equal(t, project2.PublicID.String(), records[3][1])
+				require.Equal(t, project1.Name, records[1][0])
+				require.Equal(t, project2.Name, records[2][0])
+				require.Equal(t, project1.PublicID.String(), records[1][1])
+				require.Equal(t, project2.PublicID.String(), records[2][1])
+				require.Equal(t, bucketName, records[1][2])
 				require.Equal(t, bucketName, records[2][2])
-				require.Equal(t, bucketName, records[3][2])
 				for i := 3; i < 7; i++ {
+					require.Equal(t, expectedCSVValue, records[1][i])
 					require.Equal(t, expectedCSVValue, records[2][i])
-					require.Equal(t, expectedCSVValue, records[3][i])
 				}
 
 				// test with projectID
