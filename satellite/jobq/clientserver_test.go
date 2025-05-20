@@ -308,7 +308,7 @@ func TestStat(t *testing.T) {
 		}
 
 		// Get stats for the queue
-		stat, err := client.Stat(ctx, storj.PlacementConstraint(42))
+		stat, err := client.Stat(ctx, storj.PlacementConstraint(42), false)
 		require.NoError(t, err)
 		require.Equal(t, jobq.QueueStat{
 			Placement:        42,
@@ -329,10 +329,12 @@ func TestStatAll(t *testing.T) {
 		// Create and push a few jobs
 		for i := 0; i < 5; i++ {
 			job := jobq.RepairJob{
-				ID:         jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
-				Health:     float64(i),
-				Placement:  42,
-				InsertedAt: uint64(time.Now().Unix()),
+				ID:                jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Health:            float64(i),
+				Placement:         42,
+				InsertedAt:        uint64(time.Now().Unix()),
+				NumMissing:        uint16(i),
+				NumOutOfPlacement: 2,
 			}
 			_, err := client.Push(ctx, job)
 			require.NoError(t, err)
@@ -346,8 +348,8 @@ func TestStatAll(t *testing.T) {
 		_, err := client.Push(ctx, job)
 		require.NoError(t, err)
 
-		// Get stats for the queue
-		stat, err := client.StatAll(ctx)
+		// Get stats for the queue without histogram
+		stat, err := client.StatAll(ctx, false)
 		require.NoError(t, err)
 		require.Len(t, stat, 4)
 
@@ -418,5 +420,48 @@ func TestStatAll(t *testing.T) {
 		require.NotZero(t, stat[3].MinInsertedAt)
 		require.NotZero(t, stat[3].MaxInsertedAt)
 		require.LessOrEqual(t, stat[3].MinInsertedAt, stat[3].MaxInsertedAt)
+
+		// Now test with histogram enabled
+		statWithHistogram, err := client.StatAll(ctx, true)
+		require.NoError(t, err)
+		require.Len(t, statWithHistogram, 4)
+
+		// Sort the stats the same way as before
+		sort.Slice(statWithHistogram, func(i, j int) bool {
+			if statWithHistogram[i].Placement < statWithHistogram[j].Placement {
+				return true
+			}
+			if statWithHistogram[i].Placement > statWithHistogram[j].Placement {
+				return false
+			}
+			if statWithHistogram[i].MinAttemptedAt == nil || statWithHistogram[j].MinAttemptedAt != nil {
+				return true
+			}
+			if statWithHistogram[i].MinAttemptedAt != nil || statWithHistogram[j].MinAttemptedAt == nil {
+				return false
+			}
+			return statWithHistogram[i].MinSegmentHealth < statWithHistogram[j].MinSegmentHealth
+		})
+
+		// Check the non-empty queues for histogram data
+		for _, s := range statWithHistogram {
+			if s.Count > 0 {
+				// Queues with jobs should have histogram data
+				require.NotEmpty(t, s.Histogram, "Queue with placement %d should have histogram data", s.Placement)
+
+				// Check histogram fields
+				for _, histItem := range s.Histogram {
+					require.NotZero(t, histItem.Count, "Histogram item count should be non-zero")
+					require.NotZero(t, histItem.Examplar.StreamID, "Histogram item examplar StreamID should be non-zero")
+
+					// These might be zero in some cases, but should be non-negative
+					require.GreaterOrEqual(t, histItem.NumMissing, int64(0), "NumMissing should be non-negative")
+					require.GreaterOrEqual(t, histItem.NumOutOfPlacement, int64(0), "NumOutOfPlacement should be non-negative")
+				}
+			} else {
+				// Empty queues should have empty histograms
+				require.Empty(t, s.Histogram, "Empty queue with placement %d should have empty histogram", s.Placement)
+			}
+		}
 	})
 }
