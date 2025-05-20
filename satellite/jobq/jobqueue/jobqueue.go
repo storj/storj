@@ -518,6 +518,11 @@ func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat,
 	var maxInsertedAt, minInsertedAt uint64
 	var maxAttemptedAt, minAttemptedAt *uint64
 	first := true
+
+	// we use this like a map, where the key contains both NumOutOfPlacement numbers (high bits) and NumMissing (low bits)
+	// see key() function below for details
+	var histogram []*jobq.HistogramItem
+
 	updateStat := func(item jobq.RepairJob, stat *jobq.QueueStat) {
 		if first || item.InsertedAt > maxInsertedAt {
 			maxInsertedAt = item.InsertedAt
@@ -539,6 +544,20 @@ func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat,
 		if first || item.Health < stat.MinSegmentHealth {
 			stat.MinSegmentHealth = item.Health
 		}
+		k := key(item.NumOutOfPlacement, item.NumMissing)
+		if histogram == nil || len(histogram) < int(k) {
+			histogram = append(histogram, make([]*jobq.HistogramItem, int(k)-len(histogram)+1)...)
+		}
+		if histogram[k] == nil {
+			histogram[k] = &jobq.HistogramItem{
+				NumOutOfPlacement: int64(item.NumOutOfPlacement),
+				NumMissing:        int64(item.NumMissing),
+				Count:             1,
+				Examplar:          item.ID,
+			}
+		} else {
+			histogram[k].Count++
+		}
 	}
 
 	for i, item := range q.pq.priorityHeap {
@@ -550,6 +569,13 @@ func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat,
 			}
 		}
 	}
+
+	for _, h := range histogram {
+		if h != nil {
+			repairStat.Histogram = append(repairStat.Histogram, *h)
+		}
+	}
+
 	repairStat.MaxInsertedAt = time.Unix(int64(maxInsertedAt), 0)
 	repairStat.MinInsertedAt = time.Unix(int64(minInsertedAt), 0)
 	if maxAttemptedAt != nil {
@@ -585,6 +611,16 @@ func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat,
 	}
 
 	return repairStat, retryStat, nil
+}
+
+func key(oop uint16, missing uint16) uint16 {
+	if oop > 127 {
+		oop = 127
+	}
+	if missing > 127 {
+		missing = 127
+	}
+	return oop<<7 | missing
 }
 
 // Truncate removes all items currently in the queue.
