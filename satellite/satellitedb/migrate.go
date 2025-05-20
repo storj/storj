@@ -984,6 +984,19 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD COLUMN tags BYTES(MAX);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add api_key_tails table",
+				Version:     295,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS api_key_tails (
+						tail BYTES(MAX) NOT NULL,
+						parent_tail BYTES(MAX) NOT NULL,
+						caveat BYTES(MAX) NOT NULL,
+						last_used TIMESTAMP NOT NULL
+					) PRIMARY KEY ( tail )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3807,6 +3820,20 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     294,
 				Action: migrate.SQL{
 					`ALTER TABLE bucket_metainfos ADD COLUMN tags bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add api_key_tails table",
+				Version:     295,
+				Action: migrate.SQL{
+					`CREATE TABLE api_key_tails (
+						tail bytea NOT NULL,
+						parent_tail bytea NOT NULL,
+						caveat bytea NOT NULL,
+						last_used timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tail )
+					)`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

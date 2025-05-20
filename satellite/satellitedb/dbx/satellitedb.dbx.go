@@ -387,6 +387,14 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( name )
 )`,
 
+		`CREATE TABLE api_key_tails (
+	tail bytea NOT NULL,
+	parent_tail bytea NOT NULL,
+	caveat bytea NOT NULL,
+	last_used timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tail )
+)`,
+
 		`CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
@@ -1198,6 +1206,8 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS billing_balances`,
 
+		`DROP TABLE IF EXISTS api_key_tails`,
+
 		`DROP TABLE IF EXISTS accounting_timestamps`,
 
 		`DROP TABLE IF EXISTS accounting_rollups`,
@@ -1332,6 +1342,14 @@ func (obj *pgxcockroachDB) Schema() []string {
 	name text NOT NULL,
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
+)`,
+
+		`CREATE TABLE api_key_tails (
+	tail bytea NOT NULL,
+	parent_tail bytea NOT NULL,
+	caveat bytea NOT NULL,
+	last_used timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tail )
 )`,
 
 		`CREATE TABLE billing_balances (
@@ -2145,6 +2163,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS billing_balances`,
 
+		`DROP TABLE IF EXISTS api_key_tails`,
+
 		`DROP TABLE IF EXISTS accounting_timestamps`,
 
 		`DROP TABLE IF EXISTS accounting_rollups`,
@@ -2277,6 +2297,13 @@ func (obj *spannerDB) Schema() []string {
 	name STRING(MAX) NOT NULL,
 	value TIMESTAMP NOT NULL
 ) PRIMARY KEY ( name )`,
+
+		`CREATE TABLE api_key_tails (
+	tail BYTES(MAX) NOT NULL,
+	parent_tail BYTES(MAX) NOT NULL,
+	caveat BYTES(MAX) NOT NULL,
+	last_used TIMESTAMP NOT NULL
+) PRIMARY KEY ( tail )`,
 
 		`CREATE TABLE billing_balances (
 	user_id BYTES(MAX) NOT NULL,
@@ -3497,6 +3524,12 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS billing_balances`,
 
+		`ALTER TABLE  api_key_tails ALTER tail SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS api_key_tails_tail`,
+
+		`DROP TABLE IF EXISTS api_key_tails`,
+
 		`ALTER TABLE  accounting_timestamps ALTER name SET DEFAULT (null)`,
 
 		`DROP SEQUENCE IF EXISTS accounting_timestamps_name`,
@@ -3969,6 +4002,87 @@ func AccountingTimestamps_Value(v time.Time) AccountingTimestamps_Value_Field {
 }
 
 func (f AccountingTimestamps_Value_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ApiKeyTail struct {
+	Tail       []byte
+	ParentTail []byte
+	Caveat     []byte
+	LastUsed   time.Time
+}
+
+func (ApiKeyTail) _Table() string { return "api_key_tails" }
+
+type ApiKeyTail_Update_Fields struct {
+	LastUsed ApiKeyTail_LastUsed_Field
+}
+
+type ApiKeyTail_Tail_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKeyTail_Tail(v []byte) ApiKeyTail_Tail_Field {
+	return ApiKeyTail_Tail_Field{_set: true, _value: v}
+}
+
+func (f ApiKeyTail_Tail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ApiKeyTail_ParentTail_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKeyTail_ParentTail(v []byte) ApiKeyTail_ParentTail_Field {
+	return ApiKeyTail_ParentTail_Field{_set: true, _value: v}
+}
+
+func (f ApiKeyTail_ParentTail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ApiKeyTail_Caveat_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKeyTail_Caveat(v []byte) ApiKeyTail_Caveat_Field {
+	return ApiKeyTail_Caveat_Field{_set: true, _value: v}
+}
+
+func (f ApiKeyTail_Caveat_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ApiKeyTail_LastUsed_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ApiKeyTail_LastUsed(v time.Time) ApiKeyTail_LastUsed_Field {
+	return ApiKeyTail_LastUsed_Field{_set: true, _value: v}
+}
+
+func (f ApiKeyTail_LastUsed_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -16060,6 +16174,38 @@ func (obj *pgxImpl) Create_ApiKey(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_ApiKeyTail(ctx context.Context,
+	api_key_tail_tail ApiKeyTail_Tail_Field,
+	api_key_tail_parent_tail ApiKeyTail_ParentTail_Field,
+	api_key_tail_caveat ApiKeyTail_Caveat_Field,
+	api_key_tail_last_used ApiKeyTail_LastUsed_Field) (
+	api_key_tail *ApiKeyTail, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__tail_val := api_key_tail_tail.value()
+	__parent_tail_val := api_key_tail_parent_tail.value()
+	__caveat_val := api_key_tail_caveat.value()
+	__last_used_val := api_key_tail_last_used.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_key_tails ( tail, parent_tail, caveat, last_used ) VALUES ( ?, ?, ?, ? ) RETURNING api_key_tails.tail, api_key_tails.parent_tail, api_key_tails.caveat, api_key_tails.last_used")
+
+	var __values []any
+	__values = append(__values, __tail_val, __parent_tail_val, __caveat_val, __last_used_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key_tail = &ApiKeyTail{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key_tail.Tail, &api_key_tail.ParentTail, &api_key_tail.Caveat, &api_key_tail.LastUsed)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key_tail, nil
+
+}
+
 func (obj *pgxImpl) Create_BucketMetainfo(ctx context.Context,
 	bucket_metainfo_id BucketMetainfo_Id_Field,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -22754,6 +22900,47 @@ func (obj *pgxImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxImpl) UpdateNoReturn_ApiKeyTail_By_Tail(ctx context.Context,
+	api_key_tail_tail ApiKeyTail_Tail_Field,
+	update ApiKeyTail_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_key_tails SET "), __sets, __sqlbundle_Literal(" WHERE api_key_tails.tail = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.LastUsed._set {
+		__values = append(__values, update.LastUsed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_used = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, api_key_tail_tail.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -24889,6 +25076,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_key_tails;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -26169,6 +26366,38 @@ func (obj *pgxcockroachImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ApiKeyTail(ctx context.Context,
+	api_key_tail_tail ApiKeyTail_Tail_Field,
+	api_key_tail_parent_tail ApiKeyTail_ParentTail_Field,
+	api_key_tail_caveat ApiKeyTail_Caveat_Field,
+	api_key_tail_last_used ApiKeyTail_LastUsed_Field) (
+	api_key_tail *ApiKeyTail, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__tail_val := api_key_tail_tail.value()
+	__parent_tail_val := api_key_tail_parent_tail.value()
+	__caveat_val := api_key_tail_caveat.value()
+	__last_used_val := api_key_tail_last_used.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_key_tails ( tail, parent_tail, caveat, last_used ) VALUES ( ?, ?, ?, ? ) RETURNING api_key_tails.tail, api_key_tails.parent_tail, api_key_tails.caveat, api_key_tails.last_used")
+
+	var __values []any
+	__values = append(__values, __tail_val, __parent_tail_val, __caveat_val, __last_used_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key_tail = &ApiKeyTail{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key_tail.Tail, &api_key_tail.ParentTail, &api_key_tail.Caveat, &api_key_tail.LastUsed)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key_tail, nil
 
 }
 
@@ -32866,6 +33095,47 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *pgxcockroachImpl) UpdateNoReturn_ApiKeyTail_By_Tail(ctx context.Context,
+	api_key_tail_tail ApiKeyTail_Tail_Field,
+	update ApiKeyTail_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_key_tails SET "), __sets, __sqlbundle_Literal(" WHERE api_key_tails.tail = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.LastUsed._set {
+		__values = append(__values, update.LastUsed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_used = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, api_key_tail_tail.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -35001,6 +35271,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_key_tails;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -36430,6 +36710,44 @@ func (obj *spannerImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *spannerImpl) Create_ApiKeyTail(ctx context.Context,
+	api_key_tail_tail ApiKeyTail_Tail_Field,
+	api_key_tail_parent_tail ApiKeyTail_ParentTail_Field,
+	api_key_tail_caveat ApiKeyTail_Caveat_Field,
+	api_key_tail_last_used ApiKeyTail_LastUsed_Field) (
+	api_key_tail *ApiKeyTail, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__tail_val := api_key_tail_tail.value()
+	__parent_tail_val := api_key_tail_parent_tail.value()
+	__caveat_val := api_key_tail_caveat.value()
+	__last_used_val := api_key_tail_last_used.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_key_tails ( tail, parent_tail, caveat, last_used ) VALUES ( ?, ?, ?, ? ) THEN RETURN api_key_tails.tail, api_key_tails.parent_tail, api_key_tails.caveat, api_key_tails.last_used")
+
+	var __values []any
+	__values = append(__values, __tail_val, __parent_tail_val, __caveat_val, __last_used_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	api_key_tail = &ApiKeyTail{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key_tail.Tail, &api_key_tail.ParentTail, &api_key_tail.Caveat, &api_key_tail.LastUsed)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key_tail.Tail, &api_key_tail.ParentTail, &api_key_tail.Caveat, &api_key_tail.LastUsed)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return api_key_tail, nil
 
 }
 
@@ -43071,6 +43389,47 @@ func (obj *spannerImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 	return nil
 }
 
+func (obj *spannerImpl) UpdateNoReturn_ApiKeyTail_By_Tail(ctx context.Context,
+	api_key_tail_tail ApiKeyTail_Tail_Field,
+	update ApiKeyTail_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_key_tails SET "), __sets, __sqlbundle_Literal(" WHERE api_key_tails.tail = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.LastUsed._set {
+		__values = append(__values, update.LastUsed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_used = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, api_key_tail_tail.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *spannerImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -45107,6 +45466,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM api_key_tails;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -45366,6 +45735,13 @@ type Methods interface {
 		api_key_secret ApiKey_Secret_Field,
 		optional ApiKey_Create_Fields) (
 		api_key *ApiKey, err error)
+
+	Create_ApiKeyTail(ctx context.Context,
+		api_key_tail_tail ApiKeyTail_Tail_Field,
+		api_key_tail_parent_tail ApiKeyTail_ParentTail_Field,
+		api_key_tail_caveat ApiKeyTail_Caveat_Field,
+		api_key_tail_last_used ApiKeyTail_LastUsed_Field) (
+		api_key_tail *ApiKeyTail, err error)
 
 	Create_BillingTransaction(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field,
@@ -46074,6 +46450,11 @@ type Methods interface {
 	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		update AccountingTimestamps_Update_Fields) (
+		err error)
+
+	UpdateNoReturn_ApiKeyTail_By_Tail(ctx context.Context,
+		api_key_tail_tail ApiKeyTail_Tail_Field,
+		update ApiKeyTail_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
