@@ -5482,13 +5482,13 @@ func TestConditionalWrites(t *testing.T) {
 
 			metabasetest.FinishCopyObject{
 				Opts: metabase.FinishCopyObject{
-					ObjectStream:                 srcObject.ObjectStream,
-					NewStreamID:                  dstObjStream.StreamID,
-					NewBucket:                    dstObjStream.BucketName,
-					NewEncryptedObjectKey:        dstObjStream.ObjectKey,
-					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
-					NewEncryptedMetadataKey:      testrand.Bytes(32),
-					IfNoneMatch:                  []string{"*"},
+					ObjectStream:                     srcObject.ObjectStream,
+					NewStreamID:                      dstObjStream.StreamID,
+					NewBucket:                        dstObjStream.BucketName,
+					NewEncryptedObjectKey:            dstObjStream.ObjectKey,
+					NewEncryptedMetadataNonce:        testrand.Nonce(),
+					NewEncryptedMetadataEncryptedKey: testrand.Bytes(32),
+					IfNoneMatch:                      []string{"*"},
 				},
 				ErrClass: &metabase.ErrFailedPrecondition,
 				ErrText:  "object already exists",

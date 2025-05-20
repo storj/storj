@@ -54,11 +54,11 @@ type FinishCopyObject struct {
 	NewEncryptedObjectKey ObjectKey
 	NewStreamID           uuid.UUID
 
-	OverrideMetadata             bool
-	NewEncryptedMetadata         []byte
-	NewEncryptedMetadataKeyNonce storj.Nonce
-	NewEncryptedMetadataKey      []byte
-	NewEncryptedETag             []byte
+	OverrideMetadata                 bool
+	NewEncryptedMetadata             []byte
+	NewEncryptedMetadataNonce        storj.Nonce
+	NewEncryptedMetadataEncryptedKey []byte
+	NewEncryptedETag                 []byte
 
 	NewSegmentKeys []EncryptedKeyAndNonce
 
@@ -110,14 +110,14 @@ func (finishCopy FinishCopyObject) Verify() error {
 
 	if finishCopy.OverrideMetadata {
 		var nonce []byte
-		if !finishCopy.NewEncryptedMetadataKeyNonce.IsZero() {
-			nonce = finishCopy.NewEncryptedMetadataKeyNonce.Bytes()
+		if !finishCopy.NewEncryptedMetadataNonce.IsZero() {
+			nonce = finishCopy.NewEncryptedMetadataNonce.Bytes()
 		}
 		// check whether new metadata is valid
 		err := encryptedMetadata{
 			EncryptedMetadata:             finishCopy.NewEncryptedMetadata,
 			EncryptedMetadataNonce:        nonce,
-			EncryptedMetadataEncryptedKey: finishCopy.NewEncryptedMetadataKey,
+			EncryptedMetadataEncryptedKey: finishCopy.NewEncryptedMetadataEncryptedKey,
 			EncryptedETag:                 finishCopy.NewEncryptedETag,
 		}.Verify()
 		if err != nil {
@@ -127,10 +127,10 @@ func (finishCopy FinishCopyObject) Verify() error {
 		// otherwise check that we are setting reencrypted keys
 		// TODO: this should validate against the database that it matches it
 		switch {
-		case finishCopy.NewEncryptedMetadataKeyNonce.IsZero() && len(finishCopy.NewEncryptedMetadataKey) != 0:
-			return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-		case len(finishCopy.NewEncryptedMetadataKey) == 0 && !finishCopy.NewEncryptedMetadataKeyNonce.IsZero():
-			return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
+		case finishCopy.NewEncryptedMetadataNonce.IsZero() && len(finishCopy.NewEncryptedMetadataEncryptedKey) != 0:
+			return ErrInvalidRequest.New("EncryptedMetadataNonce is missing")
+		case len(finishCopy.NewEncryptedMetadataEncryptedKey) == 0 && !finishCopy.NewEncryptedMetadataNonce.IsZero():
+			return ErrInvalidRequest.New("EncryptedMetadataEncryptedKey is missing")
 		}
 	}
 
@@ -261,9 +261,9 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	newObject.BucketName = opts.NewBucket
 	newObject.ObjectKey = opts.NewEncryptedObjectKey
 	newObject.EncryptedMetadata = copyMetadata
-	newObject.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
-	if !opts.NewEncryptedMetadataKeyNonce.IsZero() {
-		newObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
+	newObject.EncryptedMetadataEncryptedKey = opts.NewEncryptedMetadataEncryptedKey
+	if !opts.NewEncryptedMetadataNonce.IsZero() {
+		newObject.EncryptedMetadataNonce = opts.NewEncryptedMetadataNonce[:]
 	}
 	newObject.Retention = opts.Retention
 	newObject.LegalHold = opts.LegalHold
@@ -425,7 +425,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, nextVersion, opts.NewStreamID,
 		newStatus, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 		encryptionParameters{&sourceObject.Encryption},
-		copyMetadata, opts.NewEncryptedMetadataKeyNonce, opts.NewEncryptedMetadataKey, opts.NewEncryptedETag,
+		copyMetadata, opts.NewEncryptedMetadataNonce, opts.NewEncryptedMetadataEncryptedKey, opts.NewEncryptedETag,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
 		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 		timeWrapper{&opts.Retention.RetainUntil},
@@ -510,8 +510,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"segment_count":                    int64(sourceObject.SegmentCount),
 			"encryption":                       encryptionParameters{&sourceObject.Encryption},
 			"encrypted_metadata":               copyMetadata,
-			"encrypted_metadata_nonce":         opts.NewEncryptedMetadataKeyNonce,
-			"encrypted_metadata_encrypted_key": opts.NewEncryptedMetadataKey,
+			"encrypted_metadata_nonce":         opts.NewEncryptedMetadataNonce,
+			"encrypted_metadata_encrypted_key": opts.NewEncryptedMetadataEncryptedKey,
 			"encrypted_etag":                   opts.NewEncryptedETag,
 			"total_plain_size":                 sourceObject.TotalPlainSize,
 			"total_encrypted_size":             sourceObject.TotalEncryptedSize,

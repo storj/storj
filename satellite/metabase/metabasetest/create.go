@@ -455,13 +455,13 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	opts := cc.FinishObject
 	if opts == nil {
 		opts = &metabase.FinishCopyObject{
-			ObjectStream:                 cc.OriginalObject.ObjectStream,
-			NewStreamID:                  copyStream.StreamID,
-			NewBucket:                    copyStream.BucketName,
-			NewSegmentKeys:               newEncryptedKeysNonces,
-			NewEncryptedObjectKey:        copyStream.ObjectKey,
-			NewEncryptedMetadataKeyNonce: testrand.Nonce(),
-			NewEncryptedMetadataKey:      testrand.Bytes(32),
+			ObjectStream:                     cc.OriginalObject.ObjectStream,
+			NewStreamID:                      copyStream.StreamID,
+			NewBucket:                        copyStream.BucketName,
+			NewSegmentKeys:                   newEncryptedKeysNonces,
+			NewEncryptedObjectKey:            copyStream.ObjectKey,
+			NewEncryptedMetadataNonce:        testrand.Nonce(),
+			NewEncryptedMetadataEncryptedKey: testrand.Bytes(32),
 
 			NewDisallowDelete: cc.NewDisallowDelete,
 			NewVersioned:      cc.NewVersioned,

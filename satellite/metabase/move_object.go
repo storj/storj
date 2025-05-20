@@ -50,13 +50,13 @@ type BeginMoveObject struct {
 
 // BeginMoveCopyResults holds all data needed to begin move and copy object methods.
 type BeginMoveCopyResults struct {
-	StreamID                  uuid.UUID
-	Version                   Version
-	EncryptedMetadata         []byte
-	EncryptedMetadataKeyNonce []byte
-	EncryptedMetadataKey      []byte
-	EncryptedKeysNonces       []EncryptedKeyAndNonce
-	EncryptionParameters      storj.EncryptionParameters
+	StreamID                      uuid.UUID
+	Version                       Version
+	EncryptedMetadata             []byte
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadataEncryptedKey []byte
+	EncryptedKeysNonces           []EncryptedKeyAndNonce
+	EncryptionParameters          storj.EncryptionParameters
 }
 
 // BeginMoveObject collects all data needed to begin object move procedure.
@@ -118,8 +118,8 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 	result.Version = object.Version
 	result.EncryptionParameters = object.Encryption
 	result.EncryptedMetadata = object.EncryptedMetadata
-	result.EncryptedMetadataKey = object.EncryptedMetadataEncryptedKey
-	result.EncryptedMetadataKeyNonce = object.EncryptedMetadataNonce
+	result.EncryptedMetadataEncryptedKey = object.EncryptedMetadataEncryptedKey
+	result.EncryptedMetadataNonce = object.EncryptedMetadataNonce
 
 	return result, nil
 }
@@ -184,8 +184,8 @@ type FinishMoveObject struct {
 	NewSegmentKeys        []EncryptedKeyAndNonce
 	NewEncryptedObjectKey ObjectKey
 	// Optional. Required if object has metadata.
-	NewEncryptedMetadataKeyNonce storj.Nonce
-	NewEncryptedMetadataKey      []byte
+	NewEncryptedMetadataNonce        storj.Nonce
+	NewEncryptedMetadataEncryptedKey []byte
 
 	// NewDisallowDelete indicates whether the user is allowed to delete an existing unversioned object.
 	NewDisallowDelete bool
@@ -273,14 +273,14 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		if hasMetadataOrETag {
 			metadataStub = []byte{1}
 		}
-		if !opts.NewEncryptedMetadataKeyNonce.IsZero() {
-			metadataKeyNonce = opts.NewEncryptedMetadataKeyNonce.Bytes()
+		if !opts.NewEncryptedMetadataNonce.IsZero() {
+			metadataKeyNonce = opts.NewEncryptedMetadataNonce.Bytes()
 		}
 		err = encryptedMetadata{
 			EncryptedMetadata:             metadataStub,
 			EncryptedETag:                 metadataStub,
 			EncryptedMetadataNonce:        metadataKeyNonce,
-			EncryptedMetadataEncryptedKey: opts.NewEncryptedMetadataKey,
+			EncryptedMetadataEncryptedKey: opts.NewEncryptedMetadataEncryptedKey,
 		}.Verify()
 		if err != nil {
 			return err
@@ -374,8 +374,8 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		`,
 		opts.NewBucket,
 		opts.NewEncryptedObjectKey,
-		opts.NewEncryptedMetadataKey,
-		opts.NewEncryptedMetadataKeyNonce,
+		opts.NewEncryptedMetadataEncryptedKey,
+		opts.NewEncryptedMetadataNonce,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 		newStatus,
 		nextVersion,
@@ -471,8 +471,8 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 	hasMetadataOrETag := len(encryptedMetadata) > 0 || len(encryptedETag) > 0
 
 	if hasMetadataOrETag {
-		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
-		encryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
+		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataEncryptedKey
+		encryptedMetadataNonce = opts.NewEncryptedMetadataNonce[:]
 	}
 
 	_, err = stx.tx.Update(ctx, spanner.Statement{

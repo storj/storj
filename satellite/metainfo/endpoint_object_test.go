@@ -2266,8 +2266,8 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			//	NewBucket:                    []byte("testbucket"),
 			//	NewEncryptedObjectKey:        []byte("newencryptedobjectkey"),
 			//	NewEncryptedMetadata:         testrand.Bytes(10),
-			//	NewEncryptedMetadataKey:      randomEncKey.Raw()[:],
-			//	NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+			//	NewEncryptedMetadataEncryptedKey:      randomEncKey.Raw()[:],
+			//	NewEncryptedMetadataNonce: testrand.Nonce(),
 			//	NewSegmentKeys: []*pb.EncryptedKeyAndNonce{
 			//		{
 			//			Position: &pb.SegmentPosition{

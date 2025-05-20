@@ -761,13 +761,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
-					StreamID:                  obj.StreamID,
-					Version:                   obj.Version,
-					EncryptedMetadata:         obj.EncryptedMetadata,
-					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
-					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
-					EncryptedKeysNonces:       encryptedKeyNonces,
-					EncryptionParameters:      obj.Encryption,
+					StreamID:                      obj.StreamID,
+					Version:                       obj.Version,
+					EncryptedMetadata:             obj.EncryptedMetadata,
+					EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+					EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+					EncryptedKeysNonces:           encryptedKeyNonces,
+					EncryptionParameters:          obj.Encryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -775,13 +775,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
 			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
-				NewStreamID:                  copyObjStream.StreamID,
-				NewBucket:                    copyObjStream.BucketName,
-				ObjectStream:                 obj.ObjectStream,
-				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+				NewStreamID:                      copyObjStream.StreamID,
+				NewBucket:                        copyObjStream.BucketName,
+				ObjectStream:                     obj.ObjectStream,
+				NewSegmentKeys:                   newEncryptedKeyNonces,
+				NewEncryptedObjectKey:            copyObjStream.ObjectKey,
+				NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+				NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
 
@@ -923,13 +923,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
-					StreamID:                  obj.StreamID,
-					Version:                   obj.Version,
-					EncryptedMetadata:         obj.EncryptedMetadata,
-					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
-					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
-					EncryptedKeysNonces:       encryptedKeyNonces,
-					EncryptionParameters:      obj.Encryption,
+					StreamID:                      obj.StreamID,
+					Version:                       obj.Version,
+					EncryptedMetadata:             obj.EncryptedMetadata,
+					EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+					EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+					EncryptedKeysNonces:           encryptedKeyNonces,
+					EncryptionParameters:          obj.Encryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -937,13 +937,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
 			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
-				ObjectStream:                 obj.ObjectStream,
-				NewStreamID:                  copyObjStream.StreamID,
-				NewBucket:                    copyObjStream.BucketName,
-				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+				ObjectStream:                     obj.ObjectStream,
+				NewStreamID:                      copyObjStream.StreamID,
+				NewBucket:                        copyObjStream.BucketName,
+				NewSegmentKeys:                   newEncryptedKeyNonces,
+				NewEncryptedObjectKey:            copyObjStream.ObjectKey,
+				NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+				NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
 
@@ -1091,13 +1091,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
-					StreamID:                  obj.StreamID,
-					Version:                   obj.Version,
-					EncryptedMetadata:         obj.EncryptedMetadata,
-					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
-					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
-					EncryptedKeysNonces:       encryptedKeyNonces,
-					EncryptionParameters:      obj.Encryption,
+					StreamID:                      obj.StreamID,
+					Version:                       obj.Version,
+					EncryptedMetadata:             obj.EncryptedMetadata,
+					EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+					EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+					EncryptedKeysNonces:           encryptedKeyNonces,
+					EncryptionParameters:          obj.Encryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -1105,13 +1105,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
 			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
-				ObjectStream:                 obj.ObjectStream,
-				NewStreamID:                  copyObjStream.StreamID,
-				NewBucket:                    copyObjStream.BucketName,
-				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+				ObjectStream:                     obj.ObjectStream,
+				NewStreamID:                      copyObjStream.StreamID,
+				NewBucket:                        copyObjStream.BucketName,
+				NewSegmentKeys:                   newEncryptedKeyNonces,
+				NewEncryptedObjectKey:            copyObjStream.ObjectKey,
+				NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+				NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
 
@@ -1409,13 +1409,13 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
-					StreamID:                  obj.StreamID,
-					Version:                   obj.Version,
-					EncryptedMetadata:         obj.EncryptedMetadata,
-					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
-					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
-					EncryptedKeysNonces:       encryptedKeyNonces,
-					EncryptionParameters:      obj.Encryption,
+					StreamID:                      obj.StreamID,
+					Version:                       obj.Version,
+					EncryptedMetadata:             obj.EncryptedMetadata,
+					EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+					EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+					EncryptedKeysNonces:           encryptedKeyNonces,
+					EncryptionParameters:          obj.Encryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -1423,13 +1423,13 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
 			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
-				ObjectStream:                 obj.ObjectStream,
-				NewStreamID:                  copyObjStream.StreamID,
-				NewBucket:                    copyObjStream.BucketName,
-				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+				ObjectStream:                     obj.ObjectStream,
+				NewStreamID:                      copyObjStream.StreamID,
+				NewBucket:                        copyObjStream.BucketName,
+				NewSegmentKeys:                   newEncryptedKeyNonces,
+				NewEncryptedObjectKey:            copyObjStream.ObjectKey,
+				NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+				NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
 
@@ -1574,13 +1574,13 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
-					StreamID:                  obj.StreamID,
-					Version:                   obj.Version,
-					EncryptedMetadata:         obj.EncryptedMetadata,
-					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
-					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
-					EncryptedKeysNonces:       encryptedKeyNonces,
-					EncryptionParameters:      obj.Encryption,
+					StreamID:                      obj.StreamID,
+					Version:                       obj.Version,
+					EncryptedMetadata:             obj.EncryptedMetadata,
+					EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+					EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+					EncryptedKeysNonces:           encryptedKeyNonces,
+					EncryptionParameters:          obj.Encryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -1588,13 +1588,13 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			newEncryptedMetadataKey := testrand.Bytes(32)
 
 			_, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
-				ObjectStream:                 obj.ObjectStream,
-				NewStreamID:                  copyObjStream.StreamID,
-				NewBucket:                    copyObjStream.BucketName,
-				NewSegmentKeys:               newEncryptedKeyNonces,
-				NewEncryptedObjectKey:        copyObjStream.ObjectKey,
-				NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-				NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+				ObjectStream:                     obj.ObjectStream,
+				NewStreamID:                      copyObjStream.StreamID,
+				NewBucket:                        copyObjStream.BucketName,
+				NewSegmentKeys:                   newEncryptedKeyNonces,
+				NewEncryptedObjectKey:            copyObjStream.ObjectKey,
+				NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+				NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 			})
 			require.NoError(t, err)
 

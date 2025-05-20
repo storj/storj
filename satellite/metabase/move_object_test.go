@@ -111,10 +111,10 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					ObjectStream:                 obj,
-					NewEncryptedObjectKey:        metabase.ObjectKey("\x01\x02\x03"),
-					NewEncryptedMetadataKey:      []byte{1, 2, 3},
-					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					ObjectStream:                     obj,
+					NewEncryptedObjectKey:            metabase.ObjectKey("\x01\x02\x03"),
+					NewEncryptedMetadataEncryptedKey: []byte{1, 2, 3},
+					NewEncryptedMetadataNonce:        testrand.Nonce(),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "NewBucket is missing",
@@ -138,7 +138,7 @@ func TestFinishMoveObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("invalid EncryptedMetadataKeyNonce", func(t *testing.T) {
+		t.Run("invalid EncryptedMetadataNonce", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
@@ -159,12 +159,12 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    newBucketName,
-					ObjectStream:                 obj,
-					NewSegmentKeys:               newEncryptedKeysNonces,
-					NewEncryptedObjectKey:        newObjectKey,
-					NewEncryptedMetadataKeyNonce: storj.Nonce{},
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+					NewBucket:                        newBucketName,
+					ObjectStream:                     obj,
+					NewSegmentKeys:                   newEncryptedKeysNonces,
+					NewEncryptedObjectKey:            newObjectKey,
+					NewEncryptedMetadataNonce:        storj.Nonce{},
+					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
@@ -178,7 +178,7 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("invalid EncryptedMetadataKey", func(t *testing.T) {
+		t.Run("invalid EncryptedMetadataEncryptedKey", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
@@ -199,12 +199,12 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    newBucketName,
-					ObjectStream:                 obj,
-					NewSegmentKeys:               newEncryptedKeysNonces,
-					NewEncryptedObjectKey:        newObjectKey,
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-					NewEncryptedMetadataKey:      nil,
+					NewBucket:                        newBucketName,
+					ObjectStream:                     obj,
+					NewSegmentKeys:                   newEncryptedKeysNonces,
+					NewEncryptedObjectKey:            newObjectKey,
+					NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+					NewEncryptedMetadataEncryptedKey: nil,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
@@ -218,7 +218,7 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("empty EncryptedMetadataKey and EncryptedMetadataKeyNonce", func(t *testing.T) {
+		t.Run("empty EncryptedMetadataEncryptedKey and EncryptedMetadataNonce", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.FinishMoveObject{
@@ -227,7 +227,7 @@ func TestFinishMoveObject(t *testing.T) {
 					ObjectStream:          obj,
 					NewEncryptedObjectKey: metabase.ObjectKey("\x00"),
 				},
-				// validation pass without EncryptedMetadataKey and EncryptedMetadataKeyNonce
+				// validation pass without EncryptedMetadataEncryptedKey and EncryptedMetadataNonce
 				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object not found",
 			}.Check(ctx, t, db)
@@ -247,11 +247,11 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    conflictObjStream.BucketName,
-					ObjectStream:                 moveObjStream,
-					NewEncryptedObjectKey:        conflictObjStream.ObjectKey,
-					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
-					NewEncryptedMetadataKey:      testrand.Bytes(265),
+					NewBucket:                        conflictObjStream.BucketName,
+					ObjectStream:                     moveObjStream,
+					NewEncryptedObjectKey:            conflictObjStream.ObjectKey,
+					NewEncryptedMetadataNonce:        testrand.Nonce(),
+					NewEncryptedMetadataEncryptedKey: testrand.Bytes(265),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
@@ -299,11 +299,11 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    conflictObjStream.BucketName,
-					ObjectStream:                 moveObjStream,
-					NewEncryptedObjectKey:        conflictObjStream.ObjectKey,
-					NewEncryptedMetadataKeyNonce: newNonce,
-					NewEncryptedMetadataKey:      newMetadataKey,
+					NewBucket:                        conflictObjStream.BucketName,
+					ObjectStream:                     moveObjStream,
+					NewEncryptedObjectKey:            conflictObjStream.ObjectKey,
+					NewEncryptedMetadataNonce:        newNonce,
+					NewEncryptedMetadataEncryptedKey: newMetadataKey,
 
 					NewDisallowDelete: true,
 				},
@@ -330,12 +330,12 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    newBucketName,
-					ObjectStream:                 newObj,
-					NewSegmentKeys:               newEncryptedKeysNonces,
-					NewEncryptedObjectKey:        newObjectKey,
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+					NewBucket:                        newBucketName,
+					ObjectStream:                     newObj,
+					NewSegmentKeys:                   newEncryptedKeysNonces,
+					NewEncryptedObjectKey:            newObjectKey,
+					NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object not found",
@@ -381,12 +381,12 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    newBucketName,
-					ObjectStream:                 obj,
-					NewSegmentKeys:               newEncryptedKeysNonces,
-					NewEncryptedObjectKey:        newObjectKey,
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+					NewBucket:                        newBucketName,
+					ObjectStream:                     obj,
+					NewSegmentKeys:                   newEncryptedKeysNonces,
+					NewEncryptedObjectKey:            newObjectKey,
+					NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "wrong number of segments keys received",
@@ -431,12 +431,12 @@ func TestFinishMoveObject(t *testing.T) {
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    newBucketName,
-					ObjectStream:                 obj,
-					NewSegmentKeys:               newEncryptedKeysNonces,
-					NewEncryptedObjectKey:        newObjectKey,
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+					NewBucket:                        newBucketName,
+					ObjectStream:                     obj,
+					NewSegmentKeys:                   newEncryptedKeysNonces,
+					NewEncryptedObjectKey:            newObjectKey,
+					NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.Error,
 				ErrText:  "segment is missing",
@@ -472,9 +472,9 @@ func TestFinishMoveObject(t *testing.T) {
 						metabasetest.RandEncryptedKeyAndNonce(0),
 						metabasetest.RandEncryptedKeyAndNonce(1),
 					},
-					NewEncryptedObjectKey:        metabasetest.RandObjectKey(),
-					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
-					NewEncryptedMetadataKey:      testrand.Bytes(32),
+					NewEncryptedObjectKey:            metabasetest.RandObjectKey(),
+					NewEncryptedMetadataNonce:        testrand.Nonce(),
+					NewEncryptedMetadataEncryptedKey: testrand.Bytes(32),
 				},
 				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "object was changed during move",
@@ -574,12 +574,12 @@ func TestFinishMoveObject(t *testing.T) {
 			newEncryptedMetadataKey := testrand.Bytes(32)
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
-					NewBucket:                    newBucketName,
-					ObjectStream:                 obj,
-					NewSegmentKeys:               newEncryptedKeysNonces,
-					NewEncryptedObjectKey:        newObjectKey,
-					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
-					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+					NewBucket:                        newBucketName,
+					ObjectStream:                     obj,
+					NewSegmentKeys:                   newEncryptedKeysNonces,
+					NewEncryptedObjectKey:            newObjectKey,
+					NewEncryptedMetadataNonce:        newEncryptedMetadataKeyNonce,
+					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
