@@ -179,6 +179,7 @@ interface StepInfoData<T> {
     prevText?: string,
     next?: SetupLocation<T>,
     nextText?: string | (() => string),
+    beforePrev?: () => void,
     beforeNext?: () => Promise<void>,
     setup?: () => void | Promise<void>,
     validate?: () => boolean,
@@ -191,6 +192,7 @@ export class StepInfo<T> {
     public next?: ComputedRef<T | undefined>;
     public prevText?: string;
     public nextText?: ComputedRef<string>;
+    public beforePrev?: () => void;
     public beforeNext?: () => Promise<void>;
     public setup?: () => void | Promise<void>;
     public validate?: () => boolean;
@@ -201,6 +203,7 @@ export class StepInfo<T> {
         }
         this.prev = data.prev ? computed<T | undefined>(data.prev) : undefined;
         this.next = data.next ? computed<T | undefined>(data.next) : undefined;
+        this.beforePrev = data.beforePrev;
         this.beforeNext = data.beforeNext;
         this.setup = data.setup;
         this.validate = data.validate;

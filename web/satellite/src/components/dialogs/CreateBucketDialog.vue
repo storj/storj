@@ -529,6 +529,13 @@ const stepInfos = {
             if (allowVersioningStep.value) return CreateStep.Versioning;
             return CreateStep.Confirmation;
         },
+        beforePrev: () => {
+            if (formValid.value) return;
+
+            defaultRetentionMode.value = NO_MODE_SET;
+            defaultRetentionPeriod.value = 0;
+            defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
+        },
         noRef: true,
     }),
     [CreateStep.Versioning]: new StepInfo<CreateStep>({
@@ -732,6 +739,8 @@ function toPrevStep(): void {
         return;
     }
     const info = stepInfos[step.value];
+    info.beforePrev?.();
+
     if (info.prev?.value) {
         step.value = info.prev.value;
         stepNumber.value--;
