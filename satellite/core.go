@@ -484,6 +484,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		service, err := stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -504,6 +513,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.Analytics.Service,
 			emission.NewService(config.Emission),
 			config.Console.SelfServeAccountDeleteEnabled,
+			pc.MinimumCharge.Amount,
+			newUserMinimumChargeCutoffDate,
+			allUsersMinimumChargeDate,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

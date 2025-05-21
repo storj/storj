@@ -69,6 +69,15 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		return nil, err
 	}
 
+	newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
+	if err != nil {
+		return nil, err
+	}
+	allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+	if err != nil {
+		return nil, err
+	}
+
 	return stripe.NewService(
 		log.Named("payments.stripe:service"),
 		stripeClient,
@@ -89,6 +98,9 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName, runCfg.Console.ExternalAddress),
 		emission.NewService(runCfg.Emission),
 		runCfg.Console.SelfServeAccountDeleteEnabled,
+		pc.MinimumCharge.Amount,
+		newUserMinimumChargeCutoffDate,
+		allUsersMinimumChargeDate,
 	)
 }
 

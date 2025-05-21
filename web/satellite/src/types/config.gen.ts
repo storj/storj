@@ -85,6 +85,7 @@ export class FrontendConfig {
     liveCheckBadPasswords: boolean;
     zkSyncContractAddress: string;
     newDetailedUsageReportEnabled: boolean;
+    minimumChargeEnabled: boolean;
 }
 
 export class MultiCaptchaConfig {

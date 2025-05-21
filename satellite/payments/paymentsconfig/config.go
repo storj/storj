@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/spf13/pflag"
@@ -34,6 +35,7 @@ type Config struct {
 	StripeCoinPayments stripe.Config
 	Storjscan          storjscan.Config
 	UsagePrice         ProjectUsagePrice
+	MinimumCharge      MinimumChargeConfig
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
 	Products                        ProductPriceOverrides       `help:"a JSON mapping of non-zero product IDs to their names and price structures in the format: {\"productID\": {\"name\": \"...\", \"storage\": \"...\", \"egress\": \"...\", \"segment\": \"...\", \"egress_discount_ratio\": \"...\"}}. The egress discount ratio is the ratio of free egress per unit-month of storage"`
@@ -43,6 +45,46 @@ type Config struct {
 	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PackagePlans        PackagePlans   `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
+}
+
+// MinimumChargeConfig holds the configuration for minimum charge enforcement.
+type MinimumChargeConfig struct {
+	// Amount specifies the minimum amount in cents that will be charged to a customer for an invoice.
+	// If an invoice total is below this amount, an additional line item will be added to reach this threshold.
+	// Set to 0 to disable minimum charge enforcement.
+	Amount             int64  `help:"minimum amount in cents to charge customers per invoice period (0 to disable)" default:"0"`
+	NewUsersCutoffDate string `help:"date after which newly-created users will have minimum charges applied (YYYY-MM-DD, empty for no effect)" default:""`
+	AllUsersDate       string `help:"date after which all users will have minimum charges applied (YYYY-MM-DD, empty for no effect)" default:""`
+}
+
+// GetNewUsersCutoffDate returns the date after which newly-created users will have minimum charges applied.
+// If the date is not set, it returns nil.
+func (p MinimumChargeConfig) GetNewUsersCutoffDate() (*time.Time, error) {
+	if p.NewUsersCutoffDate == "" {
+		return nil, nil
+	}
+
+	date, err := time.Parse("2006-01-02", p.NewUsersCutoffDate)
+	if err != nil {
+		return nil, err
+	}
+
+	return &date, nil
+}
+
+// GetAllUsersDate returns the date after which all users will have minimum charges applied.
+// If the date is not set, it returns nil.
+func (p MinimumChargeConfig) GetAllUsersDate() (*time.Time, error) {
+	if p.AllUsersDate == "" {
+		return nil, nil
+	}
+
+	date, err := time.Parse("2006-01-02", p.AllUsersDate)
+	if err != nil {
+		return nil, err
+	}
+
+	return &date, nil
 }
 
 // ProjectUsagePrice holds the configuration for the satellite's project usage price model.

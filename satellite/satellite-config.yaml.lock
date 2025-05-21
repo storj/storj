@@ -1298,6 +1298,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
+# date after which all users will have minimum charges applied (YYYY-MM-DD, empty for no effect)
+# payments.minimum-charge.all-users-date: ""
+
+# minimum amount in cents to charge customers per invoice period (0 to disable)
+# payments.minimum-charge.amount: 0
+
+# date after which newly-created users will have minimum charges applied (YYYY-MM-DD, empty for no effect)
+# payments.minimum-charge.new-users-cutoff-date: ""
+
 # semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 

@@ -60,6 +60,11 @@ func TestSignupCouponCodes(t *testing.T) {
 		productPrices, err := pc.Products.ToModels()
 		require.NoError(t, err)
 
+		newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
+		require.NoError(t, err)
+		allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+		require.NoError(t, err)
+
 		paymentsService, err := stripe.NewService(
 			log.Named("payments.stripe:service"),
 			stripe.NewStripeMock(
@@ -83,6 +88,9 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			nil,
 			false,
+			pc.MinimumCharge.Amount,
+			newUserMinimumChargeCutoffDate,
+			allUsersMinimumChargeDate,
 		)
 		require.NoError(t, err)
 

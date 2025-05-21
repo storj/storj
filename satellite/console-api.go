@@ -424,6 +424,15 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Payments.StripeService, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -444,6 +453,9 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			emissionService,
 			config.Console.SelfServeAccountDeleteEnabled,
+			pc.MinimumCharge.Amount,
+			newUserMinimumChargeCutoffDate,
+			allUsersMinimumChargeDate,
 		)
 
 		if err != nil {
@@ -575,6 +587,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			},
 			config.Analytics,
 			config.Payments.PackagePlans,
+			config.Payments.MinimumCharge,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

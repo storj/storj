@@ -176,7 +176,8 @@ type Server struct {
 
 	AnalyticsConfig analytics.Config
 
-	packagePlans paymentsconfig.PackagePlans
+	packagePlans        paymentsconfig.PackagePlans
+	minimumChargeConfig paymentsconfig.MinimumChargeConfig
 
 	errorTemplate *template.Template
 }
@@ -241,7 +242,8 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
 	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
 	csrfService *csrf.Service, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
-	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans) *Server {
+	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans,
+	minimumChargeConfig paymentsconfig.MinimumChargeConfig) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -260,6 +262,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		nodeURL:                         nodeURL,
 		AnalyticsConfig:                 analyticsConfig,
 		packagePlans:                    packagePlans,
+		minimumChargeConfig:             minimumChargeConfig,
 		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 	}
 
@@ -1037,6 +1040,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
+		MinimumChargeEnabled:              server.minimumChargeConfig.Amount > 0,
 	}
 
 	w.Header().Set(contentType, applicationJSON)

@@ -118,10 +118,22 @@ type Service struct {
 	partnerPlacementMap  payments.PartnersPlacementProductMap
 	placementProductMap  payments.PlacementProductIdMap
 	productPriceMap      map[int32]payments.ProductUsagePriceModel
+
+	minimumChargeAmount             int64
+	newUsersMinimumChargeCutoffDate *time.Time // nil means apply to all users
+	allUsersMinimumChargeDate       *time.Time // nil means no effect on existing users
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, productPriceMap map[int32]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap, placementProductMap payments.PlacementProductIdMap, packagePlans map[string]payments.PackagePlan, bonusRate int64, analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB,
+	billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users,
+	usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel,
+	usagePriceOverrides map[string]payments.ProjectUsagePriceModel,
+	productPriceMap map[int32]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap,
+	placementProductMap payments.PlacementProductIdMap, packagePlans map[string]payments.PackagePlan, bonusRate int64,
+	analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool,
+	minimumChargeAmount int64, newUsersMinimumChargeCutoffDate *time.Time, allUsersMinimumChargeDate *time.Time,
+) (*Service, error) {
 	var partners []string
 	addedPartners := make(map[string]struct{})
 	// partners relevant to billing may be defined as part of `usagePriceOverrides`, or `partnerPlacementMap`. Eventually, `usagePriceOverrides` will become legacy, and be replaced with `partnerPlacementMap`.
@@ -168,7 +180,12 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		placementProductMap:    placementProductMap,
 		productPriceMap:        productPriceMap,
 		deleteAccountEnabled:   deleteAccountEnabled,
-		nowFn:                  time.Now,
+
+		minimumChargeAmount:             minimumChargeAmount,
+		newUsersMinimumChargeCutoffDate: newUsersMinimumChargeCutoffDate,
+		allUsersMinimumChargeDate:       allUsersMinimumChargeDate,
+
+		nowFn: time.Now,
 	}, nil
 }
 

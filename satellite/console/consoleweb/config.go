@@ -89,6 +89,7 @@ type FrontendConfig struct {
 	LiveCheckBadPasswords             bool                  `json:"liveCheckBadPasswords"`
 	ZkSyncContractAddress             string                `json:"zkSyncContractAddress"`
 	NewDetailedUsageReportEnabled     bool                  `json:"newDetailedUsageReportEnabled"`
+	MinimumChargeEnabled              bool                  `json:"minimumChargeEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
