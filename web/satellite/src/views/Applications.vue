@@ -127,7 +127,7 @@ import {
 } from 'vuetify/components';
 import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
 
-import { AppCategory, Application, applications, UplinkApp } from '@/types/applications';
+import { AppCategory, Application, applications, ObjectMountApp, UplinkApp } from '@/types/applications';
 import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -171,11 +171,20 @@ const filteredApps = computed<Application[]>(() => {
         return 0;
     });
 
-    if (selectedChip.value === AppCategory.All && !search.value) {
+    const showAll = selectedChip.value === AppCategory.All && !search.value;
+    if (showAll) {
         const index = result.findIndex(app => app.name === UplinkApp.name);
         if (index > -1) {
             const [uplink] = result.splice(index, 1);
             result.unshift(uplink);
+        }
+    }
+
+    if (ObjectMountApp.categories.includes(selectedChip.value) || showAll) {
+        const index = result.findIndex(app => app.name === ObjectMountApp.name);
+        if (index > -1) {
+            const [mount] = result.splice(index, 1);
+            result.unshift(mount);
         }
     }
 

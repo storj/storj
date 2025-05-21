@@ -80,7 +80,16 @@ export const UplinkApp: Application = {
     docs: 'https://docs.storj.io/dcs/api/uplink-cli/installation',
 };
 
+export const ObjectMountApp: Application = {
+    name: 'Storj Object Mount',
+    description: 'Access files stored on Storj as if they were on local disk, allowing real-time editing without downloading entire files.',
+    categories: [AppCategory.Media, AppCategory.FileManagement],
+    src: StorjIcon,
+    docs: '',
+};
+
 export const applications: Application[] = [
+    ObjectMountApp,
     UplinkApp,
     {
         name: 'TrueNAS - iX Systems',
@@ -346,13 +355,6 @@ export const applications: Application[] = [
         description: 'Professional video editing software that connects to Storj for direct project file access and collaborative editing.',
         categories: [AppCategory.Media],
         src: AdobeIcon,
-        docs: '',
-    },
-    {
-        name: 'Storj Object Mount',
-        description: 'Access files stored on Storj as if they were on local disk, allowing real-time editing without downloading entire files.',
-        categories: [AppCategory.Media, AppCategory.FileManagement],
-        src: StorjIcon,
         docs: '',
     },
     {
