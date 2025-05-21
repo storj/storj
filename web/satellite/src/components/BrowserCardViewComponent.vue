@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card v-if="!isAltPagination" class="pa-4 mb-6" :loading="isFetching">
-        <v-row align="center">
+    <v-card class="pa-4 mb-6" :loading="isFetching">
+        <v-row v-if="!isAltPagination" align="center">
             <v-col cols="12" sm class="flex-grow-1 flex-sm-grow-1">
                 <v-text-field
                     v-model="search"
