@@ -234,7 +234,7 @@ const settingsPath = ROUTES.Account.with(ROUTES.AccountSettings).path;
 const billingPath = ROUTES.Account.with(ROUTES.Billing).path;
 
 withDefaults(defineProps<{
-    showNavDrawerButton: boolean;
+    showNavDrawerButton?: boolean;
 }>(), {
     showNavDrawerButton: false,
 });

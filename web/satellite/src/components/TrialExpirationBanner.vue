@@ -28,7 +28,7 @@ const configStore = useConfigStore();
 const appStore = useAppStore();
 
 const props = withDefaults(defineProps<{
-    expired: boolean
+    expired?: boolean
 }>(), {
     expired: false,
 });

@@ -92,7 +92,7 @@ import { ExpirationInfo } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore.js';
 
 const props = withDefaults(defineProps<{
-    expired: boolean
+    expired?: boolean
 }>(), {
     expired: false,
 });

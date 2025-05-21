@@ -982,7 +982,7 @@ watch(datePickerModel, async (newRange) => {
 }
 
 .dot-background {
-    background-image: radial-gradient(circle, rgba(var(--v-theme-on-surface),0.04) 1px, transparent 1px);
+    background-image: radial-gradient(circle, rgb(var(--v-theme-on-surface),0.04) 1px, transparent 1px);
     background-size: 12px 12px;
     background-color: rgb(var(--v-theme-surface));;
 }

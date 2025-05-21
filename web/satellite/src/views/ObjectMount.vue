@@ -310,6 +310,24 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onBeforeMount, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import {
+    VAvatar,
+    VCard,
+    VCardItem,
+    VCardText,
+    VCardTitle,
+    VCheckbox,
+    VCol,
+    VContainer,
+    VDivider,
+    VForm,
+    VRow,
+    VSelect,
+    VSheet,
+    VTextField,
+    VTextarea,
+    VBtn,
+} from 'vuetify/components';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/composables/useNotify';

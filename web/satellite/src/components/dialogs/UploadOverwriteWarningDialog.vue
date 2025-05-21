@@ -107,7 +107,7 @@ const notify = useNotify();
 const { withLoading, isLoading } = useLoading();
 
 withDefaults(defineProps<{
-    filenames: string[],
+    filenames?: string[],
 }>(), {
     filenames: () => [],
 });

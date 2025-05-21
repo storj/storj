@@ -25,11 +25,11 @@ import { Size } from '@/utils/bytesSize';
 import VChart from '@/components/VChart.vue';
 
 const props = withDefaults(defineProps<{
-    data: DataStamp[],
-    since: Date,
-    before: Date,
-    width: number,
-    height: number,
+    data?: DataStamp[],
+    since?: Date,
+    before?: Date,
+    width?: number,
+    height?: number,
 }>(), {
     data: () => [],
     since: () => new Date(),
@@ -116,7 +116,7 @@ watch(() => props.width, () => {
     align-items: center;
     background: rgb(var(--v-theme-surface)) !important;
     color: rgb(var(--v-theme-on-surface)) !important;
-    border: 1px solid rgba(var(--v-theme-on-surface),0.2);
+    border: 1px solid rgb(var(--v-theme-on-surface),0.2);
     box-shadow: rgb(0 0 0 / 3%) 0 1px 4px 2px !important;
     border-radius: 10px !important;
     pointer-events: all !important;
@@ -140,8 +140,8 @@ watch(() => props.width, () => {
         transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
         margin-bottom: -4px;
         background-color: rgb(var(--v-theme-surface)) !important;
-        border-right: 1px solid rgba(var(--v-theme-on-surface), 0.2);
-        border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+        border-right: 1px solid rgb(var(--v-theme-on-surface), 0.2);
+        border-bottom: 1px solid rgb(var(--v-theme-on-surface), 0.2);
         position: relative;
         z-index: 1;
 

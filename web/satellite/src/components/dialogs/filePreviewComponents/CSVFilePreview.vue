@@ -74,7 +74,7 @@ table {
         white-space: nowrap;
 
         /* stylelint-disable-next-line color-function-notation */
-        border: 1px solid rgba(var(--v-border-color),var(--v-border-opacity));
+        border: 1px solid rgb(var(--v-border-color),var(--v-border-opacity));
     }
 }
 </style>

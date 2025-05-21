@@ -170,7 +170,6 @@
 <script setup lang="ts">
 import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
 import { ref } from 'vue';
-import { useDisplay } from 'vuetify';
 import { Building2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 
 import { AuthHttpApi } from '@/api/auth';
@@ -183,8 +182,6 @@ const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
-
-const { smAndUp } = useDisplay();
 
 defineProps<{
     loading: boolean,

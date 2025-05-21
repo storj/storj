@@ -8,7 +8,7 @@
 </template>
 <script setup lang="ts">
 withDefaults(defineProps<{
-    size: number,
+    size?: number,
 }>(), {
     size: 32,
 });

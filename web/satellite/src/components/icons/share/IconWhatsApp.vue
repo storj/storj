@@ -9,7 +9,7 @@
 
 <script setup lang="ts">
 withDefaults(defineProps<{
-    size: number | string;
+    size?: number | string;
 }>(), {
     size: 24,
 });

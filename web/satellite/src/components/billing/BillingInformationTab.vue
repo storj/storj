@@ -44,11 +44,11 @@
             </v-card>
         </v-col>
         <v-col v-for="(taxID, index) in taxIDs" v-else :key="index" cols="12" sm="12" md="6" lg="6" xl="4">
-            <v-card :title="taxID.tax.name" class="pa-2">
+            <v-card :loading="isLoading" :title="taxID.tax.name" class="pa-2">
                 <v-card-text>
                     <p>{{ taxID.value }}</p>
                     <v-divider class="my-4 border-0" />
-                    <v-btn :loading="isLoading" class="mr-2" variant="outlined" color="error" size="small" :prepend-icon="X" @click="removeTaxID(taxID.id ?? '')">
+                    <v-btn :loading="isLoading" class="mr-2" variant="outlined" color="error" :prepend-icon="X" @click="removeTaxID(taxID.id ?? '')">
                         Remove
                     </v-btn>
                     <v-btn v-if="index === taxIDs.length - 1" color="primary" :prepend-icon="Plus" @click="isTaxIdDialogShown = true">

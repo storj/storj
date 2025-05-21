@@ -3,7 +3,7 @@
 
 <template>
     <v-dialog :model-value="shouldShowSetupDialog" fullscreen persistent transition="fade-transition" scrollable>
-        <v-card ref="innerContent" class="account-setup-dialog">
+        <v-card class="account-setup-dialog">
             <v-card-item class="pa-1" :class="{ 'h-100': step === OnboardingStep.SetupComplete }">
                 <v-window v-model="step">
                     <!-- Choice step -->

@@ -95,7 +95,7 @@ const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
 
 withDefaults(defineProps<{
-    loading: boolean,
+    loading?: boolean,
 }>(), {
     loading: false,
 });

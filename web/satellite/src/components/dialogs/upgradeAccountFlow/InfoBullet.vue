@@ -42,8 +42,8 @@ import { CircleCheck, Info } from 'lucide-vue-next';
 
 withDefaults(defineProps<{
     isPro?: boolean;
-    title: string;
-    info: string;
+    title?: string;
+    info?: string;
 }>(), {
     isPro: false,
     title: '',

@@ -124,7 +124,7 @@ const notify = useNotify();
 const model = defineModel<boolean>({ required: true });
 
 const countryCode = ref<string>();
-const tax = ref<Tax | null>();
+const tax = ref<Tax>();
 const taxId = ref<string>();
 const formValid = ref(false);
 
@@ -166,7 +166,7 @@ watch(countryCode, (code) => {
         if (!code) {
             return;
         }
-        tax.value = null;
+        tax.value = undefined;
         try {
             await billingStore.getCountryTaxes(code ?? '');
             if (taxes.value.length === 1) {
@@ -176,5 +176,14 @@ watch(countryCode, (code) => {
             notify.notifyError(e);
         }
     });
+});
+
+watch(model, val => {
+    if (!val) {
+        form.value?.reset();
+        countryCode.value = undefined;
+        tax.value = undefined;
+        taxId.value = undefined;
+    }
 });
 </script>

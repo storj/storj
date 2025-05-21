@@ -33,7 +33,7 @@ import {
 import { CreditCard } from '@/types/payments';
 
 withDefaults(defineProps<{
-    card: CreditCard
+    card?: CreditCard
     selectable?: boolean
 }>(), {
     card: () => new CreditCard(),

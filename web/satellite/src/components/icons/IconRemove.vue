@@ -10,7 +10,7 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
     color?: string;
-    size: number | string;
+    size?: number | string;
 }>(), {
     color: 'currentColor',
     size: 20,

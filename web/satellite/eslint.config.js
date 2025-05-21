@@ -17,6 +17,7 @@ export default defineConfigWithVueTs([
             'coverage',
             'tests/unit/ignore',
             'static/wasm',
+            'src/utils/accessGrant.worker.js',
         ],
     },
     js.configs.recommended,
@@ -86,7 +87,6 @@ export default defineConfigWithVueTs([
             'import/no-unresolved': ['error', { ignore: ['^virtual:'] }],
             'no-duplicate-imports': 'error',
             'import/default': 'off',
-            'vue/script-setup-uses-vars': 'error',
             'eqeqeq': ['error'],
 
             'vue/multi-word-component-names': ['off'],
