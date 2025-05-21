@@ -8,12 +8,6 @@
     </p>
 
     <StripeCardElement
-        v-if="paymentElementEnabled"
-        ref="stripeCardInput"
-        @ready="stripeReady = true"
-    />
-    <StripeCardInput
-        v-else
         ref="stripeCardInput"
         @ready="stripeReady = true"
     />
@@ -46,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { VBtn, VCol, VRow } from 'vuetify/components';
 import { LockKeyhole } from 'lucide-vue-next';
@@ -61,7 +55,6 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
-import StripeCardInput from '@/components/StripeCardInput.vue';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
@@ -87,13 +80,6 @@ const stripeCardInput = ref<StripeForm | null>(null);
 const stripeReady = ref<boolean>(false);
 
 /**
- * Indicates whether stripe payment element is enabled.
- */
-const paymentElementEnabled = computed(() => {
-    return configStore.state.config.stripePaymentElementEnabled;
-});
-
-/**
  * Provides card information to Stripe.
  */
 async function onSaveCardClick(): Promise<void> {
@@ -117,8 +103,7 @@ async function onSaveCardClick(): Promise<void> {
  */
 async function addCardToDB(res: string): Promise<void> {
     try {
-        const action = paymentElementEnabled.value ? billingStore.addCardByPaymentMethodID : billingStore.addCreditCard;
-        await action(res);
+        await billingStore.addCardByPaymentMethodID(res);
         notify.success('Card successfully added');
         // We fetch User one more time to update their Paid Tier status.
         usersStore.getUser().catch((_) => {});

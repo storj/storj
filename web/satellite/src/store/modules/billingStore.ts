@@ -124,10 +124,6 @@ export const useBillingStore = defineStore('billing', () => {
         return creditCards;
     }
 
-    async function addCreditCard(token: string): Promise<void> {
-        await api.addCreditCard(token, csrfToken.value);
-    }
-
     async function updateCreditCard(params: UpdateCardParams): Promise<void> {
         await api.updateCreditCard(params, csrfToken.value);
     }
@@ -225,8 +221,8 @@ export const useBillingStore = defineStore('billing', () => {
         return await api.pricingPackageAvailable();
     }
 
-    async function purchasePricingPackage(dataStr: string, isPMID: boolean): Promise<void> {
-        await api.purchasePricingPackage(dataStr, isPMID, csrfToken.value);
+    async function purchasePricingPackage(dataStr: string): Promise<void> {
+        await api.purchasePricingPackage(dataStr, csrfToken.value);
     }
 
     function setPricingPlansAvailable(available: boolean, info: PricingPlanInfo | null = null): void {
@@ -269,7 +265,6 @@ export const useBillingStore = defineStore('billing', () => {
         claimWallet,
         setupAccount,
         getCreditCards,
-        addCreditCard,
         updateCreditCard,
         addCardByPaymentMethodID,
         attemptPayments,

@@ -227,11 +227,10 @@ export interface PaymentsApi {
      * Purchases the pricing package associated with the user's partner.
      *
      * @param dataStr - the Stripe payment method id or token of the credit card
-     * @param isPMID - whether the dataStr is a payment method id or token
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    purchasePricingPackage(dataStr: string, isPMID: boolean, csrfProtectionToken: string): Promise<void>;
+    purchasePricingPackage(dataStr: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Returns whether there is a pricing package configured for the user's partner.

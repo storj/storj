@@ -28,7 +28,6 @@ type Config struct {
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
 	BillingFeaturesEnabled            bool                      `help:"indicates if billing features should be enabled" default:"true"`
-	StripePaymentElementEnabled       bool                      `help:"indicates whether the stripe payment element should be used to collect card info" default:"true"`
 	MaxAddFundsAmount                 int                       `help:"maximum amount (in cents) allowed to be added to an account balance." default:"10000"`
 	MinAddFundsAmount                 int                       `help:"minimum amount (in cents) allowed to be added to an account balance." default:"100"`
 	SignupActivationCodeEnabled       bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true" testDefault:"false" devDefault:"false"`

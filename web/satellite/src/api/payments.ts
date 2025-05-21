@@ -763,8 +763,8 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async purchasePricingPackage(dataStr: string, isPMID: boolean, csrfProtectionToken: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/purchase-package?pmID=${isPMID}`;
+    public async purchasePricingPackage(dataStr: string, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/purchase-package`;
         const response = await this.client.post(path, dataStr, { csrfProtectionToken });
 
         if (response.ok) {

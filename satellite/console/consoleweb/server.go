@@ -1000,7 +1000,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		GalleryViewEnabled:                server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:    server.neededTokenPaymentConfirmations,
 		BillingFeaturesEnabled:            server.config.BillingFeaturesEnabled,
-		StripePaymentElementEnabled:       server.config.StripePaymentElementEnabled,
 		UnregisteredInviteEmailsEnabled:   server.config.UnregisteredInviteEmailsEnabled,
 		UserBalanceForUpgrade:             server.config.UserBalanceForUpgrade,
 		LimitIncreaseRequestEnabled:       server.config.LimitIncreaseRequestEnabled,

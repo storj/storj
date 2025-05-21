@@ -8,19 +8,11 @@
                 <v-btn variant="outlined" color="default" class="mr-2" :prepend-icon="Plus" @click="onShowCardInput">Add New Card</v-btn>
             </div>
 
-            <template v-else>
-                <StripeCardElement
-                    v-if="paymentElementEnabled"
-                    ref="stripeCardInput"
-                    @ready="stripeReady = true"
-                />
-                <StripeCardInput
-                    v-else
-                    ref="stripeCardInput"
-                    :on-stripe-response-callback="addCardToDB"
-                    @ready="stripeReady = true"
-                />
-            </template>
+            <StripeCardElement
+                v-else
+                ref="stripeCardInput"
+                @ready="stripeReady = true"
+            />
 
             <div v-if="isCardInputShown" class="mt-4">
                 <v-btn
@@ -77,7 +69,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { Plus } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -85,12 +77,10 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
-import StripeCardInput from '@/components/StripeCardInput.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
 
 interface StripeForm {
@@ -98,7 +88,6 @@ interface StripeForm {
 }
 
 const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
 const appStore = useAppStore();
@@ -111,13 +100,6 @@ const stripeReady = ref<boolean>(false);
 
 const isCardInputShown = ref(false);
 const isUpgradeSuccessShown = ref(false);
-
-/**
- * Indicates whether stripe payment element is enabled.
- */
-const paymentElementEnabled = computed(() => {
-    return configStore.state.config.stripePaymentElementEnabled;
-});
 
 /**
  * Triggers enter card info inputs to be shown.
@@ -155,8 +137,7 @@ function onSaveCardClick(): void {
  */
 async function addCardToDB(res: string) {
     try {
-        const action = paymentElementEnabled.value ? billingStore.addCardByPaymentMethodID : billingStore.addCreditCard;
-        await action(res);
+        await billingStore.addCardByPaymentMethodID(res);
         notify.success('Card successfully added');
         isCardInputShown.value = false;
 

@@ -16,12 +16,6 @@
         <div v-if="!isFree" class="my-2">
             <p class="text-caption mb-2">Add Card Info</p>
             <StripeCardElement
-                v-if="paymentElementEnabled"
-                ref="stripeCardInput"
-                @ready="stripeReady = true"
-            />
-            <StripeCardInput
-                v-else
                 ref="stripeCardInput"
                 @ready="stripeReady = true"
             />
@@ -108,16 +102,13 @@ import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useConfigStore } from '@/store/modules/configStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
-import StripeCardInput from '@/components/StripeCardInput.vue';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
 }
 
-const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 
@@ -143,13 +134,6 @@ const emit = defineEmits<{
 }>();
 
 const loading = defineModel<boolean>('loading');
-
-/**
- * Indicates whether stripe payment element is enabled.
- */
-const paymentElementEnabled = computed(() => {
-    return configStore.state.config.stripePaymentElementEnabled;
-});
 
 /**
  * Returns whether current plan is a free pricing plan.
@@ -195,13 +179,9 @@ async function onCardAdded(res: string): Promise<void> {
     if (!props.plan) return;
     try {
         if (props.plan.type === PricingPlanType.PARTNER) {
-            await billingStore.purchasePricingPackage(res, paymentElementEnabled.value);
+            await billingStore.purchasePricingPackage(res);
         } else {
-            if (paymentElementEnabled.value) {
-                await billingStore.addCardByPaymentMethodID(res);
-            } else {
-                await billingStore.addCreditCard(res);
-            }
+            await billingStore.addCardByPaymentMethodID(res);
         }
         onSuccess();
 

@@ -704,9 +704,6 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	// whether to use payment method id instead of token for adding card.
-	usePmID := r.URL.Query().Get("pmID") == "true"
-
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
@@ -727,14 +724,7 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var addCardFunc func(context.Context, string) (payments.CreditCard, error)
-	if usePmID {
-		addCardFunc = p.service.Payments().AddCardByPaymentMethodID
-	} else {
-		addCardFunc = p.service.Payments().AddCreditCard
-	}
-
-	card, err := addCardFunc(ctx, token)
+	card, err := p.service.Payments().AddCardByPaymentMethodID(ctx, token)
 	if err != nil {
 		switch {
 		case console.ErrUnauthorized.Has(err):
