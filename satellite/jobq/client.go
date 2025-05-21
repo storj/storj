@@ -178,9 +178,10 @@ func (c *Client) Delete(ctx context.Context, placement storj.PlacementConstraint
 }
 
 // Stat collects statistics about the indicated job queue.
-func (c *Client) Stat(ctx context.Context, placement storj.PlacementConstraint) (stat QueueStat, err error) {
+func (c *Client) Stat(ctx context.Context, placement storj.PlacementConstraint, withHistogram bool) (stat QueueStat, err error) {
 	resp, err := c.client.Stat(ctx, &pb.JobQueueStatRequest{
-		Placement: int32(placement),
+		Placement:     int32(placement),
+		WithHistogram: withHistogram,
 	})
 	if err != nil {
 		return stat, err
@@ -195,13 +196,15 @@ func (c *Client) Stat(ctx context.Context, placement storj.PlacementConstraint) 
 		MinAttemptedAt:   s.MinAttemptedAt,
 		MinSegmentHealth: s.MinSegmentHealth,
 		MaxSegmentHealth: s.MaxSegmentHealth,
+		Histogram:        histogramItemFromProtobuf(s.Histogram),
 	}, nil
 }
 
 // StatAll collects statistics about all job queues on a server.
-func (c *Client) StatAll(ctx context.Context) (stats []QueueStat, err error) {
+func (c *Client) StatAll(ctx context.Context, withHistogram bool) (stats []QueueStat, err error) {
 	resp, err := c.client.Stat(ctx, &pb.JobQueueStatRequest{
 		AllPlacements: true,
+		WithHistogram: withHistogram,
 	})
 	if err != nil {
 		return nil, err
@@ -217,9 +220,29 @@ func (c *Client) StatAll(ctx context.Context) (stats []QueueStat, err error) {
 			MinAttemptedAt:   s.MinAttemptedAt,
 			MinSegmentHealth: s.MinSegmentHealth,
 			MaxSegmentHealth: s.MaxSegmentHealth,
+			Histogram:        histogramItemFromProtobuf(s.Histogram),
 		})
 	}
 	return stats, nil
+}
+
+func histogramItemFromProtobuf(protoItem []*pb.QueueStatHistogram) (res []HistogramItem) {
+	for _, h := range protoItem {
+		streamID, err := uuid.FromBytes(h.ExamplarStreamId)
+		if err != nil {
+			return res
+		}
+		res = append(res, HistogramItem{
+			Count:             h.Count,
+			NumOutOfPlacement: int64(h.NumOutOfPlacement),
+			NumMissing:        int64(h.NumMissing),
+			Examplar: SegmentIdentifier{
+				StreamID: streamID,
+				Position: h.ExemplarPosition,
+			},
+		})
+	}
+	return res
 }
 
 // Truncate removes all items from a job queue.

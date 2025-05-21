@@ -202,7 +202,7 @@ func (rjq *RepairJobQueue) Delete(ctx context.Context, job queue.InjuredSegment)
 // Stat returns statistics about the repair queues. Note: this is expensive!
 // It requires a full scan of all queues.
 func (rjq *RepairJobQueue) Stat(ctx context.Context) ([]queue.Stat, error) {
-	stats, err := rjq.jobqClient.StatAll(ctx)
+	stats, err := rjq.jobqClient.StatAll(ctx, false)
 	if err != nil {
 		return nil, err
 	}

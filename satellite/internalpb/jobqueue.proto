@@ -128,6 +128,7 @@ message JobQueueInspectResponse {
 message JobQueueStatRequest {
     int32 placement = 1;
     bool all_placements = 2;
+    bool with_histogram = 3;
 }
 
 message QueueStat {
@@ -139,6 +140,15 @@ message QueueStat {
     google.protobuf.Timestamp min_attempted_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
     double min_segment_health = 7;
     double max_segment_health = 8;
+    repeated QueueStatHistogram histogram = 9;
+}
+
+message QueueStatHistogram {
+  int64 count = 1;
+  int32 num_missing = 2;
+  int32 num_out_of_placement = 3;
+  bytes examplar_stream_id = 4;
+  uint64 exemplar_position = 5;
 }
 
 message JobQueueStatResponse {

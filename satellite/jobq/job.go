@@ -143,4 +143,13 @@ type QueueStat struct {
 	MinAttemptedAt   *time.Time
 	MinSegmentHealth float64
 	MaxSegmentHealth float64
+	Histogram        []HistogramItem
+}
+
+// HistogramItem represents a group of jobq items with the same number of missing / out of placement health count.
+type HistogramItem struct {
+	NumMissing        int64
+	NumOutOfPlacement int64
+	Examplar          SegmentIdentifier
+	Count             int64
 }
