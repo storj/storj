@@ -627,7 +627,15 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 	since := time.Time{}.Add(24 * 365 * time.Hour)
 	before := since.Add(2 * usagePeriod)
 
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Tally.RetentionDays = 0
+				config.Rollup.DeleteTallies = false
+			},
+		},
+	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
 
