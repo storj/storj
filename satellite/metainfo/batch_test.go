@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"crypto/tls"
 	"strconv"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -21,15 +23,20 @@ import (
 
 func TestBatch(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		{ // create few buckets and list them in one batch
+		t.Run("create few buckets and list them in one batch", func(t *testing.T) {
 			requests := make([]metaclient.BatchItem, 0)
 			numOfBuckets := 5
 			for i := 0; i < numOfBuckets; i++ {
@@ -59,11 +66,10 @@ func TestBatch(t *testing.T) {
 			bucketsListResp, err := responses[numOfBuckets].ListBuckets()
 			require.NoError(t, err)
 			require.Equal(t, numOfBuckets, len(bucketsListResp.BucketList.Items))
-		}
+		})
 
-		{ // create bucket, object, upload inline segments in batch, download inline segments in batch
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "second-test-bucket")
-			require.NoError(t, err)
+		t.Run("create bucket, object, upload inline segments in batch, download inline segments in batch", func(t *testing.T) {
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "second-test-bucket"))
 
 			requests := make([]metaclient.BatchItem, 0)
 			requests = append(requests, &metaclient.BeginObjectParams{
@@ -133,11 +139,10 @@ func TestBatch(t *testing.T) {
 
 				require.Equal(t, expectedData[i], downloadResponse.Info.EncryptedInlineData)
 			}
-		}
+		})
 
-		{ // test case when StreamID is not set automatically
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "third-test-bucket")
-			require.NoError(t, err)
+		t.Run("StreamID is not set automatically", func(t *testing.T) {
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "third-test-bucket"))
 
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte("third-test-bucket"),
@@ -182,7 +187,48 @@ func TestBatch(t *testing.T) {
 			responses, err := metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
 			require.Equal(t, numOfSegments+1, len(responses))
-		}
+		})
+
+		t.Run("retry segment pieces", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+
+			endpoint := planet.Satellites[0].Metainfo.Endpoint
+
+			beginObjectResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("test-object"),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+			})
+			require.NoError(t, err)
+
+			beginSegmentResp, err := endpoint.BeginSegment(peerctx, &pb.BeginSegmentRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId:      beginObjectResp.StreamId,
+				Position:      &pb.SegmentPosition{},
+				MaxOrderLimit: memory.MiB.Int64(),
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.Batch(peerctx, &pb.BatchRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Requests: []*pb.BatchRequestItem{
+					{
+						Request: &pb.BatchRequestItem_SegmentBeginRetryPieces{
+							SegmentBeginRetryPieces: &pb.RetryBeginSegmentPiecesRequest{
+								Header:            &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								SegmentId:         beginSegmentResp.SegmentId,
+								RetryPieceNumbers: []int32{0},
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+		})
 	})
 }
 

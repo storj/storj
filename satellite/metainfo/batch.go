@@ -552,6 +552,22 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 					SegmentFinishDelete: response,
 				},
 			})
+		case *pb.BatchRequestItem_SegmentBeginRetryPieces:
+			singleRequest.SegmentBeginRetryPieces.Header = req.Header
+
+			if singleRequest.SegmentBeginRetryPieces.SegmentId.IsZero() && !lastSegmentID.IsZero() {
+				singleRequest.SegmentBeginRetryPieces.SegmentId = lastSegmentID
+			}
+
+			response, err := endpoint.RetryBeginSegmentPieces(ctx, singleRequest.SegmentBeginRetryPieces)
+			if err != nil {
+				return resp, err
+			}
+			resp.Responses = append(resp.Responses, &pb.BatchResponseItem{
+				Response: &pb.BatchResponseItem_SegmentBeginRetryPieces{
+					SegmentBeginRetryPieces: response,
+				},
+			})
 
 			// Revoke API key.
 		case *pb.BatchRequestItem_RevokeApiKey:
