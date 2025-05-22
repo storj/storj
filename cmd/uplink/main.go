@@ -85,6 +85,9 @@ func commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.Group("meta", "Object metadata related commands", func() {
 		cmds.New("get", "Get an object's metadata", newCmdMetaGet(ex))
 	})
+	cmds.Group("debug", "Debug commands", func() {
+		cmds.New("decrypt-path", "decrypt encrypted path", newCmdDebugDecryptPath(ex))
+	})
 	cmds.New("share", "Shares restricted accesses to objects", newCmdShare(ex))
 	cmds.New("version", "Prints version information", newCmdVersion())
 }
