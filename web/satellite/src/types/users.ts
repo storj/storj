@@ -5,6 +5,7 @@ import { Duration } from '@/utils/time';
 import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { centsToDollars } from '@/utils/strings';
 
 /**
  * Exposes all user-related functionality.
@@ -162,6 +163,7 @@ export class User {
         public pendingVerification: boolean = false,
         public trialExpiration: Date | null = null,
         public hasVarPartner: boolean = false,
+        public minimumCharge: MinimumCharge = new MinimumCharge(),
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
     ) { }
@@ -377,6 +379,25 @@ export class FreezeStatus {
         public trialExpiredFrozen = false,
         public trialExpirationGracePeriod = 0,
     ) { }
+}
+
+/**
+ * MinimumCharge represents minimum charge info for a user.
+ */
+export class MinimumCharge {
+    public constructor(
+        public enabled = false,
+        public _amount = 0,
+        public startDate: Date | null = null,
+    ) { }
+
+    get amount(): string {
+        return centsToDollars(this._amount);
+    }
+
+    get noticeEnabled(): boolean {
+        return this._amount > 0 && this.startDate !== null;
+    }
 }
 
 /**

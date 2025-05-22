@@ -44,19 +44,6 @@ export enum PricingPlanType {
     PRO = 'pro',
 }
 
-export const PRO_PLAN_INFO = new PricingPlanInfo(
-    PricingPlanType.PRO,
-    'Pro Account',
-    'Pay-as-you-go, no minimum',
-    'Pay for what you need. $4/TB storage per month, $7/TB for download bandwidth.',
-    'Additional per-segment fee of $0.0000088 applies.',
-    null,
-    null,
-    'Add a credit card to activate your pro account. Only pay for what you use, no minimum. Billed monthly.',
-    'No charge today',
-    '',
-);
-
 export const FREE_PLAN_INFO = new PricingPlanInfo(
     PricingPlanType.FREE,
     'Free Trial',

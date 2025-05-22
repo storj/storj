@@ -64,7 +64,20 @@
                         </p>
 
                         <h2 class="font-weight-black"><span class="text-high-emphasis text-body-1 font-weight-bold">Pay as you go</span></h2>
-                        <p class="text-medium-emphasis text-caption">no minimum, billed monthly.</p>
+                        <p class="text-medium-emphasis text-caption">
+                            <template v-if="minimumCharge.enabled">
+                                <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">Minimum monthly charge</a>
+                                of {{ minimumCharge.amount }} equivalent to 1TB of storage.
+                            </template>
+                            <template v-else-if="minimumCharge.noticeEnabled">
+                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                                of {{ minimumCharge.amount }} equivalent to 1TB of storage will will apply from
+                                {{ Time.formattedDate(minimumCharge.startDate!, { month: 'long', day: 'numeric' }) }}.
+                            </template>
+                            <template v-else>
+                                No minimum, billed monthly.
+                            </template>
+                        </p>
 
                         <v-btn
                             variant="outlined"
@@ -144,12 +157,14 @@ import { VBtn, VCard, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/co
 import { ArrowRight, Check, ChevronLeft } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
-import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
+import { Time } from '@/utils/time';
 
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
-const configStore = useConfigStore();
+const billingStore = useBillingStore();
+const userStore = useUsersStore();
 
 const emit = defineEmits<{
     freeClick: [];
@@ -157,15 +172,11 @@ const emit = defineEmits<{
     back: [];
 }>();
 
-const storagePrice = computed(() => {
-    const storage =  formatPrice(decimalShift(configStore.state.config.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
-    return `${storage} per GB-month`;
-});
+const storagePrice = computed(() => billingStore.storagePrice);
 
-const egressPrice = computed(() => {
-    const egress = formatPrice(decimalShift(configStore.state.config.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
-    return `${egress} per GB`;
-});
+const egressPrice = computed(() => billingStore.egressPrice);
 
-const segmentPrice = computed(() => formatPrice(decimalShift(configStore.state.config.segmentMonthCents, 2)));
+const segmentPrice = computed(() => billingStore.segmentPrice);
+
+const minimumCharge = computed(() => userStore.state.user.minimumCharge);
 </script>
