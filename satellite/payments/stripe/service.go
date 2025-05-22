@@ -1337,7 +1337,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 			}
 		}
 
-		scheduled, draft, err := service.createInvoices(ctx, cusPage.Customers, start)
+		scheduled, draft, err := service.createInvoices(ctx, cusPage.Customers, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -1354,104 +1354,180 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 	return nil
 }
 
-// createInvoice creates invoice for Stripe customer.
-func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (stripeInvoice *stripe.Invoice, err error) {
+// CreateInvoice creates invoice for Stripe customer.
+// Exported for testing.
+func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *console.User, start, end time.Time) (stripeInvoice *stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var (
 		lastItemID   string
 		totalStorage int64
 		hasItems     bool
+		hasInvoice   bool
+		hasShortFall bool
 	)
 
-	for {
-		params := &stripe.InvoiceItemListParams{
-			Customer: &cusID,
-			Pending:  stripe.Bool(true),
-			ListParams: stripe.ListParams{
-				Context: ctx,
-				Limit:   stripe.Int64(100), // Max limit per request
+	applyMinimumCharge := service.minimumChargeAmount > 0
+
+	if applyMinimumCharge {
+		// Three-way condition:
+		// 1) neither date set → true.
+		// 2) allUsers date set  → compare period.
+		// 3) newUsers date set  → compare user.CreatedAt.
+		applyMinimumCharge = func() bool {
+			aDate := service.allUsersMinimumChargeDate
+			nDate := service.newUsersMinimumChargeCutoffDate
+
+			if (aDate == nil && nDate == nil) ||
+				(aDate != nil && !start.Before(*aDate)) ||
+				(nDate != nil && !user.CreatedAt.Before(*nDate)) {
+				return true
+			}
+
+			return false
+		}()
+	}
+
+	if applyMinimumCharge {
+		// Edge case:
+		// If some error happens while creating invoices, we should check if an invoice for this customer already exists.
+		// If it does, we should not create a new one because this customer has already been processed.
+		invoicesIterator := service.stripeClient.Invoices().List(&stripe.InvoiceListParams{
+			ListParams: stripe.ListParams{Context: ctx, Limit: stripe.Int64(1)},
+			Customer:   &cusID,
+			Status:     stripe.String(string(stripe.InvoiceStatusDraft)),
+			CreatedRange: &stripe.RangeQueryParams{
+				GreaterThan: start.Unix(),
 			},
-		}
-		if lastItemID != "" {
-			params.ListParams.StartingAfter = stripe.String(lastItemID)
-		}
+		})
 
-		itemsIter := service.stripeClient.InvoiceItems().List(params)
-		for itemsIter.Next() {
-			if !hasItems {
-				hasItems = true
+		for invoicesIterator.Next() {
+			stripeInvoice = invoicesIterator.Invoice()
+			hasInvoice = true
+		}
+		if err = invoicesIterator.Err(); err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	if !hasInvoice {
+		for {
+			params := &stripe.InvoiceItemListParams{
+				Customer: &cusID,
+				Pending:  stripe.Bool(true),
+				ListParams: stripe.ListParams{
+					Context: ctx,
+					Limit:   stripe.Int64(100), // Max limit per request
+				},
+			}
+			if lastItemID != "" {
+				params.ListParams.StartingAfter = stripe.String(lastItemID)
 			}
 
-			item := itemsIter.InvoiceItem()
-			if strings.Contains(item.Description, storageInvoiceItemDesc) {
-				totalStorage += item.Quantity
+			itemsIter := service.stripeClient.InvoiceItems().List(params)
+			for itemsIter.Next() {
+				if !hasItems {
+					hasItems = true
+				}
+
+				item := itemsIter.InvoiceItem()
+				if strings.Contains(item.Description, storageInvoiceItemDesc) {
+					totalStorage += item.Quantity
+				}
+
+				lastItemID = item.ID
 			}
 
-			lastItemID = item.ID
+			if err = itemsIter.Err(); err != nil {
+				return nil, err
+			}
+			if !hasItems && !applyMinimumCharge {
+				return nil, nil
+			}
+
+			// Use HasMore to determine if we should break the loop.
+			if !itemsIter.List().GetListMeta().HasMore {
+				break
+			}
 		}
 
-		if err = itemsIter.Err(); err != nil {
+		impact, err := service.emission.CalculateImpact(&emission.CalculationInput{
+			AmountOfDataInTB: float64(totalStorage * hoursPerMonth / 1000000), // convert MB-month to TB-hour.
+			Duration:         time.Hour * hoursPerMonth,
+			IsTBDuration:     true,
+		})
+		if err != nil {
 			return nil, err
 		}
-		if !hasItems {
-			return nil, nil
+
+		whitePaperLink := "https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
+		footerMsg := fmt.Sprintf(
+			"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\nMore information on estimates: %s",
+			impact.EstimatedKgCO2eStorj,
+			impact.EstimatedKgCO2eHyperscaler,
+			whitePaperLink,
+		)
+
+		savedValue := impact.EstimatedKgCO2eHyperscaler - impact.EstimatedKgCO2eStorj
+		if savedValue < 0 {
+			savedValue = 0
 		}
 
-		// Use HasMore to determine if we should break the loop.
-		if !itemsIter.List().GetListMeta().HasMore {
-			break
+		savedTrees := service.emission.CalculateSavedTrees(savedValue)
+		if savedTrees > 0 {
+			treesCalcLink := "https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings"
+			footerMsg += fmt.Sprintf("\nEstimated Trees Saved: %d\nMore information on trees saved: %s", savedTrees, treesCalcLink)
+		}
+
+		footerMsg += "\n\nNote: The carbon emissions displayed are estimated based on the total account usage, calculated for the dates of this invoice."
+		footer := stripe.String(footerMsg)
+
+		description := fmt.Sprintf("Storj Cloud Storage for %s %d", start.Month(), start.Year())
+
+		stripeInvoice, err = service.stripeClient.Invoices().New(
+			&stripe.InvoiceParams{
+				Params:                      stripe.Params{Context: ctx},
+				Customer:                    stripe.String(cusID),
+				AutoAdvance:                 stripe.Bool(service.AutoAdvance),
+				Description:                 stripe.String(description),
+				PendingInvoiceItemsBehavior: stripe.String("include"),
+				Footer:                      footer,
+			},
+		)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
 	}
 
-	impact, err := service.emission.CalculateImpact(&emission.CalculationInput{
-		AmountOfDataInTB: float64(totalStorage * hoursPerMonth / 1000000), // convert MB-month to TB-hour.
-		Duration:         time.Hour * hoursPerMonth,
-		IsTBDuration:     true,
-	})
-	if err != nil {
-		return nil, err
+	// Unlikely but still.
+	if stripeInvoice == nil {
+		return nil, Error.New("stripe invoice couldn't be generated for customer %s", cusID)
 	}
 
-	whitePaperLink := "https://www.storj.io/documents/storj-sustainability-whitepaper.pdf"
-	footerMsg := fmt.Sprintf(
-		"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\nMore information on estimates: %s",
-		impact.EstimatedKgCO2eStorj,
-		impact.EstimatedKgCO2eHyperscaler,
-		whitePaperLink,
-	)
+	if applyMinimumCharge && stripeInvoice.AmountDue < service.minimumChargeAmount {
+		shortfall := service.minimumChargeAmount - stripeInvoice.AmountDue
 
-	savedValue := impact.EstimatedKgCO2eHyperscaler - impact.EstimatedKgCO2eStorj
-	if savedValue < 0 {
-		savedValue = 0
+		_, err = service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:      stripe.Params{Context: ctx},
+			Customer:    stripe.String(cusID),
+			Amount:      stripe.Int64(shortfall),
+			Description: stripe.String("Minimum charge adjustment"),
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Invoice:     stripe.String(stripeInvoice.ID),
+			Period: &stripe.InvoiceItemPeriodParams{
+				End:   stripe.Int64(end.Unix()),
+				Start: stripe.Int64(start.Unix()),
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		hasShortFall = true
 	}
 
-	savedTrees := service.emission.CalculateSavedTrees(savedValue)
-	if savedTrees > 0 {
-		treesCalcLink := "https://www.epa.gov/energy/greenhouse-gases-equivalencies-calculator-calculations-and-references#seedlings"
-		footerMsg += fmt.Sprintf("\nEstimated Trees Saved: %d\nMore information on trees saved: %s", savedTrees, treesCalcLink)
-	}
-
-	footerMsg += "\n\nNote: The carbon emissions displayed are estimated based on the total account usage, calculated for the dates of this invoice."
-	footer := stripe.String(footerMsg)
-
-	description := fmt.Sprintf("Storj Cloud Storage for %s %d", period.Month(), period.Year())
-	stripeInvoice, err = service.stripeClient.Invoices().New(
-		&stripe.InvoiceParams{
-			Params:                      stripe.Params{Context: ctx},
-			Customer:                    stripe.String(cusID),
-			AutoAdvance:                 stripe.Bool(service.AutoAdvance),
-			Description:                 stripe.String(description),
-			PendingInvoiceItemsBehavior: stripe.String("include"),
-			Footer:                      footer,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// auto advance the invoice if nothing is due from the customer
-	if !stripeInvoice.AutoAdvance && stripeInvoice.AmountDue == 0 {
+	// auto advance the invoice if nothing is due from the customer.
+	if !stripeInvoice.AutoAdvance && stripeInvoice.AmountDue == 0 && !hasShortFall {
 		params := &stripe.InvoiceParams{
 			Params:      stripe.Params{Context: ctx},
 			AutoAdvance: stripe.Bool(true),
@@ -1466,7 +1542,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 }
 
 // createInvoices creates invoices for Stripe customers.
-func (service *Service) createInvoices(ctx context.Context, customers []Customer, period time.Time) (scheduled, draft int, err error) {
+func (service *Service) createInvoices(ctx context.Context, customers []Customer, start, end time.Time) (scheduled, draft int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limiter := sync2.NewLimiter(service.maxParallelCalls)
@@ -1476,7 +1552,8 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	for _, cus := range customers {
 		cus := cus
 		limiter.Go(ctx, func() {
-			if _, skip, err := service.mustSkipUser(ctx, cus.UserID); err != nil {
+			user, skip, err := service.mustSkipUser(ctx, cus.UserID)
+			if err != nil {
 				mu.Lock()
 				errGrp.Add(err)
 				mu.Unlock()
@@ -1485,7 +1562,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 				return
 			}
 
-			inv, err := service.createInvoice(ctx, cus.ID, period)
+			inv, err := service.CreateInvoice(ctx, cus.ID, user, start, end)
 			if err != nil {
 				mu.Lock()
 				errGrp.Add(err)
@@ -2040,6 +2117,13 @@ func (service *Service) calculateProjectUsagePrice(usage accounting.ProjectUsage
 // they want. This avoids races and sleeping, making tests more reliable and efficient.
 func (service *Service) SetNow(now func() time.Time) {
 	service.nowFn = now
+}
+
+// TestSetMinimumChargeCfg allows tests to set the minimum charge configuration.
+func (service *Service) TestSetMinimumChargeCfg(amount int64, allUsersDate, newUsersDate *time.Time) {
+	service.minimumChargeAmount = amount
+	service.allUsersMinimumChargeDate = allUsersDate
+	service.newUsersMinimumChargeCutoffDate = newUsersDate
 }
 
 // getFromToDates returns from/to date values used for data usage calculations depending on users upgrade time and status.

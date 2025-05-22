@@ -1984,3 +1984,165 @@ func TestService_PayInvoiceBillingID(t *testing.T) {
 		require.NoError(t, itr.Err())
 	})
 }
+
+func TestService_CreateInvoice(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		start := time.Date(2025, time.May, 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(2025, time.May, 31, 23, 59, 59, 0, time.UTC)
+		user := &console.User{CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC)}
+		cusID := "cus_xxx"
+
+		p := planet.Satellites[0].API.Payments
+		stripeService := p.StripeService
+		stripeClient := p.StripeClient
+
+		t.Run("no items & no minimum charge", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(0, nil, nil)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.Nil(t, inv)
+		})
+
+		t.Run("minimum charge applies, draft invoice does not exist", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(5_000, nil, nil)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t,
+				fmt.Sprintf("Storj Cloud Storage for %s %d", start.Month(), start.Year()),
+				inv.Description,
+			)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("returns existing draft invoice", func(t *testing.T) {
+			// pre-create a draft invoice so List(...) will find it.
+			pre, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:      stripe.Params{Context: ctx},
+				Customer:    stripe.String(cusID),
+				AutoAdvance: stripe.Bool(false),
+				Description: stripe.String("PRE-EXISTING"),
+			})
+			require.NoError(t, err)
+
+			// force it to appear in the List by bumping Created > start.Unix().
+			pre.Status = stripe.InvoiceStatusDraft
+			pre.Created = start.Unix() + 10
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.Equal(t, pre.ID, inv.ID, "should return the pre-created draft invoice")
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("minimum charge adjustment applied", func(t *testing.T) {
+			// set a minimum of 2 000c, and no pending items so invoice.AmountDue==0.
+			stripeService.TestSetMinimumChargeCfg(2_000, nil, nil)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+
+			// now list all items for that invoice and find the “Minimum charge adjustment”.
+			iter := stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+				Invoice:    stripe.String(inv.ID),
+				ListParams: stripe.ListParams{Context: ctx},
+				Customer:   stripe.String(cusID),
+			})
+
+			var adj *stripe.InvoiceItem
+			for iter.Next() {
+				item := iter.InvoiceItem()
+				if item.Description == "Minimum charge adjustment" {
+					adj = item
+				}
+			}
+			require.NoError(t, iter.Err())
+			require.NotNil(t, adj, "should have created a minimum-charge adjustment item")
+			// since AmountDue was 0, shortfall == minCharge.
+			require.Equal(t, int64(2_000), adj.Amount)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("newUsersDate AFTER user.CreatedAt → skip invoice", func(t *testing.T) {
+			// newUsersDate is in the future, so user.CreatedAt.Before(newUsersDate)==true → applyMinimumCharge==false.
+			later := time.Date(2025, time.June, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(1_000, nil, &later)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.Nil(t, inv, "should not create invoice when newUsersDate gate is not passed")
+		})
+
+		t.Run("newUsersDate BEFORE user.CreatedAt → still apply", func(t *testing.T) {
+			// newUsersDate is before user.CreatedAt, so user.CreatedAt.Before(newUsersDate)==false → applyMinimumCharge==true.
+			earlier := time.Date(2023, time.January, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(1_000, nil, &earlier)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv, "should create invoice when user.CreatedAt is after newUsersDate")
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("allUsersDate AFTER period start → skip invoice", func(t *testing.T) {
+			// allUsersDate after start → start.Before(allUsersDate)==true → applyMinimumCharge==false.
+			afterStart := time.Date(2025, time.June, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(1_000, &afterStart, nil)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.Nil(t, inv, "should not create invoice when allUsersDate gate is not passed")
+		})
+
+		t.Run("allUsersDate BEFORE period start → apply", func(t *testing.T) {
+			// allUsersDate before start → start.Before(allUsersDate)==false → applyMinimumCharge==true.
+			beforeStart := time.Date(2025, time.April, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(1_000, &beforeStart, nil)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv, "should create invoice when start is after allUsersDate")
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("both allUsersDate & newUsersDate AFTER thresholds → skip invoice", func(t *testing.T) {
+			// both cutoffs after the period/user so:
+			//  start.Before(allUsersDate)==true  → aDate‐clause false;
+			//  user.CreatedAt.Before(newUsersDate)==true → nDate‐clause false;
+			cutoff := time.Date(2025, time.June, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(1_000, &cutoff, &cutoff)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.Nil(t, inv, "should not create invoice when both date gates are not passed")
+		})
+
+		t.Run("both allUsersDate & newUsersDate BEFORE thresholds → apply invoice", func(t *testing.T) {
+			beforeStart := time.Date(2025, time.April, 1, 0, 0, 0, 0, time.UTC)
+			beforeUser := time.Date(2023, time.January, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(1_000, &beforeStart, &beforeUser)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv, "should create invoice when both date gates are passed")
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+	})
+}
