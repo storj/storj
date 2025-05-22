@@ -239,7 +239,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	var regularRecords []CreateProjectRecord
 	var recordsToAggregate []CreateProjectRecord
 	for _, customer := range customers {
-		if skip, err := service.mustSkipUser(ctx, customer.UserID); err != nil {
+		if _, skip, err := service.mustSkipUser(ctx, customer.UserID); err != nil {
 			return 0, Error.New("unable to determine if user must be skipped: %w", err)
 		} else if skip {
 			continue
@@ -378,7 +378,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		for _, c := range customersPage.Customers {
 			c := c
 			limiter.Go(ctx, func() {
-				skip, err := service.mustSkipUser(ctx, c.UserID)
+				_, skip, err := service.mustSkipUser(ctx, c.UserID)
 				if err != nil {
 					addErr(&mu, err)
 					return
@@ -625,7 +625,7 @@ func (service *Service) applyToBeAggregatedProjectRecords(ctx context.Context, r
 			return 0, errs.Wrap(err)
 		}
 
-		if skip, err := service.mustSkipUser(ctx, proj.OwnerID); err != nil {
+		if _, skip, err := service.mustSkipUser(ctx, proj.OwnerID); err != nil {
 			return 0, errs.Wrap(err)
 		} else if skip {
 			skipCount++
@@ -1032,7 +1032,7 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 		for _, c := range customersPage.Customers {
 			c := c
 			limiter.Go(ctx, func() {
-				if skip, err := service.mustSkipUser(ctx, c.UserID); err != nil {
+				if _, skip, err := service.mustSkipUser(ctx, c.UserID); err != nil {
 					mu.Lock()
 					failedUsers = append(failedUsers, c.ID)
 					mu.Unlock()
@@ -1267,7 +1267,7 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	for _, cus := range customers {
 		cus := cus
 		limiter.Go(ctx, func() {
-			if skip, err := service.mustSkipUser(ctx, cus.UserID); err != nil {
+			if _, skip, err := service.mustSkipUser(ctx, cus.UserID); err != nil {
 				mu.Lock()
 				errGrp.Add(err)
 				mu.Unlock()
@@ -1424,7 +1424,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 		if err != nil {
 			return err
 		}
-		if skip, err := service.mustSkipUser(ctx, userID); err != nil {
+		if _, skip, err := service.mustSkipUser(ctx, userID); err != nil {
 			return err
 		} else if skip {
 			continue
@@ -1526,7 +1526,7 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 			}
 			return Error.Wrap(err)
 		}
-		if skip, err := service.mustSkipUser(ctx, userID); err != nil {
+		if _, skip, err := service.mustSkipUser(ctx, userID); err != nil {
 			return Error.Wrap(err)
 		} else if skip {
 			continue
@@ -1622,7 +1622,7 @@ func (service *Service) PayCustomerInvoices(ctx context.Context, customerID stri
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if skip, err := service.mustSkipUser(ctx, userID); err != nil {
+	if _, skip, err := service.mustSkipUser(ctx, userID); err != nil {
 		return Error.Wrap(err)
 	} else if skip {
 		return Error.New("customer %s is inactive", customerID)
@@ -1787,16 +1787,16 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 // 1. The user has requested deletion and their final invoice has been generated.
 // 2. The user's status is neither 'Active' nor 'UserRequestedDeletion'.
 // 3. The user is not on a paid tier.
-func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (bool, error) {
+func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*console.User, bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return true, nil
+			return nil, true, nil
 		}
-		return false, Error.New("unable to look up user %s: %w", userID, err)
+		return nil, false, Error.New("unable to look up user %s: %w", userID, err)
 	}
 
-	return (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
+	return user, (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
 		(user.Status != console.Active && user.Status != console.UserRequestedDeletion) ||
 		!user.PaidTier, nil
 }
