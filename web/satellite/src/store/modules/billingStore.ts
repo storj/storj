@@ -28,8 +28,11 @@ import {
     AddFundsResponse,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
-import { PricingPlanInfo } from '@/types/common';
+import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore';
+import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
+import { Time } from '@/utils/time';
 
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
@@ -62,6 +65,62 @@ export const useBillingStore = defineStore('billing', () => {
 
     const defaultCard = computed<CreditCard>(() => state.creditCards.find(card => card.isDefault) ?? new CreditCard());
 
+    const storagePrice = computed(() => {
+        const storage =  formatPrice(decimalShift(configStore.state.config.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+        return `${storage} per GB-month`;
+    });
+
+    const egressPrice = computed(() => {
+        const egress = formatPrice(decimalShift(configStore.state.config.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+        return `${egress} per GB`;
+    });
+
+    const segmentPrice = computed(() => formatPrice(decimalShift(configStore.state.config.segmentMonthCents, 2)));
+
+    const userStore = useUsersStore();
+    const proPlanInfo = computed(() => {
+        const minimumCharge = userStore.state.user.minimumCharge;
+        const minimumChargeEnabled = minimumCharge.enabled;
+        const minimumChargeAmt = minimumCharge.amount;
+        const minimumChargeTxt = `with a <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                    of ${minimumChargeAmt} equivalent to 1TB of storage.`;
+
+        let subtitle = `Pay-as-you-go`;
+        if (minimumChargeEnabled) {
+            subtitle += `, ${minimumChargeTxt}`;
+        } else if (minimumCharge.noticeEnabled) {
+            subtitle += `. A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                    of ${minimumChargeAmt} equivalent to 1TB of storage will apply after
+                    ${Time.formattedDate(minimumCharge.startDate!, { month: 'long', day: 'numeric' })}.`;
+        } else {
+            subtitle += ', no minimum';
+        }
+
+        let activationDesc = 'Add a credit card to activate your pro account. Only pay for what you use';
+        if (minimumChargeEnabled) {
+            activationDesc += `, ${minimumChargeTxt}`;
+        } else if (minimumCharge.noticeEnabled) {
+            activationDesc += `. A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                    of ${minimumChargeAmt} equivalent to 1TB of storage will apply after
+                    ${Time.formattedDate(minimumCharge.startDate!, { month: 'long', day: 'numeric' })}.`;
+        } else {
+            activationDesc += ', no minimum. Billed monthly.';
+        }
+
+        return new PricingPlanInfo(
+            PricingPlanType.PRO,
+            'Pro Account',
+            subtitle,
+            `Pay for what you need. ${storagePrice.value} storage, ${egressPrice.value} for download bandwidth.`,
+            `Additional per-segment fee of ${segmentPrice.value} applies.`,
+            null,
+            null,
+            activationDesc,
+            'No charge today',
+            '',
+        );
+    });
+
     async function getBalance(): Promise<AccountBalance> {
         const balance: AccountBalance = await api.getBalance();
 
@@ -88,6 +147,7 @@ export const useBillingStore = defineStore('billing', () => {
     async function addTaxID(taxID: TaxID): Promise<void> {
         state.billingInformation = await api.addTaxID(taxID, csrfToken.value);
     }
+
     async function removeTaxID(ID: string): Promise<void> {
         state.billingInformation = await api.removeTaxID(ID, csrfToken.value);
     }
@@ -252,6 +312,10 @@ export const useBillingStore = defineStore('billing', () => {
     return {
         state,
         defaultCard,
+        proPlanInfo,
+        storagePrice,
+        egressPrice,
+        segmentPrice,
         getBalance,
         getWallet,
         getTaxCountries,
