@@ -257,6 +257,10 @@ type Service struct {
 
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig
 
+	minimumChargeAmount             int64
+	newUsersMinimumChargeCutoffDate *time.Time
+	allUsersMinimumChargeDate       *time.Time
+
 	nowFn func() time.Time
 }
 
@@ -283,7 +287,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, config Config) (*Service, error) {
+	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
+	newUsersMinimumChargeCutoffDate *time.Time, allUsersMinimumChargeDate *time.Time, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -360,7 +365,12 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		varPartners:                   partners,
 		objectLockAndVersioningConfig: objectLockAndVersioningConfig,
 		paymentSourceChainIDs:         paymentSourceChainIDs,
-		nowFn:                         time.Now,
+
+		minimumChargeAmount:             minimumChargeAmount,
+		newUsersMinimumChargeCutoffDate: newUsersMinimumChargeCutoffDate,
+		allUsersMinimumChargeDate:       allUsersMinimumChargeDate,
+
+		nowFn: time.Now,
 	}, nil
 }
 
@@ -452,6 +462,31 @@ func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key 
 
 	key, status, err = s.valdiService.CreateAPIKey(ctx, p.PublicID)
 	return key, status, Error.Wrap(err)
+}
+
+// GetMinimumChargeConfig returns the minimum charge information given the created date of a user.
+func (payment Payments) GetMinimumChargeConfig(userCreatedAt time.Time) (info MinimumChargeConfig) {
+	info.Enabled = payment.service.minimumChargeAmount > 0
+	if !info.Enabled {
+		return MinimumChargeConfig{}
+	}
+
+	info.Amount = payment.service.minimumChargeAmount
+
+	allUsersDate := payment.service.allUsersMinimumChargeDate
+	newUsersDate := payment.service.newUsersMinimumChargeCutoffDate
+
+	if newUsersDate != nil && userCreatedAt.After(*newUsersDate) {
+		info.StartDate = newUsersDate
+	} else {
+		info.StartDate = allUsersDate
+	}
+
+	info.Enabled = (allUsersDate == nil && newUsersDate == nil) ||
+		(allUsersDate != nil && !payment.service.nowFn().Before(*allUsersDate)) ||
+		(newUsersDate != nil && !userCreatedAt.Before(*newUsersDate))
+
+	return info
 }
 
 // SetupAccount creates payment account for authorized user.
@@ -6520,6 +6555,19 @@ func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 // TestSetNewUsageReportEnabled is used in tests to toggle the new usage report.
 func (s *Service) TestSetNewUsageReportEnabled(enabled bool) {
 	s.config.NewDetailedUsageReportEnabled = enabled
+}
+
+// TestMinimumChargeConfig is used in tests to call TestSetMinimumChargeConfig.
+type TestMinimumChargeConfig struct {
+	Amount                     int64
+	AllUsersDate, NewUsersDate *time.Time
+}
+
+// TestSetMinimumChargeConfig is used in tests to set the minimum charge config.
+func (s *Service) TestSetMinimumChargeConfig(cfg TestMinimumChargeConfig) {
+	s.minimumChargeAmount = cfg.Amount
+	s.allUsersMinimumChargeDate = cfg.AllUsersDate
+	s.newUsersMinimumChargeCutoffDate = cfg.NewUsersDate
 }
 
 // ValidateFreeFormFieldLengths checks if any of the given values

@@ -122,6 +122,9 @@ func TestSignupCouponCodes(t *testing.T) {
 			nodeselection.NewPlacementDefinitions(),
 			console.ObjectLockAndVersioningConfig{},
 			nil,
+			pc.MinimumCharge.Amount,
+			newUserMinimumChargeCutoffDate,
+			allUsersMinimumChargeDate,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

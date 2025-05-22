@@ -805,6 +805,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				}
 			}
 
+			newUserMinimumChargeCutoffDate, err := config.Payments.MinimumCharge.GetNewUsersCutoffDate()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+			allUsersMinimumChargeDate, err := config.Payments.MinimumCharge.GetAllUsersDate()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),
@@ -833,6 +842,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 					UseBucketLevelObjectVersioning: config.Metainfo.UseBucketLevelObjectVersioning,
 				},
 				peer.Valdi.Service,
+				config.Payments.MinimumCharge.Amount,
+				newUserMinimumChargeCutoffDate,
+				allUsersMinimumChargeDate,
 				consoleConfig.Config,
 			)
 			if err != nil {

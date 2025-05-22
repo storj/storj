@@ -1502,6 +1502,68 @@ func TestService(t *testing.T) {
 				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
+
+			t.Run("GetMinimumChargeConfig", func(t *testing.T) {
+				service.TestSetNow(time.Now)
+
+				user, err := sat.API.DB.Console().Users().Insert(ctx, &console.User{
+					ID:           testrand.UUID(),
+					Email:        "minimumcharge@test.test",
+					PasswordHash: []byte("password"),
+				})
+				require.NoError(t, err)
+
+				cfg := console.TestMinimumChargeConfig{}
+				service.TestSetMinimumChargeConfig(cfg)
+
+				result := service.Payments().GetMinimumChargeConfig(user.CreatedAt)
+				require.False(t, result.Enabled)
+				require.Zero(t, result.Amount)
+				require.Zero(t, result.StartDate)
+
+				cfg.Amount = 1000
+				service.TestSetMinimumChargeConfig(cfg)
+
+				result = service.Payments().GetMinimumChargeConfig(user.CreatedAt)
+				require.True(t, result.Enabled)
+				require.Equal(t, cfg.Amount, result.Amount)
+				require.Nil(t, result.StartDate)
+
+				date := user.CreatedAt.Add(-2 * time.Hour)
+				cfg.NewUsersDate = &date
+				service.TestSetMinimumChargeConfig(cfg)
+
+				result = service.Payments().GetMinimumChargeConfig(user.CreatedAt)
+				require.True(t, result.Enabled)
+				require.Equal(t, *cfg.NewUsersDate, *result.StartDate)
+
+				result = service.Payments().GetMinimumChargeConfig(user.CreatedAt.Add(-3 * time.Hour))
+				require.False(t, result.Enabled)
+				require.Nil(t, result.StartDate)
+
+				date = user.CreatedAt.Add(2 * time.Hour)
+				cfg.NewUsersDate = &date
+				service.TestSetMinimumChargeConfig(cfg)
+
+				result = service.Payments().GetMinimumChargeConfig(user.CreatedAt)
+				require.False(t, result.Enabled)
+				require.Nil(t, result.StartDate)
+
+				cfg.AllUsersDate = &date
+				service.TestSetMinimumChargeConfig(cfg)
+
+				result = service.Payments().GetMinimumChargeConfig(user.CreatedAt)
+				require.False(t, result.Enabled)
+				require.Equal(t, *cfg.AllUsersDate, *result.StartDate)
+
+				date = user.CreatedAt.Add(-1 * time.Hour)
+				cfg.AllUsersDate = &date
+				service.TestSetMinimumChargeConfig(cfg)
+
+				result = service.Payments().GetMinimumChargeConfig(user.CreatedAt)
+				require.True(t, result.Enabled)
+				require.Equal(t, *cfg.AllUsersDate, *result.StartDate)
+			})
 		})
 }
 

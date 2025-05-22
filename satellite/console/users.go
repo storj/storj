@@ -133,6 +133,13 @@ type CreateSsoUser struct {
 	IP         string
 }
 
+// MinimumChargeConfig contains information about minimum charge for a user.
+type MinimumChargeConfig struct {
+	Enabled   bool       `json:"enabled"`
+	Amount    int64      `json:"amount"`
+	StartDate *time.Time `json:"startDate"`
+}
+
 // IsValid checks CreateUser validity and returns error describing whats wrong.
 // The returned error has the class ErrValiation.
 func (user *CreateUser) IsValid(allowNoName bool) error {
