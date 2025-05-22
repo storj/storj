@@ -689,6 +689,11 @@ func committedWhereVersioned(versioned bool) ObjectStatus {
 	return CommittedUnversioned
 }
 
+// IsPending returns whether the status is pending.
+func (status ObjectStatus) IsPending() bool {
+	return status == Pending
+}
+
 // IsDeleteMarker return whether the status is a delete marker.
 func (status ObjectStatus) IsDeleteMarker() bool {
 	return status == DeleteMarkerUnversioned || status == DeleteMarkerVersioned

@@ -5,11 +5,10 @@ package metabase
 
 import (
 	"context"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
-
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 const (
@@ -123,9 +122,13 @@ func (c *CockroachAdapter) DeleteAllBucketObjects(ctx context.Context, opts Dele
 func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var maxCommitDelay = 50 * time.Millisecond
+
 	// TODO(spanner): see if it would be better to avoid batching altogether here.
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		streamIDs, err := spannerutil.CollectRows(tx.Query(ctx, spanner.Statement{
+		deleteSegments := []*spanner.Mutation{}
+
+		iter := tx.Query(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
 				WHERE
@@ -136,39 +139,54 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 						ORDER BY project_id, bucket_name
 						LIMIT @delete_limit
 					)
-				THEN RETURN stream_id
+				THEN RETURN status, stream_id, segment_count
 			`,
 			Params: map[string]interface{}{
 				"project_id":   opts.Bucket.ProjectID,
 				"bucket_name":  opts.Bucket.BucketName,
 				"delete_limit": opts.BatchSize,
 			},
-		}), func(row *spanner.Row, streamID *[]byte) error {
-			return row.Columns(streamID)
+		})
+		err := iter.Do(func(row *spanner.Row) error {
+			var status ObjectStatus
+			var streamID []byte
+			var segmentCount int64
+			if err := row.Columns(&status, &streamID, &segmentCount); err != nil {
+				return Error.Wrap(err)
+			}
+
+			deletedObjectCount++
+			// Note: this miscounts deleted segments for pending objects,
+			// because the objects table does not contain up to date segment_count for them.
+			deletedSegmentCount += segmentCount
+
+			if segmentCount > 0 || status.IsPending() {
+				deleteSegments = append(deleteSegments,
+					spanner.Delete("segments", spanner.KeyRange{
+						Start: spanner.Key{streamID},
+						End:   spanner.Key{streamID},
+						Kind:  spanner.ClosedClosed,
+					}))
+			}
+			return nil
 		})
 		if err != nil {
 			return Error.New("delete objects query error: %w", err)
 		}
-		deletedObjectCount = int64(len(streamIDs))
-		if len(streamIDs) == 0 {
+		if len(deleteSegments) == 0 {
 			return nil
 		}
 
-		deletedSegmentCount, err = tx.Update(ctx, spanner.Statement{
-			SQL: `
-				DELETE FROM segments
-				WHERE stream_id IN UNNEST(@stream_ids)
-			`,
-			Params: map[string]interface{}{
-				"stream_ids": streamIDs,
-			},
-		})
+		err = tx.BufferWrite(deleteSegments)
 		if err != nil {
 			return Error.New("delete segments query error: %w", err)
 		}
 		return nil
 	}, spanner.TransactionOptions{
 		CommitPriority: spannerpb.RequestOptions_PRIORITY_MEDIUM,
+		CommitOptions: spanner.CommitOptions{
+			MaxCommitDelay: &maxCommitDelay,
+		},
 		TransactionTag: "delete-all-bucket-objects",
 	})
 	if err != nil {
