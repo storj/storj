@@ -22,7 +22,8 @@
 
                 <div class="py-3 text-center">
                     <p class="font-weight-bold">{{ plan.title }}</p>
-                    <p>{{ plan.containerSubtitle }}</p>
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <p v-html="plan.containerSubtitle" />
                 </div>
 
                 <div class="py-3 text-center">

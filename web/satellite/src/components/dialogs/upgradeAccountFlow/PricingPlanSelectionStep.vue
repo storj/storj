@@ -13,11 +13,11 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount } from 'vue';
 import { VCol, VRow } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 
-import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, PRO_PLAN_INFO } from '@/types/common';
+import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -40,27 +40,27 @@ const emit = defineEmits<{
     select: [PricingPlanInfo];
 }>();
 
-const plans = ref<PricingPlanInfo[]>([
-    PRO_PLAN_INFO,
-]);
+const plans = computed<PricingPlanInfo[]>(() => {
+    const plans = [
+        billingStore.proPlanInfo,
+    ];
+    if (props.showFreePlan) plans.push(FREE_PLAN_INFO);
+
+    const plan = billingStore.state.pricingPlanInfo;
+    if (!plan) {
+        return plans;
+    }
+    plan.type = PricingPlanType.PARTNER;
+    plans.unshift(plan);
+
+    return plans;
+});
 
 /**
  * Loads pricing plan config. Assumes that user is already eligible for a plan prior to component being mounted.
  */
 onBeforeMount(async () => {
-    if (props.showFreePlan) {
-        plans.value = [
-            ...plans.value,
-            FREE_PLAN_INFO,
-        ];
-    }
-
-    const plan = billingStore.state.pricingPlanInfo;
-    if (!plan) {
+    if (!billingStore.state.pricingPlanInfo)
         notify.error(`No pricing plan configuration for partner '${usersStore.state.user.partner}'.`, null);
-        return;
-    }
-    plan.type = PricingPlanType.PARTNER;
-    plans.value.unshift(plan);
 });
 </script>

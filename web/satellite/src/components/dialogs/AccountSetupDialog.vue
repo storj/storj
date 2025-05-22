@@ -49,7 +49,7 @@
                         <v-window-item :value="OnboardingStep.PlanTypeSelection">
                             <account-type-step
                                 @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
-                                @pro-click="() => onSelectPricingPlan(PRO_PLAN_INFO)"
+                                @pro-click="() => onSelectPricingPlan(proPlanInfo)"
                                 @back="toPrevStep"
                             />
                         </v-window-item>
@@ -188,7 +188,7 @@ import {
     SetUserSettingsData,
     UserSettings,
 } from '@/types/users';
-import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, PRO_PLAN_INFO } from '@/types/common';
+import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -376,6 +376,8 @@ const interestedInPartnering = ref<boolean>(false);
 const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 
 const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvailable);
+
+const proPlanInfo = computed<PricingPlanInfo>(() => billingStore.proPlanInfo);
 
 const isProPlan = computed<boolean>(() => plan.value?.type === PricingPlanType.PRO);
 
