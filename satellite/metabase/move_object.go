@@ -50,13 +50,11 @@ type BeginMoveObject struct {
 
 // BeginMoveCopyResults holds all data needed to begin move and copy object methods.
 type BeginMoveCopyResults struct {
-	StreamID                      uuid.UUID
-	Version                       Version
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
-	EncryptedKeysNonces           []EncryptedKeyAndNonce
-	EncryptionParameters          storj.EncryptionParameters
+	StreamID uuid.UUID
+	Version  Version
+	EncryptedUserData
+	EncryptedKeysNonces  []EncryptedKeyAndNonce
+	EncryptionParameters storj.EncryptionParameters
 }
 
 // BeginMoveObject collects all data needed to begin object move procedure.
@@ -117,9 +115,7 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 	result.StreamID = object.StreamID
 	result.Version = object.Version
 	result.EncryptionParameters = object.Encryption
-	result.EncryptedMetadata = object.EncryptedMetadata
-	result.EncryptedMetadataEncryptedKey = object.EncryptedMetadataEncryptedKey
-	result.EncryptedMetadataNonce = object.EncryptedMetadataNonce
+	result.EncryptedUserData = object.EncryptedUserData
 
 	return result, nil
 }
@@ -276,7 +272,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		if !opts.NewEncryptedMetadataNonce.IsZero() {
 			metadataKeyNonce = opts.NewEncryptedMetadataNonce.Bytes()
 		}
-		err = encryptedMetadata{
+		err = EncryptedUserData{
 			EncryptedMetadata:             metadataStub,
 			EncryptedETag:                 metadataStub,
 			EncryptedMetadataNonce:        metadataKeyNonce,

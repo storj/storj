@@ -143,20 +143,18 @@ func TestFinishMoveObject(t *testing.T) {
 
 			numberOfSegments := 10
 			newObjectKey := metabasetest.RandObjectKey()
-			newEncryptedMetadataKey := testrand.Bytes(32)
 
 			newObj, segments := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+					ObjectStream:              obj,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserDataWithoutETag(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
 			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, newObj.SegmentCount)
 
+			newEncryptedMetadataKey := testrand.Bytes(32)
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
 					NewBucket:                        newBucketName,
@@ -186,11 +184,9 @@ func TestFinishMoveObject(t *testing.T) {
 
 			newObj, segments := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+					ObjectStream:              obj,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserDataWithoutETag(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -352,10 +348,8 @@ func TestFinishMoveObject(t *testing.T) {
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+					ObjectStream:      obj,
+					EncryptedUserData: metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -401,11 +395,9 @@ func TestFinishMoveObject(t *testing.T) {
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+					ObjectStream:              obj,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -450,11 +442,9 @@ func TestFinishMoveObject(t *testing.T) {
 
 			newObj, newSegments := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+					ObjectStream:              obj,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj, 2)
 

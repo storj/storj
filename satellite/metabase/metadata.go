@@ -12,17 +12,41 @@ import (
 	"storj.io/common/uuid"
 )
 
+// EncryptedUserData contains user data that has been encrypted with the nonce and key.
+type EncryptedUserData struct {
+	EncryptedMetadata             []byte
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadataEncryptedKey []byte
+	EncryptedETag                 []byte
+}
+
+// Verify checks whether the fields have been set correctly.
+func (opts EncryptedUserData) Verify() error {
+	if (opts.EncryptedMetadataNonce == nil) != (opts.EncryptedMetadataEncryptedKey == nil) {
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together")
+	}
+
+	hasEncryptedData := opts.EncryptedMetadata != nil || opts.EncryptedETag != nil
+	hasEncryptionKey := opts.EncryptedMetadataNonce != nil && opts.EncryptedMetadataEncryptedKey != nil
+
+	switch {
+	case hasEncryptedData && !hasEncryptionKey:
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set")
+	case !hasEncryptedData && hasEncryptionKey:
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty")
+	}
+
+	return nil
+}
+
 // UpdateObjectLastCommittedMetadata contains arguments necessary for replacing an object metadata.
 type UpdateObjectLastCommittedMetadata struct {
 	ObjectLocation
 	StreamID uuid.UUID
 
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
-
+	EncryptedUserData
+	// SetEncryptedETag is true for new uplink clients that know to send EncryptedETag.
 	SetEncryptedETag bool
-	EncryptedETag    []byte
 }
 
 // Verify object stream fields.

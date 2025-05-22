@@ -136,19 +136,13 @@ func TestCollectBucketTallies(t *testing.T) {
 				committed.ProjectID = pending.ProjectID
 				committed.BucketName = pending.BucketName + "q"
 
-				encryptedMetadata := testrand.Bytes(1024)
-				encryptedMetadataNonce := testrand.Nonce()
-				encryptedMetadataKey := testrand.Bytes(265)
-				encryptedETag := testrand.Bytes(265)
+				userData := metabasetest.RandEncryptedUserData()
 
 				metabasetest.BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
-						ObjectStream:                  pending,
-						Encryption:                    metabasetest.DefaultEncryption,
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-						EncryptedETag:                 encryptedETag,
+						ObjectStream:      pending,
+						Encryption:        metabasetest.DefaultEncryption,
+						EncryptedUserData: userData,
 					},
 				}.Check(ctx, t, db)
 
@@ -164,7 +158,7 @@ func TestCollectBucketTallies(t *testing.T) {
 						PendingObjectCount: 1,
 						TotalSegments:      0,
 						TotalBytes:         0,
-						MetadataSize:       int64(len(encryptedMetadata) + len(encryptedETag)),
+						MetadataSize:       int64(len(userData.EncryptedMetadata) + len(userData.EncryptedETag)),
 					},
 					{
 						BucketLocation: metabase.BucketLocation{

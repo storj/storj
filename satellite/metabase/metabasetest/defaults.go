@@ -28,6 +28,92 @@ var DefaultEncryption = storj.EncryptionParameters{
 	BlockSize:   29 * 256,
 }
 
+// RandEncryptedUserData returns full randomized encrypted user data.
+func RandEncryptedUserData() metabase.EncryptedUserData {
+	return metabase.EncryptedUserData{
+		EncryptedMetadata:             testrand.Bytes(32),
+		EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+		EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+		EncryptedETag:                 testrand.Bytes(32),
+	}
+}
+
+// RandEncryptedUserDataWithoutETag returns full randomized encrypted user data.
+func RandEncryptedUserDataWithoutETag() metabase.EncryptedUserData {
+	return metabase.EncryptedUserData{
+		EncryptedMetadata:             testrand.Bytes(32),
+		EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+		EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+	}
+}
+
+// EncryptedUserDataScenario is data definition for invalid user data.
+type EncryptedUserDataScenario struct {
+	EncryptedUserData metabase.EncryptedUserData
+	ErrText           string
+}
+
+// InvalidEncryptedUserDataScenarios returns user data examples that are invalid.
+func InvalidEncryptedUserDataScenarios() []EncryptedUserDataScenario {
+	return []EncryptedUserDataScenario{
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadata: []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+		},
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedETag: []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+		},
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadata: []byte{1},
+				EncryptedETag:     []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+		},
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadata:      []byte{1},
+				EncryptedETag:          []byte{1},
+				EncryptedMetadataNonce: []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+		},
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadata:             []byte{1},
+				EncryptedETag:                 []byte{1},
+				EncryptedMetadataEncryptedKey: []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+		},
+
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadataNonce: []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+		},
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadataEncryptedKey: []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together",
+		},
+		{
+			EncryptedUserData: metabase.EncryptedUserData{
+				EncryptedMetadataNonce:        []byte{1},
+				EncryptedMetadataEncryptedKey: []byte{1},
+			},
+			ErrText: "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+		},
+	}
+}
+
 // DefaultRawSegment returns default raw segment.
 func DefaultRawSegment(obj metabase.ObjectStream, segmentPosition metabase.SegmentPosition) metabase.RawSegment {
 	return metabase.RawSegment{

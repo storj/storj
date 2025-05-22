@@ -32,10 +32,7 @@ type RawObject struct {
 	Status       ObjectStatus
 	SegmentCount int32
 
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadata             []byte
-	EncryptedMetadataEncryptedKey []byte
-	EncryptedETag                 []byte
+	EncryptedUserData
 
 	// TotalPlainSize is 0 for a migrated object.
 	TotalPlainSize     int64

@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
@@ -307,10 +306,8 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 
 					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:                  originalObjStream,
-							EncryptedMetadata:             testrand.Bytes(64),
-							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+							ObjectStream:      originalObjStream,
+							EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
 						},
 					}.Run(ctx, t, db, originalObjStream, byte(numberOfSegments))
 
@@ -348,10 +345,8 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 
 					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:                  originalObjStream,
-							EncryptedMetadata:             testrand.Bytes(64),
-							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+							ObjectStream:      originalObjStream,
+							EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
 						},
 					}.Run(ctx, t, db, originalObjStream, byte(numberOfSegments))
 

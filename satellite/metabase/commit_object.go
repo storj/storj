@@ -33,10 +33,7 @@ type commitObjectWithSegmentsTransactionAdapter interface {
 type CommitObjectWithSegments struct {
 	ObjectStream
 
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
-	EncryptedETag                 []byte
+	EncryptedUserData
 
 	// TODO: this probably should use segment ranges rather than individual items
 	Segments []SegmentPosition
@@ -59,12 +56,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		return Object{}, err
 	}
 
-	err = encryptedMetadata{
-		EncryptedMetadata:             opts.EncryptedMetadata,
-		EncryptedMetadataNonce:        opts.EncryptedMetadataNonce,
-		EncryptedMetadataEncryptedKey: opts.EncryptedMetadataEncryptedKey,
-		EncryptedETag:                 opts.EncryptedETag,
-	}.Verify()
+	err = opts.EncryptedUserData.Verify()
 	if err != nil {
 		return Object{}, err
 	}

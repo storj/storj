@@ -54,11 +54,7 @@ type BeginObjectNextVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
-	EncryptedETag                 []byte // optional
-
+	EncryptedUserData
 	Encryption storj.EncryptionParameters
 
 	Retention Retention // optional
@@ -78,12 +74,7 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should be metabase.NextVersion")
 	}
 
-	err := encryptedMetadata{
-		EncryptedMetadata:             opts.EncryptedMetadata,
-		EncryptedMetadataNonce:        opts.EncryptedMetadataNonce,
-		EncryptedMetadataEncryptedKey: opts.EncryptedMetadataEncryptedKey,
-		EncryptedETag:                 opts.EncryptedETag,
-	}.Verify()
+	err := opts.EncryptedUserData.Verify()
 	if err != nil {
 		return err
 	}
@@ -99,33 +90,6 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		case opts.LegalHold:
 			return ErrInvalidRequest.New("ExpiresAt must not be set if LegalHold is set")
 		}
-	}
-
-	return nil
-}
-
-// TODO: make this type public and use it in different operations to avoid duplication.
-type encryptedMetadata struct {
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
-	EncryptedETag                 []byte
-}
-
-// Verify checks whether the fields have been set correctly.
-func (opts encryptedMetadata) Verify() error {
-	if (opts.EncryptedMetadataNonce == nil) != (opts.EncryptedMetadataEncryptedKey == nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together")
-	}
-
-	hasEncryptedData := opts.EncryptedMetadata != nil || opts.EncryptedETag != nil
-	hasEncryptionKey := opts.EncryptedMetadataNonce != nil && opts.EncryptedMetadataEncryptedKey != nil
-
-	switch {
-	case hasEncryptedData && !hasEncryptionKey:
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set")
-	case !hasEncryptedData && hasEncryptionKey:
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty")
 	}
 
 	return nil
@@ -270,11 +234,7 @@ type BeginObjectExactVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
-	EncryptedETag                 []byte // optional
-
+	EncryptedUserData
 	Encryption storj.EncryptionParameters
 
 	Retention Retention // optional
@@ -296,12 +256,7 @@ func (opts *BeginObjectExactVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
-	err := encryptedMetadata{
-		EncryptedMetadata:             opts.EncryptedMetadata,
-		EncryptedMetadataNonce:        opts.EncryptedMetadataNonce,
-		EncryptedMetadataEncryptedKey: opts.EncryptedMetadataEncryptedKey,
-		EncryptedETag:                 opts.EncryptedETag,
-	}.Verify()
+	err := opts.EncryptedUserData.Verify()
 	if err != nil {
 		return err
 	}
@@ -1076,15 +1031,12 @@ type CommitObject struct {
 
 	Encryption storj.EncryptionParameters
 
-	// this flag controls if we want to set metadata fields with CommitObject
+	// OverrideEncryptedMedata flag controls if we want to set metadata fields with CommitObject
 	// it's possible to set metadata with BeginObject request so we need to
 	// be explicit if we would like to set it with CommitObject which will
 	// override any existing metadata.
-	OverrideEncryptedMetadata     bool
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
-	EncryptedETag                 []byte // optional
+	OverrideEncryptedMetadata bool
+	EncryptedUserData
 
 	DisallowDelete bool
 
@@ -1109,12 +1061,7 @@ func (c *CommitObject) Verify() error {
 	}
 
 	if c.OverrideEncryptedMetadata {
-		err := encryptedMetadata{
-			EncryptedMetadata:             c.EncryptedMetadata,
-			EncryptedMetadataNonce:        c.EncryptedMetadataNonce,
-			EncryptedMetadataEncryptedKey: c.EncryptedMetadataEncryptedKey,
-			EncryptedETag:                 c.EncryptedETag,
-		}.Verify()
+		err := c.EncryptedUserData.Verify()
 		if err != nil {
 			return err
 		}
@@ -1334,12 +1281,9 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 
 	requestedEncryptionParameters := opts.Encryption
 	var (
-		deleted                          bool
-		oldEncryptedMetadata             []byte
-		oldEncryptedMetadataEncryptedKey []byte
-		oldEncryptedMetadataNonce        []byte
-		oldEncryptedETag                 []byte
-		oldEncryptionParameters          storj.EncryptionParameters
+		deleted                 bool
+		oldUserData             EncryptedUserData
+		oldEncryptionParameters storj.EncryptionParameters
 	)
 	lockMode := lockModeWrapper{
 		retentionMode: &object.Retention.Mode,
@@ -1377,7 +1321,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		deleted = true
 		return Error.Wrap(row.Columns(
 			&object.CreatedAt, &object.ExpiresAt,
-			&oldEncryptedMetadata, &oldEncryptedMetadataEncryptedKey, &oldEncryptedMetadataNonce, &oldEncryptedETag,
+			&oldUserData.EncryptedMetadata, &oldUserData.EncryptedMetadataEncryptedKey, &oldUserData.EncryptedMetadataNonce, &oldUserData.EncryptedETag,
 			encryptionParameters{&oldEncryptionParameters}, lockMode, retainUntil,
 		))
 	})
@@ -1404,10 +1348,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		encryptionArg = &oldEncryptionParameters
 	}
 	if opts.OverrideEncryptedMetadata {
-		oldEncryptedMetadataNonce = opts.EncryptedMetadataNonce
-		oldEncryptedMetadata = opts.EncryptedMetadata
-		oldEncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
-		oldEncryptedETag = opts.EncryptedETag
+		oldUserData = opts.EncryptedUserData
 	}
 	args := map[string]interface{}{
 		"project_id":                       opts.ProjectID,
@@ -1419,10 +1360,10 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		"expires_at":                       object.ExpiresAt,
 		"status":                           nextStatus,
 		"segment_count":                    len(finalSegments),
-		"encrypted_metadata_nonce":         oldEncryptedMetadataNonce,
-		"encrypted_metadata":               oldEncryptedMetadata,
-		"encrypted_metadata_encrypted_key": oldEncryptedMetadataEncryptedKey,
-		"encrypted_etag":                   oldEncryptedETag,
+		"encrypted_metadata_nonce":         oldUserData.EncryptedMetadataNonce,
+		"encrypted_metadata":               oldUserData.EncryptedMetadata,
+		"encrypted_metadata_encrypted_key": oldUserData.EncryptedMetadataEncryptedKey,
+		"encrypted_etag":                   oldUserData.EncryptedETag,
 		"total_plain_size":                 totalPlainSize,
 		"total_encrypted_size":             totalEncryptedSize,
 		"fixed_segment_size":               int64(fixedSegmentSize),
@@ -1460,9 +1401,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		return Error.New("failed to update object: %w", err)
 	}
 	object.Encryption = *encryptionArg
-	object.EncryptedMetadataNonce = oldEncryptedMetadataNonce
-	object.EncryptedMetadata = oldEncryptedMetadata
-	object.EncryptedMetadataEncryptedKey = oldEncryptedMetadataEncryptedKey
+	object.EncryptedUserData = oldUserData
 	return nil
 }
 
@@ -1498,15 +1437,12 @@ func (db *DB) validateParts(segments []segmentInfoForCommit) error {
 // CommitInlineObject contains arguments necessary for committing an inline object.
 type CommitInlineObject struct {
 	ObjectStream
-	CommitInlineSegment
+	CommitInlineSegment CommitInlineSegment
 
-	ExpiresAt  *time.Time
+	ExpiresAt *time.Time
+
+	EncryptedUserData
 	Encryption storj.EncryptionParameters
-
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
-	EncryptedETag                 []byte // optional
 
 	Retention Retention // optional
 	LegalHold bool
@@ -1534,12 +1470,7 @@ func (c *CommitInlineObject) Verify() error {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
-	err := encryptedMetadata{
-		EncryptedMetadata:             c.EncryptedMetadata,
-		EncryptedMetadataNonce:        c.EncryptedMetadataNonce,
-		EncryptedMetadataEncryptedKey: c.EncryptedMetadataEncryptedKey,
-		EncryptedETag:                 c.EncryptedETag,
-	}.Verify()
+	err := c.EncryptedUserData.Verify()
 	if err != nil {
 		return err
 	}
@@ -1593,27 +1524,24 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		object.Version = nextVersion
 		object.Status = nextStatus
 		object.SegmentCount = 1
-		object.TotalPlainSize = int64(opts.PlainSize)
-		object.TotalEncryptedSize = int64(int32(len(opts.InlineData)))
+		object.TotalPlainSize = int64(opts.CommitInlineSegment.PlainSize)
+		object.TotalEncryptedSize = int64(int32(len(opts.CommitInlineSegment.InlineData)))
 		object.ExpiresAt = opts.ExpiresAt
 		object.Encryption = opts.Encryption
-		object.EncryptedMetadata = opts.EncryptedMetadata
-		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
-		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
-		object.EncryptedETag = opts.EncryptedETag
+		object.EncryptedUserData = opts.EncryptedUserData
 		object.Retention = opts.Retention
 		object.LegalHold = opts.LegalHold
 
 		segment := &Segment{
 			StreamID:          opts.StreamID,
-			Position:          opts.Position,
+			Position:          opts.CommitInlineSegment.Position,
 			ExpiresAt:         opts.ExpiresAt,
-			EncryptedKey:      opts.EncryptedKey,
-			EncryptedKeyNonce: opts.EncryptedKeyNonce,
-			EncryptedETag:     opts.EncryptedETag,
-			PlainSize:         opts.PlainSize,
-			EncryptedSize:     int32(len(opts.InlineData)),
-			InlineData:        opts.InlineData,
+			EncryptedKey:      opts.CommitInlineSegment.EncryptedKey,
+			EncryptedKeyNonce: opts.CommitInlineSegment.EncryptedKeyNonce,
+			EncryptedETag:     opts.CommitInlineSegment.EncryptedETag,
+			PlainSize:         opts.CommitInlineSegment.PlainSize,
+			EncryptedSize:     int32(len(opts.CommitInlineSegment.InlineData)),
+			InlineData:        opts.CommitInlineSegment.InlineData,
 		}
 
 		return adapter.finalizeInlineObjectCommit(ctx, &object, segment)

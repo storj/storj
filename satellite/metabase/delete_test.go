@@ -362,18 +362,10 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 		t.Run("Delete object without segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
-			encryptedETag := testrand.Bytes(32)
-
 			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-					EncryptedETag:                 encryptedETag,
+					ObjectStream:      obj,
+					EncryptedUserData: metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj, 0)
 
@@ -949,11 +941,8 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:                  originalObjStream,
-							EncryptedMetadata:             testrand.Bytes(64),
-							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
-							EncryptedETag:                 testrand.Bytes(32),
+							ObjectStream:      originalObjStream,
+							EncryptedUserData: metabasetest.RandEncryptedUserData(),
 						},
 					}.Run(ctx, t, db, originalObjStream, byte(numberOfSegments))
 
@@ -996,11 +985,8 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:                  originalObjectStream,
-							EncryptedMetadata:             testrand.Bytes(64),
-							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
-							EncryptedETag:                 testrand.Bytes(32),
+							ObjectStream:      originalObjectStream,
+							EncryptedUserData: metabasetest.RandEncryptedUserData(),
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
@@ -1038,11 +1024,8 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:                  originalObjectStream,
-							EncryptedMetadata:             testrand.Bytes(64),
-							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
-							EncryptedETag:                 testrand.Bytes(32),
+							ObjectStream:      originalObjectStream,
+							EncryptedUserData: metabasetest.RandEncryptedUserData(),
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
@@ -1080,11 +1063,8 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 
 					originalObj, originalSegments := metabasetest.CreateTestObject{
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:                  originalObjectStream,
-							EncryptedMetadata:             testrand.Bytes(64),
-							EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-							EncryptedMetadataEncryptedKey: testrand.Bytes(265),
-							EncryptedETag:                 testrand.Bytes(32),
+							ObjectStream:      originalObjectStream,
+							EncryptedUserData: metabasetest.RandEncryptedUserData(),
 						},
 					}.Run(ctx, t, db, originalObjectStream, byte(numberOfSegments))
 
@@ -1178,18 +1158,10 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 		t.Run("Delete object without segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
-			encryptedETag := testrand.Bytes(32)
-
 			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-					EncryptedETag:                 encryptedETag,
+					ObjectStream:      obj,
+					EncryptedUserData: metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj, 0)
 
