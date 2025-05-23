@@ -477,7 +477,8 @@ func (endpoint *Endpoint) deleteAllBucketObjects(ctx context.Context, projectID 
 
 	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucketName)}
 	deletedObjects, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
-		Bucket: bucketLocation,
+		Bucket:    bucketLocation,
+		BatchSize: endpoint.config.TestingDeleteBucketBatchSize,
 	})
 
 	return deletedObjects, Error.Wrap(err)

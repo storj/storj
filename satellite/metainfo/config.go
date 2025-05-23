@@ -229,6 +229,7 @@ type Config struct {
 	TestingProjectsWithCommitDelay   UUIDsFlag     `default:""  help:"list of project IDs for which commit delay is enabled" hidden:"true"`
 	TestingMaxCommitDelay            time.Duration `default:"20ms"  help:"max commit delay that will be used when commit delay is enabled for project" hidden:"true"`
 	TestingCommitSegmentUseMutations bool          `default:"false"  help:"enable using Spanner mutations while committing segment" hidden:"true"`
+	TestingDeleteBucketBatchSize     int           `default:"15" help:"how many objects to delete in a single batch during a bucket deletion"`
 
 	// TODO we need to split this into separate config with other metabase related flags
 	MetabaseCompression string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
