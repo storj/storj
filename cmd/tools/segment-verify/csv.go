@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -61,6 +62,7 @@ func (csv *CSVWriter) Write(ctx context.Context, segments []*Segment) (err error
 		err := csv.wr.Write([]string{
 			"stream id",
 			"position",
+			"created_at",
 			"required",
 			"found",
 			"not found",
@@ -81,6 +83,7 @@ func (csv *CSVWriter) Write(ctx context.Context, segments []*Segment) (err error
 		err := csv.wr.Write([]string{
 			seg.StreamID.String(),
 			strconv.FormatUint(seg.Position.Encode(), 10),
+			seg.CreatedAt.Format(time.RFC3339),
 			strconv.Itoa(int(seg.Redundancy.RequiredShares)),
 			strconv.Itoa(int(seg.Status.Found)),
 			strconv.Itoa(int(seg.Status.NotFound)),
@@ -144,6 +147,7 @@ func (csv *pieceCSVWriter) Write(
 		err := csv.wr.Write([]string{
 			"stream id",
 			"position",
+			"created_at",
 			"node id",
 			"piece number",
 			"outcome",
@@ -160,6 +164,7 @@ func (csv *pieceCSVWriter) Write(
 	err = csv.wr.Write([]string{
 		segment.StreamID.String(),
 		strconv.FormatUint(segment.Position.Encode(), 10),
+		segment.CreatedAt.Format(time.RFC3339),
 		nodeID.String(),
 		strconv.Itoa(pieceNum),
 		outcomeString(outcome),

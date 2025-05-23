@@ -123,11 +123,11 @@ func TestService_Success(t *testing.T) {
 
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(retryCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(notFoundCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(notFoundCSV))
 }
 
 func TestService_Buckets_Success(t *testing.T) {
@@ -219,11 +219,11 @@ func TestService_Buckets_Success(t *testing.T) {
 
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(retryCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
-	require.Equal(t, "stream id,position,required,found,not found,retry\n", string(notFoundCSV))
+	require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(notFoundCSV))
 }
 
 func TestService_Failures(t *testing.T) {
@@ -300,15 +300,15 @@ func TestService_Failures(t *testing.T) {
 	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
-		"stream id,position,required,found,not found,retry\n"+
-		"10100000-0000-0000-0000-000000000000,0,3,1,0,1\n",
+		"stream id,position,created_at,required,found,not found,retry\n"+
+		"10100000-0000-0000-0000-000000000000,0,0001-01-01T00:00:00Z,3,1,0,1\n",
 		string(retryCSV))
 
 	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
-		"stream id,position,required,found,not found,retry\n"+
-		"20200000-0000-0000-0000-000000000000,0,2,0,2,0\n",
+		"stream id,position,created_at,required,found,not found,retry\n"+
+		"20200000-0000-0000-0000-000000000000,0,0001-01-01T00:00:00Z,2,0,2,0\n",
 		string(notFoundCSV))
 }
 

@@ -69,10 +69,10 @@ func TestProcess(t *testing.T) {
 
 		retryCSV, err := os.ReadFile(config.RetryPath)
 		require.NoError(t, err)
-		require.Equal(t, "stream id,position,required,found,not found,retry\n", string(retryCSV))
+		require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(retryCSV))
 
 		notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 		require.NoError(t, err)
-		require.Equal(t, "stream id,position,required,found,not found,retry\n", string(notFoundCSV))
+		require.Equal(t, "stream id,position,created_at,required,found,not found,retry\n", string(notFoundCSV))
 	})
 }

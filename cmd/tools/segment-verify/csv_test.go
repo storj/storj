@@ -6,6 +6,7 @@ package main_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -45,6 +46,7 @@ func TestCSVWriter(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	now := time.Now()
 	err = w.Write(ctx, []*segmentverify.Segment{
 		{
 			VerifySegment: metabase.VerifySegment{
@@ -53,6 +55,7 @@ func TestCSVWriter(t *testing.T) {
 				Redundancy: storj.RedundancyScheme{
 					RequiredShares: 9,
 				},
+				CreatedAt: now,
 			},
 			Status: segmentverify.Status{Retry: 2, Found: 5, NotFound: 9},
 		},
@@ -62,9 +65,9 @@ func TestCSVWriter(t *testing.T) {
 	require.NoError(t, w.Close())
 
 	require.Equal(t, ""+
-		"stream id,position,required,found,not found,retry\n"+
-		"01020304-0506-0000-0000-000000000000,42949673016,6,3,5,1\n"+
-		"0a000000-0000-0000-0000-000000000000,4294967297,3,3,0,1\n"+
-		"0b000000-0000-0000-0000-000000000000,21474836482,9,5,9,2\n",
+		"stream id,position,created_at,required,found,not found,retry\n"+
+		"01020304-0506-0000-0000-000000000000,42949673016,0001-01-01T00:00:00Z,6,3,5,1\n"+
+		"0a000000-0000-0000-0000-000000000000,4294967297,0001-01-01T00:00:00Z,3,3,0,1\n"+
+		"0b000000-0000-0000-0000-000000000000,21474836482,"+now.Format(time.RFC3339)+",9,5,9,2\n",
 		out.String())
 }
