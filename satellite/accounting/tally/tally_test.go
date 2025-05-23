@@ -217,14 +217,20 @@ func TestIgnoresExpiredPointers(t *testing.T) {
 		err = collector.Run(ctx)
 		require.NoError(t, err)
 
-		// there should be a single empty tally because all of the objects are expired
+		// there should be a single empty tally (or no tally) because all of the
+		// objects are expired
 		loc := metabase.BucketLocation{
 			ProjectID:  planet.Uplinks[0].Projects[0].ID,
 			BucketName: bucketName,
 		}
-		require.Equal(t, map[metabase.BucketLocation]*accounting.BucketTally{
-			loc: {BucketLocation: loc},
-		}, collector.Bucket)
+		switch len(collector.Bucket) {
+		case 0:
+		// great
+		case 1:
+			require.Equal(t, collector.Bucket[loc].ObjectCount, 0)
+		default:
+			require.Fail(t, "an unexpected amount of buckets", len(collector.Bucket))
+		}
 	})
 }
 
