@@ -18,7 +18,6 @@ LATEST_TAG := ${BRANCH_NAME}-latest
 endif
 endif
 CUSTOMTAG ?=
-SRC_DIR="cmd"
 
 FILEEXT :=
 ifeq (${GOOS},windows)
@@ -300,7 +299,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: segment-verify-image #jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
+images: segment-verify-image jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: segment-verify-image
@@ -434,7 +433,7 @@ binary:
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	mkdir -p release/${TAG}
 	mkdir -p /tmp/go-cache /tmp/go-pkg
-	rm -f ${SRC_DIR}/${COMPONENT}/resource.syso
+	rm -f cmd/${SUB_DIR}${COMPONENT}/resource.syso
 	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
 	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${SUB_DIR}${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
@@ -477,7 +476,7 @@ binary-check:
 
 .PHONY: segment-verify_%
 segment-verify_%:
-	$(MAKE) binary-check SRC_DIR="cmd/tools/" COMPONENT=segment-verify GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	$(MAKE) binary-check SUB_DIR="tools/" COMPONENT=segment-verify GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: jobq_%
 jobq_%:
 	$(MAKE) binary-check COMPONENT=jobq GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -510,7 +509,7 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := segment-verify #jobq certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := segment-verify jobq certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
@@ -525,8 +524,7 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	#set -x; for c in segment-verify jobq multinode satellite uplink versioncontrol ; do \
-	set -x; for c in segment-verify
+	set -x; for c in segment-verify jobq multinode satellite uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
@@ -577,12 +575,12 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
-    docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
-	#docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
-	#docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
-	#docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
-	#docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-	#docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+    -docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 ##@ Tooling
 
