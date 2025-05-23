@@ -540,7 +540,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
-	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+	docker push img.dev.storj.io/dev/	set -x; for c in segment-verify jobq multinode satellite uplink versioncontrol ; do \:${TAG}${CUSTOMTAG}-amd64
 	REPO=storjlabs/storagenode-modular $(MAKE) push-modular-storagenode-image
 	REPO=ghcr.io/storj/storagenode-modular $(MAKE) push-modular-storagenode-image
 
@@ -577,11 +577,11 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 .PHONY: clean-images
 clean-images:
     -docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+	#-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
+	#-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
+	#-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
+	#-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	#-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 ##@ Tooling
 

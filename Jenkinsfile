@@ -15,7 +15,7 @@ node('node') {
       lastStage = env.STAGE_NAME
       sh 'make binaries'
 
-      stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
+      //stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
 
       echo "Current build result: ${currentBuild.result}"
     }
