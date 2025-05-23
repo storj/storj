@@ -30,9 +30,7 @@ import {
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useUsersStore } from '@/store/modules/usersStore';
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
-import { Time } from '@/utils/time';
 
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
@@ -77,32 +75,29 @@ export const useBillingStore = defineStore('billing', () => {
 
     const segmentPrice = computed(() => formatPrice(decimalShift(configStore.state.config.segmentMonthCents, 2)));
 
-    const userStore = useUsersStore();
     const proPlanInfo = computed(() => {
-        const minimumCharge = userStore.state.user.minimumCharge;
+        const minimumCharge = configStore.minimumCharge;
         const minimumChargeEnabled = minimumCharge.enabled;
         const minimumChargeAmt = minimumCharge.amount;
         const minimumChargeTxt = `with a <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
                     of ${minimumChargeAmt} equivalent to 1TB of storage.`;
 
         let subtitle = `Pay-as-you-go`;
-        if (minimumChargeEnabled) {
-            subtitle += `, ${minimumChargeTxt}`;
-        } else if (minimumCharge.noticeEnabled) {
+        if (minimumCharge.proNoticeEnabled) {
             subtitle += `. A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                    of ${minimumChargeAmt} equivalent to 1TB of storage will apply after
-                    ${Time.formattedDate(minimumCharge.startDate!, { month: 'long', day: 'numeric' })}.`;
+                    of ${minimumChargeAmt} equivalent to 1TB of storage will apply after ${minimumCharge.shortStartDateStr}.`;
+        } else if (minimumChargeEnabled) {
+            subtitle += `, ${minimumChargeTxt}`;
         } else {
             subtitle += ', no minimum';
         }
 
         let activationDesc = 'Add a credit card to activate your pro account. Only pay for what you use';
-        if (minimumChargeEnabled) {
-            activationDesc += `, ${minimumChargeTxt}`;
-        } else if (minimumCharge.noticeEnabled) {
+        if (minimumCharge.proNoticeEnabled) {
             activationDesc += `. A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                    of ${minimumChargeAmt} equivalent to 1TB of storage will apply after
-                    ${Time.formattedDate(minimumCharge.startDate!, { month: 'long', day: 'numeric' })}.`;
+                    of ${minimumChargeAmt} equivalent to 1TB of storage will apply after ${minimumCharge.shortStartDateStr}.`;
+        } else if (minimumChargeEnabled) {
+            activationDesc += `, ${minimumChargeTxt}`;
         } else {
             activationDesc += ', no minimum. Billed monthly.';
         }
