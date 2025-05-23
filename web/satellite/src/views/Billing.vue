@@ -46,7 +46,7 @@
                 <v-row>
                     <v-col cols="12" sm="12" md="6" lg="6" xl="4">
                         <v-card
-                            :subtitle="`For ${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`"
+                            :subtitle="estimatedChargesSubtitle"
                             class="pa-2"
                         >
                             <template #title>
@@ -59,8 +59,9 @@
                                                 class="text-center"
                                                 activator="parent"
                                                 location="top"
+                                                max-width="450"
                                             >
-                                                Expected charges for current billing period.
+                                                {{ estimatedChargesTooltipMsg }}
                                             </v-tooltip>
                                         </span>
                                     </v-col>
@@ -71,7 +72,7 @@
                             </template>
                             <v-card-text>
                                 <div class="d-flex align-center">
-                                    <span class="text-h5 font-weight-bold">{{ centsToDollars(priceSummary) }}</span>
+                                    <span class="text-h5 font-weight-bold">{{ estimatedChargesValue }}</span>
                                 </div>
                                 <v-divider class="my-4 border-0" />
                                 <v-btn variant="outlined" color="default" rounded="md" class="mr-2" :append-icon="ArrowRight" @click="tab = TABS['billing-history']">View Billing History</v-btn>
@@ -293,7 +294,7 @@ import { centsToDollars } from '@/utils/strings';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useConfigStore } from '@/store/modules/configStore';
+import { MinimumCharge, useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -349,6 +350,7 @@ const creditCards = computed((): CreditCard[] => {
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
 const addFundsEnabled = computed<boolean>(() => configStore.state.config.billingAddFundsEnabled);
+const minimumChargeCfg = computed<MinimumCharge>(() => configStore.minimumCharge);
 
 /**
  * projectIDs is an array of all of the project IDs for which there exist project usage charges.
@@ -358,6 +360,41 @@ const projectIDs = computed((): string[] => {
         .filter(proj => billingStore.state.projectCharges.hasProject(proj.id))
         .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
         .map(proj => proj.id);
+});
+
+const willMinimumChargeBeApplied = computed(() => {
+    const { enabled, startDate } = minimumChargeCfg.value;
+    return enabled && (!startDate || Date.now() >= startDate.getTime()) && priceSummary.value < minimumChargeCfg.value._amount;
+});
+
+const estimatedChargesSubtitle = computed<string>(() => {
+    const date = `${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`;
+
+    if (willMinimumChargeBeApplied.value) {
+        return `${date} = ${centsToDollars(priceSummary.value)} usage, ${centsToDollars(minimumChargeCfg.value._amount)} minimum`;
+    }
+
+    return date;
+});
+
+const estimatedChargesValue = computed<string>(() => {
+    if (willMinimumChargeBeApplied.value) {
+        return centsToDollars(minimumChargeCfg.value._amount);
+    }
+
+    return centsToDollars(priceSummary.value);
+});
+
+const estimatedChargesTooltipMsg = computed<string>(() => {
+    if (willMinimumChargeBeApplied.value) {
+        const minimumAmount = centsToDollars(minimumChargeCfg.value._amount);
+
+        return `Storj has a ${minimumAmount} monthly minimum. Since your usage (${centsToDollars(priceSummary.value)})
+            is below this amount, you'll be charged the minimum. Once your usage exceeds ${minimumAmount},
+            you'll only pay for what you use.`;
+    }
+
+    return 'Estimated charges for current billing period.';
 });
 
 /**
