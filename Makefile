@@ -547,7 +547,6 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
-	@echo "####### ${TAG} ######"
 	cd "release/${TAG}"; for f in *; do \
 		zipname=$$(echo $${f} | sed 's/.exe//g') \
 		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*\.msi/.msi/g' | sed 's/_.*//g') \
@@ -578,12 +577,12 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
-    -docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
-	#-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
-	#-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
-	#-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
-	#-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-	#-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+    docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
+	#docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
+	#docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
+	#docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
+	#docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	#docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 ##@ Tooling
 
