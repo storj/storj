@@ -435,14 +435,14 @@ func (db *metabaseMock) ListVerifySegments(ctx context.Context, opts metabase.Li
 	r := metabase.ListVerifySegmentsResult{}
 
 	for _, s := range db.segments {
+		if len(opts.StreamIDs) > 0 && !slices.Contains(opts.StreamIDs, s.StreamID) {
+			continue
+		}
+
 		if s.StreamID.Less(opts.CursorStreamID) {
 			continue
 		}
 		if s.StreamID == opts.CursorStreamID && !opts.CursorPosition.Less(s.Position) {
-			continue
-		}
-
-		if len(opts.StreamIDs) > 0 && !slices.Contains(opts.StreamIDs, s.StreamID) {
 			continue
 		}
 

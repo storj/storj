@@ -378,16 +378,21 @@ func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.B
 
 	var progress int64
 
-	cursorStreamID := uuid.UUID{}
-	cursorPosition := metabase.SegmentPosition{} // Convert to struct that contains the status.
 	segmentsData := make([]Segment, service.config.BatchSize)
 	segments := make([]*Segment, service.config.BatchSize)
 
 	for _, bucket := range buckets {
 		err := service.metabase.ListBucketStreamIDs(ctx, metabase.ListBucketStreamIDs{
 			Bucket:             bucket,
+			Limit:              service.config.BatchSize,
 			AsOfSystemInterval: service.config.AsOfSystemInterval,
 		}, func(ctx context.Context, streamIDs []uuid.UUID) error {
+			if len(streamIDs) == 0 {
+				return nil
+			}
+
+			cursorStreamID := uuid.UUID{}
+			cursorPosition := metabase.SegmentPosition{}
 
 			for {
 				result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
