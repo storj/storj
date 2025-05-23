@@ -8,7 +8,6 @@ import {
     AccountDeletionData,
     AccountSetupData,
     FreezeStatus,
-    MinimumCharge,
     Session,
     SessionsCursor,
     SessionsPage,
@@ -386,11 +385,6 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.pendingVerification,
                 userResponse.trialExpiration ? new Date(userResponse.trialExpiration) : null,
                 userResponse.hasVarPartner,
-                new MinimumCharge(
-                    userResponse.minimumCharge?.enabled ?? false,
-                    userResponse.minimumCharge?.amount ?? 0,
-                    userResponse.minimumCharge?.startDate ? new Date(userResponse.minimumCharge.startDate) : null,
-                ),
             );
         }
 
