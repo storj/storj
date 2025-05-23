@@ -560,8 +560,13 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 		ProjectStorageLimit:   dbx.User_ProjectStorageLimit(projectStorageLimit.Int64()),
 		ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(projectSegmentLimit),
 	}
-	if paidTier && upgradeTime != nil {
-		updateFields.UpgradeTime = dbx.User_UpgradeTime(*upgradeTime)
+	if paidTier {
+		updateFields.TrialExpiration = dbx.User_TrialExpiration_Null()
+		updateFields.TrialNotifications = dbx.User_TrialNotifications(0)
+
+		if upgradeTime != nil {
+			updateFields.UpgradeTime = dbx.User_UpgradeTime(*upgradeTime)
+		}
 	}
 
 	_, err = users.db.Update_User_By_Id(

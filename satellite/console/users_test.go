@@ -155,10 +155,26 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.False(t, createdUser.PaidTier)
 
 		now := time.Now()
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit, &now)
+		expiration := now.Add(time.Hour * 24 * 30)
+		expirationPtr := &expiration
+		notifications := console.TrialExpirationReminder
+
+		err = db.Console().Users().Update(ctx, createdUser.ID, console.UpdateUserRequest{
+			TrialNotifications: &notifications,
+			TrialExpiration:    &expirationPtr,
+		})
 		require.NoError(t, err)
 
 		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedUser.TrialExpiration)
+		require.WithinDuration(t, expiration, *retrievedUser.TrialExpiration, time.Minute)
+		require.Equal(t, int(notifications), retrievedUser.TrialNotifications)
+
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit, &now)
+		require.NoError(t, err)
+
+		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
 		require.NoError(t, err)
 		require.Equal(t, email, retrievedUser.Email)
 		require.Equal(t, fullName, retrievedUser.FullName)
@@ -166,6 +182,8 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.True(t, retrievedUser.PaidTier)
 		require.Equal(t, console.PaidUser, retrievedUser.Kind)
 		require.WithinDuration(t, now, *retrievedUser.UpgradeTime, time.Minute)
+		require.Nil(t, retrievedUser.TrialExpiration)
+		require.Zero(t, retrievedUser.TrialNotifications)
 
 		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit, nil)
 		require.NoError(t, err)
