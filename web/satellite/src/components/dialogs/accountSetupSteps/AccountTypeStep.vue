@@ -65,14 +65,13 @@
 
                         <h2 class="font-weight-black"><span class="text-high-emphasis text-body-1 font-weight-bold">Pay as you go</span></h2>
                         <p class="text-medium-emphasis text-caption">
-                            <template v-if="minimumCharge.enabled">
+                            <template v-if="minimumCharge.proNoticeEnabled">
+                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                                of {{ minimumCharge.amount }} equivalent to 1TB of storage will will apply from {{ minimumCharge.shortStartDateStr }}.
+                            </template>
+                            <template v-else-if="minimumCharge.enabled">
                                 <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">Minimum monthly charge</a>
                                 of {{ minimumCharge.amount }} equivalent to 1TB of storage.
-                            </template>
-                            <template v-else-if="minimumCharge.noticeEnabled">
-                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                                of {{ minimumCharge.amount }} equivalent to 1TB of storage will will apply from
-                                {{ Time.formattedDate(minimumCharge.startDate!, { month: 'long', day: 'numeric' }) }}.
                             </template>
                             <template v-else>
                                 No minimum, billed monthly.
@@ -157,14 +156,13 @@ import { VBtn, VCard, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/co
 import { ArrowRight, Check, ChevronLeft } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { Time } from '@/utils/time';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const billingStore = useBillingStore();
-const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const emit = defineEmits<{
     freeClick: [];
@@ -178,5 +176,5 @@ const egressPrice = computed(() => billingStore.egressPrice);
 
 const segmentPrice = computed(() => billingStore.segmentPrice);
 
-const minimumCharge = computed(() => userStore.state.user.minimumCharge);
+const minimumCharge = computed(() => configStore.minimumCharge);
 </script>
