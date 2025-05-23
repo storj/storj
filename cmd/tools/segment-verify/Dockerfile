@@ -1,8 +1,6 @@
-ARG DOCKER_ARCH
+FROM google/cloud-sdk:latest
 ARG TAG
 ARG GOARCH
-
-FROM google/cloud-sdk:latest
 ENV GOARCH ${GOARCH}
 ENV PATH=$PATH:/app
 EXPOSE 5999
