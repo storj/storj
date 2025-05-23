@@ -26,6 +26,13 @@ node('node') {
 
       echo "Current build result: ${currentBuild.result}"
     }
+    
+    stage('Push Images') {
+      lastStage = env.STAGE_NAME
+      sh 'make push-images'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
   }
   catch (err) {
     echo "Caught errors! ${err}"
