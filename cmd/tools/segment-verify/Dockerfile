@@ -9,5 +9,5 @@ EXPOSE 5999
 WORKDIR /app
 COPY release/${TAG}/segment-verify_linux_${GOARCH:-amd64} /app/segment-verify
 #COPY segment-verify /app/segment-verify
-COPY entrypoint cmd/tools/segment-verify/entrypoint
+COPY cmd/tools/segment-verify/entrypoint /app/entrypoint
 ENTRYPOINT ["/app/entrypoint"]
