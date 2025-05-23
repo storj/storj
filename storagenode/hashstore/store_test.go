@@ -670,7 +670,9 @@ func testStore_ReviveDuringCompaction(t *testing.T) {
 		go func() {
 			waitForGoroutine(
 				"testStore_ReviveDuringCompaction",
-				"Create",
+				"(*testStore).AssertRead",
+				"(*Store).reviveRecord",
+				"(*mutex).Lock",
 			)
 			// the following AssertRead call is blocked on Create, allow compaction to finish.
 			close(activity)
@@ -726,17 +728,11 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T) {
 	// wait until compaction is asking to trash a key, so we know it's running.
 	activity <- false
 
-	// start a goroutine that waits for 2 stacks to be blocked in reviveRecord where one of them
-	// is blocked trying to Create to recreate the trashed record and allow compaction to continue.
+	// start a goroutine that waits for 2 stacks to be blocked in reviveRecord.
 	go func() {
-		waitForGoroutine(
+		waitForGoroutines(2,
 			"(*Store).reviveRecord",
 			"(*mutex).Lock",
-		)
-		waitForGoroutine(
-			"(*Store).reviveRecord",
-			"(*Store).Create",
-			"(*rwMutex).RLock",
 		)
 		close(activity)
 	}()
@@ -793,28 +789,29 @@ func testStore_CloseCancelsCompaction(t *testing.T) {
 	// context being canceled.
 	activity <- true
 
-	// launch a goroutine that confirms that this test has a Create call blocked in Create then
+	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// closes the store.
 	go func() {
 		waitForGoroutine(
 			"testStore_CloseCancelsCompaction",
-			"Create",
+			"(*Writer).Close",
 		)
 		s.Close()
 	}()
 
-	// try to create a key and ensure it fails.
-	_, err := s.Create(context.Background(), newKey(), time.Time{})
-	assert.Error(t, err)
+	// try to create a key and ensure it fails on Close.
+	w, err := s.Create(context.Background(), newKey(), time.Time{})
+	assert.NoError(t, err)
+	assert.Error(t, w.Close())
 
 	// compaction should have errored.
 	assert.Error(t, <-errCh)
 }
 
-func TestStore_ContextCancelsCreate(t *testing.T) {
-	forAllTables(t, testStore_ContextCancelsCreate)
+func TestStore_ContextCancelsClose(t *testing.T) {
+	forAllTables(t, testStore_ContextCancelsClose)
 }
-func testStore_ContextCancelsCreate(t *testing.T) {
+func testStore_ContextCancelsClose(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -842,19 +839,20 @@ func testStore_ContextCancelsCreate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// launch a goroutine that confirms that this test has a Create call blocked in Create then
+	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// cancels the context.
 	go func() {
 		waitForGoroutine(
-			"testStore_ContextCancelsCreate",
-			"Create",
+			"testStore_ContextCancelsClose",
+			"(*Writer).Close",
 		)
 		cancel()
 	}()
 
-	// try to create a key and ensure it fails.
-	_, err := s.Create(ctx, newKey(), time.Time{})
-	assert.Error(t, err)
+	// try to create a key and ensure it fails during Close.
+	w, err := s.Create(ctx, newKey(), time.Time{})
+	assert.NoError(t, err)
+	assert.Error(t, w.Close())
 
 	// allow compaction to finish.
 	activity <- true

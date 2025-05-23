@@ -50,9 +50,6 @@ var (
 	// if set, deletes all trash immediately instead of after the ttl.
 	compaction_DeleteTrashImmediately = envBool("STORJ_HASHSTORE_COMPACTION_DELETE_TRASH_IMMEDIATELY", false)
 
-	// controls the number of concurrent writers to log files.
-	store_WriterSemaphore = int(envInt("STORJ_HASHSTORE_STORE_WRITER_SEMAPHORE", 0))
-
 	// controls the number of concurrent flushes to log files.
 	store_FlushSemaphore = int(envInt("STORJ_HASHSTORE_STORE_FLUSH_SEMAPHORE", 0))
 
@@ -73,7 +70,6 @@ type Store struct {
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
-	activeMu  *rwMutex // semaphore of active writes to log files
 	flushMu   *rwMutex // semaphore of active flushes to log files
 	compactMu *mutex   // held during compaction to ensure only 1 compaction at a time
 	reviveMu  *mutex   // held during revival to ensure only 1 object is revived from trash at a time
@@ -121,7 +117,6 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 		today:     func() uint32 { return TimeToDateDown(time.Now()) },
 		lfc:       newLogCollection(),
 
-		activeMu:  newRWMutex(store_WriterSemaphore),
 		flushMu:   newRWMutex(store_FlushSemaphore),
 		compactMu: newMutex(),
 		reviveMu:  newMutex(),
@@ -478,9 +473,9 @@ func (s *Store) Close() {
 	s.compactMu.WaitLock()
 	defer s.compactMu.Unlock()
 
-	// acquire the write mutex to ensure all writes are finished.
-	s.activeMu.WaitLock()
-	defer s.activeMu.Unlock()
+	// acquire the flush mutex to ensure no writes are committing.
+	s.flushMu.WaitLock()
+	defer s.flushMu.Unlock()
 
 	// we can now close all of the resources.
 	_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
@@ -504,17 +499,10 @@ func (s *Store) Close() {
 func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (w *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := s.activeMu.RLock(ctx, &s.closed); err != nil {
+	// if we're already closed, return an error.
+	if err, ok := s.closed.Get(); ok {
 		return nil, err
 	}
-
-	// unlock if we don't return a Writer. this is safer than if we're returning an error because
-	// if a panic happens, both values will be nil.
-	defer func() {
-		if w == nil {
-			s.activeMu.RUnlock()
-		}
-	}()
 
 	// compute an expiration field if one is set.
 	var exp Expiration
@@ -522,8 +510,7 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (w *Writ
 		exp = NewExpiration(TimeToDateUp(expires), false)
 	}
 
-	// return the automatic writer for the piece that unlocks and commits the record into the hash
-	// table on Close.
+	// return the writer for the piece that commits the record into the hash table on Close.
 	return newWriter(ctx, s, key, exp), nil
 }
 
@@ -573,30 +560,32 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// was trashed so we should revive it no matter what.
 	ctx = context2.WithoutCancellation(ctx)
 
-	// a compaction is potentially ongoing. fortunately, because we have a handle to the log file,
-	// we can always read the piece even if it gets fully deleted by compaction. the last tricky bit
-	// is to decide if we need to re-write the piece or if we can get away with updating the record.
-	// once we have acquired a write slot, we can be sure that no compaction is ongoing so we can
-	// check the table to see if the record matches as it usually will.
-
-	// 1. acquire the revive mutex.
+	// 1. acquire the revive mutex. revive happens infrequently enough and the concurrency
+	// considerations are difficult enough to limit it to one at a time.
 	if err := s.reviveMu.Lock(ctx, &s.closed); err != nil {
 		return err
 	}
 	defer s.reviveMu.Unlock()
 
-	// 2. acquire a write slot, ensuring that no compaction is ongoing and we can write to a log if
-	// necessary. once we have a writer, we know the state of the hash table and logs can only be
-	// added to.
+	// 2. acquire the compaction mutex. while we have an open handle to the log file, we know that
+	// we will be able to read it, so we don't have to worry about that. but we do have to worry
+	// about compaction changing the state of the hashtbl and log file set, so we need to be
+	// exclusive with that.
+	if err := s.compactMu.Lock(ctx, &s.closed); err != nil {
+		return err
+	}
+	defer s.compactMu.Unlock()
+
+	// 3. create a writer for the entry.
 	w, err := s.Create(ctx, rec.Key, time.Time{})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	defer w.Cancel()
 
-	// 3. find the current state of the record. if found, we can just update the expiration and be
-	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
-	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
+	// 4. find the current state of the record. if found, we can just update the expiration and be
+	// happy. as noted in 2, we're safe to do a lookup into s.tbl here even without the rmu held
+	// because we know no compaction is ongoing due to having the mutex acquired, and compaction is
 	// the only thing that does anything other than add entries to the hash table.
 	if tmp, ok, err := s.tbl.Lookup(ctx, rec.Key); err == nil && ok {
 		if tmp.Expires == 0 {
@@ -607,7 +596,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 		return s.addRecord(ctx, tmp)
 	}
 
-	// 4. otherwise, we either had an error looking up the current record, or the entry got fully
+	// 5. otherwise, we either had an error looking up the current record, or the entry got fully
 	// deleted, and the open file handle is the last remaining evidence that it exists, so we have
 	// to rewrite it. note that we purposefully do not close the log reader because after this
 	// function exits, a log reader will be created and returned to the user using the same log
@@ -650,11 +639,11 @@ func (s *Store) Compact(
 	}
 	defer s.compactMu.Unlock()
 
-	// stop all writers from starting and wait for all current writers to finish.
-	if err := s.activeMu.Lock(ctx, &s.closed); err != nil {
+	// stop all writers from flushing and wait for all current writers to finish flushing.
+	if err := s.flushMu.Lock(ctx, &s.closed); err != nil {
 		return err
 	}
-	defer s.activeMu.Unlock()
+	defer s.flushMu.Unlock()
 
 	// log that we acquired the locks only if it took a while.
 	if dur := time.Since(start); dur > time.Second {

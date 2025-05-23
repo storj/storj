@@ -266,9 +266,6 @@ func (h *Writer) Close() (err error) {
 		return nil
 	}
 
-	// always unlock the active mutex when done.
-	defer h.store.activeMu.RUnlock()
-
 	// attempt to acquire the flush semaphore from the store.
 	if err := h.store.flushMu.RLock(h.ctx, &h.store.closed); err != nil {
 		return Error.Wrap(err)
@@ -333,8 +330,8 @@ func (h *Writer) Cancel() {
 		return
 	}
 
-	// unlock the active mutex.
-	h.store.activeMu.RUnlock()
+	// drop the memory early in case someone holds on to the canceled writer.
+	h.buf = nil
 }
 
 // Write implements io.Writer.
