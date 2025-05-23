@@ -3,6 +3,7 @@ GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
 NODE_VERSION ?= 20.10.0
+echo "###### ${TAG} #####"
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
@@ -300,7 +301,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: segment-verify-image jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
+images: segment-verify-image #jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: segment-verify-image
@@ -510,7 +511,7 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := segment-verify jobq certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := segment-verify #jobq certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
@@ -525,7 +526,8 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	set -x; for c in segment-verify jobq multinode satellite uplink versioncontrol ; do \
+	#set -x; for c in segment-verify jobq multinode satellite uplink versioncontrol ; do \
+	set -x; for c in segment-verify
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
@@ -577,11 +579,11 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 .PHONY: clean-images
 clean-images:
     -docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
+	#-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
+	#-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
+	#-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
+	#-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	#-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
 
 ##@ Tooling
 
