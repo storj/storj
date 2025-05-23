@@ -3,7 +3,7 @@ GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
 NODE_VERSION ?= 20.10.0
-echo "###### ${TAG} #####"
+shell echo "###### ${TAG} #####"
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
