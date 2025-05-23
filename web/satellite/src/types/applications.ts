@@ -85,7 +85,7 @@ export const ObjectMountApp: Application = {
     description: 'Access files stored on Storj as if they were on local disk, allowing real-time editing without downloading entire files.',
     categories: [AppCategory.Media, AppCategory.FileManagement],
     src: StorjIcon,
-    docs: '',
+    docs: 'https://storj.dev/object-mount',
 };
 
 export const applications: Application[] = [
