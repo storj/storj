@@ -6,10 +6,15 @@ package ultest
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
 	"storj.io/uplink"
 )
+
+// Ensure that external implements ulext.External.
+var _ ulext.External = (*external)(nil)
 
 var accesses = map[string]string{
 	"TestAccessA": "12edqrJX1V243n5fWtUrwpMQXL8gKdY2wbyqRPSG3rsA1tzmZiQjtCyF896egifN2C2qdY6g5S1t6e8iDhMUon9Pb7HdecBFheAcvmN8652mqu8hRx5zcTUaRTWfFCKS2S6DHmTeqPUHJLEp6cJGXNHcdqegcKfeahVZGP4rTagHvFGEraXjYRJ3knAcWDGW6BxACqogEWez6r274JiUBfs4yRSbRNRqUEURd28CwDXMSHLRKKA7TEDKEdQ",
@@ -17,16 +22,18 @@ var accesses = map[string]string{
 }
 
 type external struct {
-	ulext.External
+	ulext.ExternalUnsupported
 
-	fs      ulfs.Filesystem
-	project *uplink.Project
+	fs              ulfs.Filesystem
+	project         *uplink.Project
+	promptResponder PromptResponder
 }
 
-func newExternal(fs ulfs.Filesystem, project *uplink.Project) *external {
+func newExternal(fs ulfs.Filesystem, project *uplink.Project, promptResponder PromptResponder) *external {
 	return &external{
-		fs:      fs,
-		project: project,
+		fs:              fs,
+		project:         project,
+		promptResponder: promptResponder,
 	}
 }
 
@@ -40,6 +47,17 @@ func (ex *external) OpenProject(ctx context.Context, access string, options ...u
 
 func (ex *external) GetEdgeUrlOverrides(ctx context.Context, access *uplink.Access) (_ ulext.EdgeURLOverrides, err error) {
 	return ulext.EdgeURLOverrides{}, nil
+}
+
+func (ex *external) PromptInput(ctx context.Context, prompt string) (string, error) {
+	if ex.promptResponder == nil {
+		return "", errs.New("no prompt responder configured")
+	}
+	return ex.promptResponder(ctx, prompt)
+}
+
+func (ex *external) PromptSecret(ctx context.Context, prompt string) (string, error) {
+	return ex.PromptInput(ctx, prompt)
 }
 
 func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {

@@ -18,6 +18,11 @@ import (
 // config file does not exist. It will only attempt to do so at most once
 // and so calls to migrate are idempotent.
 func (ex *external) migrate() (err error) {
+	configFile, err := ex.ConfigFile()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
 	if ex.migration.migrated {
 		return ex.migration.err
 	}
@@ -27,7 +32,7 @@ func (ex *external) migrate() (err error) {
 	defer func() { ex.migration.err = err }()
 
 	// if the config file exists, there is no need to migrate
-	if _, err := os.Stat(ex.ConfigFile()); err == nil {
+	if _, err := os.Stat(configFile); err == nil {
 		return nil
 	}
 

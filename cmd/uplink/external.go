@@ -183,8 +183,14 @@ func transformFloat64(x string) (float64, error) {
 	return strconv.ParseFloat(x, 64)
 }
 
-func (ex *external) AccessInfoFile() string   { return filepath.Join(ex.dirs.current, "access.json") }
-func (ex *external) ConfigFile() string       { return filepath.Join(ex.dirs.current, "config.ini") }
+func (ex *external) AccessInfoFile() (string, error) {
+	return filepath.Join(ex.dirs.current, "access.json"), nil
+}
+
+func (ex *external) ConfigFile() (string, error) {
+	return filepath.Join(ex.dirs.current, "config.ini"), nil
+}
+
 func (ex *external) legacyConfigFile() string { return filepath.Join(ex.dirs.legacy, "config.yaml") }
 
 // Dynamic is called by clingy to look up values for global flags not specified on the command

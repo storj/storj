@@ -27,14 +27,14 @@ type External interface {
 	OpenProject(ctx context.Context, accessName string, options ...Option) (*uplink.Project, error)
 	GetEdgeUrlOverrides(ctx context.Context, access *uplink.Access) (EdgeURLOverrides, error)
 
-	AccessInfoFile() string
+	AccessInfoFile() (path string, err error)
 	OpenAccess(accessName string) (access *uplink.Access, err error)
 	GetAccessInfo(required bool) (string, map[string]string, error)
 	SaveAccessInfo(defaultName string, accesses map[string]string) error
 	RequestAccess(ctx context.Context, satelliteAddress, apiKey, passphrase string, unencryptedObjectKeys bool) (*uplink.Access, error)
 	ExportAccess(ctx context.Context, access *uplink.Access, filename string) error
 
-	ConfigFile() string
+	ConfigFile() (path string, err error)
 	SaveConfig(values map[string]string) error
 
 	PromptInput(ctx context.Context, prompt string) (input string, err error)
