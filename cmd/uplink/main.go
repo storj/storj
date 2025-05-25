@@ -35,7 +35,7 @@ func main() {
 	}.Run(ctx, func(cmds clingy.Commands) {
 		ex.Setup(cmds) // setup ex first so that stdlib flags can consult config
 		newStdlibFlags(flag.CommandLine).Setup(cmds)
-		commands(cmds, ex)
+		Commands(cmds, ex)
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "%+v\n", err)
@@ -61,7 +61,8 @@ func withPieceHashAlgorithm(ctx context.Context) context.Context {
 	return ctx
 }
 
-func commands(cmds clingy.Commands, ex ulext.External) {
+// Commands registers Uplink CLI commands.
+func Commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.Group("access", "Access related commands", func() {
 		cmds.New("create", "Create an access from the satellite UI", newCmdAccessCreate(ex))
 		cmds.New("export", "Export an access to a file", newCmdAccessExport(ex))

@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
+	uplinkcli "storj.io/storj/cmd/uplink"
 	"storj.io/storj/cmd/uplink/ultest"
 )
 
@@ -24,11 +25,11 @@ const testAPIKey = "13Yqe3oHi5dcnGhMu2ru3cmePC9iEYv6nDrYMbLRh4wre1KtVA9SFwLNAuuv
 
 func TestShare(t *testing.T) {
 	t.Run("share requires prefix", func(t *testing.T) {
-		ultest.Setup(commands).Fail(t, "share")
+		ultest.Setup(uplinkcli.Commands).Fail(t, "share")
 	})
 
 	t.Run("share default access", func(t *testing.T) {
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		state.Succeed(t, "share", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
@@ -47,7 +48,7 @@ func TestShare(t *testing.T) {
 	})
 
 	t.Run("share access with --readonly", func(t *testing.T) {
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		state.Succeed(t, "share", "--readonly", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
@@ -66,7 +67,7 @@ func TestShare(t *testing.T) {
 	})
 
 	t.Run("share access with --disallow-lists", func(t *testing.T) {
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		state.Succeed(t, "share", "--disallow-lists", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
@@ -85,7 +86,7 @@ func TestShare(t *testing.T) {
 	})
 
 	t.Run("share access with --disallow-reads", func(t *testing.T) {
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		state.Succeed(t, "share", "--disallow-reads", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
@@ -104,7 +105,7 @@ func TestShare(t *testing.T) {
 	})
 
 	t.Run("share access with --writeonly", func(t *testing.T) {
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		result := state.Fail(t, "share", "--writeonly", "sj://some/prefix")
 
@@ -115,7 +116,7 @@ func TestShare(t *testing.T) {
 		// Can't run this scenario because AuthService is not running in testplanet.
 		// If necessary we can mock AuthService like in https://github.com/storj/uplink/blob/main/testsuite/edge_test.go
 		t.Skip("No AuthService available in testplanet")
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		state.Succeed(t, "share", "--public", "--not-after=none", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
@@ -134,7 +135,7 @@ func TestShare(t *testing.T) {
 	})
 
 	t.Run("share access with --not-after", func(t *testing.T) {
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		state.Succeed(t, "share", "--not-after", "2022-01-01T15:01:01-01:00", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
@@ -153,7 +154,7 @@ func TestShare(t *testing.T) {
 	})
 
 	t.Run("share access with --max-object-ttl", func(t *testing.T) {
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		state.Succeed(t, "share", "--max-object-ttl", "720h", "--readonly=false", "sj://some/prefix").RequireStdoutGlob(t, `
 			Sharing access to satellite *
@@ -175,7 +176,7 @@ func TestShare(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		state := ultest.Setup(commands)
+		state := ultest.Setup(uplinkcli.Commands)
 
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		require.NoError(t, err)

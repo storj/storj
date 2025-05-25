@@ -1,16 +1,17 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"testing"
 
+	uplinkcli "storj.io/storj/cmd/uplink"
 	"storj.io/storj/cmd/uplink/ultest"
 )
 
 func TestRmErrors(t *testing.T) {
-	state := ultest.Setup(commands)
+	state := ultest.Setup(uplinkcli.Commands)
 
 	t.Run("Version ID with Pending", func(t *testing.T) {
 		state.Fail(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000001", "--pending")
@@ -27,7 +28,7 @@ func TestRmErrors(t *testing.T) {
 
 func TestRmRemote(t *testing.T) {
 	t.Run("Basic", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/file1.txt"),
 			ultest.WithFile("sj://user/file2.txt"),
 			ultest.WithFile("/home/user/file1.txt"),
@@ -42,7 +43,7 @@ func TestRmRemote(t *testing.T) {
 	})
 
 	t.Run("Recursive", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/files/file1.txt"),
 			ultest.WithFile("sj://user/files/file2.txt"),
 			ultest.WithFile("sj://user/other_file1.txt"),
@@ -58,7 +59,7 @@ func TestRmRemote(t *testing.T) {
 	})
 
 	t.Run("Pending", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithPendingFile("sj://user/files/file1.txt"),
 			ultest.WithPendingFile("sj://user/files/file2.txt"),
 			ultest.WithPendingFile("sj://user/other_file1.txt"),
@@ -71,7 +72,7 @@ func TestRmRemote(t *testing.T) {
 	})
 
 	t.Run("Pending Recursive", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithPendingFile("sj://user/files/file1.txt"),
 			ultest.WithPendingFile("sj://user/files/file2.txt"),
 			ultest.WithPendingFile("sj://user/other_file1.txt"),
@@ -83,7 +84,7 @@ func TestRmRemote(t *testing.T) {
 	})
 
 	t.Run("Version ID", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/file.txt"),
 			ultest.WithFile("sj://user/file.txt"),
 			ultest.WithFile("sj://user/file.txt"),
@@ -96,7 +97,7 @@ func TestRmRemote(t *testing.T) {
 	})
 
 	t.Run("Version ID with Governance Locked File", func(t *testing.T) {
-		state := ultest.Setup(commands, ultest.WithGovernanceLockedFile("sj://user/file.txt"))
+		state := ultest.Setup(uplinkcli.Commands, ultest.WithGovernanceLockedFile("sj://user/file.txt"))
 
 		state.Fail(t, "rm", "sj://user/file.txt", "--version-id", "0000000000000000").RequireFiles(t,
 			ultest.File{Loc: "sj://user/file.txt", Version: 0},
@@ -108,7 +109,7 @@ func TestRmRemote(t *testing.T) {
 
 func TestRmLocal(t *testing.T) {
 	t.Run("Basic", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/file1.txt"),
 			ultest.WithFile("sj://user/file2.txt"),
 			ultest.WithFile("/home/user/file1.txt"),
@@ -124,7 +125,7 @@ func TestRmLocal(t *testing.T) {
 	})
 
 	t.Run("Recursive", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/files/file1.txt"),
 			ultest.WithFile("sj://user/files/file2.txt"),
 			ultest.WithFile("/home/user/files/file1.txt"),
