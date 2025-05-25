@@ -29,7 +29,7 @@ type External interface {
 
 	AccessInfoFile() (path string, err error)
 	OpenAccess(accessName string) (access *uplink.Access, err error)
-	GetAccessInfo(required bool) (string, map[string]string, error)
+	GetAccessInfo(required bool) (defaultName string, accesses map[string]string, err error)
 	SaveAccessInfo(defaultName string, accesses map[string]string) error
 	RequestAccess(ctx context.Context, satelliteAddress, apiKey, passphrase string, unencryptedObjectKeys bool) (*uplink.Access, error)
 	ExportAccess(ctx context.Context, access *uplink.Access, filename string) error

@@ -13,13 +13,11 @@ import (
 	"storj.io/uplink"
 )
 
+// TestAccess is a valid access grant intended for use in tests.
+const TestAccess = "12edqrJX1V243n5fWtUrwpMQXL8gKdY2wbyqRPSG3rsA1tzmZiQjtCyF896egifN2C2qdY6g5S1t6e8iDhMUon9Pb7HdecBFheAcvmN8652mqu8hRx5zcTUaRTWfFCKS2S6DHmTeqPUHJLEp6cJGXNHcdqegcKfeahVZGP4rTagHvFGEraXjYRJ3knAcWDGW6BxACqogEWez6r274JiUBfs4yRSbRNRqUEURd28CwDXMSHLRKKA7TEDKEdQ"
+
 // Ensure that external implements ulext.External.
 var _ ulext.External = (*external)(nil)
-
-var accesses = map[string]string{
-	"TestAccessA": "12edqrJX1V243n5fWtUrwpMQXL8gKdY2wbyqRPSG3rsA1tzmZiQjtCyF896egifN2C2qdY6g5S1t6e8iDhMUon9Pb7HdecBFheAcvmN8652mqu8hRx5zcTUaRTWfFCKS2S6DHmTeqPUHJLEp6cJGXNHcdqegcKfeahVZGP4rTagHvFGEraXjYRJ3knAcWDGW6BxACqogEWez6r274JiUBfs4yRSbRNRqUEURd28CwDXMSHLRKKA7TEDKEdQ",
-	"TestAccessB": "1QiUjN497AySNH4ZX3wJCUZZNGKzpJwmZ1EcjKGgNR3Z9ADLawZNJbHXqm6VjH71nbWRRX6KfR9HHCr8sH3G9LA8e9qGuqWqkPPeskbD3Z12y4NuyxzwHYvcTSxa3Xk35Ts3ESGvP4785Rgeu5H8BF4kDriic6tRVUTPcAaYGCbHJPC2AfyPijLg4zZ627EuzeuWuo12mWGWiAZW3JJaVwD4657UJTGaUcuQqZxsjA1eTDkNFRfbv7zt9nW5si3E8FC6ZZFQ",
-}
 
 type external struct {
 	ulext.ExternalUnsupported
@@ -27,13 +25,21 @@ type external struct {
 	fs              ulfs.Filesystem
 	project         *uplink.Project
 	promptResponder PromptResponder
+
+	defaultAccessName string
+	accesses          map[string]string
 }
 
 func newExternal(fs ulfs.Filesystem, project *uplink.Project, promptResponder PromptResponder) *external {
 	return &external{
-		fs:              fs,
-		project:         project,
-		promptResponder: promptResponder,
+		fs:                fs,
+		project:           project,
+		promptResponder:   promptResponder,
+		defaultAccessName: "TestAccessA",
+		accesses: map[string]string{
+			"TestAccessA": TestAccess,
+			"TestAccessB": "1QiUjN497AySNH4ZX3wJCUZZNGKzpJwmZ1EcjKGgNR3Z9ADLawZNJbHXqm6VjH71nbWRRX6KfR9HHCr8sH3G9LA8e9qGuqWqkPPeskbD3Z12y4NuyxzwHYvcTSxa3Xk35Ts3ESGvP4785Rgeu5H8BF4kDriic6tRVUTPcAaYGCbHJPC2AfyPijLg4zZ627EuzeuWuo12mWGWiAZW3JJaVwD4657UJTGaUcuQqZxsjA1eTDkNFRfbv7zt9nW5si3E8FC6ZZFQ",
+		},
 	}
 }
 
@@ -81,6 +87,16 @@ func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err er
 	return access, nil
 }
 
+func (ex *external) AccessInfoFile() (string, error) {
+	return "", nil
+}
+
 func (ex *external) GetAccessInfo(required bool) (string, map[string]string, error) {
-	return accesses["TestAccessA"], accesses, nil
+	return ex.defaultAccessName, ex.accesses, nil
+}
+
+func (ex *external) SaveAccessInfo(defaultName string, accesses map[string]string) error {
+	ex.defaultAccessName = defaultName
+	ex.accesses = accesses
+	return nil
 }

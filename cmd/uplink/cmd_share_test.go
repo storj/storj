@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -172,40 +173,25 @@ func TestShare(t *testing.T) {
 		`)
 	})
 
+	ctx, cancelCtx := context.WithCancel(testcontext.New(t))
+	defer cancelCtx()
+
+	mockServer := startDRPCAuthMockServer(ctx, t, drpcAuthMockServerConfig{})
+	authAddr := mockServer.addr()
+
+	apiKey, err := macaroon.ParseAPIKey(testAPIKey)
+	require.NoError(t, err)
+
+	encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+	access, err := (&grant.Access{
+		SatelliteAddress: "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777",
+		APIKey:           apiKey,
+		EncAccess:        encAccess,
+	}).Serialize()
+	require.NoError(t, err)
+
 	t.Run("share access with --dns and --tls", func(t *testing.T) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
 		state := ultest.Setup(uplinkcli.Commands)
-
-		listener, err := net.Listen("tcp", "127.0.0.1:0")
-		require.NoError(t, err)
-
-		serverCtx, serverCancel := context.WithCancel(ctx)
-		defer serverCancel()
-
-		ctx.Go(func() error {
-			mux := drpcmux.New()
-			if err := pb.DRPCRegisterEdgeAuth(mux, &DRPCAuthMockServer{}); err != nil {
-				return err
-			}
-			return drpcserver.New(mux).Serve(serverCtx, listener)
-		})
-
-		authAddr := "insecure://" + listener.Addr().String()
-
-		apiKey, err := macaroon.ParseAPIKey(testAPIKey)
-		require.NoError(t, err)
-
-		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
-		grantAccess := grant.Access{
-			SatelliteAddress: "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@us1.storj.io:7777",
-			APIKey:           apiKey,
-			EncAccess:        encAccess,
-		}
-
-		access, err := grantAccess.Serialize()
-		require.NoError(t, err)
 
 		expected := `
 			Sharing access to satellite *
@@ -240,16 +226,84 @@ func TestShare(t *testing.T) {
 
 		state.Succeed(t, "share", "--access", access, "--not-after=none", "--dns", "test.com", "--tls", "--auth-service", authAddr, "sj://some/prefix").RequireStdoutGlob(t, expected)
 	})
+
+	t.Run("register access and get restricted credentials", func(t *testing.T) {
+		state := ultest.Setup(uplinkcli.Commands)
+
+		mockServer.config.useFreeTierRestrictedExpiration = true
+
+		expected := `
+			Sharing access to satellite *
+			=========== ACCESS RESTRICTIONS ==========================================================
+			Download     : Allowed
+			Upload       : Disallowed
+			Lists        : Allowed
+			Deletes      : Disallowed
+			NotBefore    : No restriction
+			NotAfter     : No restriction
+			MaxObjectTTL : Not set
+			Paths        : sj://some/prefix
+			=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========
+			Access       : *
+			========== GATEWAY CREDENTIALS ===========================================================
+			Trial account credentials automatically expire.
+			Expiration   : 2006-01-02 15:04:05
+			Access Key ID: accesskeyid
+			Secret Key   : secretkey
+			Endpoint     : endpoint
+			Public Access: false
+		`
+
+		state.Succeed(t, "share", "--access", access, "--register", "--auth-service", authAddr, "sj://some/prefix").RequireStdoutGlob(t, expected)
+	})
 }
 
-type DRPCAuthMockServer struct {
+type drpcAuthMockServer struct {
 	pb.DRPCEdgeAuthServer
+
+	config drpcAuthMockServerConfig
+
+	listener net.Listener
 }
 
-func (g *DRPCAuthMockServer) RegisterAccess(context.Context, *pb.EdgeRegisterAccessRequest) (*pb.EdgeRegisterAccessResponse, error) {
+type drpcAuthMockServerConfig struct {
+	useFreeTierRestrictedExpiration bool
+}
+
+func startDRPCAuthMockServer(ctx context.Context, t *testing.T, config drpcAuthMockServerConfig) *drpcAuthMockServer {
+	server := &drpcAuthMockServer{
+		config: config,
+	}
+
+	mux := drpcmux.New()
+	err := pb.DRPCRegisterEdgeAuth(mux, server)
+	require.NoError(t, err)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	server.listener = listener
+
+	go func() {
+		require.NoError(t, drpcserver.New(mux).Serve(ctx, listener))
+	}()
+
+	return server
+}
+
+func (server *drpcAuthMockServer) addr() string {
+	return "insecure://" + server.listener.Addr().String()
+}
+
+func (server *drpcAuthMockServer) RegisterAccess(context.Context, *pb.EdgeRegisterAccessRequest) (*pb.EdgeRegisterAccessResponse, error) {
+	var expiration *time.Time
+	if server.config.useFreeTierRestrictedExpiration {
+		t := time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
+		expiration = &t
+	}
 	return &pb.EdgeRegisterAccessResponse{
-		AccessKeyId: "accesskeyid",
-		SecretKey:   "secretkey",
-		Endpoint:    "endpoint",
+		AccessKeyId:                  "accesskeyid",
+		SecretKey:                    "secretkey",
+		Endpoint:                     "endpoint",
+		FreeTierRestrictedExpiration: expiration,
 	}, nil
 }
