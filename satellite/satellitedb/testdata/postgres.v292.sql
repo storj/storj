@@ -873,4 +873,4 @@ INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email"
 
 -- NEW DATA --
 
-INSERT INTO "domains"("subdomain", "project_id", "prefix", "access_id", "created_by", "created_at") VALUES ('test.example.com', E'\\363\\340\\364\\371>+F\\256\\263\\300\\273|\\342N\\347\\347'::bytea, 'test-bucket', 'jwzc3qlelsuwyj2am7ejayahchdq', E'\\362\\341\\363\\371>+F\\256\\263\\300\\274|\\342N\\347\\017'::bytea, '2025-04-08 08:28:24.614594+00')
+INSERT INTO "domains"("subdomain", "project_id", "prefix", "access_id", "created_by", "created_at") VALUES ('test.example.com', E'\\361\\342\\363\\371>+F\\256\\263\\300\\274|\\342N\\347\\017'::bytea, 'test-bucket', 'jwzc3qlelsuwyj2am7ejayahchdq', E'\\363\\313\\033w\\222\\303Ci\\262\\343U\\303\\314\\225\\212",'::bytea, '2025-04-08 08:28:24.614594+00');
