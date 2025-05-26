@@ -512,6 +512,7 @@ CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
 	name BYTES(MAX) NOT NULL,
+	tags BYTES(MAX),
 	user_agent BYTES(MAX),
 	versioning INT64 NOT NULL DEFAULT (0),
 	object_lock_enabled BOOL NOT NULL DEFAULT (false),

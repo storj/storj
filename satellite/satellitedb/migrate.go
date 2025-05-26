@@ -976,6 +976,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE value_attributions ADD COLUMN placement INT64`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tags column to bucket_metainfos table",
+				Version:     294,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN tags BYTES(MAX);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3791,6 +3799,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     293,
 				Action: migrate.SQL{
 					`ALTER TABLE value_attributions ADD COLUMN placement INTEGER`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tags column to bucket_metainfos table",
+				Version:     294,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_metainfos ADD COLUMN tags bytea;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

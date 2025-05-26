@@ -552,6 +552,7 @@ CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
+	tags bytea,
 	user_agent bytea,
 	versioning integer NOT NULL DEFAULT 0,
 	object_lock_enabled boolean NOT NULL DEFAULT false,
