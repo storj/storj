@@ -154,6 +154,10 @@ func (observer *Observer) TestingCompareInjuredSegmentIDs(ctx context.Context, s
 func (observer *Observer) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if err := observer.nodesCache.Refresh(ctx); err != nil {
+		return Error.New("unable to refresh nodes cache: %w", err)
+	}
+
 	observer.startTime = startTime
 	// Reuse the allocated slice.
 	observer.TotalStats = observer.TotalStats[:0]
