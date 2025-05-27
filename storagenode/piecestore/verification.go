@@ -103,7 +103,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit,
 			order.Amount, limit.Limit)
 	}
 
-	if err := signing.VerifyUplinkOrderSignature(ctx, limit.UplinkPublicKey, order); err != nil {
+	if err := endpoint.signatureCheck.VerifyUplinkOrderSignature(ctx, limit.UplinkPublicKey, order); err != nil {
 		return rpcstatus.NamedWrap("order-sig-verify-fail", rpcstatus.Unauthenticated, err)
 	}
 
@@ -146,7 +146,7 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 			ErrVerifyUntrusted.New("unable to get signee: %w", err))
 	}
 
-	if err := signing.VerifyOrderLimitSignature(ctx, signee, limit); err != nil {
+	if err := endpoint.signatureCheck.VerifyOrderLimitSignature(ctx, signee, limit); err != nil {
 		return rpcstatus.NamedWrap("order-limit-sig-verify-fail", rpcstatus.Unauthenticated,
 			ErrVerifyUntrusted.New("invalid order limit signature: %w", err))
 	}

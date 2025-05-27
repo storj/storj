@@ -48,6 +48,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/signaturecheck"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
@@ -427,6 +428,8 @@ func Module(ball *mud.Ball) {
 		return &EndpointRegistration{}, nil
 	})
 	mud.Tag[*EndpointRegistration, modular.Service](ball, modular.Service{})
+
+	signaturecheck.Module(ball)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.

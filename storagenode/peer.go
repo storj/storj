@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/signaturecheck"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
@@ -728,6 +729,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.OrdersStore,
 			peer.Bandwidth.Cache,
 			peer.UsedSerials,
+			&signaturecheck.Full{},
 			config.Storage2,
 		)
 		if err != nil {

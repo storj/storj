@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
+	"storj.io/storj/storagenode/piecestore/signaturecheck"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/trust"
@@ -112,7 +113,8 @@ type Endpoint struct {
 	ordersStore *orders.FileStore
 	usedSerials *usedserials.Table
 
-	pieceBackend PieceBackend
+	pieceBackend   PieceBackend
+	signatureCheck signaturecheck.Check
 
 	liveRequests int32
 }
@@ -130,7 +132,10 @@ type RestoreTrash interface {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trust.TrustedSatelliteSource, monitor *monitor.Service, retain []QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trust.TrustedSatelliteSource, monitor *monitor.Service, retain []QueueRetain, pingStats PingStatsSource, pieceBackend PieceBackend, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, signatureCheck signaturecheck.Check, config Config) (*Endpoint, error) {
+	if signatureCheck == nil {
+		signatureCheck = &signaturecheck.Full{}
+	}
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -145,7 +150,8 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trus
 		usage:       usage,
 		usedSerials: usedSerials,
 
-		pieceBackend: pieceBackend,
+		pieceBackend:   pieceBackend,
+		signatureCheck: signatureCheck,
 
 		liveRequests: 0,
 	}, nil
