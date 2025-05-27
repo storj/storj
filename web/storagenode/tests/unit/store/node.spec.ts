@@ -335,8 +335,8 @@ describe('getters', () => {
             '2',
             [],
             [
-                new SatelliteInfo('3', 'url1', null, null),
-                new SatelliteInfo('4', 'url2', firstTestDate, new Date(2020, 0, 1)),
+                new SatelliteInfo('3', 'url1', null, null, null),
+                new SatelliteInfo('4', 'url2', firstTestDate, new Date(2020, 0, 1), null),
             ],
             new Traffic(99, 100, 4),
             new Traffic(50),

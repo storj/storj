@@ -5,12 +5,14 @@ package console_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/reputation"
 )
 
@@ -29,6 +31,41 @@ func TestService_GetDashboardData(t *testing.T) {
 
 			require.Equal(t, dashboard.NodeID, planet.StorageNodes[0].ID())
 			require.Equal(t, 2, len(dashboard.Satellites))
+
+			// Initially VettedAt should be nil (not yet vetted)
+			for _, sat := range dashboard.Satellites {
+				require.Nil(t, sat.VettedAt)
+			}
+		}
+		{ // test VettedAt field with vetted satellite
+			vettedTime := time.Now().UTC()
+			stats := reputation.Stats{
+				SatelliteID: planet.Satellites[0].ID(),
+				VettedAt:    &vettedTime,
+			}
+			err := planet.StorageNodes[0].DB.Reputation().Store(ctx, stats)
+			require.NoError(t, err)
+
+			dashboard, err := planet.StorageNodes[0].Console.Service.GetDashboardData(ctx)
+			require.NoError(t, err)
+
+			// Find the vetted satellite in dashboard
+			var vettedSat *console.SatelliteInfo
+			for i := range dashboard.Satellites {
+				if dashboard.Satellites[i].ID == planet.Satellites[0].ID() {
+					vettedSat = &dashboard.Satellites[i]
+					break
+				}
+			}
+			require.NotNil(t, vettedSat)
+			require.NotNil(t, vettedSat.VettedAt)
+			require.Equal(t, vettedTime, *vettedSat.VettedAt)
+
+			// Test GetSatelliteData includes VettedAt
+			satelliteData, err := planet.StorageNodes[0].Console.Service.GetSatelliteData(ctx, planet.Satellites[0].ID())
+			require.NoError(t, err)
+			require.NotNil(t, satelliteData.VettedAt)
+			require.Equal(t, vettedTime, *satelliteData.VettedAt)
 		}
 		{ // add untrusted satellite
 			stats := reputation.Stats{

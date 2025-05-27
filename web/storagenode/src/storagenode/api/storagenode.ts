@@ -37,8 +37,9 @@ export class StorageNodeApi {
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
             const suspended: Date | null = satellite.suspended ? new Date(satellite.suspended) : null;
+            const vettedAt: Date | null = satellite.vettedAt ? new Date(satellite.vettedAt) : null;
 
-            return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
+            return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended, vettedAt);
         });
 
         const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash, data.diskSpace.overused);

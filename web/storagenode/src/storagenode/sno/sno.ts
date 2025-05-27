@@ -91,6 +91,7 @@ export class SatelliteInfo {
         public url: string = '',
         public disqualified: Date | null = null,
         public suspended: Date | null = null,
+        public vettedAt: Date | null = null,
         public joinDate: Date = new Date(),
     ) { }
 }
@@ -112,6 +113,7 @@ export class Satellite {
         public ingressSummary: number = 0,
         public audits: SatelliteScores = new SatelliteScores(),
         public joinDate: Date = new Date(),
+        public vettedAt: Date | null = null,
     ) {}
 }
 

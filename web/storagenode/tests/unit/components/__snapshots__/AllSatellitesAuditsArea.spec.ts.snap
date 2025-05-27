@@ -21,6 +21,10 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
         <p class="audits-area__content__item__info__label">Online</p>
         <p class="audits-area__content__item__info__value disqualification">50 %</p>
       </div>
+      <div class="audits-area__content__item__info">
+        <p class="audits-area__content__item__info__label">Vetted</p>
+        <p class="audits-area__content__item__info__value vetted">1/15/2023</p>
+      </div>
     </div>
     <div class="audits-area__content__item">
       <div class="audits-area__content__item__header">
@@ -40,6 +44,10 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
         <p class="audits-area__content__item__info__label">Online</p>
         <p class="audits-area__content__item__info__value warning">97 %</p>
       </div>
+      <div class="audits-area__content__item__info">
+        <p class="audits-area__content__item__info__label">Vetted</p>
+        <p class="audits-area__content__item__info__value not-vetted">Not vetted</p>
+      </div>
     </div>
     <div class="audits-area__content__item">
       <div class="audits-area__content__item__header">
@@ -58,6 +66,10 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Online</p>
         <p class="audits-area__content__item__info__value">100 %</p>
+      </div>
+      <div class="audits-area__content__item__info">
+        <p class="audits-area__content__item__info__label">Vetted</p>
+        <p class="audits-area__content__item__info__value vetted">1/15/2023</p>
       </div>
     </div>
   </div>

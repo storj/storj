@@ -120,6 +120,7 @@ type SatelliteInfo struct {
 	URL          string       `json:"url"`
 	Disqualified *time.Time   `json:"disqualified"`
 	Suspended    *time.Time   `json:"suspended"`
+	VettedAt     *time.Time   `json:"vettedAt"`
 }
 
 // Dashboard encapsulates dashboard stale data.
@@ -182,6 +183,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 				ID:           rep.SatelliteID,
 				Disqualified: rep.DisqualifiedAt,
 				Suspended:    rep.SuspendedAt,
+				VettedAt:     rep.VettedAt,
 				URL:          url.Address,
 			},
 		)
@@ -236,6 +238,7 @@ type Satellite struct {
 	AuditHistory      reputation.AuditHistory `json:"auditHistory"`
 	PriceModel        PriceModel              `json:"priceModel"`
 	NodeJoinedAt      time.Time               `json:"nodeJoinedAt"`
+	VettedAt          *time.Time              `json:"vettedAt"`
 }
 
 // GetSatelliteData returns satellite related data.
@@ -314,6 +317,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		AuditHistory: reputation.GetAuditHistoryFromPB(rep.AuditHistory),
 		PriceModel:   satellitePricing,
 		NodeJoinedAt: rep.JoinedAt,
+		VettedAt:     rep.VettedAt,
 	}, nil
 }
 

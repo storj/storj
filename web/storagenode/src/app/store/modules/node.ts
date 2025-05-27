@@ -94,6 +94,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                     selectedSatellite.url,
                     selectedSatellite.disqualified,
                     selectedSatellite.suspended,
+                    selectedSatellite.vettedAt,
                     satelliteInfo.joinDate,
                 );
 
@@ -103,6 +104,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                 state.selectedSatellite = new SatelliteInfo(
                     '',
                     '',
+                    null,
                     null,
                     null,
                     satelliteInfo.joinDate,
