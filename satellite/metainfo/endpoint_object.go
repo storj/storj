@@ -192,11 +192,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
-	var nonce []byte
-	if !req.EncryptedMetadataNonce.IsZero() {
-		nonce = req.EncryptedMetadataNonce[:]
-	}
-
 	var maxCommitDelay *time.Duration
 	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
 		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
@@ -215,7 +210,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedUserData: metabase.EncryptedUserData{
 			EncryptedMetadata:             req.EncryptedMetadata,
 			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        nonce,
+			EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
+			EncryptedETag:                 req.EncryptedEtag,
 		},
 
 		Retention: retention,
@@ -393,7 +389,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	if len(req.EncryptedMetadata) != 0 {
 		request.OverrideEncryptedMetadata = true
 		request.EncryptedMetadata = req.EncryptedMetadata
-		request.EncryptedMetadataNonce = req.EncryptedMetadataNonce[:]
+		request.EncryptedETag = req.EncryptedEtag
+		request.EncryptedMetadataNonce = nonceBytes(req.EncryptedMetadataNonce)
 		request.EncryptedMetadataEncryptedKey = req.EncryptedMetadataEncryptedKey
 
 		// older uplinks might send EncryptedMetadata directly with request but
@@ -405,7 +402,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		}
 	}
 
-	if err := endpoint.checkEncryptedMetadataSize(request.EncryptedMetadata, request.EncryptedMetadataEncryptedKey); err != nil {
+	if err := endpoint.checkEncryptedMetadataSize(request.EncryptedUserData); err != nil {
 		return nil, err
 	}
 
@@ -631,11 +628,6 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		BlockSize:   int32(beginObjectReq.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
-	var metadataNonce []byte
-	if !commitObjectReq.EncryptedMetadataNonce.IsZero() {
-		metadataNonce = commitObjectReq.EncryptedMetadataNonce[:]
-	}
-
 	objectStream := metabase.ObjectStream{
 		ProjectID:  keyInfo.ProjectID,
 		BucketName: metabase.BucketName(bucket.Name),
@@ -667,7 +659,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		EncryptedUserData: metabase.EncryptedUserData{
 			EncryptedMetadata:             commitObjectReq.EncryptedMetadata,
 			EncryptedMetadataEncryptedKey: commitObjectReq.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        metadataNonce,
+			EncryptedMetadataNonce:        nonceBytes(commitObjectReq.EncryptedMetadataNonce),
+			EncryptedETag:                 commitObjectReq.EncryptedEtag,
 		},
 
 		Retention: retention,
@@ -1879,7 +1872,14 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if err := endpoint.checkEncryptedMetadataSize(req.EncryptedMetadata, req.EncryptedMetadataEncryptedKey); err != nil {
+	encryptedUserData := metabase.EncryptedUserData{
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		EncryptedETag:                 req.EncryptedEtag,
+	}
+
+	if err := endpoint.checkEncryptedMetadataSize(encryptedUserData); err != nil {
 		return nil, err
 	}
 
@@ -1893,23 +1893,15 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to parse stream id")
 	}
 
-	var encryptedMetadataNonce []byte
-	if !req.EncryptedMetadataNonce.IsZero() {
-		encryptedMetadataNonce = req.EncryptedMetadataNonce[:]
-	}
-
 	err = endpoint.metabase.UpdateObjectLastCommittedMetadata(ctx, metabase.UpdateObjectLastCommittedMetadata{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		StreamID: id,
-		EncryptedUserData: metabase.EncryptedUserData{
-			EncryptedMetadata:             req.EncryptedMetadata,
-			EncryptedMetadataNonce:        encryptedMetadataNonce,
-			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-		},
+		StreamID:          id,
+		EncryptedUserData: encryptedUserData,
+		SetEncryptedETag:  req.SetEncryptedEtag,
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -2394,6 +2386,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		item.EncryptedMetadata = metadataBytes
 		item.EncryptedMetadataNonce = nonce
 		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
+		item.EncryptedEtag = entry.EncryptedETag
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.
@@ -2923,7 +2916,13 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
 	}
 
-	if err := endpoint.checkEncryptedMetadataSize(req.NewEncryptedMetadata, req.NewEncryptedMetadataKey); err != nil {
+	encryptedUserData := metabase.EncryptedUserData{
+		EncryptedMetadata:             req.NewEncryptedMetadata,
+		EncryptedMetadataNonce:        nonceBytes(req.NewEncryptedMetadataKeyNonce),
+		EncryptedMetadataEncryptedKey: req.NewEncryptedMetadataKey,
+		EncryptedETag:                 req.NewEncryptedEtag,
+	}
+	if err := endpoint.checkEncryptedMetadataSize(encryptedUserData); err != nil {
 		return nil, err
 	}
 
@@ -2975,11 +2974,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		NewEncryptedObjectKey: metabase.ObjectKey(req.NewEncryptedObjectKey),
 		OverrideMetadata:      req.OverrideMetadata,
 
-		NewEncryptedUserData: metabase.EncryptedUserData{
-			EncryptedMetadata:             req.NewEncryptedMetadata,
-			EncryptedMetadataNonce:        nonceBytes(req.NewEncryptedMetadataKeyNonce),
-			EncryptedMetadataEncryptedKey: req.NewEncryptedMetadataKey,
-		},
+		NewEncryptedUserData: encryptedUserData,
 
 		// TODO(ver): currently we always allow deletion, to not change behaviour.
 		NewDisallowDelete: false,
