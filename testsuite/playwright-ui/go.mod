@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20250519171423-b2afb1632331
+	storj.io/common v0.0.0-20250527122311-386be10a9862
 	storj.io/edge v1.88.1-0.20241031202312-307d21da9acb
 	storj.io/storj v1.91.0-alpha.0.20240813103324-76441219aa95
 )
@@ -183,8 +183,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
-	github.com/quic-go/quic-go v0.40.1 // indirect
+	github.com/quic-go/quic-go v0.52.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/redis/go-redis/v9 v9.5.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -246,16 +245,16 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	go.uber.org/mock v0.3.0 // indirect
+	go.uber.org/mock v0.5.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/oauth2 v0.25.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.9.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
@@ -275,13 +274,13 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/drpc v0.0.35-0.20240709171858-0075ac871661 // indirect
+	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 // indirect
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 // indirect
 	storj.io/gateway v1.9.1-0.20241031140827-7668fbb4fe85 // indirect
 	storj.io/infectious v0.0.2 // indirect
 	storj.io/minio v0.0.0-20241031140034-abf5056d405a // indirect
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
-	storj.io/monkit-jaeger v0.0.0-20240221095020-52b0792fa6cd // indirect
-	storj.io/picobuf v0.0.3 // indirect
+	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
+	storj.io/picobuf v0.0.4 // indirect
 	storj.io/uplink v1.13.2-0.20250411115637-46e46ee70e74 // indirect
 )

@@ -86,7 +86,7 @@ func TestDeleteObjects(t *testing.T) {
 			userCtx, err := sat.UserContext(ctx, owner.ID)
 			require.NoError(t, err)
 			_, apiKey, err := sat.API.Console.Service.CreateAPIKey(
-				userCtx, proj.ID, "root", macaroon.APIKeyVersionLatest,
+				userCtx, proj.ID, "root", macaroon.APIKeyVersionObjectLock,
 			)
 			require.NoError(t, err)
 
@@ -206,7 +206,7 @@ func TestDeleteAccounts(t *testing.T) {
 			require.NoError(t, err)
 			for i := 1; i <= 3; i++ {
 				_, _, err := sat.API.Console.Service.CreateAPIKey(
-					userCtx, uplinks[1].Projects[0].ID, strconv.Itoa(i), macaroon.APIKeyVersionLatest,
+					userCtx, uplinks[1].Projects[0].ID, strconv.Itoa(i), macaroon.APIKeyVersionObjectLock,
 				)
 				require.NoError(t, err)
 			}
@@ -260,7 +260,7 @@ func TestDeleteAccounts(t *testing.T) {
 			require.NoError(t, err)
 			for i := 1; i <= 3; i++ {
 				_, _, err := sat.API.Console.Service.CreateAPIKey(
-					userCtx, extraProj.ID, strconv.Itoa(i), macaroon.APIKeyVersionLatest,
+					userCtx, extraProj.ID, strconv.Itoa(i), macaroon.APIKeyVersionObjectLock,
 				)
 				require.NoError(t, err)
 			}

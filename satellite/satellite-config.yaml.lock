@@ -1694,6 +1694,9 @@ server.private-address: 127.0.0.1:7778
 # whether tracing collector is enabled
 # tracing.enabled: true
 
+# the possible hostnames that trace-host designated traces can be sent to
+# tracing.host-regex: \.storj\.tools:[0-9]+$
+
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s
 
