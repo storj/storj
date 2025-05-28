@@ -854,6 +854,45 @@ func (users *users) SetStatusPendingDeletion(
 	return nil
 }
 
+// SetUserKindWithPaidTier updates the kind of user to console.PaidUser if the user is in the paid tier
+// and the kind is currently console.FreeUser.
+func (users *users) SetUserKindWithPaidTier(ctx context.Context, batchSize int) (rowsProcessed int64, hasNext bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var res sql.Result
+
+	switch users.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		res, err = users.db.ExecContext(ctx, `
+		UPDATE users
+			SET kind = $1
+		WHERE id IN
+		(SELECT id FROM users WHERE paid_tier = true AND kind = $2 LIMIT $3)`,
+			console.PaidUser, console.FreeUser, batchSize,
+		)
+	case dbutil.Spanner:
+		res, err = users.db.ExecContext(ctx, `
+		UPDATE users
+			SET kind = ?
+		WHERE id IN
+			UNNEST ( ARRAY (SELECT id FROM users WHERE paid_tier = true AND kind = ? LIMIT ?))`,
+			console.PaidUser, console.FreeUser, batchSize,
+		)
+	default:
+		return 0, false, errs.New("unsupported database dialect: %s", users.impl)
+	}
+
+	if err != nil {
+		return 0, false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, false, Error.New("could not get rows affected: %w", err)
+	}
+
+	return n, n == int64(batchSize), nil
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
 func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{}

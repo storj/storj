@@ -89,6 +89,9 @@ type Users interface {
 	// The function return an error on system failure and an sql.ErrNoRows if the account doesn't exist
 	// or doesn't fulfill the requirements.
 	SetStatusPendingDeletion(ctx context.Context, userID uuid.UUID, defaultDaysTillEscalation uint) error
+	// SetUserKindWithPaidTier updates the kind of user to console.PaidUser if the user is in the paid tier.
+	// and the kind is currently console.FreeUser.
+	SetUserKindWithPaidTier(ctx context.Context, batchSize int) (rowsProcessed int64, hasNext bool, err error)
 }
 
 // UserCursor holds info for user info cursor pagination.

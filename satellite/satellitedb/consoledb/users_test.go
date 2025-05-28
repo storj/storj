@@ -867,3 +867,71 @@ func TestUsersSetStatusPendingDeletion(t *testing.T) {
 		})
 	})
 }
+
+func TestSetUserKindWithPaidTier(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		users := db.Console().Users()
+
+		paidUsersToUpdateCount := 5
+
+		genPaidUsers := func() []uuid.UUID {
+			paidTierUsers := make([]uuid.UUID, 0, 10)
+			for i := 0; i < 20; i++ {
+				id := testrand.UUID()
+				user, err := users.Insert(ctx, &console.User{
+					ID:           id,
+					FullName:     "test",
+					Email:        fmt.Sprintf("%d@test.test", i),
+					PasswordHash: []byte("testpassword"),
+					PaidTier:     i%2 == 0, // every second user is a paid user
+				})
+				require.NoError(t, err)
+				if i%2 == 0 {
+					paidTierUsers = append(paidTierUsers, user.ID)
+				}
+			}
+
+			for i, id := range paidTierUsers {
+				if i%2 != 0 {
+					continue
+				}
+				// every second paid user has kind set to FreeUser
+				// to simulate existing paid tier users before user kind
+				// was introduced.
+				kind := console.FreeUser
+				err := users.Update(ctx, id, console.UpdateUserRequest{
+					Kind: &kind,
+				})
+				require.NoError(t, err)
+			}
+			return paidTierUsers
+		}
+
+		pairTierUsers := genPaidUsers()
+
+		rows, hasNext, err := users.SetUserKindWithPaidTier(ctx, 10)
+		require.NoError(t, err)
+		require.False(t, hasNext)
+		require.EqualValues(t, paidUsersToUpdateCount, rows)
+
+		for _, id := range pairTierUsers {
+			user, err := users.Get(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, console.PaidUser, user.Kind)
+		}
+
+		genPaidUsers()
+
+		for i := 1; i <= paidUsersToUpdateCount; i++ {
+			rows, hasNext, err = users.SetUserKindWithPaidTier(ctx, 1)
+			require.NoError(t, err)
+			require.True(t, hasNext)
+			require.EqualValues(t, 1, rows)
+		}
+
+		rows, hasNext, err = users.SetUserKindWithPaidTier(ctx, 1)
+		require.NoError(t, err)
+		require.False(t, hasNext)
+		require.Zero(t, rows)
+	})
+}
