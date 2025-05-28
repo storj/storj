@@ -40,7 +40,7 @@ type Config struct {
 	DeleteProjectCostThreshold int64 `help:"the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold." default:"0"`
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
-	Products                        ProductPriceOverrides       `help:"a JSON mapping of non-zero product IDs to their names and price structures in the format: {\"productID\": {\"name\": \"...\", \"storage\": \"...\", \"egress\": \"...\", \"segment\": \"...\", \"egress_discount_ratio\": \"...\"}}. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	Products                        ProductPriceOverrides       `help:"a JSON mapping of non-zero product IDs to their names and price structures in the format: {\"productID\": {\"name\": \"...\", \"storage_sku\": \"...\", \"egress_sku\": \"...\", \"segment_sku\": \"...\", \"storage\": \"...\", \"egress\": \"...\", \"segment\": \"...\", \"egress_discount_ratio\": \"...\"}}. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PlacementPriceOverrides         PlacementProductMap         `help:"a JSON mapping of product ID to placements in the format: {productID0:[placement0],productID1:[placement1,placement2]}. Products must be defined by the --payments.products config, or the satellite will not start."`
 	PartnersPlacementPriceOverrides PartnersPlacementProductMap `help:"a JSON mapping of partners to a mapping of product ID to placements in the format: {\"partner0\":{productID0:[placement0],productID1:[placement1,placement2]}}. If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides."`
 
@@ -198,10 +198,18 @@ func (p PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, 
 	return models, nil
 }
 
-// ProductUsagePrice represents the product ID and usage price for a product.
+// ProductUsagePrice represents the product name, SKUs and usage price for a product.
 type ProductUsagePrice struct {
 	Name string
+	ProductSKUs
 	ProjectUsagePrice
+}
+
+// ProductSKUs holds the SKUs for a product's storage, egress, and segment usage.
+type ProductSKUs struct {
+	StorageSKU string `json:"storageSKU"`
+	EgressSKU  string `json:"egressSKU"`
+	SegmentSKU string `json:"segmentSKU"`
 }
 
 // ProductPriceOverrides represents a mapping between a string and product price overrides.
@@ -214,6 +222,9 @@ func (ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPrice
 
 type productUsagePriceJson struct {
 	Name                string `json:"name"`
+	StorageSKU          string `json:"storage_sku"`
+	EgressSKU           string `json:"egress_sku"`
+	SegmentSKU          string `json:"segment_sku"`
 	Storage             string `json:"storage"`
 	Egress              string `json:"egress"`
 	Segment             string `json:"segment"`
@@ -230,6 +241,9 @@ func (p *ProductPriceOverrides) String() string {
 	for i, price := range p.overrideMap {
 		pricesConv[i] = productUsagePriceJson{
 			Name:                price.Name,
+			StorageSKU:          price.StorageSKU,
+			EgressSKU:           price.EgressSKU,
+			SegmentSKU:          price.SegmentSKU,
 			Storage:             price.StorageTB,
 			Egress:              price.EgressTB,
 			Segment:             price.Segment,
@@ -269,6 +283,11 @@ func (p *ProductPriceOverrides) Set(s string) error {
 		}
 		prices[id] = ProductUsagePrice{
 			Name: price.Name,
+			ProductSKUs: ProductSKUs{
+				StorageSKU: price.StorageSKU,
+				EgressSKU:  price.EgressSKU,
+				SegmentSKU: price.SegmentSKU,
+			},
 			ProjectUsagePrice: ProjectUsagePrice{
 				StorageTB:           price.Storage,
 				EgressTB:            price.Egress,
@@ -297,6 +316,9 @@ func (p ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePriceM
 		models[key] = payments.ProductUsagePriceModel{
 			ProductID:              key,
 			ProductName:            prices.Name,
+			StorageSKU:             prices.StorageSKU,
+			EgressSKU:              prices.EgressSKU,
+			SegmentSKU:             prices.SegmentSKU,
 			ProjectUsagePriceModel: projectUsageModel,
 		}
 	}

@@ -329,16 +329,16 @@ func TestProductPriceOverrides(t *testing.T) {
 		},
 		{
 			id:     "valid JSON",
-			config: `{"1":{"name":"product","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
+			config: `{"1":{"name":"product","storage_sku":"ST-GL-ST","egress_sku":"ST-GL-EG","segment_sku":"ST-GL-SE","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
 		},
 		{
 			id:        "invalid product ID",
-			config:    `{"0":{"name":"product","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
+			config:    `{"0":{"name":"product","storage_sku":"ST-GL-ST","egress_sku":"ST-GL-EG","segment_sku":"ST-GL-SE","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
 			expectErr: true,
 		},
 		{
 			id:        "invalid JSON",
-			config:    `{"1":{"name":"product","storage":4,"egress":2,"segment":2,"egress_discount_ratio":0.50}}`,
+			config:    `{"1":{"name":"product","storage_sku":"ST-GL-ST","egress_sku":"ST-GL-EG","segment_sku":"ST-GL-SE","storage":4,"egress":2,"segment":2,"egress_discount_ratio":0.50}}`,
 			expectErr: true,
 		},
 	}

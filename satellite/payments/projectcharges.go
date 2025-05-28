@@ -61,5 +61,8 @@ type ProjectUsagePriceModel struct {
 type ProductUsagePriceModel struct {
 	ProductID   int32  `json:"productID"`
 	ProductName string `json:"productName"`
+	StorageSKU  string `json:"storageSKU"`
+	EgressSKU   string `json:"egressSKU"`
+	SegmentSKU  string `json:"segmentSKU"`
 	ProjectUsagePriceModel
 }

@@ -466,9 +466,10 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 
 					items := service.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
 					// Stripe allows 250 items per invoice.
-					// We should not have more than 249 new items.
+					// We should not have more than 248 new items.
 					// 1 is reserved for the unpaid usage from previous billing cycle.
-					if len(items) > 249 {
+					// 1 is reserved for minimum charge item.
+					if len(items) > 248 {
 						addErr(&mu, Error.New("too many invoice items for customer %s", c.ID))
 						return
 					}
@@ -897,10 +898,18 @@ func (service *Service) getAndProcessUsages(
 			// Initialize with this usage.
 			productUsages[productID] = usage
 
-			// Get product name.
-			var productName string
+			// Get product name and SKU.
+			var (
+				productName string
+				storageSKU  string
+				egressSKU   string
+				segmentSKU  string
+			)
 			if product, ok := service.productPriceMap[productID]; ok {
 				productName = product.ProductName
+				storageSKU = product.StorageSKU
+				egressSKU = product.EgressSKU
+				segmentSKU = product.SegmentSKU
 			} else {
 				service.log.Error("failed to get product for ID", zap.Int("productID", int(productID)))
 				// fall back to  "Product x" as the name for an "unknown" product.
@@ -911,6 +920,9 @@ func (service *Service) getAndProcessUsages(
 			productInfos[productID] = payments.ProductUsagePriceModel{
 				ProductID:              productID,
 				ProductName:            productName,
+				StorageSKU:             storageSKU,
+				EgressSKU:              egressSKU,
+				SegmentSKU:             segmentSKU,
 				ProjectUsagePriceModel: priceModel,
 			}
 		}
@@ -964,7 +976,11 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		// Create storage invoice item.
 		storageItem := &stripe.InvoiceItemParams{}
-		storageItem.Description = stripe.String(prefix + storageInvoiceItemDesc)
+		storageDesc := prefix + storageInvoiceItemDesc
+		if info.StorageSKU != "" {
+			storageDesc += " - " + info.StorageSKU
+		}
+		storageItem.Description = stripe.String(storageDesc)
 		storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
 		storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
 		storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
@@ -976,7 +992,11 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		// Create egress invoice item.
 		egressItem := &stripe.InvoiceItemParams{}
-		egressItem.Description = stripe.String(prefix + egressInvoiceItemDesc)
+		egressDesc := prefix + egressInvoiceItemDesc
+		if info.EgressSKU != "" {
+			egressDesc += " - " + info.EgressSKU
+		}
+		egressItem.Description = stripe.String(egressDesc)
 		egressItem.Quantity = stripe.Int64(egressMBDecimal(discountedUsage.Egress).IntPart())
 		egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
 		egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
@@ -988,7 +1008,11 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		// Create segment invoice item.
 		segmentItem := &stripe.InvoiceItemParams{}
-		segmentItem.Description = stripe.String(prefix + segmentInvoiceItemDesc)
+		segmentDesc := prefix + segmentInvoiceItemDesc
+		if info.SegmentSKU != "" {
+			segmentDesc += " - " + info.SegmentSKU
+		}
+		segmentItem.Description = stripe.String(segmentDesc)
 		segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
 		segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
 		segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
