@@ -84,7 +84,7 @@ func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 	header := TblHeader{
 		Created:  created,
 		HashKey:  true,
-		Kind:     kind_HashTbl,
+		Kind:     TableKind_HashTbl,
 		LogSlots: logSlots,
 	}
 
@@ -139,7 +139,7 @@ func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	header, err := ReadTblHeader(fh)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	} else if header.Kind != kind_HashTbl {
+	} else if header.Kind != TableKind_HashTbl {
 		return nil, Error.New("invalid kind: %d", header.Kind)
 	}
 

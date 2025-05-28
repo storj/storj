@@ -77,7 +77,7 @@ func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 	header := TblHeader{
 		Created:  created,
 		HashKey:  true,
-		Kind:     kind_MemTbl,
+		Kind:     TableKind_MemTbl,
 		LogSlots: logSlots,
 	}
 
@@ -115,7 +115,7 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 	header, err := ReadTblHeader(fh)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	} else if header.Kind != kind_MemTbl {
+	} else if header.Kind != TableKind_MemTbl {
 		return nil, Error.New("invalid kind: %d", header.Kind)
 	} else if header.LogSlots > tbl_maxLogSlots {
 		return nil, Error.New("logSlots too large: logSlots=%d", header.LogSlots)

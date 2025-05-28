@@ -186,8 +186,8 @@ func temporarily[T any](loc *T, val T) func() {
 
 func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
 	mmaps := map[TableKind]*bool{
-		kind_HashTbl: &hashtbl_MMAP,
-		kind_MemTbl:  &memtbl_MMAP,
+		TableKind_HashTbl: &hashtbl_MMAP,
+		TableKind_MemTbl:  &memtbl_MMAP,
 	}
 
 	run := func(t T, kind TableKind, mmap bool) {
@@ -198,11 +198,11 @@ func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
 		})
 	}
 
-	run(t, kind_HashTbl, false)
-	run(t, kind_MemTbl, false)
+	run(t, TableKind_HashTbl, false)
+	run(t, TableKind_MemTbl, false)
 	if platform.MmapSupported {
-		run(t, kind_HashTbl, true)
-		run(t, kind_MemTbl, true)
+		run(t, TableKind_HashTbl, true)
+		run(t, TableKind_MemTbl, true)
 	}
 }
 

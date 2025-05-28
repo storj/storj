@@ -573,7 +573,7 @@ func testStore_LogFilesFull(t *testing.T) {
 }
 
 func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
-	if table_DefaultKind != kind_HashTbl {
+	if table_DefaultKind != TableKind_HashTbl {
 		t.SkipNow()
 	}
 
@@ -1104,7 +1104,7 @@ func testStore_FallbackToNonTTLLogFile(t *testing.T) {
 }
 
 func TestStore_HashtblFull(t *testing.T) {
-	if table_DefaultKind != kind_HashTbl {
+	if table_DefaultKind != TableKind_HashTbl {
 		t.SkipNow()
 	}
 
@@ -1270,7 +1270,7 @@ func TestStore_FlushSemaphore(t *testing.T) {
 }
 
 func TestStore_SwapDifferentBackends(t *testing.T) {
-	backends := []TableKind{kind_HashTbl, kind_MemTbl}
+	backends := []TableKind{TableKind_HashTbl, TableKind_MemTbl}
 
 	s := newTestStore(t)
 	defer s.Close()
