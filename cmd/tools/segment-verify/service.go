@@ -464,7 +464,7 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 	segments := make([]*Segment, service.config.BatchSize)
 	for {
 		streamIDs = streamIDs[:0]
-		for n := 0; n < service.config.BatchSize; n++ {
+		for range service.config.BatchSize {
 			streamIDAndPosition, err := segmentSource.Next()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
@@ -485,6 +485,10 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 				Limit:              service.config.BatchSize,
 				AsOfSystemInterval: service.config.AsOfSystemInterval,
 			})
+			if len(verifySegments.Segments) == 0 {
+				break
+			}
+
 			segmentsData = segmentsData[:len(verifySegments.Segments)]
 			segments = segments[:len(verifySegments.Segments)]
 			if err != nil {
