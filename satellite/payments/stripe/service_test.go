@@ -2107,6 +2107,13 @@ func TestService_CreateInvoice(t *testing.T) {
 		stripeService := p.StripeService
 		stripeClient := p.StripeClient
 
+		invoiceItem := &stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(100),
+			Currency: stripe.String(string(stripe.CurrencyUSD)),
+			Customer: stripe.String(cusID),
+		}
+
 		t.Run("no items & no minimum charge", func(t *testing.T) {
 			stripeService.TestSetMinimumChargeCfg(0, nil)
 
@@ -2115,8 +2122,19 @@ func TestService_CreateInvoice(t *testing.T) {
 			require.Nil(t, inv)
 		})
 
+		t.Run("no items & minimum charge", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(5_000, nil)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.Nil(t, inv)
+		})
+
 		t.Run("minimum charge applies, draft invoice does not exist", func(t *testing.T) {
 			stripeService.TestSetMinimumChargeCfg(5_000, nil)
+
+			_, err := stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
 
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
 			require.NoError(t, err)
@@ -2156,6 +2174,9 @@ func TestService_CreateInvoice(t *testing.T) {
 			// set a minimum of 2 000c, and no pending items so invoice.AmountDue==0.
 			stripeService.TestSetMinimumChargeCfg(2_000, nil)
 
+			_, err := stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
 			require.NoError(t, err)
 			require.NotNil(t, inv)
@@ -2177,7 +2198,7 @@ func TestService_CreateInvoice(t *testing.T) {
 			require.NoError(t, iter.Err())
 			require.NotNil(t, adj, "should have created a minimum-charge adjustment item")
 			// since AmountDue was 0, shortfall == minCharge.
-			require.Equal(t, int64(2_000), adj.Amount)
+			require.Equal(t, int64(1_900), adj.Amount)
 
 			_, err = stripeClient.Invoices().Del(inv.ID, nil)
 			require.NoError(t, err)
@@ -2197,6 +2218,9 @@ func TestService_CreateInvoice(t *testing.T) {
 			// minimumChargeDate before start → start.Before(minimumChargeDate)==false → applyMinimumCharge==true.
 			beforeStart := time.Date(2025, time.April, 1, 0, 0, 0, 0, time.UTC)
 			stripeService.TestSetMinimumChargeCfg(1_000, &beforeStart)
+
+			_, err := stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
 
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
 			require.NoError(t, err)

@@ -1446,7 +1446,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			if err = itemsIter.Err(); err != nil {
 				return nil, err
 			}
-			if !hasItems && !applyMinimumCharge {
+			if service.skipEmptyInvoices && !hasItems {
 				return nil, nil
 			}
 
