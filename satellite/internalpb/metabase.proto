@@ -1,0 +1,13 @@
+// Copyright (C) 2025 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/satellite/internalpb";
+
+package satellite.metabase;
+
+import "metainfo.proto";
+
+message BucketTags {
+    repeated .metainfo.BucketTag tags = 1;
+}

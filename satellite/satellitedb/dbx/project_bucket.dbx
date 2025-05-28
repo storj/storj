@@ -113,6 +113,12 @@ read one (
 )
 
 read one (
+	select bucket_metainfo.tags
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
 	select bucket_metainfo.created_by bucket_metainfo.created_at bucket_metainfo.placement
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?

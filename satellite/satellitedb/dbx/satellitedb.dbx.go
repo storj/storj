@@ -14890,6 +14890,10 @@ type Status_Row struct {
 	Status int
 }
 
+type Tags_Row struct {
+	Tags []byte
+}
+
 type UpgradeTime_Row struct {
 	UpgradeTime *time.Time
 }
@@ -19784,6 +19788,32 @@ func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context
 		return (*BucketMetainfo)(nil), obj.makeErr(err)
 	}
 	return bucket_metainfo, nil
+
+}
+
+func (obj *pgxImpl) Get_BucketMetainfo_Tags_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Tags_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.tags FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Tags_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Tags)
+	if err != nil {
+		return (*Tags_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -29979,6 +30009,32 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 		return (*BucketMetainfo)(nil), obj.makeErr(err)
 	}
 	return bucket_metainfo, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_Tags_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Tags_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.tags FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Tags_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Tags)
+	if err != nil {
+		return (*Tags_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -40456,6 +40512,32 @@ func (obj *spannerImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Con
 
 }
 
+func (obj *spannerImpl) Get_BucketMetainfo_Tags_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Tags_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.tags FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Tags_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Tags)
+	if err != nil {
+		return (*Tags_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *spannerImpl) Get_BucketMetainfo_CreatedBy_BucketMetainfo_CreatedAt_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -46085,6 +46167,11 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Placement_Row, err error)
+
+	Get_BucketMetainfo_Tags_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		row *Tags_Row, err error)
 
 	Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
