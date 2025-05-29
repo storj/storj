@@ -71,14 +71,18 @@ export class MinimumCharge {
         if (!this.startDate) {
             return '';
         }
-        return Time.formattedDate(this.startDate, { month: 'long', day: 'numeric' });
+        const str = Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', timeZone: 'UTC', timeZoneName: 'short' });
+        const parts = str.split(' at');
+        return parts.join('');
     }
 
     get longStartDateStr(): string {
         if (!this.startDate) {
             return '';
         }
-        return Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', year: 'numeric' });
+        const str = Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC', timeZoneName: 'short' });
+        const parts = str.split(' at');
+        return parts.join('');
     }
 
     get proNoticeEnabled(): boolean {
