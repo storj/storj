@@ -210,7 +210,7 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 		return audit.OutcomeUnknownError, nil
 	}
 
-	logger.Info("download succeeded")
+	logger.Debug("download succeeded")
 	return audit.OutcomeSuccess, nil
 }
 

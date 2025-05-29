@@ -18,6 +18,7 @@ LATEST_TAG := ${BRANCH_NAME}-latest
 endif
 endif
 CUSTOMTAG ?=
+SUB_DIR = ""
 
 FILEEXT :=
 ifeq (${GOOS},windows)
@@ -299,8 +300,19 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
+images: segment-verify-image jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
+
+.PHONY: segment-verify-image
+segment-verify-image: segment-verify_linux_arm segment-verify_linux_arm64 segment-verify_linux_amd64 ## Build segment-verify Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/segment-verify:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/tools/segment-verify/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/segment-verify:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
+		-f cmd/tools/segment-verify/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/segment-verify:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+		-f cmd/tools/segment-verify/Dockerfile .
 
 .PHONY: jobq-image
 jobq-image: jobq_linux_arm jobq_linux_arm64 jobq_linux_amd64 ## Build jobq Docker image
@@ -422,9 +434,9 @@ binary:
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	mkdir -p release/${TAG}
 	mkdir -p /tmp/go-cache /tmp/go-pkg
-	rm -f cmd/${COMPONENT}/resource.syso
+	rm -f cmd/${SUB_DIR}${COMPONENT}/resource.syso
 	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
-	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
+	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${SUB_DIR}${COMPONENT}/resource.syso \
 	-original-name ${COMPONENT}_${GOOS}_${GOARCH}${FILEEXT} \
 	-description "${COMPONENT} program for Storj" \
         -product-ver-major "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'.' 'BEGIN {v=0} {gsub("v", "", $$0); v=$$1} END {print v}' )" \
@@ -441,7 +453,7 @@ binary:
 	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
-	storj.io/storj/cmd/${COMPONENT}
+	storj.io/storj/cmd/${SUB_DIR}${COMPONENT}
 
 	if [ "${COMPONENT}" = "satellite" ] && [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; \
 	then \
@@ -463,6 +475,9 @@ binary-check:
 		$(MAKE) binary; \
 	fi
 
+.PHONY: segment-verify_%
+segment-verify_%:
+	$(MAKE) binary-check SUB_DIR="tools/" COMPONENT=segment-verify GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: jobq_%
 jobq_%:
 	$(MAKE) binary-check COMPONENT=jobq GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -495,11 +510,11 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := jobq certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := segment-verify jobq certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build jobq certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
+binaries: ${BINARIES} ## Build segment-verify jobq certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -510,7 +525,7 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	set -x; for c in jobq multinode satellite uplink versioncontrol ; do \
+	set -x; for c in segment-verify jobq multinode satellite uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
@@ -561,6 +576,7 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
+	-docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}

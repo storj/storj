@@ -462,6 +462,8 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 	exhausted := false
 	segmentsData := make([]Segment, service.config.BatchSize)
 	segments := make([]*Segment, service.config.BatchSize)
+
+	var progress int64
 	for {
 		streamIDs = streamIDs[:0]
 		for range service.config.BatchSize {
@@ -501,6 +503,14 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 				segmentsData[n].Status.NotFound = 0
 				segments[n] = &segmentsData[n]
 			}
+
+			service.log.Info("processing segments",
+				zap.Int64("progress", progress),
+				zap.Int("count", len(segments)),
+				zap.Stringer("first", segments[0].StreamID),
+				zap.Stringer("last", segments[len(segments)-1].StreamID),
+			)
+			progress += int64(len(segments))
 
 			if err := service.ProcessSegments(ctx, segments); err != nil {
 				return Error.Wrap(err)
