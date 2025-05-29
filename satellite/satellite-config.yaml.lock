@@ -1001,6 +1001,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
+# enable the use of the bucket tagging endpoints
+# metainfo.bucket-tagging-enabled: false
+
 # the database connection string to use
 # metainfo.database-url: postgres://
 

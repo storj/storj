@@ -220,6 +220,8 @@ type Config struct {
 
 	DeleteObjectsEnabled bool `help:"enable the use of the DeleteObjects endpoint" default:"false"`
 
+	BucketTaggingEnabled bool `help:"enable the use of the bucket tagging endpoints" default:"false"`
+
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
 	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
