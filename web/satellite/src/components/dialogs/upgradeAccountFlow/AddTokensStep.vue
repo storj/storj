@@ -3,19 +3,33 @@
 
 <template>
     <template v-if="wallet.address">
-        <p v-if="isPaidTier" class="text-body-2 mb-4">
-            Send STORJ Tokens to the deposit address to credit your Storj account and receive a 10% bonus on your deposit.
+        <p class="text-body-2">
+            <template v-if="isPaidTier">
+                Send STORJ Tokens to the deposit address to credit your Storj account and receive a 10% bonus on your deposit.
+            </template>
+            <template v-else>
+                Send at least $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
+                Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
+                If your account is not automatically upgraded, please fill out this
+                <a
+                    href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                    target="_blank"
+                    class="link"
+                    rel="noopener noreferrer"
+                >limit increase request form</a>.
+            </template>
+            <br>
         </p>
-        <p v-else class="text-body-2 mb-4">
-            Send at least $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
-            Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
-            If your account is not automatically upgraded, please fill out this
-            <a
-                href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
-                target="_blank"
-                class="link"
-                rel="noopener noreferrer"
-            >limit increase request form</a>.
+
+        <p class="mb-4 mb-2 text-body-2">
+            <template v-if="minimumCharge.proNoticeEnabled">
+                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                of {{ minimumCharge.amount }} will apply starting on {{ minimumCharge.shortStartDateStr }}.
+            </template>
+            <template v-else-if="minimumCharge.enabled">
+                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                of {{ minimumCharge.amount }} applies.
+            </template>
         </p>
 
         <template v-if="!isAcknowledged">
@@ -228,6 +242,8 @@ const emit = defineEmits<{
     success: [];
     close: [];
 }>();
+
+const minimumCharge = computed(() => configStore.minimumCharge);
 
 /**
  * Returns wallet from store.
