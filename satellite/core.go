@@ -484,11 +484,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -514,8 +510,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			emission.NewService(config.Emission),
 			config.Console.SelfServeAccountDeleteEnabled,
 			pc.MinimumCharge.Amount,
-			newUserMinimumChargeCutoffDate,
-			allUsersMinimumChargeDate,
+			minimumChargeDate,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

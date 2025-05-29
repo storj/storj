@@ -123,9 +123,8 @@ type Service struct {
 	placementProductMap   payments.PlacementProductIdMap
 	productPriceMap       map[int32]payments.ProductUsagePriceModel
 
-	minimumChargeAmount             int64
-	newUsersMinimumChargeCutoffDate *time.Time // nil means apply to all users
-	allUsersMinimumChargeDate       *time.Time // nil means no effect on existing users
+	minimumChargeAmount int64
+	minimumChargeDate   *time.Time // nil to apply immediately
 }
 
 // NewService creates a Service instance.
@@ -136,7 +135,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 	productPriceMap map[int32]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap,
 	placementProductMap payments.PlacementProductIdMap, packagePlans map[string]payments.PackagePlan, bonusRate int64,
 	analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool,
-	minimumChargeAmount int64, newUsersMinimumChargeCutoffDate *time.Time, allUsersMinimumChargeDate *time.Time,
+	minimumChargeAmount int64, minimumChargeDate *time.Time,
 ) (*Service, error) {
 	var partners []string
 	addedPartners := make(map[string]struct{})
@@ -186,9 +185,8 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		productPriceMap:        productPriceMap,
 		deleteAccountEnabled:   deleteAccountEnabled,
 
-		minimumChargeAmount:             minimumChargeAmount,
-		newUsersMinimumChargeCutoffDate: newUsersMinimumChargeCutoffDate,
-		allUsersMinimumChargeDate:       allUsersMinimumChargeDate,
+		minimumChargeAmount: minimumChargeAmount,
+		minimumChargeDate:   minimumChargeDate,
 
 		nowFn: time.Now,
 	}, nil
@@ -1367,26 +1365,8 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 		hasShortFall bool
 	)
 
-	applyMinimumCharge := service.minimumChargeAmount > 0
-
-	if applyMinimumCharge {
-		// Three-way condition:
-		// 1) neither date set → true.
-		// 2) allUsers date set  → compare period.
-		// 3) newUsers date set  → compare user.CreatedAt.
-		applyMinimumCharge = func() bool {
-			aDate := service.allUsersMinimumChargeDate
-			nDate := service.newUsersMinimumChargeCutoffDate
-
-			if (aDate == nil && nDate == nil) ||
-				(aDate != nil && !start.Before(*aDate)) ||
-				(nDate != nil && !user.CreatedAt.Before(*nDate)) {
-				return true
-			}
-
-			return false
-		}()
-	}
+	minimumChargeDate := service.minimumChargeDate
+	applyMinimumCharge := service.minimumChargeAmount > 0 && (minimumChargeDate == nil || !start.Before(*minimumChargeDate))
 
 	if applyMinimumCharge {
 		// Edge case:
@@ -2120,10 +2100,9 @@ func (service *Service) SetNow(now func() time.Time) {
 }
 
 // TestSetMinimumChargeCfg allows tests to set the minimum charge configuration.
-func (service *Service) TestSetMinimumChargeCfg(amount int64, allUsersDate, newUsersDate *time.Time) {
+func (service *Service) TestSetMinimumChargeCfg(amount int64, allUsersDate *time.Time) {
 	service.minimumChargeAmount = amount
-	service.allUsersMinimumChargeDate = allUsersDate
-	service.newUsersMinimumChargeCutoffDate = newUsersDate
+	service.minimumChargeDate = allUsersDate
 }
 
 // getFromToDates returns from/to date values used for data usage calculations depending on users upgrade time and status.
