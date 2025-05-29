@@ -206,9 +206,6 @@ func TestQueueClean(t *testing.T) {
 
 	// until we twist the clock forward
 	timeIncrement += time.Hour
-	// and reset the queue timer so it knows about this change
-	err = queue.ResetTimer()
-	require.NoError(t, err)
 
 	// pop all the retry jobs now. they may come out in a complicated order
 	// because it's a pain to manage the clock finely enough to get them to come
@@ -313,11 +310,6 @@ func TestQueueTrim(t *testing.T) {
 
 	// Move time forward to get jobs from retry queue
 	timeIncrement += time.Hour
-	err = queue.ResetTimer()
-	require.NoError(t, err)
-
-	// Verify retry queue jobs move to repair queue when eligible
-	time.Sleep(10 * time.Millisecond) // Give the funnel goroutine time to run
 
 	// Check repair queue again to see if jobs from retry queue moved there
 	for {
