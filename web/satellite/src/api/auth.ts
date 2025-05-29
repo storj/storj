@@ -387,9 +387,9 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.trialExpiration ? new Date(userResponse.trialExpiration) : null,
                 userResponse.hasVarPartner,
                 new MinimumCharge(
-                    userResponse.minimumCharge.enabled,
-                    userResponse.minimumCharge.amount,
-                    userResponse.minimumCharge.startDate ? new Date(userResponse.minimumCharge.startDate) : null,
+                    userResponse.minimumCharge?.enabled ?? false,
+                    userResponse.minimumCharge?.amount ?? 0,
+                    userResponse.minimumCharge?.startDate ? new Date(userResponse.minimumCharge.startDate) : null,
                 ),
             );
         }

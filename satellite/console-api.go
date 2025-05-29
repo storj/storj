@@ -424,11 +424,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -454,8 +450,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			emissionService,
 			config.Console.SelfServeAccountDeleteEnabled,
 			pc.MinimumCharge.Amount,
-			newUserMinimumChargeCutoffDate,
-			allUsersMinimumChargeDate,
+			minimumChargeDate,
 		)
 
 		if err != nil {
@@ -531,11 +526,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
-		newUserMinimumChargeCutoffDate, err := config.Payments.MinimumCharge.GetNewUsersCutoffDate()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		allUsersMinimumChargeDate, err := config.Payments.MinimumCharge.GetAllUsersDate()
+		minimumChargeDate, err := config.Payments.MinimumCharge.GetEffectiveDate()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -569,8 +560,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			},
 			peer.Valdi.Service,
 			config.Payments.MinimumCharge.Amount,
-			newUserMinimumChargeCutoffDate,
-			allUsersMinimumChargeDate,
+			minimumChargeDate,
 			consoleConfig.Config,
 		)
 		if err != nil {

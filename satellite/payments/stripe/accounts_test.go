@@ -60,9 +60,7 @@ func TestSignupCouponCodes(t *testing.T) {
 		productPrices, err := pc.Products.ToModels()
 		require.NoError(t, err)
 
-		newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
-		require.NoError(t, err)
-		allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 		require.NoError(t, err)
 
 		paymentsService, err := stripe.NewService(
@@ -89,8 +87,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			false,
 			pc.MinimumCharge.Amount,
-			newUserMinimumChargeCutoffDate,
-			allUsersMinimumChargeDate,
+			minimumChargeDate,
 		)
 		require.NoError(t, err)
 
@@ -123,8 +120,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			console.ObjectLockAndVersioningConfig{},
 			nil,
 			pc.MinimumCharge.Amount,
-			newUserMinimumChargeCutoffDate,
-			allUsersMinimumChargeDate,
+			minimumChargeDate,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 
