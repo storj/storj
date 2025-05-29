@@ -629,15 +629,13 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Tally.RetentionDays = 0
-				config.Rollup.DeleteTallies = false
-			},
-		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
+
+			sat.Accounting.Tally.Loop.Pause()
+			sat.Accounting.Rollup.Loop.Pause()
+			sat.Accounting.RollupArchive.Loop.Pause()
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
