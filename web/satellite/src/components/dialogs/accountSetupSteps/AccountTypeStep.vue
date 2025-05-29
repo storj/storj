@@ -67,11 +67,11 @@
                         <p class="text-medium-emphasis text-caption">
                             <template v-if="minimumCharge.proNoticeEnabled">
                                 A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                                of {{ minimumCharge.amount }} equivalent to 1TB of storage will will apply from {{ minimumCharge.shortStartDateStr }}.
+                                of {{ minimumCharge.amount }} will apply starting on {{ minimumCharge.shortStartDateStr }}.
                             </template>
                             <template v-else-if="minimumCharge.enabled">
-                                <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">Minimum monthly charge</a>
-                                of {{ minimumCharge.amount }} equivalent to 1TB of storage.
+                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
+                                of {{ minimumCharge.amount }} applies.
                             </template>
                             <template v-else>
                                 No minimum, billed monthly.
