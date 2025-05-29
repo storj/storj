@@ -16,6 +16,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/process"
 	"storj.io/common/process/eventkitbq"
+	_ "storj.io/common/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 )
