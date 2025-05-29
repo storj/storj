@@ -966,6 +966,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	minimumChargeDate, err := server.minimumChargeConfig.GetEffectiveDate()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		server.log.Error("failed to get minimum charge date", zap.Error(err))
+		return
+	}
+
 	cfg := FrontendConfig{
 		ExternalAddress:                   server.config.ExternalAddress,
 		SatelliteName:                     server.config.SatelliteName,
@@ -1042,15 +1049,19 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
-		MinimumChargeEnabled:              server.minimumChargeConfig.Amount > 0,
-		StorageMBMonthCents:               server.usagePrices.StorageMBMonthCents.String(),
-		EgressMBCents:                     server.usagePrices.EgressMBCents.String(),
-		SegmentMonthCents:                 server.usagePrices.SegmentMonthCents.String(),
+		MinimumCharge: console.MinimumChargeConfig{
+			Enabled:   server.minimumChargeConfig.Amount > 0,
+			Amount:    server.minimumChargeConfig.Amount,
+			StartDate: minimumChargeDate,
+		},
+		StorageMBMonthCents: server.usagePrices.StorageMBMonthCents.String(),
+		EgressMBCents:       server.usagePrices.EgressMBCents.String(),
+		SegmentMonthCents:   server.usagePrices.SegmentMonthCents.String(),
 	}
 
 	w.Header().Set(contentType, applicationJSON)
 
-	err := json.NewEncoder(w).Encode(&cfg)
+	err = json.NewEncoder(w).Encode(&cfg)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write frontend config", zap.Error(err))

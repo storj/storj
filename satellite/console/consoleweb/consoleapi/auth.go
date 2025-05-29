@@ -974,29 +974,28 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID                    uuid.UUID                   `json:"id"`
-		ExternalID            string                      `json:"externalID"`
-		FullName              string                      `json:"fullName"`
-		ShortName             string                      `json:"shortName"`
-		Email                 string                      `json:"email"`
-		Partner               string                      `json:"partner"`
-		ProjectLimit          int                         `json:"projectLimit"`
-		ProjectStorageLimit   int64                       `json:"projectStorageLimit"`
-		ProjectBandwidthLimit int64                       `json:"projectBandwidthLimit"`
-		ProjectSegmentLimit   int64                       `json:"projectSegmentLimit"`
-		IsProfessional        bool                        `json:"isProfessional"`
-		Position              string                      `json:"position"`
-		CompanyName           string                      `json:"companyName"`
-		EmployeeCount         string                      `json:"employeeCount"`
-		HaveSalesContact      bool                        `json:"haveSalesContact"`
-		PaidTier              bool                        `json:"paidTier"`
-		MFAEnabled            bool                        `json:"isMFAEnabled"`
-		MFARecoveryCodeCount  int                         `json:"mfaRecoveryCodeCount"`
-		CreatedAt             time.Time                   `json:"createdAt"`
-		PendingVerification   bool                        `json:"pendingVerification"`
-		TrialExpiration       *time.Time                  `json:"trialExpiration"`
-		HasVarPartner         bool                        `json:"hasVarPartner"`
-		MinimumCharge         console.MinimumChargeConfig `json:"minimumCharge"`
+		ID                    uuid.UUID  `json:"id"`
+		ExternalID            string     `json:"externalID"`
+		FullName              string     `json:"fullName"`
+		ShortName             string     `json:"shortName"`
+		Email                 string     `json:"email"`
+		Partner               string     `json:"partner"`
+		ProjectLimit          int        `json:"projectLimit"`
+		ProjectStorageLimit   int64      `json:"projectStorageLimit"`
+		ProjectBandwidthLimit int64      `json:"projectBandwidthLimit"`
+		ProjectSegmentLimit   int64      `json:"projectSegmentLimit"`
+		IsProfessional        bool       `json:"isProfessional"`
+		Position              string     `json:"position"`
+		CompanyName           string     `json:"companyName"`
+		EmployeeCount         string     `json:"employeeCount"`
+		HaveSalesContact      bool       `json:"haveSalesContact"`
+		PaidTier              bool       `json:"paidTier"`
+		MFAEnabled            bool       `json:"isMFAEnabled"`
+		MFARecoveryCodeCount  int        `json:"mfaRecoveryCodeCount"`
+		CreatedAt             time.Time  `json:"createdAt"`
+		PendingVerification   bool       `json:"pendingVerification"`
+		TrialExpiration       *time.Time `json:"trialExpiration"`
+		HasVarPartner         bool       `json:"hasVarPartner"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -1005,7 +1004,6 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.MinimumCharge = a.service.Payments().GetMinimumChargeConfig(consoleUser.CreatedAt)
 	user.ShortName = consoleUser.ShortName
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email

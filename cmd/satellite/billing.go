@@ -69,11 +69,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		return nil, err
 	}
 
-	newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
-	if err != nil {
-		return nil, err
-	}
-	allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+	minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +95,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		emission.NewService(runCfg.Emission),
 		runCfg.Console.SelfServeAccountDeleteEnabled,
 		pc.MinimumCharge.Amount,
-		newUserMinimumChargeCutoffDate,
-		allUsersMinimumChargeDate,
+		minimumChargeDate,
 	)
 }
 

@@ -52,34 +52,18 @@ type MinimumChargeConfig struct {
 	// Amount specifies the minimum amount in cents that will be charged to a customer for an invoice.
 	// If an invoice total is below this amount, an additional line item will be added to reach this threshold.
 	// Set to 0 to disable minimum charge enforcement.
-	Amount             int64  `help:"minimum amount in cents to charge customers per invoice period (0 to disable)" default:"0"`
-	NewUsersCutoffDate string `help:"date after which newly-created users will have minimum charges applied (YYYY-MM-DD, empty for no effect)" default:""`
-	AllUsersDate       string `help:"date after which all users will have minimum charges applied (YYYY-MM-DD, empty for no effect)" default:""`
+	Amount        int64  `help:"minimum amount in cents to charge customers per invoice period (0 to disable)" default:"0"`
+	EffectiveDate string `help:"date after which all users will have minimum charges applied (YYYY-MM-DD), empty to apply immediately" default:""`
 }
 
-// GetNewUsersCutoffDate returns the date after which newly-created users will have minimum charges applied.
+// GetEffectiveDate returns the date after which all users will have minimum charges applied.
 // If the date is not set, it returns nil.
-func (p MinimumChargeConfig) GetNewUsersCutoffDate() (*time.Time, error) {
-	if p.NewUsersCutoffDate == "" {
+func (p MinimumChargeConfig) GetEffectiveDate() (*time.Time, error) {
+	if p.EffectiveDate == "" {
 		return nil, nil
 	}
 
-	date, err := time.Parse("2006-01-02", p.NewUsersCutoffDate)
-	if err != nil {
-		return nil, err
-	}
-
-	return &date, nil
-}
-
-// GetAllUsersDate returns the date after which all users will have minimum charges applied.
-// If the date is not set, it returns nil.
-func (p MinimumChargeConfig) GetAllUsersDate() (*time.Time, error) {
-	if p.AllUsersDate == "" {
-		return nil, nil
-	}
-
-	date, err := time.Parse("2006-01-02", p.AllUsersDate)
+	date, err := time.Parse("2006-01-02", p.EffectiveDate)
 	if err != nil {
 		return nil, err
 	}

@@ -208,11 +208,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			config.Console.AccountFreeze,
 		)
 
-		newUserMinimumChargeCutoffDate, err := pc.MinimumCharge.GetNewUsersCutoffDate()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-		allUsersMinimumChargeDate, err := pc.MinimumCharge.GetAllUsersDate()
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -238,8 +234,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			emission.NewService(config.Emission),
 			config.Console.SelfServeAccountDeleteEnabled,
 			pc.MinimumCharge.Amount,
-			newUserMinimumChargeCutoffDate,
-			allUsersMinimumChargeDate,
+			minimumChargeDate,
 		)
 
 		if err != nil {
