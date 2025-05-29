@@ -5,7 +5,6 @@ package jobqueue
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -217,31 +216,10 @@ var _ minmaxheap.Interface = &repairPriorityQueue{}
 
 type repairRetryQueue struct {
 	jobQueue
-	// headChan is a channel that will be written to anytime the first element
-	// in the retry queue changes, so that the funnel goroutine can wake up and
-	// update its wait timer if necessary.
-	headChan chan<- struct{}
-	// stoppedChan is a channel that will be closed when the funnel goroutine
-	// stops.
-	stoppedChan <-chan struct{}
 }
 
 func (rrq *repairRetryQueue) Less(i, j int) bool {
 	return rrq.priorityHeap[i].LastAttemptedAt < rrq.priorityHeap[j].LastAttemptedAt
-}
-
-func (rrq *repairRetryQueue) Swap(i, j int) {
-	rrq.jobQueue.Swap(i, j)
-	if (i == 0 || j == 0) && rrq.headChan != nil {
-		rrq.headChan <- struct{}{}
-	}
-}
-
-func (rrq *repairRetryQueue) Push(x any) {
-	rrq.jobQueue.Push(x)
-	if rrq.Len() == 1 && rrq.headChan != nil {
-		rrq.headChan <- struct{}{}
-	}
 }
 
 var _ minmaxheap.Interface = &repairRetryQueue{}
@@ -290,6 +268,21 @@ func NewQueue(log *zap.Logger, retryAfter time.Duration, initialAlloc, maxItems,
 		RetryAfter: retryAfter,
 		Now:        time.Now,
 	}, nil
+}
+
+// processItemsReadyForRetry pops items all items from the retry queue that are
+// ready to be retried, and adds them to the repair queue.
+//
+// Lock must be held when calling this method.
+func (q *Queue) processItemsReadyForRetry() {
+	for q.rq.Len() > 0 {
+		if q.Now().Sub(q.rq.priorityHeap[0].LastAttemptedAtTime()) < q.RetryAfter {
+			return
+		}
+
+		job := minmaxheap.Pop(&q.rq).(jobq.RepairJob)
+		minmaxheap.Push(&q.pq, job)
+	}
 }
 
 // Insert adds a job to the queue with the given health. If the segment
@@ -411,6 +404,7 @@ func (q *Queue) Pop() (job jobq.RepairJob, ok bool) {
 }
 
 func (q *Queue) popLocked() (job jobq.RepairJob, ok bool) {
+	q.processItemsReadyForRetry()
 	if q.pq.Len() == 0 {
 		return jobq.RepairJob{}, false
 	}
@@ -432,6 +426,7 @@ func (q *Queue) Peek() (job jobq.RepairJob, ok bool) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	q.processItemsReadyForRetry()
 	if q.pq.Len() == 0 {
 		return jobq.RepairJob{}, false
 	}
@@ -449,6 +444,7 @@ func (q *Queue) PeekRetry() jobq.RepairJob {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	q.processItemsReadyForRetry()
 	if q.rq.Len() == 0 {
 		return jobq.RepairJob{}
 	}
@@ -494,6 +490,7 @@ func (q *Queue) Inspect(streamID uuid.UUID, position uint64) (job jobq.RepairJob
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
+	q.processItemsReadyForRetry()
 	if i, ok := q.indexByID[jobq.SegmentIdentifier{StreamID: streamID, Position: position}]; ok {
 		if i&queueSelectMask == inRetryQueue {
 			return q.rq.priorityHeap[int(i&indexMask)], true
@@ -780,45 +777,18 @@ func (q *Queue) TestingSetUpdatedTime(streamID uuid.UUID, position uint64, updat
 	return 0
 }
 
-// Start starts the queue's funnel goroutine, which moves items from the retry
-// queue to the repair queue as they become eligible for retry (after RetryAfter).
-// If the queue is already running, it returns an error.
+// Start is vestigial and has no effect in the current implementation.
 func (q *Queue) Start() error {
-	q.lock.Lock()
-	if q.rq.headChan != nil {
-		q.lock.Unlock()
-		return errors.New("the queue is already running")
-	}
-	stoppedChan := make(chan struct{})
-	headChan := make(chan struct{}, 10)
-	q.rq.headChan = headChan
-	log := q.log
-	q.rq.stoppedChan = stoppedChan
-	q.lock.Unlock()
-
-	go q.funnelFromRetryToRepair(log, headChan, stoppedChan)
 	return nil
 }
 
-// Stop stops the queue's funnel goroutine.
+// Stop truncates the queues and clears the index.
 func (q *Queue) Stop() {
 	q.lock.Lock()
 	// Perform truncation while holding the lock instead of calling Truncate()
 	q.pq.Truncate()
 	q.rq.Truncate()
 	maps.Clear(q.indexByID)
-
-	if q.rq.headChan != nil {
-		close(q.rq.headChan)
-		q.rq.headChan = nil
-	}
-	stoppedChan := q.rq.stoppedChan
-	q.rq.stoppedChan = nil
-	q.lock.Unlock()
-
-	if stoppedChan != nil {
-		<-stoppedChan
-	}
 }
 
 // Destroy stops the queue's funnel goroutine (if it is still running) and frees
@@ -831,63 +801,6 @@ func (q *Queue) Destroy() {
 	_ = memFree(q.rq.mem)
 	q.rq.mem = nil
 	q.rq.priorityHeap = nil
-}
-
-// ResetTimer causes the funnel goroutine to wake up and adjust its wait timer
-// (might be used after artificially changing the clock, for example).
-func (q *Queue) ResetTimer() error {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-	if q.rq.headChan != nil {
-		q.rq.headChan <- struct{}{}
-		return nil
-	}
-	return errors.New("the queue is not running")
-}
-
-// FunnelFromRetryToRepair moves items from the retry queue to the repair queue
-// as they become eligible for retry (after RetryAfter).
-func (q *Queue) funnelFromRetryToRepair(log *zap.Logger, headChan <-chan struct{}, stoppedChan chan<- struct{}) {
-	defer close(stoppedChan)
-	log.Info("starting funnel from retry to repair")
-	defer log.Info("stopping funnel from retry to repair")
-
-	for {
-		var timeToNext time.Duration
-		func() {
-			q.lock.Lock()
-			defer q.lock.Unlock()
-
-			timeToNext = time.Minute
-			if q.rq.Len() == 0 {
-				return
-			}
-			nextItem := q.rq.priorityHeap[0]
-			nextRunTime := nextItem.LastAttemptedAtTime().Add(q.RetryAfter)
-			timeToNext = nextRunTime.Sub(q.Now())
-			if timeToNext <= 0 {
-				// disable headChan reporting while we're modifying the queue
-				tmpChan := q.rq.headChan
-				q.rq.headChan = nil
-				defer func() { q.rq.headChan = tmpChan }()
-
-				// Don't need to worry about maxItems here, as the sum number of
-				// items will remain the same.
-				item := minmaxheap.Pop(&q.rq).(jobq.RepairJob)
-				minmaxheap.Push(&q.pq, item)
-			}
-		}()
-
-		timer := time.NewTimer(timeToNext)
-		select {
-		case <-timer.C:
-		case _, ok := <-headChan:
-			timer.Stop()
-			if !ok {
-				return
-			}
-		}
-	}
 }
 
 type queueAndPlacement struct {
@@ -980,6 +893,7 @@ func PeekNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queu
 	// lock all queues in order
 	for _, q := range queues {
 		q.lock.Lock()
+		q.processItemsReadyForRetry()
 	}
 	defer func() {
 		for i := len(queues) - 1; i >= 0; i-- {
