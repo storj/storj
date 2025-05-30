@@ -79,13 +79,12 @@ export const useBillingStore = defineStore('billing', () => {
         const minimumCharge = configStore.minimumCharge;
         const minimumChargeEnabled = minimumCharge.enabled;
         const minimumChargeAmt = minimumCharge.amount;
-        const minimumChargeTxt = `with a <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                    of ${minimumChargeAmt}.`;
+        const minimumChargeLink = '<a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly charge</a>';
+        const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumChargeAmt}.`;
 
         let subtitle = `Pay-as-you-go`;
         if (minimumCharge.proNoticeEnabled) {
-            subtitle += `. A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                    of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
+            subtitle += `. A ${minimumChargeLink} of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
         } else if (minimumChargeEnabled) {
             subtitle += `, ${minimumChargeTxt}`;
         } else {
@@ -94,8 +93,7 @@ export const useBillingStore = defineStore('billing', () => {
 
         let activationDesc = 'Add a credit card to activate your pro account. Only pay for what you use';
         if (minimumCharge.proNoticeEnabled) {
-            activationDesc += `. A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                    of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
+            activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
         } else if (minimumChargeEnabled) {
             activationDesc += `, ${minimumChargeTxt}`;
         } else {
