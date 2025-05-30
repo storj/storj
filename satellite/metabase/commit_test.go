@@ -5321,6 +5321,8 @@ func BenchmarkCommitSegment(b *testing.B) {
 
 		limiter := sync2.NewLimiter(10)
 
+		maxCommitDelay := 25 * time.Millisecond
+
 		b.Run("SQL", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				limiter.Go(ctx, func() {
@@ -5337,6 +5339,7 @@ func BenchmarkCommitSegment(b *testing.B) {
 						EncryptedSize:     512,
 						PlainSize:         512,
 						Redundancy:        metabasetest.DefaultRedundancy,
+						MaxCommitDelay:    &maxCommitDelay,
 					})
 					require.NoError(b, err)
 				})
@@ -5373,6 +5376,7 @@ func BenchmarkCommitSegment(b *testing.B) {
 						Redundancy:        metabasetest.DefaultRedundancy,
 
 						TestingUseMutations: true,
+						MaxCommitDelay:      &maxCommitDelay,
 					})
 					require.NoError(b, err)
 				})
