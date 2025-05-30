@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package accounting_test
 
 import (
 	"fmt"
@@ -982,7 +982,7 @@ func TestProjectUsageGap(t *testing.T) {
 	})
 }
 
-func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
+func TestProjectAccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
 	// test if invalid bucket name will be handled correctly
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		_, err := db.ProjectAccounting().GetNonEmptyTallyBucketsInRange(ctx, metabase.BucketLocation{
