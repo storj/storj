@@ -6,6 +6,7 @@ package metabasetest
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
@@ -76,7 +77,7 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 	for _, dbinfo := range satellitedbtest.Databases() {
 		dbinfo := dbinfo
 		b.Run(dbinfo.Name, func(b *testing.B) {
-			tctx := testcontext.New(b)
+			tctx := testcontext.NewWithTimeout(b, time.Hour)
 			defer tctx.Cleanup()
 
 			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{

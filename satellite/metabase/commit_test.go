@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
@@ -5297,6 +5298,86 @@ func TestConditionalWrites(t *testing.T) {
 
 			assert.Equal(t, 1, success)
 			assert.Equal(t, requests-1, failed)
+		})
+	})
+}
+
+func BenchmarkCommitSegment(b *testing.B) {
+	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
+
+		objA := metabasetest.RandObjectStream()
+		objA.Version = metabase.NextVersion
+
+		objectA, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			ObjectStream: objA,
+			Encryption:   metabasetest.DefaultEncryption,
+		})
+		require.NoError(b, err)
+
+		nodeA := testrand.NodeID()
+		nodeB := testrand.NodeID()
+		encryptedKey := testrand.Bytes(32)
+		encryptedKeyNonce := testrand.Bytes(32)
+
+		limiter := sync2.NewLimiter(10)
+
+		b.Run("SQL", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				limiter.Go(ctx, func() {
+					err := db.CommitSegment(ctx, metabase.CommitSegment{
+						ObjectStream: objectA.ObjectStream,
+						Position:     metabase.SegmentPosition{Index: uint32(i)},
+						RootPieceID:  testrand.PieceID(),
+						Pieces: []metabase.Piece{
+							{StorageNode: nodeA, Number: 1},
+							{StorageNode: nodeB, Number: 2},
+						},
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+						EncryptedSize:     512,
+						PlainSize:         512,
+						Redundancy:        metabasetest.DefaultRedundancy,
+					})
+					require.NoError(b, err)
+				})
+			}
+			limiter.Wait()
+		})
+
+		objB := metabasetest.RandObjectStream()
+		objB.Version = metabase.NextVersion
+
+		objectB, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			ObjectStream: objB,
+			Encryption:   metabasetest.DefaultEncryption,
+		})
+		require.NoError(b, err)
+
+		limiter = sync2.NewLimiter(10)
+
+		b.Run("Mutations", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				limiter.Go(ctx, func() {
+					err := db.CommitSegment(ctx, metabase.CommitSegment{
+						ObjectStream: objectB.ObjectStream,
+						Position:     metabase.SegmentPosition{Index: uint32(i)},
+						RootPieceID:  testrand.PieceID(),
+						Pieces: []metabase.Piece{
+							{StorageNode: nodeA, Number: 1},
+							{StorageNode: nodeB, Number: 2},
+						},
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+						EncryptedSize:     512,
+						PlainSize:         512,
+						Redundancy:        metabasetest.DefaultRedundancy,
+
+						TestingUseMutations: true,
+					})
+					require.NoError(b, err)
+				})
+				limiter.Wait()
+			}
 		})
 	})
 }

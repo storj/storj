@@ -775,60 +775,77 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 func (s *SpannerAdapter) commitPendingObjectSegmentWithMutations(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var numRows int64
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		row, err := txn.ReadRow(ctx,
-			"objects",
-			spanner.Key{opts.ProjectID, opts.BucketName, opts.ObjectKey, int64(opts.Version)},
-			[]string{"stream_id", "status"},
-		)
-		if err != nil {
-			if errors.Is(err, spanner.ErrRowNotFound) {
-				return ErrPendingObjectMissing.New("")
-			}
-			return ErrFailedPrecondition.Wrap(err)
+		stmt := spanner.Statement{
+			SQL: `
+				INSERT OR UPDATE INTO segments (
+					stream_id, position,
+					expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
+					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					redundancy,
+					remote_alias_pieces,
+					placement,
+					-- clear column in case it was inline segment before
+					inline_data
+				) VALUES (
+					(
+						SELECT IF(stream_id = @stream_id AND status = ` + statusPending + `, stream_id, NULL)
+						FROM objects
+						WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+					), @position,
+					@expires_at, @root_piece_id, @encrypted_key_nonce, @encrypted_key,
+					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@redundancy,
+					@alias_pieces,
+					@placement,
+					NULL
+				)
+			`,
+			Params: map[string]interface{}{
+				"position":            opts.Position,
+				"expires_at":          opts.ExpiresAt,
+				"root_piece_id":       opts.RootPieceID,
+				"encrypted_key_nonce": opts.EncryptedKeyNonce,
+				"encrypted_key":       opts.EncryptedKey,
+				"encrypted_size":      int64(opts.EncryptedSize),
+				"plain_offset":        opts.PlainOffset,
+				"plain_size":          int64(opts.PlainSize),
+				"encrypted_etag":      opts.EncryptedETag,
+				"redundancy":          opts.Redundancy,
+				"alias_pieces":        aliasPieces,
+				"project_id":          opts.ProjectID,
+				"bucket_name":         opts.BucketName,
+				"object_key":          opts.ObjectKey,
+				"version":             opts.Version,
+				"stream_id":           opts.StreamID,
+				"placement":           opts.Placement,
+			},
 		}
-
-		var streamID uuid.UUID
-		var status int64
-		err = row.Columns(&streamID, &status)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if streamID != opts.StreamID || status != int64(Pending) {
-			return ErrPendingObjectMissing.New("")
-		}
-
-		err = txn.BufferWrite([]*spanner.Mutation{
-			spanner.InsertOrUpdate("segments",
-				[]string{
-					"stream_id", "position", "expires_at", "root_piece_id", "encrypted_key_nonce",
-					"encrypted_key", "encrypted_size", "plain_offset", "plain_size", "encrypted_etag",
-					"redundancy", "remote_alias_pieces", "placement",
-					"inline_data",
-				},
-				[]any{
-					opts.StreamID, opts.Position, opts.ExpiresAt, opts.RootPieceID, opts.EncryptedKeyNonce,
-					opts.EncryptedKey, int64(opts.EncryptedSize), opts.PlainOffset, int64(opts.PlainSize), opts.EncryptedETag,
-					opts.Redundancy, aliasPieces, opts.Placement,
-					// clear column in case it was inline segment before
-					nil,
-				},
-			),
-		})
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		return nil
+		numRows, err = txn.Update(ctx, stmt)
+		return err
 	}, spanner.TransactionOptions{
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "commit-pending-object-segment-mutations",
+		TransactionTag: "commit-pending-object-segment",
 	})
-
-	return Error.Wrap(err)
+	if err != nil {
+		if spanner.ErrCode(err) == codes.FailedPrecondition {
+			// TODO(spanner) dirty hack to distinguish FailedPrecondition errors.
+			// Another issue is that emulator returns different message than real spanner instance.
+			if strings.Contains(err.Error(), "column: segments.stream_id") ||
+				strings.Contains(err.Error(), "stream_id must not be NULL in table segments") {
+				return ErrPendingObjectMissing.New("")
+			}
+			return ErrFailedPrecondition.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+	if numRows < 1 {
+		return ErrPendingObjectMissing.New("")
+	}
+	return nil
 }
 
 // CommitInlineSegment contains all necessary information about the segment.
