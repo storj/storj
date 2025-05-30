@@ -334,7 +334,7 @@ func (db *DB) openDatabases(ctx context.Context) error {
 	}
 
 	for _, dbName := range dbs {
-		err := db.openExistingDatabase(ctx, dbName)
+		err := db.openExistingDatabase(ctx, dbName, true)
 		if err != nil {
 			return errs.Combine(err, db.closeDatabases())
 		}
@@ -348,7 +348,7 @@ func (db *DB) rawDatabaseFromName(dbName string) tagsql.DB {
 }
 
 // openExistingDatabase opens existing database at the specified path.
-func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
+func (db *DB) openExistingDatabase(ctx context.Context, dbName string, withStat bool) error {
 	path := db.filepathFromDBName(dbName)
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
@@ -359,12 +359,12 @@ func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
 		return ErrDatabase.New("%s couldn't be read (%q): %w", dbName, path, err)
 	}
 
-	return db.openDatabase(ctx, dbName)
+	return db.openDatabaseWithStat(ctx, dbName, withStat)
 }
 
 // openDatabase opens or creates a database at the specified path.
 func (db *DB) openDatabase(ctx context.Context, dbName string) error {
-	return db.openDatabaseWithStat(ctx, dbName, true)
+	return db.openDatabaseWithStat(ctx, dbName, false)
 }
 
 // openDatabase opens or creates a database at the specified path.
@@ -689,7 +689,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		return ErrDatabase.Wrap(err)
 	}
 
-	err = db.openExistingDatabase(ctx, dbName)
+	err = db.openExistingDatabase(ctx, dbName, false)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
