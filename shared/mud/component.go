@@ -5,6 +5,8 @@ package mud
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -66,6 +68,12 @@ func (c *Component) Run(ctx context.Context, eg *errgroup.Group) error {
 
 	if c.run.background {
 		eg.Go(func() error {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Fprintf(os.Stderr, "Panic in component: %s", c.ID())
+					panic(r)
+				}
+			}()
 			c.run.started = time.Now()
 			err := c.run.run(c.instance, ctx)
 			c.run.finished = time.Now()

@@ -1,0 +1,269 @@
+// Copyright (C) 2025 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package cli
+
+import (
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
+
+	"github.com/spf13/pflag"
+	"github.com/zeebo/clingy"
+)
+
+// bindConfig binds required configuration parameters to clingy params.
+// This is called during clingy Setup phase, register flags, and fills the default values.
+func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, cfg *ConfigSupport) {
+	val := refVal.Elem()
+	if val.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("invalid config type: %#v. Expecting struct.", val.Interface()))
+	}
+	typ := val.Type()
+
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		fieldval := val.Field(i)
+		flagname := snakeToHyphenatedCase(field.Name)
+
+		if field.Tag.Get("noprefix") != "true" && prefix != "" {
+			flagname = prefix + "." + flagname
+		}
+
+		if !fieldval.CanAddr() {
+			panic(fmt.Sprintf("cannot addr field %s in %s", field.Name, typ))
+		}
+
+		if field.Tag.Get("noflag") == "true" {
+			err := cfg.GetSubtree(flagname, fieldval.Addr().Interface())
+			if err != nil {
+				panic(err)
+			}
+			continue
+		}
+
+		fieldref := fieldval.Addr()
+
+		help := field.Tag.Get("help")
+		// TODO: dev and test modes are not supported here
+
+		defaultValue := field.Tag.Get("releaseDefault")
+		if defaultValue == "" {
+			defaultValue = field.Tag.Get("default")
+		}
+		defaultValue = strings.ReplaceAll(defaultValue, "$IDENTITYDIR", cfg.identityDir)
+		defaultValue = strings.ReplaceAll(defaultValue, "$CONFDIR", cfg.configDir)
+
+		def := func() interface{} {
+			if field.Tag.Get("required") == "true" {
+				return clingy.Required
+			} else {
+				return defaultValue
+			}
+		}
+
+		// the prefix for recursive calls
+		pf := func(t string) string {
+			var s []string
+			if prefix != "" {
+				s = append(s, prefix)
+			}
+			if t != "" {
+				s = append(s, snakeToHyphenatedCase(t))
+			}
+			return strings.Join(s, ".")
+		}
+
+		// if it's a pflag.Value implementation, let's the interface handle it
+		fieldaddr := fieldref.Interface()
+		if pfv, ok := fieldaddr.(pflag.Value); ok {
+			val := params.Flag(flagname, help, def())
+			if val == nil {
+				continue
+			}
+			if strv, ok := val.(string); ok {
+				err := pfv.Set(strv)
+				if err != nil {
+					panic(fmt.Sprintf("invalid value for %s: %v", flagname, err))
+				}
+				continue
+			}
+			panic(fmt.Sprintf("cannot set default value for %s/%s: %T, val:%T %v", refVal.Type(), flagname, pfv, val, val))
+		}
+
+		if pfv, ok := fieldval.Interface().(pflag.Value); ok {
+			panic(fmt.Sprintf("cannot set default value for %s/%s: %T", refVal.Type(), flagname, pfv))
+		}
+
+		// if it's a struct, we need to recurse into it
+		if field.Type.Kind() == reflect.Struct {
+			if field.Anonymous {
+				bindConfig(params, pf(""), fieldref, cfg)
+			} else {
+				bindConfig(params, pf(field.Name), fieldref, cfg)
+			}
+			continue
+		}
+
+		// same for struct pointers
+		if field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct {
+			// Initialize the pointer if it's nil
+			if fieldval.IsNil() {
+				if !fieldval.CanSet() {
+					panic(fmt.Sprintf("cannot set field %s in %s", field.Name, typ))
+				}
+				fieldval.Set(reflect.New(field.Type.Elem()))
+			}
+			if field.Anonymous {
+				bindConfig(params, pf(""), fieldref.Elem(), cfg)
+			} else {
+				bindConfig(params, pf(field.Name), fieldref.Elem(), cfg)
+			}
+			continue
+		}
+
+		// here is the binding, where we got the real value.
+		// Now we can assume it's a simple value, and let's clingy just get the actual value.
+		// Time to set it back to the config reference (flag.Value may already be handled earlier).
+		val := params.Flag(flagname, help, def())
+		if val == nil {
+			continue
+		}
+
+		switch field.Type {
+		case reflect.TypeOf(0):
+			switch v := val.(type) {
+			case int:
+				fieldval.SetInt(int64(v))
+			case string:
+				if v == "" {
+					continue
+				}
+				nv, err := strconv.Atoi(v)
+				if err != nil {
+					panic(err)
+				}
+				fieldval.SetInt(int64(nv))
+
+			default:
+				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+			}
+
+		case reflect.TypeOf(int64(0)):
+			switch v := val.(type) {
+			case string:
+				if v == "" {
+					continue
+				}
+				nv, err := strconv.Atoi(v)
+				if err != nil {
+					panic(fmt.Sprintf("invalid integer value type: %s=%s", field.Name, field.Type.String()))
+				}
+				fieldval.SetInt(int64(nv))
+			case int64:
+				fieldval.SetInt(v)
+			default:
+				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+			}
+		case reflect.TypeOf(uint(0)):
+			switch v := val.(type) {
+			case string:
+				if v == "" {
+					continue
+				}
+				nv, err := strconv.Atoi(v)
+				if err != nil {
+					panic(fmt.Sprintf("invalid integer value type: %s=%s", field.Name, field.Type.String()))
+				}
+				fieldval.SetUint(uint64(nv))
+			default:
+				fieldval.SetUint(uint64(val.(uint)))
+			}
+		case reflect.TypeOf(uint64(0)):
+			fieldval.SetUint(val.(uint64))
+		case reflect.TypeOf(time.Duration(0)):
+			val, err := time.ParseDuration(val.(string))
+			if err != nil {
+				panic(err)
+			}
+			fieldval.Set(reflect.ValueOf(val))
+		case reflect.TypeOf(float64(0)):
+			if fv, ok := val.(float64); ok {
+				fieldval.SetFloat(fv)
+			}
+		case reflect.TypeOf(""):
+			fieldval.SetString(val.(string))
+		case reflect.TypeOf(false):
+			switch bc := val.(type) {
+			case bool:
+				fieldval.SetBool(bc)
+			case string:
+				if bc == "" {
+					continue
+				}
+				rv, err := strconv.ParseBool(strings.TrimSpace(strings.ToLower(bc)))
+				if err != nil {
+					panic(fmt.Sprintf("invalid boolean value: %s (%s) %s", field.Name, field.Type.String(), bc))
+				}
+				fieldval.SetBool(rv)
+			default:
+				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+			}
+
+		case reflect.TypeOf([]string(nil)):
+			switch bc := val.(type) {
+			case string:
+				if bc == "" {
+					continue
+				}
+				fieldval.Set(reflect.ValueOf(strings.Split(bc, ",")))
+			default:
+				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+			}
+		default:
+			panic(fmt.Sprintf("invalid field type: %s %s=%s", refVal.Type(), field.Name, field.Type.String()))
+		}
+
+	}
+}
+
+func snakeToHyphenatedCase(val string) string {
+	return hyphenate(camelToSnakeCase(val))
+}
+
+func hyphenate(val string) string {
+	return strings.ReplaceAll(val, "_", "-")
+}
+
+func camelToSnakeCase(val string) string {
+	// don't you think this function should be in the standard library?
+	// seems useful
+	if len(val) <= 1 {
+		return strings.ToLower(val)
+	}
+	runes := []rune(val)
+	rv := make([]rune, 0, len(runes))
+	for i := 0; i < len(runes); i++ {
+		rv = append(rv, unicode.ToLower(runes[i]))
+		if i < len(runes)-1 &&
+			unicode.IsLower(runes[i]) &&
+			unicode.IsUpper(runes[i+1]) {
+			// lower-to-uppercase case
+			rv = append(rv, '_')
+		} else if i < len(runes)-2 &&
+			unicode.IsUpper(runes[i]) &&
+			unicode.IsUpper(runes[i+1]) &&
+			unicode.IsLower(runes[i+2]) {
+			// end-of-acronym case
+			rv = append(rv, '_')
+		}
+	}
+	return string(rv)
+}

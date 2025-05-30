@@ -1,0 +1,6 @@
+prometheus:
+  interval: 10s
+  servers:
+    - name: victoria
+      url: "https://localhost:1234"
+      ca-cert-path: /tmp/ca.cert
