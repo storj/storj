@@ -273,6 +273,19 @@ func TestService(t *testing.T) {
 				require.Len(t, cards, 0)
 			})
 
+			t.Run("GetCardSetupSecret", func(t *testing.T) {
+				// authenticated user succeeds
+				secret, err := service.Payments().GetCardSetupSecret(userCtx1)
+				require.NoError(t, err)
+				require.NotEmpty(t, secret)
+
+				// unauthenticated context fails
+				secret, err = service.Payments().GetCardSetupSecret(ctx)
+				require.Error(t, err)
+				require.True(t, console.ErrUnauthorized.Has(err))
+				require.Empty(t, secret)
+			})
+
 			t.Run("AddCreditCard", func(t *testing.T) {
 				// user should be in free tier
 				user, userCtx1 := getOwnerAndCtx(ctx, up1Proj)

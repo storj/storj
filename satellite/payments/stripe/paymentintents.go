@@ -28,6 +28,7 @@ func (pi *paymentIntents) ChargeCard(ctx context.Context, request payments.Charg
 	}
 
 	intent, err := pi.service.stripeClient.PaymentIntents().New(&stripe.PaymentIntentParams{
+		Params:             stripe.Params{Context: ctx},
 		Amount:             stripe.Int64(request.Amount),
 		Customer:           stripe.String(customerID),
 		PaymentMethod:      stripe.String(request.CardID),

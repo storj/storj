@@ -890,6 +890,31 @@ func (p *Payments) AddFunds(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetCardSetupSecret returns a secret to be used by the front end
+// to begin card authorization flow.
+func (p *Payments) GetCardSetupSecret(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	secret, err := p.service.Payments().GetCardSetupSecret(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(secret); err != nil {
+		p.log.Error("failed to encode add funds response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // HandleWebhookEvent handles a webhook event from the payments provider.
 func (p *Payments) HandleWebhookEvent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

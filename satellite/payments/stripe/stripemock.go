@@ -6,6 +6,8 @@ package stripe
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -104,6 +106,7 @@ type mockStripeState struct {
 	customers                   *mockCustomersState
 	paymentMethods              *mockPaymentMethods
 	paymentIntents              *mockPaymentIntents
+	setupIntents                *mockSetupIntents
 	invoices                    *mockInvoices
 	invoiceItems                *mockInvoiceItems
 	customerBalanceTransactions *mockCustomerBalanceTransactions
@@ -138,6 +141,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state.customers = &mockCustomersState{}
 	state.paymentMethods = newMockPaymentMethods(state)
 	state.paymentIntents = &mockPaymentIntents{}
+	state.setupIntents = &mockSetupIntents{}
 	state.invoiceItems = newMockInvoiceItems(state)
 	state.invoices = newMockInvoices(state, state.invoiceItems)
 	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
@@ -172,6 +176,10 @@ func (m *mockStripeClient) PaymentMethods() PaymentMethods {
 
 func (m *mockStripeClient) PaymentIntents() PaymentIntents {
 	return m.paymentIntents
+}
+
+func (m *mockStripeClient) SetupIntents() SetupIntents {
+	return m.setupIntents
 }
 
 func (m *mockStripeClient) Invoices() Invoices {
@@ -596,11 +604,22 @@ func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetac
 type mockPaymentIntents struct {
 }
 
+type mockSetupIntents struct{}
+
 func (m *mockPaymentIntents) New(params *stripe.PaymentIntentParams) (*stripe.PaymentIntent, error) {
 	return &stripe.PaymentIntent{
 		Status:   stripe.PaymentIntentStatusSucceeded,
 		Amount:   *params.Amount,
 		Metadata: params.Metadata,
+	}, nil
+}
+
+func (m *mockSetupIntents) New(params *stripe.SetupIntentParams) (*stripe.SetupIntent, error) {
+	return &stripe.SetupIntent{
+		ClientSecret: fmt.Sprintf("seti_%d_secret", rand.Int31()),
+		Status:       stripe.SetupIntentStatusSucceeded,
+		Usage:        stripe.SetupIntentUsage(*params.Usage),
+		Metadata:     params.Metadata,
 	}, nil
 }
 

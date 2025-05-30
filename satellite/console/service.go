@@ -777,6 +777,24 @@ func (payment Payments) ShouldApplyMinimumCharge(ctx context.Context) (bool, err
 	return true, nil
 }
 
+// GetCardSetupSecret returns a secret to be used by the front end
+// to begin card authorization flow.
+func (payment Payments) GetCardSetupSecret(ctx context.Context) (secret string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = payment.service.getUserAndAuditLog(ctx, "start card setup")
+	if err != nil {
+		return "", ErrUnauthorized.Wrap(err)
+	}
+
+	secret, err = payment.service.accounts.CreditCards().GetSetupSecret(ctx)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	return secret, nil
+}
+
 // AddFunds starts the process of adding funds to the user's account.
 func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsParams) (response *payments.ChargeCardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

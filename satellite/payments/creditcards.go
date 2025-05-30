@@ -37,6 +37,11 @@ type CreditCards interface {
 	// MakeDefault makes a credit card default payment method.
 	// this credit card should be attached to account before make it default.
 	MakeDefault(ctx context.Context, userID uuid.UUID, cardID string) error
+
+	// GetSetupSecret begins the process of setting up a card for payments with authorization
+	// by creating a setup intent. Returns a secret that can be used to complete the setup
+	// on the frontend.
+	GetSetupSecret(ctx context.Context) (secret string, err error)
 }
 
 // CreditCard holds all public information about credit card.
