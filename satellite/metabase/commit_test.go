@@ -5380,8 +5380,8 @@ func BenchmarkCommitSegment(b *testing.B) {
 					})
 					require.NoError(b, err)
 				})
-				limiter.Wait()
 			}
+			limiter.Wait()
 		})
 	})
 }
