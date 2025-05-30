@@ -31,9 +31,20 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
+func pauseAccountingChores(planet *testplanet.Planet) {
+	for _, satellite := range planet.Satellites {
+		satellite.Accounting.Tally.Loop.Pause()
+		satellite.Accounting.Rollup.Loop.Pause()
+		satellite.Accounting.RollupArchive.Loop.Pause()
+		satellite.Accounting.ProjectBWCleanup.Loop.Pause()
+	}
+}
+
 func TestDailyUsage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			const (
 				firstBucketName  = "testbucket0"
 				secondBucketName = "testbucket1"
@@ -130,6 +141,8 @@ func TestDailyUsage(t *testing.T) {
 func TestGetSingleBucketRollup(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			const (
 				bucketName = "testbucket"
 				firstPath  = "path"
@@ -228,6 +241,8 @@ func TestGetProjectTotal(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			bucketName := testrand.BucketName()
 			projectID := testrand.UUID()
 
@@ -303,6 +318,8 @@ func TestGetProjectTotal(t *testing.T) {
 func TestGetProjectTotalTallies_monthly_storage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			bucketName := testrand.BucketName()
 			projectID := testrand.UUID()
 			db := planet.Satellites[0].DB
@@ -486,6 +503,8 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			},
 		}},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			project := planet.Uplinks[0].Projects[0]
 			sat := planet.Satellites[0]
 			db := sat.DB
@@ -631,11 +650,8 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
 			sat := planet.Satellites[0]
-
-			sat.Accounting.Tally.Loop.Pause()
-			sat.Accounting.Rollup.Loop.Pause()
-			sat.Accounting.RollupArchive.Loop.Pause()
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -834,7 +850,7 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 func TestGetProjectObjectsSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			planet.Satellites[0].Accounting.Tally.Loop.Pause()
+			pauseAccountingChores(planet)
 
 			projectID := planet.Uplinks[0].Projects[0].ID
 
@@ -876,9 +892,10 @@ func TestGetProjectObjectsSegments(t *testing.T) {
 func TestGetProjectSettledBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			projectID := planet.Uplinks[0].Projects[0].ID
 			sat := planet.Satellites[0]
-
 			now := time.Now().UTC()
 
 			egress, err := sat.DB.ProjectAccounting().GetProjectSettledBandwidth(ctx, projectID, now.Year(), now.Month(), 0)
@@ -921,6 +938,8 @@ func TestProjectUsageGap(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		pauseAccountingChores(planet)
+
 		sat := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
 		tally := sat.Accounting.Tally
