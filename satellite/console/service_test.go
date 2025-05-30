@@ -867,9 +867,32 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, createdAPIKey)
 				require.Equal(t, up2Proj.OwnerID, createdAPIKey.CreatedBy)
+				require.False(t, createdAPIKey.Version.SupportsObjectLock())
+				require.False(t, createdAPIKey.Version.SupportsAuditability())
 
 				_, _, err = service.CreateAPIKey(userCtx1, disabledProject.ID, "test key", macaroon.APIKeyVersionMin)
 				require.True(t, console.ErrUnauthorized.Has(err))
+
+				createdAPIKey, _, err = service.CreateAPIKey(userCtx2, up2Proj.ID, "test key 1", macaroon.APIKeyVersionObjectLock)
+				require.NoError(t, err)
+				require.NotNil(t, createdAPIKey)
+				require.Equal(t, macaroon.APIKeyVersionObjectLock, createdAPIKey.Version)
+				require.True(t, createdAPIKey.Version.SupportsObjectLock())
+				require.False(t, createdAPIKey.Version.SupportsAuditability())
+
+				createdAPIKey, _, err = service.CreateAPIKey(userCtx2, up2Proj.ID, "test key 2", macaroon.APIKeyVersionAuditable)
+				require.NoError(t, err)
+				require.NotNil(t, createdAPIKey)
+				require.Equal(t, macaroon.APIKeyVersionAuditable, createdAPIKey.Version)
+				require.False(t, createdAPIKey.Version.SupportsObjectLock())
+				require.True(t, createdAPIKey.Version.SupportsAuditability())
+
+				createdAPIKey, _, err = service.CreateAPIKey(userCtx2, up2Proj.ID, "test key 3", macaroon.APIKeyVersionAuditable|macaroon.APIKeyVersionObjectLock)
+				require.NoError(t, err)
+				require.NotNil(t, createdAPIKey)
+				require.Equal(t, macaroon.APIKeyVersionAuditable|macaroon.APIKeyVersionObjectLock, createdAPIKey.Version)
+				require.True(t, createdAPIKey.Version.SupportsObjectLock())
+				require.True(t, createdAPIKey.Version.SupportsAuditability())
 			})
 
 			t.Run("CreateDomain", func(t *testing.T) {

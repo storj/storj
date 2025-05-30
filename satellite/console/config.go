@@ -50,13 +50,15 @@ type Config struct {
 	PricingPackagesEnabled            bool                      `help:"whether to allow purchasing pricing packages" default:"true"`
 	SkuEnabled                        bool                      `help:"whether we should use SKUs for product usages" default:"false" hidden:"true"`
 	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`
-	ManagedEncryption                 SatelliteManagedEncryptionConfig
-	RestAPIKeys                       RestAPIKeysConfig
-	Placement                         PlacementsConfig
-	UsageLimits                       UsageLimitsConfig
-	Captcha                           CaptchaConfig
-	Session                           SessionConfig
-	AccountFreeze                     AccountFreezeConfig
+	AuditableAPIKeyProjects           []string                  `help:"list of public project IDs for which auditable API keys are enabled" default:"[]" hidden:"true"`
+
+	ManagedEncryption SatelliteManagedEncryptionConfig
+	RestAPIKeys       RestAPIKeysConfig
+	Placement         PlacementsConfig
+	UsageLimits       UsageLimitsConfig
+	Captcha           CaptchaConfig
+	Session           SessionConfig
+	AccountFreeze     AccountFreezeConfig
 
 	SupportURL string `help:"url link to general request page" hidden:"true"`
 	LoginURL   string `help:"url link to the satellite UI login" hidden:"true"`

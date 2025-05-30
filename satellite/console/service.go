@@ -257,7 +257,8 @@ type Service struct {
 	maxProjectBuckets int
 	ssoEnabled        bool
 
-	varPartners map[string]struct{}
+	varPartners             map[string]struct{}
+	auditableAPIKeyProjects map[string]struct{}
 
 	paymentSourceChainIDs map[int64]string
 
@@ -338,6 +339,11 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	placementNameLookup := make(map[string]storj.PlacementConstraint, len(placements))
 	for _, placement := range placements {
 		placementNameLookup[placement.Name] = placement.ID
+	}
+
+	auditableAPIKeyProjects := make(map[string]struct{}, len(config.AuditableAPIKeyProjects))
+	for _, projectID := range config.AuditableAPIKeyProjects {
+		auditableAPIKeyProjects[projectID] = struct{}{}
 	}
 
 	return &Service{
@@ -4666,6 +4672,12 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	return info, key, nil
 }
 
+// ProjectSupportsAuditableAPIKeys checks if the project ID is in the list of projects that support auditable API keys.
+func (s *Service) ProjectSupportsAuditableAPIKeys(projectID uuid.UUID) (supports bool) {
+	_, supports = s.auditableAPIKeyProjects[projectID.String()]
+	return supports
+}
+
 // GenCreateAPIKey creates new api key for generated api.
 func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyRequest) (*CreateAPIKeyResponse, api.HTTPError) {
 	var err error
@@ -6959,6 +6971,11 @@ func (s *Service) ParseInviteToken(ctx context.Context, token string) (publicID 
 // TestSetNow allows tests to have the Service act as if the current time is whatever they want.
 func (s *Service) TestSetNow(now func() time.Time) {
 	s.nowFn = now
+}
+
+// TestSetAuditableAPIKeyProjects is used in tests to set the list of projects that can be audited via API keys.
+func (s *Service) TestSetAuditableAPIKeyProjects(list map[string]struct{}) {
+	s.auditableAPIKeyProjects = list
 }
 
 // TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.
