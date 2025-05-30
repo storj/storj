@@ -789,11 +789,7 @@ func (s *SpannerAdapter) commitPendingObjectSegmentWithMutations(ctx context.Con
 					-- clear column in case it was inline segment before
 					inline_data
 				) VALUES (
-					(
-						SELECT IF(stream_id = @stream_id AND status = ` + statusPending + `, stream_id, NULL)
-						FROM objects
-						WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-					), @position,
+					@stream_id, @position,
 					@expires_at, @root_piece_id, @encrypted_key_nonce, @encrypted_key,
 					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
 					@redundancy,
