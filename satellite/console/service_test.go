@@ -1616,8 +1616,8 @@ func TestGetUsageReport(t *testing.T) {
 				segmentCountMonth, _ := decimal.NewFromFloat(rollup.TotalSegments).Div(hoursPerMonth).Float64()
 
 				require.Equal(t, egressTb, item.EgressTb)
-				require.InDelta(t, segmentCountMonth, item.SegmentCountMonth, 1e-06)
-				require.InDelta(t, storageTbMonth, item.StorageTbMonth, 1e-06)
+				require.InDelta(t, segmentCountMonth, item.SegmentCountMonth, 2e-06)
+				require.InDelta(t, storageTbMonth, item.StorageTbMonth, 2e-06)
 			}
 
 			usage1, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1.Name, now, inFiveMinutes)

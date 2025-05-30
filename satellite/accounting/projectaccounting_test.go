@@ -1,10 +1,11 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package accounting_test
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -31,9 +32,20 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
+func pauseAccountingChores(planet *testplanet.Planet) {
+	for _, satellite := range planet.Satellites {
+		satellite.Accounting.Tally.Loop.Pause()
+		satellite.Accounting.Rollup.Loop.Pause()
+		satellite.Accounting.RollupArchive.Loop.Pause()
+		satellite.Accounting.ProjectBWCleanup.Loop.Pause()
+	}
+}
+
 func TestDailyUsage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			const (
 				firstBucketName  = "testbucket0"
 				secondBucketName = "testbucket1"
@@ -130,6 +142,8 @@ func TestDailyUsage(t *testing.T) {
 func TestGetSingleBucketRollup(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			const (
 				bucketName = "testbucket"
 				firstPath  = "path"
@@ -228,6 +242,8 @@ func TestGetProjectTotal(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			bucketName := testrand.BucketName()
 			projectID := testrand.UUID()
 
@@ -303,6 +319,8 @@ func TestGetProjectTotal(t *testing.T) {
 func TestGetProjectTotalTallies_monthly_storage(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			bucketName := testrand.BucketName()
 			projectID := testrand.UUID()
 			db := planet.Satellites[0].DB
@@ -486,6 +504,8 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			},
 		}},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			project := planet.Uplinks[0].Projects[0]
 			sat := planet.Satellites[0]
 			db := sat.DB
@@ -631,11 +651,8 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1,
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
 			sat := planet.Satellites[0]
-
-			sat.Accounting.Tally.Loop.Pause()
-			sat.Accounting.Rollup.Loop.Pause()
-			sat.Accounting.RollupArchive.Loop.Pause()
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -834,7 +851,7 @@ func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time)
 func TestGetProjectObjectsSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			planet.Satellites[0].Accounting.Tally.Loop.Pause()
+			pauseAccountingChores(planet)
 
 			projectID := planet.Uplinks[0].Projects[0].ID
 
@@ -876,9 +893,10 @@ func TestGetProjectObjectsSegments(t *testing.T) {
 func TestGetProjectSettledBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
 			projectID := planet.Uplinks[0].Projects[0].ID
 			sat := planet.Satellites[0]
-
 			now := time.Now().UTC()
 
 			egress, err := sat.DB.ProjectAccounting().GetProjectSettledBandwidth(ctx, projectID, now.Year(), now.Month(), 0)
@@ -921,6 +939,8 @@ func TestProjectUsageGap(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		pauseAccountingChores(planet)
+
 		sat := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
 		tally := sat.Accounting.Tally
@@ -963,10 +983,10 @@ func TestProjectUsageGap(t *testing.T) {
 	})
 }
 
-func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
+func TestProjectAccounting_GetPreviouslyNonEmptyTallyBucketsInRange(t *testing.T) {
 	// test if invalid bucket name will be handled correctly
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		_, err := db.ProjectAccounting().GetNonEmptyTallyBucketsInRange(ctx, metabase.BucketLocation{
+		_, err := db.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsInRange(ctx, metabase.BucketLocation{
 			ProjectID:  testrand.UUID(),
 			BucketName: "a\\",
 		}, metabase.BucketLocation{
@@ -974,5 +994,92 @@ func TestProjectaccounting_GetNonEmptyTallyBucketsInRange(t *testing.T) {
 			BucketName: "b\\",
 		}, 0)
 		require.NoError(t, err)
+	})
+}
+
+// TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket verifies that
+// GetPreviouslyNonEmptyTallyBucketsInRange properly accounts for completely deleted
+// buckets.
+func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		pauseAccountingChores(planet)
+
+		satellite := planet.Satellites[0]
+		uplink := planet.Uplinks[0]
+		projectID := uplink.Projects[0].ID
+
+		// Pause tally to control when it runs
+		satellite.Accounting.Tally.Loop.Pause()
+
+		// Create a bucket and upload data
+		bucketName := testrand.BucketName()
+		err := uplink.CreateBucket(ctx, satellite, bucketName)
+		require.NoError(t, err)
+
+		data := testrand.Bytes(5 * memory.KiB)
+		err = uplink.Upload(ctx, satellite, bucketName, "file", data)
+		require.NoError(t, err)
+
+		// Run tally to create storage tallies for the bucket
+		satellite.Accounting.Tally.Loop.TriggerWait()
+
+		// Check that the bucket appears in the non-empty buckets range
+		from := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: "",
+		}
+		to := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: "\xff\xff\xff\xff",
+		}
+
+		buckets, err := satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsInRange(ctx, from, to, 0)
+		require.NoError(t, err)
+
+		// The bucket should be found as non-empty
+		require.True(t,
+			slices.ContainsFunc(buckets, func(loc metabase.BucketLocation) bool {
+				return string(loc.BucketName) == bucketName
+			}),
+			"bucket should be found in non-empty buckets")
+
+		// Now delete all objects and the bucket itself
+		err = uplink.DeleteObject(ctx, satellite, bucketName, "file")
+		require.NoError(t, err)
+
+		err = uplink.DeleteBucket(ctx, satellite, bucketName)
+		require.NoError(t, err)
+
+		// Check that the bucket still appears in the previously non-empty buckets
+		// range, even though we just deleted it!
+		buckets, err = satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsInRange(ctx, from, to, 0)
+		require.NoError(t, err)
+
+		// The bucket should still be found as previously non-empty
+		require.True(t,
+			slices.ContainsFunc(buckets, func(loc metabase.BucketLocation) bool {
+				return string(loc.BucketName) == bucketName
+			}),
+			"bucket should be found still until zero tally")
+
+		// Run tally again to create a final zero tally for the bucket
+		satellite.Accounting.Tally.Loop.TriggerWait()
+
+		// Check that the bucket no longer appears in the non-empty buckets range
+		// This was previously failing because it depended on bucket_metainfos, which
+		// is deleted when the bucket is deleted
+		buckets, err = satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsInRange(ctx, from, to, 0)
+		require.NoError(t, err)
+
+		// The bucket should no longer be found as non-empty
+		require.False(t,
+			slices.ContainsFunc(buckets, func(loc metabase.BucketLocation) bool {
+				return string(loc.BucketName) == bucketName
+			}),
+			"bucket should not be found in non-empty buckets after deletion")
 	})
 }

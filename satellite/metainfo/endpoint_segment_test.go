@@ -138,10 +138,12 @@ func TestInlineSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 		err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-			StreamID:                      beginObjectResp.StreamID,
-			EncryptedMetadata:             metadata,
-			EncryptedMetadataNonce:        testrand.Nonce(),
-			EncryptedMetadataEncryptedKey: randomEncryptedKey,
+			StreamID: beginObjectResp.StreamID,
+			EncryptedUserData: metaclient.EncryptedUserData{
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
+			},
 		})
 		require.NoError(t, err)
 

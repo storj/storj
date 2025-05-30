@@ -22,6 +22,10 @@
                     <p class="audits-area__content__item__info__label">Online</p>
                     <p class="audits-area__content__item__info__value" :class="[ item.onlineScore.statusClassName ]">{{ item.onlineScore.label }}</p>
                 </div>
+                <div class="audits-area__content__item__info">
+                    <p class="audits-area__content__item__info__label">Vetted</p>
+                    <p class="audits-area__content__item__info__value" :class="[ getVettedStatusClass(item.satelliteName) ]">{{ getVettedStatusLabel(item.satelliteName) }}</p>
+                </div>
             </div>
         </div>
         <div v-if="isLoadMoreButtonVisible" class="audits-area__load-more-button" @click="loadMore">
@@ -33,7 +37,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { SatelliteScores } from '@/storagenode/sno/sno';
+import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 
 import DisqualifyIcon from '@/../static/images/disqualify.svg';
 
@@ -73,10 +77,45 @@ export default class AllSatellitesAuditsArea extends Vue {
     }
 
     /**
+     * Returns list of satellites from store.
+     */
+    private get satellites(): SatelliteInfo[] {
+        return this.$store.state.node.satellites;
+    }
+
+    /**
      * Increments number of shown satellite score items by ITEMS_TO_ADD_COUNT.
      */
     public loadMore(): void {
         this.numberOfItemsOnPage += this.ITEMS_TO_ADD_COUNT;
+    }
+
+    /**
+     * Returns vetted status label for satellite.
+     */
+    public getVettedStatusLabel(satelliteName: string): string {
+        const satellite = this.findSatelliteByName(satelliteName);
+        if (satellite?.vettedAt) {
+            return satellite.vettedAt.toLocaleDateString();
+        }
+        return 'Not vetted';
+    }
+
+    /**
+     * Returns vetted status CSS class for satellite.
+     */
+    public getVettedStatusClass(satelliteName: string): string {
+        const satellite = this.findSatelliteByName(satelliteName);
+        return satellite?.vettedAt ? 'vetted' : 'not-vetted';
+    }
+
+    /**
+     * Finds satellite by name in satellites list.
+     */
+    private findSatelliteByName(satelliteName: string): SatelliteInfo | undefined {
+        // SatelliteScores uses satelliteName but SatelliteInfo uses url
+        // We need to match by URL since that's what's typically shown as the name
+        return this.satellites.find(satellite => satellite.url === satelliteName);
     }
 }
 </script>
@@ -175,6 +214,14 @@ export default class AllSatellitesAuditsArea extends Vue {
         ::v-deep path {
             fill: var(--warning-color);
         }
+    }
+
+    .vetted {
+        color: var(--success-color, #00bf5f);
+    }
+
+    .not-vetted {
+        color: var(--warning-color);
     }
 
     @media screen and (max-width: 800px) {

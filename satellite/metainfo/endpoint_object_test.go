@@ -294,10 +294,12 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-				StreamID:                      beginObjectResponse.StreamID,
-				EncryptedMetadata:             metadata,
-				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: randomEncryptedKey,
+				StreamID: beginObjectResponse.StreamID,
+				EncryptedUserData: metaclient.EncryptedUserData{
+					EncryptedMetadata:             metadata,
+					EncryptedMetadataNonce:        testrand.Nonce(),
+					EncryptedMetadataEncryptedKey: randomEncryptedKey,
+				},
 			})
 			require.Error(t, err)
 			assertInvalidArgument(t, err, true)
@@ -309,10 +311,12 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-				StreamID:                      beginObjectResponse.StreamID,
-				EncryptedMetadata:             metadata,
-				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: randomEncryptedKey,
+				StreamID: beginObjectResponse.StreamID,
+				EncryptedUserData: metaclient.EncryptedUserData{
+					EncryptedMetadata:             metadata,
+					EncryptedMetadataNonce:        testrand.Nonce(),
+					EncryptedMetadataEncryptedKey: randomEncryptedKey,
+				},
 			})
 			require.NoError(t, err)
 		})

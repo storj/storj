@@ -242,6 +242,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 			return rpcstatus.NamedWrap("canceled-or-eof", rpcstatus.Canceled, err)
 		}
+		if errors.Is(err, net.ErrClosed) {
+			return rpcstatus.NamedWrap("closed", rpcstatus.Aborted, err)
+		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.NamedWrap("socket-read-failure", rpcstatus.Internal, err)
 	case message == nil:
@@ -470,6 +473,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if errs2.IsCanceled(closeErr) {
 				return true, rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, closeErr)
 			}
+			if errors.Is(closeErr, net.ErrClosed) {
+				return true, rpcstatus.NamedWrap("closed", rpcstatus.Aborted, closeErr)
+			}
 			endpoint.log.Error("upload internal error", zap.Error(closeErr))
 			return true, rpcstatus.NamedWrap("send-and-close-fail", rpcstatus.Internal, closeErr)
 		}
@@ -618,7 +624,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		downloadDuration := dt.Nanoseconds()
 		// NOTE: Check if the `switch` statement inside of this conditional block must be updated if you
 		// change this condition.
-		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) || errors.Is(err, syscall.ECONNRESET) {
+		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, net.ErrClosed) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
@@ -860,6 +866,10 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 	// ReadFull is required to ensure we are sending the right amount of data.
 	_, err = io.ReadFull(pieceReader, chunkData)
 	if err != nil {
+		// Client closed the connection before we had a chance to send back drpc answer.
+		if errors.Is(err, net.ErrClosed) {
+			return true, rpcstatus.NamedWrap("closed", rpcstatus.Aborted, err)
+		}
 		log.Error("error reading from piecereader", zap.Error(err))
 		return true, rpcstatus.NamedWrap("read-fail", rpcstatus.Internal, err)
 	}

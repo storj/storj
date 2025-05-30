@@ -102,9 +102,11 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				EncryptedMetadata:             metadata,
-				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: randomEncryptedKey,
+				EncryptedUserData: metaclient.EncryptedUserData{
+					EncryptedMetadata:             metadata,
+					EncryptedMetadataNonce:        testrand.Nonce(),
+					EncryptedMetadataEncryptedKey: randomEncryptedKey,
+				},
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -178,10 +180,12 @@ func TestBatch(t *testing.T) {
 			})
 			require.NoError(t, err)
 			requests = append(requests, &metaclient.CommitObjectParams{
-				StreamID:                      beginObjectResp.StreamID,
-				EncryptedMetadata:             metadata,
-				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(48),
+				StreamID: beginObjectResp.StreamID,
+				EncryptedUserData: metaclient.EncryptedUserData{
+					EncryptedMetadata:             metadata,
+					EncryptedMetadataNonce:        testrand.Nonce(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(48),
+				},
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
