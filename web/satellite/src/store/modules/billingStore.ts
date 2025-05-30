@@ -140,6 +140,10 @@ export const useBillingStore = defineStore('billing', () => {
         return await api.addFunds(cardID, amount, csrfToken.value);
     }
 
+    async function getCardSetupSecret(): Promise<string> {
+        return await api.getCardSetupSecret();
+    }
+
     async function addTaxID(taxID: TaxID): Promise<void> {
         state.billingInformation = await api.addTaxID(taxID, csrfToken.value);
     }
@@ -331,6 +335,7 @@ export const useBillingStore = defineStore('billing', () => {
         getCountryTaxes,
         addTaxID,
         addFunds,
+        getCardSetupSecret,
         removeTaxID,
         getBillingInformation,
         addInvoiceReference,

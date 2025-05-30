@@ -63,6 +63,29 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * Gets a setup intent secret to set up a card with stripe.
+     *
+     * @return string - the client secret for the stripe setup intent.
+     * @throws Error
+     */
+    public async getCardSetupSecret(): Promise<string> {
+        const path = `${this.ROOT_PATH}/card-setup-secret`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not add card',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
+    }
+
+    /**
      * Get account balance.
      *
      * @returns balance in cents

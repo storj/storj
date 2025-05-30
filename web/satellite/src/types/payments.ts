@@ -71,6 +71,14 @@ export interface PaymentsApi {
     addFunds(cardID: string, amount: number, csrfProtectionToken: string): Promise<AddFundsResponse>;
 
     /**
+     * Gets a setup intent secret to set up a card with stripe.
+     *
+     * @return string - the client secret for the stripe setup intent.
+     * @throws Error
+     */
+    getCardSetupSecret(): Promise<string>;
+
+    /**
      * Update credit card
      * @param params - the parameters to update the card with.
      * @param csrfProtectionToken - CSRF token
