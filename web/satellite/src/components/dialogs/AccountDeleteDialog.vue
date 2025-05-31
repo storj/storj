@@ -126,7 +126,7 @@
                                     <p class="mb-4">2. We'll generate your final invoice early in the following month (usually around the 4th day).</p>
                                     <p class="mb-4">3. Once the invoice is paid, you can resume the account deletion process.</p>
                                     <v-alert variant="tonal" type="info">
-                                        If you have an outstanding balance or need immediate assistance, please contact our suuport team to
+                                        If you have an outstanding balance or need immediate assistance, please contact our support team to
                                         request account deletion and discuss any potential refunds.
                                     </v-alert>
                                     <!-- <v-btn class="mt-4" block @click="model = false">Close</v-btn> -->
