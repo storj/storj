@@ -314,74 +314,15 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 		startTime = time.Now()
 	}
 
-	// N.B.: IterateBucketLocations only iterates buckets that are not deleted
-	// but we may need to create zero tallies for deleted buckets!
-	// So we're going to use IterateBucketLocations to pace ourselves. We're
-	// going to keep track of the max bucket we saw from the previous page and
-	// use that as the beginning of the range when we consider the next page.
-	// This means we won't accidentally skip anything and all possible buckets
-	// will be included in the fence posts we provide.  This also means we will
-	// need to do a final sweep from the max to the end after all pages are done.
-	//
-	// As a concrete example to make this problem more understandable,
-	// imagine that we have the following live buckets:
-	//
-	//  * apivorous
-	//  * clearness
-	//  * corymbed
-	//  * dekastere
-	//  * indomitable
-	//  * moatlike
-	//  * peripyloric
-	//  * relocator
-	//  * schizonts
-	//  * steelmaking
-	//
-	// Further, imagine that the following buckets were recently deleted:
-	//  * acanthopteran
-	//  * cowishness
-	//  * jargoner
-	//  * scientarium
-	//  * yokeableness
-	//
-	// IterateBucketLocations only looks at live buckets. So let's say we call
-	// IterateBucketLocations and get two pages of 5 buckets each. The first
-	// page will give us apivorous to indomitable, and the second page will give
-	// us moatlike to steelmaking. So if we then call
-	// `GetPreviouslyNonEmptyTallyBucketsInRage` with these ranges (apivorous
-	// through indomitable, moatlike through steelmaking), we will
-	// get cowishness and scientarium, but we will *not* pick up acanthoperan,
-	// jargoner, or yokeableness. acanthoperan is before the first range,
-	// jargoner is between the two ranges, and yokeableness is after the last
-	// range.
-	//
-	// So instead what we're going to do is start from the first possible
-	// bucket and go through indomitable, then from *indomitable* through
-	// steelmaking (not moatlike), and finally a special call to go from
-	// steelmaking through the end.
-	//
-	// A great question to ask (I'm asking myself right now!) is whether we
-	// should even use IterateBucketLocations at all! Why not just make
-	// GetPreviouslyNonEmptyTallyBucketsInRange page?
-
-	// we're going to start with the maxBucket we've seen so far to be the min
-	// bucket possible.
-	maxBucketSoFar := metabase.BucketLocation{
-		ProjectID:  uuid.UUID{},
-		BucketName: "",
-	}
-
-	// this is the function for handling a bucket page
-	bucketPageHandler := func(bucketLocations []metabase.BucketLocation) (err error) {
-		fromBucket := maxBucketSoFar
+	return observer.bucketsDB.IterateBucketLocations(ctx, observer.config.ListLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
+		fromBucket := bucketLocations[0]
 		toBucket := bucketLocations[len(bucketLocations)-1]
-		maxBucketSoFar = toBucket
 
 		// Prepopulate the results with empty tallies. Otherwise, empty buckets will be unaccounted for
 		// since they're not reached when iterating over objects in the metainfo DB.
 		// We only do this for buckets whose last tally is non-empty because only one empty tally is
 		// required for us to know that a bucket was empty the last time we checked.
-		locs, err := observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
+		locs, err := observer.projectAccountingDB.GetNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 		if err != nil {
 			return err
 		}
@@ -411,23 +352,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 		}
 
 		return nil
-	}
-
-	// iterate through all live bucket pages
-	err = observer.bucketsDB.IterateBucketLocations(ctx, observer.config.ListLimit, bucketPageHandler)
-	if err != nil {
-		return err
-	}
-	// now go from the last bucket to the end of the keyspace
-	return bucketPageHandler([]metabase.BucketLocation{
-		maxBucketSoFar,
-		{
-			ProjectID: uuid.Max(),
-			// no project can be uuid.Max(), so even though we don't have a specific
-			// bucket name, the max project id effectively helps us clear the full
-			// keyspace.
-			BucketName: "",
-		}})
+	})
 }
 
 // ensureBucket returns bucket corresponding to the passed in path.

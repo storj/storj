@@ -253,32 +253,22 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 	return Error.Wrap(err)
 }
 
-// GetPreviouslyNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
+// GetNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 // whose most recent tally does not represent empty usage.
-func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result []metabase.BucketLocation, err error) {
+func (db *ProjectAccounting) GetNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result []metabase.BucketLocation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		// it constantly bothers me that there isn't a better query
-		// for this class of problem. problem: i want another value in the
-		// row that has the max value within a given group!
-		// see https://stackoverflow.com/questions/12102200/get-records-with-max-value-for-each-group-of-grouped-sql-results
-		// for a list of people banging their heads against the
-		// wall (the highest voted answer is an O(n^2) query!).
 		rows, err = db.db.QueryContext(ctx, `
-		SELECT project_id, bucket_name
-		FROM (
-			SELECT project_id, bucket_name
-			FROM bucket_storage_tallies
-			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4)
-			GROUP BY project_id, bucket_name
-		) bm`+
+		SELECT project_id, name
+		FROM bucket_metainfos bm`+
 			db.db.impl.AsOfSystemInterval(asOfSystemInterval)+
-			` WHERE NOT 0 IN (
+			` WHERE (project_id, name) BETWEEN ($1, $2) AND ($3, $4)
+		AND NOT 0 IN (
 			SELECT object_count FROM bucket_storage_tallies
-			WHERE (project_id, bucket_name) = (bm.project_id, bm.bucket_name)
+			WHERE (project_id, bucket_name) = (bm.project_id, bm.name)
 			ORDER BY interval_start DESC
 			LIMIT 1
 		)
@@ -287,29 +277,22 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 		var fromTuple string
 		var toTuple string
 
-		fromTuple, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
+		fromTuple, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "name"}, []string{"@from_project_id", "@from_name"}, true)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		toTuple, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
+		toTuple, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "name"}, true)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		// see comment for the postgres and cockroach implementation for some
-		// complaining about this query.
 		rows, err = db.db.QueryContext(ctx, `
-			SELECT project_id, bucket_name
-			FROM (
-				SELECT project_id, bucket_name
-				FROM bucket_storage_tallies
-				WHERE `+fromTuple+` AND `+toTuple+`
-				GROUP BY project_id, bucket_name
-			) bm
-			WHERE NOT 0 IN (
+			SELECT project_id, name
+			FROM bucket_metainfos bm
+			WHERE`+fromTuple+` AND `+toTuple+` AND NOT 0 IN (
 				SELECT object_count
 				FROM bucket_storage_tallies
-				WHERE (project_id, bucket_name) = (bm.project_id, bm.bucket_name)
+				WHERE (project_id, bucket_name) = (bm.project_id, bm.name)
 				ORDER BY interval_start DESC
 				LIMIT 1
 			)
