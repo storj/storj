@@ -989,8 +989,6 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 		StorageNodeCount: 1,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		pauseAccountingChores(planet)
-
 		satellite := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
 		projectID := uplink.Projects[0].ID

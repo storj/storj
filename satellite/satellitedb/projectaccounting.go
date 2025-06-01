@@ -261,12 +261,6 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 	var rows tagsql.Rows
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		// it constantly bothers me that there isn't a better query
-		// for this class of problem. problem: i want another value in the
-		// row that has the max value within a given group!
-		// see https://stackoverflow.com/questions/12102200/get-records-with-max-value-for-each-group-of-grouped-sql-results
-		// for a list of people banging their heads against the
-		// wall (the highest voted answer is an O(n^2) query!).
 		rows, err = db.db.QueryContext(ctx, `
 		SELECT project_id, bucket_name
 		FROM (
@@ -296,22 +290,20 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 			return nil, Error.Wrap(err)
 		}
 
-		// see comment for the postgres and cockroach implementation for some
-		// complaining about this query.
 		rows, err = db.db.QueryContext(ctx, `
-			SELECT project_id, bucket_name
-			FROM (
-				SELECT project_id, bucket_name
-				FROM bucket_storage_tallies
+			SELECT project_id, bucket_name FROM (
+				SELECT
+					project_id,
+					bucket_name,
+					ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
+				FROM
+					bucket_storage_tallies
 				WHERE `+fromTuple+` AND `+toTuple+`
-				GROUP BY project_id, bucket_name
-			) bm
-			WHERE NOT 0 IN (
-				SELECT object_count
-				FROM bucket_storage_tallies
-				WHERE (project_id, bucket_name) = (bm.project_id, bm.bucket_name)
-				ORDER BY interval_start DESC
-				LIMIT 1
+				GROUP BY
+					project_id,
+					bucket_name
+				HAVING
+					last_object_count > 0
 			)
 		`, sql.Named("from_project_id", from.ProjectID), sql.Named("from_name", []byte(from.BucketName)), sql.Named("to_project_id", to.ProjectID), sql.Named("to_name", []byte(to.BucketName)))
 	default:
