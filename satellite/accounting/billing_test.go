@@ -145,9 +145,10 @@ func TestBilling_FilesAfterDeletion(t *testing.T) {
 		// Get usage after file was deleted
 		usageAfter := getProjectTotal(ctx, t, planet, 0, projectID, since)
 
-		// Verify data is correct. We don’t bill for the data after deleting objects, usage should be equal
-		require.Equal(t, usageBefore.SegmentCount, usageAfter.SegmentCount, "Segment count should be equal")
-		require.Equal(t, usageBefore.Storage, usageAfter.Storage, "Storage should be equal")
+		// Verify data is correct. We do bill for a final tally interval after
+		// deleting objects.
+		require.LessOrEqual(t, usageBefore.SegmentCount, usageAfter.SegmentCount, "Segment hour count should have grown")
+		require.LessOrEqual(t, usageBefore.Storage, usageAfter.Storage, "Storage should have increased in byte hours")
 		require.Zero(t, usageAfter.Egress, "Egress should be 0")
 	})
 }
