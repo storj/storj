@@ -86,6 +86,49 @@ func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBuck
 	}, nil
 }
 
+// SetBucketTagging places a set of tags on a bucket.
+func (endpoint *Endpoint) SetBucketTagging(ctx context.Context, req *pb.SetBucketTaggingRequest) (resp *pb.SetBucketTaggingResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.config.BucketTaggingEnabled {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
+	}
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionWrite,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitPut)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if err = endpoint.validateSetBucketTaggingRequestSimple(req); err != nil {
+		return nil, err
+	}
+
+	tags := make([]buckets.Tag, 0, len(req.Tags))
+	for _, protoTag := range req.Tags {
+		tags = append(tags, buckets.Tag{
+			Key:   string(protoTag.Key),
+			Value: string(protoTag.Value),
+		})
+	}
+
+	err = endpoint.buckets.SetBucketTagging(ctx, req.GetName(), keyInfo.ProjectID, tags)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket tags")
+	}
+
+	return &pb.SetBucketTaggingResponse{}, nil
+}
+
 // GetBucketVersioning responds with the versioning state of the bucket and any error encountered.
 func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBucketVersioningRequest) (resp *pb.GetBucketVersioningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

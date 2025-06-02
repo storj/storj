@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -755,6 +756,310 @@ func TestGetBucketLocation(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, "Poland", string(response.Location))
+	})
+}
+
+func TestSetBucketTagging(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.BucketTaggingEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.API.Metainfo.Endpoint
+		bucketsDB := sat.DB.Buckets()
+
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+
+		createBucket := func(t *testing.T) string {
+			bucketName := testrand.BucketName()
+			_, err := bucketsDB.CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucketName,
+				ProjectID: project.ID,
+			})
+			require.NoError(t, err)
+			return bucketName
+		}
+
+		requireTags := func(t *testing.T, bucketName string, protoTags []*pb.BucketTag) {
+			tags, err := bucketsDB.GetBucketTagging(ctx, []byte(bucketName), project.ID)
+			require.NoError(t, err)
+
+			if len(protoTags) == 0 {
+				require.Empty(t, tags)
+				return
+			}
+
+			expectedTags := make([]buckets.Tag, 0, len(protoTags))
+			for _, protoTag := range protoTags {
+				expectedTags = append(expectedTags, buckets.Tag{
+					Key:   string(protoTag.Key),
+					Value: string(protoTag.Value),
+				})
+			}
+			require.Equal(t, expectedTags, tags)
+		}
+
+		t.Run("Nonexistent bucket", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+
+			_, err := endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Tags:   []*pb.BucketTag{},
+			})
+
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		})
+
+		t.Run("No tags", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			_, err := endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Tags:   nil,
+			})
+			require.NoError(t, err)
+
+			requireTags(t, bucketName, nil)
+		})
+
+		t.Run("Basic", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			expectedTags := []*pb.BucketTag{
+				{ // Basic Latin letters, numbers, and certain symbols
+					Key:   []byte("abcdeABCDE01234+-./:=@_"),
+					Value: []byte("_@=:/.-+fghijFGHIJ56789"),
+				},
+				{ // Letters and numbers beyond the Basic Latin block
+					Key:   []byte(string([]rune{'Ա', 'א', 'ء', 'ऄ', 'ঀ', '٠', '०', '০'})),
+					Value: []byte(string([]rune{'ֆ', 'ת', 'ي', 'ह', 'হ', '٩', '९', '৯'})),
+				},
+				{ // Whitespace
+					Key:   []byte("\t\n\v\f\r \xc2\x85\xc2\xa0\u1680\u2002"),
+					Value: []byte("\u3000\u2003\xc2\xa0\xc2\x85 \r\f\v\n\t"),
+				},
+				{ // Ensure that empty tag values are allowed.
+					Key:   []byte("key"),
+					Value: []byte{},
+				},
+			}
+
+			_, err := endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Tags:   expectedTags,
+			})
+			require.NoError(t, err)
+
+			requireTags(t, bucketName, expectedTags)
+		})
+
+		t.Run("Missing bucket name", func(t *testing.T) {
+			_, err := endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte{},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.BucketNameMissing))
+		})
+
+		for _, tt := range []struct{ name, rep string }{
+			{"ASCII", "A"},
+			{"UTF-8", "𝒜"}, // '𝒜' was chosen because it occupies 4 bytes, which is the maximum for UTF-8.
+		} {
+			t.Run("Tag key length restriction - "+tt.name, func(t *testing.T) {
+				const maxKeyLen = 128
+
+				bucketName := createBucket(t)
+
+				req := &pb.SetBucketTaggingRequest{
+					Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Name:   []byte(bucketName),
+					Tags:   []*pb.BucketTag{{}},
+				}
+
+				req.Tags[0].Key = []byte(strings.Repeat(tt.rep, maxKeyLen+1))
+				_, err := endpoint.SetBucketTagging(ctx, req)
+				require.True(t, errs2.IsRPC(err, rpcstatus.TagKeyInvalid))
+
+				requireTags(t, bucketName, nil)
+
+				req.Tags[0].Key = req.Tags[0].Key[:maxKeyLen]
+				_, err = endpoint.SetBucketTagging(ctx, req)
+				require.NoError(t, err)
+
+				requireTags(t, bucketName, req.Tags)
+			})
+
+			t.Run("Tag value length restriction - "+tt.name, func(t *testing.T) {
+				const maxValueLen = 256
+
+				bucketName := createBucket(t)
+
+				req := &pb.SetBucketTaggingRequest{
+					Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Name:   []byte(bucketName),
+					Tags: []*pb.BucketTag{{
+						Key: []byte("key"),
+					}},
+				}
+
+				req.Tags[0].Value = []byte(strings.Repeat(tt.rep, maxValueLen+1))
+				_, err := endpoint.SetBucketTagging(ctx, req)
+				require.True(t, errs2.IsRPC(err, rpcstatus.TagValueInvalid))
+
+				requireTags(t, bucketName, nil)
+
+				req.Tags[0].Value = req.Tags[0].Value[:maxValueLen]
+				_, err = endpoint.SetBucketTagging(ctx, req)
+				require.NoError(t, err)
+
+				requireTags(t, bucketName, req.Tags)
+			})
+		}
+
+		var tooManyitems []*pb.BucketTag
+		for range 51 {
+			tooManyitems = append(tooManyitems, &pb.BucketTag{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+			})
+		}
+
+		for _, tt := range []struct {
+			name           string
+			tags           []*pb.BucketTag
+			expectedStatus rpcstatus.StatusCode
+		}{
+			{
+				name:           "Too many items",
+				tags:           tooManyitems,
+				expectedStatus: rpcstatus.TooManyTags,
+			},
+			{
+				name: "Duplicate tag key",
+				tags: []*pb.BucketTag{
+					{Key: []byte("key")},
+					{Key: []byte("key")},
+				},
+				expectedStatus: rpcstatus.TagKeyDuplicate,
+			},
+			{
+				name:           "Missing tag key",
+				tags:           []*pb.BucketTag{{Key: nil}},
+				expectedStatus: rpcstatus.TagKeyInvalid,
+			},
+			{
+				name:           "Invalid tag key",
+				tags:           []*pb.BucketTag{{Key: []byte("❌")}},
+				expectedStatus: rpcstatus.TagKeyInvalid,
+			},
+			{
+				name: "Invalid tag value",
+				tags: []*pb.BucketTag{{
+					Key:   []byte("key"),
+					Value: []byte("❌"),
+				}},
+				expectedStatus: rpcstatus.TagValueInvalid,
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				bucketName := createBucket(t)
+
+				_, err := endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+					Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Name:   []byte(bucketName),
+					Tags:   tt.tags,
+				})
+				require.True(t, errs2.IsRPC(err, tt.expectedStatus))
+
+				requireTags(t, bucketName, nil)
+			})
+		}
+
+		t.Run("Permission-restricted API key", func(t *testing.T) {
+			restricted, err := apiKey.Restrict(macaroon.Caveat{DisallowWrites: true})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: restricted.SerializeRaw()},
+				Name:   []byte(testrand.BucketName()),
+				Tags: []*pb.BucketTag{{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				}},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		})
+
+		t.Run("Prefix-restricted API key", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			restricted, err := apiKey.Restrict(macaroon.Caveat{AllowedPaths: []*macaroon.Caveat_Path{{
+				EncryptedPathPrefix: testrand.Bytes(16),
+			}}})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: restricted.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Tags: []*pb.BucketTag{{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				}},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+			requireTags(t, bucketName, nil)
+		})
+
+		t.Run("Bucket-restricted API key", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			restricted, err := apiKey.Restrict(macaroon.Caveat{AllowedPaths: []*macaroon.Caveat_Path{{
+				Bucket: []byte(bucketName),
+			}}})
+			require.NoError(t, err)
+
+			expectedTags := []*pb.BucketTag{{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+			}}
+
+			_, err = endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: restricted.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Tags: []*pb.BucketTag{{
+					Key:   []byte("key"),
+					Value: []byte("value"),
+				}},
+			})
+			require.NoError(t, err)
+			requireTags(t, bucketName, expectedTags)
+
+			restricted, err = apiKey.Restrict(macaroon.Caveat{AllowedPaths: []*macaroon.Caveat_Path{{
+				Bucket: []byte(testrand.BucketName()),
+			}}})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketTagging(ctx, &pb.SetBucketTaggingRequest{
+				Header: &pb.RequestHeader{ApiKey: restricted.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Tags: []*pb.BucketTag{{
+					Key:   []byte("foo"),
+					Value: []byte("bar"),
+				}},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+			requireTags(t, bucketName, expectedTags)
+		})
 	})
 }
 

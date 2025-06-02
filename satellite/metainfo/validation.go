@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -41,6 +43,10 @@ const (
 
 	minBucketNameLength = 3
 	maxBucketNameLength = 63
+
+	maxBucketTags          = 50
+	maxBucketTagKeyChars   = 128
+	maxBucketTagValueChars = 256
 
 	unauthorizedErrMsg = "Unauthorized API credentials"
 	bucketNameErrMsg   = "The specified bucket name must be at least %d and no more than %d characters long"
@@ -873,6 +879,69 @@ func (endpoint *Endpoint) validateDeleteObjectsRequestSimple(req *pb.DeleteObjec
 	}
 
 	return nil
+}
+
+func (endpoint *Endpoint) validateSetBucketTaggingRequestSimple(req *pb.SetBucketTaggingRequest) (err error) {
+	bucketNameLen := len(req.Name)
+	if bucketNameLen == 0 {
+		return rpcstatus.Error(rpcstatus.BucketNameMissing, "A bucket name is required")
+	}
+	if err := validateBucketNameLength(req.Name); err != nil {
+		return rpcstatus.Error(rpcstatus.BucketNameInvalid, err.Error())
+	}
+
+	numTags := len(req.Tags)
+	if numTags > maxBucketTags {
+		return rpcstatus.Error(rpcstatus.TooManyTags, "The tag set contains too many items")
+	}
+
+	keys := make(map[string]struct{}, numTags)
+	for _, protoTag := range req.Tags {
+		key := string(protoTag.Key)
+		if _, seen := keys[key]; seen {
+			return rpcstatus.Error(rpcstatus.TagKeyDuplicate, "A provided tag key is duplicated")
+		}
+		keys[key] = struct{}{}
+
+		if len(key) == 0 {
+			return rpcstatus.Error(rpcstatus.TagKeyInvalid, "A tag key was not provided")
+		}
+		if !utf8.ValidString(key) {
+			return rpcstatus.Error(rpcstatus.TagKeyInvalid, "A provided tag key is not a valid UTF-8 string")
+		}
+		if utf8.RuneCountInString(key) > maxBucketTagKeyChars {
+			return rpcstatus.Error(rpcstatus.TagKeyInvalid, "A provided tag key is too long")
+		}
+		for _, r := range key {
+			if !isTagRuneValid(r) {
+				return rpcstatus.Error(rpcstatus.TagKeyInvalid, "A provided tag key contains a disallowed character")
+			}
+		}
+
+		value := string(protoTag.Value)
+		if !utf8.ValidString(value) {
+			return rpcstatus.Error(rpcstatus.TagValueInvalid, "A provided tag value is not a valid UTF-8 string")
+		}
+		if utf8.RuneCountInString(value) > maxBucketTagValueChars {
+			return rpcstatus.Error(rpcstatus.TagValueInvalid, "A provided tag value is too long")
+		}
+		for _, r := range value {
+			if !isTagRuneValid(r) {
+				return rpcstatus.Error(rpcstatus.TagValueInvalid, "A provided tag value contains a disallowed character")
+			}
+		}
+	}
+
+	return nil
+}
+
+func isTagRuneValid(r rune) bool {
+	switch r {
+	case '+', '-', '.', '/', ':', '=', '@', '_':
+		return true
+	default:
+		return unicode.IsLetter(r) || unicode.IsDigit(r) || unicode.IsSpace(r)
+	}
 }
 
 func keyInfoToLimits(keyInfo *console.APIKeyInfo) accounting.ProjectLimits {
