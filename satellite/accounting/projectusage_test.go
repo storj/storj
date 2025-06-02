@@ -918,6 +918,13 @@ func TestGetBucketTotals(t *testing.T) {
 
 		usageRollups := db.ProjectAccounting()
 
+		// If 'now' is within the first 24h of the new month, bump it forward
+		// so that all of our “current‐month” test data (which is written at
+		// currentMonthStart.Add(24h)) falls before this new 'now'.
+		if now.Before(currentMonthStart.Add(24 * time.Hour)) {
+			now = currentMonthStart.Add(48 * time.Hour) // bump to day 3.
+		}
+
 		listSince, listBefore := twoMonthsAgoStart, now
 
 		t.Run("Basic functionality", func(t *testing.T) {
