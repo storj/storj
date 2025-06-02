@@ -147,7 +147,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 			return row.Columns(streamID)
 		})
 		if err != nil {
-			return Error.Wrap(err)
+			return Error.New("delete objects query error: %w", err)
 		}
 		deletedObjectCount = int64(len(streamIDs))
 		if len(streamIDs) == 0 {
@@ -164,7 +164,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 			},
 		})
 		if err != nil {
-			return err
+			return Error.New("delete segments query error: %w", err)
 		}
 		return nil
 	}, spanner.TransactionOptions{
