@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
@@ -54,6 +55,64 @@ func (s Segment) Expired(now time.Time) bool {
 
 // PieceSize returns calculated piece size for segment.
 func (s Segment) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
+
+// SegmentForRepair defines the segment data required for the repair functionality.
+type SegmentForRepair struct {
+	StreamID uuid.UUID
+	Position SegmentPosition
+
+	CreatedAt  time.Time // non-nillable
+	RepairedAt *time.Time
+	ExpiresAt  *time.Time
+
+	RootPieceID storj.PieceID
+
+	EncryptedSize int32 // size of the whole segment (not a piece)
+	// PlainSize is 0 for a migrated object.
+	PlainSize int32
+	// PlainOffset is 0 for a migrated object.
+	PlainOffset int64
+
+	Redundancy storj.RedundancyScheme
+
+	InlineData []byte
+	Pieces     Pieces
+
+	Placement storj.PlacementConstraint
+}
+
+// Inline returns true if segment is inline.
+func (s SegmentForRepair) Inline() bool {
+	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+}
+
+// Expired checks if segment is expired relative to now.
+func (s SegmentForRepair) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
+// PieceSize returns calculated piece size for segment.
+func (s SegmentForRepair) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
+
+// SegmentForAudit defines the segment data required for the audit functionality.
+type SegmentForAudit SegmentForRepair
+
+// Inline returns true if segment is inline.
+func (s SegmentForAudit) Inline() bool {
+	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+}
+
+// Expired checks if segment is expired relative to now.
+func (s SegmentForAudit) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
+// PieceSize returns calculated piece size for segment.
+func (s SegmentForAudit) PieceSize() int64 {
 	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
 }
 
@@ -367,6 +426,64 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 	segment.Position = opts.Position
 
 	return segment, nil
+}
+
+// GetSegmentByPositionForAudit returns information about segment on the specified position for the
+// audit functionality.
+func (db *DB) GetSegmentByPositionForAudit(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForAudit, err error) {
+	// TODO(storj/storj-7491): implement this method to avoid fetching encrypted fields from database
+	// For now, just use the full one and remove the fields to validate the replacements
+	s, err := db.GetSegmentByPosition(ctx, opts)
+	if err != nil {
+		return segment, err
+	}
+
+	return SegmentForAudit{
+		StreamID:      s.StreamID,
+		Position:      s.Position,
+		CreatedAt:     s.CreatedAt,
+		RepairedAt:    s.RepairedAt,
+		ExpiresAt:     s.ExpiresAt,
+		RootPieceID:   s.RootPieceID,
+		EncryptedSize: s.EncryptedSize,
+		PlainSize:     s.PlainSize,
+		PlainOffset:   s.PlainOffset,
+		Redundancy:    s.Redundancy,
+		InlineData:    s.InlineData,
+		Pieces:        s.Pieces,
+		Placement:     s.Placement,
+	}, nil
+}
+
+// GetSegmentByPositionForRepair returns information about segment on the specified position for the
+// repair functionality.
+func (db *DB) GetSegmentByPositionForRepair(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForRepair, err error) {
+	// TODO(storj/storj-7491): implement this method to avoid fetching encrypted fields from database
+	// For now, just use the full one and remove the fields to validate the replacements
+	s, err := db.GetSegmentByPosition(ctx, opts)
+	if err != nil {
+		return segment, err
+	}
+
+	return SegmentForRepair{
+		StreamID:      s.StreamID,
+		Position:      s.Position,
+		CreatedAt:     s.CreatedAt,
+		RepairedAt:    s.RepairedAt,
+		ExpiresAt:     s.ExpiresAt,
+		RootPieceID:   s.RootPieceID,
+		EncryptedSize: s.EncryptedSize,
+		PlainSize:     s.PlainSize,
+		PlainOffset:   s.PlainOffset,
+		Redundancy:    s.Redundancy,
+		InlineData:    s.InlineData,
+		Pieces:        s.Pieces,
+		Placement:     s.Placement,
+	}, nil
 }
 
 // GetSegmentByPosition returns information about segment on the specified position.

@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestRepairSegment(t *testing.T) {
@@ -35,7 +36,9 @@ func TestRepairSegment(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 
-		repairSegment(ctx, zaptest.NewLogger(t), satellite.Repairer, satellite.Metabase.DB, segments[0])
+		repairSegment(
+			ctx, zaptest.NewLogger(t), satellite.Repairer, satellite.Metabase.DB, segmentForRepair(segments[0]),
+		)
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "bucket", "object")
 		require.NoError(t, err)
@@ -65,9 +68,29 @@ func TestRepairSegment(t *testing.T) {
 		// we cannot download segment so repair is not possible
 		observedZapCore, observedLogs := observer.New(zap.ErrorLevel)
 		observedLogger := zap.New(observedZapCore)
-		repairSegment(ctx, observedLogger, satellite.Repairer, satellite.Metabase.DB, segments[0])
+		repairSegment(
+			ctx, observedLogger, satellite.Repairer, satellite.Metabase.DB, segmentForRepair(segments[0]),
+		)
 		require.Contains(t, "download failed", observedLogs.All()[observedLogs.Len()-1].Message)
 
 		// TODO add more detailed tests
 	})
+}
+
+func segmentForRepair(s metabase.Segment) metabase.SegmentForRepair {
+	return metabase.SegmentForRepair{
+		StreamID:      s.StreamID,
+		Position:      s.Position,
+		CreatedAt:     s.CreatedAt,
+		RepairedAt:    s.RepairedAt,
+		ExpiresAt:     s.ExpiresAt,
+		RootPieceID:   s.RootPieceID,
+		EncryptedSize: s.EncryptedSize,
+		PlainSize:     s.PlainSize,
+		PlainOffset:   s.PlainOffset,
+		Redundancy:    s.Redundancy,
+		InlineData:    s.InlineData,
+		Pieces:        s.Pieces,
+		Placement:     s.Placement,
+	}
 }

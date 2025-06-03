@@ -42,7 +42,7 @@ type Reporter interface {
 // succeeded, failed, were offline, have pending audits, or failed for unknown
 // reasons and their current reputation status.
 type Report struct {
-	Segment *metabase.Segment
+	Segment *metabase.SegmentForAudit
 
 	Successes       storj.NodeIDList
 	Fails           metabase.Pieces
@@ -197,7 +197,9 @@ const maxPiecesToRemoveAtOnce = 6
 // mean the piece is gone. Remove the pieces from the relevant pointers so that the segment can be
 // repaired if appropriate, and so that we don't continually dock reputation for the same missing
 // piece(s).
-func (reporter *reporter) recordFailedAudits(ctx context.Context, segment *metabase.Segment, failures []metabase.Piece, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failedToRecord []metabase.Piece, err error) {
+func (reporter *reporter) recordFailedAudits(
+	ctx context.Context, segment *metabase.SegmentForAudit, failures []metabase.Piece, nodesReputation map[storj.NodeID]overlay.ReputationStatus,
+) (failedToRecord []metabase.Piece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	piecesToRemove := make(metabase.Pieces, 0, len(failures))
@@ -270,7 +272,7 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 		// We have to look up the segment metainfo and pass it on to RecordAudits so that
 		// the segment can be modified (removing this piece). We don't persist this
 		// information through the reverification queue.
-		segmentInfo, err := reporter.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segmentInfo, err := reporter.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: pendingJob.Locator.StreamID,
 			Position: pendingJob.Locator.Position,
 		})

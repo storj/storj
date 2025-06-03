@@ -402,6 +402,36 @@ func (db *metabaseMock) DeleteSegmentByPosition(ctx context.Context, opts metaba
 }
 
 func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error) {
+	s, err := db.GetSegmentByPositionForAudit(ctx, opts)
+	if err != nil {
+		return metabase.Segment{}, err
+	}
+	return metabase.Segment{
+		StreamID: s.StreamID,
+		Position: s.Position,
+		Pieces:   s.Pieces,
+	}, nil
+}
+
+func (db *metabaseMock) GetSegmentByPositionForAudit(
+	ctx context.Context, opts metabase.GetSegmentByPosition,
+) (segment metabase.SegmentForAudit, err error) {
+	s, err := db.GetSegmentByPositionForRepair(ctx, opts)
+	if err != nil {
+		return metabase.SegmentForAudit{}, err
+	}
+
+	return metabase.SegmentForAudit{
+		StreamID: s.StreamID,
+		Position: s.Position,
+		Pieces:   s.Pieces,
+	}, nil
+
+}
+
+func (db *metabaseMock) GetSegmentByPositionForRepair(
+	ctx context.Context, opts metabase.GetSegmentByPosition,
+) (segment metabase.SegmentForRepair, err error) {
 	for _, s := range db.segments {
 		if opts.StreamID == s.StreamID && opts.Position == s.Position {
 			var pieces metabase.Pieces
@@ -412,7 +442,7 @@ func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.
 				})
 			}
 
-			return metabase.Segment{
+			return metabase.SegmentForRepair{
 				StreamID: s.StreamID,
 				Position: s.Position,
 				Pieces:   pieces,
@@ -420,7 +450,7 @@ func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.
 		}
 	}
 
-	return metabase.Segment{}, metabase.ErrSegmentNotFound.New("%v", opts)
+	return metabase.SegmentForRepair{}, metabase.ErrSegmentNotFound.New("%v", opts)
 }
 
 func (db *metabaseMock) ListBucketStreamIDs(ctx context.Context, opts metabase.ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) (err error) {

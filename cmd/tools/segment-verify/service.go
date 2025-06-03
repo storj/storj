@@ -36,6 +36,8 @@ var Error = errs.Class("segment-verify")
 type Metabase interface {
 	LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error)
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
+	GetSegmentByPositionForAudit(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.SegmentForAudit, err error)
+	GetSegmentByPositionForRepair(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.SegmentForRepair, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
 	ListBucketStreamIDs(ctx context.Context, opts metabase.ListBucketStreamIDs, f func(ctx context.Context, streamIDs []uuid.UUID) error) (err error)
 }
@@ -568,7 +570,7 @@ func (service *Service) RemoveDeleted(ctx context.Context, segments []*Segment) 
 
 	valid := segments[:0]
 	for _, seg := range segments {
-		_, err := service.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		_, err := service.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: seg.StreamID,
 			Position: seg.Position,
 		})

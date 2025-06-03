@@ -61,7 +61,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -117,7 +117,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -182,7 +182,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -242,7 +242,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -333,7 +333,7 @@ func TestDownloadSharesDialIOTimeout(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -437,7 +437,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -503,7 +503,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -582,7 +582,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -626,7 +626,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -675,7 +675,7 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -736,7 +736,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -839,10 +839,10 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		var segment metabase.Segment
+		var segment metabase.SegmentForAudit
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
 			// remove one piece from the segment so that checkIfSegmentAltered fails
-			segment, err = satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			segment, err = satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 				StreamID: queueSegment.StreamID,
 				Position: queueSegment.Position,
 			})
@@ -932,7 +932,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -999,7 +999,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -1049,7 +1049,7 @@ func TestVerifierUnknownError(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -1217,7 +1217,7 @@ func TestAuditRepairedSegmentInExcludedCountries(t *testing.T) {
 //nolint:golint
 func getRemoteSegment(
 	ctx context.Context, t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName metabase.BucketName,
-) (_ metabase.Segment, key metabase.SegmentKey) {
+) (_ metabase.SegmentForAudit, key metabase.SegmentKey) {
 	t.Helper()
 
 	objects, err := satellite.Metabase.DB.TestingAllObjects(ctx)
@@ -1229,12 +1229,26 @@ func getRemoteSegment(
 	require.Len(t, segments, 1)
 	require.False(t, segments[0].Inline())
 
-	return segments[0], metabase.SegmentLocation{
-		ProjectID:  projectID,
-		BucketName: bucketName,
-		ObjectKey:  objects[0].ObjectKey,
-		Position:   segments[0].Position,
-	}.Encode()
+	return metabase.SegmentForAudit{
+			StreamID:      segments[0].StreamID,
+			Position:      segments[0].Position,
+			CreatedAt:     segments[0].CreatedAt,
+			RepairedAt:    segments[0].RepairedAt,
+			ExpiresAt:     segments[0].ExpiresAt,
+			RootPieceID:   segments[0].RootPieceID,
+			EncryptedSize: segments[0].EncryptedSize,
+			PlainSize:     segments[0].PlainSize,
+			PlainOffset:   segments[0].PlainOffset,
+			Redundancy:    segments[0].Redundancy,
+			InlineData:    segments[0].InlineData,
+			Pieces:        segments[0].Pieces,
+			Placement:     segments[0].Placement,
+		}, metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+			ObjectKey:  objects[0].ObjectKey,
+			Position:   segments[0].Position,
+		}.Encode()
 }
 
 func TestIdentifyContainedNodes(t *testing.T) {
@@ -1260,7 +1274,7 @@ func TestIdentifyContainedNodes(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := satellite.Metabase.DB.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
