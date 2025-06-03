@@ -2502,6 +2502,119 @@ func TestListObjects_Requery(t *testing.T) {
 	})
 }
 
+func TestListObjects_Requery_SkipPrefix(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		projectID := testrand.UUID()
+		const bucketName = "bucket"
+
+		insertObject := func(objects *[]metabase.RawObject, key metabase.ObjectKey) {
+			*objects = append(*objects, metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					ObjectKey:  key,
+					Version:    1,
+					StreamID:   uuid.UUID{1},
+				},
+				Status: metabase.CommittedUnversioned,
+			})
+		}
+
+		t.Run("Basic", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			var objects []metabase.RawObject
+
+			// The maximum number of queries that ListObjects performs is 10 + the list limit.
+			// Given a list limit of 3 and a batch size of 5, a maximum of 65 objects will be
+			// retrieved from the DB. (The batch size used by ListObjects is the limit + 1 +
+			// QueryExtraForNonRecursive (whose minimum value is 1).)
+			//
+			// Ensure that ListObjects skips prefixes by inserting so many prefixed objects
+			// that the last non-prefixed object could not be returned otherwise.
+
+			insertObject(&objects, "a")
+			for i := range 64 {
+				insertObject(&objects, metabase.ObjectKey("b/"+fmt.Sprintf("%02d", i)))
+			}
+			insertObject(&objects, "c")
+
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:   projectID,
+					BucketName:  bucketName,
+					Recursive:   false,
+					Pending:     false,
+					AllVersions: false,
+					// We use a limit of 3 to ensure that all 3 types of entries are returned:
+					// the entry before the prefix ("a"), the prefix ("b/"), and the entry after the prefix ("c").
+					Limit: 3,
+					Params: metabase.ListObjectsParams{
+						MinBatchSize:              4,
+						QueryExtraForNonRecursive: 1,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						objectEntryFromRawLatest(objects[0]),
+						prefixEntry("b/"),
+						objectEntryFromRawLatest(objects[len(objects)-1]),
+					},
+					More: false,
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Unskippable prefix", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			var objects []metabase.RawObject
+
+			insertObject(&objects, "a")
+			for i := range 64 {
+				insertObject(&objects, metabase.ObjectKey("a\xff"+fmt.Sprintf("%02d", i)))
+			}
+			insertObject(&objects, "b")
+
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+			// Ensure that no odd behavior results from skipping a prefix using the delimiter "\xff".
+			// Any delimiter composed of one or more sequences of "\xff" is special because it is
+			// impossible to skip. While skipping "a/" advances the cursor to "a0", attempting to skip
+			// "a\xff" must cause ListObjects to stop querying.
+
+			firstEntry := objectEntryFromRawLatest(objects[0])
+			firstEntry.ObjectKey = ""
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:   projectID,
+					BucketName:  bucketName,
+					Recursive:   false,
+					Pending:     false,
+					AllVersions: false,
+					Limit:       3,
+					Prefix:      "a",
+					Delimiter:   "\xff",
+					Params: metabase.ListObjectsParams{
+						MinBatchSize:              4,
+						QueryExtraForNonRecursive: 1,
+					},
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: []metabase.ObjectEntry{
+						firstEntry,
+						prefixEntry("\xff"),
+					},
+					More: false,
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
@@ -2557,4 +2670,152 @@ func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestListObjects_Delimiter(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		const delimiter = "###"
+		defaultDelimiter := metabase.ObjectKey(metabase.Delimiter)
+
+		projectID := testrand.UUID()
+		bucketName := metabase.BucketName(testrand.BucketName())
+
+		createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+			"abc" + delimiter,
+			"abc" + delimiter + "def",
+			"abc" + delimiter + "def" + delimiter + "ghi",
+			"abc" + defaultDelimiter + "def",
+			"xyz" + delimiter + "uvw",
+		})
+
+		requireKeysAndPrefixes := func(t *testing.T, expectedKeys []metabase.ObjectKey, expectedPrefixes []metabase.ObjectKey, result metabase.ListObjectsResult) {
+			var (
+				actualKeys     []metabase.ObjectKey
+				actualPrefixes []metabase.ObjectKey
+			)
+			for i := 0; i < len(result.Objects); i++ {
+				entry := result.Objects[i]
+				if entry.IsPrefix {
+					actualPrefixes = append(actualPrefixes, entry.ObjectKey)
+				} else {
+					actualKeys = append(actualKeys, entry.ObjectKey)
+				}
+			}
+
+			if len(expectedKeys) == 0 {
+				require.Empty(t, actualKeys)
+			} else {
+				require.Equal(t, expectedKeys, actualKeys)
+			}
+
+			if len(expectedPrefixes) == 0 {
+				require.Empty(t, actualPrefixes)
+			} else {
+				require.Equal(t, expectedPrefixes, actualPrefixes)
+			}
+		}
+
+		t.Run("Default delimiter", func(t *testing.T) {
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+			})
+			require.NoError(t, err)
+
+			requireKeysAndPrefixes(t, []metabase.ObjectKey{
+				"abc" + delimiter,
+				"abc" + delimiter + "def",
+				"abc" + delimiter + "def" + delimiter + "ghi",
+				"xyz" + delimiter + "uvw",
+			}, []metabase.ObjectKey{
+				"abc" + defaultDelimiter,
+			}, result)
+		})
+
+		t.Run("Root", func(t *testing.T) {
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Delimiter:  delimiter,
+			})
+			require.NoError(t, err)
+
+			requireKeysAndPrefixes(t, []metabase.ObjectKey{
+				"abc" + defaultDelimiter + "def",
+			}, []metabase.ObjectKey{
+				"abc" + delimiter,
+				"xyz" + delimiter,
+			}, result)
+		})
+
+		t.Run("1 level deep", func(t *testing.T) {
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Delimiter:  delimiter,
+				Prefix:     "abc" + delimiter,
+			})
+			require.NoError(t, err)
+
+			requireKeysAndPrefixes(t, []metabase.ObjectKey{
+				"",
+				"def",
+			}, []metabase.ObjectKey{
+				"def" + delimiter,
+			}, result)
+		})
+
+		t.Run("2 levels deep", func(t *testing.T) {
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Delimiter:  delimiter,
+				Prefix:     "abc" + delimiter + "def" + delimiter,
+			})
+			require.NoError(t, err)
+
+			requireKeysAndPrefixes(t, []metabase.ObjectKey{
+				"ghi",
+			}, nil, result)
+		})
+
+		t.Run("Prefix suffixed with partial delimiter", func(t *testing.T) {
+			partialDelimiter := metabase.ObjectKey(delimiter[:len(delimiter)-1])
+			remainingDelimiter := metabase.ObjectKey(delimiter[len(delimiter)-1:])
+
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Delimiter:  delimiter,
+				Prefix:     "abc" + partialDelimiter,
+			})
+			require.NoError(t, err)
+
+			requireKeysAndPrefixes(t, []metabase.ObjectKey{
+				remainingDelimiter,
+				remainingDelimiter + "def",
+			}, []metabase.ObjectKey{
+				remainingDelimiter + "def" + delimiter,
+			}, result)
+		})
+	})
+}
+
+func TestSkipPrefix(t *testing.T) {
+	for _, tt := range []struct {
+		prefix     metabase.ObjectKey
+		expected   metabase.ObjectKey
+		expectedOk bool
+	}{
+		{prefix: "", expectedOk: false},
+		{prefix: "a", expected: "b", expectedOk: true},
+		{prefix: "abc", expected: "abd", expectedOk: true},
+		{prefix: "a\xff", expected: "b", expectedOk: true},
+		{prefix: "\xff", expectedOk: false},
+		{prefix: "\xff\xff", expectedOk: false},
+	} {
+		output, ok := metabase.SkipPrefix(tt.prefix)
+		assert.Equal(t, tt.expected, output, "Prefix: %q", tt.prefix)
+		assert.Equal(t, tt.expectedOk, ok, "Prefix: %q", tt.prefix)
+	}
 }

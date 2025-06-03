@@ -672,7 +672,8 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	return nil
 }
 
-// PrefixLimit returns the object key that can be used in where clause for querying objects matching a prefix.
+// PrefixLimit returns the lexicographically smallest object key that is greater than any key with the given prefix.
+// The returned key can be used in a WHERE clause for querying objects matching the prefix.
 func PrefixLimit(a ObjectKey) ObjectKey {
 	if a == "" {
 		return ""

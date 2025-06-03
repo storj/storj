@@ -28,12 +28,15 @@ type ListObjectsCursor IterateCursor
 //
 // For Pending = false, the versions are in descending order.
 // For Pending = true, the versions are in ascending order.
+//
+// If Delimiter is empty, it will default to "/".
 type ListObjects struct {
 	ProjectID             uuid.UUID
 	BucketName            BucketName
 	Recursive             bool
 	Limit                 int
 	Prefix                ObjectKey
+	Delimiter             ObjectKey
 	Cursor                ListObjectsCursor
 	Pending               bool
 	AllVersions           bool
@@ -91,6 +94,10 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 	ensureRange(&opts.Params.MinBatchSize, 100, 1, 100000)
 	ensureRange(&opts.Params.QueryExtraForNonRecursive, 10, 1, 100000)
 
+	if opts.Delimiter == "" {
+		opts.Delimiter = ObjectKey(Delimiter)
+	}
+
 	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
 }
 
@@ -140,7 +147,10 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 	}
 	var skipCount skipCounter
 
-	cursor := opts.StartCursor()
+	cursor, ok := opts.StartCursor()
+	if !ok {
+		return result, nil
+	}
 
 	for repeat := 0; repeat < requeryLimit; repeat++ {
 		args := []any{
@@ -277,9 +287,13 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 		}
 
 		switch {
-		case lastEntry.IsPrefix: // can only be true if recursive listing
+		case lastEntry.IsPrefix: // can only be true if listing non-recursively
 			// skip over the prefix
-			cursor.Key = opts.Prefix + lastEntry.ObjectKey[:len(lastEntry.ObjectKey)-1] + DelimiterNext
+			nextKey, ok := SkipPrefix(lastEntry.ObjectKey)
+			if !ok {
+				return result, nil
+			}
+			cursor.Key = opts.Prefix + nextKey
 			cursor.Version = opts.FirstVersion()
 
 		case opts.AllVersions:
@@ -346,7 +360,10 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 	}
 	var skipCount skipCounter
 
-	cursor := opts.StartCursor()
+	cursor, ok := opts.StartCursor()
+	if !ok {
+		return result, nil
+	}
 
 	for repeat := 0; repeat < requeryLimit; repeat++ {
 		args := map[string]any{
@@ -500,9 +517,13 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 		}
 
 		switch {
-		case lastEntry.IsPrefix: // can only be true if recursive listing
+		case lastEntry.IsPrefix: // can only be true if listing non-recursively
 			// skip over the prefix
-			cursor.Key = opts.Prefix + lastEntry.ObjectKey[:len(lastEntry.ObjectKey)-1] + DelimiterNext
+			nextKey, ok := SkipPrefix(lastEntry.ObjectKey)
+			if !ok {
+				return result, nil
+			}
+			cursor.Key = opts.Prefix + nextKey
 			cursor.Version = opts.FirstVersion()
 
 		case opts.AllVersions:
@@ -644,12 +665,14 @@ func (opts ListObjects) selectedFields() (selectedFields string) {
 }
 
 // StartCursor returns the starting object cursor for this listing.
-func (opts *ListObjects) StartCursor() ListObjectsCursor {
+// If no delimiter is specified, the delimiter is treated as if it is "/".
+// If no objects can be listed with these options, it returns an empty cursor and false.
+func (opts *ListObjects) StartCursor() (cursor ListObjectsCursor, ok bool) {
 	if !strings.HasPrefix(string(opts.Cursor.Key), string(opts.Prefix)) {
 		// if the starting position is outside of the prefix
 		if LessObjectKey(opts.Cursor.Key, opts.Prefix) {
 			// If we are before the prefix, then let's start from the prefix.
-			return ListObjectsCursor{Key: opts.Prefix, Version: opts.FirstVersion()}
+			return ListObjectsCursor{Key: opts.Prefix, Version: opts.FirstVersion()}, true
 		}
 
 		// Otherwise, we must be after the prefix, and let's leave the cursor as is.
@@ -657,25 +680,39 @@ func (opts *ListObjects) StartCursor() ListObjectsCursor {
 
 		// We need to start from the latest version, so we can set the "Latest bool" correctly.
 		// produced, because we may need to skip it.
-		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
+		return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}, true
 	}
 
 	keyWithoutPrefix := opts.Cursor.Key[len(opts.Prefix):]
 	if !opts.Recursive {
 		// Check whether we need to skip outside of a prefix.
-		firstDelimiter := strings.IndexByte(string(keyWithoutPrefix), '/')
-		if firstDelimiter >= 0 {
-			firstDelimiter += len(opts.Prefix)
-			return ListObjectsCursor{
-				Key:     opts.Cursor.Key[:firstDelimiter] + DelimiterNext,
-				Version: opts.FirstVersion(),
+		delimiter := opts.Delimiter
+		if delimiter == "" {
+			delimiter = ObjectKey(Delimiter)
+		}
+
+		firstDelimiterIdx := strings.Index(string(keyWithoutPrefix), string(delimiter))
+		if firstDelimiterIdx >= 0 {
+			nextKeyWithoutPrefix, ok := SkipPrefix(keyWithoutPrefix[:firstDelimiterIdx+len(delimiter)])
+			if !ok {
+				// Let trimmedSuffix be the portion of keyWithoutPrefix up to and including the first delimiter.
+				// If SkipPrefix fails, then there is no key that satisfies these conditions:
+				// 1. The key is greater than all keys with the prefix opts.Prefix + trimmedSuffix.
+				// 2. The key is prefixed with opts.Prefix.
+				// This occurs when trimmedSuffix is composed entirely of one or more instances of "\xff".
+				return ListObjectsCursor{}, false
 			}
+
+			return ListObjectsCursor{
+				Key:     opts.Cursor.Key[:len(opts.Prefix)] + nextKeyWithoutPrefix,
+				Version: opts.FirstVersion(),
+			}, true
 		}
 	}
 
 	// We need to start from the latest version, so we can set the "Latest bool" correctly.
 	// produced, because we may need to skip it.
-	return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}
+	return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}, true
 }
 
 func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item ObjectEntry, err error) {
@@ -712,10 +749,10 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 	}
 
 	if !opts.Recursive {
-		i := strings.IndexByte(string(item.ObjectKey), Delimiter)
-		if i >= 0 {
+		trimmedKey, ok := TrimAfterDelimiter(string(item.ObjectKey), string(opts.Delimiter))
+		if ok {
 			item.IsPrefix = true
-			item.ObjectKey = item.ObjectKey[:i+1]
+			item.ObjectKey = ObjectKey(trimmedKey)
 		}
 	}
 
@@ -729,6 +766,7 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 
 	return item, nil
 }
+
 func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item ObjectEntry, err error) {
 	fields := []interface{}{
 		&item.ObjectKey,
@@ -763,10 +801,10 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 	}
 
 	if !opts.Recursive {
-		i := strings.IndexByte(string(item.ObjectKey), Delimiter)
-		if i >= 0 {
+		trimmedKey, ok := TrimAfterDelimiter(string(item.ObjectKey), string(opts.Delimiter))
+		if ok {
 			item.IsPrefix = true
-			item.ObjectKey = item.ObjectKey[:i+1]
+			item.ObjectKey = ObjectKey(trimmedKey)
 		}
 	}
 
@@ -779,4 +817,27 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 	}
 
 	return item, nil
+}
+
+// TrimAfterDelimiter removes the portion of the string that follows the first instance of the delimiter.
+// If the delimiter was not found, ok will be false and the string will be returned unchanged.
+func TrimAfterDelimiter(s string, delimiter string) (trimmed string, ok bool) {
+	if i := strings.Index(s, delimiter); i >= 0 {
+		return s[:i+len(delimiter)], true
+	}
+	return s, false
+}
+
+// SkipPrefix returns the lexicographically smallest object key that is greater than any key with the given prefix.
+// Unlike what is returned by PrefixLimit, this key is at most as long as the given prefix.
+// If no such prefix exists, it returns "", false.
+func SkipPrefix(prefix ObjectKey) (next ObjectKey, ok bool) {
+	prefixBytes := []byte(prefix)
+	for i := len(prefixBytes) - 1; i >= 0; i-- {
+		if prefixBytes[i] != 0xff {
+			prefixBytes[i]++
+			return ObjectKey(prefixBytes[:i+1]), true
+		}
+	}
+	return "", false
 }

@@ -54,6 +54,9 @@ func NewNaiveObjectsDB(rawentries []metabase.ObjectEntry) *NaiveObjectsDB {
 // ListObjects lists objects.
 func (db *NaiveObjectsDB) ListObjects(ctx context.Context, opts metabase.ListObjects) (result metabase.ListObjectsResult, err error) {
 	metabase.ListLimit.Ensure(&opts.Limit)
+	if opts.Delimiter == "" {
+		opts.Delimiter = metabase.ObjectKey(metabase.Delimiter)
+	}
 
 	entries := db.VersionDesc
 	if opts.Pending {
@@ -149,8 +152,8 @@ func calculateEntryKey(opts *metabase.ListObjects, entry *metabase.ObjectEntry) 
 	entryKey = entry.ObjectKey[len(opts.Prefix):]
 
 	if !opts.Recursive {
-		if i := strings.IndexByte(string(entryKey), '/'); i >= 0 {
-			return entry.ObjectKey[:len(opts.Prefix)+i+1], entryKey[:i+1], 0, true
+		if i := strings.Index(string(entryKey), string(opts.Delimiter)); i >= 0 {
+			return entry.ObjectKey[:len(opts.Prefix)+i+len(opts.Delimiter)], entryKey[:i+len(opts.Delimiter)], 0, true
 		}
 	}
 
