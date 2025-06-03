@@ -81,6 +81,7 @@ type Tbl interface {
 	Range(context.Context, func(context.Context, Record) (bool, error)) error
 	Insert(context.Context, Record) (bool, error)
 	Lookup(context.Context, Key) (Record, bool, error)
+	Sync(context.Context) error
 	Close()
 }
 

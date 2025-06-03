@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -1103,11 +1104,10 @@ func testStore_FallbackToNonTTLLogFile(t *testing.T) {
 	assert.Equal(t, getLog(permKey), getLog(ttlKey))
 }
 
-func TestStore_HashtblFull(t *testing.T) {
-	if table_DefaultKind != TableKind_HashTbl {
-		t.SkipNow()
-	}
-
+func TestStore_TableFull(t *testing.T) {
+	forAllTables(t, testStore_TableFull)
+}
+func testStore_TableFull(t *testing.T) {
 	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
@@ -1116,11 +1116,10 @@ func TestStore_HashtblFull(t *testing.T) {
 		w, err := s.Create(ctx, newKey(), time.Time{})
 		assert.NoError(t, err)
 		if err := w.Close(); err != nil {
-			break
+			assert.True(t, strings.Contains(err.Error(), "hashtbl full"))
+			return
 		}
 	}
-
-	assert.Equal(t, s.Stats().TableFull, 1)
 }
 
 func TestStore_StatsWhileCompacting(t *testing.T) {

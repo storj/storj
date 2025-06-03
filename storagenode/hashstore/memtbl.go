@@ -646,6 +646,20 @@ func (m *MemTbl) ensureAlignedLockedSlow(ctx context.Context) (err error) {
 	return nil
 }
 
+// Sync syncs any modifications to disk.
+func (m *MemTbl) Sync(ctx context.Context) (err error) {
+	if err := m.opMu.Lock(ctx, &m.closed); err != nil {
+		return err
+	}
+	defer m.opMu.Unlock()
+
+	if err := m.flushBufferLocked(ctx); err != nil {
+		return err
+	}
+
+	return Error.Wrap(m.fh.Sync())
+}
+
 //
 // memtbl constructor
 //

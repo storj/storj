@@ -530,6 +530,16 @@ func (h *HashTbl) Lookup(ctx context.Context, key Key) (_ Record, _ bool, err er
 	return Record{}, false, nil
 }
 
+// Sync syncs any modifications to disk.
+func (h *HashTbl) Sync(ctx context.Context) (err error) {
+	if err := h.opMu.Lock(ctx, &h.closed); err != nil {
+		return err
+	}
+	defer h.opMu.Unlock()
+
+	return Error.Wrap(h.fh.Sync())
+}
+
 //
 // hashtbl constructor
 //

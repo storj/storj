@@ -55,6 +55,9 @@ var (
 
 	// controls if we collect records and sort them and rewrite them before the hashtbl.
 	compaction_OrderedRewrite = envBool("STORJ_HASHSTORE_COMPACTION_ORDERED_REWRITE", false)
+
+	// if set, writes to the log file and table are fsync'd to disk.
+	store_SyncWrites = envBool("STORJ_HASHSTORE_STORE_SYNC_WRITES", false)
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -80,7 +83,6 @@ type Store struct {
 	stats struct { // contains statistics for monitoring the store
 		compactions atomic.Uint64 // bumped every time a compaction call finishes
 		lastCompact atomic.Uint32 // date of the last compaction
-		tableFull   atomic.Uint64 // bumped every time the hash table is full
 
 		logsRewritten atomic.Uint64 // bumped when a log file is marked to be rewritten
 		dataRewritten atomic.Uint64 // bumped whenever a record is rewritten with the length of the record
@@ -295,7 +297,6 @@ type StoreStats struct {
 
 	Compacting    bool        // if true, a compaction is in progress.
 	Compactions   uint64      // number of compaction calls that finished
-	TableFull     uint64      // number of times the hashtbl was full trying to insert
 	Today         uint32      // the current date.
 	LastCompact   uint32      // the date of the last compaction.
 	LogsRewritten uint64      // number of log files attempted to be rewritten.
@@ -371,7 +372,6 @@ func (s *Store) Stats() StoreStats {
 
 		Compacting:    false,
 		Compactions:   s.stats.compactions.Load(),
-		TableFull:     s.stats.tableFull.Load(),
 		Today:         s.today(),
 		LastCompact:   s.stats.lastCompact.Load(),
 		LogsRewritten: s.stats.logsRewritten.Load(),
@@ -423,31 +423,10 @@ func (s *Store) addRecord(ctx context.Context, rec Record) error {
 	ok, err := s.tbl.Insert(ctx, rec)
 	if err != nil {
 		return Error.Wrap(err)
-	} else if ok {
-		return nil
+	} else if !ok {
+		return Error.New("hashtbl full")
 	}
-
-	// if this happens, we're in some weird situation where our estimate of the load must be
-	// way off. as a last ditch effort, try to recompute the estimates, bump some counters, and
-	// loudly complain with some potentially helpful debugging information.
-	s.stats.tableFull.Add(1)
-
-	beforeStats := s.tbl.Stats()
-
-	if esti, ok := s.tbl.(interface{ ComputeEstimates(context.Context) error }); ok {
-		err = esti.ComputeEstimates(ctx)
-	} else {
-		err = Error.New("table does not support ComputeEstimates")
-	}
-
-	s.log.Error("hash table is full",
-		zap.NamedError("compute_estimates", err),
-		zap.Any("before_stats", beforeStats),
-		zap.Any("after_stats", s.tbl.Stats()),
-	)
-
-	return Error.New("hash table is full")
-
+	return nil
 }
 
 // Load returns the estimated load factor of the hash table. If it's too large, a Compact call is

@@ -23,7 +23,7 @@ var (
 	Error = errs.Class("hashstore")
 
 	// ErrCollision represents collision errors returned while committing to the store.
-	ErrCollision = errs.New("collision detected")
+	ErrCollision = Error.New("collision detected")
 )
 
 const (

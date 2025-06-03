@@ -11,6 +11,8 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+
+	"github.com/zeebo/errs"
 )
 
 // logFile represents a ref-counted handle to a log file that stores piece data.
@@ -272,45 +274,63 @@ func (h *Writer) Close() (err error) {
 	}
 	defer h.store.flushMu.RUnlock()
 
-	// if we don't have a log file, try to acquire one.
+	// acquire a log file to write the data into.
 	lf, err := h.store.acquireLogFile(h.rec.Expires.Time())
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	defer h.store.lfc.Include(lf)
 
+	// get the current offset so that we are sure we have the correct spot for the record.
+	offset, err := lf.fh.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	// update the record fields to point at the correct place in the log file.
 	h.rec.Log = lf.id
-	h.rec.Offset = lf.size.Load()
+	h.rec.Offset = uint64(offset)
 
-	// append the record to the log file for reconstruction.
+	// append the record to the end of the data so that the log can be used for reconstruction.
 	var buf [RecordSize]byte
 	h.rec.WriteTo(&buf)
+	h.buf = append(h.buf, buf[:]...)
 
-	// if we have an in-memory buffer, append it there and flush it. otherwise, write it directly.
-	if len(h.buf) > 0 {
-		h.buf = append(h.buf, buf[:]...)
-		_, err = lf.fh.Write(h.buf)
-	} else {
-		_, err = lf.fh.Write(buf[:])
-	}
-	if err != nil {
+	// write the buffer to the log file.
+	if _, err := lf.fh.Write(h.buf); err != nil {
 		// if we couldn't write the piece data or potentially just the record for reconstruction, we
 		// should abort the write operation and attempt to reclaim space by seeking backwards to the
 		// record offset.
-		_, _ = lf.fh.Seek(int64(h.rec.Offset), io.SeekStart)
+		_, _ = lf.fh.Seek(offset, io.SeekStart)
 		return Error.Wrap(err)
 	}
 
+	// add the record to the store.
 	if err := h.store.addRecord(ctx, h.rec); err != nil {
 		// if we can't add the record, we should abort the write operation and attempt to
 		// reclaim space by seeking backwards to the record offset.
-		_, _ = lf.fh.Seek(int64(h.rec.Offset), io.SeekStart)
+		_, _ = lf.fh.Seek(offset, io.SeekStart)
 		return Error.Wrap(err)
 	}
 
-	// increase our in-memory estimate of the size of the log file for sorting.
-	lf.size.Add(uint64(h.rec.Length) + RecordSize)
+	// increase our in-memory estimate of the size of the log file for sorting. we use store to
+	// ensure that it maintains correctness if there were some errors in the past.
+	lf.size.Store(uint64(offset) + uint64(len(h.buf)))
+
+	// drop the memory early in case someone holds on to the closed writer.
+	h.buf = nil
+
+	// sync the log file and tbl if we're syncing every write. we don't seek back if the sync
+	// fails because it's unclear what state anything is in anyway.
+	if store_SyncWrites {
+		err := errs.Combine(
+			Error.Wrap(lf.fh.Sync()),
+			h.store.tbl.Sync(ctx),
+		)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -335,7 +355,7 @@ func (h *Writer) Cancel() {
 }
 
 // Write implements io.Writer.
-func (h *Writer) Write(p []byte) (n int, err error) {
+func (h *Writer) Write(p []byte) (_ int, err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -345,14 +365,13 @@ func (h *Writer) Write(p []byte) (n int, err error) {
 		return 0, Error.New("piece too large")
 	}
 
+	// optimize for the common single piece data write + 512 byte footer + record
 	if h.buf == nil {
-		// optimize for the common single piece data write + 512 byte footer + record
-		h.buf = make([]byte, len(p), len(p)+512+RecordSize)
-		n = copy(h.buf, p)
-	} else {
-		n, h.buf = len(p), append(h.buf, p...)
+		h.buf = make([]byte, 0, len(p)+512+RecordSize)
 	}
 
-	h.rec.Length += uint32(n)
-	return n, err
+	h.buf = append(h.buf, p...)
+	h.rec.Length += uint32(len(p))
+
+	return len(p), err
 }
