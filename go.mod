@@ -81,12 +81,12 @@ require (
 	google.golang.org/protobuf v1.36.5
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20250529081337-15d9add689d4
+	storj.io/common v0.0.0-20250603064208-50588c313b3a
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad
-	storj.io/uplink v1.13.2-0.20250530143115-d1f99977e40c
+	storj.io/uplink v1.13.2-0.20250603130058-0e73fd477c81
 )
 
 require (
