@@ -1393,7 +1393,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
-		if prefix[len(prefix)-1] != metabase.Delimiter {
+		if !req.ArbitraryPrefix && prefix[len(prefix)-1] != metabase.Delimiter {
 			prefix += metabase.ObjectKey(metabase.Delimiter)
 		}
 	}
