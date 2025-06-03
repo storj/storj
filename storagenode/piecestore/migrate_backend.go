@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/satstore"
 )
 
@@ -49,7 +50,7 @@ type MigratingBackend struct {
 }
 
 // NewMigratingBackend constructs a MigratingBackend with the given parameters.
-func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBackend, store *satstore.SatelliteStore, migrator Migrator) *MigratingBackend {
+func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBackend, store *satstore.SatelliteStore, migrator Migrator, contactService *contact.Service, suppressCentralMigration bool) *MigratingBackend {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -75,6 +76,22 @@ func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBa
 	}
 
 	mb.states.Store(&states)
+
+	if !suppressCentralMigration {
+		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storj.NodeID, resp *pb.CheckInResponse) error {
+			if resp.HashstoreSettings == nil {
+				return nil
+			}
+			settings := resp.HashstoreSettings
+			mb.UpdateState(ctx, satelliteID, func(state *MigrationState) {
+				state.PassiveMigrate = state.PassiveMigrate || settings.PassiveMigrate
+				state.WriteToNew = state.WriteToNew || settings.WriteToNew
+				state.ReadNewFirst = state.ReadNewFirst || settings.ReadNewFirst
+				state.TTLToNew = state.TTLToNew || settings.TtlToNew
+			})
+			return nil
+		})
+	}
 
 	return mb
 }

@@ -22,6 +22,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -51,6 +52,8 @@ type Config struct {
 	MigrateRegardless bool          `help:"whether to also migrate pieces for satellites outside currently set" default:"false"`
 	MigrateExpired    bool          `help:"whether to also migrate expired pieces" default:"true"`
 	DeleteExpired     bool          `help:"whether to also delete expired pieces; has no effect if expired are migrated" default:"true"`
+
+	SuppressCentralMigration bool `help:"if true, whether to suppress central control of migration initiation" default:"false"`
 }
 
 // Chore migrates pieces.
@@ -66,8 +69,8 @@ type Chore struct {
 	new                piecestore.PieceBackend
 	reportingBatchSize int
 
-	mu       sync.Mutex
-	migrated map[storj.NodeID]bool // map[sat](activeMigration?)
+	mu        sync.Mutex
+	migrating map[storj.NodeID]bool // map[sat](activeMigration?)
 
 	migrationQueue   chan migrationItem
 	baselineDataRate *monkit.FloatVal
@@ -80,7 +83,7 @@ type migrationItem struct {
 }
 
 // NewChore initializes and returns a new Chore instance.
-func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, old Backend, new piecestore.PieceBackend) *Chore {
+func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, old Backend, new piecestore.PieceBackend, contactService *contact.Service) *Chore {
 	chore := &Chore{
 		log:  log,
 		Loop: sync2.NewCycle(config.Interval),
@@ -90,7 +93,7 @@ func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, ol
 		new:                new,
 		reportingBatchSize: 10000,
 
-		migrated: make(map[storj.NodeID]bool),
+		migrating: make(map[storj.NodeID]bool),
 
 		migrationQueue:   make(chan migrationItem, config.BufferSize),
 		baselineDataRate: mon.FloatVal("migration_chore"),
@@ -101,6 +104,21 @@ func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, ol
 		chore.SetMigrate(sat, true, b)
 		return nil
 	})
+
+	if !config.SuppressCentralMigration && contactService != nil {
+		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storj.NodeID, resp *pb.CheckInResponse) error {
+			if resp.HashstoreSettings == nil {
+				return nil
+			}
+			active, _ := chore.getMigrate(satelliteID)
+			if active {
+				return nil
+			}
+			active = resp.HashstoreSettings.ActiveMigrate
+			chore.SetMigrate(satelliteID, true, active)
+			return store.Set(ctx, satelliteID, []byte(strconv.FormatBool(active)))
+		})
+	}
 
 	return chore
 }
@@ -115,7 +133,7 @@ func (chore *Chore) Stats(cb func(key monkit.SeriesKey, field string, val float6
 	}
 
 	chore.mu.Lock()
-	sats := maps.Clone(chore.migrated)
+	sats := maps.Clone(chore.migrating)
 	chore.mu.Unlock()
 
 	for sat, active := range sats {
@@ -141,9 +159,9 @@ func (chore *Chore) SetMigrate(sat storj.NodeID, migrate, activeMigration bool) 
 	defer chore.mu.Unlock()
 
 	if migrate {
-		chore.migrated[sat] = activeMigration
+		chore.migrating[sat] = activeMigration
 	} else {
-		delete(chore.migrated, sat)
+		delete(chore.migrating, sat)
 	}
 }
 
@@ -151,7 +169,7 @@ func (chore *Chore) getMigrate(sat storj.NodeID) (bool, bool) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 
-	v, ok := chore.migrated[sat]
+	v, ok := chore.migrating[sat]
 	return v, ok
 }
 
@@ -173,7 +191,7 @@ func (chore *Chore) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	chore.mu.Lock()
-	sats := maps.Clone(chore.migrated)
+	sats := maps.Clone(chore.migrating)
 	chore.mu.Unlock()
 
 	for sat, active := range sats {

@@ -65,7 +65,7 @@ func TestExpiredPiecesRemoval(t *testing.T) {
 		DeleteExpired: true,
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -132,7 +132,7 @@ func TestDuplicates(t *testing.T) {
 		Jitter:   true,
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -209,7 +209,7 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte(v), 0644))
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new, nil)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -316,7 +316,7 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte("true\n"), 0644))
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new, nil)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)

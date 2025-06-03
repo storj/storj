@@ -691,6 +691,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			satstore.NewSatelliteStore(metaDir, "migrate_chore"),
 			peer.StorageOld.Store,
 			peer.Storage2.HashStoreBackend,
+			peer.Contact.Service,
 		)
 		mon.Chain(peer.Storage2.MigrationChore)
 
@@ -708,6 +709,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.HashStoreBackend,
 			peer.Storage2.MigrationState,
 			peer.Storage2.MigrationChore,
+			peer.Contact.Service,
+			config.Storage2Migration.SuppressCentralMigration,
 		)
 		mon.Chain(peer.Storage2.MigratingBackend)
 

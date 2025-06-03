@@ -345,14 +345,14 @@ func Module(ball *mud.Ball) {
 			mon.Chain(backend)
 			return backend, nil
 		})
-		mud.Provide[*piecemigrate.Chore](ball, func(log *zap.Logger, cfg piecemigrate.Config, config hashstore.Config, old *pieces.Store, new *piecestore.HashStoreBackend, piecestoreOldConfig piecestore.OldConfig) *piecemigrate.Chore {
+		mud.Provide[*piecemigrate.Chore](ball, func(log *zap.Logger, cfg piecemigrate.Config, config hashstore.Config, old *pieces.Store, new *piecestore.HashStoreBackend, piecestoreOldConfig piecestore.OldConfig, contactService *contact.Service) *piecemigrate.Chore {
 			logsPath, _ := config.Directories(piecestoreOldConfig.Path)
-			chore := piecemigrate.NewChore(log, cfg, satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate_chore"), old, new)
+			chore := piecemigrate.NewChore(log, cfg, satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate_chore"), old, new, contactService)
 			mon.Chain(chore)
 			return chore
 		})
-		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore, chore *piecemigrate.Chore) *piecestore.MigratingBackend {
-			backend := piecestore.NewMigratingBackend(log, old, new, state, chore)
+		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore, chore *piecemigrate.Chore, contactService *contact.Service, cfg piecemigrate.Config) *piecestore.MigratingBackend {
+			backend := piecestore.NewMigratingBackend(log, old, new, state, chore, contactService, cfg.SuppressCentralMigration)
 			mon.Chain(backend)
 			return backend
 		})

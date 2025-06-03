@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"math/rand"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -111,8 +112,9 @@ type Service struct {
 	rand   *rand.Rand
 	dialer rpc.Dialer
 
-	mu   sync.Mutex
-	self NodeInfo
+	mu               sync.Mutex
+	self             NodeInfo
+	checkinCallbacks []func(context.Context, storj.NodeID, *pb.CheckInResponse) error
 
 	trust     trust.TrustedSatelliteSource
 	quicStats *QUICStats
@@ -133,6 +135,13 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust trust.T
 		quicStats: quicStats,
 		tags:      tags,
 	}
+}
+
+// RegisterCheckinCallback registers a checkin callback.
+func (service *Service) RegisterCheckinCallback(cb func(ctx context.Context, satellite storj.NodeID, resp *pb.CheckInResponse) error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	service.checkinCallbacks = append(service.checkinCallbacks, cb)
 }
 
 // PingSatellites attempts to ping all satellites in trusted list until backoff reaches maxInterval.
@@ -209,16 +218,27 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID, 
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
-	if resp != nil {
-		service.quicStats.SetStatus(resp.PingNodeSuccessQuic)
+	service.quicStats.SetStatus(resp.PingNodeSuccessQuic)
 
-		if !resp.PingNodeSuccess {
-			return errPingSatellite.New("%s", resp.PingErrorMessage)
-		}
+	if !resp.PingNodeSuccess {
+		return errPingSatellite.New("%s", resp.PingErrorMessage)
 	}
+
 	if resp.PingErrorMessage != "" {
 		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("Satellite ID", id), zap.String("Error", resp.GetPingErrorMessage()))
 	}
+
+	service.mu.Lock()
+	checkinCallbacks := slices.Clone(service.checkinCallbacks)
+	service.mu.Unlock()
+
+	for _, cb := range checkinCallbacks {
+		err = cb(ctx, id, resp)
+		if err != nil {
+			service.log.Error("checkin callback failed", zap.Error(err))
+		}
+	}
+
 	return nil
 }
 
