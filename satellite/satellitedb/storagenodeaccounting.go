@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
+	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
@@ -20,6 +22,7 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/retrydb"
+	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -610,7 +613,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time.
-func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time, batchSize int) (err error) {
+func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, before time.Time, batchSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if batchSize <= 0 {
@@ -625,7 +628,7 @@ func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latest
 			LIMIT ?`
 		query = db.db.Rebind(query)
 		for {
-			res, err := db.db.DB.ExecContext(ctx, query, latestRollup.UTC(), batchSize)
+			res, err := db.db.DB.ExecContext(ctx, query, before.UTC(), batchSize)
 			if err != nil {
 				if errs.Is(err, sql.ErrNoRows) {
 					return nil
@@ -654,7 +657,7 @@ func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latest
 			)`
 		query = db.db.Rebind(query)
 		for {
-			res, err := db.db.DB.ExecContext(ctx, query, latestRollup.UTC(), batchSize)
+			res, err := db.db.DB.ExecContext(ctx, query, before.UTC(), batchSize)
 			if err != nil {
 				if errs.Is(err, sql.ErrNoRows) {
 					return nil
@@ -672,35 +675,19 @@ func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latest
 		}
 
 	case dbutil.Spanner:
-		query := `
-			DELETE FROM storagenode_storage_tallies
-			WHERE node_id IN (
-					SELECT node_id
-					FROM storagenode_storage_tallies
-					WHERE interval_end_time < ?
-					ORDER BY interval_end_time
-					LIMIT ?
-				) AND interval_end_time < ?;
-			`
-		query = db.db.Rebind(query)
-		for {
-			res, err := db.db.DB.ExecContext(ctx, query, latestRollup.UTC(), batchSize, latestRollup.UTC())
-			if err != nil {
-				if errs.Is(err, sql.ErrNoRows) {
-					return nil
-				}
-				return Error.Wrap(err)
+		err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
+			statement := spanner.Statement{
+				SQL: `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < @before`,
+				Params: map[string]any{
+					"before": before.UTC(),
+				},
 			}
-
-			affected, err := res.RowsAffected()
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			if affected == 0 {
-				return nil
-			}
-		}
-
+			var err error
+			_, err = client.PartitionedUpdateWithOptions(ctx, statement, spanner.QueryOptions{
+				Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+			})
+			return err
+		})
 	default:
 		err = Error.New("unsupported database: %v", db.db.impl)
 	}
