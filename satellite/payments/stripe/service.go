@@ -22,6 +22,7 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/currency"
@@ -725,6 +726,7 @@ const (
 )
 
 // processInvoiceItems creates or updates invoice line items for stripe customer.
+// It is only used if product-based invoicing is disabled.
 func (service *Service) processInvoiceItems(
 	ctx context.Context,
 	billingID *string,
@@ -805,6 +807,7 @@ func (service *Service) processInvoiceItems(
 }
 
 // ProcessRecord processes record and mutates overall customer usages.
+// It is only used if product-based invoicing is enabled.
 // Exported for testing.
 func (service *Service) ProcessRecord(
 	ctx context.Context,
@@ -1061,32 +1064,45 @@ func (service *Service) updateExistingInvoiceItems(ctx context.Context, existing
 }
 
 // InvoiceItemsFromProjectUsage calculates Stripe invoice item from project usage.
+// It is only used if product-based invoicing is disabled.
 func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsages map[string]accounting.ProjectUsage, aggregated bool) (result []*stripe.InvoiceItemParams) {
-	var partners []string
+	// Aggregate usage by partner (discard placement)
+	aggregatedUsages := make(map[string]accounting.ProjectUsage)
+
 	if len(partnerUsages) == 0 {
-		partners = []string{""}
-		partnerUsages = map[string]accounting.ProjectUsage{"": {}}
+		aggregatedUsages[""] = accounting.ProjectUsage{}
 	} else {
-		for key := range partnerUsages {
-			partners = append(partners, key)
+		for key, usage := range partnerUsages {
+			// Split the key to extract partner and placement
+			parts := strings.Split(key, "|")
+			partner := parts[0]
+
+			// Aggregate usage by partner
+			if existingUsage, exists := aggregatedUsages[partner]; exists {
+				existingUsage.Storage += usage.Storage
+				existingUsage.Egress += usage.Egress
+				existingUsage.SegmentCount += usage.SegmentCount
+				aggregatedUsages[partner] = existingUsage
+			} else {
+				aggregatedUsages[partner] = usage
+			}
 		}
-		sort.Strings(partners)
 	}
 
-	for _, key := range partners {
-		// Split the key to extract partner and placement
-		parts := strings.Split(key, "|")
-		partner := parts[0]
+	// Create sorted list of partners for consistent output
+	partners := maps.Keys(aggregatedUsages)
+	sort.Strings(partners)
 
+	for _, partner := range partners {
 		// Use the partner-only price model as before to maintain compatibility with tests
 		priceModel := service.Accounts().GetProjectUsagePriceModel(partner)
 
-		usage := partnerUsages[key]
+		usage := aggregatedUsages[partner]
 		usage.Egress = applyEgressDiscount(usage, priceModel)
 
 		prefix := "Project " + projName
 		if partner != "" {
-			prefix += " (" + key + ")"
+			prefix += " (" + partner + ")"
 		}
 
 		if aggregated {
