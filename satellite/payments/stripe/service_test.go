@@ -9,6 +9,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -916,6 +917,114 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 				require.Equal(t, segment, *items[2].UnitAmountDecimal)
 			})
 		}
+	})
+}
+
+func TestService_InvoiceItemsFromProjectUsage_PartnerAggregation(t *testing.T) {
+	const (
+		projectName      = "my-project"
+		partnerName      = "partner"
+		hoursPerMonth    = 24 * 30
+		bytesPerMegabyte = int64(memory.MB / memory.B)
+	)
+
+	var (
+		defaultPrice = paymentsconfig.ProjectUsagePrice{
+			StorageTB: "1",
+			EgressTB:  "2",
+			Segment:   "3",
+		}
+		partnerPrice = paymentsconfig.ProjectUsagePrice{
+			StorageTB:           "4",
+			EgressTB:            "5",
+			Segment:             "6",
+			EgressDiscountRatio: 0.5,
+		}
+	)
+	partnerModel, err := partnerPrice.ToModel()
+	require.NoError(t, err)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.UsagePrice = defaultPrice
+				config.Payments.UsagePriceOverrides.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+					partnerName: partnerPrice,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		t.Run("aggregates usage by partner across placements", func(t *testing.T) {
+			// Test data with partner|placement format keys
+			usage := map[string]accounting.ProjectUsage{
+				// Same partner with different placements should be aggregated
+				"partner|0": {
+					Storage:      10000000000,             // Byte-hours
+					Egress:       100 * memory.GB.Int64(), // Bytes
+					SegmentCount: 200000,                  // Segment-Hours
+				},
+				"partner|3": {
+					Storage:      20000000000,             // Byte-hours
+					Egress:       200 * memory.GB.Int64(), // Bytes
+					SegmentCount: 300000,                  // Segment-Hours
+				},
+				// Different partner should remain separate
+				"other|0": {
+					Storage:      5000000000,             // Byte-hours
+					Egress:       50 * memory.GB.Int64(), // Bytes
+					SegmentCount: 100000,                 // Segment-Hours
+				},
+			}
+
+			items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
+
+			// Should have 6 items total: 3 for "partner" (aggregated), 3 for "other"
+			require.Len(t, items, 6)
+
+			// Verify aggregated usage for "partner"
+			expectedPartnerUsage := accounting.ProjectUsage{
+				Storage:      30000000000,             // 10B + 20B
+				Egress:       300 * memory.GB.Int64(), // 100GB + 200GB
+				SegmentCount: 500000,                  // 200k + 300k
+			}
+			// Apply egress discount
+			expectedPartnerUsage.Egress -= int64(math.Round(expectedPartnerUsage.Storage / hoursPerMonth * partnerModel.EgressDiscountRatio))
+			if expectedPartnerUsage.Egress < 0 {
+				expectedPartnerUsage.Egress = 0
+			}
+
+			expectedPartnerStorageQuantity := int64(math.Round(expectedPartnerUsage.Storage / float64(hoursPerMonth*bytesPerMegabyte)))
+			expectedPartnerEgressQuantity := int64(math.Round(float64(expectedPartnerUsage.Egress) / float64(bytesPerMegabyte)))
+			expectedPartnerSegmentQuantity := int64(math.Round(expectedPartnerUsage.SegmentCount / hoursPerMonth))
+
+			// Find items for "partner" (should be sorted alphabetically, so "other" comes first)
+			var partnerItems []*stripe.InvoiceItemParams
+			for _, item := range items {
+				if strings.Contains(*item.Description, "(partner)") {
+					partnerItems = append(partnerItems, item)
+				}
+			}
+			require.Len(t, partnerItems, 3)
+
+			// Verify storage item
+			require.Equal(t, "Project my-project (partner) - Storage (MB-Month)", *partnerItems[0].Description)
+			require.Equal(t, expectedPartnerStorageQuantity, *partnerItems[0].Quantity)
+			storagePrice, _ := partnerModel.StorageMBMonthCents.Float64()
+			require.Equal(t, storagePrice, *partnerItems[0].UnitAmountDecimal)
+
+			// Verify egress item
+			require.Equal(t, "Project my-project (partner) - Egress Bandwidth (MB)", *partnerItems[1].Description)
+			require.Equal(t, expectedPartnerEgressQuantity, *partnerItems[1].Quantity)
+			egressPrice, _ := partnerModel.EgressMBCents.Float64()
+			require.Equal(t, egressPrice, *partnerItems[1].UnitAmountDecimal)
+
+			// Verify segment item
+			require.Equal(t, "Project my-project (partner) - Segment Fee (Segment-Month)", *partnerItems[2].Description)
+			require.Equal(t, expectedPartnerSegmentQuantity, *partnerItems[2].Quantity)
+			segmentPrice, _ := partnerModel.SegmentMonthCents.Float64()
+			require.Equal(t, segmentPrice, *partnerItems[2].UnitAmountDecimal)
+		})
 	})
 }
 
