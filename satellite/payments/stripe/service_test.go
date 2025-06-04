@@ -2103,9 +2103,14 @@ func TestService_CreateInvoice(t *testing.T) {
 		user := &console.User{CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC)}
 		cusID := "cus_xxx"
 
-		p := planet.Satellites[0].API.Payments
+		sat := planet.Satellites[0]
+		p := sat.API.Payments
+		db := sat.API.DB
 		stripeService := p.StripeService
 		stripeClient := p.StripeClient
+
+		err := db.StripeCoinPayments().Customers().Insert(ctx, user.ID, cusID)
+		require.NoError(t, err)
 
 		invoiceItem := &stripe.InvoiceItemParams{
 			Params:   stripe.Params{Context: ctx},
@@ -2133,7 +2138,7 @@ func TestService_CreateInvoice(t *testing.T) {
 		t.Run("minimum charge applies, draft invoice does not exist", func(t *testing.T) {
 			stripeService.TestSetMinimumChargeCfg(5_000, nil)
 
-			_, err := stripeClient.InvoiceItems().New(invoiceItem)
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
 			require.NoError(t, err)
 
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
@@ -2174,7 +2179,7 @@ func TestService_CreateInvoice(t *testing.T) {
 			// set a minimum of 2 000c, and no pending items so invoice.AmountDue==0.
 			stripeService.TestSetMinimumChargeCfg(2_000, nil)
 
-			_, err := stripeClient.InvoiceItems().New(invoiceItem)
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
 			require.NoError(t, err)
 
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
@@ -2219,7 +2224,7 @@ func TestService_CreateInvoice(t *testing.T) {
 			beforeStart := time.Date(2025, time.April, 1, 0, 0, 0, 0, time.UTC)
 			stripeService.TestSetMinimumChargeCfg(1_000, &beforeStart)
 
-			_, err := stripeClient.InvoiceItems().New(invoiceItem)
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
 			require.NoError(t, err)
 
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
@@ -2228,6 +2233,95 @@ func TestService_CreateInvoice(t *testing.T) {
 
 			_, err = stripeClient.Invoices().Del(inv.ID, nil)
 			require.NoError(t, err)
+		})
+
+		t.Run("package plan", func(t *testing.T) {
+			effectiveDate := time.Date(2025, time.May, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(2_000, &effectiveDate)
+
+			plan := "test-package-plan"
+			purchaseDate, err := time.Parse("2006-01-02", "2025-04-01")
+			require.NoError(t, err)
+
+			_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, &plan, &purchaseDate)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			_, err = stripeClient.CustomerBalanceTransactions().New(&stripe.CustomerBalanceTransactionParams{
+				Params:      stripe.Params{Context: ctx},
+				Customer:    stripe.String(cusID),
+				Amount:      stripe.Int64(-1000),
+				Description: stripe.String(stripe1.StripeDepositTransactionDescription),
+			})
+			require.NoError(t, err)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(100), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			purchaseDate, err = time.Parse("2006-01-02", "2025-05-02")
+			require.NoError(t, err)
+
+			_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, &plan, &purchaseDate)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			inv, err = stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(2000), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, nil, nil)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			inv, err = stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(2000), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("positive token balance → skip minimum charge", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(1_000, nil)
+
+			tokenBalance := currency.AmountFromBaseUnits(1000, currency.USDollars)
+
+			_, err = db.Billing().Insert(ctx, billing.Transaction{
+				UserID:      user.ID,
+				Amount:      tokenBalance,
+				Description: "token payment credit",
+				Source:      billing.StorjScanEthereumSource,
+				Status:      billing.TransactionStatusCompleted,
+				Type:        billing.TransactionTypeCredit,
+				Metadata:    nil,
+				Timestamp:   time.Now(),
+				CreatedAt:   time.Now(),
+			})
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(100), inv.AmountDue)
 		})
 	})
 }

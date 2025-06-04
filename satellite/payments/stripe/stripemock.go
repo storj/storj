@@ -983,11 +983,12 @@ func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTran
 		}
 	}
 	tx := &stripe.CustomerBalanceTransaction{
-		Type:        stripe.CustomerBalanceTransactionTypeAdjustment,
-		Amount:      *params.Amount,
-		Description: *params.Description,
-		Metadata:    params.Metadata,
-		Created:     time.Now().Unix(),
+		Type:          stripe.CustomerBalanceTransactionTypeAdjustment,
+		Amount:        *params.Amount,
+		Description:   *params.Description,
+		Metadata:      params.Metadata,
+		Created:       time.Now().Unix(),
+		EndingBalance: *params.Amount,
 	}
 
 	m.transactions[*params.Customer] = append(m.transactions[*params.Customer], tx)

@@ -1394,6 +1394,16 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	applyMinimumCharge := service.minimumChargeAmount > 0 && (minimumChargeDate == nil || !start.Before(*minimumChargeDate))
 
 	if applyMinimumCharge {
+		skip, err := service.shouldSkipMinimumCharge(ctx, cusID, user.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if skip {
+			applyMinimumCharge = false
+		}
+	}
+
+	if applyMinimumCharge {
 		// Edge case:
 		// If some error happens while creating invoices, we should check if an invoice for this customer already exists.
 		// If it does, we should not create a new one because this customer has already been processed.
@@ -1544,6 +1554,63 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	}
 
 	return stripeInvoice, nil
+}
+
+// shouldSkipMinimumCharge returns true if, for the given user, we should
+// not apply a minimum charge (either because they have a positive token balance
+// or because they have an active package plan).
+func (service *Service) shouldSkipMinimumCharge(ctx context.Context, cusID string, userID uuid.UUID) (bool, error) {
+	// 1) Check token balance.
+	monetaryBalance, err := service.billingDB.GetBalance(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	// Truncate to cents, since Stripe only invoices at cent precision.
+	tokenBalance := currency.AmountFromDecimal(
+		monetaryBalance.AsDecimal().Truncate(2),
+		currency.USDollars,
+	)
+	if tokenBalance.BaseUnits() > 0 {
+		return true, nil // there is still a positive balance, skip minimum charge.
+	}
+
+	// 2) Check package plan info.
+	packagePlanInfo, purchaseDate, err := service.Accounts().GetPackageInfo(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	// We check for plan expiration one step before creating an invoice so there is no need to do it here again.
+	// We should just make sure that service.removeExpiredCredit is set to true.
+	if packagePlanInfo != nil && purchaseDate != nil && service.minimumChargeDate != nil {
+		if purchaseDate.After(*service.minimumChargeDate) {
+			return false, nil // User has a package plan, but it was purchased after the minimum charge date, so we should not skip.
+		}
+
+		// Stripe returns list ordered by most recent, so ending balance of the first item is current balance.
+		list := service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{
+			Customer:   stripe.String(cusID),
+			ListParams: stripe.ListParams{Context: ctx, Limit: stripe.Int64(1)},
+		})
+
+		var hasCredit bool
+
+		for list.Next() {
+			tx := list.CustomerBalanceTransaction()
+			// The customer's `balance` after the transaction was applied.
+			// A negative value decreases the amount due on the customer's next invoice.
+			// Which means that if the balance is negative, the customer has credit.
+			if tx.EndingBalance < 0 {
+				hasCredit = true
+				break
+			}
+		}
+
+		return hasCredit, nil // If the user has purchased a package plan before the minimum charge date, we should skip if they have credit.
+	}
+
+	// Otherwise, no reason to skip.
+	return false, nil
 }
 
 // createInvoices creates invoices for Stripe customers.
