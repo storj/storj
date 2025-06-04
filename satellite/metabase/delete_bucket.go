@@ -55,10 +55,8 @@ func (db *DB) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketOb
 	return deletedObjectCount, nil
 }
 
-// DeleteAllBucketObjects deletes all objects in the specified bucket.
-// Deletion performs in batches, so in case of error while processing,
-// this method will return the number of objects deleted to the moment
-// when an error occurs.
+// DeleteAllBucketObjects deletes objects in the specified bucket up to opts.BatchSize number of
+// objects.
 func (p *PostgresAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -87,10 +85,8 @@ func (p *PostgresAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delet
 	return deletedObjectCount, deletedSegmentCount, nil
 }
 
-// DeleteAllBucketObjects deletes all objects in the specified bucket.
-// Deletion performs in batches, so in case of error while processing,
-// this method will return the number of objects deleted to the moment
-// when an error occurs.
+// DeleteAllBucketObjects deletes objects in the specified bucket up to opts.BatchSize number of
+// objects.
 func (c *CockroachAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -115,10 +111,8 @@ func (c *CockroachAdapter) DeleteAllBucketObjects(ctx context.Context, opts Dele
 	return deletedObjectCount, deletedSegmentCount, nil
 }
 
-// DeleteAllBucketObjects deletes all objects in the specified bucket.
-// Deletion performs in batches, so in case of error while processing,
-// this method will return the number of objects deleted to the moment
-// when an error occurs.
+// DeleteAllBucketObjects deletes objects in the specified bucket up to opts.BatchSize number of
+// objects.
 func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjectCount, deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
