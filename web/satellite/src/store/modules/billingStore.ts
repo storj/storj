@@ -77,24 +77,25 @@ export const useBillingStore = defineStore('billing', () => {
 
     const proPlanInfo = computed(() => {
         const minimumCharge = configStore.minimumCharge;
-        const minimumChargeEnabled = minimumCharge.enabled;
         const minimumChargeAmt = minimumCharge.amount;
-        const minimumChargeLink = '<a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly charge</a>';
+        const minimumChargeLink = '<a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly usage fee</a>';
         const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumChargeAmt}.`;
+        // even if startDate is null, priorNoticeEnabled and noticeEnabled will be false
+        const isAfterStartDate = new Date() >= (minimumCharge.startDate ?? new Date());
 
         let subtitle = `Pay-as-you-go`;
-        if (minimumCharge.proNoticeEnabled) {
-            subtitle += `. A ${minimumChargeLink} of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
-        } else if (minimumChargeEnabled) {
+        if (minimumCharge.priorNoticeEnabled) {
+            subtitle += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
+        } else if (minimumCharge.noticeEnabled) {
             subtitle += `, ${minimumChargeTxt}`;
         } else {
             subtitle += ', no minimum';
         }
 
         let activationDesc = 'Add a credit card to activate your pro account. Only pay for what you use';
-        if (minimumCharge.proNoticeEnabled) {
-            activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
-        } else if (minimumChargeEnabled) {
+        if (minimumCharge.priorNoticeEnabled) {
+            activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
+        } else if (minimumCharge.noticeEnabled) {
             activationDesc += `, ${minimumChargeTxt}`;
         } else {
             activationDesc += ', no minimum. Billed monthly.';
