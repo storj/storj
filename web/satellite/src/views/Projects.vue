@@ -5,6 +5,8 @@
     <v-container>
         <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
+        <minimum-charge-banner v-if="billingEnabled" />
+
         <card-expire-banner />
 
         <low-token-balance-banner
@@ -148,6 +150,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
+import MinimumChargeBanner from '@/components/MinimumChargeBanner.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
