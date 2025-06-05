@@ -1870,6 +1870,93 @@ func TestChangeEmail(t *testing.T) {
 	})
 }
 
+func TestShouldApplyMinimumCharge(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.MinimumCharge.Amount = 500
+				config.Payments.MinimumCharge.EffectiveDate = "2025-08-01"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		service := sat.API.Console.Service.Payments()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test minimum charge",
+			Email:    "min.charge@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		customerID, err := db.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, customerID)
+
+		tokenBalance := currency.AmountFromBaseUnits(1000, currency.USDollars)
+
+		tx := billing.Transaction{
+			UserID:      user.ID,
+			Amount:      tokenBalance,
+			Description: "token payment credit",
+			Source:      billing.StorjScanEthereumSource,
+			Status:      billing.TransactionStatusCompleted,
+			Type:        billing.TransactionTypeCredit,
+			Metadata:    nil,
+			Timestamp:   time.Now(),
+			CreatedAt:   time.Now(),
+		}
+		_, err = db.Billing().Insert(ctx, tx)
+		require.NoError(t, err)
+
+		apply, err := service.ShouldApplyMinimumCharge(userCtx)
+		require.NoError(t, err)
+		require.False(t, apply)
+
+		tokenBalance = currency.AmountFromBaseUnits(-1000, currency.USDollars)
+		tx.Amount = tokenBalance
+
+		_, err = db.Billing().Insert(ctx, tx)
+		require.NoError(t, err)
+
+		apply, err = service.ShouldApplyMinimumCharge(userCtx)
+		require.NoError(t, err)
+		require.True(t, apply)
+
+		testPackage := "test-package"
+		purchaseDate, err := time.Parse("2006-01-02", "2025-07-01")
+		require.NoError(t, err)
+
+		_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, &testPackage, &purchaseDate)
+		require.NoError(t, err)
+
+		apply, err = service.ShouldApplyMinimumCharge(userCtx)
+		require.NoError(t, err)
+		require.False(t, apply)
+
+		purchaseDate, err = time.Parse("2006-01-02", "2025-08-02")
+		require.NoError(t, err)
+
+		_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, &testPackage, &purchaseDate)
+		require.NoError(t, err)
+
+		apply, err = service.ShouldApplyMinimumCharge(userCtx)
+		require.NoError(t, err)
+		require.True(t, apply)
+
+		_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, nil, nil)
+		require.NoError(t, err)
+
+		apply, err = service.ShouldApplyMinimumCharge(userCtx)
+		require.NoError(t, err)
+		require.True(t, apply)
+	})
+}
+
 func TestDeleteProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,

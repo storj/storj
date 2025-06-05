@@ -725,6 +725,46 @@ func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.
 	return payment.service.accounts.ProjectCharges(ctx, user.ID, since, before)
 }
 
+// ShouldApplyMinimumCharge checks if the minimum charge should be applied to the user.
+func (payment Payments) ShouldApplyMinimumCharge(ctx context.Context) (bool, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "should apply minimum charge")
+	if err != nil {
+		return false, ErrUnauthorized.Wrap(err)
+	}
+
+	if payment.service.minimumChargeAmount <= 0 {
+		return false, nil // no minimum charge configured.
+	}
+
+	// Get the user's token balance.
+	// We ignore Stripe balance in this case.
+	b, err := payment.service.billing.GetBalance(ctx, user.ID)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	// Truncate to cents.
+	tokenBalance := currency.AmountFromDecimal(b.AsDecimal().Truncate(2), currency.USDollars)
+	if tokenBalance.BaseUnits() > 0 {
+		return false, nil // there is still a positive token balance, no minimum charge.
+	}
+
+	plan, purchaseDate, err := payment.service.accounts.GetPackageInfo(ctx, user.ID)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	if plan != nil && purchaseDate != nil && payment.service.minimumChargeDate != nil &&
+		purchaseDate.Before(*payment.service.minimumChargeDate) {
+		return false, nil // user has a plan and purchase date is before the minimum charge date, no minimum charge.
+	}
+
+	return true, nil
+}
+
 // AddFunds starts the process of adding funds to the user's account.
 func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsParams) (response *payments.ChargeCardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

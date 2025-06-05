@@ -122,24 +122,35 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	since := time.Unix(sinceStamp, 0).UTC()
 	before := time.Unix(beforeStamp, 0).UTC()
 
+	handleServiceErr := func(svcErr error) {
+		if console.ErrUnauthorized.Has(svcErr) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, svcErr)
+		} else {
+			p.serveJSONError(ctx, w, http.StatusInternalServerError, svcErr)
+		}
+	}
+
 	charges, err := p.service.Payments().ProjectsCharges(ctx, since, before)
 	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
-			return
-		}
+		handleServiceErr(err)
+		return
+	}
 
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	shouldApplyMinimumCharge, err := p.service.Payments().ShouldApplyMinimumCharge(ctx)
+	if err != nil {
+		handleServiceErr(err)
 		return
 	}
 
 	var response struct {
-		PriceModels map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
-		Charges     payments.ProjectChargesResponse            `json:"charges"`
+		PriceModels        map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
+		Charges            payments.ProjectChargesResponse            `json:"charges"`
+		ApplyMinimumCharge bool                                       `json:"applyMinimumCharge"`
 	}
 
 	response.Charges = charges
 	response.PriceModels = make(map[string]payments.ProjectUsagePriceModel)
+	response.ApplyMinimumCharge = shouldApplyMinimumCharge
 
 	seen := make(map[string]struct{})
 	for _, partnerCharges := range charges {
