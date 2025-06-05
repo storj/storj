@@ -688,6 +688,20 @@ func newRecord(k Key) Record {
 	}
 }
 
+func rngFromKey(key Key) *mwc.T {
+	return mwc.New(
+		binary.LittleEndian.Uint64(key[0:8]),
+		binary.LittleEndian.Uint64(key[8:16]),
+	)
+}
+
+func dataFromKey(key Key) []byte {
+	rng := rngFromKey(key)
+	buf := make([]byte, rng.Intn(1024))
+	_, _ = rng.Read(buf)
+	return buf
+}
+
 func alwaysTrash(ctx context.Context, key Key, created time.Time) bool {
 	return true
 }
