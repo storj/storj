@@ -430,6 +430,7 @@ type ProjectChargesJSON = {
             };
         };
     }
+    applyMinimumCharge: boolean;
 };
 
 /**
@@ -439,6 +440,7 @@ type ProjectChargesJSON = {
 export class ProjectCharges {
     private map = new Map<string, Map<string, ProjectCharge>>();
     private priceModels = new Map<string, UsagePriceModel>();
+    public applyMinimumCharge = false;
 
     /**
      * Set the usage charge for a project and partner.
@@ -568,6 +570,8 @@ export class ProjectCharges {
      */
     public static fromJSON(json: ProjectChargesJSON): ProjectCharges {
         const charges = new ProjectCharges();
+
+        charges.applyMinimumCharge = json.applyMinimumCharge;
 
         Object.entries(json.priceModels).forEach(([partner, model]) => {
             charges.setUsagePriceModel(partner, new UsagePriceModel(

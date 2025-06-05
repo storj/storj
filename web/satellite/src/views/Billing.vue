@@ -362,9 +362,17 @@ const projectIDs = computed((): string[] => {
         .map(proj => proj.id);
 });
 
+const userPaidTier = computed<boolean>(() => usersStore.state.user.paidTier);
+
 const willMinimumChargeBeApplied = computed(() => {
     const { enabled, startDate } = minimumChargeCfg.value;
-    return enabled && (!startDate || Date.now() >= startDate.getTime()) && priceSummary.value < minimumChargeCfg.value._amount;
+
+    return enabled &&
+        userPaidTier.value &&
+        projectCharges.value.applyMinimumCharge &&
+        priceSummary.value > 0 &&
+        (!startDate || Date.now() >= startDate.getTime()) &&
+        priceSummary.value < minimumChargeCfg.value._amount;
 });
 
 const estimatedChargesSubtitle = computed<string>(() => {
@@ -398,10 +406,15 @@ const estimatedChargesTooltipMsg = computed<string>(() => {
 });
 
 /**
+ * Returns the project charges from the billing store.
+ */
+const projectCharges = computed(() => billingStore.state.projectCharges);
+
+/**
  * Returns price summary of all project usages.
  */
 const priceSummary = computed((): number => {
-    return billingStore.state.projectCharges.getPrice();
+    return projectCharges.value.getPrice();
 });
 
 /**
@@ -469,7 +482,7 @@ const isCouponActive = computed((): boolean => {
 });
 
 function onAddTokensClicked(): void {
-    if (!usersStore.state.user.paidTier) {
+    if (!userPaidTier.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
