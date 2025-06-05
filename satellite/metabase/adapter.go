@@ -61,6 +61,8 @@ type Adapter interface {
 	CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error)
 
 	GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error)
+	GetSegmentByPositionForAudit(ctx context.Context, opts GetSegmentByPosition) (segment SegmentForAudit, aliasPieces AliasPieces, err error)
+	GetSegmentByPositionForRepair(ctx context.Context, opts GetSegmentByPosition) (segment SegmentForRepair, aliasPieces AliasPieces, err error)
 	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error)
 	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
 	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error)

@@ -433,28 +433,41 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 func (db *DB) GetSegmentByPositionForAudit(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForAudit, err error) {
-	// TODO(storj/storj-7491): implement this method to avoid fetching encrypted fields from database
-	// For now, just use the full one and remove the fields to validate the replacements
-	s, err := db.GetSegmentByPosition(ctx, opts)
-	if err != nil {
-		return segment, err
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return SegmentForAudit{}, err
 	}
 
-	return SegmentForAudit{
-		StreamID:      s.StreamID,
-		Position:      s.Position,
-		CreatedAt:     s.CreatedAt,
-		RepairedAt:    s.RepairedAt,
-		ExpiresAt:     s.ExpiresAt,
-		RootPieceID:   s.RootPieceID,
-		EncryptedSize: s.EncryptedSize,
-		PlainSize:     s.PlainSize,
-		PlainOffset:   s.PlainOffset,
-		Redundancy:    s.Redundancy,
-		InlineData:    s.InlineData,
-		Pieces:        s.Pieces,
-		Placement:     s.Placement,
-	}, nil
+	// check all adapters until a match is found
+	var aliasPieces AliasPieces
+	found := false
+	for _, adapter := range db.adapters {
+		segment, aliasPieces, err = adapter.GetSegmentByPositionForAudit(ctx, opts)
+		if err != nil {
+			if ErrSegmentNotFound.Has(err) {
+				continue
+			}
+			return SegmentForAudit{}, err
+		}
+		found = true
+		break
+	}
+	if !found {
+		return SegmentForAudit{}, ErrSegmentNotFound.New("segment missing")
+	}
+
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return SegmentForAudit{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	segment.StreamID = opts.StreamID
+	segment.Position = opts.Position
+
+	return segment, nil
 }
 
 // GetSegmentByPositionForRepair returns information about segment on the specified position for the
@@ -462,28 +475,41 @@ func (db *DB) GetSegmentByPositionForAudit(
 func (db *DB) GetSegmentByPositionForRepair(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForRepair, err error) {
-	// TODO(storj/storj-7491): implement this method to avoid fetching encrypted fields from database
-	// For now, just use the full one and remove the fields to validate the replacements
-	s, err := db.GetSegmentByPosition(ctx, opts)
-	if err != nil {
-		return segment, err
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return SegmentForRepair{}, err
 	}
 
-	return SegmentForRepair{
-		StreamID:      s.StreamID,
-		Position:      s.Position,
-		CreatedAt:     s.CreatedAt,
-		RepairedAt:    s.RepairedAt,
-		ExpiresAt:     s.ExpiresAt,
-		RootPieceID:   s.RootPieceID,
-		EncryptedSize: s.EncryptedSize,
-		PlainSize:     s.PlainSize,
-		PlainOffset:   s.PlainOffset,
-		Redundancy:    s.Redundancy,
-		InlineData:    s.InlineData,
-		Pieces:        s.Pieces,
-		Placement:     s.Placement,
-	}, nil
+	// check all adapters until a match is found
+	var aliasPieces AliasPieces
+	found := false
+	for _, adapter := range db.adapters {
+		segment, aliasPieces, err = adapter.GetSegmentByPositionForRepair(ctx, opts)
+		if err != nil {
+			if ErrSegmentNotFound.Has(err) {
+				continue
+			}
+			return SegmentForRepair{}, err
+		}
+		found = true
+		break
+	}
+	if !found {
+		return SegmentForRepair{}, ErrSegmentNotFound.New("segment missing")
+	}
+
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return SegmentForRepair{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	segment.StreamID = opts.StreamID
+	segment.Position = opts.Position
+
+	return segment, nil
 }
 
 // GetSegmentByPosition returns information about segment on the specified position.
@@ -521,6 +547,7 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
+	// TODO(storj/storj#7491): Change this query to use Spanner Read API
 	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -554,6 +581,159 @@ func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegme
 			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
 		}
 		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, nil
+}
+
+// GetSegmentByPositionForAudit returns information about segment on the specified position for the
+// audit functionality.
+func (p *PostgresAdapter) GetSegmentByPositionForAudit(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
+	err = p.db.QueryRowContext(ctx, `
+		SELECT
+			created_at, expires_at, repaired_at,
+			root_piece_id,
+			encrypted_size, plain_offset, plain_size,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE (stream_id, position) = ($1, $2)
+	`, opts.StreamID, opts.Position.Encode()).
+		Scan(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.Redundancy,
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForAudit{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, err
+}
+
+// GetSegmentByPositionForAudit returns information about segment on the specified position for the
+// audit functionality.
+func (s *SpannerAdapter) GetSegmentByPositionForAudit(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
+	// TODO(storj/storj#7491): Change this query to use Spanner Read API
+	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				created_at, expires_at, repaired_at,
+				root_piece_id,
+				encrypted_size, plain_offset, plain_size,
+				redundancy,
+				inline_data, remote_alias_pieces,
+				placement
+			FROM segments
+			WHERE (stream_id, position) = (@stream_id, @position)
+		`,
+		Params: map[string]interface{}{
+			"stream_id": opts.StreamID,
+			"position":  opts.Position,
+		},
+	}), func(row *spanner.Row, segment *SegmentForAudit) error {
+		return Error.Wrap(row.Columns(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+			&segment.Redundancy,
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		))
+	})
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForAudit{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, nil
+}
+
+// GetSegmentByPositionForRepair returns information about segment on the specified position for the
+// repair functionality.
+func (p *PostgresAdapter) GetSegmentByPositionForRepair(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
+	err = p.db.QueryRowContext(ctx, `
+		SELECT
+			created_at, expires_at, repaired_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE (stream_id, position) = ($1, $2)
+	`, opts.StreamID, opts.Position.Encode()).
+		Scan(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.Redundancy,
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForRepair{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, err
+}
+
+// GetSegmentByPositionForRepair returns information about segment on the specified position for the
+// repair functionality.
+func (s *SpannerAdapter) GetSegmentByPositionForRepair(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
+	// TODO(storj/storj#7491): Change this query to use Spanner Read API
+	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				created_at, expires_at, repaired_at,
+				root_piece_id,
+				encrypted_size, plain_offset, plain_size,
+				redundancy,
+				inline_data, remote_alias_pieces,
+				placement
+			FROM segments
+			WHERE (stream_id, position) = (@stream_id, @position)
+		`,
+		Params: map[string]interface{}{
+			"stream_id": opts.StreamID,
+			"position":  opts.Position,
+		},
+	}), func(row *spanner.Row, segment *SegmentForRepair) error {
+		return Error.Wrap(row.Columns(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+			&segment.Redundancy,
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		))
+	})
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForRepair{}, nil, Error.New("unable to query segment: %w", err)
 	}
 
 	return segment, aliasPieces, nil
