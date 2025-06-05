@@ -26,6 +26,7 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -35,6 +36,7 @@ import (
 
 var (
 	mon = monkit.Package()
+	evs = eventkit.Package()
 
 	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit.
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
@@ -200,6 +202,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			zap.Stringer("Node ID", share.NodeID),
 			zap.String("Segment", segmentInfoString(segment)),
 			zap.Stringer("Piece ID", pieceID),
+			zap.Uint16("Placement", uint16(segmentInfo.Placement)),
 			zap.Error(share.Error),
 		)
 
@@ -217,7 +220,15 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 					Number:      uint16(share.PieceNum),
 					StorageNode: share.NodeID,
 				})
-				errLogger.Info("Verify: piece not found (audit failed)")
+
+				evs.Event("audit-piece-not-found",
+					eventkit.Bytes("node-id", share.NodeID.Bytes()),
+					eventkit.String("stream-id", segment.StreamID.String()),
+					eventkit.Int64("stream-position", int64(segment.Position.Encode())),
+					eventkit.Int64("piece-num", int64(share.PieceNum)),
+					eventkit.Int64("placement", int64(segmentInfo.Placement)),
+				)
+				errLogger.Info("Verify: piece not found (audit failed)", zap.Int("piece-num", share.PieceNum))
 				continue
 			}
 
