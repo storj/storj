@@ -124,6 +124,8 @@ type Service struct {
 	placementProductMap   payments.PlacementProductIdMap
 	productPriceMap       map[int32]payments.ProductUsagePriceModel
 
+	deleteProjectCostThreshold int64
+
 	minimumChargeAmount int64
 	minimumChargeDate   *time.Time // nil to apply immediately
 }
@@ -136,7 +138,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 	productPriceMap map[int32]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap,
 	placementProductMap payments.PlacementProductIdMap, packagePlans map[string]payments.PackagePlan, bonusRate int64,
 	analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool,
-	minimumChargeAmount int64, minimumChargeDate *time.Time,
+	deleteProjectCostThreshold, minimumChargeAmount int64, minimumChargeDate *time.Time,
 ) (*Service, error) {
 	var partners []string
 	addedPartners := make(map[string]struct{})
@@ -185,6 +187,8 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		placementProductMap:    placementProductMap,
 		productPriceMap:        productPriceMap,
 		deleteAccountEnabled:   deleteAccountEnabled,
+
+		deleteProjectCostThreshold: deleteProjectCostThreshold,
 
 		minimumChargeAmount: minimumChargeAmount,
 		minimumChargeDate:   minimumChargeDate,
@@ -830,29 +834,7 @@ func (service *Service) ProcessRecord(
 
 	// Process each partner/placement usage entry.
 	for key, usage := range usages {
-		partner := ""
-		placement := int(storj.DefaultPlacement)
-
-		// Split the key to extract partner and placement.
-		parts := strings.Split(key, "|")
-		if len(parts) >= 1 {
-			partner = parts[0]
-		}
-		if len(parts) >= 2 {
-			placement64, err := strconv.ParseInt(parts[1], 10, 32)
-			if err == nil {
-				placement = int(placement64)
-			}
-		}
-
-		// Get price model for the partner and placement.
-		productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(partner, storj.PlacementConstraint(placement))
-		if err != nil {
-			service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
-			// Use partner-only price model as a fallback.
-			// This should be removed once the tests are updated
-			priceModel = service.Accounts().GetProjectUsagePriceModel(partner)
-		}
+		productID, priceModel := service.productIdAndPriceForUsageKey(key)
 
 		// Create or update the product usage entry.
 		if existingUsage, ok := productUsages[productID]; ok {
@@ -884,6 +866,33 @@ func (service *Service) ProcessRecord(
 	}
 
 	return false, nil
+}
+
+func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payments.ProjectUsagePriceModel) {
+	partner := ""
+	placement := int(storj.DefaultPlacement)
+
+	// Split the key to extract partner and placement.
+	parts := strings.Split(key, "|")
+	if len(parts) >= 1 {
+		partner = parts[0]
+	}
+	if len(parts) >= 2 {
+		placement64, err := strconv.ParseInt(parts[1], 10, 32)
+		if err == nil {
+			placement = int(placement64)
+		}
+	}
+
+	// Get price model for the partner and placement.
+	productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(partner, storj.PlacementConstraint(placement))
+	if err != nil {
+		service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
+		// Use partner-only price model as a fallback.
+		// This should be removed once the tests are updated
+		priceModel = service.Accounts().GetProjectUsagePriceModel(partner)
+	}
+	return productID, priceModel
 }
 
 // InvoiceItemsFromTotalProjectUsages calculates per-product Stripe invoice items from total project usages.
