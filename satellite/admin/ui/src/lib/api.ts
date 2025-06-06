@@ -7,8 +7,7 @@
  * `UIGenerator.svelte` component to dynamically render their Web UI interface.
  */
 
-import type { Operation } from '$lib/ui-generator';
-import { InputText, Select } from '$lib/ui-generator';
+import { InputText, Select, Operation } from '$lib/ui-generator';
 
 // API must be implemented by any class which expose the access to a specific
 // API.
@@ -279,7 +278,7 @@ export class Admin {
 			},
 			{
 				name: 'billing freeze user',
-				desc: "insert user into account_freeze_events and set user's limits to zero",
+				desc: `insert user into account_freeze_events and set user's limits to zero`,
 				params: [['email', new InputText('email', true)]],
 				func: async (email: string): Promise<null> => {
 					return this.fetch('PUT', `users/${email}/billing-freeze`) as Promise<null>;
@@ -376,6 +375,23 @@ export class Admin {
 					return this.fetch('PATCH', `users/${currentEmail}/external-id`, null, {
 						externalID: externalID.toUpperCase() === 'NULL' ? null : externalID
 					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'update user kind',
+				desc: 'Set the kind of user to either 0 (Free User) or 1 (Paid User)',
+				params: [
+					['email', new InputText('email', true)],
+					[
+						'kind',
+						new Select(false, true, [
+							{ text: 'Free User', value: 0 },
+							{ text: 'Paid User', value: 1 }
+						])
+					]
+				],
+				func: async (email: string, kind: number): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/kind/${kind}`) as Promise<null>;
 				}
 			},
 			{

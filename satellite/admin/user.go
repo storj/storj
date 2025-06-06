@@ -413,7 +413,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 
 	type UserWithPaidTier struct {
 		console.User
-		PaidTierStr string `json:"paidTierStr"`
+		UserKind *console.UserKind `json:"userKind"`
 	}
 
 	var input UserWithPaidTier
@@ -452,22 +452,18 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	if input.ProjectSegmentLimit > 0 {
 		updateRequest.ProjectSegmentLimit = &input.ProjectSegmentLimit
 	}
-	if input.PaidTierStr != "" {
-		status, err := strconv.ParseBool(input.PaidTierStr)
-		if err != nil {
-			sendJSONError(w, "failed to parse paid tier status",
-				err.Error(), http.StatusBadRequest)
+	if input.UserKind != nil {
+		if *input.UserKind != console.FreeUser && *input.UserKind != console.PaidUser {
+			sendJSONError(w, fmt.Sprintf("invalid user kind %d. Valid values are %d (FreeUser) and %d (PaidUser)", *input.UserKind, console.FreeUser, console.PaidUser),
+				"", http.StatusBadRequest)
 			return
 		}
 
-		userType := console.FreeUser
-
-		if status {
+		updateRequest.Kind = input.UserKind
+		if *input.UserKind == console.PaidUser {
 			now := server.nowFn()
 			updateRequest.UpgradeTime = &now
-			userType = console.PaidUser
 		}
-		updateRequest.Kind = &userType
 	}
 
 	code, errMsg, details := server.updateUserData(ctx, email, updateRequest)
@@ -483,8 +479,7 @@ func (server *Server) updateUserStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	email, ok := vars["useremail"]
 	if !ok {
-		sendJSONError(w, "user-email missing",
-			"", http.StatusBadRequest)
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
 		return
 	}
 
@@ -514,6 +509,52 @@ func (server *Server) updateUserStatus(w http.ResponseWriter, r *http.Request) {
 
 	updateRequest := console.UpdateUserRequest{}
 	updateRequest.Status = &status
+	code, errMsg, details := server.updateUserData(ctx, email, updateRequest)
+	if code != 0 {
+		sendJSONError(w, errMsg, details, code)
+		return
+	}
+}
+
+func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	email, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	var kind console.UserKind
+	{
+		s, ok := vars["userkind"]
+		if !ok {
+			sendJSONError(w, "user kind missing", "", http.StatusBadRequest)
+			return
+		}
+
+		i, err := strconv.Atoi(s)
+		if err != nil {
+			sendJSONError(w, "invalid user kind. int required", "", http.StatusBadRequest)
+			return
+		}
+
+		kind = console.UserKind(i)
+		if kind != console.FreeUser && kind != console.PaidUser {
+			sendJSONError(w, fmt.Sprintf("invalid user kind %d. Valid values are %d (FreeUser) and %d (PaidUser)", kind, console.FreeUser, console.PaidUser),
+				"", http.StatusBadRequest)
+			return
+		}
+	}
+
+	updateRequest := console.UpdateUserRequest{}
+	updateRequest.Kind = &kind
+	if kind == console.PaidUser {
+		now := server.nowFn()
+		updateRequest.UpgradeTime = &now
+	}
+
 	code, errMsg, details := server.updateUserData(ctx, email, updateRequest)
 	if code != 0 {
 		sendJSONError(w, errMsg, details, code)
@@ -1310,6 +1351,10 @@ func (server *Server) updateUserData(
 		if existingUser != nil {
 			return http.StatusConflict, "user with email already exists " + *userUpdate.Email, ""
 		}
+	}
+	if userUpdate.Kind != nil && user.UpgradeTime != nil {
+		// do not overwrite UpgradeTime if it is already set
+		userUpdate.UpgradeTime = nil
 	}
 
 	err = server.db.Console().Users().Update(ctx, user.ID, userUpdate)

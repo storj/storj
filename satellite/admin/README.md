@@ -34,6 +34,7 @@ Requires setting `Authorization` header for requests.
             * [PATCH /api/users/{user-email}/trial-expiration](#patch-apiusersuser-emailtrial-expiration)
             * [PATCH /api/users/{user-email}/external-id](#patch-apiusersuser-emailexternal-id)
             * [PUT /api/users/{user-email}/status/{user-status}](#put-apiusersuser-emailstatususer-status)
+            * [PUT /api/users/{user-email}/kind/{user-kind}](#put-apiusersuser-emailkinduser-kind)
         * [OAuth Client Management](#oauth-client-management)
             * [POST /api/oauth/clients](#post-apioauthclients)
             * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
@@ -59,7 +60,7 @@ Requires setting `Authorization` header for requests.
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name} - DEPRECATED](#get-apiprojectsproject-idbucketsbucket-name---deprecated)
             * [PUT /api/projects/{project-id}/buckets/{bucket-name}/placement?id={value}](#put-apiprojectsproject-idbucketsbucket-nameplacementidvalue)
-            * [Value Attributions](#value-attribution)
+            * [Value Attribution](#value-attribution)
                 * [PUT /api/projects/{project-id}/buckets/{bucket-name}/value-attributions?placement={value}](#put-apiprojectsproject-idbucketsbucket-namevalue-attributionsplacementvalue)
         * [Project API Keys Management](#project-api-keys-management)
             * [GET /api/apikeys/{api-key}](#get-apiapikeysapi-key)
@@ -316,6 +317,10 @@ or
 #### PUT /api/users/{user-email}/status/{user-status}
 
 Set the user status to the specified value.
+
+#### PUT /api/users/{user-email}/kind/{user-kind}
+
+Set the user kind to the specified value.
 
 ### OAuth Client Management
 

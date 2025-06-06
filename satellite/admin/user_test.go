@@ -223,10 +223,10 @@ func TestUserUpdate(t *testing.T) {
 				return now
 			})
 
-			// Update paid tier status and usage.
+			// Update user kind and usage.
 			link = "http://" + address.String() + "/api/users/alice+2@mail.test"
 			newUsageLimit := int64(1000)
-			body1 := fmt.Sprintf(`{"projectStorageLimit":%d, "projectBandwidthLimit":%d, "projectSegmentLimit":%d, "paidTierStr":"true"}`, newUsageLimit, newUsageLimit, newUsageLimit)
+			body1 := fmt.Sprintf(`{"projectStorageLimit":%d, "projectBandwidthLimit":%d, "projectSegmentLimit":%d, "userKind":%d}`, newUsageLimit, newUsageLimit, newUsageLimit, console.PaidUser)
 			responseBody = assertReq(ctx, t, link, http.MethodPut, body1, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 			require.Len(t, responseBody, 0)
 
@@ -344,6 +344,46 @@ func TestUserStatusUpdate(t *testing.T) {
 			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/status/%d", user.Email, console.UserStatus(100))
 			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
 			require.Contains(t, string(responseBody), "invalid user status. There isn't any status with this value")
+		})
+	})
+}
+
+func TestUserKindUpdate(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		require.NoError(t, err)
+		require.Equal(t, console.FreeUser, user.Kind)
+
+		t.Run("OK", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.PaidUser)
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotEqual(t, user.Kind, updatedUser.Kind)
+			require.Equal(t, updatedUser.Kind, console.PaidUser)
+			require.NotNil(t, updatedUser.UpgradeTime)
+		})
+
+		t.Run("invalid value", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/not-int", user.Email)
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "invalid user kind. int required")
+		})
+
+		t.Run("invalid status", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.UserKind(100))
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "invalid user kind 100")
 		})
 	})
 }
