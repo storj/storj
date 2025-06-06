@@ -6,6 +6,7 @@ package hashstore
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -281,10 +282,18 @@ func (h *Writer) Close() (err error) {
 	}
 	defer h.store.lfc.Include(lf)
 
-	// get the current offset so that we are sure we have the correct spot for the record.
+	// set ourselves to the end offset so that we are sure we have the correct spot for the record.
 	offset, err := lf.fh.Seek(0, io.SeekEnd)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	// if we're testing the size and offset, ensure they match.
+	if store_TestLogSizeAndOffset {
+		if size := lf.size.Load(); size != uint64(offset) {
+			panic(fmt.Sprintf("log file size=%d and offset=%d mismatch for %s",
+				size, offset, lf.fh.Name()))
+		}
 	}
 
 	// update the record fields to point at the correct place in the log file.

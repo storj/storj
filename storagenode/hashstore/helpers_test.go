@@ -4,6 +4,7 @@
 package hashstore
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"storj.io/storj/storagenode/hashstore/platform"
 )
@@ -168,6 +171,9 @@ var (
 func init() {
 	// enable ordered rewrite for all tests.
 	compaction_OrderedRewrite = true
+
+	// enable checking log file size and offset
+	store_TestLogSizeAndOffset = true
 }
 
 func temporarily[T any](loc *T, val T) func() {
@@ -246,6 +252,14 @@ func withFilledTable(t *testing.T, keys *[]Key) WithConstructor {
 			}
 		}
 	})
+}
+
+func newMemoryLogger() *zap.Logger {
+	return zap.New(zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		zapcore.AddSync(new(bytes.Buffer)),
+		zapcore.DebugLevel,
+	))
 }
 
 //
@@ -463,7 +477,7 @@ type testStore struct {
 }
 
 func newTestStore(t testing.TB) *testStore {
-	s, err := NewStore(context.Background(), t.TempDir(), "", nil)
+	s, err := NewStore(context.Background(), t.TempDir(), "", newMemoryLogger())
 	assert.NoError(t, err)
 
 	ts := &testStore{t: t, Store: s, today: s.today()}
@@ -556,6 +570,13 @@ func (ts *testStore) AssertExist(key Key) {
 	assert.True(ts.t, ok)
 }
 
+func (ts *testStore) LogFile(key Key) uint64 {
+	rec, ok, err := ts.tbl.Lookup(context.Background(), key)
+	assert.NoError(ts.t, err)
+	assert.True(ts.t, ok)
+	return rec.Log
+}
+
 //
 // db
 //
@@ -569,7 +590,7 @@ func newTestDB(t testing.TB,
 	dead func(context.Context, Key, time.Time) bool,
 	restore func(context.Context) time.Time,
 ) *testDB {
-	db, err := New(context.Background(), t.TempDir(), "", nil, dead, restore)
+	db, err := New(context.Background(), t.TempDir(), "", newMemoryLogger(), dead, restore)
 	assert.NoError(t, err)
 
 	td := &testDB{t: t, DB: db}

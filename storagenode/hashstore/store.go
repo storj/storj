@@ -58,6 +58,12 @@ var (
 
 	// if set, writes to the log file and table are fsync'd to disk.
 	store_SyncWrites = envBool("STORJ_HASHSTORE_STORE_SYNC_WRITES", false)
+
+	// if set to true, the store pretends to not find values in the rewritten index during compaction.
+	store_TestIgnoreRewrittenIndex = false
+
+	// if set to true, the store does extra checks to ensure log file sizes match their seek offset.
+	store_TestLogSizeAndOffset = false
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -1062,7 +1068,7 @@ func (s *Store) compactOnce(
 			// rewritten one. otherwise, we have to rewrite it now. note that the above code may
 			// have changed some fields, so we only want to update the log and offset fields. the
 			// earlier loop ensures that only the log and offset fields are different.
-			if i, ok := ri.findKey(rec.Key); ok {
+			if i, ok := ri.findKey(rec.Key); ok && !store_TestIgnoreRewrittenIndex {
 				rec.Log, rec.Offset = ri.records[i].Log, ri.records[i].Offset
 			} else {
 				rewrittenRec, err := s.rewriteRecord(ctx, rec, rewriteCandidates)
@@ -1207,21 +1213,13 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// acquire a log file to write the entry into. if we're rewriting that log file or the record is
 	// already in that log file, we have to pick a different one.
 	var into *logFile
-	var replace []*logFile
 	for into == nil || rewriteCandidates[into.id] || into.id == rec.Log {
 		into, err = s.acquireLogFile(rec.Expires.Time())
 		if err != nil {
 			return rec, Error.Wrap(err)
 		}
-		// this could simply be `defer s.lfc.Include(into)` but we have ci checks that fail if you
-		// use defer inside of a loop, so we stash them away and do it at the end.
-		replace = append(replace, into)
+		defer s.lfc.Include(into) //nolint intentionally defer in the loop
 	}
-	defer func() {
-		for _, lf := range replace {
-			s.lfc.Include(lf)
-		}
-	}()
 
 	// get the current offset so that we are sure we have the correct spot for the record.
 	offset, err := into.fh.Seek(0, io.SeekEnd)

@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/drpc/drpcsignal"
 )
 
 func TestMain(m *testing.M) {
@@ -120,8 +121,10 @@ func TestCorrectDuringCrashes(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
-	// start the command.
+	// start the command and create a signal to keep track of when it finishes.
 	assert.NoError(t, cmd.Start())
+	var finished drpcsignal.Signal
+	go func() { finished.Set(cmd.Wait()) }()
 
 	// wait until the directory is printed.
 	var dir string
@@ -131,7 +134,11 @@ func TestCorrectDuringCrashes(t *testing.T) {
 			break
 		}
 
-		time.Sleep(time.Millisecond)
+		select {
+		case <-finished.Signal():
+			t.Fatal("process exited early:", finished.Err())
+		case <-time.After(time.Millisecond):
+		}
 	}
 
 	// ensure the directory is what we expect and clean it up when we're done.
@@ -153,12 +160,16 @@ func TestCorrectDuringCrashes(t *testing.T) {
 			break
 		}
 
-		time.Sleep(time.Millisecond)
+		select {
+		case <-finished.Signal():
+			t.Fatal("process exited early:", finished.Err())
+		case <-time.After(time.Millisecond):
+		}
 	}
 
 	// kill and wait for the command to exit.
 	assert.NoError(t, cmd.Process.Kill())
-	_ = cmd.Wait()
+	<-finished.Signal()
 
 	// grab all of the keys out of stdout.
 	var keys []Key

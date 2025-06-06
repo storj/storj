@@ -364,9 +364,7 @@ func (m *MemTbl) Close() {
 	defer m.opMu.Unlock()
 
 	if m.mmap != nil {
-		if err := platform.Munmap(m.mmap); err != nil {
-			panic(err)
-		}
+		_ = platform.Munmap(m.mmap)
 		m.mmap = nil
 	}
 
