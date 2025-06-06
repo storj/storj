@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package metabase_test
@@ -17,18 +17,20 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
-func TestDeleteAllBucketObjects(t *testing.T) {
+func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		// These objects share their project ID and bucket name
 		obj1 := metabasetest.RandObjectStream()
 		obj2 := metabasetest.RandObjectStream()
 		obj3 := metabasetest.RandObjectStream()
+
 		obj2.ProjectID, obj2.BucketName = obj1.ProjectID, obj1.BucketName
 		obj3.ProjectID, obj3.BucketName = obj1.ProjectID, obj1.BucketName
 
 		t.Run("invalid options", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
 				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: metabase.BucketLocation{
 						ProjectID:  uuid.UUID{},
@@ -39,7 +41,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 				ErrText:  "ProjectID missing",
 			}.Check(ctx, t, db)
 
-			metabasetest.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
 				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: metabase.BucketLocation{
 						ProjectID:  uuid.UUID{1},
@@ -56,7 +58,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 		t.Run("empty bucket", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
 				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
@@ -71,7 +73,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 2)
 
-			metabasetest.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
 				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
@@ -86,7 +88,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 0)
 
-			metabasetest.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
 				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
@@ -103,7 +105,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj2, 2)
 			metabasetest.CreateObject(ctx, t, db, obj3, 2)
 
-			metabasetest.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
 				Opts: metabase.DeleteAllBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
@@ -130,7 +132,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 1)
 
-			metabasetest.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
 				Opts: metabase.DeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
@@ -180,7 +182,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 	})
 }
 
-func TestDeleteAllBucketObjectsParallel(t *testing.T) {
+func TestUncoordinatedDeleteAllBucketObjectsParallel(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -199,7 +201,7 @@ func TestDeleteAllBucketObjectsParallel(t *testing.T) {
 		var errgroup errgroup.Group
 		for i := 0; i < 3; i++ {
 			errgroup.Go(func() error {
-				_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+				_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 2,
 				})
@@ -212,7 +214,7 @@ func TestDeleteAllBucketObjectsParallel(t *testing.T) {
 	})
 }
 
-func TestDeleteAllBucketObjectsCancel(t *testing.T) {
+func TestUncoordinatedDeleteAllBucketObjectsCancel(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -220,7 +222,7 @@ func TestDeleteAllBucketObjectsCancel(t *testing.T) {
 
 		testCtx, cancel := context.WithCancel(ctx)
 		cancel()
-		_, err := db.DeleteAllBucketObjects(testCtx, metabase.DeleteAllBucketObjects{
+		_, err := db.UncoordinatedDeleteAllBucketObjects(testCtx, metabase.DeleteAllBucketObjects{
 			Bucket:    object.Location().Bucket(),
 			BatchSize: 2,
 		})
@@ -235,7 +237,7 @@ func TestDeleteAllBucketObjectsCancel(t *testing.T) {
 	})
 }
 
-func TestDeleteBucketWithCopies(t *testing.T) {
+func TestUncoordinatedDeleteBucketWithCopies(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		for _, numberOfSegments := range []int{0, 1, 3} {
 			t.Run(fmt.Sprintf("%d segments", numberOfSegments), func(t *testing.T) {
@@ -260,7 +262,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 						CopyObjectStream: &copyObjectStream,
 					}.Run(ctx, t, db)
 
-					_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  originalObjStream.ProjectID,
 							BucketName: "copy-bucket",
@@ -299,7 +301,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 						CopyObjectStream: &copyObjectStream,
 					}.Run(ctx, t, db)
 
-					_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  originalObjStream.ProjectID,
 							BucketName: "original-bucket",
@@ -363,7 +365,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 					}.Run(ctx, t, db)
 
 					// done preparing, delete bucket 2
-					_, err := db.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  projectID,
 							BucketName: "bucket2",

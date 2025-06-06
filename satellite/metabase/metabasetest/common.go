@@ -31,6 +31,14 @@ func (step DeleteAll) Check(ctx *testcontext.Context, t testing.TB, db *metabase
 // Verify verifies whether metabase state matches the content.
 type Verify metabase.RawState
 
+// Snapshot returns the current objects and segments states that can be used to verify
+// the database later.
+func Snapshot(ctx *testcontext.Context, t testing.TB, db *metabase.DB) Verify {
+	state, err := db.TestingGetState(ctx)
+	require.NoError(t, err)
+	return Verify(*state)
+}
+
 // Check runs the test.
 func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	state, err := db.TestingGetState(ctx)

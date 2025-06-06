@@ -12,6 +12,7 @@ import (
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"google.golang.org/api/iterator"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
@@ -167,6 +168,10 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 				var segmentCount int64
 				if err := row.Columns(&objectKey, &version, &status, &streamID, &segmentCount); err != nil {
 					return Error.Wrap(err)
+				}
+
+				if len(streamID) != len(uuid.UUID{}) {
+					return Error.New("invalid stream id for object %q version %v", objectKey, version)
 				}
 
 				lastDeletedObject = objectKey
