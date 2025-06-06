@@ -24,6 +24,10 @@ type InjuredSegment struct {
 	InsertedAt    time.Time
 
 	Placement storj.PlacementConstraint
+
+	NumNormalizedHealthy     int16
+	NumNormalizedRetrievable int16
+	NumOutOfPlacement        int16
 }
 
 // Stat contains information about a segment of repair queue.
