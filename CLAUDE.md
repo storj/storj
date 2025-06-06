@@ -1,10 +1,12 @@
 # Storj Development Guide for Claude
 
-## Build/Test Commands
+## Build/Test/Lint Commands
 
 - Build: `go build ./...` or `go build ./cmd/[component]`
 - Test All: `make test`
 - Single Test: `go test -v ./package/path -run TestName`
+- Lint: `make llint`
+- Lint only one package: `make llint LINT_TARGET=./<directory>`
 
 ## Code Style Guidelines
 

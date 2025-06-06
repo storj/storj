@@ -1,0 +1,203 @@
+version: "2"
+run:
+  issues-exit-code: 1
+  tests: true
+
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+
+linters:
+  enable:
+    - asasalint                # finds accidentally not passing []any with ...
+    - bidichk                  # find dangerous bidi unicode symbols
+    - bodyclose                # find unclosed http response bodies
+    - dogsled                  # checks for too many ignored arguments
+    - durationcheck            # verifies whether durations are multiplied, usually a mistake
+    - err113                   # check error expressions
+    - errorlint                # finds misuses of errors
+    - gocheckcompilerdirectives # checks that compiler directives are valid
+    - gocritic                 # checks for style, performance issues, and common programming errors
+    - goprintffuncname         # checks that printf-like functions are named with `f` at the end
+    - importas                 # verify that imports are consistent
+    - loggercheck              # checks for proper key-value pairs in logging libraries
+    - makezero                 # verifies that slices use defaults
+    - mirror                   # ensures we use correct method for bytes or strings
+    - misspell                 # check spelling
+    - nakedret                 # check for naked returns
+    - nilerr                   # checks for misuses of `if err != nil { return nil }`
+    - noctx                    # finds locations that should use context
+    - nosprintfhostport        # checks that we use net.JoinHostPort
+    - reassign                 # ensures that global vars aren't reassigned
+    - revive                   # check standard linting rules
+    - sloglint                 # ensures consistency with log/slog package
+    - unconvert                # remove unnecessary conversions
+    - usestdlibvars            # ensures we use std lib constants, such as http.MethodGet
+    - usetesting               # ensure we use t.SetEnv instead of os.SetEnv
+    - wastedassign             # finds assignments that are never used
+
+  disable:
+    # ideally we would enable this, but the code needs fixing
+    - copyloopvar              # code still need to be compatible with older Go
+    - exptostd                 # code still need to be compatible with older Go
+    - intrange                 # code still need to be compatible with older Go
+    - musttag                  # checks that structs have json annotations, code needs non-trivial fixes
+    - gosec                    # needs tweaking
+    # disabled, because they are not a good fit for Storj
+    - asciicheck               # non-ascii is allowed
+    - canonicalheader          # we have a separate linter
+    - containedctx             # gives false positives, however might be good to re-evaluate
+    - contextcheck             # doesn't look like it's useful
+    - cyclop                   # this complexity is not a good metric
+    - decorder                 # not that useful
+    - depguard                 # unused
+    - dupl                     # slow
+    - dupword                  # has false positives, finds duplicated words, has some false positives
+    - errchkjson               # false positives, checks for non-encodable json types
+    - errname                  # we have different approach
+    - exhaustive               # doesn't handle default case
+    - exhaustruct              # too noisy
+    - fatcontext               # has false positives, finds repeated ctx wrapping in a loop
+    - forbidigo                # not useful
+    - forcetypeassert          # too noisy
+    - funlen                   # no limit on func length
+    - gochecknoglobals         # it's fine to have some globals
+    - gochecknoinits           # it's fine to have init
+    - gochecksumtype           # we don't use the annotations
+    - gocognit                 # this complexity is not a good metric
+    - goconst                  # check for things that could be replaced by constants
+    - gocyclo                  # this complexity is not a good metric
+    - godot                    # dots for everything; nice to have, but causes unnecessary interruptions
+    - godox                    # too many false positivies
+    - goheader                 # separate tool
+    - gomoddirectives          # not useful
+    - gomodguard               # not useful
+    - gosmopolitan             # false positives
+    - grouper                  # we have a custom implementation
+    - iface                    # ambiguous
+    - inamedparam              # unnecessary style
+    - interfacebloat           # usually there's a reason for large interfaces
+    - ireturn                  # not that useful for us
+    - lll                      # don't need this check
+    - maintidx                 # code complexity based on halsted V and cyclomatic, both shown to be ineffective
+    - mnd                      # too many irrelevant warnings
+    - nestif                   # noise
+    - nilnesserr               # we use nil, nil values
+    - nilnil                   # we use nil, nil values
+    - nlreturn                 # non-important code style
+    - nolintlint               # checks that nolint directives are correct
+    - nonamedreturns           # we prefer named returns
+    - paralleltest             # too many false positives
+    - perfsprint               # checks that we use fmt.Sprintf when necessary; often worsens code readability
+    - prealloc                 # mostly noise
+    - predeclared              # kind of useful, but not critical
+    - promlinter               # not relevant
+    - recvcheck                # it's valid to mix pointer and non-pointer receiver
+    - rowserrcheck             # checks if sql.Rows.Err is checked correctly - Disabled  because it reports false positive with defer statements after Query call
+    - spancheck                # we don't use open telemetry
+    - sqlclosecheck            # we have tagsql, which checks this better
+    - staticcheck              # we already use staticcheck separately
+    - tagalign                 # noise
+    - tagliatelle              # not our style
+    - testableexamples         # some examples are not testable
+    - testifylint              # mostly noise
+    - testpackage              # sometimes it's useful to have tests on private funcs
+    - thelper                  # too many false positives
+    - tparallel                # false positivies
+    - unparam                  # mostly noise and sometimes it's useful to document functions
+    - unused                   # part of staticcheck
+    - varnamelen               # unenecssary
+    - whitespace               # too much irrelevant noise
+    - wrapcheck                # too much noise and false positives
+    - wsl                      # too much noise
+
+  settings:
+    dupl:
+      threshold: 150
+    dupword:
+      ignore:
+        - "i"
+        - "j"
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+    gocyclo:
+      min-complexity: 10
+    lll:
+      line-length: 140
+      tab-width: 1
+    nakedret:
+      max-func-lines: 30
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+    unparam:
+      check-exported: false
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - err113
+        text: do not define dynamic errors
+      - linters: # uninteresting, it would be nice to be consistent, but we don't want to block the build for it
+          - revive
+        text: if-return
+      - linters: # a lot of false-positives for c exports
+          - revive
+        text: var-naming
+      - linters: # uninteresting, error doesn't need to be the last type
+          - revive
+        text: error-return
+      - linters: # uninteresting, ideally we would have this on, but we need to fix all the packages first
+          - revive
+        text: package-comments
+      - linters: # uninteresting, it would be nice to be consistent, but we don't want to block the build for it
+          - revive
+        text: superfluous-else
+      - linters: # uninteresting, it would be nice to be consistent, but we don't want to block the build for it
+          - revive
+        text: indent-error-flow
+      - linters: # uninteresting, it's common to leave args unused
+          - revive
+        text: unused-parameter
+      - linters: # false positives, see https://github.com/mgechev/revive/issues/810
+          - revive
+        text: empty-block
+      - linters: # uninteresting, it's fine to redefine builtins
+          - revive
+        text: redefines-builtin-id
+    paths:
+      - .*\.pb\.go$
+      - .*\.dbx\.go$
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.pb\.go$
+      - .*\.dbx\.go$
+      - third_party$
+      - builtin$
+      - examples$

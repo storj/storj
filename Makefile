@@ -103,8 +103,8 @@ install-sim: ## install storj-sim
 
 LINT_TARGET="./..."
 
-.PHONY: .lint
-.lint:
+.PHONY: llint
+llint:
 	go run ./scripts/lint.go \
 		-parallel 4 \
 		-race \
@@ -129,7 +129,7 @@ lint:
 		-v ${PWD}:/storj \
 		-w /storj \
 		storjlabs/ci:slim \
-		make .lint LINT_TARGET="$(LINT_TARGET)"
+		make llint LINT_TARGET="$(LINT_TARGET)"
 
 ##@ Test
 
@@ -598,3 +598,11 @@ bump-dependencies:
 
 update-proto-lock:
 	protolock commit --ignore "satellite/internalpb,storagenode/internalpb"
+
+.PHONY: bump-lint
+bump-lint:
+	curl https://raw.githubusercontent.com/storj/ci/refs/heads/main/images/tools | xargs -n1 go get -modfile ./scripts/go.mod -tool
+	curl https://raw.githubusercontent.com/storj/ci/refs/heads/main/images/internal-tools | xargs -n1 go get -modfile ./scripts/go.mod -tool
+	curl https://raw.githubusercontent.com/storj/ci/refs/heads/main/.golangci.yml -o .golangci.yml	
+	cd scripts;\
+		go mod tidy;
