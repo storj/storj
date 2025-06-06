@@ -282,7 +282,7 @@ func (h *Writer) Close() (err error) {
 	defer h.store.lfc.Include(lf)
 
 	// get the current offset so that we are sure we have the correct spot for the record.
-	offset, err := lf.fh.Seek(0, io.SeekCurrent)
+	offset, err := lf.fh.Seek(0, io.SeekEnd)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -299,17 +299,17 @@ func (h *Writer) Close() (err error) {
 	// write the buffer to the log file.
 	if _, err := lf.fh.Write(h.buf); err != nil {
 		// if we couldn't write the piece data or potentially just the record for reconstruction, we
-		// should abort the write operation and attempt to reclaim space by seeking backwards to the
-		// record offset.
-		_, _ = lf.fh.Seek(offset, io.SeekStart)
+		// should abort the write operation and attempt to reclaim space by truncating to the saved
+		// offset.
+		_ = lf.fh.Truncate(offset)
 		return Error.Wrap(err)
 	}
 
 	// add the record to the store.
 	if err := h.store.addRecord(ctx, h.rec); err != nil {
-		// if we can't add the record, we should abort the write operation and attempt to
-		// reclaim space by seeking backwards to the record offset.
-		_, _ = lf.fh.Seek(offset, io.SeekStart)
+		// if we can't add the record, we should abort the write operation and attempt to reclaim
+		// space by truncating to the saved offset.
+		_ = lf.fh.Truncate(offset)
 		return Error.Wrap(err)
 	}
 

@@ -1196,37 +1196,50 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// if multiple concurrent readers or writers were using the file pos at the same time. in the
 	// case of this code it's safe to use Seek because rewriteRecord is only called during
 	// compaction which means there are no writers and compaction does not call it in parallel so
-	// there is only one reader that uses the pos and it must be us.
+	// there is only one reader that uses the pos and it must be us. additionally, all of our log
+	// write operations seek to the end of the file before doing any writing to ensure that any
+	// pos updates that happen here are not a problem.
 	var from io.Reader = r
 	if _, err := r.lf.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
 		from = r.lf.fh // we use io.CopyN below so it will be limited by the length.
 	}
 
-	// acquire a log file to write the entry into. if we're rewriting that log file
-	// we have to pick a different one.
+	// acquire a log file to write the entry into. if we're rewriting that log file or the record is
+	// already in that log file, we have to pick a different one.
 	var into *logFile
+	var replace []*logFile
 	for into == nil || rewriteCandidates[into.id] || into.id == rec.Log {
 		into, err = s.acquireLogFile(rec.Expires.Time())
 		if err != nil {
 			return rec, Error.Wrap(err)
 		}
+		// this could simply be `defer s.lfc.Include(into)` but we have ci checks that fail if you
+		// use defer inside of a loop, so we stash them away and do it at the end.
+		replace = append(replace, into)
 	}
-	defer s.lfc.Include(into)
+	defer func() {
+		for _, lf := range replace {
+			s.lfc.Include(lf)
+		}
+	}()
 
-	// keep track of the log file offset so we can update the record later.
-	offset := into.size.Load()
+	// get the current offset so that we are sure we have the correct spot for the record.
+	offset, err := into.fh.Seek(0, io.SeekEnd)
+	if err != nil {
+		return rec, Error.Wrap(err)
+	}
 
 	// copy the record data.
 	if _, err := io.CopyN(into.fh, from, int64(rec.Length)); err != nil {
 		// if we couldn't write the data, we should abort the write operation and attempt to reclaim
-		// space by seeking backwards to the record offset.
-		_, _ = into.fh.Seek(int64(offset), io.SeekStart)
+		// space by truncating to the saved offset.
+		_ = into.fh.Truncate(offset)
 		return rec, Error.New("writing into compacted log: %w", err)
 	}
 
 	// update the record location.
 	rec.Log = into.id
-	rec.Offset = offset
+	rec.Offset = uint64(offset)
 
 	// append the record to the log file for reconstruction.
 	var buf [RecordSize]byte
@@ -1234,13 +1247,14 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 
 	if _, err := into.fh.Write(buf[:]); err != nil {
 		// if we can't add the record, we should abort the write operation and attempt to reclaim
-		// space by seeking backwards to the record offset.
-		_, _ = into.fh.Seek(int64(offset), io.SeekStart)
+		// space by tuncating to the saved offset.
+		_ = into.fh.Truncate(offset)
 		return rec, Error.New("writing record into compacted log: %w", err)
 	}
 
-	// increase our in-memory estimate of the size of the log file for sorting.
-	into.size.Add(uint64(rec.Length) + RecordSize)
+	// increase our in-memory estimate of the size of the log file for sorting. we use store to
+	// ensure that it maintains correctness if there were some errors in the past.
+	into.size.Store(uint64(offset) + uint64(rec.Length) + uint64(len(buf)))
 
 	// return the updated record.
 	return rec, nil

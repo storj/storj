@@ -501,7 +501,7 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	data := key[:]
-	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
+	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	wr, err := ts.Create(context.Background(), key, expires)
@@ -529,7 +529,7 @@ func (ts *testStore) AssertRead(key Key, opts ...any) {
 	assert.Equal(ts.t, r.Key(), key)
 
 	data := key[:]
-	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
+	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	assert.Equal(ts.t, r.Size(), len(data))
@@ -596,7 +596,7 @@ func (td *testDB) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	data := key[:]
-	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
+	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	wr, err := td.Create(context.Background(), key, expires)
@@ -696,9 +696,12 @@ func rngFromKey(key Key) *mwc.T {
 }
 
 func dataFromKey(key Key) []byte {
-	rng := rngFromKey(key)
-	buf := make([]byte, rng.Intn(1024))
-	_, _ = rng.Read(buf)
+	return dataSizedFromKey(key, rngFromKey(key).Intn(1024))
+}
+
+func dataSizedFromKey(key Key, size int) []byte {
+	buf := make([]byte, size)
+	_, _ = rngFromKey(key).Read(buf)
 	return buf
 }
 

@@ -1373,6 +1373,51 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T) {
 	}
 }
 
+func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	var keys []Key
+	keys = append(keys, s.AssertCreate(WithDataSize(512)))
+	keys = append(keys, s.AssertCreate(WithDataSize(512)))
+	keys = append(keys, s.AssertCreate(WithDataSize(512), WithTTL(time.Unix(1, 0))))
+	keys = append(keys, s.AssertCreate(WithDataSize(512), WithTTL(time.Unix(1, 0))))
+
+	activity := make(chan struct{})
+	errCh := make(chan error)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		errCh <- s.Compact(ctx,
+			func(ctx context.Context, key Key, created time.Time) bool {
+				activity <- struct{}{}
+				select {
+				case <-activity:
+				case <-ctx.Done():
+				}
+				return true // we return true so that compaction doesn't exit early.
+			}, time.Time{})
+	}()
+
+	// allow the first shouldTrash call to proceed: this is checking if modiciations are necessary.
+	<-activity
+	activity <- struct{}{}
+
+	// allow the next shouldTrash call to start. after that, the two alive keys have been rewritten.
+	// cancel the compaction before it can finish.
+	<-activity
+	cancel()
+	assert.Error(t, <-errCh)
+
+	// add some new data and ensure we can read everything still.
+	keys = append(keys, s.AssertCreate(WithDataSize(512)))
+	for _, key := range keys {
+		s.AssertRead(key, WithDataSize(512))
+	}
+}
+
 //
 // benchmarks
 //
