@@ -2453,7 +2453,6 @@ func getRemoteSegment(
 		RootPieceID:   segments[0].RootPieceID,
 		EncryptedSize: segments[0].EncryptedSize,
 		Redundancy:    segments[0].Redundancy,
-		InlineData:    segments[0].InlineData,
 		Pieces:        segments[0].Pieces,
 		Placement:     segments[0].Placement,
 	}

@@ -67,16 +67,11 @@ type SegmentForRepair struct {
 	RepairedAt *time.Time
 	ExpiresAt  *time.Time
 
-	RootPieceID storj.PieceID
-
+	RootPieceID   storj.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
-
-	Redundancy storj.RedundancyScheme
-
-	InlineData []byte
-	Pieces     Pieces
-
-	Placement storj.PlacementConstraint
+	Redundancy    storj.RedundancyScheme
+	Pieces        Pieces
+	Placement     storj.PlacementConstraint
 }
 
 // Inline returns true if segment is inline.
@@ -96,11 +91,6 @@ func (s SegmentForRepair) PieceSize() int64 {
 
 // SegmentForAudit defines the segment data required for the audit functionality.
 type SegmentForAudit SegmentForRepair
-
-// Inline returns true if segment is inline.
-func (s SegmentForAudit) Inline() bool {
-	return s.Redundancy.IsZero() && len(s.Pieces) == 0
-}
 
 // Expired checks if segment is expired relative to now.
 func (s SegmentForAudit) Expired(now time.Time) bool {
@@ -586,7 +576,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 			root_piece_id,
 			encrypted_size,
 			redundancy,
-			inline_data, remote_alias_pieces,
+			remote_alias_pieces,
 			placement
 		FROM segments
 		WHERE (stream_id, position) = ($1, $2)
@@ -596,7 +586,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 			&segment.RootPieceID,
 			&segment.EncryptedSize,
 			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
+			&aliasPieces,
 			&segment.Placement,
 		)
 	if err != nil {
@@ -619,7 +609,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForAudit(
 		"root_piece_id",
 		"encrypted_size",
 		"redundancy",
-		"inline_data", "remote_alias_pieces",
+		"remote_alias_pieces",
 		"placement",
 	})
 	if err != nil {
@@ -634,7 +624,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForAudit(
 		&segment.RootPieceID,
 		spannerutil.Int(&segment.EncryptedSize),
 		&segment.Redundancy,
-		&segment.InlineData, &aliasPieces,
+		&aliasPieces,
 		&segment.Placement,
 	)
 	if err != nil {
@@ -656,7 +646,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 			encrypted_size,
 			encrypted_etag,
 			redundancy,
-			inline_data, remote_alias_pieces,
+			remote_alias_pieces,
 			placement
 		FROM segments
 		WHERE (stream_id, position) = ($1, $2)
@@ -666,7 +656,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 			&segment.RootPieceID,
 			&segment.EncryptedSize,
 			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
+			&aliasPieces,
 			&segment.Placement,
 		)
 	if err != nil {
@@ -689,7 +679,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForRepair(
 		"root_piece_id",
 		"encrypted_size",
 		"redundancy",
-		"inline_data", "remote_alias_pieces",
+		"remote_alias_pieces",
 		"placement",
 	})
 	if err != nil {
@@ -704,7 +694,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForRepair(
 		&segment.RootPieceID,
 		spannerutil.Int(&segment.EncryptedSize),
 		&segment.Redundancy,
-		&segment.InlineData, &aliasPieces,
+		&aliasPieces,
 		&segment.Placement,
 	)
 	if err != nil {
