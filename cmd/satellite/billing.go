@@ -94,6 +94,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName, runCfg.Console.ExternalAddress),
 		emission.NewService(runCfg.Emission),
 		runCfg.Console.SelfServeAccountDeleteEnabled,
+		pc.DeleteProjectCostThreshold,
 		pc.MinimumCharge.Amount,
 		minimumChargeDate,
 	)

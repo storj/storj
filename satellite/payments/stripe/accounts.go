@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 
@@ -595,28 +596,70 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 	year, month, _ := accounts.service.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	// check current month usage and do not allow deletion if usage exists
-	currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
+	if accounts.service.deleteProjectCostThreshold == 0 {
+		// check current month usage and do not allow deletion if usage exists
+		currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
+		if err != nil {
+			return false, false, err
+		}
+		if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
+			return true, false, payments.ErrUnbilledUsageCurrentMonth
+		}
+
+		// check usage for last month, if exists, ensure we have an invoice item created.
+		lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+		if err != nil {
+			return false, false, err
+		}
+		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+			err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+			if !errs.Is(err, ErrProjectRecordExists) {
+				return false, true, payments.ErrUnbilledUsageLastMonth
+			}
+		}
+
+		return false, false, nil
+	}
+
+	getCostTotal := func(start, before time.Time) (decimal.Decimal, error) {
+		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, accounts.service.partnerNames, start, before)
+		if err != nil {
+			return decimal.Zero, err
+		}
+
+		total := decimal.Zero
+		for key, usage := range usages {
+			_, priceModel := accounts.service.productIdAndPriceForUsageKey(key)
+			usage.Egress = applyEgressDiscount(usage, priceModel)
+			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)
+
+			total = total.Add(price.Total())
+		}
+		return total, nil
+	}
+
+	total, err := getCostTotal(firstOfMonth, accounts.service.nowFn())
 	if err != nil {
 		return false, false, err
 	}
-	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
+
+	if total.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
 		return true, false, payments.ErrUnbilledUsageCurrentMonth
 	}
 
-	// check usage for last month, if exists, ensure we have an invoice item created.
-	lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+	total, err = getCostTotal(firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 	if err != nil {
 		return false, false, err
 	}
-	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+
+	if total.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if !errs.Is(err, ErrProjectRecordExists) {
 			return false, true, payments.ErrUnbilledUsageLastMonth
 		}
 	}
 
-	return false, false, nil
+	return false, false, err
 }
 
 // Charges returns list of all credit card charges related to account.

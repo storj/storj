@@ -37,6 +37,8 @@ type Config struct {
 	UsagePrice         ProjectUsagePrice
 	MinimumCharge      MinimumChargeConfig
 
+	DeleteProjectCostThreshold int64 `help:"the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold." default:"0"`
+
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
 	Products                        ProductPriceOverrides       `help:"a JSON mapping of non-zero product IDs to their names and price structures in the format: {\"productID\": {\"name\": \"...\", \"storage\": \"...\", \"egress\": \"...\", \"segment\": \"...\", \"egress_discount_ratio\": \"...\"}}. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PlacementPriceOverrides         PlacementProductMap         `help:"a JSON mapping of product ID to placements in the format: {productID0:[placement0],productID1:[placement1,placement2]}. Products must be defined by the --payments.products config, or the satellite will not start."`

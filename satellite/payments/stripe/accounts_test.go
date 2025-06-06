@@ -86,6 +86,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			nil,
 			false,
+			pc.DeleteProjectCostThreshold,
 			pc.MinimumCharge.Amount,
 			minimumChargeDate,
 		)

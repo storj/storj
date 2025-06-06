@@ -2184,6 +2184,107 @@ func TestDeleteProject(t *testing.T) {
 	})
 }
 
+func TestDeleteProject_WithDeleteThreshold(t *testing.T) {
+	// This tests that a user with usage less than the minimum fee can still
+	// delete their project (if other requirements are met).
+	usagePrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "100000",
+		EgressTB:  "100000",
+		Segment:   "100000",
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.DeleteProjectEnabled = true
+				config.Payments.DeleteProjectCostThreshold = 5
+				config.Payments.UsagePrice = usagePrice
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "example1@mail.test",
+			PaidTier: true,
+		}, 1)
+		require.NoError(t, err)
+
+		p, err := sat.AddProject(ctx, user.ID, "test project")
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// set time to middle of day to avoid usage being created in previous month
+		// if this test runs early on the first day of the month
+		year, month, day := time.Now().UTC().Date()
+		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+
+		service.TestSetNow(func() time.Time {
+			return timestamp
+		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
+		interval := timestamp.Add(-2 * time.Hour)
+
+		addUsage := func(projectID uuid.UUID, size memory.Size) {
+			require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName:    projectID.String(),
+				ProjectID:     projectID,
+				IntervalStart: interval,
+				TotalBytes:    int64(size),
+			}))
+
+			interval = interval.Add(time.Hour)
+
+			require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName:    projectID.String(),
+				ProjectID:     projectID,
+				IntervalStart: interval,
+				TotalBytes:    int64(size),
+			}))
+		}
+
+		addUsage(p.ID, 400*memory.MB) // large usage that should be more than the minimum fee
+
+		resp, err := service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.True(t, resp.CurrentUsage)
+
+		// can't delete bucket storage tallies, so manually delete the project and create another one.
+		require.NoError(t, sat.DB.Console().Projects().Delete(ctx, p.ID))
+		p2, err := service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "test project 2",
+		})
+		require.NoError(t, err)
+
+		addUsage(p2.ID, memory.MB) // small usage that should be less than the minimum fee
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, "test")
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 1)
+		require.NoError(t, err)
+
+		// check for usage in previous month, but invoice not generated yet
+		// does not affect deletion of free users.
+		lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
+		egress := int64(1000000)
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, p2.ID.Bytes(), pb.PieceAction_GET, egress, 0, lastMonth.Add(time.Hour)))
+
+		resp, err = service.DeleteProject(userCtx, p2.ID, console.VerifyAccountMfaStep, "test")
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.True(t, resp.InvoicingIncomplete)
+	})
+}
+
 func TestDeleteAccount(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
@@ -2573,6 +2674,107 @@ func TestDeleteAccount(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, console.ErrForbidden.Has(err))
 		require.Contains(t, err.Error(), "sso")
+	})
+}
+
+func TestDeleteAccount_WithDeleteThreshold(t *testing.T) {
+	// This tests that a user with usage less than the minimum fee can still
+	// delete their account (if other requirements are met).
+	usagePrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "100000",
+		EgressTB:  "100000",
+		Segment:   "100000",
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SelfServeAccountDeleteEnabled = true
+				config.Payments.DeleteProjectCostThreshold = 5
+				config.Payments.UsagePrice = usagePrice
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "example1@mail.test",
+			PaidTier: true,
+		}, 1)
+		require.NoError(t, err)
+
+		p, err := sat.AddProject(ctx, user.ID, "test project")
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// set time to middle of day to avoid usage being created in previous month
+		// if this test runs early on the first day of the month
+		year, month, day := time.Now().UTC().Date()
+		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+
+		service.TestSetNow(func() time.Time {
+			return timestamp
+		})
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return timestamp
+		})
+		interval := timestamp.Add(-2 * time.Hour)
+
+		addUsage := func(projectID uuid.UUID, size memory.Size) {
+			require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName:    projectID.String(),
+				ProjectID:     projectID,
+				IntervalStart: interval,
+				TotalBytes:    int64(size),
+			}))
+
+			interval = interval.Add(time.Hour)
+
+			require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName:    projectID.String(),
+				ProjectID:     projectID,
+				IntervalStart: interval,
+				TotalBytes:    int64(size),
+			}))
+		}
+
+		addUsage(p.ID, 400*memory.MB) // large usage that should be more than the minimum fee
+
+		resp, err := service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.True(t, resp.CurrentUsage)
+
+		// can't delete bucket storage tallies, so manually delete the project and create another one.
+		require.NoError(t, sat.DB.Console().Projects().Delete(ctx, p.ID))
+		p2, err := service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "test project 2",
+		})
+		require.NoError(t, err)
+
+		addUsage(p2.ID, memory.MB) // small usage that should be less than the minimum fee
+
+		resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, timestamp, 1)
+		require.NoError(t, err)
+
+		// check for usage in previous month, but invoice not generated yet
+		// does not affect deletion of free users.
+		lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
+		egress := int64(1000000)
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, p2.ID.Bytes(), pb.PieceAction_GET, egress, 0, lastMonth.Add(time.Hour)))
+
+		resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.True(t, resp.InvoicingIncomplete)
 	})
 }
 
