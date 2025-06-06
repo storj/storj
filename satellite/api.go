@@ -729,6 +729,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.Analytics.Service,
 				emissionService,
 				config.Console.SelfServeAccountDeleteEnabled,
+				pc.DeleteProjectCostThreshold,
 				pc.MinimumCharge.Amount,
 				minimumChargeDate,
 			)
