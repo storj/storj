@@ -228,15 +228,16 @@ func (c *Client) StatAll(ctx context.Context, withHistogram bool) (stats []Queue
 
 func histogramItemFromProtobuf(protoItem []*pb.QueueStatHistogram) (res []HistogramItem) {
 	for _, h := range protoItem {
-		streamID, err := uuid.FromBytes(h.ExamplarStreamId)
+		streamID, err := uuid.FromBytes(h.ExemplarStreamId)
 		if err != nil {
 			return res
 		}
 		res = append(res, HistogramItem{
-			Count:             h.Count,
-			NumOutOfPlacement: int64(h.NumOutOfPlacement),
-			NumMissing:        int64(h.NumMissing),
-			Examplar: SegmentIdentifier{
+			Count:                    h.Count,
+			NumOutOfPlacement:        int64(h.NumOutOfPlacement),
+			NumNormalizedRetrievable: int64(h.NumNormalizedRetrievable),
+			NumNormalizedHealthy:     int64(h.NumNormalizedHealthy),
+			Exemplar: SegmentIdentifier{
 				StreamID: streamID,
 				Position: h.ExemplarPosition,
 			},

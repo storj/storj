@@ -254,7 +254,7 @@ func statCommand(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  min segment health: %.6f\n", stat.MinSegmentHealth)
 		fmt.Printf("  max segment health: %.6f\n", stat.MaxSegmentHealth)
 		for _, h := range stat.Histogram {
-			fmt.Println("    count:", h.Count, ", missing:", h.NumMissing, ", oop:", h.NumOutOfPlacement, ", exemplar:", h.Examplar)
+			fmt.Println("    count:", h.Count, ", healthy:", h.NumNormalizedHealthy, ", retrievable:", h.NumNormalizedRetrievable, ", oop:", h.NumOutOfPlacement, ", exemplar:", h.Exemplar)
 		}
 	}
 	if !outputJobs {

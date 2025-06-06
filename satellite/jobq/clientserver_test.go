@@ -329,12 +329,12 @@ func TestStatAll(t *testing.T) {
 		// Create and push a few jobs
 		for i := 0; i < 5; i++ {
 			job := jobq.RepairJob{
-				ID:                jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
-				Health:            float64(i),
-				Placement:         42,
-				InsertedAt:        uint64(time.Now().Unix()),
-				NumMissing:        uint16(i),
-				NumOutOfPlacement: 2,
+				ID:                   jobq.SegmentIdentifier{StreamID: testrand.UUID(), Position: uint64(i)},
+				Health:               float64(i),
+				Placement:            42,
+				InsertedAt:           uint64(time.Now().Unix()),
+				NumNormalizedHealthy: int16(i),
+				NumOutOfPlacement:    2,
 			}
 			_, err := client.Push(ctx, job)
 			require.NoError(t, err)
@@ -452,10 +452,10 @@ func TestStatAll(t *testing.T) {
 				// Check histogram fields
 				for _, histItem := range s.Histogram {
 					require.NotZero(t, histItem.Count, "Histogram item count should be non-zero")
-					require.NotZero(t, histItem.Examplar.StreamID, "Histogram item examplar StreamID should be non-zero")
+					require.NotZero(t, histItem.Exemplar.StreamID, "Histogram item examplar StreamID should be non-zero")
 
 					// These might be zero in some cases, but should be non-negative
-					require.GreaterOrEqual(t, histItem.NumMissing, int64(0), "NumMissing should be non-negative")
+					require.GreaterOrEqual(t, histItem.NumNormalizedHealthy, int64(0), "NumNormalizedHealthy should be non-negative")
 					require.GreaterOrEqual(t, histItem.NumOutOfPlacement, int64(0), "NumOutOfPlacement should be non-negative")
 				}
 			} else {
