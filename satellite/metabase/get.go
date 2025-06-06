@@ -70,8 +70,6 @@ type SegmentForRepair struct {
 	RootPieceID storj.PieceID
 
 	EncryptedSize int32 // size of the whole segment (not a piece)
-	// PlainOffset is 0 for a migrated object.
-	PlainOffset int64
 
 	Redundancy storj.RedundancyScheme
 
@@ -586,7 +584,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 		SELECT
 			created_at, expires_at, repaired_at,
 			root_piece_id,
-			encrypted_size, plain_offset,
+			encrypted_size,
 			redundancy,
 			inline_data, remote_alias_pieces,
 			placement
@@ -596,7 +594,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 		Scan(
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 			&segment.RootPieceID,
-			&segment.EncryptedSize, &segment.PlainOffset,
+			&segment.EncryptedSize,
 			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
@@ -619,7 +617,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForAudit(
 	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
 		"created_at", "expires_at", "repaired_at",
 		"root_piece_id",
-		"encrypted_size", "plain_offset",
+		"encrypted_size",
 		"redundancy",
 		"inline_data", "remote_alias_pieces",
 		"placement",
@@ -634,7 +632,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForAudit(
 	err = row.Columns(
 		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 		&segment.RootPieceID,
-		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset,
+		spannerutil.Int(&segment.EncryptedSize),
 		&segment.Redundancy,
 		&segment.InlineData, &aliasPieces,
 		&segment.Placement,
@@ -655,7 +653,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 		SELECT
 			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset,
+			encrypted_size,
 			encrypted_etag,
 			redundancy,
 			inline_data, remote_alias_pieces,
@@ -666,7 +664,7 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 		Scan(
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 			&segment.RootPieceID,
-			&segment.EncryptedSize, &segment.PlainOffset,
+			&segment.EncryptedSize,
 			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
@@ -689,7 +687,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForRepair(
 	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
 		"created_at", "expires_at", "repaired_at",
 		"root_piece_id",
-		"encrypted_size", "plain_offset",
+		"encrypted_size",
 		"redundancy",
 		"inline_data", "remote_alias_pieces",
 		"placement",
@@ -704,7 +702,7 @@ func (s *SpannerAdapter) GetSegmentByPositionForRepair(
 	err = row.Columns(
 		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 		&segment.RootPieceID,
-		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset,
+		spannerutil.Int(&segment.EncryptedSize),
 		&segment.Redundancy,
 		&segment.InlineData, &aliasPieces,
 		&segment.Placement,

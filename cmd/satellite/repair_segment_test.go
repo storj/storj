@@ -86,7 +86,6 @@ func segmentForRepair(s metabase.Segment) metabase.SegmentForRepair {
 		ExpiresAt:     s.ExpiresAt,
 		RootPieceID:   s.RootPieceID,
 		EncryptedSize: s.EncryptedSize,
-		PlainOffset:   s.PlainOffset,
 		Redundancy:    s.Redundancy,
 		InlineData:    s.InlineData,
 		Pieces:        s.Pieces,
