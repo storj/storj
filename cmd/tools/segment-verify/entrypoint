@@ -1,0 +1,13 @@
+#!/bin/bash
+set -euo pipefail
+
+mkdir -p /data/$SEGMENT_VERIFY_JOB_ID
+if [ ! -f /data/$SEGMENT_VERIFY_JOB_ID/lock ]; then
+    echo "creating lock file"
+    touch /data/$SEGMENT_VERIFY_JOB_ID/lock
+    /app/segment-verify $@
+else
+    echo "lock file exists. skipping segment-verify"
+fi
+echo "sleeping"
+sleep infinity
