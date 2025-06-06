@@ -32,15 +32,16 @@ const ServerTimeNow uint64 = 123456789 // 1973-11-29T21:33:09Z
 // probably going to be aligned to a multiple of 64 bits in memory either way,
 // so it's more efficient if we use that whole space.
 type RepairJob struct {
-	ID                SegmentIdentifier
-	Health            float64
-	InsertedAt        uint64
-	LastAttemptedAt   uint64
-	UpdatedAt         uint64
-	NumAttempts       uint16
-	Placement         uint16
-	NumMissing        uint16
-	NumOutOfPlacement uint16
+	ID                       SegmentIdentifier
+	Health                   float64
+	InsertedAt               uint64
+	LastAttemptedAt          uint64
+	UpdatedAt                uint64
+	NumAttempts              uint16
+	Placement                uint16
+	NumNormalizedHealthy     int16
+	NumNormalizedRetrievable int16
+	NumOutOfPlacement        int16
 }
 
 // LastAttemptedAtTime returns the LastAttemptedAt field as a time.Time.
@@ -60,13 +61,14 @@ var RecordSize = unsafe.Sizeof(RepairJob{})
 // representation.
 func ConvertJobToProtobuf(job RepairJob) *pb.RepairJob {
 	protoJob := &pb.RepairJob{
-		StreamId:          job.ID.StreamID[:],
-		Position:          job.ID.Position,
-		Health:            job.Health,
-		NumAttempts:       int32(job.NumAttempts),
-		Placement:         int32(job.Placement),
-		NumMissing:        int32(job.NumMissing),
-		NumOutOfPlacement: int32(job.NumOutOfPlacement),
+		StreamId:                 job.ID.StreamID[:],
+		Position:                 job.ID.Position,
+		Health:                   job.Health,
+		NumAttempts:              int32(job.NumAttempts),
+		Placement:                int32(job.Placement),
+		NumNormalizedHealthy:     int32(job.NumNormalizedHealthy),
+		NumNormalizedRetrievable: int32(job.NumNormalizedRetrievable),
+		NumOutOfPlacement:        int32(job.NumOutOfPlacement),
 	}
 	if job.InsertedAt != 0 {
 		insertedAt := time.Unix(int64(job.InsertedAt), 0)
@@ -96,11 +98,12 @@ func ConvertJobFromProtobuf(protoJob *pb.RepairJob) (RepairJob, error) {
 			StreamID: streamID,
 			Position: protoJob.Position,
 		},
-		Health:            protoJob.Health,
-		NumAttempts:       uint16(protoJob.NumAttempts),
-		Placement:         uint16(protoJob.Placement),
-		NumMissing:        uint16(protoJob.NumMissing),
-		NumOutOfPlacement: uint16(protoJob.NumOutOfPlacement),
+		Health:                   protoJob.Health,
+		NumAttempts:              uint16(protoJob.NumAttempts),
+		Placement:                uint16(protoJob.Placement),
+		NumNormalizedHealthy:     int16(protoJob.NumNormalizedHealthy),
+		NumNormalizedRetrievable: int16(protoJob.NumNormalizedRetrievable),
+		NumOutOfPlacement:        int16(protoJob.NumOutOfPlacement),
 	}
 
 	var insertedAt time.Time
@@ -148,8 +151,9 @@ type QueueStat struct {
 
 // HistogramItem represents a group of jobq items with the same number of missing / out of placement health count.
 type HistogramItem struct {
-	NumMissing        int64
-	NumOutOfPlacement int64
-	Examplar          SegmentIdentifier
-	Count             int64
+	NumNormalizedHealthy     int64
+	NumNormalizedRetrievable int64
+	NumOutOfPlacement        int64
+	Exemplar                 SegmentIdentifier
+	Count                    int64
 }

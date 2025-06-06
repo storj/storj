@@ -514,7 +514,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
 	// separate case is when we find pieces which are outside segment placement. in such case we are putting segment
 	// into queue right away.
-	repairDueToHealth := (numHealthy <= repairThreshold && numHealthy < successThreshold)
+	repairDueToHealth := numHealthy <= repairThreshold && numHealthy < successThreshold
 	repairDueToForcing := piecesCheck.ForcingRepair.Count() > 0
 	if repairDueToHealth || repairDueToForcing {
 
@@ -529,11 +529,14 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		}
 
 		err := fork.repairQueue.Insert(ctx, &queue.InjuredSegment{
-			StreamID:      segment.StreamID,
-			Position:      segment.Position,
-			UpdatedAt:     time.Now().UTC(),
-			SegmentHealth: segmentHealth,
-			Placement:     segment.Placement,
+			StreamID:                 segment.StreamID,
+			Position:                 segment.Position,
+			UpdatedAt:                time.Now().UTC(),
+			SegmentHealth:            segmentHealth,
+			Placement:                segment.Placement,
+			NumNormalizedHealthy:     int16(piecesCheck.Healthy.Count()) - segment.Redundancy.RequiredShares,
+			NumNormalizedRetrievable: int16(piecesCheck.Retrievable.Count()) - segment.Redundancy.RequiredShares,
+			NumOutOfPlacement:        int16(piecesCheck.OutOfPlacement.Count()),
 		}, func() {
 			// Counters are increased after the queue has determined
 			// that the segment wasn't already queued for repair.
