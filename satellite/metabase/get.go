@@ -547,40 +547,33 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	// TODO(storj/storj#7491): Change this query to use Spanner Read API
-	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				created_at, expires_at, repaired_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size,
-				encrypted_etag,
-				redundancy,
-				inline_data, remote_alias_pieces,
-				placement
-			FROM segments
-			WHERE (stream_id, position) = (@stream_id, @position)
-		`,
-		Params: map[string]interface{}{
-			"stream_id": opts.StreamID,
-			"position":  opts.Position,
-		},
-	}), func(row *spanner.Row, segment *Segment) error {
-		return Error.Wrap(row.Columns(
-			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.EncryptedETag,
-			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
-			&segment.Placement,
-		))
+	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+		"created_at", "expires_at", "repaired_at",
+		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
+		"encrypted_size", "plain_offset", "plain_size",
+		"encrypted_etag",
+		"redundancy",
+		"inline_data", "remote_alias_pieces",
+		"placement",
 	})
 	if err != nil {
-		if errors.Is(err, iterator.Done) {
+		if errors.Is(err, spanner.ErrRowNotFound) {
 			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
 		}
 		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	err = row.Columns(
+		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+		&segment.EncryptedETag,
+		&segment.Redundancy,
+		&segment.InlineData, &aliasPieces,
+		&segment.Placement,
+	)
+	if err != nil {
+		return Segment{}, nil, Error.Wrap(err)
 	}
 
 	return segment, aliasPieces, nil
@@ -625,38 +618,31 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 func (s *SpannerAdapter) GetSegmentByPositionForAudit(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
-	// TODO(storj/storj#7491): Change this query to use Spanner Read API
-	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				created_at, expires_at, repaired_at,
-				root_piece_id,
-				encrypted_size, plain_offset, plain_size,
-				redundancy,
-				inline_data, remote_alias_pieces,
-				placement
-			FROM segments
-			WHERE (stream_id, position) = (@stream_id, @position)
-		`,
-		Params: map[string]interface{}{
-			"stream_id": opts.StreamID,
-			"position":  opts.Position,
-		},
-	}), func(row *spanner.Row, segment *SegmentForAudit) error {
-		return Error.Wrap(row.Columns(
-			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-			&segment.RootPieceID,
-			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
-			&segment.Placement,
-		))
+	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+		"created_at", "expires_at", "repaired_at",
+		"root_piece_id",
+		"encrypted_size", "plain_offset", "plain_size",
+		"redundancy",
+		"inline_data", "remote_alias_pieces",
+		"placement",
 	})
 	if err != nil {
-		if errors.Is(err, iterator.Done) {
+		if errors.Is(err, spanner.ErrRowNotFound) {
 			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
 		}
 		return SegmentForAudit{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	err = row.Columns(
+		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+		&segment.RootPieceID,
+		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+		&segment.Redundancy,
+		&segment.InlineData, &aliasPieces,
+		&segment.Placement,
+	)
+	if err != nil {
+		return SegmentForAudit{}, nil, Error.Wrap(err)
 	}
 
 	return segment, aliasPieces, nil
@@ -702,38 +688,31 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 func (s *SpannerAdapter) GetSegmentByPositionForRepair(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
-	// TODO(storj/storj#7491): Change this query to use Spanner Read API
-	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				created_at, expires_at, repaired_at,
-				root_piece_id,
-				encrypted_size, plain_offset, plain_size,
-				redundancy,
-				inline_data, remote_alias_pieces,
-				placement
-			FROM segments
-			WHERE (stream_id, position) = (@stream_id, @position)
-		`,
-		Params: map[string]interface{}{
-			"stream_id": opts.StreamID,
-			"position":  opts.Position,
-		},
-	}), func(row *spanner.Row, segment *SegmentForRepair) error {
-		return Error.Wrap(row.Columns(
-			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-			&segment.RootPieceID,
-			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
-			&segment.Placement,
-		))
+	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+		"created_at", "expires_at", "repaired_at",
+		"root_piece_id",
+		"encrypted_size", "plain_offset", "plain_size",
+		"redundancy",
+		"inline_data", "remote_alias_pieces",
+		"placement",
 	})
 	if err != nil {
-		if errors.Is(err, iterator.Done) {
+		if errors.Is(err, spanner.ErrRowNotFound) {
 			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
 		}
 		return SegmentForRepair{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	err = row.Columns(
+		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+		&segment.RootPieceID,
+		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+		&segment.Redundancy,
+		&segment.InlineData, &aliasPieces,
+		&segment.Placement,
+	)
+	if err != nil {
+		return SegmentForRepair{}, nil, Error.Wrap(err)
 	}
 
 	return segment, aliasPieces, nil
