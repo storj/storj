@@ -129,6 +129,59 @@ func (endpoint *Endpoint) SetBucketTagging(ctx context.Context, req *pb.SetBucke
 	return &pb.SetBucketTaggingResponse{}, nil
 }
 
+// GetBucketTagging returns the set of tags placed on a bucket.
+func (endpoint *Endpoint) GetBucketTagging(ctx context.Context, req *pb.GetBucketTaggingRequest) (resp *pb.GetBucketTaggingResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !endpoint.config.BucketTaggingEnabled {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
+	}
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionRead,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitHead)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	bucketNameLen := len(req.Name)
+	if bucketNameLen == 0 {
+		return nil, rpcstatus.Error(rpcstatus.BucketNameMissing, "A bucket name is required")
+	}
+	if err := validateBucketNameLength(req.Name); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.BucketNameInvalid, err.Error())
+	}
+
+	tags, err := endpoint.buckets.GetBucketTagging(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		if buckets.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket tags")
+	}
+
+	if len(tags) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.TagsNotFound, "No tags are set on the bucket")
+	}
+
+	pbTags := make([]*pb.BucketTag, 0, len(tags))
+	for _, tag := range tags {
+		pbTags = append(pbTags, &pb.BucketTag{
+			Key:   []byte(tag.Key),
+			Value: []byte(tag.Value),
+		})
+	}
+
+	return &pb.GetBucketTaggingResponse{
+		Tags: pbTags,
+	}, nil
+}
+
 // GetBucketVersioning responds with the versioning state of the bucket and any error encountered.
 func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBucketVersioningRequest) (resp *pb.GetBucketVersioningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
