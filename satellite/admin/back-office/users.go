@@ -13,6 +13,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/console"
 )
 
 // User holds the user's information.
@@ -26,6 +27,7 @@ type User struct {
 type UserAccount struct {
 	User
 	PaidTier         bool                      `json:"paidTier"`
+	Kind             console.UserKind          `json:"kind"`
 	CreatedAt        time.Time                 `json:"createdAt"`
 	Status           string                    `json:"status"`
 	UserAgent        string                    `json:"userAgent"`
@@ -109,7 +111,8 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 			FullName: user.FullName,
 			Email:    user.Email,
 		},
-		PaidTier:         user.PaidTier,
+		Kind:             user.Kind,
+		PaidTier:         user.IsPaid(),
 		CreatedAt:        user.CreatedAt,
 		Status:           user.Status.String(),
 		UserAgent:        string(user.UserAgent),

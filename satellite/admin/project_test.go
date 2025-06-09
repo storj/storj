@@ -992,9 +992,9 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure User is free tier.
-		paid, err := planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		kind, err := planet.Satellites[0].DB.Console().Users().GetUserKind(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
-		require.False(t, paid)
+		require.Equal(t, console.FreeUser, kind)
 
 		req, err := http.NewRequestWithContext(
 			ctx,
@@ -1022,9 +1022,9 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
-		paid, err = planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		kind, err = planet.Satellites[0].DB.Console().Users().GetUserKind(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
-		require.True(t, paid)
+		require.Equal(t, console.PaidUser, kind)
 
 		req, err = http.NewRequestWithContext(
 			ctx,
@@ -1062,8 +1062,8 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		project := planet.Uplinks[0].Projects[0]
 		db := planet.Satellites[0].DB
 
-		paidTierStatus := true
-		err := db.Console().Users().Update(ctx, project.Owner.ID, console.UpdateUserRequest{PaidTier: &paidTierStatus})
+		kind := console.PaidUser
+		err := db.Console().Users().Update(ctx, project.Owner.ID, console.UpdateUserRequest{Kind: &kind})
 		require.NoError(t, err)
 
 		apiKeys, err := db.Console().APIKeys().GetPagedByProjectID(ctx, project.ID, console.APIKeyCursor{
@@ -1194,9 +1194,9 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
-		paid, err := planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		kind, err := planet.Satellites[0].DB.Console().Users().GetUserKind(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
-		require.True(t, paid)
+		require.Equal(t, console.PaidUser, kind)
 
 		req, err := http.NewRequestWithContext(
 			ctx,
@@ -1224,9 +1224,9 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure User is free tier.
-		paid, err = planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		kind, err = planet.Satellites[0].DB.Console().Users().GetUserKind(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
-		require.False(t, paid)
+		require.Equal(t, console.FreeUser, kind)
 
 		req, err = http.NewRequestWithContext(
 			ctx,
@@ -1314,9 +1314,9 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
-		paid, err := planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		kind, err := planet.Satellites[0].DB.Console().Users().GetUserKind(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
-		require.True(t, paid)
+		require.Equal(t, console.PaidUser, kind)
 
 		req, err := http.NewRequestWithContext(
 			ctx,
@@ -1346,9 +1346,9 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure User is free tier.
-		paid, err = planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		kind, err = planet.Satellites[0].DB.Console().Users().GetUserKind(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
-		require.False(t, paid)
+		require.Equal(t, console.FreeUser, kind)
 
 		req, err = http.NewRequestWithContext(
 			ctx,
@@ -1442,9 +1442,9 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
-		paid, err := sat.DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		kind, err := sat.DB.Console().Users().GetUserKind(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
-		require.True(t, paid)
+		require.Equal(t, console.PaidUser, kind)
 
 		req, err := http.NewRequestWithContext(
 			ctx,

@@ -77,13 +77,12 @@ func TestUserRepository(t *testing.T) {
 			FullName:     name,
 			ShortName:    lastName,
 			Email:        email,
-			PaidTier:     true,
+			Kind:         console.PaidUser,
 			PasswordHash: []byte(passValid),
 			CreatedAt:    time.Now(),
 		}
 		user, err := repository.Insert(ctx, user)
 		assert.NoError(t, err)
-		assert.True(t, user.PaidTier)
 		assert.Equal(t, console.PaidUser, user.Kind)
 	})
 }
@@ -152,7 +151,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, email, createdUser.Email)
 		require.Equal(t, fullName, createdUser.FullName)
 		require.Equal(t, shortName, createdUser.ShortName)
-		require.False(t, createdUser.PaidTier)
+		require.Equal(t, console.FreeUser, createdUser.Kind)
 
 		now := time.Now()
 		expiration := now.Add(time.Hour * 24 * 30)
@@ -179,7 +178,6 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, email, retrievedUser.Email)
 		require.Equal(t, fullName, retrievedUser.FullName)
 		require.Equal(t, shortName, retrievedUser.ShortName)
-		require.True(t, retrievedUser.PaidTier)
 		require.Equal(t, console.PaidUser, retrievedUser.Kind)
 		require.WithinDuration(t, now, *retrievedUser.UpgradeTime, time.Minute)
 		require.Nil(t, retrievedUser.TrialExpiration)
@@ -190,7 +188,6 @@ func TestUserUpdatePaidTier(t *testing.T) {
 
 		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
 		require.NoError(t, err)
-		require.False(t, retrievedUser.PaidTier)
 		require.Equal(t, console.FreeUser, retrievedUser.Kind)
 		require.WithinDuration(t, now, *retrievedUser.UpgradeTime, time.Minute)
 	})
@@ -217,7 +214,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
 		assert.Equal(t, user.SignupPromoCode, userByEmail.SignupPromoCode)
-		assert.False(t, user.PaidTier)
 		assert.Equal(t, console.FreeUser, user.Kind)
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
@@ -280,7 +276,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 			ShortName:        newLastName,
 			Email:            newEmail,
 			Status:           console.Active,
-			PaidTier:         true,
+			Kind:             console.PaidUser,
 			MFAEnabled:       true,
 			MFASecretKey:     mfaSecretKey,
 			MFARecoveryCodes: []string{"1", "2"},
@@ -295,7 +291,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 			ShortName:        &shortNamePtr,
 			Email:            &newUserInfo.Email,
 			Status:           &newUserInfo.Status,
-			PaidTier:         &newUserInfo.PaidTier,
+			Kind:             &newUserInfo.Kind,
 			MFAEnabled:       &newUserInfo.MFAEnabled,
 			MFASecretKey:     &secretKeyPtr,
 			MFARecoveryCodes: &newUserInfo.MFARecoveryCodes,
@@ -310,7 +306,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, newLastName, newUser.ShortName)
 		assert.Equal(t, newEmail, newUser.Email)
 		assert.Equal(t, []byte(newPass), newUser.PasswordHash)
-		assert.True(t, newUser.PaidTier)
 		assert.Equal(t, console.PaidUser, newUser.Kind)
 		assert.True(t, newUser.MFAEnabled)
 		assert.Equal(t, mfaSecretKey, newUser.MFASecretKey)
@@ -449,7 +444,6 @@ func TestGetEmailsForDeletion(t *testing.T) {
 			FullName:        "Free Trial User",
 			Email:           email + "1",
 			Status:          console.UserRequestedDeletion,
-			PaidTier:        false,
 			PasswordHash:    []byte("password"),
 			StatusUpdatedAt: &now,
 		}
@@ -476,7 +470,7 @@ func TestGetEmailsForDeletion(t *testing.T) {
 			FullName:        "Pro User",
 			Email:           email + "2",
 			Status:          console.UserRequestedDeletion,
-			PaidTier:        true,
+			Kind:            console.PaidUser,
 			PasswordHash:    []byte("password"),
 			StatusUpdatedAt: &now,
 		}
@@ -612,9 +606,9 @@ func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		paidTier := true
+		kind := console.PaidUser
 		err = usersRepo.Update(ctx, proUser.ID, console.UpdateUserRequest{
-			PaidTier: &paidTier,
+			Kind: &kind,
 		})
 		require.NoError(t, err)
 

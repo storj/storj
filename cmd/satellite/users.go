@@ -346,7 +346,7 @@ func deleteAccounts(
 			return nil
 		}
 
-		if user.PaidTier {
+		if user.IsPaid() {
 			{ // Check if the user has pending invoices.
 				list, err := invoices.List(ctx, user.ID)
 				if err != nil {

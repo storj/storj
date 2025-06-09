@@ -43,7 +43,7 @@ func (s *Service) Create(ctx context.Context, name string, expiration *time.Dura
 		return "", nil, Error.New("Use CreateNoAuth instead")
 	}
 
-	if !user.PaidTier {
+	if user.IsFree() {
 		return "", nil, ErrNotPaidTier.New("Only Pro users have access to REST keys")
 	}
 
@@ -188,7 +188,7 @@ func (s *Service) GetAll(ctx context.Context) (keys []restapikeys.Key, err error
 		return keys, Error.Wrap(err)
 	}
 
-	if !user.PaidTier {
+	if user.IsFree() {
 		return keys, ErrNotPaidTier.New("Only Pro users have access to REST keys")
 	}
 
@@ -243,7 +243,7 @@ func (s *Service) RevokeByIDs(ctx context.Context, ids []uuid.UUID) (err error) 
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	if !user.PaidTier {
+	if user.IsFree() {
 		return ErrNotPaidTier.New("Only Pro users have access to REST keys")
 	}
 

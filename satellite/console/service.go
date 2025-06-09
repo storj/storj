@@ -589,7 +589,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if !user.PaidTier {
+	if user.IsFree() {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
@@ -637,7 +637,7 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if !user.PaidTier {
+	if user.IsFree() {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, Error.Wrap(err)
@@ -1244,10 +1244,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			SignupCaptcha:    user.CaptchaScore,
 			ActivationCode:   user.ActivationCode,
 			SignupId:         user.SignupId,
-			PaidTier:         user.PaidTier,
-		}
-		if user.PaidTier {
-			newUser.Kind = PaidUser
+			Kind:             user.Kind,
 		}
 
 		if user.UserAgent != nil {
@@ -2258,7 +2255,7 @@ func (s *Service) GenGetUser(ctx context.Context) (*ResponseUser, api.HTTPError)
 		CompanyName:          user.CompanyName,
 		EmployeeCount:        user.EmployeeCount,
 		HaveSalesContact:     user.HaveSalesContact,
-		PaidTier:             user.PaidTier,
+		PaidTier:             user.IsPaid(),
 		MFAEnabled:           user.MFAEnabled,
 		MFARecoveryCodeCount: len(user.MFARecoveryCodes),
 	}
@@ -2421,7 +2418,7 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 		}
 	}
 
-	if user.PaidTier {
+	if user.IsPaid() {
 		for _, p := range projects {
 			currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p.ID)
 			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
@@ -3370,7 +3367,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		return nil, Error.Wrap(err)
 	}
 
-	isOwnerPaidTier, err := s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
+	ownerKind, err := s.store.Users().GetUserKind(ctx, project.OwnerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -3401,7 +3398,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	return &ProjectConfig{
 		HasManagedPassphrase: hasManagedPassphrase,
 		Passphrase:           string(passphrase),
-		IsOwnerPaidTier:      isOwnerPaidTier,
+		IsOwnerPaidTier:      ownerKind == PaidUser,
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 	}, nil
@@ -3930,7 +3927,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	project.Name = updatedProject.Name
 	project.Description = updatedProject.Description
 
-	if user.PaidTier {
+	if user.IsPaid() {
 		err = s.validateLimits(ctx, project, UpdateLimitsInfo{
 			StorageLimit:   updatedProject.StorageLimit,
 			BandwidthLimit: updatedProject.BandwidthLimit,
@@ -3973,15 +3970,15 @@ func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.
 		return ErrUnauthorized.New("Only project owner or admin may update project limits")
 	}
 
-	isPaidTier := user.PaidTier
+	kind := user.Kind
 	if project.OwnerID != user.ID {
-		isPaidTier, err = s.store.Users().GetUserPaidTier(ctx, project.OwnerID)
+		kind, err = s.store.Users().GetUserKind(ctx, project.OwnerID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 	}
 
-	if !isPaidTier {
+	if kind == FreeUser {
 		return ErrNotPaidTier.New("Only Pro users may update project limits")
 	}
 
@@ -4105,7 +4102,7 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		return Error.Wrap(err)
 	}
 
-	if !user.PaidTier {
+	if user.IsFree() {
 		return ErrNotPaidTier.New("Only Pro users may request project limit increases")
 	}
 
@@ -4160,7 +4157,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
 
-	if user.PaidTier && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
+	if user.IsPaid() && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,
@@ -5651,7 +5648,7 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 
 	currentPrice := decimal.Zero
 
-	if user.PaidTier {
+	if user.IsPaid() {
 		currentUsage, invoicingIncomplete, currentMonthPrice, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
 		if err != nil && !payments.ErrUnbilledUsage.Has(err) {
 			return nil, ErrUsage.Wrap(err)

@@ -56,7 +56,7 @@ func TestUserGet(t *testing.T) {
 				project.Owner.Email,
 				projLimit,
 				storj.DefaultPlacement,
-				user.PaidTier,
+				user.IsPaid(),
 			) +
 			fmt.Sprintf(
 				`"projects":[{"id":"%s","publicId":"%s","name":"uplink0_0","description":"","ownerId":"%s"}]}`,
@@ -235,7 +235,6 @@ func TestUserUpdate(t *testing.T) {
 			require.Equal(t, updatedUser.Email, updatedUserStatusAndUsageLimits.Email)
 			require.Equal(t, updatedUser.ID, updatedUserStatusAndUsageLimits.ID)
 			require.Equal(t, updatedUser.Status, updatedUserStatusAndUsageLimits.Status)
-			require.True(t, updatedUserStatusAndUsageLimits.PaidTier)
 			require.Equal(t, console.PaidUser, updatedUserStatusAndUsageLimits.Kind)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectStorageLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectBandwidthLimit)

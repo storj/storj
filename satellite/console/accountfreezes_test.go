@@ -163,7 +163,7 @@ func TestAccountBillingFreeze(t *testing.T) {
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "user@mail.test",
-			PaidTier: true,
+			Kind:     console.PaidUser,
 		}, 2)
 		require.NoError(t, err)
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))

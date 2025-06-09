@@ -55,10 +55,10 @@ func TestGetUser(t *testing.T) {
 		_, err := consoleDB.Users().Insert(ctx, consoleUser)
 		require.NoError(t, err)
 
-		consoleUser.PaidTier = true
+		consoleUser.Kind = console.PaidUser
 		require.NoError(
 			t,
-			sat.DB.Console().Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{PaidTier: &consoleUser.PaidTier}),
+			sat.DB.Console().Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{Kind: &consoleUser.Kind}),
 		)
 
 		// User is deactivated, so it cannot be retrieved by e-mail.
@@ -78,7 +78,7 @@ func TestGetUser(t *testing.T) {
 		require.Equal(t, consoleUser.ID, user.User.ID)
 		require.Equal(t, consoleUser.FullName, user.User.FullName)
 		require.Equal(t, consoleUser.Email, user.User.Email)
-		require.Equal(t, consoleUser.PaidTier, user.PaidTier)
+		require.Equal(t, consoleUser.Kind, user.Kind)
 		require.Equal(t, consoleUser.Status.String(), user.Status)
 		require.Equal(t, string(consoleUser.UserAgent), user.UserAgent)
 		require.Equal(t, consoleUser.DefaultPlacement, user.DefaultPlacement)

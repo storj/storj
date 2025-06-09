@@ -89,11 +89,11 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 		SELECT u.id, u.email FROM users AS u
 		LEFT JOIN account_freeze_events AS ae
 			ON u.id = ae.user_id
-		WHERE u.paid_tier = false
+		WHERE u.kind = ?
 			AND u.trial_expiration < ?
 			AND u.status > ?
 			AND ae.user_id IS NULL
-		LIMIT ?;`), after, console.Inactive, limit)
+		LIMIT ?;`), console.FreeUser, after, console.Inactive, limit)
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {
 			return []console.User{}, nil
@@ -257,10 +257,10 @@ func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notification
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT id, email
 		FROM users
-		WHERE paid_tier = false
+		WHERE kind = ?
 			AND trial_notifications = ?
 			AND trial_expiration < ?
-	`), notificationStatus, expiresBefore)
+	`), console.FreeUser, notificationStatus, expiresBefore)
 	if err != nil {
 		return nil, err
 	}
@@ -287,8 +287,8 @@ func (users *users) GetEmailsForDeletion(ctx context.Context, statusUpdatedBefor
 		FROM users
 		WHERE status = ?
 			AND status_updated_at < ?
-			AND (paid_tier = false OR final_invoice_generated = true)
-	`), console.UserRequestedDeletion, statusUpdatedBefore)
+			AND (kind = ? OR final_invoice_generated = true)
+	`), console.UserRequestedDeletion, statusUpdatedBefore, console.FreeUser)
 	if err != nil {
 		return nil, err
 	}
@@ -370,10 +370,10 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		ShortName:       dbx.User_ShortName(user.ShortName),
 		IsProfessional:  dbx.User_IsProfessional(user.IsProfessional),
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
-		PaidTier:        dbx.User_PaidTier(user.PaidTier),
+		Kind:            dbx.User_Kind(int(user.Kind)),
 	}
-	if user.PaidTier {
-		optional.Kind = dbx.User_Kind(int(console.PaidUser))
+	if user.IsPaid() {
+		optional.PaidTier = dbx.User_PaidTier(true)
 	}
 	if user.ExternalID != nil {
 		optional.ExternalId = dbx.User_ExternalId(*user.ExternalID)
@@ -648,14 +648,15 @@ func (users *users) GetUserProjectLimits(ctx context.Context, id uuid.UUID) (lim
 	return limitsFromDBX(ctx, row)
 }
 
-func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error) {
+// GetUserKind returns the kind of user.
+func (users *users) GetUserKind(ctx context.Context, id uuid.UUID) (kind console.UserKind, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := users.db.Get_User_PaidTier_By_Id(ctx, dbx.User_Id(id[:]))
+	row, err := users.db.Get_User_Kind_By_Id(ctx, dbx.User_Id(id[:]))
 	if err != nil {
-		return false, err
+		return 0, err
 	}
-	return row.PaidTier, nil
+	return console.UserKind(row.Kind), nil
 }
 
 // GetUpgradeTime is a method for returning a user's upgrade time.
@@ -793,9 +794,9 @@ func (users *users) SetStatusPendingDeletion(
 							ON e.user_id = u.id
 						WHERE u.id = $2
 							AND u.status = $3
-							AND u.paid_tier = FALSE
-							AND e.event = $4
-							AND e.created_at + (COALESCE(e.days_till_escalation, $5) || 'days')::interval < NOW()
+							AND u.kind = $4
+							AND e.event = $5
+							AND e.created_at + (COALESCE(e.days_till_escalation, $6) || 'days')::interval < NOW()
 							AND 0 = (
 								SELECT COUNT(1)
 								FROM project_members AS m
@@ -805,7 +806,7 @@ func (users *users) SetStatusPendingDeletion(
 									)
 							)
 					)
-			`, console.PendingDeletion, userID.Bytes(), console.Active, console.TrialExpirationFreeze,
+			`, console.PendingDeletion, userID.Bytes(), console.Active, console.FreeUser, console.TrialExpirationFreeze,
 			defaultDaysTillEscalation,
 		)
 	case dbutil.Spanner:
@@ -819,7 +820,7 @@ func (users *users) SetStatusPendingDeletion(
 							ON u.id = e.user_id
 						WHERE u.id = ?
 							AND u.status = ?
-							AND u.paid_tier = FALSE
+							AND u.kind = ?
 							AND e.event = ?
 							AND TIMESTAMP_ADD(e.created_at, INTERVAL COALESCE(e.days_till_escalation, ?) DAY) < CURRENT_TIMESTAMP
 							AND 0 = (
@@ -831,7 +832,7 @@ func (users *users) SetStatusPendingDeletion(
 									)
 							)
 					)
-			`, console.PendingDeletion, userID.Bytes(), console.Active, console.TrialExpirationFreeze,
+			`, console.PendingDeletion, userID.Bytes(), console.Active, console.FreeUser, console.TrialExpirationFreeze,
 			defaultDaysTillEscalation,
 		)
 	default:
@@ -945,14 +946,8 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	if request.Kind != nil {
 		update.Kind = dbx.User_Kind(int(*request.Kind))
 	}
-	if request.PaidTier != nil {
-		// TODO: remove this block after fully migrating from PaidTier to Kind.
-		update.PaidTier = dbx.User_PaidTier(*request.PaidTier)
-		if *request.PaidTier {
-			update.Kind = dbx.User_Kind(int(console.PaidUser))
-		} else {
-			update.Kind = dbx.User_Kind(int(console.FreeUser))
-		}
+	if request.Kind != nil && *request.Kind == console.PaidUser {
+		update.PaidTier = dbx.User_PaidTier(true)
 	}
 	if request.MFAEnabled != nil {
 		update.MfaEnabled = dbx.User_MfaEnabled(*request.MFAEnabled)
@@ -1085,7 +1080,6 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		ProjectBandwidthLimit:       user.ProjectBandwidthLimit,
 		ProjectStorageLimit:         user.ProjectStorageLimit,
 		ProjectSegmentLimit:         user.ProjectSegmentLimit,
-		PaidTier:                    console.UserKind(user.Kind) == console.PaidUser || user.PaidTier,
 		Kind:                        console.UserKind(user.Kind),
 		IsProfessional:              user.IsProfessional,
 		HaveSalesContact:            user.HaveSalesContact,
@@ -1099,9 +1093,6 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		EmailChangeVerificationStep: user.EmailChangeVerificationStep,
 		FinalInvoiceGenerated:       user.FinalInvoiceGenerated,
 		HubspotObjectID:             user.HubspotObjectId,
-	}
-	if user.PaidTier && user.Kind == int(console.FreeUser) {
-		result.Kind = console.PaidUser
 	}
 
 	if user.DefaultPlacement != nil {

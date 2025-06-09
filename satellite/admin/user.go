@@ -190,7 +190,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		Email:        user.Email,
 		ProjectLimit: user.ProjectLimit,
 		Placement:    user.DefaultPlacement,
-		PaidTier:     user.PaidTier,
+		PaidTier:     user.IsPaid(),
 	}
 	for _, p := range projects {
 		output.Projects = append(output.Projects, Project{
@@ -460,7 +460,6 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		updateRequest.PaidTier = &status
 		userType := console.FreeUser
 
 		if status {

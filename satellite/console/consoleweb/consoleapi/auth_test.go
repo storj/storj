@@ -979,8 +979,8 @@ func TestIncreaseLimit(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		proUser.PaidTier = true
-		require.NoError(t, sat.DB.Console().Users().Update(ctx, proUser.ID, console.UpdateUserRequest{PaidTier: &proUser.PaidTier}))
+		proUser.Kind = console.PaidUser
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, proUser.ID, console.UpdateUserRequest{Kind: &proUser.Kind}))
 
 		freeUser, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test Free User",
@@ -1728,7 +1728,7 @@ func TestAuth_DeleteAccount(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		proUser.PaidTier = true
+		proUser.Kind = console.PaidUser
 		proUser.MFAEnabled = true
 		mfaSecret, err := console.NewMFASecretKey()
 		require.NoError(t, err)
@@ -1739,7 +1739,7 @@ func TestAuth_DeleteAccount(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, sat.DB.Console().Users().Update(ctx, proUser.ID, console.UpdateUserRequest{
-			PaidTier:     &proUser.PaidTier,
+			Kind:         &proUser.Kind,
 			MFAEnabled:   &proUser.MFAEnabled,
 			MFASecretKey: &mfaSecretKeyPtr,
 		}))
@@ -1966,7 +1966,7 @@ func TestAuth_DeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 
 			userType := "pro_user_"
-			if !u.PaidTier {
+			if u.IsFree() {
 				userType = "free_user_"
 			}
 

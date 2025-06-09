@@ -90,7 +90,7 @@ func TestEndpointGet(t *testing.T) {
 
 				user, err := sat.AddUser(ctx, newUser, 1)
 				require.NoError(t, err)
-				require.Equal(t, false, user.PaidTier)
+				require.Equal(t, console.FreeUser, user.Kind)
 
 				project, err := sat.AddProject(ctx, user.ID, "info")
 				require.NoError(t, err)

@@ -406,11 +406,11 @@ func TestDeleteAccounts(t *testing.T) {
 
 		// Change some users to be in the paid tier.
 		for _, i := range []int{1, 3, 7, 8, 9, 10, 11, 12, 13} {
-			paidTier := true
+			kind := console.PaidUser
 			require.NoError(t,
 				sat.DB.Console().Users().Update(ctx, uplinks[i].Projects[0].Owner.ID,
 					console.UpdateUserRequest{
-						PaidTier: &paidTier,
+						Kind: &kind,
 					},
 				),
 			)
@@ -541,7 +541,7 @@ func TestSetAccountsStatusPendingDeletion(t *testing.T) {
 		name                string
 		expectedFinalStatus console.UserStatus
 		initialStatus       console.UserStatus
-		paidTier            bool
+		kind                console.UserKind
 		// -1 indicates no freeze event
 		expirationFreezeEvent              console.AccountFreezeEventType
 		expirationFreezeDaysTillEscalation int
@@ -593,7 +593,7 @@ func TestSetAccountsStatusPendingDeletion(t *testing.T) {
 			name:                  "Active status user and paid tier",
 			expectedFinalStatus:   console.Active,
 			initialStatus:         console.Active,
-			paidTier:              true,
+			kind:                  console.PaidUser,
 			expirationFreezeEvent: -1,
 		},
 		{
@@ -612,7 +612,7 @@ func TestSetAccountsStatusPendingDeletion(t *testing.T) {
 			name:                  "Active user and paid tier with trial expiration freeze",
 			expectedFinalStatus:   console.Active,
 			initialStatus:         console.Active,
-			paidTier:              true,
+			kind:                  console.PaidUser,
 			expirationFreezeEvent: console.TrialExpirationFreeze,
 		},
 		{
@@ -653,8 +653,8 @@ func TestSetAccountsStatusPendingDeletion(t *testing.T) {
 				userID := uplinks[i].Projects[0].Owner.ID
 				require.NoError(t,
 					sat.DB.Console().Users().Update(ctx, userID, console.UpdateUserRequest{
-						Status:   &tc.initialStatus,
-						PaidTier: &tc.paidTier,
+						Status: &tc.initialStatus,
+						Kind:   &tc.kind,
 					},
 					),
 				)

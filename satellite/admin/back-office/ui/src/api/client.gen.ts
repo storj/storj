@@ -110,6 +110,7 @@ export class UserAccount {
     fullName: string;
     email: string;
     paidTier: boolean;
+    kind: number;
     createdAt: Time;
     status: string;
     userAgent: string;

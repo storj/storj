@@ -1001,7 +1001,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.Position = consoleUser.Position
 	user.EmployeeCount = consoleUser.EmployeeCount
 	user.HaveSalesContact = consoleUser.HaveSalesContact
-	user.PaidTier = consoleUser.PaidTier
+	user.PaidTier = consoleUser.IsPaid()
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 	user.CreatedAt = consoleUser.CreatedAt
