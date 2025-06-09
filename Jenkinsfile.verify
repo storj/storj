@@ -99,7 +99,6 @@ pipeline {
                         sh 'check-atomic-align ./...'
                         sh 'check-monkit ./...'
                         sh 'check-errs ./...'
-                        sh 'check-deferloop ./...'
                         sh 'check-downgrades'
                         sh 'make check-monitoring'
                         sh 'make test-wasm-size'

@@ -128,6 +128,8 @@ linters:
       min-len: 3
       min-occurrences: 3
     gocritic:
+      enabled-checks:
+        - deferInLoop
       disabled-checks:
         - ifElseChain
     gocyclo:
