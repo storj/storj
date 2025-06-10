@@ -457,14 +457,25 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 }
 
 func TestBucketCreationSelfServePlacement(t *testing.T) {
+	var (
+		placement       = storj.PlacementConstraint(40)
+		placementDetail = console.PlacementDetail{
+			ID:     40,
+			IdName: "Poland",
+		}
+	)
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: "endpoint_bucket_test_placement.yaml",
+					PlacementRules: `40:annotation("location", "Poland");50:annotation("location", "US")`,
 				}
 				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					0:         {ID: 0},
+					placement: placementDetail,
+				})
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -536,34 +547,46 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		require.Equal(t, storj.PlacementConstraint(40), placement)
 
 		// new bucket with invalid placement returns error
-		bucket3 := "bucket3"
+		bucket3 := []byte("bucket3")
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte(bucket3),
+			Name:      bucket3,
 			Placement: []byte("EU"), // invalid placement
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
+		require.Contains(t, "invalid placement value", err.Error())
+
+		// new bucket with placement not in self-serve details returns error
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      bucket3,
+			Placement: []byte("US"), // placement not in self-serve details
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
+		require.Contains(t, "placement not allowed", err.Error())
 
 		// disable self-serve placement
 		sat.API.Metainfo.Endpoint.TestSelfServePlacementEnabled(false)
 
-		// passing invalid placement should not fail if self-serve placement is disabled.
+		// Passing invalid placement should not fail if self-serve placement is disabled.
 		// This is for backward compatibility with integration tests that'll pass placements
 		// regardless of self-serve placement being enabled or not.
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte("bucket3"),
+			Name:      bucket3,
 			Placement: []byte("EU"), // invalid placement
 		})
 		require.NoError(t, err)
 
-		// placement should be set to default event though a placement was passed
+		// placement should be set to default even though a placement was passed
 		// because self-serve placement is disabled.
-		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte("bucket3"), projectID)
+		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, bucket3, projectID)
 		require.NoError(t, err)
 		require.Equal(t, storj.DefaultPlacement, placement)
 	})

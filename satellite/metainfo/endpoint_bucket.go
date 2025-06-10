@@ -216,6 +216,9 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
 			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
 		}
+		if _, ok := endpoint.selfServePlacements[bucketReq.Placement]; !ok {
+			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+		}
 	} else {
 		bucketReq.Placement = project.DefaultPlacement
 	}

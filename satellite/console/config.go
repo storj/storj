@@ -200,6 +200,11 @@ func (pd *PlacementDetails) SetMap(overrides map[storj.PlacementConstraint]Place
 	pd.detailMap = overrides
 }
 
+// GetMap returns the internal mapping between a placement and detail.
+func (pd *PlacementDetails) GetMap() map[storj.PlacementConstraint]PlacementDetail {
+	return pd.detailMap
+}
+
 // Set implements pflag.Value.
 func (pd *PlacementDetails) Set(s string) error {
 	if s == "" {
