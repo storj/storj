@@ -37,6 +37,13 @@
             </v-col>
 
             <template v-else>
+                <v-col v-if="credentials.freeTierRestrictedExpiration" cols="12">
+                    <v-alert type="warning" variant="tonal">
+                        These credentials will expire at {{ credentials.freeTierRestrictedExpiration.toLocaleString() }}.
+                        <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> your account to avoid expiration limits on future credentials.
+                    </v-alert>
+                </v-col>
+
                 <v-col cols="12">
                     <text-output-area
                         label="Access Key"
@@ -80,6 +87,7 @@ import { computed } from 'vue';
 
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AccessType } from '@/types/setupAccess';
+import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { SaveButtonsItem } from '@/types/common';
 import { Application } from '@/types/applications';
@@ -98,6 +106,7 @@ const props = withDefaults(defineProps<{
     app: undefined,
 });
 
+const appStore = useAppStore();
 const configStore = useConfigStore();
 
 const satelliteAddress = computed<string>(() => configStore.state.config.satelliteNodeURL);
