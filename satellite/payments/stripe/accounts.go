@@ -475,8 +475,70 @@ func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) 
 	return
 }
 
+// ProductCharges returns how much money current user will be charged for each project split by product.
+func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProductChargesResponse, err error) {
+	defer mon.Task()(&ctx, userID, since, before)(&err)
+
+	charges = make(payments.ProductChargesResponse)
+
+	projects, err := accounts.service.projectsDB.GetOwnActive(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, project := range projects {
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		err = accounts.service.getAndProcessUsages(ctx, project.ID, productUsages, productInfos, since, before)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		productIDs := getSortedProductIDs(productUsages)
+
+		productCharges := make(map[int32]payments.ProductCharge)
+
+		for _, productID := range productIDs {
+			usage := productUsages[productID]
+			info := productInfos[productID]
+
+			usage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
+			price := accounts.service.calculateProjectUsagePrice(usage, info.ProjectUsagePriceModel)
+
+			productCharges[productID] = payments.ProductCharge{
+				ProjectUsage: usage,
+
+				ProductUsagePriceModel: info,
+
+				EgressMBCents:       price.Egress.IntPart(),
+				SegmentMonthCents:   price.Segments.IntPart(),
+				StorageMBMonthCents: price.Storage.IntPart(),
+			}
+		}
+
+		if len(productCharges) == 0 {
+			name := "Global"
+			if product, ok := accounts.service.productPriceMap[0]; ok {
+				name = product.ProductName
+			}
+
+			productCharges[0] = payments.ProductCharge{
+				ProjectUsage: accounting.ProjectUsage{Since: since, Before: before},
+				ProductUsagePriceModel: payments.ProductUsagePriceModel{
+					ProductName:            name,
+					ProjectUsagePriceModel: accounts.service.usagePrices,
+				},
+			}
+		}
+
+		charges[project.PublicID] = productCharges
+	}
+
+	return charges, nil
+}
+
 // ProjectCharges returns how much money current user will be charged for each project.
-// TODO update for "by product" invoicing
 func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProjectChargesResponse, err error) {
 	defer mon.Task()(&ctx, userID, since, before)(&err)
 

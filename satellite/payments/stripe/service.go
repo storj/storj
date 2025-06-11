@@ -827,9 +827,24 @@ func (service *Service) ProcessRecord(
 		return true, nil
 	}
 
-	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, record.ProjectID, service.partnerNames, from, to)
+	err = service.getAndProcessUsages(ctx, record.ProjectID, productUsages, productInfos, from, to)
 	if err != nil {
 		return false, err
+	}
+
+	return false, nil
+}
+
+func (service *Service) getAndProcessUsages(
+	ctx context.Context,
+	projectID uuid.UUID,
+	productUsages map[int32]accounting.ProjectUsage,
+	productInfos map[int32]payments.ProductUsagePriceModel,
+	from, to time.Time,
+) error {
+	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, service.partnerNames, from, to)
+	if err != nil {
+		return err
 	}
 
 	// Process each partner/placement usage entry.
@@ -859,13 +874,14 @@ func (service *Service) ProcessRecord(
 
 			// Initialize product info.
 			productInfos[productID] = payments.ProductUsagePriceModel{
+				ProductID:              productID,
 				ProductName:            productName,
 				ProjectUsagePriceModel: priceModel,
 			}
 		}
 	}
 
-	return false, nil
+	return nil
 }
 
 func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payments.ProjectUsagePriceModel) {
@@ -898,12 +914,7 @@ func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payment
 // InvoiceItemsFromTotalProjectUsages calculates per-product Stripe invoice items from total project usages.
 // Exported for testing.
 func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int32]accounting.ProjectUsage, productInfos map[int32]payments.ProductUsagePriceModel, period time.Time) (result []*stripe.InvoiceItemParams) {
-	// Sort product IDs for consistent ordering.
-	var productIDs []int32
-	for productID := range productUsages {
-		productIDs = append(productIDs, productID)
-	}
-	slices.Sort(productIDs)
+	productIDs := getSortedProductIDs(productUsages)
 
 	// Generate invoice items from aggregated product usage.
 	for _, productID := range productIDs {
@@ -955,6 +966,16 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 	service.log.Info("invoice items by product", zap.Any("result", result))
 	return result
+}
+
+func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (productIDs []int32) {
+	// Sort product IDs for consistent ordering.
+	for productID := range productUsages {
+		productIDs = append(productIDs, productID)
+	}
+	slices.Sort(productIDs)
+
+	return productIDs
 }
 
 func getPerProductIdempotencyKey(productID, identifier string, period time.Time) string {

@@ -88,6 +88,7 @@ export class FrontendConfig {
     storageMBMonthCents: string;
     egressMBCents: string;
     segmentMonthCents: string;
+    productBasedInvoicingEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

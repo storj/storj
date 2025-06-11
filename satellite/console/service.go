@@ -713,6 +713,18 @@ func (payment Payments) MakeCreditCardDefault(ctx context.Context, cardID string
 	return payment.service.accounts.CreditCards().MakeDefault(ctx, user.ID, cardID)
 }
 
+// ProductCharges returns how much money current user will be charged for each project which he owns split by product.
+func (payment Payments) ProductCharges(ctx context.Context, since, before time.Time) (_ payments.ProductChargesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "product charges")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return payment.service.accounts.ProductCharges(ctx, user.ID, since, before)
+}
+
 // ProjectsCharges returns how much money current user will be charged for each project which he owns.
 func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.Time) (_ payments.ProjectChargesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
