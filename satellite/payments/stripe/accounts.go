@@ -6,6 +6,7 @@ package stripe
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -608,17 +609,26 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 	return 0, payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
 }
 
-// GetPartnerPlacements returns the placements for a partner.
+// GetPartnerPlacements returns the placements for a partner. It also includes the
+// placements for the default product price config that have not been overridden
+// for the partner.
 func (accounts *accounts) GetPartnerPlacements(partner string) []storj.PlacementConstraint {
 	placements := make([]storj.PlacementConstraint, 0)
 	placementMap, ok := accounts.service.partnerPlacementMap[partner]
 	if !ok {
-		// fallback to placements for all partners
-		placementMap = accounts.service.placementProductMap
+		placementMap = make(payments.PlacementProductIdMap)
+	}
+	for i, i2 := range accounts.service.placementProductMap {
+		if _, ok = placementMap[i]; !ok {
+			placementMap[i] = i2
+		}
 	}
 	for placement := range placementMap {
 		placements = append(placements, storj.PlacementConstraint(placement))
 	}
+	sort.SliceStable(placements, func(i, j int) bool {
+		return placements[i] < placements[j]
+	})
 	return placements
 }
 

@@ -1718,10 +1718,11 @@ func TestProjectUsagePrice(t *testing.T) {
 
 func TestPartnerPlacements(t *testing.T) {
 	var (
-		partner         = "partner"
-		placement       = storj.PlacementConstraint(10)
-		placement11     = storj.PlacementConstraint(11)
-		placementDetail = console.PlacementDetail{
+		partner           = "partner"
+		placement10       = storj.PlacementConstraint(10)
+		placement11       = storj.PlacementConstraint(11)
+		placement12       = storj.PlacementConstraint(12)
+		placementDetail10 = console.PlacementDetail{
 			ID:     10,
 			IdName: "placement10",
 		}
@@ -1729,7 +1730,12 @@ func TestPartnerPlacements(t *testing.T) {
 			ID:     11,
 			IdName: "placement11",
 		}
+		placementDetail12 = console.PlacementDetail{
+			ID:     12,
+			IdName: "placement12",
+		}
 		productID    = int32(1)
+		productID2   = int32(2)
 		productPrice = paymentsconfig.ProductUsagePrice{
 			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
 				StorageTB: "4",
@@ -1737,8 +1743,17 @@ func TestPartnerPlacements(t *testing.T) {
 				Segment:   "6",
 			},
 		}
+		productPrice2 = paymentsconfig.ProductUsagePrice{
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "1",
+				EgressTB:  "2",
+				Segment:   "3",
+			},
+		}
 	)
 	productModel, err := productPrice.ToModel()
+	require.NoError(t, err)
+	productModel2, err := productPrice2.ToModel()
 	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
@@ -1746,33 +1761,35 @@ func TestPartnerPlacements(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: `10:annotation("location", "placement10");11:annotation("location", "placement11")`,
+					PlacementRules: `10:annotation("location", "placement10");11:annotation("location", "placement11");12:annotation("location", "placement12")`,
 				}
 				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
-					productID: productPrice,
+					productID:  productPrice,
+					productID2: productPrice2,
 				})
 				// global placement price overrides
-				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(placement11): productID})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+					int(placement11): productID,
+					int(placement12): productID,
+				})
 
 				placementProductMap := paymentsconfig.PlacementProductMap{}
-				placementProductMap.SetMap(map[int]int32{int(placement): productID})
+				placementProductMap.SetMap(map[int]int32{
+					int(placement10): productID,
+					int(placement12): productID2,
+				})
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
 					partner: placementProductMap,
 				})
 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
-					0:           {ID: 0},
-					placement:   placementDetail,
+					placement10: placementDetail10,
 					placement11: placementDetail11,
+					placement12: placementDetail12,
 				})
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-
-		prodID, model, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(partner, placement)
-		require.NoError(t, err)
-		require.Equal(t, productModel, model)
-		require.Equal(t, productID, prodID)
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName:  "Test User",
@@ -1791,24 +1808,37 @@ func TestPartnerPlacements(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, partner, string(proj.UserAgent))
 
-		prodID, model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement)
+		prodID, model, err := sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
 		require.NoError(t, err)
-		require.Equal(t, productModel, model)
-		require.Equal(t, productID, prodID)
+		// expect overridden product for placement12
+		require.Equal(t, productModel2, model)
+		require.Equal(t, productID2, prodID)
 
 		details, err := sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.Len(t, details, 1)
-		require.Equal(t, placementDetail, details[0])
+		// expect placement10 and placement12, which are defined for the partner,
+		// and placement11, which is defined globally.
+		require.Len(t, details, 3)
+		require.Contains(t, details, placementDetail10)
+		require.Contains(t, details, placementDetail11)
+		require.Contains(t, details, placementDetail12)
 
-		// empty user agent will fall back to global placement configs
+		// empty user agent will still get the same list of placement10 details
 		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, proj.ID, make([]byte, 0))
 		require.NoError(t, err)
 
 		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.Len(t, details, 1)
-		require.Equal(t, placementDetail11, details[0])
+		// only placement11 and placement12 are defined globally.
+		require.Len(t, details, 2)
+		require.Contains(t, details, placementDetail11)
+		require.Contains(t, details, placementDetail12)
+
+		prodID, model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
+		require.NoError(t, err)
+		// expect global product for placement12
+		require.Equal(t, productModel, model)
+		require.Equal(t, productID, prodID)
 	})
 }
 
