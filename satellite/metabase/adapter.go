@@ -66,6 +66,7 @@ type Adapter interface {
 	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error)
 	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
 	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error)
+	FinishCopySegments(ctx context.Context, opts FinishCopySegments) (err error)
 
 	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
 	ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error)

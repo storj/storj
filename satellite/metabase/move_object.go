@@ -41,6 +41,7 @@ type EncryptedKeyAndNonce struct {
 	Position          SegmentPosition
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
+	EncryptedETag     []byte
 }
 
 // BeginMoveObject holds all data needed begin move object method.
