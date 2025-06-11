@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -528,6 +529,12 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		minimumChargeDate, err := config.Payments.MinimumCharge.GetEffectiveDate()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		consoleConfig.Config.SupportURL = consoleConfig.GeneralRequestURL
+		consoleConfig.Config.LoginURL, err = url.JoinPath(consoleConfig.ExternalAddress, "login")
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

@@ -314,3 +314,30 @@ func (*MFADisabledEmail) Template() string { return "MFADisabled" }
 func (*MFADisabledEmail) Subject() string {
 	return "Two-factor authentication has been disabled"
 }
+
+// CreditCardAddedEmail is the template for sending card added emails.
+type CreditCardAddedEmail struct {
+	LoginURL   string
+	SupportURL string
+}
+
+// Template returns email template name.
+func (*CreditCardAddedEmail) Template() string { return "CreditCardAdded" }
+
+// Subject gets email subject.
+func (*CreditCardAddedEmail) Subject() string {
+	return "Storj - Your new payment method has been added"
+}
+
+// UpgradeToProEmail is the template for account upgraded emails.
+type UpgradeToProEmail struct {
+	LoginURL string
+}
+
+// Template returns email template name.
+func (*UpgradeToProEmail) Template() string { return "UpgradeToPro" }
+
+// Subject gets email subject.
+func (*UpgradeToProEmail) Subject() string {
+	return "Storj - Your Account Has Been Upgraded to Pro"
+}

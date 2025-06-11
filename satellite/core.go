@@ -552,7 +552,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 		freezeService := console.NewAccountFreezeService(peer.DB.Console(), peer.Analytics.Service, config.Console.AccountFreeze)
 		choreObservers := billing.ChoreObservers{
-			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade, freezeService, peer.Analytics.Service),
+			UpgradeUser: console.NewUpgradeUserObserver(peer.DB.Console(), peer.DB.Billing(), config.Console.UsageLimits, config.Console.UserBalanceForUpgrade, config.Console.ExternalAddress, freezeService, peer.Analytics.Service, peer.Mail.Service),
 			PayInvoices: console.NewInvoiceTokenPaymentObserver(
 				peer.DB.Console(), peer.Payments.Accounts.Invoices(),
 				freezeService,

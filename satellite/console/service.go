@@ -594,7 +594,23 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 		if err != nil {
 			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
 		}
+
+		payment.service.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+		)
+		return card, nil
 	}
+
+	payment.service.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email}},
+		&CreditCardAddedEmail{
+			SupportURL: payment.service.config.SupportURL,
+			LoginURL:   payment.service.config.LoginURL,
+		},
+	)
 
 	return card, nil
 }
@@ -642,7 +658,23 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 		if err != nil {
 			return payments.CreditCard{}, Error.Wrap(err)
 		}
+
+		payment.service.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email}},
+			&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+		)
+		return card, nil
 	}
+
+	payment.service.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email}},
+		&CreditCardAddedEmail{
+			SupportURL: payment.service.config.SupportURL,
+			LoginURL:   payment.service.config.LoginURL,
+		},
+	)
 
 	return card, nil
 }

@@ -52,6 +52,9 @@ type Config struct {
 	Captcha                           CaptchaConfig
 	Session                           SessionConfig
 	AccountFreeze                     AccountFreezeConfig
+
+	SupportURL string `help:"url link to general request page" hidden:"true"`
+	LoginURL   string `help:"url link to the satellite UI login" hidden:"true"`
 }
 
 // RestAPIKeysConfig contains configurations for REST API keys.
