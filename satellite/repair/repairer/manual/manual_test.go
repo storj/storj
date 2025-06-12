@@ -1,14 +1,13 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package manual_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 	"go.uber.org/zap/zaptest/observer"
 
 	"storj.io/common/memory"
@@ -17,6 +16,8 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/repair/repairer/manual"
+	"storj.io/storj/shared/modular"
 )
 
 func TestRepairSegment(t *testing.T) {
@@ -36,9 +37,12 @@ func TestRepairSegment(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 
-		repairSegment(
-			ctx, zaptest.NewLogger(t), satellite.Repairer, satellite.Metabase.DB, segmentForRepair(segments[0]),
-		)
+		// we cannot download segment so repair is not possible
+		observedZapCore, observedLogs := observer.New(zap.ErrorLevel)
+		observedLogger := zap.New(observedZapCore)
+
+		r := manual.NewRepairer(observedLogger, satellite.Metabase.DB, satellite.Overlay.DB, satellite.Overlay.Service, satellite.Orders.Service, satellite.Repairer.EcRepairer, satellite.Repairer.SegmentRepairer, manual.RepairerConfig{}, &modular.StopTrigger{})
+		r.RepairSegment(ctx, segmentForRepair(segments[0]))
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "bucket", "object")
 		require.NoError(t, err)
@@ -65,12 +69,8 @@ func TestRepairSegment(t *testing.T) {
 			node.Storage2.PieceBackend.TestingDeleteAllPiecesForSatellite(planet.Satellites[0].ID())
 		}
 
-		// we cannot download segment so repair is not possible
-		observedZapCore, observedLogs := observer.New(zap.ErrorLevel)
-		observedLogger := zap.New(observedZapCore)
-		repairSegment(
-			ctx, observedLogger, satellite.Repairer, satellite.Metabase.DB, segmentForRepair(segments[0]),
-		)
+		r.RepairSegment(ctx, segmentForRepair(segments[0]))
+
 		require.Contains(t, "download failed", observedLogs.All()[observedLogs.Len()-1].Message)
 
 		// TODO add more detailed tests

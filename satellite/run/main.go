@@ -10,10 +10,5 @@ import (
 
 // Main is the main entrypoint. Can be called from real `main` package after importing optional modules.
 func Main() {
-	rootCmd, _ := cli.NewRootCmd("satellite", Module)
-
-	err := rootCmd.Execute()
-	if err != nil {
-		panic(err)
-	}
+	cli.Run(Module)
 }

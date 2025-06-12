@@ -184,7 +184,7 @@ func Execute[A any](ctx context.Context, ball *Ball, factory interface{}, option
 		}
 	}
 	if response[0].Interface() == nil {
-		return a, errs.New("Provider factory is executed without error, but returner with nil instance. %s", name[A]())
+		return a, errs.New("Provider factory is executed without error, but returned with nil instance. %s", name[A]())
 	}
 
 	return response[0].Interface().(A), nil

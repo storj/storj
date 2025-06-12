@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
+	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
@@ -29,6 +30,9 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/piecelist"
+	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/repair/repairer/manual"
 	srevocation "storj.io/storj/satellite/revocation"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
@@ -117,6 +121,19 @@ func Module(ball *mud.Ball) {
 		return &EndpointRegistration{}, nil
 	})
 
+	// TODO: we need normal reporter for full audit, but nil for manual repair.
+	mud.Provide[audit.Reporter](ball, func() audit.Reporter {
+		return nil
+	})
+	mud.Tag[audit.Reporter, mud.Nullable](ball, mud.Nullable{})
+	mud.Tag[audit.Reporter, mud.Optional](ball, mud.Optional{})
+
+	mud.View[*identity.FullIdentity, signing.Signee](ball, func(fullIdentity *identity.FullIdentity) signing.Signee {
+		return signing.SigneeFromPeerIdentity(fullIdentity.PeerIdentity())
+	})
+	checker.Module(ball)
+	repairer.Module(ball)
+	manual.Module(ball)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
