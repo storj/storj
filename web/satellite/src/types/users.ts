@@ -39,14 +39,6 @@ export interface UsersApi {
     /**
      * Fetches user frozen status.
      *
-     * @returns boolean
-     * @throws Error
-     */
-    getFrozenStatus(): Promise<FreezeStatus>;
-
-    /**
-     * Fetches user frozen status.
-     *
      * @returns UserSettings
      * @throws Error
      */

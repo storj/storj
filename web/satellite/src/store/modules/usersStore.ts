@@ -94,7 +94,6 @@ export const useUsersStore = defineStore('users', () => {
         const configStore = useConfigStore();
 
         const user = await api.get();
-        user.freezeStatus = await api.getFrozenStatus();
         user.projectLimit ||= configStore.state.config.defaultProjectLimit;
 
         state.user = user;

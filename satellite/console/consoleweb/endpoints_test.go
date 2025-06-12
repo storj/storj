@@ -120,22 +120,6 @@ func TestAuth(t *testing.T) {
 			require.Equal(test.t, http.StatusBadRequest, resp.StatusCode)
 		}
 
-		{ // Get_FreezeStatus
-			resp, body := test.request(http.MethodGet, "/auth/account/freezestatus", nil)
-			require.Equal(test.t, http.StatusOK, resp.StatusCode)
-			require.Contains(test.t, body, "frozen")
-			require.Contains(test.t, body, "warned")
-
-			var freezestatus struct {
-				Frozen bool
-				Warned bool
-			}
-			require.NoError(test.t, json.Unmarshal([]byte(body), &freezestatus))
-			require.Equal(test.t, http.StatusOK, resp.StatusCode)
-			require.False(test.t, freezestatus.Frozen)
-			require.False(test.t, freezestatus.Warned)
-		}
-
 		{ // Test_UserSettings
 			type expectedSettings struct {
 				SessionDuration  *time.Duration

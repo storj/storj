@@ -361,7 +361,7 @@ export class AuthHttpApi implements UsersApi {
         if (response.ok) {
             const userResponse = await response.json();
 
-            return new User(
+            const user = new User(
                 userResponse.id,
                 userResponse.externalID,
                 userResponse.fullName,
@@ -386,6 +386,14 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.trialExpiration ? new Date(userResponse.trialExpiration) : null,
                 userResponse.hasVarPartner,
             );
+            if (userResponse.freezeStatus)
+                user.freezeStatus = new FreezeStatus(
+                    userResponse.freezeStatus.frozen,
+                    userResponse.freezeStatus.warned,
+                    userResponse.freezeStatus.trialExpiredFrozen,
+                    userResponse.freezeStatus.trialExpirationGracePeriod,
+                );
+            return user;
         }
 
         throw new APIError({
@@ -418,32 +426,6 @@ export class AuthHttpApi implements UsersApi {
         throw new APIError({
             status: response.status,
             message: result.error,
-            requestID: response.headers.get('x-request-id'),
-        });
-    }
-
-    /**
-     * Fetches user frozen status.
-     *
-     * @throws Error
-     */
-    public async getFrozenStatus(): Promise<FreezeStatus> {
-        const path = `${this.ROOT_PATH}/account/freezestatus`;
-        const response = await this.http.get(path);
-        if (response.ok) {
-            const responseData = await response.json();
-
-            return new FreezeStatus(
-                responseData.frozen,
-                responseData.warned,
-                responseData.trialExpiredFrozen,
-                responseData.trialExpirationGracePeriod,
-            );
-        }
-
-        throw new APIError({
-            status: response.status,
-            message: 'Can not get user frozen status',
             requestID: response.headers.get('x-request-id'),
         });
     }

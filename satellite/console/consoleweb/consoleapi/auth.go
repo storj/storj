@@ -794,53 +794,6 @@ func LoadAjsAnonymousID(req *http.Request) string {
 	return cookie.Value
 }
 
-// GetFreezeStatus checks to see if an account is frozen or warned.
-func (a *Auth) GetFreezeStatus(w http.ResponseWriter, r *http.Request) {
-	type FrozenResult struct {
-		Frozen                     bool `json:"frozen"`
-		Warned                     bool `json:"warned"`
-		ViolationFrozen            bool `json:"violationFrozen"`
-		TrialExpiredFrozen         bool `json:"trialExpiredFrozen"`
-		TrialExpirationGracePeriod int  `json:"trialExpirationGracePeriod"`
-	}
-
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	userID, err := a.service.GetUserID(ctx)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	freezes, err := a.accountFreezeService.GetAll(ctx, userID)
-	if err != nil {
-		a.serveJSONError(ctx, w, err)
-		return
-	}
-
-	result := FrozenResult{
-		Frozen:             freezes.BillingFreeze != nil,
-		Warned:             freezes.BillingWarning != nil,
-		ViolationFrozen:    freezes.ViolationFreeze != nil,
-		TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
-	}
-	if result.TrialExpiredFrozen {
-		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, time.Now())
-		if days != nil && *days > 0 {
-			result.TrialExpirationGracePeriod = *days
-		}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(result)
-	if err != nil {
-		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
-		return
-	}
-}
-
 // AccountActionData holds data needed to perform change email or account delete actions.
 type AccountActionData struct {
 	Step console.AccountActionStep `json:"step"`
@@ -973,6 +926,12 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	type FreezeStat struct {
+		Frozen                     bool `json:"frozen"`
+		Warned                     bool `json:"warned"`
+		TrialExpiredFrozen         bool `json:"trialExpiredFrozen"`
+		TrialExpirationGracePeriod int  `json:"trialExpirationGracePeriod"`
+	}
 	var user struct {
 		ID                    uuid.UUID  `json:"id"`
 		ExternalID            string     `json:"externalID"`
@@ -996,12 +955,31 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		PendingVerification   bool       `json:"pendingVerification"`
 		TrialExpiration       *time.Time `json:"trialExpiration"`
 		HasVarPartner         bool       `json:"hasVarPartner"`
+		FreezeStatus          FreezeStat `json:"freezeStatus"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
+	}
+
+	freezes, err := a.accountFreezeService.GetAll(ctx, consoleUser.ID)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	user.FreezeStatus = FreezeStat{
+		Frozen:             freezes.BillingFreeze != nil,
+		Warned:             freezes.BillingWarning != nil,
+		TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
+	}
+	if user.FreezeStatus.TrialExpiredFrozen {
+		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, time.Now())
+		if days != nil && *days > 0 {
+			user.FreezeStatus.TrialExpirationGracePeriod = *days
+		}
 	}
 
 	user.ShortName = consoleUser.ShortName
