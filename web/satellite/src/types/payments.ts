@@ -44,6 +44,11 @@ export interface PaymentsApi {
     projectUsagePriceModel(): Promise<UsagePriceModel>;
 
     /**
+     * productsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns split by product.
+     */
+    productsUsageAndCharges(since: Date, before: Date): Promise<ProductCharges>;
+
+    /**
      * getPlacementPriceModel returns the usage price model for the user and placement.
      */
     getPlacementPriceModel(params: PriceModelForPlacementRequest): Promise<UsagePriceModel>;
@@ -410,7 +415,7 @@ export class ProjectCharge {
     /**
      * summary returns total price for a project in cents.
      */
-    public summary(): number {
+    public get summary(): number {
         return this.storagePrice + this.egressPrice + this.segmentPrice;
     }
 }
@@ -492,7 +497,7 @@ export class ProjectCharges {
     public getPrice(): number {
         let sum = 0;
         this.forEachCharge(charge => {
-            sum += charge.summary();
+            sum += charge.summary;
         });
         return sum;
     }
@@ -505,7 +510,7 @@ export class ProjectCharges {
     public getProjectPrice(projectID: string): number {
         let sum = 0;
         this.forEachProjectCharge(projectID, charge => {
-            sum += charge.summary();
+            sum += charge.summary;
         });
         return sum;
     }
@@ -595,6 +600,229 @@ export class ProjectCharges {
                 ));
             });
         });
+
+        return charges;
+    }
+}
+
+/**
+ * ProductCharge shows usage and how much money current project will charge in the end of the month split by product.
+ */
+export class ProductCharge extends ProjectCharge {
+    constructor(
+        public productID: string = '',
+        public productName: string = '',
+        public priceModel: UsagePriceModel = new UsagePriceModel(),
+        since: Date = new Date(),
+        before: Date = new Date(),
+        egress: number = 0,
+        storage: number = 0,
+        segmentCount: number = 0,
+        storagePrice: number = 0,
+        egressPrice: number = 0,
+        segmentPrice: number = 0,
+    ) {
+        super(since, before, egress, storage, segmentCount, storagePrice, egressPrice, segmentPrice);
+    }
+}
+
+/**
+ * The JSON representation of ProductCharges returned from the API.
+ */
+type ProductChargesJSON = {
+    charges: {
+        [projectID: string]: {
+            [productID: number]: JSONRepresentable<ProductCharge> & {
+                since: string;
+                before: string;
+                egressMBCents: string;
+                storageMBMonthCents: string;
+                segmentMonthCents: string;
+            };
+        };
+    }
+    applyMinimumCharge: boolean;
+};
+
+/**
+ * Represents a collection of project usage charges grouped by project ID and product ID.
+ */
+export class ProductCharges {
+    private map = new Map<string, Map<number, ProductCharge>>();
+    public applyMinimumCharge = false;
+
+    /**
+     * Set the usage charge for a project and product.
+     *
+     * @param projectID - The ID of the project.
+     * @param productID - The ID of the product.
+     * @param charge - The usage and charges for the project and product.
+     */
+    public set(projectID: string, productID: number, charge: ProductCharge): void {
+        const map = this.map.get(projectID) || new Map<number, ProductCharge>();
+        map.set(productID, charge);
+        this.map.set(projectID, map);
+    }
+
+    /**
+     * Returns the usage charge for a project and partner or undefined if it does not exist.
+     *
+     * @param projectID - The ID of the project.
+     * @param productID - The ID of the product.
+     */
+    public get(projectID: string, productID: number): ProductCharge | undefined {
+        const map = this.map.get(projectID);
+        if (!map) return undefined;
+        return map.get(productID);
+    }
+
+    /**
+     * Returns the sum of all usage charges.
+     */
+    public getPrice(): number {
+        let sum = 0;
+        this.forEachCharge(charge => {
+            sum += charge.summary;
+        });
+        return sum;
+    }
+
+    /**
+     * Returns the project usage price model for a product or undefined if it does not exist.
+     *
+     * @param projectID - The ID of the project.
+     * @param productID - The ID of the product.
+     */
+    public getUsagePriceModel(projectID: string, productID: number): UsagePriceModel | undefined {
+        const map = this.map.get(projectID);
+        if (!map) return undefined;
+        return map.get(productID)?.priceModel;
+    }
+
+    /**
+     * Returns the product name or undefined if it does not exist.
+     *
+     * @param projectID - The ID of the project.
+     * @param productID - The ID of the product.
+     */
+    public getProductName(projectID: string, productID: number): string | undefined {
+        const map = this.map.get(projectID);
+        if (!map) return undefined;
+        return map.get(productID)?.productName;
+    }
+
+    /**
+     * Returns the sum of all usage charges for the project ID.
+     *
+     * @param projectID - The ID of the project.
+     */
+    public getProjectPrice(projectID: string): number {
+        let sum = 0;
+        this.forEachProjectCharge(projectID, charge => {
+            sum += charge.summary;
+        });
+        return sum;
+    }
+
+    /**
+     * Returns whether this collection contains information for a project.
+     *
+     * @param projectID - The ID of the project.
+     */
+    public hasProject(projectID: string): boolean {
+        return this.map.has(projectID);
+    }
+
+    /**
+     * Iterate over each usage charge for all projects and products.
+     *
+     * @param callback - A function to be called for each usage charge.
+     */
+    public forEachCharge(callback: (charge: ProductCharge, productID: number, projectID: string) => void): void {
+        this.map.forEach((productCharges, projectID) => {
+            productCharges.forEach((charge, productID) => {
+                callback(charge, productID, projectID);
+            });
+        });
+    }
+
+    /**
+     * Calls a provided function once for each usage charge associated with a given project.
+     *
+     * @param projectID The project ID for which to iterate over usage charges.
+     * @param callback The function to call for each usage charge, taking the charge object, product ID, and project ID as arguments.
+     */
+    public forEachProjectCharge(projectID: string, callback: (charge: ProductCharge, productID: number) => void): void {
+        const productCharges = this.map.get(projectID);
+        if (!productCharges) return;
+        productCharges.forEach((charge, productID) => {
+            callback(charge, productID);
+        });
+    }
+
+    /**
+     * Returns the collection as an array of nested arrays, where each inner array represents a project and its
+     * associated product charges. The inner arrays have the format [projectID, [productCharge1, productCharge2, ...]],
+     * where each productCharge is a [productID, charge] tuple.
+     */
+    public toArray(): [projectID: string, productCharges: [productID: number, charge: ProductCharge][]][] {
+        const result: [string, [number, ProductCharge][]][] = [];
+        this.map.forEach((productCharges, projectID) => {
+            const productChargeArray: [number, ProductCharge][] = [];
+            productCharges.forEach((charge, productID) => {
+                productChargeArray.push([productID, charge]);
+            });
+            result.push([projectID, productChargeArray]);
+        });
+        return result;
+    }
+
+    /**
+     * Returns a new ProjectProductCharges instance from a JSON representation.
+     *
+     * @param json - The JSON representation of the ProjectProductCharges.
+     */
+    public static fromJSON(json: ProductChargesJSON): ProductCharges {
+        const charges = new ProductCharges();
+        charges.applyMinimumCharge = json.applyMinimumCharge;
+
+        for (const [projectID, productMap] of Object.entries(json.charges)) {
+            for (const [productIDKey, chargeJSON] of Object.entries(productMap)) {
+                const productIDNum = Number(productIDKey);
+
+                const {
+                    productID: pidStr,
+                    productName,
+                    storageMBMonthCents,
+                    egressMBCents,
+                    segmentMonthCents,
+                    since: sinceStr,
+                    before: beforeStr,
+                    egress,
+                    storage,
+                    segmentCount,
+                    storagePrice,
+                    egressPrice,
+                    segmentPrice,
+                } = chargeJSON;
+
+                const pc = new ProductCharge(
+                    pidStr,
+                    productName,
+                    new UsagePriceModel(storageMBMonthCents, egressMBCents, segmentMonthCents),
+                    new Date(sinceStr),
+                    new Date(beforeStr),
+                    egress,
+                    storage,
+                    segmentCount,
+                    storagePrice,
+                    egressPrice,
+                    segmentPrice,
+                );
+
+                charges.set(projectID, productIDNum, pc);
+            }
+        }
 
         return charges;
     }
