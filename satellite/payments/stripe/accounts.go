@@ -662,7 +662,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 }
 
 // CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, err error) {
+func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	year, month, _ := accounts.service.nowFn().UTC().Date()
@@ -672,25 +672,25 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 		// check current month usage and do not allow deletion if usage exists
 		currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
 		if err != nil {
-			return false, false, err
+			return false, false, decimal.Zero, err
 		}
 		if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
-			return true, false, payments.ErrUnbilledUsageCurrentMonth
+			return true, false, decimal.Zero, payments.ErrUnbilledUsageCurrentMonth
 		}
 
 		// check usage for last month, if exists, ensure we have an invoice item created.
 		lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 		if err != nil {
-			return false, false, err
+			return false, false, decimal.Zero, err
 		}
 		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
 			err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 			if !errs.Is(err, ErrProjectRecordExists) {
-				return false, true, payments.ErrUnbilledUsageLastMonth
+				return false, true, decimal.Zero, payments.ErrUnbilledUsageLastMonth
 			}
 		}
 
-		return false, false, nil
+		return false, false, decimal.Zero, nil
 	}
 
 	getCostTotal := func(start, before time.Time) (decimal.Decimal, error) {
@@ -710,28 +710,28 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 		return total, nil
 	}
 
-	total, err := getCostTotal(firstOfMonth, accounts.service.nowFn())
+	currentMonthPrice, err = getCostTotal(firstOfMonth, accounts.service.nowFn())
 	if err != nil {
-		return false, false, err
+		return false, false, decimal.Zero, err
 	}
 
-	if total.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
-		return true, false, payments.ErrUnbilledUsageCurrentMonth
+	if currentMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
+		return true, false, currentMonthPrice, payments.ErrUnbilledUsageCurrentMonth
 	}
 
-	total, err = getCostTotal(firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+	previousMonthPrice, err := getCostTotal(firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
 	if err != nil {
-		return false, false, err
+		return false, false, decimal.Zero, err
 	}
 
-	if total.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
+	if previousMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if !errs.Is(err, ErrProjectRecordExists) {
-			return false, true, payments.ErrUnbilledUsageLastMonth
+			return false, true, currentMonthPrice, payments.ErrUnbilledUsageLastMonth
 		}
 	}
 
-	return false, false, err
+	return false, false, currentMonthPrice, err
 }
 
 // Charges returns list of all credit card charges related to account.

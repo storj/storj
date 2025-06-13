@@ -1054,12 +1054,12 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 }
 
 // checkProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsage, invoicingIncomplete bool, err error) {
+func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsage, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = payment.service.getUserAndAuditLog(ctx, "project usage status")
 	if err != nil {
-		return false, false, Error.Wrap(err)
+		return false, false, decimal.Zero, Error.Wrap(err)
 	}
 
 	return payment.service.accounts.CheckProjectUsageStatus(ctx, projectID)
@@ -2423,7 +2423,7 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 
 	if user.PaidTier {
 		for _, p := range projects {
-			currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, p.ID)
+			currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p.ID)
 			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
 				return nil, err
 			}
@@ -2697,7 +2697,7 @@ func (s *Service) handleVerifyCurrentEmailStep(ctx context.Context, user *User, 
 	return nil
 }
 
-func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, projectID uuid.UUID) (err error) {
+func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, projectID, publicProjectID uuid.UUID, deleteProjectInfo *DeleteProjectInfo) (err error) {
 	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
 		err = s.handleLockAccount(ctx, user, DeleteProjectStep, deleteProjectAction)
 		if err != nil {
@@ -2712,6 +2712,19 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	if err != nil {
 		return err
 	}
+
+	currentPriceStr := "0"
+	if deleteProjectInfo != nil {
+		currentPriceStr = deleteProjectInfo.CurrentMonthPrice.String()
+	}
+
+	s.log.Info("project deleted successfully by user",
+		zap.String("project_id", publicProjectID.String()),
+		zap.String("user_id", user.ID.String()),
+		zap.String("user_email", user.Email),
+		zap.String("current_usage_price", currentPriceStr),
+	)
+	s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID)
 
 	// We need to reset the step value to prevent the possibility of bypassing steps
 	// in subsequent delete project requests.
@@ -2780,6 +2793,12 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	s.log.Info("account deleted successfully by user",
+		zap.String("user_id", user.ID.String()),
+		zap.String("user_email", user.Email),
+	)
+	s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID)
 
 	s.mailService.SendRenderedAsync(
 		ctx,
@@ -3799,7 +3818,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 	case VerifyAccountEmailStep:
 		return nil, s.handleVerifyCurrentEmailStep(ctx, user, data, deleteProjectAction)
 	case DeleteProjectStep:
-		return nil, s.handleDeleteProjectStep(ctx, user, projectID)
+		return nil, s.handleDeleteProjectStep(ctx, user, projectID, p.PublicID, info)
 	default:
 		return nil, ErrValidation.New("step value is out of range")
 	}
@@ -3832,7 +3851,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	projectID = p.ID
 
-	_, err = s.checkProjectCanBeDeleted(ctx, user, projectID)
+	info, err := s.checkProjectCanBeDeleted(ctx, user, projectID)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusConflict,
@@ -3849,6 +3868,19 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	currentPriceStr := "0"
+	if info != nil {
+		currentPriceStr = info.CurrentMonthPrice.String()
+	}
+
+	s.log.Info("project deleted successfully",
+		zap.String("project_id", p.PublicID.String()),
+		zap.String("user_id", user.ID.String()),
+		zap.String("user_email", user.Email),
+		zap.String("current_usage_price", currentPriceStr),
+	)
+	s.analytics.TrackProjectDeleted(user.ID, user.Email, p.PublicID, currentPriceStr, user.HubspotObjectID)
 
 	return httpError
 }
@@ -5480,21 +5512,26 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 		return &DeleteProjectInfo{APIKeys: keyCount}, ErrUsage.New("some api keys still exist")
 	}
 
+	currentPrice := decimal.Zero
+
 	if user.PaidTier {
-		currentUsage, invoicingIncomplete, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
+		currentUsage, invoicingIncomplete, currentMonthPrice, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
 		if err != nil && !payments.ErrUnbilledUsage.Has(err) {
 			return nil, ErrUsage.Wrap(err)
 		}
+
+		currentPrice = currentMonthPrice
 
 		if currentUsage || invoicingIncomplete {
 			return &DeleteProjectInfo{
 				CurrentUsage:        currentUsage,
 				InvoicingIncomplete: invoicingIncomplete,
+				CurrentMonthPrice:   currentMonthPrice,
 			}, ErrUsage.Wrap(err)
 		}
 	}
 
-	return nil, nil
+	return &DeleteProjectInfo{CurrentMonthPrice: currentPrice}, nil
 }
 
 // checkProjectLimit is used to check if user is able to create a new project.

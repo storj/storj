@@ -8,6 +8,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -272,10 +274,11 @@ type ProjectConfig struct {
 
 // DeleteProjectInfo holds data for project deletion UI flow.
 type DeleteProjectInfo struct {
-	Buckets             int  `json:"buckets"`
-	APIKeys             int  `json:"apiKeys"`
-	CurrentUsage        bool `json:"currentUsage"`
-	InvoicingIncomplete bool `json:"invoicingIncomplete"`
+	Buckets             int             `json:"buckets"`
+	APIKeys             int             `json:"apiKeys"`
+	CurrentUsage        bool            `json:"currentUsage"`
+	CurrentMonthPrice   decimal.Decimal `json:"-"`
+	InvoicingIncomplete bool            `json:"invoicingIncomplete"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.
