@@ -151,6 +151,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.hasManagedPassphrase,
                 result.passphrase ?? '',
                 result.isOwnerPaidTier,
+                result.hasPaidPrivileges,
                 result.role,
                 result.salt,
             );

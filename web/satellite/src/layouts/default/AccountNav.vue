@@ -29,7 +29,7 @@
                     <v-list-item-subtitle>My Account</v-list-item-subtitle>
                 </v-list-item>
 
-                <v-list-item v-if="!isPaidTier && billingEnabled" link lines="one" class="my-1 py-2" tabindex="0" @click="toggleUpgradeFlow" @keydown.space.prevent="toggleUpgradeFlow">
+                <v-list-item v-if="!hasPaidPrivileges && billingEnabled" link lines="one" class="my-1 py-2" tabindex="0" @click="toggleUpgradeFlow" @keydown.space.prevent="toggleUpgradeFlow">
                     <template #prepend>
                         <component :is="CircleArrowUp" :size="18" />
                     </template>
@@ -43,7 +43,7 @@
                     </template>
                 </navigation-item>
 
-                <navigation-item v-if="isPaidTier && apiKeysUiEnabled" title="API Keys" :to="ROUTES.Account.with(ROUTES.APIKeys).path" class="py-2">
+                <navigation-item v-if="hasPaidPrivileges && apiKeysUiEnabled" title="API Keys" :to="ROUTES.Account.with(ROUTES.APIKeys).path" class="py-2">
                     <template #prepend>
                         <component :is="Key" :size="18" />
                     </template>
@@ -183,12 +183,12 @@ const model = computed<boolean>({
 /**
  * Returns user's paid tier status from store.
  */
-const isPaidTier = computed<boolean>(() => usersStore.state.user.paidTier ?? false);
+const hasPaidPrivileges = computed<boolean>(() => usersStore.state.user.hasPaidPrivileges);
 
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
 
 /**
  * Indicates if REST API keys UI are enabled.

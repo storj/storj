@@ -20,7 +20,7 @@ export function usePreCheck() {
     const expirationInfo = computed<ExpirationInfo>(() => user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification));
 
     const isTrialExpirationBanner = computed<boolean>(() => {
-        if (user.value.paidTier) return false;
+        if (user.value.hasPaidPrivileges) return false;
 
         return user.value.freezeStatus.trialExpiredFrozen || expirationInfo.value.isCloseToExpiredTrial;
     });
@@ -28,7 +28,7 @@ export function usePreCheck() {
     const isExpired = computed<boolean>(() => user.value.freezeStatus.trialExpiredFrozen);
 
     function withTrialCheck(callback: () => void | Promise<void>, skipProjectOwningCheck = false): void {
-        const isTrialExpired = !user.value.paidTier && user.value.freezeStatus.trialExpiredFrozen;
+        const isTrialExpired = !user.value.hasPaidPrivileges && user.value.freezeStatus.trialExpiredFrozen;
         const isEligibleForExpirationDialog = isTrialExpired && (skipProjectOwningCheck || isUserProjectOwner.value);
 
         if (isEligibleForExpirationDialog) {

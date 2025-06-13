@@ -144,7 +144,7 @@ async function claimWallet(): Promise<void> {
  * Called when "Create New Wallet" button is clicked.
  */
 function claimWalletClick(): void {
-    if (!usersStore.state.user.paidTier) {
+    if (!usersStore.state.user.isPaid) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
@@ -166,7 +166,7 @@ function claimWalletClick(): void {
 function onAddTokens(): void {
     analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
 
-    if (!usersStore.state.user.paidTier) {
+    if (!usersStore.state.user.isPaid) {
         appStore.toggleUpgradeFlow(true);
         return;
     }

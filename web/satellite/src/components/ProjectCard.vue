@@ -171,7 +171,7 @@ const notify = useNotify();
 
 const isDeclining = ref<boolean>(false);
 
-const isPaidTier = computed(() => userStore.state.user.paidTier);
+const isPaidTier = computed(() => userStore.state.user.isPaid);
 
 /**
  * Selects the project and navigates to the project dashboard.

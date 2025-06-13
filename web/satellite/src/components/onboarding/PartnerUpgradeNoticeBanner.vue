@@ -76,7 +76,7 @@ function toggleUpgradeDialog() {
     isUpgradeDialogShown.value = true;
 }
 
-watch(() => [usersStore.state.user.paidTier, isUpgradeDialogShown.value], (value) => {
+watch(() => [usersStore.state.user.isPaid, isUpgradeDialogShown.value], (value) => {
     if (value[0] && !value[1]) {
         // throttle the banner dismissal for the dialog close animation.
         setTimeout(() => model.value = false, 500);

@@ -142,7 +142,7 @@ export class User {
         public projectStorageLimit: number = 0,
         public projectBandwidthLimit: number = 0,
         public projectSegmentLimit: number = 0,
-        public paidTier: boolean = false,
+        public kind: KindInfo = new KindInfo(),
         public isMFAEnabled: boolean = false,
         public isProfessional: boolean = false,
         public position: string = '',
@@ -157,6 +157,22 @@ export class User {
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
     ) { }
+
+    public get isPaid(): boolean {
+        return this.kind.value === UserKind.Paid;
+    }
+
+    public get isFree(): boolean {
+        return this.kind.value === UserKind.Free;
+    }
+
+    public get isNFR(): boolean {
+        return this.kind.value === UserKind.NFR;
+    }
+
+    public get hasPaidPrivileges(): boolean {
+        return this.kind.hasPaidPrivileges;
+    }
 
     public get createdAt(): Date | null {
         if (!this._createdAt) {
@@ -357,6 +373,21 @@ export interface SetUserSettingsData {
     onboardingStep?: string | null;
     sessionDuration?: number;
     noticeDismissal?: NoticeDismissal;
+}
+
+/**
+ * KindInfo represents info about UserKind.
+ */
+export class KindInfo {
+    public constructor(
+        public value = UserKind.Free,
+        public name = 'Free Trial',
+        public hasPaidPrivileges = false,
+    ) { }
+}
+
+export enum UserKind {
+    Free, Paid, NFR,
 }
 
 /**

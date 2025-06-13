@@ -116,7 +116,7 @@
 
                                 <v-divider />
 
-                                <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Storage)">
+                                <v-list-item v-if="hasPaidPrivileges" link @click="() => emit('updateLimitsClick', item, LimitToChange.Storage)">
                                     <template #prepend>
                                         <component :is="Cloud" :size="18" />
                                     </template>
@@ -125,7 +125,7 @@
                                     </v-list-item-title>
                                 </v-list-item>
 
-                                <v-list-item v-if="isPaidTier" link @click="() => emit('updateLimitsClick', item, LimitToChange.Bandwidth)">
+                                <v-list-item v-if="hasPaidPrivileges" link @click="() => emit('updateLimitsClick', item, LimitToChange.Bandwidth)">
                                     <template #prepend>
                                         <component :is="DownloadCloud" :size="18" />
                                     </template>
@@ -229,7 +229,7 @@ const headers: DataTableHeader[] = [
     { title: '', key: 'actions', sortable: false, width: '0' },
 ];
 
-const isPaidTier = computed(() => userStore.state.user.paidTier);
+const hasPaidPrivileges = computed(() => userStore.state.user.hasPaidPrivileges);
 
 /**
  * Selects the project and navigates to the project dashboard.

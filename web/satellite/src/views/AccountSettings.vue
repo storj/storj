@@ -286,7 +286,7 @@ const user = computed((): User => {
 /**
  * Whether billing features should be enabled
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(user.value.hasVarPartner));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(user.value));
 
 /**
  * Whether change email feature should be enabled
@@ -314,7 +314,7 @@ const userSettings = computed((): UserSettings => {
  * Returns user's paid tier status from store.
  */
 const isPaidTier = computed<boolean>(() => {
-    return user.value.paidTier;
+    return user.value.isPaid;
 });
 
 async function toggleEnableMFADialog() {

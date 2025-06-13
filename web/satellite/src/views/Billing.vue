@@ -369,7 +369,7 @@ const projectIDs = computed((): string[] => {
         .map(proj => proj.id);
 });
 
-const userPaidTier = computed<boolean>(() => usersStore.state.user.paidTier);
+const userPaidTier = computed<boolean>(() => usersStore.state.user.isPaid);
 
 const willMinimumChargeBeApplied = computed(() => {
     const { isEnabled, _amount } = minimumChargeCfg.value;
@@ -511,7 +511,7 @@ function onAddTokensClicked(): void {
 }
 
 onBeforeMount(() => {
-    if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)) {
+    if (!configStore.getBillingEnabled(usersStore.state.user)) {
         router.replace({ name: ROUTES.AccountSettings.name });
     }
 });

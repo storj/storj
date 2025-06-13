@@ -46,5 +46,5 @@ defineProps<{
 
 const usersStore = useUsersStore();
 
-const isPaidTier = computed<boolean>(() => usersStore.state.user.paidTier);
+const isPaidTier = computed<boolean>(() => usersStore.state.user.hasPaidPrivileges);
 </script>
