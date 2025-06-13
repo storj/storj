@@ -142,6 +142,19 @@ func TestEndpointGet(t *testing.T) {
 				require.NoError(t, err)
 				// user should now be in paid tier.
 				require.Equal(t, true, response.PaidTier)
+
+				kind := console.NFRUser
+				err = sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+
+				response, err = endpoint.Get(peerCtx, &pb.GetUserInfoRequest{
+					Header: &pb.RequestHeader{
+						ApiKey: key.SerializeRaw(),
+					},
+				})
+				require.NoError(t, err)
+				// user should now be in paid tier.
+				require.Equal(t, true, response.PaidTier)
 			})
 		})
 }

@@ -3399,6 +3399,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		HasManagedPassphrase: hasManagedPassphrase,
 		Passphrase:           string(passphrase),
 		IsOwnerPaidTier:      ownerKind == PaidUser,
+		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser,
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 	}, nil
@@ -3927,7 +3928,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	project.Name = updatedProject.Name
 	project.Description = updatedProject.Description
 
-	if user.IsPaid() {
+	if user.HasPaidPrivileges() {
 		err = s.validateLimits(ctx, project, UpdateLimitsInfo{
 			StorageLimit:   updatedProject.StorageLimit,
 			BandwidthLimit: updatedProject.BandwidthLimit,
@@ -4157,7 +4158,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
 
-	if user.IsPaid() && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
+	if user.HasPaidPrivileges() && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,

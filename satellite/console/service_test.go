@@ -667,6 +667,34 @@ func TestService(t *testing.T) {
 				require.Nil(t, project.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *project.UserSpecifiedBandwidthLimit)
 
+				kind := console.FreeUser
+				err = sat.API.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+				_, userCtx1 = getOwnerAndCtx(ctx, up1Proj)
+
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up1Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit: &limit100,
+				})
+				// free users should not be able to set limits.
+				require.Error(t, err)
+
+				kind = console.NFRUser
+				err = sat.API.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+				_, userCtx1 = getOwnerAndCtx(ctx, up1Proj)
+
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up1Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit: &limit100,
+				})
+				// nfr users should be able to set limits.
+				require.NoError(t, err)
+
+				// reset user back to paid user
+				kind = console.PaidUser
+				err = sat.API.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+				_, userCtx1 = getOwnerAndCtx(ctx, up1Proj)
+
 				err = service.UpdateUserSpecifiedLimits(userCtx1, disabledProject.ID, console.UpdateLimitsInfo{StorageLimit: &limit0})
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
@@ -1561,6 +1589,7 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, config)
 				require.True(t, config.IsOwnerPaidTier)
+				require.True(t, config.HasPaidPrivileges)
 				require.Equal(t, console.RoleAdmin, config.Role)
 				require.Equal(t, base64.StdEncoding.EncodeToString(salt), config.Salt)
 
@@ -1577,9 +1606,25 @@ func TestService(t *testing.T) {
 				require.Equal(t, console.RoleMember, config.Role)
 				// member is not paid tier, but project owner is.
 				require.True(t, config.IsOwnerPaidTier)
+				require.True(t, config.HasPaidPrivileges)
+
+				kind := console.NFRUser
+				err = sat.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.False(t, config.IsOwnerPaidTier)
+				// nfr user has paid privileges
+				require.True(t, config.HasPaidPrivileges)
 
 				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))
+
+				kind = console.PaidUser
+				err = sat.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
 			})
 		})
 }

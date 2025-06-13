@@ -2196,7 +2196,7 @@ func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*co
 
 	return user, (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
 		(user.Status != console.Active && user.Status != console.UserRequestedDeletion) ||
-		user.IsFree(), nil
+		!user.IsPaid(), nil
 }
 
 // projectUsagePrice represents pricing for project usage.

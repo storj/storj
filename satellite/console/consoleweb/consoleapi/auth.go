@@ -933,29 +933,30 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		TrialExpirationGracePeriod int  `json:"trialExpirationGracePeriod"`
 	}
 	var user struct {
-		ID                    uuid.UUID  `json:"id"`
-		ExternalID            string     `json:"externalID"`
-		FullName              string     `json:"fullName"`
-		ShortName             string     `json:"shortName"`
-		Email                 string     `json:"email"`
-		Partner               string     `json:"partner"`
-		ProjectLimit          int        `json:"projectLimit"`
-		ProjectStorageLimit   int64      `json:"projectStorageLimit"`
-		ProjectBandwidthLimit int64      `json:"projectBandwidthLimit"`
-		ProjectSegmentLimit   int64      `json:"projectSegmentLimit"`
-		IsProfessional        bool       `json:"isProfessional"`
-		Position              string     `json:"position"`
-		CompanyName           string     `json:"companyName"`
-		EmployeeCount         string     `json:"employeeCount"`
-		HaveSalesContact      bool       `json:"haveSalesContact"`
-		PaidTier              bool       `json:"paidTier"`
-		MFAEnabled            bool       `json:"isMFAEnabled"`
-		MFARecoveryCodeCount  int        `json:"mfaRecoveryCodeCount"`
-		CreatedAt             time.Time  `json:"createdAt"`
-		PendingVerification   bool       `json:"pendingVerification"`
-		TrialExpiration       *time.Time `json:"trialExpiration"`
-		HasVarPartner         bool       `json:"hasVarPartner"`
-		FreezeStatus          FreezeStat `json:"freezeStatus"`
+		ID                    uuid.UUID        `json:"id"`
+		ExternalID            string           `json:"externalID"`
+		FullName              string           `json:"fullName"`
+		ShortName             string           `json:"shortName"`
+		Email                 string           `json:"email"`
+		Partner               string           `json:"partner"`
+		ProjectLimit          int              `json:"projectLimit"`
+		ProjectStorageLimit   int64            `json:"projectStorageLimit"`
+		ProjectBandwidthLimit int64            `json:"projectBandwidthLimit"`
+		ProjectSegmentLimit   int64            `json:"projectSegmentLimit"`
+		IsProfessional        bool             `json:"isProfessional"`
+		Position              string           `json:"position"`
+		CompanyName           string           `json:"companyName"`
+		EmployeeCount         string           `json:"employeeCount"`
+		HaveSalesContact      bool             `json:"haveSalesContact"`
+		PaidTier              bool             `json:"paidTier"`
+		Kind                  console.KindInfo `json:"kindInfo"`
+		MFAEnabled            bool             `json:"isMFAEnabled"`
+		MFARecoveryCodeCount  int              `json:"mfaRecoveryCodeCount"`
+		CreatedAt             time.Time        `json:"createdAt"`
+		PendingVerification   bool             `json:"pendingVerification"`
+		TrialExpiration       *time.Time       `json:"trialExpiration"`
+		HasVarPartner         bool             `json:"hasVarPartner"`
+		FreezeStatus          FreezeStat       `json:"freezeStatus"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -1002,6 +1003,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.EmployeeCount = consoleUser.EmployeeCount
 	user.HaveSalesContact = consoleUser.HaveSalesContact
 	user.PaidTier = consoleUser.IsPaid()
+	user.Kind = consoleUser.Kind.Info()
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 	user.CreatedAt = consoleUser.CreatedAt

@@ -284,6 +284,7 @@ type ProjectConfig struct {
 	HasManagedPassphrase bool              `json:"hasManagedPassphrase"`
 	Passphrase           string            `json:"passphrase,omitempty"`
 	IsOwnerPaidTier      bool              `json:"isOwnerPaidTier"`
+	HasPaidPrivileges    bool              `json:"hasPaidPrivileges"`
 	Role                 ProjectMemberRole `json:"role"`
 	Salt                 string            `json:"salt"`
 }

@@ -238,6 +238,9 @@ const (
 	FreeUser UserKind = 0
 	// PaidUser is a kind of user that has paid account.
 	PaidUser UserKind = 1
+	// NFRUser - not-for-resale user is one that has paid privileges
+	// but is not paying for the account.
+	NFRUser UserKind = 2
 )
 
 // String returns a string representation of the user status.
@@ -259,6 +262,36 @@ func (s *UserStatus) String() string {
 		return "User Requested Deletion"
 	default:
 		return ""
+	}
+}
+
+// String returns a string representation of the user kind.
+func (k UserKind) String() string {
+	switch k {
+	case FreeUser:
+		return "Free Trial"
+	case PaidUser:
+		return "Pro Account"
+	case NFRUser:
+		return "Not For Resale"
+	default:
+		return ""
+	}
+}
+
+// KindInfo holds info about user kind.
+type KindInfo struct {
+	Value             UserKind `json:"value"`
+	Name              string   `json:"name"`
+	HasPaidPrivileges bool     `json:"hasPaidPrivileges"`
+}
+
+// Info returns info about the user kind.
+func (k UserKind) Info() KindInfo {
+	return KindInfo{
+		Value:             k,
+		Name:              k.String(),
+		HasPaidPrivileges: k == PaidUser || k == NFRUser,
 	}
 }
 
@@ -361,6 +394,11 @@ type User struct {
 	EmailChangeVerificationStep int     `json:"-"`
 
 	HubspotObjectID *string `json:"-"`
+}
+
+// HasPaidPrivileges returns whether the user has paid privileges.
+func (u *User) HasPaidPrivileges() bool {
+	return u.Kind == NFRUser || u.IsPaid()
 }
 
 // IsPaid returns whether it's a paid user.
