@@ -66,11 +66,11 @@
                         <h2 class="font-weight-black"><span class="text-high-emphasis text-body-1 font-weight-bold">Pay as you go</span></h2>
                         <p class="text-medium-emphasis text-caption">
                             <template v-if="minimumCharge.priorNoticeEnabled">
-                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly usage fee</a>
+                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly usage fee</a>
                                 of {{ minimumCharge.amount }} {{ isAfterStartDate ? 'applies' : 'will apply' }} starting on {{ minimumCharge.shortStartDateStr }}.
                             </template>
-                            <template v-else-if="minimumCharge.noticeEnabled">
-                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly usage fee</a>
+                            <template v-else-if="minimumCharge.isEnabled">
+                                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly usage fee</a>
                                 of {{ minimumCharge.amount }} applies.
                             </template>
                             <template v-else>

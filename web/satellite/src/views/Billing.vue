@@ -365,14 +365,13 @@ const projectIDs = computed((): string[] => {
 const userPaidTier = computed<boolean>(() => usersStore.state.user.paidTier);
 
 const willMinimumChargeBeApplied = computed(() => {
-    const { enabled, startDate } = minimumChargeCfg.value;
+    const { isEnabled, _amount } = minimumChargeCfg.value;
 
-    return enabled &&
+    return isEnabled &&
         userPaidTier.value &&
         projectCharges.value.applyMinimumCharge &&
         priceSummary.value > 0 &&
-        (!startDate || Date.now() >= startDate.getTime()) &&
-        priceSummary.value < minimumChargeCfg.value._amount;
+        priceSummary.value < _amount;
 });
 
 const estimatedChargesSubtitle = computed<string>(() => {

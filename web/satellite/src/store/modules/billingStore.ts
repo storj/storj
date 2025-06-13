@@ -86,7 +86,7 @@ export const useBillingStore = defineStore('billing', () => {
         let subtitle = `Pay-as-you-go`;
         if (minimumCharge.priorNoticeEnabled) {
             subtitle += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
-        } else if (minimumCharge.noticeEnabled) {
+        } else if (minimumCharge.isEnabled) {
             subtitle += `, ${minimumChargeTxt}`;
         } else {
             subtitle += ', no minimum';
@@ -95,7 +95,7 @@ export const useBillingStore = defineStore('billing', () => {
         let activationDesc = 'Add a credit card to activate your pro account. Only pay for what you use';
         if (minimumCharge.priorNoticeEnabled) {
             activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
-        } else if (minimumCharge.noticeEnabled) {
+        } else if (minimumCharge.isEnabled) {
             activationDesc += `, ${minimumChargeTxt}`;
         } else {
             activationDesc += ', no minimum. Billed monthly.';

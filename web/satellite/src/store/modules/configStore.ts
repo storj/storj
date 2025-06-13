@@ -109,15 +109,9 @@ export class MinimumCharge {
         return currentDate >= sixtyDaysBefore && currentDate <= forty5DaysAfter;
     }
 
-    // notice is enabled after 45 days from the start date.
-    get noticeEnabled(): boolean {
-        if (!this.enabled || !this.startDate) return false;
-
-        const currentDate = new Date();
-        const startDate = this.startDate;
-        const forty5DaysAfter = new Date(startDate);
-        forty5DaysAfter.setDate(forty5DaysAfter.getDate() + 45);
-
-        return currentDate > forty5DaysAfter;
+    // indicates whether minimum charge is fully enabled.
+    get isEnabled(): boolean {
+        if (!this.enabled) return false;
+        return this.startDate === null || new Date() >= this.startDate;
     }
 }
