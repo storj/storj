@@ -71,7 +71,7 @@
         </template>
         <template #item.since="{ item }">
             <span class="text-no-wrap">
-                {{ Time.formattedDate(item.since) }}
+                {{ Time.formattedDate(item.createdAt) }}
             </span>
         </template>
         <template #item.location="{ item }">
