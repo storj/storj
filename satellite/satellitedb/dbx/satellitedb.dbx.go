@@ -23,9 +23,10 @@ import (
 	"cloud.google.com/go/spanner"
 	"encoding/base64"
 	"encoding/json"
-	_ "github.com/googleapis/go-sql-spanner"
+	sqlspanner "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/storj/shared/tagsql"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 )
 
@@ -46295,7 +46296,37 @@ func openpgxcockroach(source string) (*sql.DB, error) {
 }
 
 func openspanner(source string) (*sql.DB, error) {
-	return sql.Open("spanner", strings.TrimPrefix(source, "spanner://"))
+	connectorConfig, err := sqlspanner.ExtractConnectorConfig(strings.TrimPrefix(source, "spanner://"))
+	if err != nil {
+		return nil, err
+	}
+
+	var sessionLabels map[string]string
+	if v, ok := connectorConfig.Params["sessionlabels"]; ok {
+		sessionLabels = map[string]string{}
+		for _, kv := range strings.Split(v, ",") {
+			key, value, ok := strings.Cut(kv, "=")
+			if !ok {
+				return nil, fmt.Errorf("incorrect formatting of session labels in %q", v)
+			}
+			sessionLabels[key] = value
+		}
+	}
+
+	connectorConfig.Configurator = func(config *spanner.ClientConfig, opts *[]option.ClientOption) {
+		for k, v := range sessionLabels {
+			config.SessionLabels[k] = v
+		}
+		if v, ok := connectorConfig.Params["useragent"]; ok {
+			config.UserAgent = v
+		}
+	}
+
+	connector, err := sqlspanner.CreateConnector(connectorConfig)
+	if err != nil {
+		return nil, err
+	}
+	return sql.OpenDB(connector), nil
 }
 
 func spannerConvertJSON(v any) any {

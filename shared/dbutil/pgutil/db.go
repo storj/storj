@@ -94,7 +94,6 @@ func EnsureApplicationName(s string, app string) (string, error) {
 
 		if !strings.Contains(s, "?") {
 			return s + "?application_name=" + app, nil
-
 		}
 
 		return s + "&application_name=" + app, nil

@@ -25,6 +25,10 @@ type ConnParams struct {
 
 	Emulator bool
 
+	// Currently supported only in go-sql-spanner.
+	UserAgent     string
+	SessionLabels map[string]string
+
 	CreateInstance ConnParamsCreateInstance
 }
 
@@ -104,7 +108,21 @@ func (params *ConnParams) GoSqlSpannerConnStr() string {
 	}
 	s += params.DatabasePath()
 	if params.Emulator {
-		s += "?usePlainText=true"
+		s += ";usePlainText=true"
+	}
+	if params.UserAgent != "" {
+		s += ";useragent=" + params.UserAgent
+	}
+	if params.SessionLabels != nil {
+		s += ";sessionlabels="
+		first := true
+		for k, v := range params.SessionLabels {
+			if !first {
+				s += ","
+			}
+			first = false
+			s += k + "=" + v
+		}
 	}
 	return s
 }
