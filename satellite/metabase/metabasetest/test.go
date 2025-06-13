@@ -736,6 +736,19 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	return result
 }
 
+// FinishCopySegments is for testing metabase.FinishCopySegments.
+type FinishCopySegments struct {
+	Opts     metabase.FinishCopySegments
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step FinishCopySegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.FinishCopySegments(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
 // DeleteObjectLastCommitted is for testing metabase.DeleteObjectLastCommitted.
 type DeleteObjectLastCommitted struct {
 	Opts   metabase.DeleteObjectLastCommitted
