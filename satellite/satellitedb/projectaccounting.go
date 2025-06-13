@@ -1305,6 +1305,7 @@ func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectI
 		Before:                before,
 		DefaultRetentionDays:  bucketData.defaultRetentionDays,
 		DefaultRetentionYears: bucketData.defaultRetentionYears,
+		CreatedAt:             bucketData.createdAt,
 	}
 	if bucketData.defaultRetentionMode != nil {
 		usage.DefaultRetentionMode = *bucketData.defaultRetentionMode
@@ -1406,7 +1407,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	}
 
 	bucketsQuery := db.db.Rebind(`
-		SELECT name, versioning, placement, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years
+		SELECT name, versioning, placement, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, created_at
 		FROM bucket_metainfos
 		WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`,
 	)
@@ -1436,6 +1437,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			defaultRetentionMode  *storj.RetentionMode
 			defaultRetentionDays  *int
 			defaultRetentionYears *int
+			createdAt             time.Time
 		)
 		err = bucketRows.Scan(
 			&bucket,
@@ -1445,6 +1447,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			&defaultRetentionMode,
 			&defaultRetentionDays,
 			&defaultRetentionYears,
+			&createdAt,
 		)
 		if err != nil {
 			return nil, err
@@ -1460,6 +1463,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			DefaultRetentionYears: defaultRetentionYears,
 			Since:                 since,
 			Before:                before,
+			CreatedAt:             createdAt,
 		}
 		if defaultRetentionMode != nil {
 			usage.DefaultRetentionMode = *defaultRetentionMode

@@ -88,7 +88,7 @@
                             <component :is="Clock" :size="18" class="mr-3" />
                         </template>
                     </v-list-item>
-                    <v-list-item title="Date Created" :subtitle="bucket.since.toUTCString()" class="px-0 bg-background rounded-lg mb-2 border pl-3">
+                    <v-list-item title="Date Created" :subtitle="bucket.createdAt.toUTCString()" class="px-0 bg-background rounded-lg mb-2 border pl-3">
                         <template #prepend>
                             <component :is="CalendarPlus" :size="18" class="mr-3" />
                         </template>
