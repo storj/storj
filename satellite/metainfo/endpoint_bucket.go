@@ -314,15 +314,15 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 	var canRead, canList bool
 
-	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete,
-		VerifyPermission{
+	actions := []VerifyPermission{
+		{
 			Action: macaroon.Action{
 				Op:     macaroon.ActionDelete,
 				Bucket: req.Name,
 				Time:   now,
 			},
 		},
-		VerifyPermission{
+		{
 			Action: macaroon.Action{
 				Op:     macaroon.ActionRead,
 				Bucket: req.Name,
@@ -331,7 +331,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			ActionPermitted: &canRead,
 			Optional:        true,
 		},
-		VerifyPermission{
+		{
 			Action: macaroon.Action{
 				Op:     macaroon.ActionList,
 				Bucket: req.Name,
@@ -340,7 +340,19 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			ActionPermitted: &canList,
 			Optional:        true,
 		},
-	)
+	}
+
+	if req.BypassGovernanceRetention {
+		actions = append(actions, VerifyPermission{
+			Action: macaroon.Action{
+				Op:     macaroon.ActionBypassGovernanceRetention,
+				Bucket: req.Name,
+				Time:   now,
+			},
+		})
+	}
+
+	keyInfo, err := endpoint.ValidateAuthN(ctx, req.Header, console.RateLimitDelete, actions...)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +370,6 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		}
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket")
 	}
-	lockEnabled := bucket.ObjectLock.Enabled
 
 	if !keyInfo.CreatedBy.IsZero() {
 		member, err := endpoint.projectMembers.GetByMemberIDAndProjectID(ctx, keyInfo.CreatedBy, keyInfo.ProjectID)
@@ -371,6 +382,10 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		}
 	}
 
+	lockEnabled := bucket.ObjectLock.Enabled
+	if req.BypassGovernanceRetention {
+		lockEnabled = false
+	}
 	if lockEnabled && req.DeleteAll {
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, unauthorizedErrMsg)
 	}

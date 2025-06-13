@@ -181,6 +181,9 @@ func TestDeleteBucket(t *testing.T) {
 					config.Metainfo.UseBucketLevelObjectVersioning = true
 				},
 			),
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
+			},
 		},
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -295,6 +298,51 @@ func TestDeleteBucket(t *testing.T) {
 				Name: []byte(bucketName),
 			})
 			require.NoError(t, err)
+
+			requireBucketDeleted(t, bucketName)
+		})
+
+		t.Run("Delete bucket with Object Lock enabled as owner with BypassGovernanceRetention", func(t *testing.T) {
+			bucketName := metabase.BucketName(testrand.BucketName())
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ProjectID: project.ID,
+				Name:      bucketName.String(),
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: true,
+				},
+			})
+			require.NoError(t, err)
+
+			uploadObjects(t, bucketName)
+
+			// User should not be able to delete without BypassGovernanceRetention
+			// permission.
+			noBypass, err := ownerAPIKey.Restrict(macaroon.Caveat{
+				DisallowBypassGovernanceRetention: true,
+			})
+			require.NoError(t, err)
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: noBypass.SerializeRaw(),
+				},
+				Name:                      []byte(bucketName),
+				DeleteAll:                 true,
+				BypassGovernanceRetention: true,
+			})
+			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+			require.Nil(t, delResp)
+
+			// When user has the specific permission, then it's fine.
+			delResp, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name:                      []byte(bucketName),
+				DeleteAll:                 true,
+				BypassGovernanceRetention: true,
+			})
+			require.NoError(t, err)
+			require.EqualValues(t, 3, delResp.DeletedObjectsCount)
 
 			requireBucketDeleted(t, bucketName)
 		})
