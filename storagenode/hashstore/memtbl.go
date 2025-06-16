@@ -228,7 +228,7 @@ func (m *MemTbl) rangeWithIdxLocked(
 			return nil
 		}
 
-		recStats.include(rec)
+		recStats.Include(rec)
 	}
 
 	m.statsMu.Lock()
@@ -394,6 +394,10 @@ func (m *MemTbl) Stats() TblStats {
 		LenTrash: memory.Size(m.recStats.lenTrash),
 		AvgTrash: safeDivide(float64(m.recStats.lenTrash), float64(m.recStats.numTrash)),
 
+		NumTTL: m.recStats.numTTL,
+		LenTTL: memory.Size(m.recStats.lenTTL),
+		AvgTTL: safeDivide(float64(m.recStats.lenTTL), float64(m.recStats.numTTL)),
+
 		NumSlots:  uint64(1 << m.header.LogSlots),
 		TableSize: memory.Size(headerSize + RecordSize*m.recStats.numSet),
 		Load:      safeDivide(float64(m.recStats.numSet), float64(uint64(1)<<m.header.LogSlots)),
@@ -557,7 +561,7 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 	// or node restart.
 	if insert {
 		m.statsMu.Lock()
-		m.recStats.include(rec)
+		m.recStats.Include(rec)
 		m.statsMu.Unlock()
 	}
 

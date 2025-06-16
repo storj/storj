@@ -56,22 +56,29 @@ type recordStats struct {
 	lenSet   uint64 // sum of lengths in set records
 	numTrash uint64 // number of set trash records
 	lenTrash uint64 // sum of lengths in set trash records
+	numTTL   uint64 // number of set records with expiration and not trash
+	lenTTL   uint64 // sum of lengths in set records with expiration and not trash
 }
 
-func (r *recordStats) scale(factor uint64) {
+func (r *recordStats) Scale(factor uint64) {
 	r.numSet *= factor
 	r.lenSet *= factor
 	r.numTrash *= factor
 	r.lenTrash *= factor
+	r.numTTL *= factor
+	r.lenTTL *= factor
 }
 
-func (r *recordStats) include(rec Record) {
+func (r *recordStats) Include(rec Record) {
 	r.numSet++
 	r.lenSet += uint64(rec.Length)
 
 	if rec.Expires.Trash() {
 		r.numTrash++
 		r.lenTrash += uint64(rec.Length)
+	} else if rec.Expires.Set() {
+		r.numTTL++
+		r.lenTTL += uint64(rec.Length)
 	}
 }
 

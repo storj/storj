@@ -133,6 +133,10 @@ type DBStats struct {
 	LenTrash memory.Size // sum of lengths in set trash records.
 	AvgTrash float64     // average size of length of trash records.
 
+	NumTTL uint64      // number of set records with expiration but not trash.
+	LenTTL memory.Size // sum of lengths in set records with expiration but not trash.
+	AvgTTL float64     // average size of length of records with expiration but not trash.
+
 	NumSlots  uint64      // total number of records available.
 	TableSize memory.Size // total number of bytes in the hash table.
 	Load      float64     // percent of slots that are set.
@@ -144,6 +148,7 @@ type DBStats struct {
 
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
+	TTLPercent   float64 // percent of bytes that have expiration but not trash in the log files.
 
 	Compacting      bool        // if true, a background compaction is in progress.
 	Compactions     uint64      // total number of compactions that finished on either store.
@@ -178,6 +183,10 @@ func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 		LenTrash: s0st.Table.LenTrash + s1st.Table.LenTrash,
 		AvgTrash: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.Table.NumTrash+s1st.Table.NumTrash)),
 
+		NumTTL: s0st.Table.NumTTL + s1st.Table.NumTTL,
+		LenTTL: s0st.Table.LenTTL + s1st.Table.LenTTL,
+		AvgTTL: safeDivide(float64(s0st.Table.LenTTL+s1st.Table.LenTTL), float64(s0st.Table.NumTTL+s1st.Table.NumTTL)),
+
 		NumSlots:  s0st.Table.NumSlots + s1st.Table.NumSlots,
 		TableSize: s0st.Table.TableSize + s1st.Table.TableSize,
 		Load:      safeDivide(float64(s0st.Table.NumSet+s1st.Table.NumSet), float64(s0st.Table.NumSlots+s1st.Table.NumSlots)),
@@ -189,6 +198,7 @@ func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 
 		SetPercent:   safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.LenLogs+s1st.LenLogs)),
 		TrashPercent: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.LenLogs+s1st.LenLogs)),
+		TTLPercent:   safeDivide(float64(s0st.Table.LenTTL+s1st.Table.LenTTL), float64(s0st.LenLogs+s1st.LenLogs)),
 
 		Compacting:      compacting,
 		Compactions:     s0st.Compactions + s1st.Compactions,

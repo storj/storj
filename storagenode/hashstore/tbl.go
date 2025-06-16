@@ -102,6 +102,10 @@ type TblStats struct {
 	LenTrash memory.Size // sum of lengths in set trash records.
 	AvgTrash float64     // average size of length of trash records.
 
+	NumTTL uint64      // number of set records with expiration but not trash.
+	LenTTL memory.Size // sum of lengths in set records with expiration but not trash.
+	AvgTTL float64     // average size of length of records with expiration but not trash.
+
 	NumSlots  uint64      // total number of records available.
 	TableSize memory.Size // total number of bytes in the hash table.
 	Load      float64     // percent of slots that are set.

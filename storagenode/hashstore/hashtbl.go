@@ -195,6 +195,10 @@ func (h *HashTbl) Stats() TblStats {
 		LenTrash: memory.Size(h.recStats.lenTrash),
 		AvgTrash: safeDivide(float64(h.recStats.lenTrash), float64(h.recStats.numTrash)),
 
+		NumTTL: h.recStats.numTTL,
+		LenTTL: memory.Size(h.recStats.lenTTL),
+		AvgTTL: safeDivide(float64(h.recStats.lenTTL), float64(h.recStats.numTTL)),
+
 		NumSlots:  uint64(h.numSlots),
 		TableSize: memory.Size(hashtblSize(h.logSlots)),
 		Load:      safeDivide(float64(h.recStats.numSet), float64(h.numSlots)),
@@ -300,7 +304,7 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 			if err != nil {
 				return Error.Wrap(err)
 			} else if valid {
-				recStats.include(rec)
+				recStats.Include(rec)
 			}
 		}
 	}
@@ -308,7 +312,7 @@ func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
 	// scale the number found by the number of total pages divided by the number of sampled
 	// pages. because the hashtbl is always a power of 2 number of pages, we know that
 	// this evenly divides.
-	recStats.scale(maxPages / samplePages)
+	recStats.Scale(maxPages / samplePages)
 
 	h.statsMu.Lock()
 	h.recStats = recStats
@@ -366,7 +370,7 @@ func (h *HashTbl) Range(ctx context.Context, fn func(context.Context, Record) (b
 				return nil
 			}
 
-			recStats.include(rec)
+			recStats.Include(rec)
 		}
 	}
 
@@ -469,7 +473,7 @@ func (h *HashTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err err
 		// compaction, or node restart.
 		if !valid {
 			h.statsMu.Lock()
-			h.recStats.include(rec)
+			h.recStats.Include(rec)
 			h.statsMu.Unlock()
 		}
 

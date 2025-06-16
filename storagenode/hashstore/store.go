@@ -300,6 +300,7 @@ type StoreStats struct {
 
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
+	TTLPercent   float64 // percent of bytes that have expiration but not trash in the log files.
 
 	Compacting      bool        // if true, a compaction is in progress.
 	Compactions     uint64      // number of compaction calls that finished
@@ -376,6 +377,7 @@ func (s *Store) Stats() StoreStats {
 
 		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
 		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
+		TTLPercent:   safeDivide(float64(stats.LenTTL), float64(lenLogs)),
 
 		Compacting:      false,
 		Compactions:     s.stats.compactions.Load(),
