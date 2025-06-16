@@ -6,13 +6,10 @@ package manual
 import (
 	"bytes"
 	"context"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -26,6 +23,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/shared/modular"
 	"storj.io/uplink/private/eestream"
@@ -40,17 +38,23 @@ type Repairer struct {
 	orders          *orders.Service
 	ecRepairer      *repairer.ECRepairer
 	segmentRepairer *repairer.SegmentRepairer
-	config          RepairerConfig
-	stop            *modular.StopTrigger
-}
-
-// RepairerConfig holds configuration options for the manual repairer.
-type RepairerConfig struct {
-	Input []string `usage:"input segments to repair, either as a list of stream-id and position or as a CSV file with headers 'stream-id,position'" required:"true"`
+	queue           queue.Consumer
+	trigger         *modular.StopTrigger
 }
 
 // NewRepairer creates a new manual repairer instance.
-func NewRepairer(log *zap.Logger, metabase *metabase.DB, overlayDB overlay.DB, overlay *overlay.Service, orders *orders.Service, ecRepairer *repairer.ECRepairer, segmentRepairer *repairer.SegmentRepairer, config RepairerConfig, stop *modular.StopTrigger) *Repairer {
+func NewRepairer(
+	log *zap.Logger,
+	metabase *metabase.DB,
+	overlayDB overlay.DB,
+	overlay *overlay.Service,
+	orders *orders.Service,
+	ecRepairer *repairer.ECRepairer,
+	segmentRepairer *repairer.SegmentRepairer,
+	queue queue.Consumer,
+
+	trigger *modular.StopTrigger,
+) *Repairer {
 	return &Repairer{
 		log:             log,
 		metabase:        metabase,
@@ -59,90 +63,30 @@ func NewRepairer(log *zap.Logger, metabase *metabase.DB, overlayDB overlay.DB, o
 		orders:          orders,
 		ecRepairer:      ecRepairer,
 		segmentRepairer: segmentRepairer,
-		config:          config,
-		stop:            stop,
+		queue:           queue,
+		trigger:         trigger,
 	}
 }
 
 // Run executes the manual repair process for all configured segments.
 func (m *Repairer) Run(ctx context.Context) (err error) {
-	defer m.stop.Cancel()
-	segments, err := CollectInputSegments(m.config.Input)
-	if err != nil {
-		return err
-	}
+	defer m.trigger.Cancel()
+	for {
+		if ctx.Err() != nil {
+			return nil
+		}
 
-	for _, segment := range segments {
-		segment, err := m.metabase.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
-			StreamID: segment.StreamID,
-			Position: metabase.SegmentPositionFromEncoded(segment.Position),
-		})
-		if err != nil {
-			if metabase.ErrSegmentNotFound.Has(err) {
-				printOutput(segment.StreamID, segment.Position.Encode(), "segment not found in metabase db", 0, 0)
-			} else {
-				m.log.Error("unknown error when getting segment metadata",
-					zap.Stringer("stream-id", segment.StreamID),
-					zap.Uint64("position", segment.Position.Encode()),
-					zap.Error(err))
-				printOutput(segment.StreamID, segment.Position.Encode(), "internal", 0, 0)
-			}
-			continue
+		segments, err := m.queue.Select(ctx, 10, nil, nil)
+		if errors.Is(err, io.EOF) && len(segments) == 0 {
+			return nil
 		}
-		m.RepairSegment(ctx, segment)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		for _, segment := range segments {
+			m.Handle(ctx, segment)
+		}
 	}
-	return nil
-}
-
-// CollectInputSegments parses input arguments to extract segment identifiers for repair.
-func CollectInputSegments(args []string) (segments []SegmentWithPosition, err error) {
-	convert := func(streamIDString, positionString string) (SegmentWithPosition, error) {
-		streamID, err := uuid.FromString(streamIDString)
-		if err != nil {
-			return SegmentWithPosition{}, errs.New("invalid stream-id (should be in UUID form): %w", err)
-		}
-		streamPosition, err := strconv.ParseUint(positionString, 10, 64)
-		if err != nil {
-			return SegmentWithPosition{}, errs.New("stream position must be a number: %w", err)
-		}
-		return SegmentWithPosition{
-			StreamID: streamID,
-			Position: streamPosition,
-		}, nil
-	}
-
-	if len(args) == 1 {
-		csvFile, err := os.Open(args[0])
-		if err != nil {
-			return nil, err
-		}
-		defer func() {
-			err = errs.Combine(err, csvFile.Close())
-		}()
-
-		csvReader := csv.NewReader(csvFile)
-		allEntries, err := csvReader.ReadAll()
-		if err != nil {
-			return nil, err
-		}
-		if len(allEntries) > 1 {
-			// ignore first line with headers
-			for _, entry := range allEntries[1:] {
-				segment, err := convert(entry[0], entry[1])
-				if err != nil {
-					return nil, err
-				}
-				segments = append(segments, segment)
-			}
-		}
-	} else {
-		segment, err := convert(args[0], args[1])
-		if err != nil {
-			return nil, err
-		}
-		segments = append(segments, segment)
-	}
-	return segments, nil
 }
 
 // RepairSegment will repair selected segment no matter if it's healthy or not.
@@ -151,24 +95,25 @@ func CollectInputSegments(args []string) (segments []SegmentWithPosition, err er
 // * download whole segment into memory, use all available pieces
 // * reupload segment into new nodes
 // * replace segment.Pieces field with just new nodes.
-func (m *Repairer) RepairSegment(ctx context.Context, segment metabase.SegmentForRepair) {
+func (m *Repairer) RepairSegment(ctx context.Context, segment metabase.SegmentForRepair) bool {
 	log := m.log.With(zap.Stringer("stream-id", segment.StreamID), zap.Uint64("position", segment.Position.Encode()))
 	segmentData, failedDownloads, err := m.downloadSegment(ctx, segment)
 	if err != nil {
 		log.Error("download failed", zap.Error(err))
 
 		printOutput(segment.StreamID, segment.Position.Encode(), "download failed", len(segment.Pieces), failedDownloads)
-		return
+		return false
 	}
 
 	if err := m.reuploadSegment(ctx, segment, segmentData); err != nil {
 		log.Error("upload failed", zap.Error(err))
 
 		printOutput(segment.StreamID, segment.Position.Encode(), "upload failed", len(segment.Pieces), failedDownloads)
-		return
+		return false
 	}
 
 	printOutput(segment.StreamID, segment.Position.Encode(), "successful", len(segment.Pieces), failedDownloads)
+	return true
 }
 
 func (m *Repairer) reuploadSegment(ctx context.Context, segment metabase.SegmentForRepair, segmentData []byte) error {
@@ -311,6 +256,36 @@ func (m *Repairer) downloadSegment(ctx context.Context, segment metabase.Segment
 	segmentReader := eestream.DecodeReaders2(ctx, cancel, pieceReaders, esScheme, expectedSize, 0, false)
 	data, err := io.ReadAll(segmentReader)
 	return data, failedDownloads, err
+}
+
+// Handle processes a single injured segment for repair.
+func (m *Repairer) Handle(ctx context.Context, injured queue.InjuredSegment) {
+	var success bool
+	defer func() {
+		err := m.queue.Release(ctx, injured, success)
+		if err != nil {
+			m.log.Error("Couldn't release segment", zap.Stringer("stream-id", injured.StreamID), zap.Uint64("position", injured.Position.Encode()))
+		}
+	}()
+
+	segment, err := m.metabase.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
+		StreamID: injured.StreamID,
+		Position: injured.Position,
+	})
+	if err != nil {
+		if metabase.ErrSegmentNotFound.Has(err) {
+			printOutput(segment.StreamID, segment.Position.Encode(), "segment not found in metabase db", 0, 0)
+			success = true
+		} else {
+			m.log.Error("unknown error when getting segment metadata",
+				zap.Stringer("stream-id", segment.StreamID),
+				zap.Uint64("position", segment.Position.Encode()),
+				zap.Error(err))
+			printOutput(segment.StreamID, segment.Position.Encode(), "internal", 0, 0)
+		}
+		return
+	}
+	success = m.RepairSegment(ctx, segment)
 }
 
 // printOutput prints result to standard output in a way to be able to combine

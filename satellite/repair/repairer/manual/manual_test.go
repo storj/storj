@@ -41,7 +41,7 @@ func TestRepairSegment(t *testing.T) {
 		observedZapCore, observedLogs := observer.New(zap.ErrorLevel)
 		observedLogger := zap.New(observedZapCore)
 
-		r := manual.NewRepairer(observedLogger, satellite.Metabase.DB, satellite.Overlay.DB, satellite.Overlay.Service, satellite.Orders.Service, satellite.Repairer.EcRepairer, satellite.Repairer.SegmentRepairer, manual.RepairerConfig{}, &modular.StopTrigger{})
+		r := manual.NewRepairer(observedLogger, satellite.Metabase.DB, satellite.Overlay.DB, satellite.Overlay.Service, satellite.Orders.Service, satellite.Repairer.EcRepairer, satellite.Repairer.SegmentRepairer, nil, &modular.StopTrigger{})
 		r.RepairSegment(ctx, segmentForRepair(segments[0]))
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "bucket", "object")

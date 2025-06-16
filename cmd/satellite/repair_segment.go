@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/repaircsv"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/repair/repairer/manual"
 	"storj.io/storj/satellite/satellitedb"
@@ -129,10 +130,18 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 			log.Error("upload cache error", zap.Error(err))
 		}
 	}()
+	// Create CSV queue from the first argument (input file path)
+	if len(args) == 0 {
+		return errs.New("input file path is required as first argument")
+	}
+	csvQueue, err := repaircsv.NewQueue(repaircsv.Config{InputFile: args[0]}, log.Named("csv"))
+	if err != nil {
+		return errs.New("failed to create CSV queue: %w", err)
+	}
+	defer csvQueue.Close()
+
 	mr := manual.NewRepairer(log, metabaseDB, db.OverlayCache(), overlayService, orders, ecRepairer, segmentRepairer,
-		manual.RepairerConfig{
-			Input: args,
-		},
+		csvQueue,
 		&modular.StopTrigger{
 			Cancel: func() {
 				cancel()
