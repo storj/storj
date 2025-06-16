@@ -5,6 +5,7 @@ package buckets
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -103,6 +104,22 @@ func (v Versioning) IsUnversioned() bool {
 // IsVersioned returns true if bucket is either in a versioned or suspended state.
 func (v Versioning) IsVersioned() bool {
 	return !v.IsUnversioned()
+}
+
+// String returns the name.
+func (v Versioning) String() string {
+	switch v {
+	case VersioningUnsupported:
+		return "unsupported"
+	case Unversioned:
+		return "unversioned"
+	case VersioningEnabled:
+		return "enabled"
+	case VersioningSuspended:
+		return "suspended"
+	default:
+		return fmt.Sprintf("unknown Versioning(%d)", v)
+	}
 }
 
 // Tag represents a single bucket tag.

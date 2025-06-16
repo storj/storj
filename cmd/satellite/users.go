@@ -73,6 +73,113 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 	return deleteObjects(ctx, log, satDB, metabaseDB, batchSizeDeleteObjects, csvData)
 }
 
+func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	projectID, err := uuid.FromString(args[0])
+	if err != nil {
+		return errs.New("invalid project id %q: %+v", args[0], err)
+	}
+	bucketName := args[1]
+
+	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:      "satellite-users",
+		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
+		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
+	})
+	if err != nil {
+		return errs.New("error connecting to satellite database: %+v", err)
+	}
+	defer func() { err = errs.Combine(err, satDB.Close()) }()
+
+	project, err := satDB.Console().Projects().GetByPublicID(ctx, projectID)
+	if err != nil {
+		return errs.New("failed to get project information: %+v", err)
+	}
+
+	log.Info("project information",
+		zap.Stringer("public-id", project.PublicID),
+		zap.String("name", project.Name),
+		zap.String("description", project.Description),
+		zap.Stringer("status", project.Status),
+	)
+
+	owner, err := satDB.Console().Users().Get(ctx, project.OwnerID)
+	if err != nil {
+		return errs.New("failed to get owner information: %+v", err)
+	}
+
+	log.Info("project owner information",
+		zap.Stringer("id", owner.ID),
+		zap.String("full name", owner.FullName),
+		zap.String("email", owner.Email),
+		zap.String("company name", owner.CompanyName),
+		zap.Stringer("user status", &owner.Status),
+	)
+
+	bucket, err := satDB.Buckets().GetBucket(ctx, []byte(bucketName), projectID)
+	if err != nil {
+		return errs.New("failed to get bucket information: %+v", err)
+	}
+
+	log.Info("bucket information",
+		zap.String("name", bucket.Name),
+		zap.Stringer("created by", bucket.CreatedBy),
+		zap.Int("placement", int(bucket.Placement)),
+		zap.Stringer("versioning", bucket.Versioning),
+		zap.Any("object lock", bucket.ObjectLock),
+	)
+
+	if !executeDeleteAllObjectsUncoordinated {
+		confirmBucketName, err := readValueFromConsole("Please confirm bucket name to proceed with deletion: ")
+		if err != nil {
+			return errs.New("failed to read value from console: %+v", err)
+		}
+
+		if confirmBucketName != bucketName {
+			return errs.New("confirmation %q does not match %q", confirmBucketName, bucketName)
+		}
+	}
+
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, runCfg.Metainfo.Metabase("satellite-uncoordinated-delete"))
+	if err != nil {
+		return errs.New("error creating metabase connection: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, metabaseDB.Close())
+	}()
+
+	deletedObjectCount, err := metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+		Bucket: metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: metabase.BucketName(bucketName),
+		},
+		BatchSize: batchSizeDeleteObjects,
+	})
+	log.Info("total deleted objects", zap.Int64("count", deletedObjectCount))
+	if err != nil {
+		return errs.New("error in deleting objects: %+v", err)
+	}
+
+	return nil
+}
+
+func readValueFromConsole(text string) (string, error) {
+	_, err := fmt.Print(text)
+	if err != nil {
+		return "", err
+	}
+
+	var value string
+	n, err := fmt.Scanln(&value)
+	if err != nil && n != 0 {
+		return "", err
+	}
+
+	return value, nil
+}
+
 func cmdDeleteAccounts(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()

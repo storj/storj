@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -171,6 +172,21 @@ const (
 	// ProjectActive is a status that project receives after creation.
 	ProjectActive ProjectStatus = 1
 )
+
+// String returns the string name.
+func (status *ProjectStatus) String() string {
+	if status == nil {
+		return "unset"
+	}
+	switch *status {
+	case ProjectDisabled:
+		return "deleting/disabled"
+	case ProjectActive:
+		return "active"
+	default:
+		return fmt.Sprintf("unknown ProjectStatus(%d)", *status)
+	}
+}
 
 // UpsertProjectInfo holds data needed to create/update Project.
 type UpsertProjectInfo struct {

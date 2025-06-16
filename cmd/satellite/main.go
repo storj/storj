@@ -382,6 +382,17 @@ var (
 		RunE: cmdDeleteObjects,
 	}
 
+	executeDeleteAllObjectsUncoordinated = false
+	deleteAllObjectsUncoordinatedCmd     = &cobra.Command{
+		Use:   "delete-all-objects-uncoordinated <project-id> <bucket-name>",
+		Short: "Delete all the objects in a bucket",
+		Long: "Deletes the objects in a given bucket, but does not guarantee consistency, while the " +
+			"delete is in progress. There must be no uploads, downloads or deletes happening while this is being run." +
+			"On failure, the system should check whether there are any undeleted streams or objects in the system.",
+		Args: cobra.ExactArgs(2),
+		RunE: cmdDeleteAllObjectsUncoordinated,
+	}
+
 	deleteAccountsCmd = &cobra.Command{
 		Use:   "delete-accounts",
 		Short: "Delete accounts and their associated entities",
@@ -532,6 +543,9 @@ func init() {
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
 	usersCmd.AddCommand(deleteAccountsCmd)
+	usersCmd.AddCommand(deleteAllObjectsUncoordinatedCmd)
+	deleteAllObjectsUncoordinatedCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
+	deleteAllObjectsUncoordinatedCmd.Flags().BoolVar(&executeDeleteAllObjectsUncoordinated, "really-run-this-dangerous-command-without-any-confirmation", false, "This disables bucket reconfirmation.")
 	usersCmd.AddCommand(setAccountsStatusPendingDeletionCmd)
 	usersCmd.AddCommand(setUserKindCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -576,6 +590,7 @@ func init() {
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(deleteAllObjectsUncoordinatedCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setUserKindCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
