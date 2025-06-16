@@ -48,12 +48,14 @@ func TestObserverForkProcess(t *testing.T) {
 
 	ctx := testcontext.New(t)
 	createDefaultObserver := func() *Observer {
+		nodesCache := &ReliabilityCache{
+			staleness: time.Hour,
+		}
 		o := &Observer{
 			statsCollector: make(map[redundancyStyle]*observerRSStats),
-			nodesCache: &ReliabilityCache{
-				staleness: time.Hour,
-			},
-			placements: nodeselection.TestPlacementDefinitions(),
+			nodesCache:     nodesCache,
+			placements:     nodeselection.TestPlacementDefinitions(),
+			health:         NewProbabilityHealth(0.00005435, nodesCache),
 		}
 
 		o.nodesCache.state.Store(&reliabilityState{
@@ -75,6 +77,7 @@ func TestObserverForkProcess(t *testing.T) {
 			placements:       o.placements,
 			getNodesEstimate: o.getNodesEstimate,
 			nodesCache:       o.nodesCache,
+			health:           o.health,
 			repairQueue:      queue.NewInsertBuffer(q, 1000),
 		}
 	}

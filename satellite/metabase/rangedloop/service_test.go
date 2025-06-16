@@ -422,13 +422,18 @@ func TestAllInOne(t *testing.T) {
 				bfConfig,
 				satellite.DB.OverlayCache(),
 			),
-			checker.NewObserver(
-				log.Named("repair:checker"),
-				satellite.Repair.Queue,
-				satellite.Overlay.Service,
-				nodeselection.TestPlacementDefinitions(),
-				satellite.Config.Checker,
-			),
+			func() *checker.Observer {
+				reliabilityCache := checker.NewReliabilityCache(satellite.Overlay.Service, satellite.Config.Checker.ReliabilityCacheStaleness)
+				health := checker.NewProbabilityHealth(satellite.Config.Checker.NodeFailureRate, reliabilityCache)
+				return checker.NewObserver(
+					log.Named("repair:checker"),
+					satellite.Repair.Queue,
+					satellite.Overlay.Service,
+					nodeselection.TestPlacementDefinitions(),
+					satellite.Config.Checker,
+					health,
+				)
+			}(),
 		})
 
 		for i := 0; i < 5; i++ {

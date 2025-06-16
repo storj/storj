@@ -49,6 +49,7 @@ type Observer struct {
 	doDeclumping             bool
 	doPlacementCheck         bool
 	placements               nodeselection.PlacementDefinitions
+	health                   Health
 
 	// the following are reset on each iteration
 	startTime  time.Time
@@ -64,7 +65,7 @@ type redundancyStyle struct {
 }
 
 // NewObserver creates new checker observer instance.
-func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, placements nodeselection.PlacementDefinitions, config Config) *Observer {
+func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, placements nodeselection.PlacementDefinitions, config Config, health Health) *Observer {
 	excludedCountryCodes := make(map[location.CountryCode]struct{})
 	for _, countryCode := range config.RepairExcludedCountryCodes {
 		if cc := location.ToCountryCode(countryCode); cc != location.None {
@@ -77,11 +78,13 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		config.RepairThresholdOverrides = RepairThresholdOverrides{config.RepairOverrides}
 	}
 
+	nodesCache := NewReliabilityCache(overlay, config.ReliabilityCacheStaleness)
+
 	return &Observer{
 		logger: logger,
 
 		repairQueue:              repairQueue,
-		nodesCache:               NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		nodesCache:               nodesCache,
 		overlayService:           overlay,
 		repairThresholdOverrides: config.RepairThresholdOverrides,
 		repairTargetOverrides:    config.RepairTargetOverrides,
@@ -91,6 +94,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		doDeclumping:             config.DoDeclumping,
 		doPlacementCheck:         config.DoPlacementCheck,
 		placements:               placements,
+		health:                   health,
 		statsCollector:           make(map[redundancyStyle]*observerRSStats),
 	}
 }
@@ -311,6 +315,7 @@ type observerFork struct {
 	doDeclumping         bool
 	doPlacementCheck     bool
 	placements           nodeselection.PlacementDefinitions
+	health               Health
 
 	getObserverStats func(redundancyStyle) *observerRSStats
 }
@@ -332,6 +337,7 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 		doDeclumping:             observer.doDeclumping,
 		doPlacementCheck:         observer.doPlacementCheck,
 		placements:               observer.placements,
+		health:                   observer.health,
 		getObserverStats:         observer.getObserverStats,
 	}
 }
@@ -426,11 +432,6 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return nil
 	}
 
-	totalNumNodes, err := fork.getNodesEstimate(ctx)
-	if err != nil {
-		return Error.New("could not get estimate of total number of nodes: %w", err)
-	}
-
 	// reuse fork.nodeIDs and fork.nodes slices if large enough
 	if cap(fork.nodeIDs) < len(pieces) {
 		fork.nodeIDs = make([]storj.NodeID, len(pieces))
@@ -505,7 +506,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	}
 
 	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairThresholdOverrides, fork.repairTargetOverrides)
-	segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, fork.nodeFailureRate, piecesCheck.ForcingRepair.Count())
+	segmentHealth := fork.health.Calculate(ctx, numHealthy, required, piecesCheck.ForcingRepair.Count())
 	segmentHealthFloatVal.Observe(segmentHealth)
 	stats.segmentStats.segmentHealth.Observe(segmentHealth)
 
