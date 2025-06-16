@@ -312,7 +312,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
 			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
 		}
-		if _, ok := endpoint.selfServePlacements[bucketReq.Placement]; !ok {
+		if placementDetail, exists := endpoint.selfServePlacements[bucketReq.Placement]; !exists || placementDetail.WaitlistURL != "" {
 			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
 		}
 	} else {

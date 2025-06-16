@@ -552,12 +552,16 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: `40:annotation("location", "Poland");50:annotation("location", "US")`,
+					PlacementRules: `40:annotation("location", "Poland");50:annotation("location", "US");60:annotation("location", "AP")`,
 				}
 				config.Console.Placement.SelfServeEnabled = true
 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
-					0:         {ID: 0},
 					placement: placementDetail,
+					60: {
+						ID:          60,
+						IdName:      "AP",
+						WaitlistURL: "some-url",
+					},
 				})
 			},
 		},
@@ -648,6 +652,17 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 			},
 			Name:      bucket3,
 			Placement: []byte("US"), // placement not in self-serve details
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
+		require.Contains(t, "placement not allowed", err.Error())
+
+		// new bucket with placement with a waitlist returns error
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      bucket3,
+			Placement: []byte("AP"), // placement with waitlist
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
 		require.Contains(t, "placement not allowed", err.Error())

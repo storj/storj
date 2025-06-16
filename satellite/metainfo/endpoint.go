@@ -101,7 +101,7 @@ type Endpoint struct {
 	trustedUplinks                 *trust.TrustedPeersList
 	placement                      nodeselection.PlacementDefinitions
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
-	selfServePlacements            map[storj.PlacementConstraint]struct{}
+	selfServePlacements            map[storj.PlacementConstraint]console.PlacementDetail
 	nodeSelectionStats             *NodeSelectionStats
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
@@ -144,9 +144,9 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		return nil, errs.Wrap(err)
 	}
 
-	selfServePlacements := make(map[storj.PlacementConstraint]struct{})
-	for p := range consoleConfig.Placement.SelfServeDetails.GetMap() {
-		selfServePlacements[p] = struct{}{}
+	selfServePlacements := make(map[storj.PlacementConstraint]console.PlacementDetail)
+	for p, d := range consoleConfig.Placement.SelfServeDetails.GetMap() {
+		selfServePlacements[p] = d
 	}
 
 	return &Endpoint{
