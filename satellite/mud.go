@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metainfo"
@@ -136,6 +137,7 @@ func Module(ball *mud.Ball) {
 	repairer.Module(ball)
 	manual.Module(ball)
 	repaircsv.Module(ball)
+	jobq.Module(ball)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
