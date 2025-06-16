@@ -76,6 +76,7 @@ type Config struct {
 	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
 	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"true"`
 	ProductBasedInvoicing  bool   `help:"whether to use product-based invoicing" default:"false"`
+	SkipNoCustomer         bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
 	Retries                RetryConfig
 }
 
@@ -118,6 +119,7 @@ type Service struct {
 	useIdempotency        bool
 	productBasedInvoicing bool
 	deleteAccountEnabled  bool
+	skipNoCustomer        bool
 	webhookSecret         string
 	nowFn                 func() time.Time
 	partnerPlacementMap   payments.PartnersPlacementProductMap
@@ -181,6 +183,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
+		skipNoCustomer:         config.SkipNoCustomer,
 		productBasedInvoicing:  config.ProductBasedInvoicing,
 		webhookSecret:          config.StripeWebhookSecret,
 		partnerPlacementMap:    partnerPlacementMap,
@@ -247,6 +250,11 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	var regularRecords []CreateProjectRecord
 	var recordsToAggregate []CreateProjectRecord
 	for _, customer := range customers {
+		ignore := service.ignoreNoStripeCustomer(ctx, customer.ID)
+		if ignore {
+			continue
+		}
+
 		if _, skip, err := service.mustSkipUser(ctx, customer.UserID); err != nil {
 			return 0, Error.New("unable to determine if user must be skipped: %w", err)
 		} else if skip {
@@ -292,6 +300,17 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	}
 
 	return recordsCount, nil
+}
+
+// If the customer does not exist in stripe, we skip it.
+// This is a workaround for the issue with missing customers in stripe for QA stellite.
+func (service *Service) ignoreNoStripeCustomer(ctx context.Context, customerID string) bool {
+	if !service.skipNoCustomer {
+		return false
+	}
+
+	_, err := service.stripeClient.Customers().Get(customerID, &stripe.CustomerParams{Params: stripe.Params{Context: ctx}})
+	return err != nil
 }
 
 // createProjectRecords creates invoice project record if none exists.
@@ -385,7 +404,13 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		}
 		for _, c := range customersPage.Customers {
 			c := c
+
 			limiter.Go(ctx, func() {
+				ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
+				if ignore {
+					return
+				}
+
 				_, skip, err := service.mustSkipUser(ctx, c.UserID)
 				if err != nil {
 					addErr(&mu, err)
@@ -560,9 +585,19 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 		// get the stripe customer invoice balance
 		customerID, err := service.db.Customers().GetCustomerID(ctx, wallet.UserID)
 		if err != nil {
+			if service.skipNoCustomer && errors.Is(err, ErrNoCustomer) {
+				continue
+			}
+
 			errGrp.Add(Error.New("unable to get stripe customer ID for user ID %s", wallet.UserID.String()))
 			continue
 		}
+
+		ignore := service.ignoreNoStripeCustomer(ctx, customerID)
+		if ignore {
+			continue
+		}
+
 		customerInvoices, err := service.getInvoices(ctx, customerID, createdOnAfter)
 		if err != nil {
 			errGrp.Add(Error.New("unable to get invoice balance for stripe customer ID %s", customerID))
@@ -1373,7 +1408,13 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 
 		if service.removeExpiredCredit {
 			for _, c := range cusPage.Customers {
+
 				if c.PackagePlan != nil {
+					ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
+					if ignore {
+						continue
+					}
+
 					if _, err := service.RemoveExpiredPackageCredit(ctx, c); err != nil {
 						return Error.Wrap(err)
 					}
@@ -1587,7 +1628,13 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 
 	for _, cus := range customers {
 		cus := cus
+
 		limiter.Go(ctx, func() {
+			ignore := service.ignoreNoStripeCustomer(ctx, cus.ID)
+			if ignore {
+				return
+			}
+
 			user, skip, err := service.mustSkipUser(ctx, cus.UserID)
 			if err != nil {
 				mu.Lock()
@@ -1744,8 +1791,13 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 
 		userID, err := service.db.Customers().GetUserID(ctx, itr.Customer().ID)
 		if err != nil {
+			if service.skipNoCustomer && errs.Is(err, ErrNoCustomer) {
+				continue
+			}
+
 			return err
 		}
+
 		if _, skip, err := service.mustSkipUser(ctx, userID); err != nil {
 			return err
 		} else if skip {
