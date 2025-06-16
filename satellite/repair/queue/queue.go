@@ -42,21 +42,26 @@ type Stat struct {
 	MaxSegmentHealth float64
 }
 
-// RepairQueue implements queueing for segments that need repairing.
-// Implementation can be found at satellite/satellitedb/repairqueue.go.
-//
-// architecture: Database
-type RepairQueue interface {
-	// Insert adds an injured segment.
-	Insert(ctx context.Context, s *InjuredSegment) (alreadyInserted bool, err error)
-	// InsertBatch adds multiple injured segments
-	InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error)
+// Consumer defines the minimum number of methods to process segments from queue.
+type Consumer interface {
 	// Select gets an injured segments.
 	Select(ctx context.Context, limit int, includedPlacements []storj.PlacementConstraint, excludedPlacements []storj.PlacementConstraint) ([]InjuredSegment, error)
 	// Release releases an injured segment record. This should be called after
 	// the segment is acquired by Select(), once the segment has been repaired
 	// or the repair has failed.
 	Release(ctx context.Context, s InjuredSegment, repaired bool) error
+}
+
+// RepairQueue implements queueing for segments that need repairing.
+// Implementation can be found at satellite/satellitedb/repairqueue.go.
+//
+// architecture: Database
+type RepairQueue interface {
+	Consumer
+	// Insert adds an injured segment.
+	Insert(ctx context.Context, s *InjuredSegment) (alreadyInserted bool, err error)
+	// InsertBatch adds multiple injured segments
+	InsertBatch(ctx context.Context, segments []*InjuredSegment) (newlyInsertedSegments []*InjuredSegment, err error)
 	// Delete removes an injured segment.
 	Delete(ctx context.Context, s InjuredSegment) error
 	// Clean removes all segments last updated before a certain time
