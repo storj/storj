@@ -301,14 +301,15 @@ type StoreStats struct {
 	SetPercent   float64 // percent of bytes that are set in the log files.
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 
-	Compacting    bool        // if true, a compaction is in progress.
-	Compactions   uint64      // number of compaction calls that finished
-	Today         uint32      // the current date.
-	LastCompact   uint32      // the date of the last compaction.
-	LogsRewritten uint64      // number of log files attempted to be rewritten.
-	DataRewritten memory.Size // number of bytes rewritten in the log files.
-	DataReclaimed memory.Size // number of bytes reclaimed in the log files.
-	Table         TblStats    // stats about the hash table.
+	Compacting      bool        // if true, a compaction is in progress.
+	Compactions     uint64      // number of compaction calls that finished
+	Today           uint32      // the current date.
+	LastCompact     uint32      // the date of the last compaction.
+	LogsRewritten   uint64      // number of log files attempted to be rewritten.
+	DataRewritten   memory.Size // number of bytes rewritten in the log files.
+	DataReclaimed   memory.Size // number of bytes reclaimed in the log files.
+	DataReclaimable memory.Size // number of bytes potentially reclaimable in the log files.
+	Table           TblStats    // stats about the hash table.
 
 	Compaction struct { // stats about the current compaction
 		Elapsed          float64 // number of seconds elapsed in the compaction
@@ -376,14 +377,15 @@ func (s *Store) Stats() StoreStats {
 		SetPercent:   safeDivide(float64(stats.LenSet), float64(lenLogs)),
 		TrashPercent: safeDivide(float64(stats.LenTrash), float64(lenLogs)),
 
-		Compacting:    false,
-		Compactions:   s.stats.compactions.Load(),
-		Today:         s.today(),
-		LastCompact:   s.stats.lastCompact.Load(),
-		LogsRewritten: s.stats.logsRewritten.Load(),
-		DataRewritten: memory.Size(s.stats.dataRewritten.Load()),
-		DataReclaimed: memory.Size(s.stats.dataReclaimed.Load()),
-		Table:         stats,
+		Compacting:      false,
+		Compactions:     s.stats.compactions.Load(),
+		Today:           s.today(),
+		LastCompact:     s.stats.lastCompact.Load(),
+		LogsRewritten:   s.stats.logsRewritten.Load(),
+		DataRewritten:   memory.Size(s.stats.dataRewritten.Load()),
+		DataReclaimed:   memory.Size(s.stats.dataReclaimed.Load()),
+		DataReclaimable: memory.Size(lenLogs) - stats.LenSet,
+		Table:           stats,
 	}
 }
 
