@@ -606,8 +606,10 @@ func BenchmarkRemoteSegment(b *testing.B) {
 			require.NoError(b, err)
 		}
 
+		reliabilityCache := checker.NewReliabilityCache(planet.Satellites[0].Auditor.Overlay, planet.Satellites[0].Config.Checker.ReliabilityCacheStaleness)
+		health := checker.NewProbabilityHealth(planet.Satellites[0].Config.Checker.NodeFailureRate, reliabilityCache)
 		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].Repair.Queue,
-			planet.Satellites[0].Auditor.Overlay, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker)
+			planet.Satellites[0].Auditor.Overlay, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker, health)
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 
