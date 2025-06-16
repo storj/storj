@@ -420,6 +420,131 @@ func TestArithmetic(t *testing.T) {
 	})
 }
 
+func TestECParametersUnmarshalYAML(t *testing.T) {
+	env := NewPlacementConfigEnvironment(nil, nil)
+
+	t.Run("static repair value (integer)", func(t *testing.T) {
+		yamlConfig := `
+placements:
+  - id: 1
+    name: test-static
+    ec:
+      minimum: 2
+      repair: 3
+      success: 4
+      total: 5
+`
+		placements, err := LoadConfigFromString(yamlConfig, env)
+		require.NoError(t, err)
+		require.Contains(t, placements, storj.PlacementConstraint(1))
+
+		placement := placements[1]
+		require.Equal(t, 2, placement.EC.Minimum)
+		require.Equal(t, 4, placement.EC.Success(placement.EC.Minimum))
+		require.Equal(t, 5, placement.EC.Total)
+
+		// Test the repair function
+		require.NotNil(t, placement.EC.Repair)
+		require.Equal(t, 3, placement.EC.Repair(2))
+		require.Equal(t, 0, placement.EC.Repair(4))
+		require.Equal(t, 0, placement.EC.Repair(10))
+	})
+
+	t.Run("dynamic repair value (string with offset)", func(t *testing.T) {
+		yamlConfig := `
+placements:
+  - id: 2
+    name: test-dynamic
+    ec:
+      minimum: 2
+      repair: "+1"
+      success: 4
+      total: 5
+`
+		placements, err := LoadConfigFromString(yamlConfig, env)
+		require.NoError(t, err)
+		require.Contains(t, placements, storj.PlacementConstraint(2))
+
+		placement := placements[2]
+		require.Equal(t, 2, placement.EC.Minimum)
+		require.Equal(t, 4, placement.EC.Success(placement.EC.Minimum))
+		require.Equal(t, 5, placement.EC.Total)
+
+		// Test the repair function with different k values
+		require.NotNil(t, placement.EC.Repair)
+		require.Equal(t, 3, placement.EC.Repair(2))
+		require.Equal(t, 5, placement.EC.Repair(4))
+		require.Equal(t, 11, placement.EC.Repair(10))
+	})
+
+	t.Run("error cases", func(t *testing.T) {
+		testCases := []struct {
+			name        string
+			yamlConfig  string
+			expectedErr string
+		}{
+			{
+				name: "invalid offset format",
+				yamlConfig: `
+placements:
+  - id: 5
+    ec:
+      repair: "+abc"
+`,
+				expectedErr: "invalid EC parameter offset value '+abc'",
+			},
+			{
+				name: "unsupported string format",
+				yamlConfig: `
+placements:
+  - id: 6
+    ec:
+      repair: "invalid"
+`,
+				expectedErr: "unsupported EC parameter string format 'invalid'",
+			},
+			{
+				name: "string without plus",
+				yamlConfig: `
+placements:
+  - id: 7
+    ec:
+      repair: "5"
+`,
+				expectedErr: "unsupported EC parameter string format '5'",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				_, err := LoadConfigFromString(tc.yamlConfig, env)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+			})
+		}
+	})
+
+	t.Run("nil repair value", func(t *testing.T) {
+		yamlConfig := `
+placements:
+  - id: 8
+    ec:
+      minimum: 2
+      success: 4
+      total: 5
+`
+		placements, err := LoadConfigFromString(yamlConfig, env)
+		require.NoError(t, err)
+
+		placement := placements[8]
+		require.Equal(t, 2, placement.EC.Minimum)
+		require.Equal(t, 4, placement.EC.Success(placement.EC.Minimum))
+		require.Equal(t, 5, placement.EC.Total)
+		require.Nil(t, placement.EC.Repair) // repair should be nil when not specified
+	})
+
+}
+
 type mockTracker struct {
 }
 

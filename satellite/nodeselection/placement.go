@@ -44,9 +44,76 @@ type Placement struct {
 // ECParameters can be used to override certain part of the RS parameters.
 type ECParameters struct {
 	Minimum int
-	Success int
+	Success func(k int) int
 	Total   int
-	Repair  int
+	Repair  func(k int) int
+}
+
+// UnmarshalYAML handles YAML unmarshaling for ECParameters.
+func (e *ECParameters) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
+	// First try to unmarshal as a struct with mixed repair value (int or string)
+	type ECParametersYAML struct {
+		Minimum int `yaml:"minimum"`
+		Success any `yaml:"success"`
+		Total   int `yaml:"total"`
+		Repair  any `yaml:"repair"`
+	}
+
+	var params ECParametersYAML
+	if err := unmarshal(&params); err != nil {
+		return err
+	}
+
+	e.Minimum = params.Minimum
+	e.Total = params.Total
+
+	if params.Success != nil {
+		e.Success, err = parseRedundancyValue(params.Minimum, params.Success)
+		if err != nil {
+			return err
+		}
+	}
+	if params.Repair != nil {
+		e.Repair, err = parseRedundancyValue(params.Minimum, params.Repair)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func parseRedundancyValue(minimum int, value any) (func(k int) int, error) {
+	switch val := value.(type) {
+	case int:
+		// Static repair value
+		if val > 0 {
+			staticVal := val
+			return func(k int) int {
+				if k == minimum {
+					return staticVal
+				}
+				// if the repair is static, but defined for a different k, don't use it.
+				// it's possible that repair will try to get repair threshold for different k
+				return 0
+			}, nil
+		}
+	case string:
+		// Dynamic repair value (e.g., "+5" means k+5)
+		if strings.HasPrefix(val, "+") {
+			offsetStr := val[1:]
+			offset, err := strconv.Atoi(offsetStr)
+			if err != nil {
+				return nil, errs.New("invalid EC parameter offset value '%s': %v", val, err)
+			}
+			return func(k int) int {
+				return k + offset
+			}, nil
+		} else {
+			return nil, errs.New("unsupported EC parameter string format '%s', expected format like '+5'", val)
+		}
+	}
+	return nil, errs.New("EC fields must be int or string, got %T", value)
 }
 
 // Match implements NodeFilter.

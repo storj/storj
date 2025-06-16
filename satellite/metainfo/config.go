@@ -61,9 +61,19 @@ func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
 	if o.Minimum > 0 {
 		ro.Min = o.Minimum
 	}
-	if o.Success > 0 {
-		ro.Success = o.Success
+
+	if o.Success != nil {
+		if v := o.Success(o.Minimum); v > 0 {
+			ro.Success = v
+		}
 	}
+
+	if o.Repair != nil {
+		if v := o.Repair(o.Minimum); v > 0 {
+			ro.Repair = v
+		}
+	}
+
 	if o.Total > 0 {
 		ro.Total = o.Total
 		// for legacy configuration that does not define repair.
@@ -72,9 +82,7 @@ func (rs *RSConfig) Override(o nodeselection.ECParameters) *RSConfig {
 			ro.Repair = ro.Total
 		}
 	}
-	if o.Repair > 0 {
-		ro.Repair = o.Repair
-	}
+
 	return ro
 }
 
