@@ -4451,6 +4451,32 @@ func (s *Service) CreateDomain(ctx context.Context, domain Domain) (created *Dom
 	return created, Error.Wrap(err)
 }
 
+// ListDomains returns paged domains list for a given Project.
+func (s *Service) ListDomains(ctx context.Context, projectID uuid.UUID, cursor DomainCursor) (page *DomainPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "list domains", zap.String("projectPublicID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if cursor.Limit > maxLimit {
+		cursor.Limit = maxLimit
+	}
+
+	page, err = s.store.Domains().GetPagedByProjectID(ctx, isMember.project.ID, cursor)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return page, Error.Wrap(err)
+}
+
 // CreateAPIKey creates new api key.
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string, version macaroon.APIKeyVersion) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {

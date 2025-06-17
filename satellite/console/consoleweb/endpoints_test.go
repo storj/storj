@@ -593,6 +593,69 @@ func TestBuckets(t *testing.T) {
 	})
 }
 
+func TestDomains(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.DomainsPageEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		test := newTest(t, ctx, planet)
+		user := test.defaultUser()
+		test.login(user.email, user.password)
+
+		{ // Post_Create_Domain
+			path := "/domains/project/" + test.defaultProjectID()
+			resp, _ := test.request(http.MethodPost, path,
+				test.toJSON(map[string]interface{}{
+					"subdomain": "test.example.com",
+					"prefix":    "test",
+					"accessID":  "testAccessID",
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Get_ProjectDomains
+			path := "/domains/project/''/paged?limit=6&page=1&order=1&orderDirection=1"
+			resp, _ := test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+			path = "/domains/project/" + test.defaultProjectID() + "/paged?page=1&order=1&orderDirection=1"
+			resp, _ = test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+			path = "/domains/project/" + test.defaultProjectID() + "/paged?limit=6&order=1&orderDirection=1"
+			resp, _ = test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+			path = "/domains/project/" + test.defaultProjectID() + "/paged?limit=6&page=1&orderDirection=1"
+			resp, _ = test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+			path = "/domains/project/" + test.defaultProjectID() + "/paged?limit=6&page=1&order=1"
+			resp, _ = test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+			var page console.DomainPage
+			path = "/domains/project/" + test.defaultProjectID() + "/paged?limit=6&page=1&order=1&orderDirection=1"
+			resp, body := test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &page))
+			require.Contains(t, body, "domains")
+			require.Len(t, page.Domains, 1)
+
+			path = "/domains/project/" + test.defaultProjectID() + "/paged?search=123&limit=6&page=1&order=1&orderDirection=1"
+			resp, body = test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &page))
+			require.Contains(t, body, "domains")
+			require.Len(t, page.Domains, 0)
+		}
+	})
+}
+
 func TestAPIKeys(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
