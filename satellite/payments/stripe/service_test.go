@@ -5,6 +5,7 @@ package stripe_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"sort"
@@ -36,6 +37,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
@@ -2330,11 +2332,9 @@ func TestService_CreateInvoice(t *testing.T) {
 		t.Run("positive token balance → skip minimum charge", func(t *testing.T) {
 			stripeService.TestSetMinimumChargeCfg(1_000, nil)
 
-			tokenBalance := currency.AmountFromBaseUnits(1000, currency.USDollars)
-
-			_, err = db.Billing().Insert(ctx, billing.Transaction{
+			tx := billing.Transaction{
 				UserID:      user.ID,
-				Amount:      tokenBalance,
+				Amount:      currency.AmountFromBaseUnits(1000, currency.USDollars),
 				Description: "token payment credit",
 				Source:      billing.StorjScanEthereumSource,
 				Status:      billing.TransactionStatusCompleted,
@@ -2342,13 +2342,76 @@ func TestService_CreateInvoice(t *testing.T) {
 				Metadata:    nil,
 				Timestamp:   time.Now(),
 				CreatedAt:   time.Now(),
-			})
+			}
+
+			_, err = db.Billing().Insert(ctx, tx)
 			require.NoError(t, err)
 
 			_, err = stripeClient.InvoiceItems().New(invoiceItem)
 			require.NoError(t, err)
 
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(100), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			tx.Amount = currency.AmountFromBaseUnits(-1000, currency.USDollars)
+
+			_, err = db.Billing().Insert(ctx, tx)
+			require.NoError(t, err)
+		})
+
+		t.Run("legacy token transactions", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(1_000, nil)
+
+			amount, err := currency.AmountFromString("4.0000000000000000005", currency.StorjToken)
+			require.NoError(t, err)
+			received, err := currency.AmountFromString("5.0000000000000000003", currency.StorjToken)
+			require.NoError(t, err)
+
+			id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+			addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+			key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+
+			createTX := stripe1.Transaction{
+				ID:        coinpayments.TransactionID(id),
+				AccountID: uuid.UUID{},
+				Address:   addr,
+				Amount:    amount,
+				Received:  received,
+				Status:    coinpayments.StatusPending,
+				Key:       key,
+			}
+
+			_, err = db.StripeCoinPayments().Transactions().TestInsert(ctx, createTX)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			// Transaction is pending -> apply minimum charge.
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(1000), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			createTX.ID = coinpayments.TransactionID(base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B)))
+			createTX.Status = coinpayments.StatusCompleted
+
+			_, err = db.StripeCoinPayments().Transactions().TestInsert(ctx, createTX)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			// Transaction is complete -> do not apply minimum charge.
+			inv, err = stripeService.CreateInvoice(ctx, cusID, user, start, end)
 			require.NoError(t, err)
 			require.NotNil(t, inv)
 			require.Equal(t, int64(100), inv.AmountDue)

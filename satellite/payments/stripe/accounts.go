@@ -14,10 +14,12 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/coinpayments"
 )
 
 const invoiceReferenceCustomFieldName = "Reference"
@@ -124,6 +126,88 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 
 	// TODO: delete customer from stripe, if db insertion fails
 	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
+}
+
+// ShouldSkipMinimumCharge returns true if, for the given user, we should
+// not apply a minimum charge (either because they have a positive token balance,
+// they have legacy token TXs or because they have an active package plan).
+func (accounts *accounts) ShouldSkipMinimumCharge(ctx context.Context, cusID string, userID uuid.UUID) (bool, error) {
+	// 1) Check token balance.
+	monetaryBalance, err := accounts.service.billingDB.GetBalance(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	// Truncate to cents, since Stripe only invoices at cent precision.
+	tokenBalance := currency.AmountFromDecimal(
+		monetaryBalance.AsDecimal().Truncate(2),
+		currency.USDollars,
+	)
+	if tokenBalance.BaseUnits() > 0 {
+		return true, nil // there is still a positive balance, skip minimum charge.
+	}
+
+	// 2) Check if the user has any complete legacy STORJ token transactions.
+	txInfos, err := accounts.service.db.Transactions().ListAccount(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	foundLegacyTX := false
+	for _, tx := range txInfos {
+		if tx.Status == coinpayments.StatusCompleted {
+			foundLegacyTX = true
+			break
+		}
+	}
+	if foundLegacyTX {
+		// If the user has legacy STORJ token transactions, we should skip minimum charge.
+		return true, nil
+	}
+
+	// 3) Check package plan info.
+	packagePlanInfo, purchaseDate, err := accounts.GetPackageInfo(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	// We check for plan expiration one step before creating an invoice so there is no need to do it here again.
+	// We should just make sure that service.removeExpiredCredit is set to true.
+	if packagePlanInfo != nil && purchaseDate != nil && accounts.service.minimumChargeDate != nil {
+		if purchaseDate.After(*accounts.service.minimumChargeDate) {
+			return false, nil // User has a package plan, but it was purchased after the minimum charge date, so we should not skip.
+		}
+
+		if cusID == "" {
+			cusID, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		// Stripe returns list ordered by most recent, so ending balance of the first item is current balance.
+		list := accounts.service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{
+			Customer:   stripe.String(cusID),
+			ListParams: stripe.ListParams{Context: ctx, Limit: stripe.Int64(1)},
+		})
+
+		var hasCredit bool
+
+		for list.Next() {
+			tx := list.CustomerBalanceTransaction()
+			// The customer's `balance` after the transaction was applied.
+			// A negative value decreases the amount due on the customer's next invoice.
+			// Which means that if the balance is negative, the customer has credit.
+			if tx.EndingBalance < 0 {
+				hasCredit = true
+				break
+			}
+		}
+
+		return hasCredit, nil // If the user has purchased a package plan before the minimum charge date, we should skip if they have credit.
+	}
+
+	// Otherwise, no reason to skip.
+	return false, nil
 }
 
 // EnsureUserHasCustomer creates a stripe customer for userID if non exists.

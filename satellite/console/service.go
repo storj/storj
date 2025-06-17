@@ -751,30 +751,12 @@ func (payment Payments) ShouldApplyMinimumCharge(ctx context.Context) (bool, err
 		return false, nil // no minimum charge configured.
 	}
 
-	// Get the user's token balance.
-	// We ignore Stripe balance in this case.
-	b, err := payment.service.billing.GetBalance(ctx, user.ID)
+	skip, err := payment.service.accounts.ShouldSkipMinimumCharge(ctx, "", user.ID)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
 
-	// Truncate to cents.
-	tokenBalance := currency.AmountFromDecimal(b.AsDecimal().Truncate(2), currency.USDollars)
-	if tokenBalance.BaseUnits() > 0 {
-		return false, nil // there is still a positive token balance, no minimum charge.
-	}
-
-	plan, purchaseDate, err := payment.service.accounts.GetPackageInfo(ctx, user.ID)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-
-	if plan != nil && purchaseDate != nil && payment.service.minimumChargeDate != nil &&
-		purchaseDate.Before(*payment.service.minimumChargeDate) {
-		return false, nil // user has a plan and purchase date is before the minimum charge date, no minimum charge.
-	}
-
-	return true, nil
+	return !skip, nil
 }
 
 // GetCardSetupSecret returns a secret to be used by the front end
