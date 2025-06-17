@@ -22,7 +22,6 @@ require (
 	github.com/go-oauth2/oauth2/v4 v4.4.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt v3.2.1+incompatible
-	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/go-cmp v0.6.0
 	github.com/googleapis/go-sql-spanner v1.11.1-0.20250214171559-1bccea5dfec5
 	github.com/gorilla/mux v1.8.0
@@ -66,6 +65,7 @@ require (
 	github.com/zeebo/xxh3 v1.0.2
 	github.com/zyedidia/generic v1.2.1
 	go.etcd.io/bbolt v1.3.5
+	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.38.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
@@ -196,7 +196,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
-	go.uber.org/mock v0.5.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect

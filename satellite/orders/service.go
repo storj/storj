@@ -48,9 +48,9 @@ type Config struct {
 }
 
 // Overlay defines the overlay dependency of orders.Service.
-// use `go install github.com/golang/mock/mockgen@v1.6.0` if missing
+// use `go install go.uber.org/mock/mockgen@v0.5.2 if missing
 //
-//go:generate mockgen -destination mock_test.go -package orders . OverlayForOrders
+//go:generate mockgen -destination mock_test.go -package orders -mock_names Overlay=MockOverlayForOrders . Overlay
 type Overlay interface {
 	CachedGetOnlineNodesForGet(context.Context, []storj.NodeID) (map[storj.NodeID]*nodeselection.SelectedNode, error)
 	GetOnlineNodesForAuditRepair(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
