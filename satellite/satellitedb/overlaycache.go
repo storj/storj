@@ -402,7 +402,7 @@ func (cache *overlaycache) getOnlineNodesForRepair(ctx context.Context, nodeIDs 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT last_net, id, address, email, last_ip_port, noise_proto, noise_public_key, debounce_limit, features,
+			SELECT id, email, last_ip_port, address,
 				vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
 			WHERE id = any($1::bytea[])
@@ -412,7 +412,7 @@ func (cache *overlaycache) getOnlineNodesForRepair(ctx context.Context, nodeIDs 
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
 	case dbutil.Spanner:
 		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-			SELECT last_net, id, address, email, last_ip_port, noise_proto, noise_public_key, debounce_limit, features,
+			SELECT id, email, last_ip_port, address,
 			vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
 			WHERE id IN unnest(?)
@@ -434,15 +434,18 @@ func (cache *overlaycache) getOnlineNodesForRepair(ctx context.Context, nodeIDs 
 		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
-		var noise noiseScanner
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.Reputation.Email, &lastIPPort, &noise.Proto, &noise.PublicKey, &node.Address.DebounceLimit, &node.Address.Features, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
+
+		err = rows.Scan(
+			&node.ID, &node.Reputation.Email, &lastIPPort,
+			&node.Address.Address,
+			&node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended,
+		)
 		if err != nil {
 			return nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
-		node.Address.NoiseInfo = noise.Convert()
 
 		nodes[node.ID] = &node
 	}
