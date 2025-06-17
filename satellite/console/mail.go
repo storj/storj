@@ -31,7 +31,7 @@ func (*TrialExpirationEscalationReminderEmail) Template() string {
 
 // Subject gets email subject.
 func (*TrialExpirationEscalationReminderEmail) Subject() string {
-	return "Your Storj trial is ending soon"
+	return "Your Storj trial has ended"
 }
 
 // TrialExpiredEmail is mailservice template with trial expiration data.
