@@ -100,8 +100,8 @@ func zapRS(fieldName string, redundancy storj.RedundancyScheme) zap.Field {
 	return zap.Stringer(fieldName, redundancySchemePrinter(redundancy))
 }
 
-// ParticipatingNodesCache alias for making the code a bit nicer below.
-type ParticipatingNodesCache = sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
+// participatingNodesCache alias for making the code a bit nicer below.
+type participatingNodesCache = sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
 
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
@@ -114,7 +114,7 @@ type SegmentRepairer struct {
 	timeout        time.Duration
 	reporter       audit.Reporter
 
-	participatingNodesCache *ParticipatingNodesCache
+	participatingNodesCache *participatingNodesCache
 
 	reputationUpdateEnabled bool
 	doDeclumping            bool
