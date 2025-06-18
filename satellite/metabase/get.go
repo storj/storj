@@ -642,9 +642,8 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			created_at, expires_at, repaired_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
+			root_piece_id,
 			encrypted_size,
-			encrypted_etag,
 			redundancy,
 			remote_alias_pieces,
 			placement
