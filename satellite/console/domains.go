@@ -12,8 +12,13 @@ import (
 	"storj.io/common/uuid"
 )
 
-// ErrSubdomainAlreadyExists is used to indicate that subdomain already exists.
-var ErrSubdomainAlreadyExists = errs.Class("subdomain already exists")
+var (
+	// ErrSubdomainAlreadyExists is used to indicate that subdomain already exists.
+	ErrSubdomainAlreadyExists = errs.Class("subdomain already exists")
+
+	// ErrNoSubdomain is used to indicate that subdomain doesn't exist.
+	ErrNoSubdomain = errs.Class("subdomain doesn't exist")
+)
 
 // Domains is an interface for working with domains store.
 //
@@ -23,6 +28,8 @@ type Domains interface {
 	Create(ctx context.Context, domain Domain) (*Domain, error)
 	// GetPagedByProjectID is a method for querying domains from the database by projectID and cursor.
 	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor DomainCursor) (*DomainPage, error)
+	// GetByProjectIDAndSubdomain returns Domain by projectID and subdomain.
+	GetByProjectIDAndSubdomain(ctx context.Context, projectID uuid.UUID, subdomain string) (*Domain, error)
 	// Delete deletes Domain from store.
 	Delete(ctx context.Context, projectID uuid.UUID, subdomain string) error
 	// DeleteAllByProjectID deletes all Domains for the given project.

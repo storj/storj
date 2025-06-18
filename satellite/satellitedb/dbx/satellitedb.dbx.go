@@ -18043,6 +18043,32 @@ func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_Ord
 
 }
 
+func (obj *pgxImpl) Get_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field,
+	domain_subdomain Domain_Subdomain_Field) (
+	domain *Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT domains.subdomain, domains.project_id, domains.prefix, domains.access_id, domains.created_by, domains.created_at FROM domains WHERE domains.project_id = ? AND domains.subdomain = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value(), domain_subdomain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	domain = &Domain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&domain.Subdomain, &domain.ProjectId, &domain.Prefix, &domain.AccessId, &domain.CreatedBy, &domain.CreatedAt)
+	if err != nil {
+		return (*Domain)(nil), obj.makeErr(err)
+	}
+	return domain, nil
+
+}
+
 func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -28261,6 +28287,32 @@ func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_And_Ch
 		}
 		return row, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field,
+	domain_subdomain Domain_Subdomain_Field) (
+	domain *Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT domains.subdomain, domains.project_id, domains.prefix, domains.access_id, domains.created_by, domains.created_at FROM domains WHERE domains.project_id = ? AND domains.subdomain = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value(), domain_subdomain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	domain = &Domain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&domain.Subdomain, &domain.ProjectId, &domain.Prefix, &domain.AccessId, &domain.CreatedBy, &domain.CreatedAt)
+	if err != nil {
+		return (*Domain)(nil), obj.makeErr(err)
+	}
+	return domain, nil
 
 }
 
@@ -38761,6 +38813,32 @@ func (obj *spannerImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId
 
 }
 
+func (obj *spannerImpl) Get_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field,
+	domain_subdomain Domain_Subdomain_Field) (
+	domain *Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT domains.subdomain, domains.project_id, domains.prefix, domains.access_id, domains.created_by, domains.created_at FROM domains WHERE domains.project_id = ? AND domains.subdomain = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value(), domain_subdomain.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	domain = &Domain{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&domain.Subdomain, &domain.ProjectId, &domain.Prefix, &domain.AccessId, &domain.CreatedBy, &domain.CreatedAt)
+	if err != nil {
+		return (*Domain)(nil), obj.makeErr(err)
+	}
+	return domain, nil
+
+}
+
 func (obj *spannerImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -46182,6 +46260,11 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Versioning_Row, err error)
+
+	Get_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
+		domain_project_id Domain_ProjectId_Field,
+		domain_subdomain Domain_Subdomain_Field) (
+		domain *Domain, err error)
 
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (

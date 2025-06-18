@@ -24,3 +24,9 @@ delete domain (
 	where domain.subdomain = ?
 )
 delete domain ( where domain.project_id = ? )
+
+read one (
+	select domain
+	where domain.project_id = ?
+    where domain.subdomain = ?
+)

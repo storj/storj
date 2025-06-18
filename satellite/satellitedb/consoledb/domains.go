@@ -5,6 +5,8 @@ package consoledb
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -58,6 +60,25 @@ func (d *domains) DeleteAllByProjectID(ctx context.Context, projectID uuid.UUID)
 
 	_, err = d.db.Delete_Domain_By_ProjectId(ctx, dbx.Domain_ProjectId(projectID[:]))
 	return err
+}
+
+// GetByProjectIDAndSubdomain implements satellite.Domains get domain by project ID and subdomain method.
+func (d *domains) GetByProjectIDAndSubdomain(ctx context.Context, projectID uuid.UUID, subdomain string) (_ *console.Domain, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxDomain, err := d.db.Get_Domain_By_ProjectId_And_Subdomain(
+		ctx,
+		dbx.Domain_ProjectId(projectID[:]),
+		dbx.Domain_Subdomain(subdomain),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, console.ErrNoSubdomain.New("")
+		}
+		return nil, err
+	}
+
+	return domainFromDBX(ctx, dbxDomain)
 }
 
 // GetPagedByProjectID implements satellite.Domains get domains by project ID and cursor method.

@@ -41,7 +41,7 @@ func TestDomainsRepository(t *testing.T) {
 			AccessID:  "testAccessID",
 		}
 
-		t.Run("Create and delete", func(t *testing.T) {
+		t.Run("Create, get and delete", func(t *testing.T) {
 			domain.ProjectID = project1.ID
 
 			createdDomain, err := domains.Create(ctx, domain)
@@ -49,6 +49,19 @@ func TestDomainsRepository(t *testing.T) {
 			require.NotNil(t, createdDomain)
 			require.Equal(t, project1.ID, createdDomain.ProjectID)
 			require.Equal(t, user.ID, createdDomain.CreatedBy)
+
+			retrievedDomain, err := domains.GetByProjectIDAndSubdomain(ctx, project1.ID, domain.Subdomain)
+			require.NoError(t, err)
+			require.NotNil(t, retrievedDomain)
+			require.Equal(t, createdDomain.Subdomain, retrievedDomain.Subdomain)
+			require.Equal(t, createdDomain.Prefix, retrievedDomain.Prefix)
+			require.Equal(t, createdDomain.AccessID, retrievedDomain.AccessID)
+			require.Equal(t, createdDomain.ProjectID, retrievedDomain.ProjectID)
+			require.Equal(t, createdDomain.CreatedBy, retrievedDomain.CreatedBy)
+
+			retrievedDomain, err = domains.GetByProjectIDAndSubdomain(ctx, project1.ID, "random")
+			require.True(t, console.ErrNoSubdomain.Has(err))
+			require.Nil(t, retrievedDomain)
 
 			createdDomain, err = domains.Create(ctx, domain)
 			require.Error(t, err)
