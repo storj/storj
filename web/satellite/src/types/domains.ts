@@ -20,14 +20,14 @@ export interface DomainsAPI {
      *
      * @throws Error
      */
-    create(projectID: string, request: CreateDomainRequest): Promise<void>;
+    create(projectID: string, request: CreateDomainRequest, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Removes domain from a server side.
      *
      * @throws Error
      */
-    delete(projectID: string, subdomain: string): Promise<void>;
+    delete(projectID: string, subdomain: string, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Returns paged domains list from a server side.

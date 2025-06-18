@@ -121,9 +121,8 @@
 
             <v-card-actions class="pa-7">
                 <v-row>
-                    <v-col>
+                    <v-col v-if="step === NewDomainFlowStep.CustomDomain">
                         <v-btn
-                            v-if="step === NewDomainFlowStep.CustomDomain"
                             variant="outlined"
                             color="default"
                             href="https://docs.storj.io/dcs/code/static-site-hosting/custom-domains"
@@ -133,8 +132,9 @@
                         >
                             Learn More
                         </v-btn>
+                    </v-col>
+                    <v-col v-else-if="stepInfos[step].prev.value">
                         <v-btn
-                            v-else
                             variant="outlined"
                             color="default"
                             block
@@ -189,6 +189,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { IDialogFlowStep } from '@/types/common';
 import { PassphraseOption } from '@/types/setupAccess';
 import { useLinksharing } from '@/composables/useLinksharing';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import AccessEncryptionStep from '@/components/dialogs/accessSetupSteps/AccessEncryptionStep.vue';
 import EnterPassphraseStep from '@/components/dialogs/commonPassphraseSteps/EnterPassphraseStep.vue';
@@ -222,6 +223,7 @@ class StepInfo {
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const domainsStore = useDomainsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const { publicLinksharingURL } = useLinksharing();
@@ -298,16 +300,7 @@ const stepInfos: Record<NewDomainFlowStep, StepInfo> = {
     ),
     [NewDomainFlowStep.SetupCNAME]: new StepInfo(
         'Next',
-        () => {
-            if (!hasManagedPassphrase.value && isPromptForPassphrase.value) {
-                if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return NewDomainFlowStep.EnterNewPassphrase;
-                if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return NewDomainFlowStep.PassphraseGenerated;
-
-                return NewDomainFlowStep.SetupDomainAccess;
-            }
-
-            return NewDomainFlowStep.CustomDomain;
-        },
+        undefined,
         NewDomainFlowStep.SetupTXT,
     ),
     [NewDomainFlowStep.SetupTXT]: new StepInfo(
@@ -332,7 +325,14 @@ const storjAccess = computed<string>(() => `storj-access:${accessKeyID.value}`);
 const storjTLS = 'storj-tls:true';
 const txt = computed<string[]>(() => [storjRoot.value, storjAccess.value, storjTLS]);
 
-const accessName = computed<string>(() => `custom-domain-access-${domain.value}`);
+const accessName = computed<string>(() => {
+    let name = `custom-domain-access-${domain.value}`;
+    if (name.length > configStore.state.config.maxNameCharacters) {
+        name = `custom-domain-access-${new Date().toISOString()}`;
+    }
+
+    return name;
+});
 
 const currentTitle = computed<string>(() => {
     switch (step.value) {
@@ -353,6 +353,7 @@ async function generate(): Promise<void> {
     }
 
     accessKeyID.value = await domainsStore.generateDomainCredentials(accessName.value, bucket.value, passphrase.value);
+    await domainsStore.storeDomain({ subdomain: domain.value, prefix: bucket.value, accessID: accessKeyID.value });
 }
 
 /**

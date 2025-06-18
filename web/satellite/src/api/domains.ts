@@ -39,9 +39,9 @@ export class DomainsHttpAPI implements DomainsAPI {
         };
     }
 
-    public async create(projectID: string, request: CreateDomainRequest): Promise<void> {
+    public async create(projectID: string, request: CreateDomainRequest, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/project/${projectID}`;
-        const response = await this.client.post(path, JSON.stringify(request));
+        const response = await this.client.post(path, JSON.stringify(request), { csrfProtectionToken });
 
         if (!response.ok) {
             const result = await response.json();
@@ -53,9 +53,9 @@ export class DomainsHttpAPI implements DomainsAPI {
         }
     }
 
-    public async delete(projectID: string, subdomain: string): Promise<void> {
+    public async delete(projectID: string, subdomain: string, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/project/${projectID}`;
-        const response = await this.client.delete(path, subdomain);
+        const response = await this.client.delete(path, subdomain, { csrfProtectionToken });
 
         if (!response.ok) {
             const result = await response.json();
