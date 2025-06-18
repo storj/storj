@@ -26,6 +26,7 @@ import (
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -35,6 +36,7 @@ import (
 
 var (
 	mon = monkit.Package()
+	evs = eventkit.Package()
 
 	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit.
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
@@ -103,12 +105,12 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[storj.NodeID]bool) (report Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var segmentInfo metabase.Segment
+	var segmentInfo metabase.SegmentForAudit
 	defer func() {
 		recordStats(report, len(segmentInfo.Pieces), err)
 	}()
 
-	segmentInfo, err = verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segmentInfo, err = verifier.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 		StreamID: segment.StreamID,
 		Position: segment.Position,
 	})
@@ -200,6 +202,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			zap.Stringer("Node ID", share.NodeID),
 			zap.String("Segment", segmentInfoString(segment)),
 			zap.Stringer("Piece ID", pieceID),
+			zap.Uint16("Placement", uint16(segmentInfo.Placement)),
 			zap.Error(share.Error),
 		)
 
@@ -217,7 +220,15 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 					Number:      uint16(share.PieceNum),
 					StorageNode: share.NodeID,
 				})
-				errLogger.Info("Verify: piece not found (audit failed)")
+
+				evs.Event("audit-piece-not-found",
+					eventkit.Bytes("node-id", share.NodeID.Bytes()),
+					eventkit.String("stream-id", segment.StreamID.String()),
+					eventkit.Int64("stream-position", int64(segment.Position.Encode())),
+					eventkit.Int64("piece-num", int64(share.PieceNum)),
+					eventkit.Int64("placement", int64(segmentInfo.Placement)),
+				)
+				errLogger.Info("Verify: piece not found (audit failed)", zap.Int("piece-num", share.PieceNum))
 				continue
 			}
 
@@ -353,7 +364,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 // IdentifyContainedNodes returns the set of all contained nodes out of the
 // holders of pieces in the given segment.
 func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Segment) (skipList map[storj.NodeID]bool, err error) {
-	segmentInfo, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segmentInfo, err := verifier.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 		StreamID: segment.StreamID,
 		Position: segment.Position,
 	})
@@ -467,14 +478,16 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 }
 
 // checkIfSegmentAltered checks if oldSegment has been altered since it was selected for audit.
-func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, oldSegment metabase.Segment) (err error) {
+func (verifier *Verifier) checkIfSegmentAltered(
+	ctx context.Context, oldSegment metabase.SegmentForAudit,
+) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if verifier.OnTestingCheckSegmentAlteredHook != nil {
 		verifier.OnTestingCheckSegmentAlteredHook()
 	}
 
-	newSegment, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	newSegment, err := verifier.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 		StreamID: oldSegment.StreamID,
 		Position: oldSegment.Position,
 	})
@@ -538,7 +551,9 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []eestream
 
 // getOfflineNodes returns those storage nodes from the segment which have no
 // order limit nor are skipped.
-func getOfflineNodes(segment metabase.Segment, limits []*pb.AddressedOrderLimit, skip map[storj.NodeID]bool) storj.NodeIDList {
+func getOfflineNodes(
+	segment metabase.SegmentForAudit, limits []*pb.AddressedOrderLimit, skip map[storj.NodeID]bool,
+) storj.NodeIDList {
 	var offlines storj.NodeIDList
 
 	nodesWithLimit := make(map[storj.NodeID]bool, len(limits))
@@ -606,7 +621,7 @@ func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeI
 }
 
 // GetRandomStripe takes a segment and returns a random stripe index within that segment.
-func GetRandomStripe(ctx context.Context, segment metabase.Segment) (index int32, err error) {
+func GetRandomStripe(ctx context.Context, segment metabase.SegmentForAudit) (index int32, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// the last segment could be smaller than stripe size

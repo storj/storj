@@ -12,6 +12,7 @@ import (
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/api/option"
 
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/recordeddb"
@@ -48,6 +49,8 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 	}
 
 	opts := params.ClientOptions()
+	// TODO user agent is added in two ways to verify which one is what we need
+	opts = append(opts, option.WithUserAgent(cfg.ApplicationName+"-alt"))
 
 	adminClient, err := database.NewDatabaseAdminClient(ctx, opts...)
 	if err != nil {
@@ -65,6 +68,7 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 			SessionPoolConfig:    poolConfig,
 			Compression:          cfg.Compression,
 			DisableRouteToLeader: false,
+			UserAgent:            cfg.ApplicationName,
 		}, opts...)
 	if err != nil {
 		return nil, errs.Wrap(err)

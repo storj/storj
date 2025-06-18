@@ -350,6 +350,7 @@ const creditCards = computed((): CreditCard[] => {
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
 const addFundsEnabled = computed<boolean>(() => configStore.state.config.billingAddFundsEnabled);
+const productBasedInvoicingEnabled = computed<boolean>(() => configStore.state.config.productBasedInvoicingEnabled);
 const minimumChargeCfg = computed<MinimumCharge>(() => configStore.minimumCharge);
 
 /**
@@ -357,14 +358,31 @@ const minimumChargeCfg = computed<MinimumCharge>(() => configStore.minimumCharge
  */
 const projectIDs = computed((): string[] => {
     return projectsStore.state.projects
-        .filter(proj => billingStore.state.projectCharges.hasProject(proj.id))
+        .filter(proj => {
+            if (productBasedInvoicingEnabled.value) {
+                return productCharges.value.hasProject(proj.id);
+            }
+
+            return projectCharges.value.hasProject(proj.id);
+        })
         .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
         .map(proj => proj.id);
 });
 
+const userPaidTier = computed<boolean>(() => usersStore.state.user.paidTier);
+
 const willMinimumChargeBeApplied = computed(() => {
-    const { enabled, startDate } = minimumChargeCfg.value;
-    return enabled && (!startDate || Date.now() >= startDate.getTime()) && priceSummary.value < minimumChargeCfg.value._amount;
+    const { isEnabled, _amount } = minimumChargeCfg.value;
+
+    const applyMinimumFromCharges = productBasedInvoicingEnabled.value
+        ? productCharges.value.applyMinimumCharge
+        : projectCharges.value.applyMinimumCharge;
+
+    return isEnabled &&
+        userPaidTier.value &&
+        applyMinimumFromCharges &&
+        priceSummary.value > 0 &&
+        priceSummary.value < _amount;
 });
 
 const estimatedChargesSubtitle = computed<string>(() => {
@@ -398,10 +416,24 @@ const estimatedChargesTooltipMsg = computed<string>(() => {
 });
 
 /**
+ * Returns the project charges from the billing store.
+ */
+const projectCharges = computed(() => billingStore.state.projectCharges);
+
+/**
+ * Returns the product charges from the billing store.
+ */
+const productCharges = computed(() => billingStore.state.productCharges);
+
+/**
  * Returns price summary of all project usages.
  */
 const priceSummary = computed((): number => {
-    return billingStore.state.projectCharges.getPrice();
+    if (productBasedInvoicingEnabled.value) {
+        return productCharges.value.getPrice();
+    }
+
+    return projectCharges.value.getPrice();
 });
 
 /**
@@ -469,7 +501,7 @@ const isCouponActive = computed((): boolean => {
 });
 
 function onAddTokensClicked(): void {
-    if (!usersStore.state.user.paidTier) {
+    if (!userPaidTier.value) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
@@ -505,7 +537,11 @@ onMounted(async () => {
     });
 
     try {
-        await billingStore.getProjectUsageAndChargesCurrentRollup();
+        if (productBasedInvoicingEnabled.value) {
+            await billingStore.getProductUsageAndChargesCurrentRollup();
+        } else {
+            await billingStore.getProjectUsageAndChargesCurrentRollup();
+        }
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
     } finally {

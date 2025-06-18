@@ -33,9 +33,7 @@ type commitObjectWithSegmentsTransactionAdapter interface {
 type CommitObjectWithSegments struct {
 	ObjectStream
 
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
+	EncryptedUserData
 
 	// TODO: this probably should use segment ranges rather than individual items
 	Segments []SegmentPosition
@@ -57,6 +55,12 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 	if err := opts.ObjectStream.Verify(); err != nil {
 		return Object{}, err
 	}
+
+	err = opts.EncryptedUserData.Verify()
+	if err != nil {
+		return Object{}, err
+	}
+
 	if err := verifySegmentOrder(opts.Segments); err != nil {
 		return Object{}, err
 	}
@@ -165,17 +169,18 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 
 	err = ptx.tx.QueryRowContext(ctx, `
 			UPDATE objects SET
-				version = $14,
+				version = $15,
 				status = $6,
 				segment_count = $7,
 
 				encrypted_metadata_nonce         = $8,
 				encrypted_metadata               = $9,
 				encrypted_metadata_encrypted_key = $10,
+				encrypted_etag                   = $11,
 
-				total_plain_size     = $11,
-				total_encrypted_size = $12,
-				fixed_segment_size   = $13,
+				total_plain_size     = $12,
+				total_encrypted_size = $13,
+				fixed_segment_size   = $14,
 				zombie_deletion_deadline = NULL
 			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
 				status = `+statusPending+`
@@ -184,7 +189,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 				encryption;
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
 		len(finalSegments),
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
+		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
 		totalPlainSize,
 		totalEncryptedSize,
 		fixedSegmentSize,
@@ -252,7 +257,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 				stream_id,
 				created_at, expires_at, status,
 				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption, zombie_deletion_deadline
 			) VALUES (
@@ -260,7 +265,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 				@stream_id,
 				@created_at, @expires_at, @status,
 				@segment_count,
-				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
 				@encryption, NULL
 			)
@@ -278,6 +283,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 			"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 			"encrypted_metadata":               opts.EncryptedMetadata,
 			"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+			"encrypted_etag":                   opts.EncryptedETag,
 			"total_plain_size":                 totalPlainSize,
 			"total_encrypted_size":             totalEncryptedSize,
 			"fixed_segment_size":               int64(fixedSegmentSize),

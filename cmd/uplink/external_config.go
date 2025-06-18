@@ -16,12 +16,17 @@ import (
 // loadConfig loads the configuration file from disk if it is not already loaded.
 // This makes calls to loadConfig idempotent.
 func (ex *external) loadConfig() error {
+	configFile, err := ex.ConfigFile()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
 	if ex.config.values != nil {
 		return nil
 	}
 	ex.config.values = make(map[string][]string)
 
-	fh, err := os.Open(ex.ConfigFile())
+	fh, err := os.Open(configFile)
 	if os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
@@ -81,7 +86,11 @@ func (ex *external) SaveConfig(values map[string]string) error {
 func (ex *external) saveConfig(entries []ini.Entry) error {
 	// TODO(jeff): write it atomically
 
-	path := ex.ConfigFile()
+	path, err := ex.ConfigFile()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
 	dir := filepath.Dir(path)
 
 	if err := os.MkdirAll(dir, 0755); err != nil {

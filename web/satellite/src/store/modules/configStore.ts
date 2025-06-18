@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import { FrontendConfig, FrontendConfigApi } from '@/types/config';
@@ -29,6 +29,8 @@ export const useConfigStore = defineStore('config', () => {
         );
     });
 
+    const minimumChargeBannerDismissed = ref(false);
+
     async function getConfig(): Promise<FrontendConfig> {
         const result = await configApi.get();
 
@@ -44,6 +46,7 @@ export const useConfigStore = defineStore('config', () => {
     return {
         state,
         minimumCharge,
+        minimumChargeBannerDismissed,
         getConfig,
         getBillingEnabled,
     };
@@ -67,6 +70,13 @@ export class MinimumCharge {
         return this._startDate !== null ? new Date(this._startDate) : null;
     }
 
+    get monthYearStartDateStr(): string {
+        if (!this.startDate) {
+            return '';
+        }
+        return Time.formattedDate(this.startDate, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    }
+
     get shortStartDateStr(): string {
         if (!this.startDate) {
             return '';
@@ -85,7 +95,23 @@ export class MinimumCharge {
         return parts.join('');
     }
 
-    get proNoticeEnabled(): boolean {
-        return this.enabled && this.startDate !== null && this.startDate > new Date();
+    // notice is enabled 60 days before the start date and 45 days after the start date.
+    get priorNoticeEnabled(): boolean {
+        if (!this.enabled || !this.startDate) return false;
+
+        const currentDate = new Date();
+        const startDate = this.startDate;
+        const sixtyDaysBefore = new Date(startDate);
+        sixtyDaysBefore.setDate(sixtyDaysBefore.getDate() - 60);
+        const forty5DaysAfter = new Date(startDate);
+        forty5DaysAfter.setDate(forty5DaysAfter.getDate() + 45);
+
+        return currentDate >= sixtyDaysBefore && currentDate <= forty5DaysAfter;
+    }
+
+    // indicates whether minimum charge is fully enabled.
+    get isEnabled(): boolean {
+        if (!this.enabled) return false;
+        return this.startDate === null || new Date() >= this.startDate;
     }
 }

@@ -25,6 +25,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/sync2"
+	"storj.io/storj/cmd/uplink/internal"
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
 	"storj.io/storj/cmd/uplink/ulloc"
@@ -53,8 +54,6 @@ type cmdCp struct {
 
 	locs []ulloc.Location
 }
-
-const maxPartCount int64 = 10000
 
 func newCmdCp(ex ulext.External) *cmdCp {
 	return &cmdCp{ex: ex}
@@ -138,11 +137,11 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 
 	c.expires = params.Flag("expires",
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
+		time.Time{}, clingy.Transform(internal.ParseHumanDate), clingy.Type("relative_date")).(time.Time)
 
 	c.metadata = params.Flag("metadata",
 		"optional metadata for the object. Please use a single level JSON object of string to string only",
-		nil, clingy.Transform(parseJSON), clingy.Type("string")).(map[string]string)
+		nil, clingy.Transform(internal.ParseJSON), clingy.Type("string")).(map[string]string)
 
 	c.locs = params.Arg("locations", "Locations to copy (at least one source and one destination). Use - for standard input/output",
 		clingy.Transform(ulloc.Parse),
@@ -374,7 +373,7 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	}
 	defer func() { _ = mrh.Close() }()
 
-	cfg, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64(), c.parallelism)
+	cfg, err := internal.CalculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64(), c.parallelism)
 	if err != nil {
 		return err
 	}
@@ -382,7 +381,7 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{
 		Expires:    c.expires,
 		Metadata:   c.metadata,
-		SinglePart: cfg.singlePart,
+		SinglePart: cfg.SinglePart,
 	})
 	if err != nil {
 		return err
@@ -393,87 +392,10 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 		ctx,
 		source, dest,
 		mrh, mwh,
-		cfg.parallelism, cfg.partSize,
+		cfg.Parallelism, cfg.PartSize,
 		offset, length,
 		bar,
 	))
-}
-
-type partSizeConfig struct {
-	partSize    int64
-	singlePart  bool
-	parallelism int
-}
-
-// calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
-// It hereby respects if the client requests/prefers a certain size and only increases if needed.
-func (c *cmdCp) calculatePartSize(contentLength, preferredPartSize int64, parallelism int) (cfg partSizeConfig, err error) {
-	const minimumPartSize = memory.GiB
-	const alignPartSize = 64 * memory.MiB
-
-	// Let the user pick their size if we don't have a contentLength to know better.
-	if contentLength < 0 {
-		partSize := preferredPartSize
-
-		if partSize <= 0 { // user didn't pick a size
-			partSize = minimumPartSize.Int64()
-		}
-
-		partSize = roundUpToNext(partSize, alignPartSize.Int64())
-
-		return partSizeConfig{
-			partSize:    partSize,
-			singlePart:  false,
-			parallelism: parallelism,
-		}, nil
-	}
-
-	// When we are not parallel, there's no point in doing multipart upload.
-	if parallelism <= 1 {
-		return partSizeConfig{
-			partSize:    contentLength,
-			singlePart:  true,
-			parallelism: 1,
-		}, nil
-	}
-
-	// ceil(contentLength / maxPartCount)
-	smallestAllowedPartSize := (contentLength + (maxPartCount - 1)) / maxPartCount
-
-	// Calculate a good part size.
-	partSize := roundUpToNext(smallestAllowedPartSize, alignPartSize.Int64())
-
-	// Let's set a lower limit for the expected part size.
-	if partSize < minimumPartSize.Int64() {
-		partSize = minimumPartSize.Int64()
-	}
-
-	// check whether we can use preferred part size instead?
-	if preferredPartSize > 0 {
-		if preferredPartSize < partSize {
-			return cfg, errs.New("the specified chunk size %s is too small, requires %s or larger",
-				memory.FormatBytes(preferredPartSize), memory.FormatBytes(partSize))
-		}
-
-		partSize = roundUpToNext(preferredPartSize, alignPartSize.Int64())
-	}
-
-	cfg = partSizeConfig{
-		partSize:    partSize,
-		singlePart:  contentLength <= partSize,
-		parallelism: parallelism,
-	}
-
-	// if there's a single part there's no point in allowing parallelism.
-	if cfg.singlePart {
-		cfg.parallelism = 1
-	}
-
-	return cfg, nil
-}
-
-func roundUpToNext(v, r int64) int64 {
-	return ((v + (r - 1)) / r) * r
 }
 
 func copyVerb(source, dest ulloc.Location) (verb string) {

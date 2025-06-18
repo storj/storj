@@ -636,7 +636,8 @@ func (opts ListObjects) selectedFields() (selectedFields string) {
 		selectedFields += `
 		,encrypted_metadata_nonce
 		,encrypted_metadata
-		,encrypted_metadata_encrypted_key`
+		,encrypted_metadata_encrypted_key
+		,encrypted_etag`
 	}
 
 	return selectedFields
@@ -702,6 +703,7 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 			&item.EncryptedMetadataNonce,
 			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+			&item.EncryptedETag,
 		)
 	}
 
@@ -752,6 +754,7 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 			&item.EncryptedMetadataNonce,
 			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+			&item.EncryptedETag,
 		)
 	}
 

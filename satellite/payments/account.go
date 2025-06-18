@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
@@ -48,6 +49,9 @@ type Accounts interface {
 	// EnsureUserHasCustomer creates a stripe customer for userID if non exists.
 	EnsureUserHasCustomer(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) error
 
+	// ShouldSkipMinimumCharge returns true if, for the given user, we should not apply a minimum charge.
+	ShouldSkipMinimumCharge(ctx context.Context, cusID string, userID uuid.UUID) (bool, error)
+
 	// SaveBillingAddress saves billing address for a user and returns the updated billing information.
 	SaveBillingAddress(ctx context.Context, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
 
@@ -78,6 +82,9 @@ type Accounts interface {
 	// ProjectCharges returns how much money current user will be charged for each project.
 	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProjectChargesResponse, error)
 
+	// ProductCharges returns how much money current user will be charged for each project split by product.
+	ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProductChargesResponse, error)
+
 	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
 	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
 
@@ -92,7 +99,7 @@ type Accounts interface {
 	CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) error
 
 	// CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, err error)
+	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error)
 
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)

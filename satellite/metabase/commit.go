@@ -54,10 +54,7 @@ type BeginObjectNextVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
-
+	EncryptedUserData
 	Encryption storj.EncryptionParameters
 
 	Retention Retention // optional
@@ -77,11 +74,9 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should be metabase.NextVersion")
 	}
 
-	switch {
-	case opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil):
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-	case opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil):
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	err := opts.EncryptedUserData.Verify()
+	if err != nil {
+		return err
 	}
 
 	if err := opts.Retention.Verify(); err != nil {
@@ -144,7 +139,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at, encryption,
 				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 				retention_mode, retain_until
 			) VALUES (
 				$1, $2, $3,
@@ -157,14 +152,14 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 					), 1),
 				$4, $5, $6,
 				$7,
-				$8, $9, $10,
-				$11, $12
+				$8, $9, $10, $11,
+				$12, $13
 			)
 			RETURNING status, version, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
-		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
 		lockModeWrapper{
 			retentionMode: &opts.Retention.Mode,
 			legalHold:     &opts.LegalHold,
@@ -185,7 +180,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					project_id, bucket_name, object_key, version, stream_id,
 					expires_at, encryption,
 					zombie_deletion_deadline,
-					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 					retention_mode, retain_until
 				) VALUES (
 					@project_id, @bucket_name, @object_key,
@@ -198,7 +193,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					,1),
 					@stream_id, @expires_at,
 					@encryption, @zombie_deletion_deadline,
-					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 					@retention_mode, @retain_until
 				)
 				THEN RETURN status,version,created_at`,
@@ -213,6 +208,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+				"encrypted_etag":                   opts.EncryptedETag,
 				"retention_mode": lockModeWrapper{
 					retentionMode: &opts.Retention.Mode,
 					legalHold:     &opts.LegalHold,
@@ -238,10 +234,7 @@ type BeginObjectExactVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
-
+	EncryptedUserData
 	Encryption storj.EncryptionParameters
 
 	Retention Retention // optional
@@ -263,11 +256,9 @@ func (opts *BeginObjectExactVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
-	switch {
-	case opts.EncryptedMetadata == nil && (opts.EncryptedMetadataNonce != nil || opts.EncryptedMetadataEncryptedKey != nil):
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-	case opts.EncryptedMetadata != nil && (opts.EncryptedMetadataNonce == nil || opts.EncryptedMetadataEncryptedKey == nil):
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	err := opts.EncryptedUserData.Verify()
+	if err != nil {
+		return err
 	}
 
 	if err := opts.Retention.Verify(); err != nil {
@@ -336,20 +327,20 @@ func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, op
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
 			zombie_deletion_deadline,
-			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 			retention_mode, retain_until
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7,
 			$8,
-			$9, $10, $11,
-			$12, $13
+			$9, $10, $11, $12,
+			$13, $14
 		)
 		RETURNING status, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
-		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
+		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
 		lockModeWrapper{
 			retentionMode: &opts.Retention.Mode,
 			legalHold:     &opts.LegalHold,
@@ -373,13 +364,13 @@ func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opt
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at, encryption,
 				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 				retention_mode, retain_until
 			) VALUES (
 				@project_id, @bucket_name, @object_key, @version, @stream_id,
 				@expires_at, @encryption,
 				@zombie_deletion_deadline,
-				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@retention_mode, @retain_until
 			) THEN RETURN status, created_at`,
 			Params: map[string]interface{}{
@@ -394,6 +385,7 @@ func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opt
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+				"encrypted_etag":                   opts.EncryptedETag,
 				"retention_mode": lockModeWrapper{
 					retentionMode: &opts.Retention.Mode,
 					legalHold:     &opts.LegalHold,
@@ -1039,14 +1031,12 @@ type CommitObject struct {
 
 	Encryption storj.EncryptionParameters
 
-	// this flag controls if we want to set metadata fields with CommitObject
+	// OverrideEncryptedMedata flag controls if we want to set metadata fields with CommitObject
 	// it's possible to set metadata with BeginObject request so we need to
 	// be explicit if we would like to set it with CommitObject which will
 	// override any existing metadata.
-	OverrideEncryptedMetadata     bool
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
+	OverrideEncryptedMetadata bool
+	EncryptedUserData
 
 	DisallowDelete bool
 
@@ -1071,10 +1061,9 @@ func (c *CommitObject) Verify() error {
 	}
 
 	if c.OverrideEncryptedMetadata {
-		if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
-			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-		} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
-			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+		err := c.EncryptedUserData.Verify()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -1224,11 +1213,13 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 			opts.EncryptedMetadataNonce,
 			opts.EncryptedMetadata,
 			opts.EncryptedMetadataEncryptedKey,
+			opts.EncryptedETag,
 		)
 		metadataColumns = `,
 				encrypted_metadata_nonce         = $13,
 				encrypted_metadata               = $14,
-				encrypted_metadata_encrypted_key = $15
+				encrypted_metadata_encrypted_key = $15,
+				encrypted_etag                   = $16
 			`
 	}
 	err = ptx.tx.QueryRowContext(ctx, `
@@ -1253,12 +1244,12 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 				status       = `+statusPending+`
 			RETURNING
 				created_at, expires_at,
-				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,
 				encryption,
 				retention_mode, retain_until
 			`, args...).Scan(
 		&object.CreatedAt, &object.ExpiresAt,
-		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
+		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce, &object.EncryptedETag,
 		encryptionParameters{&object.Encryption},
 		lockModeWrapper{
 			retentionMode: &object.Retention.Mode,
@@ -1290,11 +1281,9 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 
 	requestedEncryptionParameters := opts.Encryption
 	var (
-		deleted                          bool
-		oldEncryptedMetadata             []byte
-		oldEncryptedMetadataEncryptedKey []byte
-		oldEncryptedMetadataNonce        []byte
-		oldEncryptionParameters          storj.EncryptionParameters
+		deleted                 bool
+		oldUserData             EncryptedUserData
+		oldEncryptionParameters storj.EncryptionParameters
 	)
 	lockMode := lockModeWrapper{
 		retentionMode: &object.Retention.Mode,
@@ -1317,7 +1306,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 					AND status      = ` + statusPending + `
 				THEN RETURN
 					created_at, expires_at,
-					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,
 					encryption,
 					retention_mode, retain_until
 			`,
@@ -1332,7 +1321,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		deleted = true
 		return Error.Wrap(row.Columns(
 			&object.CreatedAt, &object.ExpiresAt,
-			&oldEncryptedMetadata, &oldEncryptedMetadataEncryptedKey, &oldEncryptedMetadataNonce,
+			&oldUserData.EncryptedMetadata, &oldUserData.EncryptedMetadataEncryptedKey, &oldUserData.EncryptedMetadataNonce, &oldUserData.EncryptedETag,
 			encryptionParameters{&oldEncryptionParameters}, lockMode, retainUntil,
 		))
 	})
@@ -1359,9 +1348,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		encryptionArg = &oldEncryptionParameters
 	}
 	if opts.OverrideEncryptedMetadata {
-		oldEncryptedMetadataNonce = opts.EncryptedMetadataNonce
-		oldEncryptedMetadata = opts.EncryptedMetadata
-		oldEncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
+		oldUserData = opts.EncryptedUserData
 	}
 	args := map[string]interface{}{
 		"project_id":                       opts.ProjectID,
@@ -1373,9 +1360,10 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		"expires_at":                       object.ExpiresAt,
 		"status":                           nextStatus,
 		"segment_count":                    len(finalSegments),
-		"encrypted_metadata_nonce":         oldEncryptedMetadataNonce,
-		"encrypted_metadata":               oldEncryptedMetadata,
-		"encrypted_metadata_encrypted_key": oldEncryptedMetadataEncryptedKey,
+		"encrypted_metadata_nonce":         oldUserData.EncryptedMetadataNonce,
+		"encrypted_metadata":               oldUserData.EncryptedMetadata,
+		"encrypted_metadata_encrypted_key": oldUserData.EncryptedMetadataEncryptedKey,
+		"encrypted_etag":                   oldUserData.EncryptedETag,
 		"total_plain_size":                 totalPlainSize,
 		"total_encrypted_size":             totalEncryptedSize,
 		"fixed_segment_size":               int64(fixedSegmentSize),
@@ -1388,16 +1376,16 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	_, err = stx.tx.Update(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
-			    project_id, bucket_name, object_key, version,
+				project_id, bucket_name, object_key, version,
 				stream_id, created_at, expires_at, status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			    total_plain_size, total_encrypted_size, fixed_segment_size,
-			    encryption, zombie_deletion_deadline,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption, zombie_deletion_deadline,
 				retention_mode, retain_until
 			) VALUES (
-			    @project_id, @bucket_name, @object_key, @version,
+				@project_id, @bucket_name, @object_key, @version,
 				@stream_id, @created_at, @expires_at, @status, @segment_count,
-				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
 				@encryption, NULL,
 				@retention_mode, @retain_until
@@ -1413,9 +1401,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		return Error.New("failed to update object: %w", err)
 	}
 	object.Encryption = *encryptionArg
-	object.EncryptedMetadataNonce = oldEncryptedMetadataNonce
-	object.EncryptedMetadata = oldEncryptedMetadata
-	object.EncryptedMetadataEncryptedKey = oldEncryptedMetadataEncryptedKey
+	object.EncryptedUserData = oldUserData
 	return nil
 }
 
@@ -1451,14 +1437,12 @@ func (db *DB) validateParts(segments []segmentInfoForCommit) error {
 // CommitInlineObject contains arguments necessary for committing an inline object.
 type CommitInlineObject struct {
 	ObjectStream
-	CommitInlineSegment
+	CommitInlineSegment CommitInlineSegment
 
-	ExpiresAt  *time.Time
+	ExpiresAt *time.Time
+
+	EncryptedUserData
 	Encryption storj.EncryptionParameters
-
-	EncryptedMetadata             []byte // optional
-	EncryptedMetadataNonce        []byte // optional
-	EncryptedMetadataEncryptedKey []byte // optional
 
 	Retention Retention // optional
 	LegalHold bool
@@ -1486,10 +1470,9 @@ func (c *CommitInlineObject) Verify() error {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
-	if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-	} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	err := c.EncryptedUserData.Verify()
+	if err != nil {
+		return err
 	}
 
 	if err := c.Retention.Verify(); err != nil {
@@ -1541,26 +1524,24 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		object.Version = nextVersion
 		object.Status = nextStatus
 		object.SegmentCount = 1
-		object.TotalPlainSize = int64(opts.PlainSize)
-		object.TotalEncryptedSize = int64(int32(len(opts.InlineData)))
+		object.TotalPlainSize = int64(opts.CommitInlineSegment.PlainSize)
+		object.TotalEncryptedSize = int64(int32(len(opts.CommitInlineSegment.InlineData)))
 		object.ExpiresAt = opts.ExpiresAt
 		object.Encryption = opts.Encryption
-		object.EncryptedMetadata = opts.EncryptedMetadata
-		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
-		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
+		object.EncryptedUserData = opts.EncryptedUserData
 		object.Retention = opts.Retention
 		object.LegalHold = opts.LegalHold
 
 		segment := &Segment{
 			StreamID:          opts.StreamID,
-			Position:          opts.Position,
+			Position:          opts.CommitInlineSegment.Position,
 			ExpiresAt:         opts.ExpiresAt,
-			EncryptedKey:      opts.EncryptedKey,
-			EncryptedKeyNonce: opts.EncryptedKeyNonce,
-			EncryptedETag:     opts.EncryptedETag,
-			PlainSize:         opts.PlainSize,
-			EncryptedSize:     int32(len(opts.InlineData)),
-			InlineData:        opts.InlineData,
+			EncryptedKey:      opts.CommitInlineSegment.EncryptedKey,
+			EncryptedKeyNonce: opts.CommitInlineSegment.EncryptedKeyNonce,
+			EncryptedETag:     opts.CommitInlineSegment.EncryptedETag,
+			PlainSize:         opts.CommitInlineSegment.PlainSize,
+			EncryptedSize:     int32(len(opts.CommitInlineSegment.InlineData)),
+			InlineData:        opts.CommitInlineSegment.InlineData,
 		}
 
 		return adapter.finalizeInlineObjectCommit(ctx, &object, segment)
@@ -1588,22 +1569,22 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 			status, segment_count, expires_at, encryption,
 			total_plain_size, total_encrypted_size,
 			zombie_deletion_deadline,
-			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 			retention_mode, retain_until
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7, $8, $9,
 			$10, $11,
 			$12,
-			$13, $14, $15,
-			$16, $17
+			$13, $14, $15, $16,
+			$17, $18
 		)
 		RETURNING created_at`,
 		object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
 		object.Status, object.SegmentCount, object.ExpiresAt, encryptionParameters{&object.Encryption},
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,
-		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey,
+		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey, object.EncryptedETag,
 		lockModeWrapper{
 			retentionMode: &object.Retention.Mode,
 			legalHold:     &object.LegalHold,
@@ -1650,14 +1631,14 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 				status, segment_count, expires_at, encryption,
 				total_plain_size, total_encrypted_size,
 				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key,
+				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 				retention_mode, retain_until
 			) VALUES (
 				@project_id, @bucket_name, @object_key, @version, @stream_id,
 				@status, @segment_count, @expires_at, @encryption_parameters,
 				@total_plain_size, @total_encrypted_size,
 				@zombie_deletion_deadline,
-				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key,
+				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@retention_mode, @retain_until
 			)
 			THEN RETURN created_at
@@ -1678,6 +1659,7 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 			"encrypted_metadata":               object.EncryptedMetadata,
 			"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
 			"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
+			"encrypted_etag":                   object.EncryptedETag,
 			"retention_mode": lockModeWrapper{
 				retentionMode: &object.Retention.Mode,
 				legalHold:     &object.LegalHold,

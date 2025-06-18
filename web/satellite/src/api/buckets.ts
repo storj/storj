@@ -67,6 +67,7 @@ export class BucketsHttpApi implements BucketsApi {
                     usage.defaultRetentionMode,
                     usage.defaultRetentionDays,
                     usage.defaultRetentionYears,
+                    new Date(usage.createdAt),
                 ),
             ) || [],
             result.search,
@@ -119,6 +120,7 @@ export class BucketsHttpApi implements BucketsApi {
             result.defaultRetentionMode,
             result.defaultRetentionDays,
             result.defaultRetentionYears,
+            new Date(result.createdAt),
         );
     }
 

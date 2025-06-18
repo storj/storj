@@ -39,7 +39,6 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -383,6 +382,17 @@ var (
 		RunE: cmdDeleteObjects,
 	}
 
+	executeDeleteAllObjectsUncoordinated = false
+	deleteAllObjectsUncoordinatedCmd     = &cobra.Command{
+		Use:   "delete-all-objects-uncoordinated <project-id> <bucket-name>",
+		Short: "Delete all the objects in a bucket",
+		Long: "Deletes the objects in a given bucket, but does not guarantee consistency, while the " +
+			"delete is in progress. There must be no uploads, downloads or deletes happening while this is being run." +
+			"On failure, the system should check whether there are any undeleted streams or objects in the system.",
+		Args: cobra.ExactArgs(2),
+		RunE: cmdDeleteAllObjectsUncoordinated,
+	}
+
 	deleteAccountsCmd = &cobra.Command{
 		Use:   "delete-accounts",
 		Short: "Delete accounts and their associated entities",
@@ -401,20 +411,32 @@ var (
 		RunE: cmdDeleteAccounts,
 	}
 
-	accountStatus        = console.PendingDeletion
-	setAccountsStatusCmd = &cobra.Command{
-		Use:   "set-status",
-		Short: "Change the status of user accounts",
-		Long: "Change to the specified status of the provided list of users accounts.\nUnexisting " +
-			"accounts or accounts set to 'inactive' status are logged with a debug  message and skipped.\n" +
-			"System errors exit the process with an error message.\nThe command can operate on one" +
-			"account or on multiple accounts; when the passed possitional argmuent is a string that " +
-			"contains '@', the command considers that's the email address of the user to change its " +
+	setAccountsStatusPendingDeletionCmd = &cobra.Command{
+		Use:   "set-status-pending-deletion",
+		Short: "Safely change accounts to pending deletion status for accounts with trial expiration freeze",
+		Long: "Changes the status of user accounts to 'pending deletion', but only if certain safety criteria are met:\n" +
+			"1. The account is currently in 'active' status\n" +
+			"2. The account is NOT in the paid tier\n" +
+			"3. The account has an active 'trial expiration freeze'\n" +
+			"4. The active 'trial expiration freeze' days till escalation is over'\n" +
+			"5. The account is NOT a member of any third party project\n\n" +
+			"Accounts that don't meet these criteria are logged and skipped.\n" +
+			"The command can operate on one account or on multiple accounts; when the passed positional argument " +
+			"is a string that contains '@', the command considers that's the email address of the user to change its " +
 			"status, otherwise it considers a path to a CSV file where the first column contains the " +
 			"email of the user's account and if the first row doesn't contain '@' is considered the " +
 			"header and skipped.",
 		Args: cobra.ExactArgs(1),
-		RunE: cmdSetAccountStatus,
+		RunE: cmdSetAccountsStatusPendingDeletion,
+	}
+
+	setUserKindCmd = &cobra.Command{
+		Use:   "set-kind",
+		Short: "Update the kind of user to PaidUser for paid users",
+		Long: "Update the kind of user to PaidUser(1) for paid users whose current kind is FreeUser(0)." +
+			"\nOptional batch-size parameter controls how many rows to process at once (default: 1000).",
+		Args: cobra.MaximumNArgs(1),
+		RunE: cmdSetUserKindWithPaidTier,
 	}
 
 	runCfg   Satellite
@@ -521,8 +543,11 @@ func init() {
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
 	usersCmd.AddCommand(deleteAccountsCmd)
-	setAccountsStatusCmd.Flags().Var(&accountStatus, "status", "The account status to set to provided accounts")
-	usersCmd.AddCommand(setAccountsStatusCmd)
+	usersCmd.AddCommand(deleteAllObjectsUncoordinatedCmd)
+	deleteAllObjectsUncoordinatedCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
+	deleteAllObjectsUncoordinatedCmd.Flags().BoolVar(&executeDeleteAllObjectsUncoordinated, "really-run-this-dangerous-command-without-any-confirmation", false, "This disables bucket reconfirmation.")
+	usersCmd.AddCommand(setAccountsStatusPendingDeletionCmd)
+	usersCmd.AddCommand(setUserKindCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -565,8 +590,10 @@ func init() {
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(deleteAllObjectsUncoordinatedCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(setAccountsStatusCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setUserKindCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(valueAttributionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {

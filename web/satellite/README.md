@@ -40,7 +40,7 @@ make satellite-ui-image
 ```
 docker run -p 8080:8080 storjlabs/satellite-ui:latest
 ```
-# 1. Project structure: 
+# 1. Project structure:
 - [**src**](./src "src") folder: contains main project components such as api, store, router, etc.
 - [**static**](./static "static") folder: contains all project static resources such as images, fonts, pages.
 - [**tests**](./tests "tests") folder: - contains project unit tests.
@@ -62,7 +62,7 @@ docker run -p 8080:8080 storjlabs/satellite-ui:latest
 - [fonts](./fonts "fonts") folder: contains Inter font sets in ttf format.
 - [images](./images "images") folder: contains illustrations.
 - [reports](./reports "reports") folder: contains usage report table template.
-### tests   
+### tests
 - [unit](./unit "unit") folder: contains project unit tests.
 ### Configuration files
 - **.env**: file for environment level variables.

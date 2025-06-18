@@ -143,6 +143,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		if err != nil {
 			return nil, Error.New("invalid connection string for Spanner: %w", err)
 		}
+		params.UserAgent = opts.ApplicationName
 		dbxSource = params.GoSqlSpannerConnStr()
 	}
 

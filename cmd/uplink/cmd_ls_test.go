@@ -1,23 +1,24 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"testing"
 
+	uplinkcli "storj.io/storj/cmd/uplink"
 	"storj.io/storj/cmd/uplink/ultest"
 )
 
 func TestLsErrors(t *testing.T) {
-	state := ultest.Setup(commands)
+	state := ultest.Setup(uplinkcli.Commands)
 
 	// empty bucket name is a parse error
 	state.Fail(t, "ls", "sj:///user")
 }
 
 func TestLsRemote(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://user/deep/aaa/bbb/1"),
 		ultest.WithFile("sj://user/deep/aaa/bbb/2"),
 		ultest.WithFile("sj://user/deep/aaa/bbb/3"),
@@ -89,7 +90,7 @@ func TestLsRemote(t *testing.T) {
 }
 
 func TestLsJSON(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://user/deep/aaa/bbb/1"),
 		ultest.WithFile("sj://user/deep/aaa/bbb/2"),
 		ultest.WithFile("sj://user/deep/aaa/bbb/3"),
@@ -162,7 +163,7 @@ func TestLsJSON(t *testing.T) {
 }
 
 func TestLsPending(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithPendingFile("sj://user/deep/aaa/bbb/1"),
 		ultest.WithPendingFile("sj://user/deep/aaa/bbb/2"),
 		ultest.WithPendingFile("sj://user/deep/aaa/bbb/3"),
@@ -234,7 +235,7 @@ func TestLsPending(t *testing.T) {
 }
 
 func TestLsDifficult(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://user//"),
 		ultest.WithFile("sj://user///"),
 		ultest.WithFile("sj://user////"),
@@ -346,7 +347,7 @@ func TestLsDifficult(t *testing.T) {
 }
 
 func TestLsLocal(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("/user/deep/aaa/bbb/1"),
 		ultest.WithFile("/user/deep/aaa/bbb/2"),
 		ultest.WithFile("/user/deep/aaa/bbb/3"),
@@ -412,7 +413,7 @@ func TestLsLocal(t *testing.T) {
 }
 
 func TestLsRelative(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("deep/aaa/bbb/1"),
 		ultest.WithFile("deep/aaa/bbb/2"),
 		ultest.WithFile("deep/aaa/bbb/3"),
@@ -469,7 +470,7 @@ func TestLsRelative(t *testing.T) {
 func TestLsAllVersions(t *testing.T) {
 	t.Run("Local", func(t *testing.T) {
 		// Version ID should be blank for all local files.
-		state := ultest.Setup(commands, ultest.WithFile("/user/foo"))
+		state := ultest.Setup(uplinkcli.Commands, ultest.WithFile("/user/foo"))
 		expectedOutput{
 			tabbed: `
 				KIND    CREATED    SIZE    KEY    VERSION ID
@@ -482,7 +483,7 @@ func TestLsAllVersions(t *testing.T) {
 	})
 
 	t.Run("Remote", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/foo"),
 			ultest.WithFile("sj://user/foo/"),
 			ultest.WithFile("sj://user/foo/1"),

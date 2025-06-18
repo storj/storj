@@ -21,6 +21,9 @@ import (
 // Commands is an alias to refer to a function that builds clingy commands.
 type Commands = func(clingy.Commands, ulext.External)
 
+// PromptResponder represents a function that provides a response to a prompt.
+type PromptResponder = func(ctx context.Context, prompt string) (response string, err error)
+
 // Setup returns some State that can be run multiple times with different command
 // line arguments.
 func Setup(cmds Commands, opts ...ExecuteOption) State {
@@ -73,6 +76,12 @@ func (st State) Run(t *testing.T, args ...string) Result {
 		fs:  fs,
 		rfs: rfs,
 	}
+	for _, opt := range st.opts {
+		opt.fn(t, ctx, cs)
+	}
+	if len(cs.stdin) > 0 {
+		_, _ = stdin.WriteString(cs.stdin)
+	}
 
 	ok, err := clingy.Environment{
 		Name: "uplink-test",
@@ -83,19 +92,11 @@ func (st State) Run(t *testing.T, args ...string) Result {
 		Stderr: &stderr,
 
 		Wrap: func(ctx context.Context, cmd clingy.Command) error {
-			for _, opt := range st.opts {
-				opt.fn(t, ctx, cs)
-			}
-
-			if len(cs.stdin) > 0 {
-				_, _ = stdin.WriteString(cs.stdin)
-			}
-
 			ran = true
 			return cmd.Execute(ctx)
 		},
 	}.Run(ctx, func(cmds clingy.Commands) {
-		st.cmds(cmds, newExternal(fs, nil))
+		st.cmds(cmds, newExternal(fs, nil, cs.promptResponder))
 	})
 
 	if ok && err == nil {
@@ -157,9 +158,10 @@ func collectIterator(ctx context.Context, t *testing.T, fs ulfs.FilesystemLocal,
 }
 
 type callbackState struct {
-	stdin string
-	fs    ulfs.Filesystem
-	rfs   *remoteFilesystem
+	stdin           string
+	promptResponder PromptResponder
+	fs              ulfs.Filesystem
+	rfs             *remoteFilesystem
 }
 
 // ExecuteOption allows one to control the environment that a command executes in.
@@ -185,6 +187,13 @@ func WithBucket(name string) ExecuteOption {
 func WithStdin(stdin string) ExecuteOption {
 	return ExecuteOption{func(_ *testing.T, _ context.Context, cs *callbackState) {
 		cs.stdin = stdin
+	}}
+}
+
+// WithPromptResponder sets the function that provides responses to prompts.
+func WithPromptResponder(responder PromptResponder) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
+		cs.promptResponder = responder
 	}}
 }
 

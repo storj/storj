@@ -966,6 +966,10 @@ watch(innerContent, newContent => {
                             if (!placementDetails.value.length) {
                                 notify.notifyError(new Error('Could not get available placements.'), AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
                             }
+                            const globalIndex = placementDetails.value.findIndex(p => p.id === 0);
+                            if (globalIndex !== -1) {
+                                bucketLocation.value = placementDetails.value[globalIndex].idName;
+                            }
                         }),
                     );
                 }

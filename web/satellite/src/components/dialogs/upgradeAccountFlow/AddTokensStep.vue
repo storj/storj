@@ -21,17 +21,6 @@
             <br>
         </p>
 
-        <p class="mb-4 mb-2 text-body-2">
-            <template v-if="minimumCharge.proNoticeEnabled">
-                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                of {{ minimumCharge.amount }} will apply starting on {{ minimumCharge.shortStartDateStr }}.
-            </template>
-            <template v-else-if="minimumCharge.enabled">
-                A <a href="https://storj.dev/dcs/pricing#minimum-monthly-billing">minimum monthly charge</a>
-                of {{ minimumCharge.amount }} applies.
-            </template>
-        </p>
-
         <template v-if="!isAcknowledged">
             <v-alert
                 class="mt-3 mb-2"
@@ -242,8 +231,6 @@ const emit = defineEmits<{
     success: [];
     close: [];
 }>();
-
-const minimumCharge = computed(() => configStore.minimumCharge);
 
 /**
  * Returns wallet from store.

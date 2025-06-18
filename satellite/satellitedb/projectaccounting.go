@@ -296,22 +296,20 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 			return nil, Error.Wrap(err)
 		}
 
-		// see comment for the postgres and cockroach implementation for some
-		// complaining about this query.
 		rows, err = db.db.QueryContext(ctx, `
-			SELECT project_id, bucket_name
-			FROM (
-				SELECT project_id, bucket_name
-				FROM bucket_storage_tallies
+			SELECT project_id, bucket_name FROM (
+				SELECT
+					project_id,
+					bucket_name,
+					ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
+				FROM
+					bucket_storage_tallies
 				WHERE `+fromTuple+` AND `+toTuple+`
-				GROUP BY project_id, bucket_name
-			) bm
-			WHERE NOT 0 IN (
-				SELECT object_count
-				FROM bucket_storage_tallies
-				WHERE (project_id, bucket_name) = (bm.project_id, bm.bucket_name)
-				ORDER BY interval_start DESC
-				LIMIT 1
+				GROUP BY
+					project_id,
+					bucket_name
+				HAVING
+					last_object_count > 0
 			)
 		`, sql.Named("from_project_id", from.ProjectID), sql.Named("from_name", []byte(from.BucketName)), sql.Named("to_project_id", to.ProjectID), sql.Named("to_name", []byte(to.BucketName)))
 	default:
@@ -1307,6 +1305,7 @@ func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectI
 		Before:                before,
 		DefaultRetentionDays:  bucketData.defaultRetentionDays,
 		DefaultRetentionYears: bucketData.defaultRetentionYears,
+		CreatedAt:             bucketData.createdAt,
 	}
 	if bucketData.defaultRetentionMode != nil {
 		usage.DefaultRetentionMode = *bucketData.defaultRetentionMode
@@ -1408,7 +1407,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	}
 
 	bucketsQuery := db.db.Rebind(`
-		SELECT name, versioning, placement, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years
+		SELECT name, versioning, placement, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, created_at
 		FROM bucket_metainfos
 		WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`,
 	)
@@ -1438,6 +1437,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			defaultRetentionMode  *storj.RetentionMode
 			defaultRetentionDays  *int
 			defaultRetentionYears *int
+			createdAt             time.Time
 		)
 		err = bucketRows.Scan(
 			&bucket,
@@ -1447,6 +1447,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			&defaultRetentionMode,
 			&defaultRetentionDays,
 			&defaultRetentionYears,
+			&createdAt,
 		)
 		if err != nil {
 			return nil, err
@@ -1462,6 +1463,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			DefaultRetentionYears: defaultRetentionYears,
 			Since:                 since,
 			Before:                before,
+			CreatedAt:             createdAt,
 		}
 		if defaultRetentionMode != nil {
 			usage.DefaultRetentionMode = *defaultRetentionMode

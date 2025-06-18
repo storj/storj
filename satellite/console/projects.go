@@ -6,7 +6,10 @@ package console
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
+
+	"github.com/shopspring/decimal"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -170,6 +173,21 @@ const (
 	ProjectActive ProjectStatus = 1
 )
 
+// String returns the string name.
+func (status *ProjectStatus) String() string {
+	if status == nil {
+		return "unset"
+	}
+	switch *status {
+	case ProjectDisabled:
+		return "deleting/disabled"
+	case ProjectActive:
+		return "active"
+	default:
+		return fmt.Sprintf("unknown ProjectStatus(%d)", *status)
+	}
+}
+
 // UpsertProjectInfo holds data needed to create/update Project.
 type UpsertProjectInfo struct {
 	Name           string       `json:"name"`
@@ -272,10 +290,11 @@ type ProjectConfig struct {
 
 // DeleteProjectInfo holds data for project deletion UI flow.
 type DeleteProjectInfo struct {
-	Buckets             int  `json:"buckets"`
-	APIKeys             int  `json:"apiKeys"`
-	CurrentUsage        bool `json:"currentUsage"`
-	InvoicingIncomplete bool `json:"invoicingIncomplete"`
+	Buckets             int             `json:"buckets"`
+	APIKeys             int             `json:"apiKeys"`
+	CurrentUsage        bool            `json:"currentUsage"`
+	CurrentMonthPrice   decimal.Decimal `json:"-"`
+	InvoicingIncomplete bool            `json:"invoicingIncomplete"`
 }
 
 // ValidateNameAndDescription validates project name and description strings.

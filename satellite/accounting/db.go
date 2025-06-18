@@ -154,8 +154,9 @@ type BucketUsage struct {
 	ObjectCount  int64   `json:"objectCount"`
 	SegmentCount int64   `json:"segmentCount"`
 
-	Since  time.Time `json:"since"`
-	Before time.Time `json:"before"`
+	Since     time.Time `json:"since"`
+	Before    time.Time `json:"before"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // BucketUsageCursor holds info for bucket usage

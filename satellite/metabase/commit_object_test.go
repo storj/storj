@@ -114,9 +114,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 			now := time.Now()
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -127,9 +125,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedUserData: userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -161,9 +157,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.CommittedUnversioned,
 
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						EncryptedUserData: userData,
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
@@ -188,9 +182,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 			now := time.Now()
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -201,10 +193,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-					DisallowDelete:                true,
+					EncryptedUserData: userData,
+					DisallowDelete:    true,
 				},
 			}.Check(ctx, t, db)
 
@@ -221,11 +211,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.CommittedUnversioned,
 
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-
-						Encryption: metabasetest.DefaultEncryption,
+						EncryptedUserData: userData,
+						Encryption:        metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -253,9 +240,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			now := time.Now()
 			zombieDeadline := now.Add(24 * time.Hour)
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -266,10 +251,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-					DisallowDelete:                true,
+					EncryptedUserData: userData,
+					DisallowDelete:    true,
 				},
 				ErrClass: &metabase.ErrPermissionDenied,
 				ErrText:  "no permissions to delete existing object",
@@ -315,9 +298,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 			now := time.Now()
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -328,9 +309,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedUserData: userData,
 				},
 				ExpectVersion: obj.Version + 1,
 			}.Check(ctx, t, db)
@@ -348,11 +327,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.CommittedUnversioned,
 
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-
-						Encryption: metabasetest.DefaultEncryption,
+						EncryptedUserData: userData,
+						Encryption:        metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -382,9 +358,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 			now := time.Now()
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -395,9 +369,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedUserData: userData,
 
 					Versioned: true,
 				},
@@ -418,11 +390,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.CommittedVersioned,
 
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-
-						Encryption: metabasetest.DefaultEncryption,
+						EncryptedUserData: userData,
+						Encryption:        metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -452,9 +421,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 			now := time.Now()
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
@@ -465,9 +432,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					EncryptedUserData: userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -486,11 +451,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.CommittedUnversioned,
 
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
-
-						Encryption: metabasetest.DefaultEncryption,
+						EncryptedUserData: userData,
+						Encryption:        metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)

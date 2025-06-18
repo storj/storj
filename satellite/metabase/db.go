@@ -647,6 +647,15 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					`COMMENT ON COLUMN objects.product_id is 'product_id specifies which product the object is.';`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "add column encrypted_etag to objects",
+				Version:     22,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS encrypted_etag BYTEA`,
+					`COMMENT ON COLUMN objects.encrypted_etag is 'encrypted_etag is the etag, which has been encrypted.';`,
+				},
+			},
 		},
 	}
 }
@@ -654,13 +663,6 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 // SpannerMigration returns steps needed for migrating spanner database.
 func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 	db := s.sqlClient
-
-	var firstStepDDL []string
-	for _, statement := range strings.Split(spannerDDL, ";") {
-		if strings.TrimSpace(statement) != "" {
-			firstStepDDL = append(firstStepDDL, statement)
-		}
-	}
 
 	// TODO: merge this with satellite migration code or a way to keep them in sync.
 	return &migrate.Migration{
@@ -670,7 +672,7 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				DB:          &db,
 				Description: "initial setup",
 				Version:     1,
-				Action:      migrate.SQL(firstStepDDL),
+				Action:      migrate.SQL(spannerDDLs),
 			},
 			{
 				DB:          &db,
@@ -678,6 +680,14 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				Version:     2,
 				Action: migrate.SQL{
 					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS product_id INT64`,
+				},
+			},
+			{
+				DB:          &db,
+				Description: "add column encrypted_etag to objects",
+				Version:     22,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS encrypted_etag BYTES(MAX)`,
 				},
 			},
 		},

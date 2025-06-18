@@ -6,16 +6,20 @@ package stripe
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/coinpayments"
 )
 
 const invoiceReferenceCustomFieldName = "Reference"
@@ -122,6 +126,88 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 
 	// TODO: delete customer from stripe, if db insertion fails
 	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
+}
+
+// ShouldSkipMinimumCharge returns true if, for the given user, we should
+// not apply a minimum charge (either because they have a positive token balance,
+// they have legacy token TXs or because they have an active package plan).
+func (accounts *accounts) ShouldSkipMinimumCharge(ctx context.Context, cusID string, userID uuid.UUID) (bool, error) {
+	// 1) Check token balance.
+	monetaryBalance, err := accounts.service.billingDB.GetBalance(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	// Truncate to cents, since Stripe only invoices at cent precision.
+	tokenBalance := currency.AmountFromDecimal(
+		monetaryBalance.AsDecimal().Truncate(2),
+		currency.USDollars,
+	)
+	if tokenBalance.BaseUnits() > 0 {
+		return true, nil // there is still a positive balance, skip minimum charge.
+	}
+
+	// 2) Check if the user has any complete legacy STORJ token transactions.
+	txInfos, err := accounts.service.db.Transactions().ListAccount(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	foundLegacyTX := false
+	for _, tx := range txInfos {
+		if tx.Status == coinpayments.StatusCompleted {
+			foundLegacyTX = true
+			break
+		}
+	}
+	if foundLegacyTX {
+		// If the user has legacy STORJ token transactions, we should skip minimum charge.
+		return true, nil
+	}
+
+	// 3) Check package plan info.
+	packagePlanInfo, purchaseDate, err := accounts.GetPackageInfo(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	// We check for plan expiration one step before creating an invoice so there is no need to do it here again.
+	// We should just make sure that service.removeExpiredCredit is set to true.
+	if packagePlanInfo != nil && purchaseDate != nil && accounts.service.minimumChargeDate != nil {
+		if purchaseDate.After(*accounts.service.minimumChargeDate) {
+			return false, nil // User has a package plan, but it was purchased after the minimum charge date, so we should not skip.
+		}
+
+		if cusID == "" {
+			cusID, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		// Stripe returns list ordered by most recent, so ending balance of the first item is current balance.
+		list := accounts.service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{
+			Customer:   stripe.String(cusID),
+			ListParams: stripe.ListParams{Context: ctx, Limit: stripe.Int64(1)},
+		})
+
+		var hasCredit bool
+
+		for list.Next() {
+			tx := list.CustomerBalanceTransaction()
+			// The customer's `balance` after the transaction was applied.
+			// A negative value decreases the amount due on the customer's next invoice.
+			// Which means that if the balance is negative, the customer has credit.
+			if tx.EndingBalance < 0 {
+				hasCredit = true
+				break
+			}
+		}
+
+		return hasCredit, nil // If the user has purchased a package plan before the minimum charge date, we should skip if they have credit.
+	}
+
+	// Otherwise, no reason to skip.
+	return false, nil
 }
 
 // EnsureUserHasCustomer creates a stripe customer for userID if non exists.
@@ -474,8 +560,70 @@ func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) 
 	return
 }
 
+// ProductCharges returns how much money current user will be charged for each project split by product.
+func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProductChargesResponse, err error) {
+	defer mon.Task()(&ctx, userID, since, before)(&err)
+
+	charges = make(payments.ProductChargesResponse)
+
+	projects, err := accounts.service.projectsDB.GetOwnActive(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, project := range projects {
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		err = accounts.service.getAndProcessUsages(ctx, project.ID, productUsages, productInfos, since, before)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		productIDs := getSortedProductIDs(productUsages)
+
+		productCharges := make(map[int32]payments.ProductCharge)
+
+		for _, productID := range productIDs {
+			usage := productUsages[productID]
+			info := productInfos[productID]
+
+			usage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
+			price := accounts.service.calculateProjectUsagePrice(usage, info.ProjectUsagePriceModel)
+
+			productCharges[productID] = payments.ProductCharge{
+				ProjectUsage: usage,
+
+				ProductUsagePriceModel: info,
+
+				EgressMBCents:       price.Egress.IntPart(),
+				SegmentMonthCents:   price.Segments.IntPart(),
+				StorageMBMonthCents: price.Storage.IntPart(),
+			}
+		}
+
+		if len(productCharges) == 0 {
+			name := "Global"
+			if product, ok := accounts.service.productPriceMap[0]; ok {
+				name = product.ProductName
+			}
+
+			productCharges[0] = payments.ProductCharge{
+				ProjectUsage: accounting.ProjectUsage{Since: since, Before: before},
+				ProductUsagePriceModel: payments.ProductUsagePriceModel{
+					ProductName:            name,
+					ProjectUsagePriceModel: accounts.service.usagePrices,
+				},
+			}
+		}
+
+		charges[project.PublicID] = productCharges
+	}
+
+	return charges, nil
+}
+
 // ProjectCharges returns how much money current user will be charged for each project.
-// TODO update for "by product" invoicing
 func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProjectChargesResponse, err error) {
 	defer mon.Task()(&ctx, userID, since, before)(&err)
 
@@ -545,17 +693,26 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 	return 0, payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
 }
 
-// GetPartnerPlacements returns the placements for a partner.
+// GetPartnerPlacements returns the placements for a partner. It also includes the
+// placements for the default product price config that have not been overridden
+// for the partner.
 func (accounts *accounts) GetPartnerPlacements(partner string) []storj.PlacementConstraint {
 	placements := make([]storj.PlacementConstraint, 0)
 	placementMap, ok := accounts.service.partnerPlacementMap[partner]
 	if !ok {
-		// fallback to placements for all partners
-		placementMap = accounts.service.placementProductMap
+		placementMap = make(payments.PlacementProductIdMap)
+	}
+	for i, i2 := range accounts.service.placementProductMap {
+		if _, ok = placementMap[i]; !ok {
+			placementMap[i] = i2
+		}
 	}
 	for placement := range placementMap {
 		placements = append(placements, storj.PlacementConstraint(placement))
 	}
+	sort.SliceStable(placements, func(i, j int) bool {
+		return placements[i] < placements[j]
+	})
 	return placements
 }
 
@@ -589,34 +746,76 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 }
 
 // CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, err error) {
+func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	year, month, _ := accounts.service.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	// check current month usage and do not allow deletion if usage exists
-	currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
-	if err != nil {
-		return false, false, err
-	}
-	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
-		return true, false, payments.ErrUnbilledUsageCurrentMonth
+	if accounts.service.deleteProjectCostThreshold == 0 {
+		// check current month usage and do not allow deletion if usage exists
+		currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
+		if err != nil {
+			return false, false, decimal.Zero, err
+		}
+		if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
+			return true, false, decimal.Zero, payments.ErrUnbilledUsageCurrentMonth
+		}
+
+		// check usage for last month, if exists, ensure we have an invoice item created.
+		lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+		if err != nil {
+			return false, false, decimal.Zero, err
+		}
+		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+			err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+			if !errs.Is(err, ErrProjectRecordExists) {
+				return false, true, decimal.Zero, payments.ErrUnbilledUsageLastMonth
+			}
+		}
+
+		return false, false, decimal.Zero, nil
 	}
 
-	// check usage for last month, if exists, ensure we have an invoice item created.
-	lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
-	if err != nil {
-		return false, false, err
+	getCostTotal := func(start, before time.Time) (decimal.Decimal, error) {
+		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, accounts.service.partnerNames, start, before)
+		if err != nil {
+			return decimal.Zero, err
+		}
+
+		total := decimal.Zero
+		for key, usage := range usages {
+			_, priceModel := accounts.service.productIdAndPriceForUsageKey(key)
+			usage.Egress = applyEgressDiscount(usage, priceModel)
+			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)
+
+			total = total.Add(price.Total())
+		}
+		return total, nil
 	}
-	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+
+	currentMonthPrice, err = getCostTotal(firstOfMonth, accounts.service.nowFn())
+	if err != nil {
+		return false, false, decimal.Zero, err
+	}
+
+	if currentMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
+		return true, false, currentMonthPrice, payments.ErrUnbilledUsageCurrentMonth
+	}
+
+	previousMonthPrice, err := getCostTotal(firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+	if err != nil {
+		return false, false, decimal.Zero, err
+	}
+
+	if previousMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if !errs.Is(err, ErrProjectRecordExists) {
-			return false, true, payments.ErrUnbilledUsageLastMonth
+			return false, true, currentMonthPrice, payments.ErrUnbilledUsageLastMonth
 		}
 	}
 
-	return false, false, nil
+	return false, false, currentMonthPrice, err
 }
 
 // Charges returns list of all credit card charges related to account.

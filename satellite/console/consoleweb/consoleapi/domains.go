@@ -12,9 +12,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 )
@@ -35,6 +37,49 @@ func NewDomains(log *zap.Logger, service *console.Service) *Domains {
 	return &Domains{
 		log:     log,
 		service: service,
+	}
+}
+
+// CreateDomain creates new domain for a given project.
+func (d *Domains) CreateDomain(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idParam, ok := mux.Vars(r)["projectID"]
+	if !ok {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing projectID route param"))
+		return
+	}
+
+	projectID, err := uuid.FromString(idParam)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var payload console.Domain
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload.ProjectPublicID = projectID
+
+	_, err = d.service.CreateDomain(ctx, payload)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			d.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrSubdomainAlreadyExists.Has(err) {
+			d.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+
+		d.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 }
 

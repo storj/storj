@@ -427,3 +427,25 @@ func (creditCards *creditCards) RemoveAll(ctx context.Context, userID uuid.UUID)
 	}
 	return nil
 }
+
+// GetSetupSecret begins the process of setting up a card for payments with authorization
+// by creating a setup intent. Returns a secret that can be used to complete the setup
+// on the frontend.
+func (creditCards *creditCards) GetSetupSecret(ctx context.Context) (secret string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	intent, err := creditCards.service.stripeClient.SetupIntents().New(&stripe.SetupIntentParams{
+		Params:             stripe.Params{Context: ctx},
+		Usage:              stripe.String(string(stripe.SetupIntentUsageOffSession)),
+		PaymentMethodTypes: stripe.StringSlice([]string{string(stripe.PaymentMethodTypeCard)}),
+	})
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return "", Error.Wrap(err)
+	}
+
+	return intent.ClientSecret, nil
+}

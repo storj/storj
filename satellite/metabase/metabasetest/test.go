@@ -205,6 +205,21 @@ func (step DeleteAllBucketObjects) Check(ctx *testcontext.Context, t testing.TB,
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
+// UncoordinatedDeleteAllBucketObjects is for testing metabase.UncoordinatedDeleteAllBucketObjects.
+type UncoordinatedDeleteAllBucketObjects struct {
+	Opts     metabase.DeleteAllBucketObjects
+	Deleted  int64
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step UncoordinatedDeleteAllBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	deleted, err := db.UncoordinatedDeleteAllBucketObjects(ctx, step.Opts)
+	require.Equal(t, step.Deleted, deleted)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
 // UpdateObjectLastCommittedMetadata is for testing metabase.UpdateObjectLastCommittedMetadata.
 type UpdateObjectLastCommittedMetadata struct {
 	Opts     metabase.UpdateObjectLastCommittedMetadata

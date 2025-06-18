@@ -22,6 +22,7 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/currency"
@@ -75,6 +76,7 @@ type Config struct {
 	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
 	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"true"`
 	ProductBasedInvoicing  bool   `help:"whether to use product-based invoicing" default:"false"`
+	SkipNoCustomer         bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
 	Retries                RetryConfig
 }
 
@@ -117,11 +119,14 @@ type Service struct {
 	useIdempotency        bool
 	productBasedInvoicing bool
 	deleteAccountEnabled  bool
+	skipNoCustomer        bool
 	webhookSecret         string
 	nowFn                 func() time.Time
 	partnerPlacementMap   payments.PartnersPlacementProductMap
 	placementProductMap   payments.PlacementProductIdMap
 	productPriceMap       map[int32]payments.ProductUsagePriceModel
+
+	deleteProjectCostThreshold int64
 
 	minimumChargeAmount int64
 	minimumChargeDate   *time.Time // nil to apply immediately
@@ -135,7 +140,7 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 	productPriceMap map[int32]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap,
 	placementProductMap payments.PlacementProductIdMap, packagePlans map[string]payments.PackagePlan, bonusRate int64,
 	analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool,
-	minimumChargeAmount int64, minimumChargeDate *time.Time,
+	deleteProjectCostThreshold, minimumChargeAmount int64, minimumChargeDate *time.Time,
 ) (*Service, error) {
 	var partners []string
 	addedPartners := make(map[string]struct{})
@@ -178,12 +183,15 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 		maxParallelCalls:       config.MaxParallelCalls,
 		removeExpiredCredit:    config.RemoveExpiredCredit,
 		useIdempotency:         config.UseIdempotency,
+		skipNoCustomer:         config.SkipNoCustomer,
 		productBasedInvoicing:  config.ProductBasedInvoicing,
 		webhookSecret:          config.StripeWebhookSecret,
 		partnerPlacementMap:    partnerPlacementMap,
 		placementProductMap:    placementProductMap,
 		productPriceMap:        productPriceMap,
 		deleteAccountEnabled:   deleteAccountEnabled,
+
+		deleteProjectCostThreshold: deleteProjectCostThreshold,
 
 		minimumChargeAmount: minimumChargeAmount,
 		minimumChargeDate:   minimumChargeDate,
@@ -242,6 +250,11 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	var regularRecords []CreateProjectRecord
 	var recordsToAggregate []CreateProjectRecord
 	for _, customer := range customers {
+		ignore := service.ignoreNoStripeCustomer(ctx, customer.ID)
+		if ignore {
+			continue
+		}
+
 		if _, skip, err := service.mustSkipUser(ctx, customer.UserID); err != nil {
 			return 0, Error.New("unable to determine if user must be skipped: %w", err)
 		} else if skip {
@@ -287,6 +300,17 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 	}
 
 	return recordsCount, nil
+}
+
+// If the customer does not exist in stripe, we skip it.
+// This is a workaround for the issue with missing customers in stripe for QA stellite.
+func (service *Service) ignoreNoStripeCustomer(ctx context.Context, customerID string) bool {
+	if !service.skipNoCustomer {
+		return false
+	}
+
+	_, err := service.stripeClient.Customers().Get(customerID, &stripe.CustomerParams{Params: stripe.Params{Context: ctx}})
+	return err != nil
 }
 
 // createProjectRecords creates invoice project record if none exists.
@@ -380,7 +404,13 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		}
 		for _, c := range customersPage.Customers {
 			c := c
+
 			limiter.Go(ctx, func() {
+				ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
+				if ignore {
+					return
+				}
+
 				_, skip, err := service.mustSkipUser(ctx, c.UserID)
 				if err != nil {
 					addErr(&mu, err)
@@ -555,9 +585,19 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 		// get the stripe customer invoice balance
 		customerID, err := service.db.Customers().GetCustomerID(ctx, wallet.UserID)
 		if err != nil {
+			if service.skipNoCustomer && errors.Is(err, ErrNoCustomer) {
+				continue
+			}
+
 			errGrp.Add(Error.New("unable to get stripe customer ID for user ID %s", wallet.UserID.String()))
 			continue
 		}
+
+		ignore := service.ignoreNoStripeCustomer(ctx, customerID)
+		if ignore {
+			continue
+		}
+
 		customerInvoices, err := service.getInvoices(ctx, customerID, createdOnAfter)
 		if err != nil {
 			errGrp.Add(Error.New("unable to get invoice balance for stripe customer ID %s", customerID))
@@ -725,6 +765,7 @@ const (
 )
 
 // processInvoiceItems creates or updates invoice line items for stripe customer.
+// It is only used if product-based invoicing is disabled.
 func (service *Service) processInvoiceItems(
 	ctx context.Context,
 	billingID *string,
@@ -805,6 +846,7 @@ func (service *Service) processInvoiceItems(
 }
 
 // ProcessRecord processes record and mutates overall customer usages.
+// It is only used if product-based invoicing is enabled.
 // Exported for testing.
 func (service *Service) ProcessRecord(
 	ctx context.Context,
@@ -820,36 +862,29 @@ func (service *Service) ProcessRecord(
 		return true, nil
 	}
 
-	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, record.ProjectID, service.partnerNames, from, to)
+	err = service.getAndProcessUsages(ctx, record.ProjectID, productUsages, productInfos, from, to)
 	if err != nil {
 		return false, err
 	}
 
+	return false, nil
+}
+
+func (service *Service) getAndProcessUsages(
+	ctx context.Context,
+	projectID uuid.UUID,
+	productUsages map[int32]accounting.ProjectUsage,
+	productInfos map[int32]payments.ProductUsagePriceModel,
+	from, to time.Time,
+) error {
+	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, service.partnerNames, from, to)
+	if err != nil {
+		return err
+	}
+
 	// Process each partner/placement usage entry.
 	for key, usage := range usages {
-		partner := ""
-		placement := int(storj.DefaultPlacement)
-
-		// Split the key to extract partner and placement.
-		parts := strings.Split(key, "|")
-		if len(parts) >= 1 {
-			partner = parts[0]
-		}
-		if len(parts) >= 2 {
-			placement64, err := strconv.ParseInt(parts[1], 10, 32)
-			if err == nil {
-				placement = int(placement64)
-			}
-		}
-
-		// Get price model for the partner and placement.
-		productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(partner, storj.PlacementConstraint(placement))
-		if err != nil {
-			service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
-			// Use partner-only price model as a fallback.
-			// This should be removed once the tests are updated
-			priceModel = service.Accounts().GetProjectUsagePriceModel(partner)
-		}
+		productID, priceModel := service.productIdAndPriceForUsageKey(key)
 
 		// Create or update the product usage entry.
 		if existingUsage, ok := productUsages[productID]; ok {
@@ -874,24 +909,47 @@ func (service *Service) ProcessRecord(
 
 			// Initialize product info.
 			productInfos[productID] = payments.ProductUsagePriceModel{
+				ProductID:              productID,
 				ProductName:            productName,
 				ProjectUsagePriceModel: priceModel,
 			}
 		}
 	}
 
-	return false, nil
+	return nil
+}
+
+func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payments.ProjectUsagePriceModel) {
+	partner := ""
+	placement := int(storj.DefaultPlacement)
+
+	// Split the key to extract partner and placement.
+	parts := strings.Split(key, "|")
+	if len(parts) >= 1 {
+		partner = parts[0]
+	}
+	if len(parts) >= 2 {
+		placement64, err := strconv.ParseInt(parts[1], 10, 32)
+		if err == nil {
+			placement = int(placement64)
+		}
+	}
+
+	// Get price model for the partner and placement.
+	productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(partner, storj.PlacementConstraint(placement))
+	if err != nil {
+		service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
+		// Use partner-only price model as a fallback.
+		// This should be removed once the tests are updated
+		priceModel = service.Accounts().GetProjectUsagePriceModel(partner)
+	}
+	return productID, priceModel
 }
 
 // InvoiceItemsFromTotalProjectUsages calculates per-product Stripe invoice items from total project usages.
 // Exported for testing.
 func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int32]accounting.ProjectUsage, productInfos map[int32]payments.ProductUsagePriceModel, period time.Time) (result []*stripe.InvoiceItemParams) {
-	// Sort product IDs for consistent ordering.
-	var productIDs []int32
-	for productID := range productUsages {
-		productIDs = append(productIDs, productID)
-	}
-	slices.Sort(productIDs)
+	productIDs := getSortedProductIDs(productUsages)
 
 	// Generate invoice items from aggregated product usage.
 	for _, productID := range productIDs {
@@ -943,6 +1001,16 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 	service.log.Info("invoice items by product", zap.Any("result", result))
 	return result
+}
+
+func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (productIDs []int32) {
+	// Sort product IDs for consistent ordering.
+	for productID := range productUsages {
+		productIDs = append(productIDs, productID)
+	}
+	slices.Sort(productIDs)
+
+	return productIDs
 }
 
 func getPerProductIdempotencyKey(productID, identifier string, period time.Time) string {
@@ -1061,32 +1129,45 @@ func (service *Service) updateExistingInvoiceItems(ctx context.Context, existing
 }
 
 // InvoiceItemsFromProjectUsage calculates Stripe invoice item from project usage.
+// It is only used if product-based invoicing is disabled.
 func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsages map[string]accounting.ProjectUsage, aggregated bool) (result []*stripe.InvoiceItemParams) {
-	var partners []string
+	// Aggregate usage by partner (discard placement)
+	aggregatedUsages := make(map[string]accounting.ProjectUsage)
+
 	if len(partnerUsages) == 0 {
-		partners = []string{""}
-		partnerUsages = map[string]accounting.ProjectUsage{"": {}}
+		aggregatedUsages[""] = accounting.ProjectUsage{}
 	} else {
-		for key := range partnerUsages {
-			partners = append(partners, key)
+		for key, usage := range partnerUsages {
+			// Split the key to extract partner and placement
+			parts := strings.Split(key, "|")
+			partner := parts[0]
+
+			// Aggregate usage by partner
+			if existingUsage, exists := aggregatedUsages[partner]; exists {
+				existingUsage.Storage += usage.Storage
+				existingUsage.Egress += usage.Egress
+				existingUsage.SegmentCount += usage.SegmentCount
+				aggregatedUsages[partner] = existingUsage
+			} else {
+				aggregatedUsages[partner] = usage
+			}
 		}
-		sort.Strings(partners)
 	}
 
-	for _, key := range partners {
-		// Split the key to extract partner and placement
-		parts := strings.Split(key, "|")
-		partner := parts[0]
+	// Create sorted list of partners for consistent output
+	partners := maps.Keys(aggregatedUsages)
+	sort.Strings(partners)
 
+	for _, partner := range partners {
 		// Use the partner-only price model as before to maintain compatibility with tests
 		priceModel := service.Accounts().GetProjectUsagePriceModel(partner)
 
-		usage := partnerUsages[key]
+		usage := aggregatedUsages[partner]
 		usage.Egress = applyEgressDiscount(usage, priceModel)
 
 		prefix := "Project " + projName
 		if partner != "" {
-			prefix += " (" + key + ")"
+			prefix += " (" + partner + ")"
 		}
 
 		if aggregated {
@@ -1327,7 +1408,13 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 
 		if service.removeExpiredCredit {
 			for _, c := range cusPage.Customers {
+
 				if c.PackagePlan != nil {
+					ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
+					if ignore {
+						continue
+					}
+
 					if _, err := service.RemoveExpiredPackageCredit(ctx, c); err != nil {
 						return Error.Wrap(err)
 					}
@@ -1367,6 +1454,16 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 
 	minimumChargeDate := service.minimumChargeDate
 	applyMinimumCharge := service.minimumChargeAmount > 0 && (minimumChargeDate == nil || !start.Before(*minimumChargeDate))
+
+	if applyMinimumCharge {
+		skip, err := service.Accounts().ShouldSkipMinimumCharge(ctx, cusID, user.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if skip {
+			applyMinimumCharge = false
+		}
+	}
 
 	if applyMinimumCharge {
 		// Edge case:
@@ -1421,7 +1518,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			if err = itemsIter.Err(); err != nil {
 				return nil, err
 			}
-			if !hasItems && !applyMinimumCharge {
+			if service.skipEmptyInvoices && !hasItems {
 				return nil, nil
 			}
 
@@ -1531,7 +1628,13 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 
 	for _, cus := range customers {
 		cus := cus
+
 		limiter.Go(ctx, func() {
+			ignore := service.ignoreNoStripeCustomer(ctx, cus.ID)
+			if ignore {
+				return
+			}
+
 			user, skip, err := service.mustSkipUser(ctx, cus.UserID)
 			if err != nil {
 				mu.Lock()
@@ -1688,8 +1791,13 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 
 		userID, err := service.db.Customers().GetUserID(ctx, itr.Customer().ID)
 		if err != nil {
+			if service.skipNoCustomer && errs.Is(err, ErrNoCustomer) {
+				continue
+			}
+
 			return err
 		}
+
 		if _, skip, err := service.mustSkipUser(ctx, userID); err != nil {
 			return err
 		} else if skip {

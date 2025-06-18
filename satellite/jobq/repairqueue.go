@@ -41,12 +41,15 @@ func (rjq *RepairJobQueue) Insert(ctx context.Context, job *queue.InjuredSegment
 	}
 
 	wasNew, err := rjq.jobqClient.Push(ctx, RepairJob{
-		ID:              SegmentIdentifier{StreamID: job.StreamID, Position: job.Position.Encode()},
-		Health:          job.SegmentHealth,
-		InsertedAt:      uint64(job.InsertedAt.Unix()),
-		LastAttemptedAt: lastAttemptedAt,
-		UpdatedAt:       uint64(job.UpdatedAt.Unix()),
-		Placement:       uint16(job.Placement),
+		ID:                       SegmentIdentifier{StreamID: job.StreamID, Position: job.Position.Encode()},
+		Health:                   job.SegmentHealth,
+		InsertedAt:               uint64(job.InsertedAt.Unix()),
+		LastAttemptedAt:          lastAttemptedAt,
+		UpdatedAt:                uint64(job.UpdatedAt.Unix()),
+		Placement:                uint16(job.Placement),
+		NumNormalizedHealthy:     job.NumNormalizedHealthy,
+		NumNormalizedRetrievable: job.NumNormalizedRetrievable,
+		NumOutOfPlacement:        job.NumOutOfPlacement,
 	})
 	// TODO: get and fill in numMissing and numOutOfPlacement
 	return !wasNew, err
@@ -64,12 +67,15 @@ func (rjq *RepairJobQueue) InsertBatch(ctx context.Context, segments []*queue.In
 			lastAttemptedAt = uint64(segment.AttemptedAt.Unix())
 		}
 		jobs[i] = RepairJob{
-			ID:              SegmentIdentifier{StreamID: segment.StreamID, Position: segment.Position.Encode()},
-			Health:          segment.SegmentHealth,
-			InsertedAt:      uint64(segment.InsertedAt.Unix()),
-			LastAttemptedAt: lastAttemptedAt,
-			UpdatedAt:       uint64(segment.UpdatedAt.Unix()),
-			Placement:       uint16(segment.Placement),
+			ID:                       SegmentIdentifier{StreamID: segment.StreamID, Position: segment.Position.Encode()},
+			Health:                   segment.SegmentHealth,
+			InsertedAt:               uint64(segment.InsertedAt.Unix()),
+			LastAttemptedAt:          lastAttemptedAt,
+			UpdatedAt:                uint64(segment.UpdatedAt.Unix()),
+			Placement:                uint16(segment.Placement),
+			NumNormalizedHealthy:     segment.NumNormalizedHealthy,
+			NumNormalizedRetrievable: segment.NumNormalizedRetrievable,
+			NumOutOfPlacement:        segment.NumOutOfPlacement,
 		}
 		// TODO: get and fill in numMissing and numOutOfPlacement
 	}

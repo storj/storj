@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { Plus } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -132,7 +132,7 @@ function onSaveCardClick(): void {
 /**
  * Adds card after Stripe confirmation.
  *
- * @param res - the response from stripe. Could be a token or a payment method id.
+ * @param res - the response from stripe.
  * depending on the paymentElementEnabled flag.
  */
 async function addCardToDB(res: string) {
@@ -164,7 +164,7 @@ async function addCardToDB(res: string) {
         return;
     }
     try {
-    // We fetch User one more time to update their Paid Tier and freeze status.
+        // We fetch User one more time to update their Paid Tier and freeze status.
         await usersStore.getUser();
         const newPaidTier = usersStore.state.user.paidTier;
         if (!oldPaidTier && newPaidTier) {
@@ -172,4 +172,8 @@ async function addCardToDB(res: string) {
         }
     } catch { /* empty */ }
 }
+
+watch(isCardInputShown, (shown) => {
+    if (!shown) stripeReady.value = false;
+});
 </script>

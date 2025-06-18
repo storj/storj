@@ -50,14 +50,20 @@ var (
 	// if set, deletes all trash immediately instead of after the ttl.
 	compaction_DeleteTrashImmediately = envBool("STORJ_HASHSTORE_COMPACTION_DELETE_TRASH_IMMEDIATELY", false)
 
-	// controls the number of concurrent writers to log files.
-	store_WriterSemaphore = int(envInt("STORJ_HASHSTORE_STORE_WRITER_SEMAPHORE", 0))
-
 	// controls the number of concurrent flushes to log files.
 	store_FlushSemaphore = int(envInt("STORJ_HASHSTORE_STORE_FLUSH_SEMAPHORE", 0))
 
 	// controls if we collect records and sort them and rewrite them before the hashtbl.
 	compaction_OrderedRewrite = envBool("STORJ_HASHSTORE_COMPACTION_ORDERED_REWRITE", false)
+
+	// if set, writes to the log file and table are fsync'd to disk.
+	store_SyncWrites = envBool("STORJ_HASHSTORE_STORE_SYNC_WRITES", false)
+
+	// if set to true, the store pretends to not find values in the rewritten index during compaction.
+	store_TestIgnoreRewrittenIndex = false
+
+	// if set to true, the store does extra checks to ensure log file sizes match their seek offset.
+	store_TestLogSizeAndOffset = false
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -73,7 +79,6 @@ type Store struct {
 	closed drpcsignal.Signal // closed state
 	cloMu  sync.Mutex        // synchronizes closing
 
-	activeMu  *rwMutex // semaphore of active writes to log files
 	flushMu   *rwMutex // semaphore of active flushes to log files
 	compactMu *mutex   // held during compaction to ensure only 1 compaction at a time
 	reviveMu  *mutex   // held during revival to ensure only 1 object is revived from trash at a time
@@ -84,7 +89,6 @@ type Store struct {
 	stats struct { // contains statistics for monitoring the store
 		compactions atomic.Uint64 // bumped every time a compaction call finishes
 		lastCompact atomic.Uint32 // date of the last compaction
-		tableFull   atomic.Uint64 // bumped every time the hash table is full
 
 		logsRewritten atomic.Uint64 // bumped when a log file is marked to be rewritten
 		dataRewritten atomic.Uint64 // bumped whenever a record is rewritten with the length of the record
@@ -121,7 +125,6 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 		today:     func() uint32 { return TimeToDateDown(time.Now()) },
 		lfc:       newLogCollection(),
 
-		activeMu:  newRWMutex(store_WriterSemaphore),
 		flushMu:   newRWMutex(store_FlushSemaphore),
 		compactMu: newMutex(),
 		reviveMu:  newMutex(),
@@ -300,7 +303,6 @@ type StoreStats struct {
 
 	Compacting    bool        // if true, a compaction is in progress.
 	Compactions   uint64      // number of compaction calls that finished
-	TableFull     uint64      // number of times the hashtbl was full trying to insert
 	Today         uint32      // the current date.
 	LastCompact   uint32      // the date of the last compaction.
 	LogsRewritten uint64      // number of log files attempted to be rewritten.
@@ -376,7 +378,6 @@ func (s *Store) Stats() StoreStats {
 
 		Compacting:    false,
 		Compactions:   s.stats.compactions.Load(),
-		TableFull:     s.stats.tableFull.Load(),
 		Today:         s.today(),
 		LastCompact:   s.stats.lastCompact.Load(),
 		LogsRewritten: s.stats.logsRewritten.Load(),
@@ -428,31 +429,10 @@ func (s *Store) addRecord(ctx context.Context, rec Record) error {
 	ok, err := s.tbl.Insert(ctx, rec)
 	if err != nil {
 		return Error.Wrap(err)
-	} else if ok {
-		return nil
+	} else if !ok {
+		return Error.New("hashtbl full")
 	}
-
-	// if this happens, we're in some weird situation where our estimate of the load must be
-	// way off. as a last ditch effort, try to recompute the estimates, bump some counters, and
-	// loudly complain with some potentially helpful debugging information.
-	s.stats.tableFull.Add(1)
-
-	beforeStats := s.tbl.Stats()
-
-	if esti, ok := s.tbl.(interface{ ComputeEstimates(context.Context) error }); ok {
-		err = esti.ComputeEstimates(ctx)
-	} else {
-		err = Error.New("table does not support ComputeEstimates")
-	}
-
-	s.log.Error("hash table is full",
-		zap.NamedError("compute_estimates", err),
-		zap.Any("before_stats", beforeStats),
-		zap.Any("after_stats", s.tbl.Stats()),
-	)
-
-	return Error.New("hash table is full")
-
+	return nil
 }
 
 // Load returns the estimated load factor of the hash table. If it's too large, a Compact call is
@@ -478,9 +458,9 @@ func (s *Store) Close() {
 	s.compactMu.WaitLock()
 	defer s.compactMu.Unlock()
 
-	// acquire the write mutex to ensure all writes are finished.
-	s.activeMu.WaitLock()
-	defer s.activeMu.Unlock()
+	// acquire the flush mutex to ensure no writes are committing.
+	s.flushMu.WaitLock()
+	defer s.flushMu.Unlock()
 
 	// we can now close all of the resources.
 	_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
@@ -504,17 +484,10 @@ func (s *Store) Close() {
 func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (w *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := s.activeMu.RLock(ctx, &s.closed); err != nil {
+	// if we're already closed, return an error.
+	if err, ok := s.closed.Get(); ok {
 		return nil, err
 	}
-
-	// unlock if we don't return a Writer. this is safer than if we're returning an error because
-	// if a panic happens, both values will be nil.
-	defer func() {
-		if w == nil {
-			s.activeMu.RUnlock()
-		}
-	}()
 
 	// compute an expiration field if one is set.
 	var exp Expiration
@@ -522,8 +495,7 @@ func (s *Store) Create(ctx context.Context, key Key, expires time.Time) (w *Writ
 		exp = NewExpiration(TimeToDateUp(expires), false)
 	}
 
-	// return the automatic writer for the piece that unlocks and commits the record into the hash
-	// table on Close.
+	// return the writer for the piece that commits the record into the hash table on Close.
 	return newWriter(ctx, s, key, exp), nil
 }
 
@@ -573,30 +545,32 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// was trashed so we should revive it no matter what.
 	ctx = context2.WithoutCancellation(ctx)
 
-	// a compaction is potentially ongoing. fortunately, because we have a handle to the log file,
-	// we can always read the piece even if it gets fully deleted by compaction. the last tricky bit
-	// is to decide if we need to re-write the piece or if we can get away with updating the record.
-	// once we have acquired a write slot, we can be sure that no compaction is ongoing so we can
-	// check the table to see if the record matches as it usually will.
-
-	// 1. acquire the revive mutex.
+	// 1. acquire the revive mutex. revive happens infrequently enough and the concurrency
+	// considerations are difficult enough to limit it to one at a time.
 	if err := s.reviveMu.Lock(ctx, &s.closed); err != nil {
 		return err
 	}
 	defer s.reviveMu.Unlock()
 
-	// 2. acquire a write slot, ensuring that no compaction is ongoing and we can write to a log if
-	// necessary. once we have a writer, we know the state of the hash table and logs can only be
-	// added to.
+	// 2. acquire the compaction mutex. while we have an open handle to the log file, we know that
+	// we will be able to read it, so we don't have to worry about that. but we do have to worry
+	// about compaction changing the state of the hashtbl and log file set, so we need to be
+	// exclusive with that.
+	if err := s.compactMu.Lock(ctx, &s.closed); err != nil {
+		return err
+	}
+	defer s.compactMu.Unlock()
+
+	// 3. create a writer for the entry.
 	w, err := s.Create(ctx, rec.Key, time.Time{})
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	defer w.Cancel()
 
-	// 3. find the current state of the record. if found, we can just update the expiration and be
-	// happy. as noted in 1, we're safe to do a lookup into s.tbl here even without the rmu held
-	// because we know no compaction is ongoing due to having a writer acquired, and compaction is
+	// 4. find the current state of the record. if found, we can just update the expiration and be
+	// happy. as noted in 2, we're safe to do a lookup into s.tbl here even without the rmu held
+	// because we know no compaction is ongoing due to having the mutex acquired, and compaction is
 	// the only thing that does anything other than add entries to the hash table.
 	if tmp, ok, err := s.tbl.Lookup(ctx, rec.Key); err == nil && ok {
 		if tmp.Expires == 0 {
@@ -607,7 +581,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 		return s.addRecord(ctx, tmp)
 	}
 
-	// 4. otherwise, we either had an error looking up the current record, or the entry got fully
+	// 5. otherwise, we either had an error looking up the current record, or the entry got fully
 	// deleted, and the open file handle is the last remaining evidence that it exists, so we have
 	// to rewrite it. note that we purposefully do not close the log reader because after this
 	// function exits, a log reader will be created and returned to the user using the same log
@@ -650,11 +624,11 @@ func (s *Store) Compact(
 	}
 	defer s.compactMu.Unlock()
 
-	// stop all writers from starting and wait for all current writers to finish.
-	if err := s.activeMu.Lock(ctx, &s.closed); err != nil {
+	// stop all writers from flushing and wait for all current writers to finish flushing.
+	if err := s.flushMu.Lock(ctx, &s.closed); err != nil {
 		return err
 	}
-	defer s.activeMu.Unlock()
+	defer s.flushMu.Unlock()
 
 	// log that we acquired the locks only if it took a while.
 	if dur := time.Since(start); dur > time.Second {
@@ -1094,7 +1068,7 @@ func (s *Store) compactOnce(
 			// rewritten one. otherwise, we have to rewrite it now. note that the above code may
 			// have changed some fields, so we only want to update the log and offset fields. the
 			// earlier loop ensures that only the log and offset fields are different.
-			if i, ok := ri.findKey(rec.Key); ok {
+			if i, ok := ri.findKey(rec.Key); ok && !store_TestIgnoreRewrittenIndex {
 				rec.Log, rec.Offset = ri.records[i].Log, ri.records[i].Offset
 			} else {
 				rewrittenRec, err := s.rewriteRecord(ctx, rec, rewriteCandidates)
@@ -1228,37 +1202,42 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// if multiple concurrent readers or writers were using the file pos at the same time. in the
 	// case of this code it's safe to use Seek because rewriteRecord is only called during
 	// compaction which means there are no writers and compaction does not call it in parallel so
-	// there is only one reader that uses the pos and it must be us.
+	// there is only one reader that uses the pos and it must be us. additionally, all of our log
+	// write operations seek to the end of the file before doing any writing to ensure that any
+	// pos updates that happen here are not a problem.
 	var from io.Reader = r
 	if _, err := r.lf.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
 		from = r.lf.fh // we use io.CopyN below so it will be limited by the length.
 	}
 
-	// acquire a log file to write the entry into. if we're rewriting that log file
-	// we have to pick a different one.
+	// acquire a log file to write the entry into. if we're rewriting that log file or the record is
+	// already in that log file, we have to pick a different one.
 	var into *logFile
 	for into == nil || rewriteCandidates[into.id] || into.id == rec.Log {
 		into, err = s.acquireLogFile(rec.Expires.Time())
 		if err != nil {
 			return rec, Error.Wrap(err)
 		}
+		defer s.lfc.Include(into) //nolint intentionally defer in the loop
 	}
-	defer s.lfc.Include(into)
 
-	// keep track of the log file offset so we can update the record later.
-	offset := into.size.Load()
+	// get the current offset so that we are sure we have the correct spot for the record.
+	offset, err := into.fh.Seek(0, io.SeekEnd)
+	if err != nil {
+		return rec, Error.Wrap(err)
+	}
 
 	// copy the record data.
 	if _, err := io.CopyN(into.fh, from, int64(rec.Length)); err != nil {
 		// if we couldn't write the data, we should abort the write operation and attempt to reclaim
-		// space by seeking backwards to the record offset.
-		_, _ = into.fh.Seek(int64(offset), io.SeekStart)
+		// space by truncating to the saved offset.
+		_ = into.fh.Truncate(offset)
 		return rec, Error.New("writing into compacted log: %w", err)
 	}
 
 	// update the record location.
 	rec.Log = into.id
-	rec.Offset = offset
+	rec.Offset = uint64(offset)
 
 	// append the record to the log file for reconstruction.
 	var buf [RecordSize]byte
@@ -1266,13 +1245,14 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 
 	if _, err := into.fh.Write(buf[:]); err != nil {
 		// if we can't add the record, we should abort the write operation and attempt to reclaim
-		// space by seeking backwards to the record offset.
-		_, _ = into.fh.Seek(int64(offset), io.SeekStart)
+		// space by tuncating to the saved offset.
+		_ = into.fh.Truncate(offset)
 		return rec, Error.New("writing record into compacted log: %w", err)
 	}
 
-	// increase our in-memory estimate of the size of the log file for sorting.
-	into.size.Add(uint64(rec.Length) + RecordSize)
+	// increase our in-memory estimate of the size of the log file for sorting. we use store to
+	// ensure that it maintains correctness if there were some errors in the past.
+	into.size.Store(uint64(offset) + uint64(rec.Length) + uint64(len(buf)))
 
 	// return the updated record.
 	return rec, nil

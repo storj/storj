@@ -190,14 +190,16 @@ func (s *AccountFreezeService) IsUserFrozen(ctx context.Context, userID uuid.UUI
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = s.freezeEventsDB.Get(ctx, userID, eventType)
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return false, nil
-	case err != nil:
+	if err != nil {
+		// If the error is ErrNoRows, it means the user is not frozen.
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+
 		return false, ErrAccountFreeze.Wrap(err)
-	default:
-		return true, nil
 	}
+
+	return true, nil
 }
 
 // billingFreezeUser is a private implementation function that freezes the user specified by the given ID due to nonpayment of invoices.
@@ -280,8 +282,12 @@ func (s *AccountFreezeService) billingUnfreezeUser(ctx context.Context, userID u
 		}
 
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, BillingFreeze)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNoFreezeStatus
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+
+			return err
 		}
 
 		if event.Limits == nil {
@@ -342,6 +348,7 @@ func (s *AccountFreezeService) AdminBillingUnfreezeUser(ctx context.Context, use
 // The adminInitiated parameter indicates whether this warning was initiated by an admin or automatically by the satellite.
 func (s *AccountFreezeService) billingWarnUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		user, err := tx.Users().Get(ctx, userID)
 		if err != nil {
@@ -350,11 +357,11 @@ func (s *AccountFreezeService) billingWarnUser(ctx context.Context, userID uuid.
 
 		freezes, err := tx.AccountFreezeEvents().GetAll(ctx, userID)
 		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
+			return err
 		}
 
 		if freezes.ViolationFreeze != nil || freezes.BillingFreeze != nil || freezes.LegalFreeze != nil {
-			return ErrAccountFreeze.New("User is already frozen")
+			return errs.New("User is already frozen")
 		}
 
 		if freezes.BillingWarning != nil {
@@ -368,7 +375,7 @@ func (s *AccountFreezeService) billingWarnUser(ctx context.Context, userID uuid.
 			DaysTillEscalation: &daysTillEscalation,
 		})
 		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
+			return err
 		}
 
 		// Track using both the old specific method and the new generic method
@@ -378,7 +385,7 @@ func (s *AccountFreezeService) billingWarnUser(ctx context.Context, userID uuid.
 		return nil
 	})
 
-	return err
+	return ErrAccountFreeze.Wrap(err)
 }
 
 // BillingWarnUser adds a billing warning event to the freeze events table.
@@ -405,11 +412,15 @@ func (s *AccountFreezeService) billingUnWarnUser(ctx context.Context, userID uui
 		}
 
 		_, err = tx.AccountFreezeEvents().Get(ctx, userID, BillingWarning)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrAccountFreeze.Wrap(errs.Combine(err, ErrNoFreezeStatus))
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+
+			return err
 		}
 
-		err = ErrAccountFreeze.Wrap(tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BillingWarning))
+		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, BillingWarning)
 		if err != nil {
 			return err
 		}
@@ -421,7 +432,7 @@ func (s *AccountFreezeService) billingUnWarnUser(ctx context.Context, userID uui
 		return nil
 	})
 
-	return err
+	return ErrAccountFreeze.Wrap(err)
 }
 
 // BillingUnWarnUser reverses the warning placed on the user specified by the given ID.
@@ -518,8 +529,12 @@ func (s *AccountFreezeService) ViolationUnfreezeUser(ctx context.Context, userID
 		}
 
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, ViolationFreeze)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNoFreezeStatus
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+
+			return err
 		}
 
 		if event.Limits == nil {
@@ -649,8 +664,12 @@ func (s *AccountFreezeService) LegalUnfreezeUser(ctx context.Context, userID uui
 		}
 
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, LegalFreeze)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNoFreezeStatus
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+
+			return err
 		}
 
 		if event.Limits == nil {
@@ -807,6 +826,7 @@ func (s *AccountFreezeService) BotUnfreezeUser(ctx context.Context, userID uuid.
 			if errors.Is(err, sql.ErrNoRows) {
 				return ErrNoFreezeStatus
 			}
+
 			return err
 		}
 
@@ -935,8 +955,12 @@ func (s *AccountFreezeService) trialExpirationUnfreezeUser(ctx context.Context, 
 		}
 
 		event, err := tx.AccountFreezeEvents().Get(ctx, userID, TrialExpirationFreeze)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNoFreezeStatus
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+
+			return err
 		}
 
 		if event.Limits == nil {
@@ -1085,16 +1109,17 @@ func (s *AccountFreezeService) EscalateFreezeEvent(ctx context.Context, userID u
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		// check if event still exists
 		_, err = tx.AccountFreezeEvents().Get(ctx, userID, event.Type)
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrAccountFreeze.New("freeze event does not exist")
-		case err != nil:
-			return ErrAccountFreeze.Wrap(err)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errs.New("freeze event does not exist")
+			}
+
+			return err
 		}
 
 		_, err := tx.AccountFreezeEvents().Upsert(ctx, &event)
 		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
+			return err
 		}
 
 		status := PendingDeletion
@@ -1102,13 +1127,13 @@ func (s *AccountFreezeService) EscalateFreezeEvent(ctx context.Context, userID u
 			Status: &status,
 		})
 		if err != nil {
-			return ErrAccountFreeze.Wrap(err)
+			return err
 		}
 
 		return nil
 	})
 
-	return err
+	return ErrAccountFreeze.Wrap(err)
 }
 
 // ShouldEscalateFreezeEvent checks whether an event's escalation period has elapsed.
@@ -1340,5 +1365,5 @@ func (s *AccountFreezeService) upsertFreezeEvent(ctx context.Context, tx DBTx, d
 
 // IncrementNotificationsCount is a method for incrementing the notification count for a user's account freeze event.
 func (s *AccountFreezeService) IncrementNotificationsCount(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) error {
-	return Error.Wrap(s.freezeEventsDB.IncrementNotificationsCount(ctx, userID, eventType))
+	return ErrAccountFreeze.Wrap(s.freezeEventsDB.IncrementNotificationsCount(ctx, userID, eventType))
 }

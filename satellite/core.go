@@ -509,6 +509,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.Analytics.Service,
 			emission.NewService(config.Emission),
 			config.Console.SelfServeAccountDeleteEnabled,
+			pc.DeleteProjectCostThreshold,
 			pc.MinimumCharge.Amount,
 			minimumChargeDate,
 		)

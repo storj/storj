@@ -2434,7 +2434,9 @@ func TestRepairGracefullyExited(t *testing.T) {
 }
 
 // getRemoteSegment returns first segment from database.
-func getRemoteSegment(ctx context.Context, t *testing.T, satellite *testplanet.Satellite) (_ metabase.Segment) {
+func getRemoteSegment(
+	ctx context.Context, t *testing.T, satellite *testplanet.Satellite,
+) (_ metabase.SegmentForRepair) {
 	t.Helper()
 
 	segments, err := satellite.Metabase.DB.TestingAllSegments(ctx)
@@ -2442,7 +2444,18 @@ func getRemoteSegment(ctx context.Context, t *testing.T, satellite *testplanet.S
 	require.Len(t, segments, 1)
 	require.False(t, segments[0].Inline())
 
-	return segments[0]
+	return metabase.SegmentForRepair{
+		StreamID:      segments[0].StreamID,
+		Position:      segments[0].Position,
+		CreatedAt:     segments[0].CreatedAt,
+		RepairedAt:    segments[0].RepairedAt,
+		ExpiresAt:     segments[0].ExpiresAt,
+		RootPieceID:   segments[0].RootPieceID,
+		EncryptedSize: segments[0].EncryptedSize,
+		Redundancy:    segments[0].Redundancy,
+		Pieces:        segments[0].Pieces,
+		Placement:     segments[0].Placement,
+	}
 }
 
 type mockConnector struct {
@@ -2918,7 +2931,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := testSatellite.Metabase.DB.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})
@@ -2993,7 +3006,7 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
-		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := testSatellite.Metabase.DB.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 			StreamID: queueSegment.StreamID,
 			Position: queueSegment.Position,
 		})

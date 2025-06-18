@@ -23,6 +23,7 @@ import (
 	"github.com/stripe/stripe-go/v81/paymentintent"
 	"github.com/stripe/stripe-go/v81/paymentmethod"
 	"github.com/stripe/stripe-go/v81/promotioncode"
+	"github.com/stripe/stripe-go/v81/setupintent"
 	"github.com/stripe/stripe-go/v81/taxid"
 	"go.uber.org/zap"
 
@@ -34,6 +35,7 @@ type Client interface {
 	Customers() Customers
 	PaymentMethods() PaymentMethods
 	PaymentIntents() PaymentIntents
+	SetupIntents() SetupIntents
 	Invoices() Invoices
 	InvoiceItems() InvoiceItems
 	CustomerBalanceTransactions() CustomerBalanceTransactions
@@ -64,6 +66,11 @@ type PaymentMethods interface {
 // PaymentIntents Stripe PaymentIntents interface.
 type PaymentIntents interface {
 	New(params *stripe.PaymentIntentParams) (*stripe.PaymentIntent, error)
+}
+
+// SetupIntents Stripe SetupIntents interface.
+type SetupIntents interface {
+	New(params *stripe.SetupIntentParams) (*stripe.SetupIntent, error)
 }
 
 // Invoices Stripe Invoices interface.
@@ -131,6 +138,8 @@ type stripeClient struct {
 	paymentMethods *paymentmethod.Client
 	// paymentIntents is the client used to invoke /payment_intents APIs.
 	paymentIntents *paymentintent.Client
+	// setupIntents is the client used to invoke /setup_intents APIs.
+	setupIntents *setupintent.Client
 	// promotionCodes is the client used to invoke /promotion_codes APIs.
 	promotionCodes *promotioncode.Client
 	// taxIDs is the client used to invoke /tax_ids APIs.
@@ -147,6 +156,7 @@ func (s *stripeClient) InvoiceItems() InvoiceItems     { return s.invoiceItems }
 func (s *stripeClient) Invoices() Invoices             { return s.invoices }
 func (s *stripeClient) PaymentMethods() PaymentMethods { return s.paymentMethods }
 func (s *stripeClient) PaymentIntents() PaymentIntents { return s.paymentIntents }
+func (s *stripeClient) SetupIntents() SetupIntents     { return s.setupIntents }
 func (s *stripeClient) PromoCodes() PromoCodes         { return s.promotionCodes }
 func (s *stripeClient) TaxIDs() TaxIDs                 { return s.taxIDs }
 
@@ -168,6 +178,7 @@ func NewStripeClient(log *zap.Logger, config Config) Client {
 		invoices:                    &invoice.Client{B: backends.API, Key: key},
 		paymentMethods:              &paymentmethod.Client{B: backends.API, Key: key},
 		paymentIntents:              &paymentintent.Client{B: backends.API, Key: key},
+		setupIntents:                &setupintent.Client{B: backends.API, Key: key},
 		promotionCodes:              &promotioncode.Client{B: backends.API, Key: key},
 		taxIDs:                      &taxid.Client{B: backends.API, Key: key},
 	}

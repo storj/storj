@@ -449,6 +449,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			emissionService,
 			config.Console.SelfServeAccountDeleteEnabled,
+			pc.DeleteProjectCostThreshold,
 			pc.MinimumCharge.Amount,
 			minimumChargeDate,
 		)
@@ -596,6 +597,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Payments.PackagePlans,
 			config.Payments.MinimumCharge,
 			prices,
+			config.Payments.StripeCoinPayments.ProductBasedInvoicing,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

@@ -1,19 +1,17 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"storj.io/common/memory"
+	uplinkcli "storj.io/storj/cmd/uplink"
 	"storj.io/storj/cmd/uplink/ultest"
 )
 
 func TestCpDownload(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("/home/user/file1.txt", "local"),
 		ultest.WithFile("sj://user/file1.txt", "remote"),
 	)
@@ -49,7 +47,7 @@ func TestCpDownload(t *testing.T) {
 	})
 
 	t.Run("Recursive", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/file1.txt", "data1"),
 			ultest.WithFile("sj://user/folder1/file2.txt", "data2"),
 			ultest.WithFile("sj://user/folder1/file3.txt", "data3"),
@@ -76,7 +74,7 @@ func TestCpDownload(t *testing.T) {
 	})
 
 	t.Run("Range", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/file-for-byte-range", "abcdefghijklmnopqrstuvwxyz"),
 		)
 
@@ -96,124 +94,8 @@ func TestCpDownload(t *testing.T) {
 	})
 }
 
-func TestCpPartSize(t *testing.T) {
-	c := newCmdCp(nil)
-
-	// 10 GiB file, should return 1 GiB
-	cfg, err := c.calculatePartSize(10*memory.GiB.Int64(), c.parallelismChunkSize.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    1 * memory.GiB.Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// 10000 GB file, should return 1 GiB.
-	cfg, err = c.calculatePartSize(10000*memory.GB.Int64(), c.parallelismChunkSize.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    1 * memory.GiB.Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// 20000 GiB file, should return 2 GiB.
-	cfg, err = c.calculatePartSize(20000*memory.GiB.Int64(), c.parallelismChunkSize.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    2 * memory.GiB.Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// 10 TiB file, should return 1GiB + 64MiB.
-	cfg, err = c.calculatePartSize(10*memory.TiB.Int64(), c.parallelismChunkSize.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    (1*memory.GiB + 64*memory.MiB).Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// 256 MiB file, should return single part and 1GiB.
-	cfg, err = c.calculatePartSize(256*memory.MiB.Int64(), c.parallelismChunkSize.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    1 * memory.GiB.Int64(),
-		singlePart:  true,
-		parallelism: 1,
-	}, cfg)
-
-	// 256 MiB file, should return single part and 64MiB chunk.
-	cfg, err = c.calculatePartSize(256*memory.MiB.Int64(), 64*memory.MiB.Int64(), 8)
-	require.Error(t, err)
-	require.Equal(t, "the specified chunk size 64.0 MiB is too small, requires 1.0 GiB or larger", err.Error())
-	require.Equal(t, partSizeConfig{}, cfg)
-
-	// 20001 GiB file, should return 2GiB + 64MiB.
-	cfg, err = c.calculatePartSize(20001*memory.GiB.Int64(), c.parallelismChunkSize.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    (2*memory.GiB + 64*memory.MiB).Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// should return 1GiB as requested.
-	cfg, err = c.calculatePartSize(memory.GiB.Int64()*1300, memory.GiB.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    memory.GiB.Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// should return 1 GiB and error, since preferred is too low.
-	cfg, err = c.calculatePartSize(1300*memory.GiB.Int64(), memory.MiB.Int64(), 8)
-	require.Error(t, err)
-	require.Equal(t, "the specified chunk size 1.0 MiB is too small, requires 1.0 GiB or larger", err.Error())
-	require.Equal(t, partSizeConfig{}, cfg)
-
-	// negative length should return asked for amount
-	cfg, err = c.calculatePartSize(-1, 1*memory.GiB.Int64(), 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    1 * memory.GiB.Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// negative length with no preferred size should return 1GiB
-	cfg, err = c.calculatePartSize(-1, 0, 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    1 * memory.GiB.Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// Small requested size should be rounded to 64MiB.
-	cfg, err = c.calculatePartSize(-1, 100, 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    64 * memory.MiB.Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-	// negative length should return asked for amount, but rounded to 64MiB
-	cfg, err = c.calculatePartSize(-1, 1*memory.GiB.Int64()+1, 8)
-	require.NoError(t, err)
-	require.Equal(t, partSizeConfig{
-		partSize:    (1*memory.GiB + 64*memory.MiB).Int64(),
-		singlePart:  false,
-		parallelism: 8,
-	}, cfg)
-
-}
-
 func TestCpUpload(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("/home/user/file1.txt", "local"),
 		ultest.WithFile("sj://user/file1.txt", "remote"),
 	)
@@ -256,7 +138,7 @@ func TestCpUpload(t *testing.T) {
 	})
 
 	t.Run("Recursive", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithBucket("user"),
 			ultest.WithFile("/home/user/file1.txt", "data1"),
 			ultest.WithFile("/home/user/file2.txt", "data2"),
@@ -284,7 +166,7 @@ func TestCpUpload(t *testing.T) {
 
 func TestCpRecursiveDifficult(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/dot-dot/../../../../../foo"),
 			ultest.WithFile("sj://user/dot-dot/../../foo"),
 			ultest.WithFile("sj://user/dot-dot/../foo"),
@@ -304,7 +186,7 @@ func TestCpRecursiveDifficult(t *testing.T) {
 	})
 
 	t.Run("DirectoryConflict", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/filedir"),
 			ultest.WithFile("sj://user/filedir/file"),
 		)
@@ -315,7 +197,7 @@ func TestCpRecursiveDifficult(t *testing.T) {
 	})
 
 	t.Run("EmptyIntoEmpty", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user//"),
 		)
 
@@ -323,7 +205,7 @@ func TestCpRecursiveDifficult(t *testing.T) {
 	})
 
 	t.Run("ExistingDirectory", func(t *testing.T) {
-		state := ultest.Setup(commands,
+		state := ultest.Setup(uplinkcli.Commands,
 			ultest.WithFile("sj://user/filedir"),
 			ultest.WithFile("/home/user/filedir/file"),
 		)
@@ -333,7 +215,7 @@ func TestCpRecursiveDifficult(t *testing.T) {
 }
 
 func TestCpRemoteToRemote(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://b1/dot-dot/../../../../../foo", "data1"),
 		ultest.WithFile("sj://b1/dot-dot/../../foo", "data2"),
 		ultest.WithFile("sj://b1/dot-dot/../foo", "data3"),
@@ -452,7 +334,7 @@ func TestCpRemoteToRemote(t *testing.T) {
 }
 
 func TestCpLocalToLocal(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("/home/user1/folder1/file1.txt", "data1"),
 		ultest.WithFile("/home/user1/folder1/file2.txt", "data2"),
 		ultest.WithFile("/home/user1/folder2/file3.txt", "data3"),
@@ -492,7 +374,7 @@ func TestCpLocalToLocal(t *testing.T) {
 }
 
 func TestCpTrailingSlashes(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://user/foo/"),
 	)
 
@@ -534,7 +416,7 @@ func TestCpTrailingSlashes(t *testing.T) {
 }
 
 func TestCpStandard(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://user/foo"),
 		ultest.WithFile("/home/user/foo"),
 		ultest.WithStdin("-"),
@@ -582,13 +464,13 @@ func TestCpStandard(t *testing.T) {
 }
 
 func TestCpInputValidation(t *testing.T) {
-	state := ultest.Setup(commands)
+	state := ultest.Setup(uplinkcli.Commands)
 
 	state.Fail(t, "cp", "/home/user/file1.txt", "sj://testbucket/", "--parallelism-chunk-size", "-1")
 }
 
 func TestCpMultipleSourcePaths(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("/home/user/file1.txt", "local1"),
 		ultest.WithFile("/home/user/file2.txt", "local2"),
 		ultest.WithFile("sj://user/file1.txt", "remote1"),

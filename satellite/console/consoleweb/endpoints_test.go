@@ -379,6 +379,7 @@ func TestPayments(t *testing.T) {
 					placement: placementDetail,
 				})
 				config.Console.BillingAddFundsEnabled = true
+				config.Console.RateLimit.Burst = 10
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

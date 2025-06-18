@@ -46,7 +46,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 						object_key   BYTEA NOT NULL, -- using 'object_key' instead of 'key' to avoid reserved word
 						version      INT8  NOT NULL,
 						stream_id    BYTEA NOT NULL,
-						
+
 						product_id INTEGER,
 
 						created_at TIMESTAMPTZ NOT NULL default now(),
@@ -58,6 +58,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 						encrypted_metadata_nonce         BYTEA default NULL,
 						encrypted_metadata               BYTEA default NULL,
 						encrypted_metadata_encrypted_key BYTEA default NULL,
+						encrypted_etag                   BYTEA default NULL,
 
 						total_plain_size     INT8 NOT NULL default 0, -- migrated objects have this = 0
 						total_encrypted_size INT8 NOT NULL default 0,
@@ -91,6 +92,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 					COMMENT ON COLUMN objects.encrypted_metadata_nonce is 'encrypted_metadata_nonce is random identifier used as part of encryption for encrypted_metadata.';
 					COMMENT ON COLUMN objects.encrypted_metadata       is 'encrypted_metadata is encrypted key-value pairs of user-specified data.';
 					COMMENT ON COLUMN objects.encrypted_metadata_encrypted_key is 'encrypted_metadata_encrypted_key is the encrypted key for encrypted_metadata.';
+					COMMENT ON COLUMN objects.encrypted_etag           is 'encrypted_etag is the etag, which has been encrypted.';
 
 					COMMENT ON COLUMN objects.total_plain_size     is 'total_plain_size is the user-specified total size of the object. This can be zero for old migrated objects.';
 					COMMENT ON COLUMN objects.total_encrypted_size is 'total_encrypted_size is the sum of the encrypted data sizes of segments.';

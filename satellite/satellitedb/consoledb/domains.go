@@ -35,6 +35,9 @@ func (d *domains) Create(ctx context.Context, data console.Domain) (_ *console.D
 		dbx.Domain_CreatedBy(data.CreatedBy[:]),
 	)
 	if err != nil {
+		if dbx.IsConstraintError(err) {
+			return nil, console.ErrSubdomainAlreadyExists.New("")
+		}
 		return nil, err
 	}
 

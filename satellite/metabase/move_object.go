@@ -50,13 +50,11 @@ type BeginMoveObject struct {
 
 // BeginMoveCopyResults holds all data needed to begin move and copy object methods.
 type BeginMoveCopyResults struct {
-	StreamID                  uuid.UUID
-	Version                   Version
-	EncryptedMetadata         []byte
-	EncryptedMetadataKeyNonce []byte
-	EncryptedMetadataKey      []byte
-	EncryptedKeysNonces       []EncryptedKeyAndNonce
-	EncryptionParameters      storj.EncryptionParameters
+	StreamID uuid.UUID
+	Version  Version
+	EncryptedUserData
+	EncryptedKeysNonces  []EncryptedKeyAndNonce
+	EncryptionParameters storj.EncryptionParameters
 }
 
 // BeginMoveObject collects all data needed to begin object move procedure.
@@ -117,9 +115,7 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 	result.StreamID = object.StreamID
 	result.Version = object.Version
 	result.EncryptionParameters = object.Encryption
-	result.EncryptedMetadata = object.EncryptedMetadata
-	result.EncryptedMetadataKey = object.EncryptedMetadataEncryptedKey
-	result.EncryptedMetadataKeyNonce = object.EncryptedMetadataNonce
+	result.EncryptedUserData = object.EncryptedUserData
 
 	return result, nil
 }
@@ -184,8 +180,8 @@ type FinishMoveObject struct {
 	NewSegmentKeys        []EncryptedKeyAndNonce
 	NewEncryptedObjectKey ObjectKey
 	// Optional. Required if object has metadata.
-	NewEncryptedMetadataKeyNonce storj.Nonce
-	NewEncryptedMetadataKey      []byte
+	NewEncryptedMetadataNonce        storj.Nonce
+	NewEncryptedMetadataEncryptedKey []byte
 
 	// NewDisallowDelete indicates whether the user is allowed to delete an existing unversioned object.
 	NewDisallowDelete bool
@@ -254,7 +250,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
 		nextVersion := precommit.HighestVersion + 1
 
-		oldStatus, segmentsCount, hasMetadata, streamID, lockInfo, err := adapter.objectMove(ctx, opts, newStatus, nextVersion)
+		oldStatus, segmentsCount, hasMetadataOrETag, streamID, lockInfo, err := adapter.objectMove(ctx, opts, newStatus, nextVersion)
 		if err != nil {
 			// purposefully not wrapping the error here, so as not to break expected error text in tests
 			return err
@@ -268,14 +264,24 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		if oldStatus.IsDeleteMarker() {
 			return ErrMethodNotAllowed.New("moving delete marker is not allowed")
 		}
-		if hasMetadata {
-			switch {
-			case opts.NewEncryptedMetadataKeyNonce.IsZero() && len(opts.NewEncryptedMetadataKey) != 0:
-				return ErrInvalidRequest.New("EncryptedMetadataKeyNonce is missing")
-			case len(opts.NewEncryptedMetadataKey) == 0 && !opts.NewEncryptedMetadataKeyNonce.IsZero():
-				return ErrInvalidRequest.New("EncryptedMetadataKey is missing")
-			}
+
+		var metadataStub, metadataKeyNonce []byte
+		if hasMetadataOrETag {
+			metadataStub = []byte{1}
 		}
+		if !opts.NewEncryptedMetadataNonce.IsZero() {
+			metadataKeyNonce = opts.NewEncryptedMetadataNonce.Bytes()
+		}
+		err = EncryptedUserData{
+			EncryptedMetadata:             metadataStub,
+			EncryptedETag:                 metadataStub,
+			EncryptedMetadataNonce:        metadataKeyNonce,
+			EncryptedMetadataEncryptedKey: opts.NewEncryptedMetadataEncryptedKey,
+		}.Verify()
+		if err != nil {
+			return err
+		}
+
 		if lockInfo.retention.ActiveNow() {
 			return ErrObjectLock.New(retentionErrMsg)
 		}
@@ -318,7 +324,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	return nil
 }
 
-func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, info lockInfo, err error) {
+func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadataOrETag bool, streamID uuid.UUID, info lockInfo, err error) {
 	err = ptx.tx.QueryRowContext(ctx, `
 			WITH
 			new AS (
@@ -343,13 +349,14 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 					(project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
 				RETURNING
 					segment_count,
-					encrypted_metadata IS NOT NULL AND LENGTH(encrypted_metadata) > 0 AS has_metadata,
+					(encrypted_metadata IS NOT NULL AND LENGTH(encrypted_metadata) > 0)
+						OR (encrypted_etag IS NOT NULL AND LENGTH(encrypted_etag) > 0) AS has_metadata,
 					stream_id
 			),
 			old AS (
-    			SELECT status, expires_at, retention_mode, retain_until
-    			FROM objects
-    			WHERE (project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
+				SELECT status, expires_at, retention_mode, retain_until
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
 			)
 				SELECT
 					old.status,
@@ -363,8 +370,8 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		`,
 		opts.NewBucket,
 		opts.NewEncryptedObjectKey,
-		opts.NewEncryptedMetadataKey,
-		opts.NewEncryptedMetadataKeyNonce,
+		opts.NewEncryptedMetadataEncryptedKey,
+		opts.NewEncryptedMetadataNonce,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 		newStatus,
 		nextVersion,
@@ -373,7 +380,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 	).Scan(
 		&oldStatus,
 		&segmentsCount,
-		&hasMetadata,
+		&hasMetadataOrETag,
 		&streamID,
 		&info.objectExpiresAt,
 		lockModeWrapper{retentionMode: &info.retention.Mode, legalHold: &info.legalHold},
@@ -385,7 +392,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		}
 		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to update object: %w", err)
 	}
-	return oldStatus, segmentsCount, hasMetadata, streamID, info, nil
+	return oldStatus, segmentsCount, hasMetadataOrETag, streamID, info, nil
 }
 
 func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadata bool, streamID uuid.UUID, info lockInfo, err error) {
@@ -403,6 +410,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		encryptedMetadataNonce        []byte
 		encryptedMetadata             []byte
 		encryptedMetadataEncryptedKey []byte
+		encryptedETag                 []byte
 		totalPlainSize                int64
 		totalEncryptedSize            int64
 		fixedSegmentSize              int64
@@ -417,7 +425,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 			THEN RETURN
 				stream_id, created_at, expires_at, status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
 				zombie_deletion_deadline,
@@ -433,7 +441,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		found = true
 		err := row.Columns(
 			&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
-			&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey,
+			&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey, &encryptedETag,
 			&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
 			encryptionParameters{&encryption},
 			&zombieDeletionDeadline,
@@ -456,25 +464,27 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 
 	segmentsCount = int(segmentCount)
 
-	if encryptedMetadata != nil {
-		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataKey
-		encryptedMetadataNonce = opts.NewEncryptedMetadataKeyNonce[:]
+	hasMetadataOrETag := len(encryptedMetadata) > 0 || len(encryptedETag) > 0
+
+	if hasMetadataOrETag {
+		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataEncryptedKey
+		encryptedMetadataNonce = opts.NewEncryptedMetadataNonce[:]
 	}
 
 	_, err = stx.tx.Update(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
-			    project_id, bucket_name, object_key, version,
+				project_id, bucket_name, object_key, version,
 				stream_id, created_at, expires_at, status, segment_count,
-			    encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
 				zombie_deletion_deadline,
 				retention_mode, retain_until
 			) VALUES (
-			    @project_id, @bucket_name, @object_key, @version,
+				@project_id, @bucket_name, @object_key, @version,
 				@stream_id, @created_at, @expires_at, @status, @segment_count,
-			    @encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key,
+				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
 				@encryption,
 				@zombie_deletion_deadline,
@@ -494,6 +504,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			"encrypted_metadata_nonce":         encryptedMetadataNonce,
 			"encrypted_metadata":               encryptedMetadata,
 			"encrypted_metadata_encrypted_key": encryptedMetadataEncryptedKey,
+			"encrypted_etag":                   encryptedETag,
 			"total_plain_size":                 totalPlainSize,
 			"total_encrypted_size":             totalEncryptedSize,
 			"fixed_segment_size":               fixedSegmentSize,
@@ -507,7 +518,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to create new object record: %w", err)
 	}
 
-	return oldStatus, segmentsCount, len(encryptedMetadata) > 0, streamID, info, nil
+	return oldStatus, segmentsCount, hasMetadataOrETag, streamID, info, nil
 }
 
 func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {

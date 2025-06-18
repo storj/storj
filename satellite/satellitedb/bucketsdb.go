@@ -712,3 +712,53 @@ func (db *bucketsDB) GetBucketObjectLockEnabled(ctx context.Context, bucketName 
 	}
 	return row.ObjectLockEnabled, nil
 }
+
+// GetBucketTagging returns the set of tags placed on a bucket.
+func (db *bucketsDB) GetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID) (tags []buckets.Tag, err error) {
+	defer mon.Task()(&ctx)(&err)
+	row, err := db.db.Get_BucketMetainfo_Tags_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, buckets.ErrBucketNotFound.New("%s", bucketName)
+		}
+		return nil, buckets.ErrBucket.Wrap(err)
+	}
+
+	tags, err = decodeBucketTags(row.Tags)
+	if err != nil {
+		return nil, buckets.ErrBucket.New("error decoding tags: %w", err)
+	}
+	return tags, nil
+}
+
+// SetBucketTagging places a set of tags on a bucket.
+func (db *bucketsDB) SetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID, tags []buckets.Tag) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var updateFields dbx.BucketMetainfo_Update_Fields
+	if len(tags) == 0 {
+		updateFields.Tags = dbx.BucketMetainfo_Tags_Null()
+	} else {
+		encodedTags, err := encodeBucketTags(tags)
+		if err != nil {
+			return buckets.ErrBucket.New("error encoding tags: %w", err)
+		}
+		updateFields.Tags = dbx.BucketMetainfo_Tags(encodedTags)
+	}
+
+	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+		updateFields,
+	)
+	if err != nil {
+		return buckets.ErrBucket.Wrap(err)
+	}
+	if dbxBucket == nil {
+		return buckets.ErrBucketNotFound.New("%s", bucketName)
+	}
+	return nil
+}

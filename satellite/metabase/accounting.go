@@ -84,7 +84,8 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 	err = withRows(p.db.QueryContext(ctx, `
 			SELECT
 				project_id, bucket_name,
-				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0),
+				SUM(total_encrypted_size), SUM(segment_count),
+				COALESCE(SUM(length(encrypted_metadata)),0)+COALESCE(SUM(length(encrypted_etag)), 0),
 				count(*), count(*) FILTER (WHERE status = `+statusPending+`)
 			FROM objects
 			`+LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
@@ -139,7 +140,8 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 		SQL: `
 			SELECT
 				project_id, bucket_name,
-				SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0),
+				SUM(total_encrypted_size), SUM(segment_count),
+				COALESCE(SUM(length(encrypted_metadata)),0)+COALESCE(SUM(length(encrypted_etag)), 0),
 				count(*) AS total_objects_count, COUNTIF(status = ` + statusPending + `) AS pending_objects_count
 			FROM objects
 			WHERE ` + fromTuple + `
@@ -190,7 +192,9 @@ func (s *SpannerAdapter) collectBucketTalliesWithPartitionedQuery(ctx context.Co
 	stmt := spanner.Statement{
 		SQL: `
 			SELECT
-				project_id, bucket_name, total_encrypted_size, segment_count, COALESCE(length(encrypted_metadata), 0), status
+				project_id, bucket_name, total_encrypted_size, segment_count,
+				COALESCE(length(encrypted_metadata), 0)+COALESCE(length(encrypted_etag), 0),
+				status
 			FROM objects
 			WHERE ` + fromTuple + `
 				AND ` + toTuple + `

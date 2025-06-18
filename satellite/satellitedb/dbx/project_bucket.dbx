@@ -9,6 +9,8 @@ model bucket_metainfo (
 	// name is a unique name inside the project.
 	// it's a alphanumeric string similar to domain names.
 	field name           blob
+	// tags is the set of tags placed on the bucket.
+	field tags           blob   (nullable, updatable)
 	// user_agent is the first User-Agent that was used to upload data,
 	// unless the user signed up with a specific partner.
 	// note: this field is duplicated in value_attribution.user_agent.
@@ -106,6 +108,12 @@ update bucket_metainfo (
 
 read one (
 	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read one (
+	select bucket_metainfo.tags
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
 )

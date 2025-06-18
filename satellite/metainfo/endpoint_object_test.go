@@ -2266,8 +2266,8 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			//	NewBucket:                    []byte("testbucket"),
 			//	NewEncryptedObjectKey:        []byte("newencryptedobjectkey"),
 			//	NewEncryptedMetadata:         testrand.Bytes(10),
-			//	NewEncryptedMetadataKey:      randomEncKey.Raw()[:],
-			//	NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+			//	NewEncryptedMetadataEncryptedKey:      randomEncKey.Raw()[:],
+			//	NewEncryptedMetadataNonce: testrand.Nonce(),
 			//	NewSegmentKeys: []*pb.EncryptedKeyAndNonce{
 			//		{
 			//			Position: &pb.SegmentPosition{
@@ -6627,6 +6627,110 @@ func TestConditionalWrites(t *testing.T) {
 				IfNoneMatch:           []string{"*"},
 			})
 			rpctest.RequireCode(t, err, rpcstatus.FailedPrecondition)
+		})
+	})
+}
+
+func TestListObjects_ArbitraryPrefix(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.DefaultPathCipher = storj.EncNull
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
+		bucketName := "test-bucket"
+
+		_, err := satellite.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{ApiKey: apiKey},
+			Name:   []byte(bucketName),
+		})
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, satellite, bucketName, "photos/2023/image1.jpg", testrand.Bytes(100))
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, satellite, bucketName, "photos/2023/image2.jpg", testrand.Bytes(100))
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, satellite, bucketName, "photos/2024/image3.jpg", testrand.Bytes(100))
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, satellite, bucketName, "documents/file1.txt", testrand.Bytes(100))
+		require.NoError(t, err)
+
+		t.Run("ArbitraryPrefix=false", func(t *testing.T) {
+			// Should add slash and return items without them
+			resp, err := satellite.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:          &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:          []byte(bucketName),
+				EncryptedPrefix: []byte("photos/2023"),
+				ArbitraryPrefix: false,
+				Recursive:       true,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, 2)
+			require.Equal(t, "image1.jpg", string(resp.Items[0].EncryptedObjectKey))
+			require.Equal(t, "image2.jpg", string(resp.Items[1].EncryptedObjectKey))
+		})
+
+		t.Run("ArbitraryPrefix=true", func(t *testing.T) {
+			resp, err := satellite.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:          &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:          []byte(bucketName),
+				EncryptedPrefix: []byte("photos/2025"),
+				ArbitraryPrefix: true,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, 0)
+
+			resp, err = satellite.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:          &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:          []byte(bucketName),
+				EncryptedPrefix: []byte("photos/2023/image1.jpg"),
+				ArbitraryPrefix: true,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, 1)
+			require.Equal(t, "", string(resp.Items[0].EncryptedObjectKey))
+
+			resp, err = satellite.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:          &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:          []byte(bucketName),
+				EncryptedPrefix: []byte("photos/2023"),
+				ArbitraryPrefix: true,
+				Recursive:       true,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, 2)
+			require.Equal(t, "/image1.jpg", string(resp.Items[0].EncryptedObjectKey))
+			require.Equal(t, "/image2.jpg", string(resp.Items[1].EncryptedObjectKey))
+
+			resp, err = satellite.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:          &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:          []byte(bucketName),
+				EncryptedPrefix: []byte("photos/202"),
+				ArbitraryPrefix: true,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, 2)
+			require.Equal(t, "3/", string(resp.Items[0].EncryptedObjectKey))
+			require.Equal(t, "4/", string(resp.Items[1].EncryptedObjectKey))
+			require.Equal(t, pb.Object_PREFIX, resp.Items[0].Status)
+			require.Equal(t, pb.Object_PREFIX, resp.Items[1].Status)
+
+			resp, err = satellite.API.Metainfo.Endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:          &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:          []byte(bucketName),
+				EncryptedPrefix: []byte("photos/202"),
+				ArbitraryPrefix: true,
+				Recursive:       true,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, 3)
+			require.Equal(t, "3/image1.jpg", string(resp.Items[0].EncryptedObjectKey))
+			require.Equal(t, "3/image2.jpg", string(resp.Items[1].EncryptedObjectKey))
+			require.Equal(t, "4/image3.jpg", string(resp.Items[2].EncryptedObjectKey))
 		})
 	})
 }

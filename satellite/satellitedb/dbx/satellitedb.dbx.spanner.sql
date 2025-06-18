@@ -23,6 +23,12 @@ CREATE TABLE accounting_timestamps (
 	name STRING(MAX) NOT NULL,
 	value TIMESTAMP NOT NULL
 ) PRIMARY KEY ( name ) ;
+CREATE TABLE api_key_tails (
+	tail BYTES(MAX) NOT NULL,
+	parent_tail BYTES(MAX) NOT NULL,
+	caveat BYTES(MAX) NOT NULL,
+	last_used TIMESTAMP NOT NULL
+) PRIMARY KEY ( tail ) ;
 CREATE TABLE billing_balances (
 	user_id BYTES(MAX) NOT NULL,
 	balance INT64 NOT NULL,
@@ -512,6 +518,7 @@ CREATE TABLE bucket_metainfos (
 	id BYTES(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
 	name BYTES(MAX) NOT NULL,
+	tags BYTES(MAX),
 	user_agent BYTES(MAX),
 	versioning INT64 NOT NULL DEFAULT (0),
 	object_lock_enabled BOOL NOT NULL DEFAULT (false),

@@ -46,14 +46,23 @@ type SuccessTracker interface {
 // GetNewSuccessTracker returns a function that creates a new SuccessTracker
 // based on the kind. The bool return value is false if the kind is unknown.
 func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
-
 	switch {
 	case kind == "bitshift":
-		return func() SuccessTracker { return newBitshiftSuccessTracker() }, true
+		return func() SuccessTracker { return newBitshiftSuccessTracker(0) }, true
 	case kind == "congestion":
 		return func() SuccessTracker { return newCongestionSuccessTracker() }, true
 	case kind == "lag":
 		return func() SuccessTracker { return newLagSuccessTracker() }, true
+	case strings.HasPrefix(kind, "bitshift-noise-"):
+		noiseStr := strings.TrimPrefix(kind, "bitshift-noise-")
+		noise, err := strconv.Atoi(noiseStr)
+		if err != nil {
+			panic("bitshift-noise size should be an integer, not " + noiseStr)
+		}
+
+		return func() SuccessTracker {
+			return newBitshiftSuccessTracker(noise)
+		}, true
 	case strings.HasPrefix(kind, "bitshift"):
 		lengthDef := strings.TrimPrefix(kind, "bitshift")
 		length, err := strconv.Atoi(lengthDef)
@@ -239,7 +248,12 @@ func (t *percentSuccessTracker) Stats(cb func(monkit.SeriesKey, string, float64)
 // different success trackers
 //
 
-func newBitshiftSuccessTracker() *parameterizedSuccessTracker {
+func newBitshiftSuccessTracker(noise int) *parameterizedSuccessTracker {
+	addNoise := func() float64 { return 0 }
+	if noise > 0 {
+		addNoise = func() float64 { return float64(mwc.Intn(noise)) }
+	}
+
 	return &parameterizedSuccessTracker{
 		name: "bitshift",
 		increment: func(ctr *atomic.Uint64, success bool) {
@@ -257,7 +271,7 @@ func newBitshiftSuccessTracker() *parameterizedSuccessTracker {
 			}
 		},
 		defaultVal: ^uint64(0),
-		score:      func(v uint64) float64 { return float64(bits.OnesCount64(v)) },
+		score:      func(v uint64) float64 { return float64(bits.OnesCount64(v)) + addNoise() },
 	}
 }
 

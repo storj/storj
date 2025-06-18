@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,7 +22,9 @@ import (
 )
 
 func TestStore_BasicOperation(t *testing.T) {
-	forAllTables(t, testStore_BasicOperation)
+	forAllTables(t, func(t *testing.T) {
+		forEachBool(t, "sync", &store_SyncWrites, testStore_BasicOperation)
+	})
 }
 func testStore_BasicOperation(t *testing.T) {
 	ctx := context.Background()
@@ -367,7 +370,9 @@ func testStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
 }
 
 func TestStore_CompactLogFile(t *testing.T) {
-	forAllTables(t, testStore_CompactLogFile)
+	forAllTables(t, func(t *testing.T) {
+		forEachBool(t, "ignoreRewriteIndex", &store_TestIgnoreRewrittenIndex, testStore_CompactLogFile)
+	})
 }
 func testStore_CompactLogFile(t *testing.T) {
 	ctx := context.Background()
@@ -573,7 +578,7 @@ func testStore_LogFilesFull(t *testing.T) {
 }
 
 func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
-	if table_DefaultKind != kind_HashTbl {
+	if table_DefaultKind != TableKind_HashTbl {
 		t.SkipNow()
 	}
 
@@ -670,7 +675,9 @@ func testStore_ReviveDuringCompaction(t *testing.T) {
 		go func() {
 			waitForGoroutine(
 				"testStore_ReviveDuringCompaction",
-				"Create",
+				"(*testStore).AssertRead",
+				"(*Store).reviveRecord",
+				"(*mutex).Lock",
 			)
 			// the following AssertRead call is blocked on Create, allow compaction to finish.
 			close(activity)
@@ -726,17 +733,11 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T) {
 	// wait until compaction is asking to trash a key, so we know it's running.
 	activity <- false
 
-	// start a goroutine that waits for 2 stacks to be blocked in reviveRecord where one of them
-	// is blocked trying to Create to recreate the trashed record and allow compaction to continue.
+	// start a goroutine that waits for 2 stacks to be blocked in reviveRecord.
 	go func() {
-		waitForGoroutine(
+		waitForGoroutines(2,
 			"(*Store).reviveRecord",
 			"(*mutex).Lock",
-		)
-		waitForGoroutine(
-			"(*Store).reviveRecord",
-			"(*Store).Create",
-			"(*rwMutex).RLock",
 		)
 		close(activity)
 	}()
@@ -793,28 +794,29 @@ func testStore_CloseCancelsCompaction(t *testing.T) {
 	// context being canceled.
 	activity <- true
 
-	// launch a goroutine that confirms that this test has a Create call blocked in Create then
+	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// closes the store.
 	go func() {
 		waitForGoroutine(
 			"testStore_CloseCancelsCompaction",
-			"Create",
+			"(*Writer).Close",
 		)
 		s.Close()
 	}()
 
-	// try to create a key and ensure it fails.
-	_, err := s.Create(context.Background(), newKey(), time.Time{})
-	assert.Error(t, err)
+	// try to create a key and ensure it fails on Close.
+	w, err := s.Create(context.Background(), newKey(), time.Time{})
+	assert.NoError(t, err)
+	assert.Error(t, w.Close())
 
 	// compaction should have errored.
 	assert.Error(t, <-errCh)
 }
 
-func TestStore_ContextCancelsCreate(t *testing.T) {
-	forAllTables(t, testStore_ContextCancelsCreate)
+func TestStore_ContextCancelsClose(t *testing.T) {
+	forAllTables(t, testStore_ContextCancelsClose)
 }
-func testStore_ContextCancelsCreate(t *testing.T) {
+func testStore_ContextCancelsClose(t *testing.T) {
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -842,19 +844,20 @@ func testStore_ContextCancelsCreate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// launch a goroutine that confirms that this test has a Create call blocked in Create then
+	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// cancels the context.
 	go func() {
 		waitForGoroutine(
-			"testStore_ContextCancelsCreate",
-			"Create",
+			"testStore_ContextCancelsClose",
+			"(*Writer).Close",
 		)
 		cancel()
 	}()
 
-	// try to create a key and ensure it fails.
-	_, err := s.Create(ctx, newKey(), time.Time{})
-	assert.Error(t, err)
+	// try to create a key and ensure it fails during Close.
+	w, err := s.Create(ctx, newKey(), time.Time{})
+	assert.NoError(t, err)
+	assert.Error(t, w.Close())
 
 	// allow compaction to finish.
 	activity <- true
@@ -1072,16 +1075,8 @@ func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
 	forAllTables(t, testStore_FallbackToNonTTLLogFile)
 }
 func testStore_FallbackToNonTTLLogFile(t *testing.T) {
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
-
-	getLog := func(key Key) uint64 {
-		rec, ok, err := s.tbl.Lookup(ctx, key)
-		assert.NoError(t, err)
-		assert.True(t, ok)
-		return rec.Log
-	}
 
 	// add a key that goes into a non-ttl log file.
 	permKey := s.AssertCreate()
@@ -1090,7 +1085,7 @@ func testStore_FallbackToNonTTLLogFile(t *testing.T) {
 	// that it fails when trying to create it itself.
 	now := time.Now()
 	ttl := TimeToDateUp(now)
-	id := getLog(permKey) + 1
+	id := s.LogFile(permKey) + 1
 	dir := filepath.Join(s.logsPath, fmt.Sprintf("%02x", byte(id)))
 	assert.NoError(t, os.MkdirAll(dir, 0755))
 	name := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
@@ -1102,14 +1097,13 @@ func testStore_FallbackToNonTTLLogFile(t *testing.T) {
 	ttlKey := s.AssertCreate(WithTTL(now))
 
 	// they should be in the same log file.
-	assert.Equal(t, getLog(permKey), getLog(ttlKey))
+	assert.Equal(t, s.LogFile(permKey), s.LogFile(ttlKey))
 }
 
-func TestStore_HashtblFull(t *testing.T) {
-	if table_DefaultKind != kind_HashTbl {
-		t.SkipNow()
-	}
-
+func TestStore_TableFull(t *testing.T) {
+	forAllTables(t, testStore_TableFull)
+}
+func testStore_TableFull(t *testing.T) {
 	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
@@ -1118,11 +1112,10 @@ func TestStore_HashtblFull(t *testing.T) {
 		w, err := s.Create(ctx, newKey(), time.Time{})
 		assert.NoError(t, err)
 		if err := w.Close(); err != nil {
-			break
+			assert.True(t, strings.Contains(err.Error(), "hashtbl full"))
+			return
 		}
 	}
-
-	assert.Equal(t, s.Stats().TableFull, 1)
 }
 
 func TestStore_StatsWhileCompacting(t *testing.T) {
@@ -1168,28 +1161,20 @@ func TestStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
 	forAllTables(t, testStore_CompactionRewritesLogsWhenNothingToDo)
 }
 func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
-
-	getLog := func(key Key) uint64 {
-		rec, ok, err := s.tbl.Lookup(ctx, key)
-		assert.NoError(t, err)
-		assert.True(t, ok)
-		return rec.Log
-	}
 
 	// make a ballast key that stays alive that should prevent the log file from being rewritten
 	// under normal conditions and an already expired key so that the log is not fully alive so that
 	// it can be considered a candidate regardless.
 	ballast := s.AssertCreate(WithDataSize(4096))
-	assert.Equal(t, getLog(ballast), 1)
+	assert.Equal(t, s.LogFile(ballast), 1)
 
 	s.AssertCreate(WithData(nil), WithTTL(time.Unix(1, 0)))
 
 	// on the first compaction the log should be rewritten.
 	s.AssertCompact(nil, time.Time{})
-	assert.Equal(t, getLog(ballast), 2)
+	assert.Equal(t, s.LogFile(ballast), 2)
 
 	{
 		stats := s.Stats()
@@ -1200,7 +1185,7 @@ func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
 
 	// the log should be fully alive data and so should not be rewritten on subsequent compactions.
 	s.AssertCompact(nil, time.Time{})
-	assert.Equal(t, getLog(ballast), 2)
+	assert.Equal(t, s.LogFile(ballast), 2)
 
 	{
 		stats := s.Stats()
@@ -1272,7 +1257,7 @@ func TestStore_FlushSemaphore(t *testing.T) {
 }
 
 func TestStore_SwapDifferentBackends(t *testing.T) {
-	backends := []TableKind{kind_HashTbl, kind_MemTbl}
+	backends := []TableKind{TableKind_HashTbl, TableKind_MemTbl}
 
 	s := newTestStore(t)
 	defer s.Close()
@@ -1337,18 +1322,8 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T) {
 	defer temporarily(&compaction_RewriteMultiple, 0)()
 	defer temporarily(&compaction_MaxLogSize, 1024)()
 
-	ctx := context.Background()
 	s := newTestStore(t)
 	defer s.Close()
-
-	getLog := func(key Key) uint64 {
-		t.Helper()
-
-		rec, ok, err := s.tbl.Lookup(ctx, key)
-		assert.NoError(t, err)
-		assert.True(t, ok)
-		return rec.Log
-	}
 
 	// we want to have one log file that is partially dead and one log file that is fully dead. when
 	// we compact, it should rewrite the fully dead log file but not the partially dead one.
@@ -1356,16 +1331,16 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T) {
 	dead := s.AssertCreate(WithDataSize(512), WithTTL(time.Unix(1, 0)))
 	fullyDead := s.AssertCreate(WithDataSize(512), WithTTL(time.Unix(1, 0)))
 
-	assert.Equal(t, getLog(alive), 1)
-	assert.Equal(t, getLog(dead), 1)
-	assert.Equal(t, getLog(fullyDead), 2)
+	assert.Equal(t, s.LogFile(alive), 1)
+	assert.Equal(t, s.LogFile(dead), 1)
+	assert.Equal(t, s.LogFile(fullyDead), 2)
 
 	// no matter how many times we compact, fully dead should be removed and partially dead should
 	// not be rewritten.
 	for i := 0; i < 5; i++ {
 		s.AssertCompact(nil, time.Time{})
 
-		assert.Equal(t, getLog(alive), 1)
+		assert.Equal(t, s.LogFile(alive), 1)
 		s.AssertNotExist(dead)
 		s.AssertNotExist(fullyDead)
 
@@ -1374,6 +1349,103 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T) {
 		assert.Equal(t, stats.LogsRewritten, 1)
 		assert.Equal(t, stats.DataRewritten, 0)
 	}
+}
+
+func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
+	s := newTestStore(t)
+	defer s.Close()
+
+	var keys []Key
+	keys = append(keys, s.AssertCreate(WithDataSize(512)))
+	keys = append(keys, s.AssertCreate(WithDataSize(512)))
+	keys = append(keys, s.AssertCreate(WithDataSize(512), WithTTL(time.Unix(1, 0))))
+	keys = append(keys, s.AssertCreate(WithDataSize(512), WithTTL(time.Unix(1, 0))))
+
+	activity := make(chan struct{})
+	errCh := make(chan error)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		errCh <- s.Compact(ctx,
+			func(ctx context.Context, key Key, created time.Time) bool {
+				activity <- struct{}{}
+				select {
+				case <-activity:
+				case <-ctx.Done():
+				}
+				return true // we return true so that compaction doesn't exit early.
+			}, time.Time{})
+	}()
+
+	// allow the first shouldTrash call to proceed: this is checking if modiciations are necessary.
+	<-activity
+	activity <- struct{}{}
+
+	// allow the next shouldTrash call to start. after that, the two alive keys have been rewritten.
+	// cancel the compaction before it can finish.
+	<-activity
+	cancel()
+	assert.Error(t, <-errCh)
+
+	// add some new data and ensure we can read everything still.
+	keys = append(keys, s.AssertCreate(WithDataSize(512)))
+	for _, key := range keys {
+		s.AssertRead(key, WithDataSize(512))
+	}
+}
+
+func TestStore_RewriteMultipleLogFilesInOneCompaction(t *testing.T) {
+	defer temporarily(&compaction_MaxLogSize, 1024)()
+
+	s := newTestStore(t)
+	defer s.Close()
+
+	// fill up 10 logs with an empty alive key and large dead key.
+	var alive []Key
+	var dead []Key
+	for i := 0; i < 10; i++ {
+		alive = append(alive, s.AssertCreate(WithDataSize(0)))
+		dead = append(dead, s.AssertCreate(WithDataSize(1024), WithTTL(time.Unix(1, 0))))
+	}
+
+	// ensure each key is in its own log file.
+	for i, key := range alive {
+		assert.Equal(t, s.LogFile(key), i+1)
+	}
+
+	// compact.
+	s.AssertCompact(nil, time.Time{})
+
+	// ensure each alive key is in a new log file and they're all in it and that all the dead keys
+	// are gone.
+	for _, key := range alive {
+		assert.Equal(t, s.LogFile(key), 11)
+	}
+	for _, key := range dead {
+		s.AssertNotExist(key)
+	}
+}
+
+func TestStore_CompactionMakesProgressEvenIfSmallRewriteMultiple(t *testing.T) {
+	defer temporarily(&compaction_RewriteMultiple, 1e-10)()
+
+	s := newTestStore(t)
+	defer s.Close()
+
+	// create a log file with enough dead data to trigger a rewrite but the amount of alive data
+	// puts it over the target threshold of compaction.
+	alive := s.AssertCreate(WithDataSize(1024))
+	aliveLog := s.LogFile(alive)
+	dead := s.AssertCreate(WithDataSize(10240), WithTTL(time.Unix(1, 0)))
+
+	// compact.
+	s.AssertCompact(nil, time.Time{})
+
+	// the dead key should be removed and the alive key should be in a new log file.
+	s.AssertNotExist(dead)
+	assert.NotEqual(t, aliveLog, s.LogFile(alive))
 }
 
 //

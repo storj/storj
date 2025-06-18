@@ -75,6 +75,23 @@ type Users interface {
 	GetUpgradeTime(ctx context.Context, userID uuid.UUID) (*time.Time, error)
 	// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
+	// SetStatusPendingDeletion set the user to pending deletion status safely to potentially reduce
+	// mistakes the data deletion process of valid accounts. The method must automatically verify:
+	//
+	// 1. The account is currently in "active" status
+	///
+	// 2. The account is NOT in the paid tier
+	//
+	// 3. The account has an active "trial expiration freeze"
+	//
+	// 4. The active "trial expiration freeze" days until escalation must be over
+	//
+	// The function return an error on system failure and an sql.ErrNoRows if the account doesn't exist
+	// or doesn't fulfill the requirements.
+	SetStatusPendingDeletion(ctx context.Context, userID uuid.UUID, defaultDaysTillEscalation uint) error
+	// SetUserKindWithPaidTier updates the kind of user to console.PaidUser if the user is in the paid tier.
+	// and the kind is currently console.FreeUser.
+	SetUserKindWithPaidTier(ctx context.Context, batchSize int) (rowsProcessed int64, hasNext bool, err error)
 }
 
 // UserCursor holds info for user info cursor pagination.

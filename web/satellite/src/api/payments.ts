@@ -22,6 +22,7 @@ import {
     UpdateCardParams,
     PriceModelForPlacementRequest,
     AddFundsResponse,
+    ProductCharges,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -59,6 +60,29 @@ export class PaymentsHttpApi implements PaymentsApi {
             clientSecret: result.clientSecret,
             paymentIntentID: result.paymentIntentID,
         };
+    }
+
+    /**
+     * Gets a setup intent secret to set up a card with stripe.
+     *
+     * @return string - the client secret for the stripe setup intent.
+     * @throws Error
+     */
+    public async getCardSetupSecret(): Promise<string> {
+        const path = `${this.ROOT_PATH}/card-setup-secret`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not add card',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result;
     }
 
     /**
@@ -126,6 +150,26 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         return ProjectCharges.fromJSON(await response.json());
+    }
+
+    /**
+     * productsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns split by product.
+     */
+    public async productsUsageAndCharges(start: Date, end: Date): Promise<ProductCharges> {
+        const since = Time.toUnixTimestamp(start).toString();
+        const before = Time.toUnixTimestamp(end).toString();
+        const path = `${this.ROOT_PATH}/account/product-charges?from=${since}&to=${before}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Can not get products charges',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return ProductCharges.fromJSON(await response.json());
     }
 
     /**
@@ -759,7 +803,6 @@ export class PaymentsHttpApi implements PaymentsApi {
      * Purchases the pricing package associated with the user's partner.
      *
      * @param dataStr - the Stripe payment method id or token of the credit card
-     * @param isPMID - whether the dataStr is a payment method id or token
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */

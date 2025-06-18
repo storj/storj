@@ -181,6 +181,9 @@ func TestDeleteBucket(t *testing.T) {
 					config.Metainfo.UseBucketLevelObjectVersioning = true
 				},
 			),
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
+			},
 		},
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -295,6 +298,51 @@ func TestDeleteBucket(t *testing.T) {
 				Name: []byte(bucketName),
 			})
 			require.NoError(t, err)
+
+			requireBucketDeleted(t, bucketName)
+		})
+
+		t.Run("Delete bucket with Object Lock enabled as owner with BypassGovernanceRetention", func(t *testing.T) {
+			bucketName := metabase.BucketName(testrand.BucketName())
+			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ProjectID: project.ID,
+				Name:      bucketName.String(),
+				ObjectLock: buckets.ObjectLockSettings{
+					Enabled: true,
+				},
+			})
+			require.NoError(t, err)
+
+			uploadObjects(t, bucketName)
+
+			// User should not be able to delete without BypassGovernanceRetention
+			// permission.
+			noBypass, err := ownerAPIKey.Restrict(macaroon.Caveat{
+				DisallowBypassGovernanceRetention: true,
+			})
+			require.NoError(t, err)
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: noBypass.SerializeRaw(),
+				},
+				Name:                      []byte(bucketName),
+				DeleteAll:                 true,
+				BypassGovernanceRetention: true,
+			})
+			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+			require.Nil(t, delResp)
+
+			// When user has the specific permission, then it's fine.
+			delResp, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name:                      []byte(bucketName),
+				DeleteAll:                 true,
+				BypassGovernanceRetention: true,
+			})
+			require.NoError(t, err)
+			require.EqualValues(t, 3, delResp.DeletedObjectsCount)
 
 			requireBucketDeleted(t, bucketName)
 		})
@@ -457,14 +505,25 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 }
 
 func TestBucketCreationSelfServePlacement(t *testing.T) {
+	var (
+		placement       = storj.PlacementConstraint(40)
+		placementDetail = console.PlacementDetail{
+			ID:     40,
+			IdName: "Poland",
+		}
+	)
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: "endpoint_bucket_test_placement.yaml",
+					PlacementRules: `40:annotation("location", "Poland");50:annotation("location", "US")`,
 				}
 				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					0:         {ID: 0},
+					placement: placementDetail,
+				})
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -536,34 +595,46 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		require.Equal(t, storj.PlacementConstraint(40), placement)
 
 		// new bucket with invalid placement returns error
-		bucket3 := "bucket3"
+		bucket3 := []byte("bucket3")
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte(bucket3),
+			Name:      bucket3,
 			Placement: []byte("EU"), // invalid placement
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
+		require.Contains(t, "invalid placement value", err.Error())
+
+		// new bucket with placement not in self-serve details returns error
+		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Name:      bucket3,
+			Placement: []byte("US"), // placement not in self-serve details
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.PlacementInvalidValue))
+		require.Contains(t, "placement not allowed", err.Error())
 
 		// disable self-serve placement
 		sat.API.Metainfo.Endpoint.TestSelfServePlacementEnabled(false)
 
-		// passing invalid placement should not fail if self-serve placement is disabled.
+		// Passing invalid placement should not fail if self-serve placement is disabled.
 		// This is for backward compatibility with integration tests that'll pass placements
 		// regardless of self-serve placement being enabled or not.
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Name:      []byte("bucket3"),
+			Name:      bucket3,
 			Placement: []byte("EU"), // invalid placement
 		})
 		require.NoError(t, err)
 
-		// placement should be set to default event though a placement was passed
+		// placement should be set to default even though a placement was passed
 		// because self-serve placement is disabled.
-		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte("bucket3"), projectID)
+		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, bucket3, projectID)
 		require.NoError(t, err)
 		require.Equal(t, storj.DefaultPlacement, placement)
 	})

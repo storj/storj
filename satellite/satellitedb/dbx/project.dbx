@@ -376,3 +376,23 @@ read one (
 	where api_key.name = ?
 	where api_key.project_id = ?
 )
+
+// api_key_tail is the tail of an auditable api_key's children.
+model api_key_tail (
+	key tail
+
+	// tail of the current macaroon.
+	field  tail        blob
+	// parent_tail is a tail of the parent macaroon.
+	field  parent_tail blob
+	// caveat is restriction applied to a macaroon.
+	field  caveat      blob
+	// last_used indicates when the macaroon was last used.
+	field  last_used   timestamp (updatable)
+)
+
+create api_key_tail ( )
+update api_key_tail (
+	where api_key_tail.tail = ?
+	noreturn
+)

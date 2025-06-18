@@ -194,7 +194,7 @@ func (customers *customers) UpdatePackage(ctx context.Context, userID uuid.UUID,
 	return fromDBXCustomer(dbxCustomer)
 }
 
-// UpdatePackage updates the customer's package plan and purchase time.
+// GetPackageInfo returns the package plan and time of purchase for a user.
 func (customers *customers) GetPackageInfo(ctx context.Context, userID uuid.UUID) (_ *string, _ *time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 

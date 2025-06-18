@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
@@ -57,6 +58,50 @@ func (s Segment) PieceSize() int64 {
 	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
 }
 
+// SegmentForRepair defines the segment data required for the repair functionality.
+type SegmentForRepair struct {
+	StreamID uuid.UUID
+	Position SegmentPosition
+
+	CreatedAt  time.Time // non-nillable
+	RepairedAt *time.Time
+	ExpiresAt  *time.Time
+
+	RootPieceID   storj.PieceID
+	EncryptedSize int32 // size of the whole segment (not a piece)
+	Redundancy    storj.RedundancyScheme
+	Pieces        Pieces
+	Placement     storj.PlacementConstraint
+}
+
+// Inline returns true if segment is inline.
+func (s SegmentForRepair) Inline() bool {
+	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+}
+
+// Expired checks if segment is expired relative to now.
+func (s SegmentForRepair) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
+// PieceSize returns calculated piece size for segment.
+func (s SegmentForRepair) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
+
+// SegmentForAudit defines the segment data required for the audit functionality.
+type SegmentForAudit SegmentForRepair
+
+// Expired checks if segment is expired relative to now.
+func (s SegmentForAudit) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
+// PieceSize returns calculated piece size for segment.
+func (s SegmentForAudit) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
+
 // GetObjectExactVersion contains arguments necessary for fetching an information
 // about exact object version.
 type GetObjectExactVersion struct {
@@ -98,7 +143,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			stream_id, status,
 			created_at, expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
 			retention_mode, retain_until
@@ -112,7 +157,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -145,7 +190,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 				stream_id, status,
 				created_at, expires_at,
 				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
 				retention_mode, retain_until
@@ -170,7 +215,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
 			spannerutil.Int(&object.SegmentCount),
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
 			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -220,7 +265,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 			stream_id, version, status,
 			created_at, expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
 			retention_mode, retain_until
@@ -236,7 +281,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		&object.StreamID, &object.Version, &object.Status,
 		&object.CreatedAt, &object.ExpiresAt,
 		&object.SegmentCount,
-		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 		encryptionParameters{&object.Encryption},
 		lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -265,7 +310,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 				stream_id, version, status,
 				created_at, expires_at,
 				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
 				retention_mode, retain_until
@@ -292,7 +337,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 			&object.StreamID, &object.Version, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
 			spannerutil.Int(&object.SegmentCount),
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			encryptionParameters{&object.Encryption},
 			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -369,6 +414,90 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 	return segment, nil
 }
 
+// GetSegmentByPositionForAudit returns information about segment on the specified position for the
+// audit functionality.
+func (db *DB) GetSegmentByPositionForAudit(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return SegmentForAudit{}, err
+	}
+
+	// check all adapters until a match is found
+	var aliasPieces AliasPieces
+	found := false
+	for _, adapter := range db.adapters {
+		segment, aliasPieces, err = adapter.GetSegmentByPositionForAudit(ctx, opts)
+		if err != nil {
+			if ErrSegmentNotFound.Has(err) {
+				continue
+			}
+			return SegmentForAudit{}, err
+		}
+		found = true
+		break
+	}
+	if !found {
+		return SegmentForAudit{}, ErrSegmentNotFound.New("segment missing")
+	}
+
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return SegmentForAudit{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	segment.StreamID = opts.StreamID
+	segment.Position = opts.Position
+
+	return segment, nil
+}
+
+// GetSegmentByPositionForRepair returns information about segment on the specified position for the
+// repair functionality.
+func (db *DB) GetSegmentByPositionForRepair(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForRepair, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return SegmentForRepair{}, err
+	}
+
+	// check all adapters until a match is found
+	var aliasPieces AliasPieces
+	found := false
+	for _, adapter := range db.adapters {
+		segment, aliasPieces, err = adapter.GetSegmentByPositionForRepair(ctx, opts)
+		if err != nil {
+			if ErrSegmentNotFound.Has(err) {
+				continue
+			}
+			return SegmentForRepair{}, err
+		}
+		found = true
+		break
+	}
+	if !found {
+		return SegmentForRepair{}, ErrSegmentNotFound.New("segment missing")
+	}
+
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return SegmentForRepair{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	segment.StreamID = opts.StreamID
+	segment.Position = opts.Position
+
+	return segment, nil
+}
+
 // GetSegmentByPosition returns information about segment on the specified position.
 func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
 	err = p.db.QueryRowContext(ctx, `
@@ -404,39 +533,172 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				created_at, expires_at, repaired_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size,
-				encrypted_etag,
-				redundancy,
-				inline_data, remote_alias_pieces,
-				placement
-			FROM segments
-			WHERE (stream_id, position) = (@stream_id, @position)
-		`,
-		Params: map[string]interface{}{
-			"stream_id": opts.StreamID,
-			"position":  opts.Position,
-		},
-	}), func(row *spanner.Row, segment *Segment) error {
-		return Error.Wrap(row.Columns(
-			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.EncryptedETag,
-			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
-			&segment.Placement,
-		))
+	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+		"created_at", "expires_at", "repaired_at",
+		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
+		"encrypted_size", "plain_offset", "plain_size",
+		"encrypted_etag",
+		"redundancy",
+		"inline_data", "remote_alias_pieces",
+		"placement",
 	})
 	if err != nil {
-		if errors.Is(err, iterator.Done) {
+		if errors.Is(err, spanner.ErrRowNotFound) {
 			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
 		}
 		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	err = row.Columns(
+		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+		&segment.EncryptedETag,
+		&segment.Redundancy,
+		&segment.InlineData, &aliasPieces,
+		&segment.Placement,
+	)
+	if err != nil {
+		return Segment{}, nil, Error.Wrap(err)
+	}
+
+	return segment, aliasPieces, nil
+}
+
+// GetSegmentByPositionForAudit returns information about segment on the specified position for the
+// audit functionality.
+func (p *PostgresAdapter) GetSegmentByPositionForAudit(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
+	err = p.db.QueryRowContext(ctx, `
+		SELECT
+			created_at, expires_at, repaired_at,
+			root_piece_id,
+			encrypted_size,
+			redundancy,
+			remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE (stream_id, position) = ($1, $2)
+	`, opts.StreamID, opts.Position.Encode()).
+		Scan(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			&segment.EncryptedSize,
+			&segment.Redundancy,
+			&aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForAudit{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, err
+}
+
+// GetSegmentByPositionForAudit returns information about segment on the specified position for the
+// audit functionality.
+func (s *SpannerAdapter) GetSegmentByPositionForAudit(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
+	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+		"created_at", "expires_at", "repaired_at",
+		"root_piece_id",
+		"encrypted_size",
+		"redundancy",
+		"remote_alias_pieces",
+		"placement",
+	})
+	if err != nil {
+		if errors.Is(err, spanner.ErrRowNotFound) {
+			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForAudit{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	err = row.Columns(
+		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+		&segment.RootPieceID,
+		spannerutil.Int(&segment.EncryptedSize),
+		&segment.Redundancy,
+		&aliasPieces,
+		&segment.Placement,
+	)
+	if err != nil {
+		return SegmentForAudit{}, nil, Error.Wrap(err)
+	}
+
+	return segment, aliasPieces, nil
+}
+
+// GetSegmentByPositionForRepair returns information about segment on the specified position for the
+// repair functionality.
+func (p *PostgresAdapter) GetSegmentByPositionForRepair(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
+	err = p.db.QueryRowContext(ctx, `
+		SELECT
+			created_at, expires_at, repaired_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size,
+			encrypted_etag,
+			redundancy,
+			remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE (stream_id, position) = ($1, $2)
+	`, opts.StreamID, opts.Position.Encode()).
+		Scan(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			&segment.EncryptedSize,
+			&segment.Redundancy,
+			&aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForRepair{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, err
+}
+
+// GetSegmentByPositionForRepair returns information about segment on the specified position for the
+// repair functionality.
+func (s *SpannerAdapter) GetSegmentByPositionForRepair(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
+	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+		"created_at", "expires_at", "repaired_at",
+		"root_piece_id",
+		"encrypted_size",
+		"redundancy",
+		"remote_alias_pieces",
+		"placement",
+	})
+	if err != nil {
+		if errors.Is(err, spanner.ErrRowNotFound) {
+			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForRepair{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	err = row.Columns(
+		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+		&segment.RootPieceID,
+		spannerutil.Int(&segment.EncryptedSize),
+		&segment.Redundancy,
+		&aliasPieces,
+		&segment.Placement,
+	)
+	if err != nil {
+		return SegmentForRepair{}, nil, Error.Wrap(err)
 	}
 
 	return segment, aliasPieces, nil

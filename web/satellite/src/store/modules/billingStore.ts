@@ -26,6 +26,7 @@ import {
     UpdateCardParams,
     PriceModelForPlacementRequest,
     AddFundsResponse,
+    ProductCharges,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
@@ -40,6 +41,7 @@ export class PaymentsState {
     public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
     public projectCharges: ProjectCharges = new ProjectCharges();
     public usagePriceModel: UsagePriceModel = new UsagePriceModel();
+    public productCharges: ProductCharges = new ProductCharges();
     public startDate: Date = new Date();
     public endDate: Date = new Date();
     public coupon: Coupon | null = null;
@@ -77,24 +79,25 @@ export const useBillingStore = defineStore('billing', () => {
 
     const proPlanInfo = computed(() => {
         const minimumCharge = configStore.minimumCharge;
-        const minimumChargeEnabled = minimumCharge.enabled;
         const minimumChargeAmt = minimumCharge.amount;
-        const minimumChargeLink = '<a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly charge</a>';
+        const minimumChargeLink = '<a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly usage fee</a>';
         const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumChargeAmt}.`;
+        // even if startDate is null, priorNoticeEnabled and noticeEnabled will be false
+        const isAfterStartDate = new Date() >= (minimumCharge.startDate ?? new Date());
 
         let subtitle = `Pay-as-you-go`;
-        if (minimumCharge.proNoticeEnabled) {
-            subtitle += `. A ${minimumChargeLink} of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
-        } else if (minimumChargeEnabled) {
+        if (minimumCharge.priorNoticeEnabled) {
+            subtitle += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
+        } else if (minimumCharge.isEnabled) {
             subtitle += `, ${minimumChargeTxt}`;
         } else {
             subtitle += ', no minimum';
         }
 
         let activationDesc = 'Add a credit card to activate your pro account. Only pay for what you use';
-        if (minimumCharge.proNoticeEnabled) {
-            activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} will apply starting on ${minimumCharge.shortStartDateStr}.`;
-        } else if (minimumChargeEnabled) {
+        if (minimumCharge.priorNoticeEnabled) {
+            activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
+        } else if (minimumCharge.isEnabled) {
             activationDesc += `, ${minimumChargeTxt}`;
         } else {
             activationDesc += ', no minimum. Billed monthly.';
@@ -135,6 +138,10 @@ export const useBillingStore = defineStore('billing', () => {
 
     async function addFunds(cardID: string, amount: number): Promise<AddFundsResponse> {
         return await api.addFunds(cardID, amount, csrfToken.value);
+    }
+
+    async function getCardSetupSecret(): Promise<string> {
+        return await api.getCardSetupSecret();
     }
 
     async function addTaxID(taxID: TaxID): Promise<void> {
@@ -254,6 +261,18 @@ export const useBillingStore = defineStore('billing', () => {
         state.endDate = dateRange.endDate;
     }
 
+    async function getProductUsageAndChargesCurrentRollup(): Promise<void> {
+        const now = new Date();
+        const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
+        const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
+
+        state.productCharges = await api.productsUsageAndCharges(startUTC, endUTC);
+
+        const dateRange = new DateRange(startUTC, endUTC);
+        state.startDate = dateRange.startDate;
+        state.endDate = dateRange.endDate;
+    }
+
     async function getProjectUsagePriceModel(): Promise<void> {
         state.usagePriceModel = await api.projectUsagePriceModel();
     }
@@ -292,6 +311,7 @@ export const useBillingStore = defineStore('billing', () => {
         state.nativePaymentsHistory = [];
         state.projectCharges = new ProjectCharges();
         state.usagePriceModel = new UsagePriceModel();
+        state.productCharges = new ProductCharges();
         state.pendingPaymentsWithConfirmations = [];
         state.startDate = new Date();
         state.endDate = new Date();
@@ -315,6 +335,7 @@ export const useBillingStore = defineStore('billing', () => {
         getCountryTaxes,
         addTaxID,
         addFunds,
+        getCardSetupSecret,
         removeTaxID,
         getBillingInformation,
         addInvoiceReference,
@@ -330,6 +351,7 @@ export const useBillingStore = defineStore('billing', () => {
         getPaymentsHistory,
         getNativePaymentsHistory,
         getProjectUsageAndChargesCurrentRollup,
+        getProductUsageAndChargesCurrentRollup,
         startPaymentsPolling,
         stopPaymentsPolling,
         getProjectUsagePriceModel,

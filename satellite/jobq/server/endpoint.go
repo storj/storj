@@ -250,11 +250,12 @@ func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (
 func histToProto(histogram []jobq.HistogramItem) (res []*pb.QueueStatHistogram) {
 	for _, h := range histogram {
 		res = append(res, &pb.QueueStatHistogram{
-			Count:             h.Count,
-			NumOutOfPlacement: int32(h.NumOutOfPlacement),
-			NumMissing:        int32(h.NumMissing),
-			ExamplarStreamId:  h.Examplar.StreamID[:],
-			ExemplarPosition:  h.Examplar.Position,
+			Count:                    h.Count,
+			NumOutOfPlacement:        int32(h.NumOutOfPlacement),
+			NumNormalizedHealthy:     int32(h.NumNormalizedHealthy),
+			NumNormalizedRetrievable: int32(h.NumNormalizedRetrievable),
+			ExemplarStreamId:         h.Exemplar.StreamID[:],
+			ExemplarPosition:         h.Exemplar.Position,
 		})
 	}
 	return res

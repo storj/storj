@@ -36,9 +36,11 @@ const (
 	eventInviteLinkClicked                = "Invite Link Clicked"
 	eventInviteLinkSignup                 = "Invite Link Signup"
 	eventAccountCreated                   = "Account Created"
+	eventAccountDeleted                   = "Account Deleted"
 	eventAccountSetUp                     = "Account Set Up"
 	eventSignedIn                         = "Signed In"
 	eventProjectCreated                   = "Project Created"
+	eventProjectDeleted                   = "Project Deleted"
 	eventManagedEncryptionError           = "Managed Encryption Error"
 	eventAccessGrantCreated               = "Access Grant Created"
 	eventAccountVerified                  = "Account Verified"
@@ -438,6 +440,22 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	service.hubspot.EnqueueCreateUserMinimal(fields)
 }
 
+// TrackDeleteUser sends an "Account Deleted" event to Segment.
+func (service *Service) TrackDeleteUser(userID uuid.UUID, email string, hubspotObjectID *string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := service.newPropertiesWithOpts(hubspotObjectID)
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventAccountDeleted,
+		Properties: props,
+	})
+}
+
 // JoinCunoFSBeta sends a join cunoFS beta form to hubspot.
 func (service *Service) JoinCunoFSBeta(fields TrackJoinCunoFSBetaFields) {
 	if !service.config.Enabled {
@@ -581,6 +599,24 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, email string, proj
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventProjectCreated,
+		Properties: props,
+	})
+}
+
+// TrackProjectDeleted sends an "Project Deleted" event to Segment.
+func (service *Service) TrackProjectDeleted(userID uuid.UUID, email string, publicProjectID uuid.UUID, currentMonthUsage string, hubspotObjectID *string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := service.newPropertiesWithOpts(hubspotObjectID)
+	props.Set("project_id", publicProjectID.String())
+	props.Set("email", email)
+	props.Set("current_usage_price", currentMonthUsage)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventProjectDeleted,
 		Properties: props,
 	})
 }

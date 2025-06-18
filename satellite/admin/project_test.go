@@ -1381,10 +1381,19 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		sat := planet.Satellites[0]
+
+		// Pause all accounting loops to avoid unnecessary inserts to the tally/rollup tables
+		// which would conflict with the test.
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+		sat.Accounting.ProjectBWCleanup.Loop.Pause()
+
+		address := sat.Admin.Admin.Listener.Addr()
 		projectID := planet.Uplinks[0].Projects[0].ID
 
-		apiKeys, err := planet.Satellites[0].DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+		apiKeys, err := sat.DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
 			Page:   1,
 			Limit:  2,
 			Search: "",
@@ -1392,7 +1401,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, apiKeys.APIKeys, 1)
 
-		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
+		err = sat.DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
 		// TODO: Improve updating of DB entries
@@ -1408,7 +1417,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 			TotalBytes:        640000,
 			MetadataSize:      2,
 		}
-		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		err = sat.DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 		tally = accounting.BucketStorageTally{
 			BucketName:        "test",
@@ -1419,17 +1428,17 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 			TotalBytes:        640000,
 			MetadataSize:      2,
 		}
-		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
+		err = sat.DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 
 		// Make User paid tier.
-		err = planet.Satellites[0].DB.Console().
+		err = sat.DB.Console().
 			Users().
 			UpdatePaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID, true, memory.PB, memory.PB, 1000000, 3, &now)
 		require.NoError(t, err)
 
 		// Ensure User is paid tier.
-		paid, err := planet.Satellites[0].DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
+		paid, err := sat.DB.Console().Users().GetUserPaidTier(ctx, planet.Uplinks[0].Projects[0].Owner.ID)
 		require.NoError(t, err)
 		require.True(t, paid)
 
@@ -1440,7 +1449,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+		req.Header.Set("Authorization", sat.Config.Console.AuthToken)
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
@@ -1456,7 +1465,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 
 		// Create Invoice Record for last month.
 		firstOfMonth := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.UTC)
-		err = planet.Satellites[0].DB.StripeCoinPayments().ProjectRecords().Create(ctx,
+		err = sat.DB.StripeCoinPayments().ProjectRecords().Create(ctx,
 			[]stripe.CreateProjectRecord{{
 				ProjectID: projectID,
 				Storage:   100,
@@ -1472,7 +1481,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+		req.Header.Set("Authorization", sat.Config.Console.AuthToken)
 
 		// Project should fail to delete since the project record has not been used/billed yet.
 		response, err = http.DefaultClient.Do(req)
@@ -1484,12 +1493,12 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
 		// Retrieve its ID and consume(mark as billed) it.
-		dbRecord, err := planet.Satellites[0].DB.StripeCoinPayments().
+		dbRecord, err := sat.DB.StripeCoinPayments().
 			ProjectRecords().
 			Get(ctx, projectID, firstOfMonth, firstOfMonth.AddDate(0, 1, 0))
 		require.NoError(t, err)
 		require.Equal(t, projectID, dbRecord.ProjectID)
-		err = planet.Satellites[0].DB.StripeCoinPayments().ProjectRecords().Consume(ctx, dbRecord.ID)
+		err = sat.DB.StripeCoinPayments().ProjectRecords().Consume(ctx, dbRecord.ID)
 		require.NoError(t, err)
 
 		req, err = http.NewRequestWithContext(
@@ -1499,7 +1508,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+		req.Header.Set("Authorization", sat.Config.Console.AuthToken)
 
 		// Project should be fine to delete now.
 		response, err = http.DefaultClient.Do(req)

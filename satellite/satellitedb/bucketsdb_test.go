@@ -289,3 +289,52 @@ func TestCreateBucketWithObjectLock(t *testing.T) {
 		}
 	})
 }
+
+func TestBucketTagging(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		bucketsDB := db.Buckets()
+		projectID := testrand.UUID()
+		bucketName := testrand.BucketName()
+
+		_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projectID})
+		require.NoError(t, err)
+
+		tags, err := bucketsDB.GetBucketTagging(ctx, []byte(bucketName), projectID)
+		require.ErrorIs(t, err, buckets.ErrBucketNotFound.Instance())
+		require.Nil(t, tags)
+
+		err = bucketsDB.SetBucketTagging(ctx, []byte(bucketName), projectID, []buckets.Tag{})
+		require.ErrorIs(t, err, buckets.ErrBucketNotFound.Instance())
+
+		_, err = bucketsDB.CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      bucketName,
+			ProjectID: projectID,
+		})
+		require.NoError(t, err)
+
+		tags, err = bucketsDB.GetBucketTagging(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Empty(t, tags)
+
+		var expectedTags []buckets.Tag
+		for i := 0; i < 16; i++ {
+			expectedTags = append(expectedTags, buckets.Tag{
+				Key:   string(testrand.RandAlphaNumeric(16)),
+				Value: string(testrand.RandAlphaNumeric(16)),
+			})
+		}
+		// Ensure that there are no issues encoding/decoding tags with empty keys or values.
+		expectedTags = append(expectedTags, buckets.Tag{})
+
+		require.NoError(t, bucketsDB.SetBucketTagging(ctx, []byte(bucketName), projectID, expectedTags))
+		tags, err = bucketsDB.GetBucketTagging(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Equal(t, expectedTags, tags)
+
+		require.NoError(t, bucketsDB.SetBucketTagging(ctx, []byte(bucketName), projectID, []buckets.Tag{}))
+		tags, err = bucketsDB.GetBucketTagging(ctx, []byte(bucketName), projectID)
+		require.NoError(t, err)
+		require.Empty(t, tags)
+	})
+}

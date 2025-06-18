@@ -5,10 +5,12 @@ package stripe_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +37,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
@@ -919,6 +922,114 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 	})
 }
 
+func TestService_InvoiceItemsFromProjectUsage_PartnerAggregation(t *testing.T) {
+	const (
+		projectName      = "my-project"
+		partnerName      = "partner"
+		hoursPerMonth    = 24 * 30
+		bytesPerMegabyte = int64(memory.MB / memory.B)
+	)
+
+	var (
+		defaultPrice = paymentsconfig.ProjectUsagePrice{
+			StorageTB: "1",
+			EgressTB:  "2",
+			Segment:   "3",
+		}
+		partnerPrice = paymentsconfig.ProjectUsagePrice{
+			StorageTB:           "4",
+			EgressTB:            "5",
+			Segment:             "6",
+			EgressDiscountRatio: 0.5,
+		}
+	)
+	partnerModel, err := partnerPrice.ToModel()
+	require.NoError(t, err)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.UsagePrice = defaultPrice
+				config.Payments.UsagePriceOverrides.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+					partnerName: partnerPrice,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		t.Run("aggregates usage by partner across placements", func(t *testing.T) {
+			// Test data with partner|placement format keys
+			usage := map[string]accounting.ProjectUsage{
+				// Same partner with different placements should be aggregated
+				"partner|0": {
+					Storage:      10000000000,             // Byte-hours
+					Egress:       100 * memory.GB.Int64(), // Bytes
+					SegmentCount: 200000,                  // Segment-Hours
+				},
+				"partner|3": {
+					Storage:      20000000000,             // Byte-hours
+					Egress:       200 * memory.GB.Int64(), // Bytes
+					SegmentCount: 300000,                  // Segment-Hours
+				},
+				// Different partner should remain separate
+				"other|0": {
+					Storage:      5000000000,             // Byte-hours
+					Egress:       50 * memory.GB.Int64(), // Bytes
+					SegmentCount: 100000,                 // Segment-Hours
+				},
+			}
+
+			items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
+
+			// Should have 6 items total: 3 for "partner" (aggregated), 3 for "other"
+			require.Len(t, items, 6)
+
+			// Verify aggregated usage for "partner"
+			expectedPartnerUsage := accounting.ProjectUsage{
+				Storage:      30000000000,             // 10B + 20B
+				Egress:       300 * memory.GB.Int64(), // 100GB + 200GB
+				SegmentCount: 500000,                  // 200k + 300k
+			}
+			// Apply egress discount
+			expectedPartnerUsage.Egress -= int64(math.Round(expectedPartnerUsage.Storage / hoursPerMonth * partnerModel.EgressDiscountRatio))
+			if expectedPartnerUsage.Egress < 0 {
+				expectedPartnerUsage.Egress = 0
+			}
+
+			expectedPartnerStorageQuantity := int64(math.Round(expectedPartnerUsage.Storage / float64(hoursPerMonth*bytesPerMegabyte)))
+			expectedPartnerEgressQuantity := int64(math.Round(float64(expectedPartnerUsage.Egress) / float64(bytesPerMegabyte)))
+			expectedPartnerSegmentQuantity := int64(math.Round(expectedPartnerUsage.SegmentCount / hoursPerMonth))
+
+			// Find items for "partner" (should be sorted alphabetically, so "other" comes first)
+			var partnerItems []*stripe.InvoiceItemParams
+			for _, item := range items {
+				if strings.Contains(*item.Description, "(partner)") {
+					partnerItems = append(partnerItems, item)
+				}
+			}
+			require.Len(t, partnerItems, 3)
+
+			// Verify storage item
+			require.Equal(t, "Project my-project (partner) - Storage (MB-Month)", *partnerItems[0].Description)
+			require.Equal(t, expectedPartnerStorageQuantity, *partnerItems[0].Quantity)
+			storagePrice, _ := partnerModel.StorageMBMonthCents.Float64()
+			require.Equal(t, storagePrice, *partnerItems[0].UnitAmountDecimal)
+
+			// Verify egress item
+			require.Equal(t, "Project my-project (partner) - Egress Bandwidth (MB)", *partnerItems[1].Description)
+			require.Equal(t, expectedPartnerEgressQuantity, *partnerItems[1].Quantity)
+			egressPrice, _ := partnerModel.EgressMBCents.Float64()
+			require.Equal(t, egressPrice, *partnerItems[1].UnitAmountDecimal)
+
+			// Verify segment item
+			require.Equal(t, "Project my-project (partner) - Segment Fee (Segment-Month)", *partnerItems[2].Description)
+			require.Equal(t, expectedPartnerSegmentQuantity, *partnerItems[2].Quantity)
+			segmentPrice, _ := partnerModel.SegmentMonthCents.Float64()
+			require.Equal(t, segmentPrice, *partnerItems[2].UnitAmountDecimal)
+		})
+	})
+}
+
 func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -1609,10 +1720,11 @@ func TestProjectUsagePrice(t *testing.T) {
 
 func TestPartnerPlacements(t *testing.T) {
 	var (
-		partner         = "partner"
-		placement       = storj.PlacementConstraint(10)
-		placement11     = storj.PlacementConstraint(11)
-		placementDetail = console.PlacementDetail{
+		partner           = "partner"
+		placement10       = storj.PlacementConstraint(10)
+		placement11       = storj.PlacementConstraint(11)
+		placement12       = storj.PlacementConstraint(12)
+		placementDetail10 = console.PlacementDetail{
 			ID:     10,
 			IdName: "placement10",
 		}
@@ -1620,7 +1732,12 @@ func TestPartnerPlacements(t *testing.T) {
 			ID:     11,
 			IdName: "placement11",
 		}
+		placementDetail12 = console.PlacementDetail{
+			ID:     12,
+			IdName: "placement12",
+		}
 		productID    = int32(1)
+		productID2   = int32(2)
 		productPrice = paymentsconfig.ProductUsagePrice{
 			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
 				StorageTB: "4",
@@ -1628,8 +1745,17 @@ func TestPartnerPlacements(t *testing.T) {
 				Segment:   "6",
 			},
 		}
+		productPrice2 = paymentsconfig.ProductUsagePrice{
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "1",
+				EgressTB:  "2",
+				Segment:   "3",
+			},
+		}
 	)
 	productModel, err := productPrice.ToModel()
+	require.NoError(t, err)
+	productModel2, err := productPrice2.ToModel()
 	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
@@ -1637,33 +1763,35 @@ func TestPartnerPlacements(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: `10:annotation("location", "placement10");11:annotation("location", "placement11")`,
+					PlacementRules: `10:annotation("location", "placement10");11:annotation("location", "placement11");12:annotation("location", "placement12")`,
 				}
 				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
-					productID: productPrice,
+					productID:  productPrice,
+					productID2: productPrice2,
 				})
 				// global placement price overrides
-				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(placement11): productID})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+					int(placement11): productID,
+					int(placement12): productID,
+				})
 
 				placementProductMap := paymentsconfig.PlacementProductMap{}
-				placementProductMap.SetMap(map[int]int32{int(placement): productID})
+				placementProductMap.SetMap(map[int]int32{
+					int(placement10): productID,
+					int(placement12): productID2,
+				})
 				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
 					partner: placementProductMap,
 				})
 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
-					0:           {ID: 0},
-					placement:   placementDetail,
+					placement10: placementDetail10,
 					placement11: placementDetail11,
+					placement12: placementDetail12,
 				})
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-
-		prodID, model, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(partner, placement)
-		require.NoError(t, err)
-		require.Equal(t, productModel, model)
-		require.Equal(t, productID, prodID)
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName:  "Test User",
@@ -1682,24 +1810,37 @@ func TestPartnerPlacements(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, partner, string(proj.UserAgent))
 
-		prodID, model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement)
+		prodID, model, err := sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
 		require.NoError(t, err)
-		require.Equal(t, productModel, model)
-		require.Equal(t, productID, prodID)
+		// expect overridden product for placement12
+		require.Equal(t, productModel2, model)
+		require.Equal(t, productID2, prodID)
 
 		details, err := sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.Len(t, details, 1)
-		require.Equal(t, placementDetail, details[0])
+		// expect placement10 and placement12, which are defined for the partner,
+		// and placement11, which is defined globally.
+		require.Len(t, details, 3)
+		require.Contains(t, details, placementDetail10)
+		require.Contains(t, details, placementDetail11)
+		require.Contains(t, details, placementDetail12)
 
-		// empty user agent will fall back to global placement configs
+		// empty user agent will still get the same list of placement10 details
 		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, proj.ID, make([]byte, 0))
 		require.NoError(t, err)
 
 		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.Len(t, details, 1)
-		require.Equal(t, placementDetail11, details[0])
+		// only placement11 and placement12 are defined globally.
+		require.Len(t, details, 2)
+		require.Contains(t, details, placementDetail11)
+		require.Contains(t, details, placementDetail12)
+
+		prodID, model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
+		require.NoError(t, err)
+		// expect global product for placement12
+		require.Equal(t, productModel, model)
+		require.Equal(t, productID, prodID)
 	})
 }
 
@@ -1994,9 +2135,21 @@ func TestService_CreateInvoice(t *testing.T) {
 		user := &console.User{CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC)}
 		cusID := "cus_xxx"
 
-		p := planet.Satellites[0].API.Payments
+		sat := planet.Satellites[0]
+		p := sat.API.Payments
+		db := sat.API.DB
 		stripeService := p.StripeService
 		stripeClient := p.StripeClient
+
+		err := db.StripeCoinPayments().Customers().Insert(ctx, user.ID, cusID)
+		require.NoError(t, err)
+
+		invoiceItem := &stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
+			Amount:   stripe.Int64(100),
+			Currency: stripe.String(string(stripe.CurrencyUSD)),
+			Customer: stripe.String(cusID),
+		}
 
 		t.Run("no items & no minimum charge", func(t *testing.T) {
 			stripeService.TestSetMinimumChargeCfg(0, nil)
@@ -2006,8 +2159,19 @@ func TestService_CreateInvoice(t *testing.T) {
 			require.Nil(t, inv)
 		})
 
+		t.Run("no items & minimum charge", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(5_000, nil)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.Nil(t, inv)
+		})
+
 		t.Run("minimum charge applies, draft invoice does not exist", func(t *testing.T) {
 			stripeService.TestSetMinimumChargeCfg(5_000, nil)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
 
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
 			require.NoError(t, err)
@@ -2047,6 +2211,9 @@ func TestService_CreateInvoice(t *testing.T) {
 			// set a minimum of 2 000c, and no pending items so invoice.AmountDue==0.
 			stripeService.TestSetMinimumChargeCfg(2_000, nil)
 
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
 			require.NoError(t, err)
 			require.NotNil(t, inv)
@@ -2068,7 +2235,7 @@ func TestService_CreateInvoice(t *testing.T) {
 			require.NoError(t, iter.Err())
 			require.NotNil(t, adj, "should have created a minimum-charge adjustment item")
 			// since AmountDue was 0, shortfall == minCharge.
-			require.Equal(t, int64(2_000), adj.Amount)
+			require.Equal(t, int64(1_900), adj.Amount)
 
 			_, err = stripeClient.Invoices().Del(inv.ID, nil)
 			require.NoError(t, err)
@@ -2089,12 +2256,165 @@ func TestService_CreateInvoice(t *testing.T) {
 			beforeStart := time.Date(2025, time.April, 1, 0, 0, 0, 0, time.UTC)
 			stripeService.TestSetMinimumChargeCfg(1_000, &beforeStart)
 
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
 			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
 			require.NoError(t, err)
 			require.NotNil(t, inv, "should create invoice when start is after minimumChargeDate")
 
 			_, err = stripeClient.Invoices().Del(inv.ID, nil)
 			require.NoError(t, err)
+		})
+
+		t.Run("package plan", func(t *testing.T) {
+			effectiveDate := time.Date(2025, time.May, 1, 0, 0, 0, 0, time.UTC)
+			stripeService.TestSetMinimumChargeCfg(2_000, &effectiveDate)
+
+			plan := "test-package-plan"
+			purchaseDate, err := time.Parse("2006-01-02", "2025-04-01")
+			require.NoError(t, err)
+
+			_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, &plan, &purchaseDate)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			_, err = stripeClient.CustomerBalanceTransactions().New(&stripe.CustomerBalanceTransactionParams{
+				Params:      stripe.Params{Context: ctx},
+				Customer:    stripe.String(cusID),
+				Amount:      stripe.Int64(-1000),
+				Description: stripe.String(stripe1.StripeDepositTransactionDescription),
+			})
+			require.NoError(t, err)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(100), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			purchaseDate, err = time.Parse("2006-01-02", "2025-05-02")
+			require.NoError(t, err)
+
+			_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, &plan, &purchaseDate)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			inv, err = stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(2000), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			_, err = db.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, nil, nil)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			inv, err = stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(2000), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
+		t.Run("positive token balance → skip minimum charge", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(1_000, nil)
+
+			tx := billing.Transaction{
+				UserID:      user.ID,
+				Amount:      currency.AmountFromBaseUnits(1000, currency.USDollars),
+				Description: "token payment credit",
+				Source:      billing.StorjScanEthereumSource,
+				Status:      billing.TransactionStatusCompleted,
+				Type:        billing.TransactionTypeCredit,
+				Metadata:    nil,
+				Timestamp:   time.Now(),
+				CreatedAt:   time.Now(),
+			}
+
+			_, err = db.Billing().Insert(ctx, tx)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(100), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			tx.Amount = currency.AmountFromBaseUnits(-1000, currency.USDollars)
+
+			_, err = db.Billing().Insert(ctx, tx)
+			require.NoError(t, err)
+		})
+
+		t.Run("legacy token transactions", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(1_000, nil)
+
+			amount, err := currency.AmountFromString("4.0000000000000000005", currency.StorjToken)
+			require.NoError(t, err)
+			received, err := currency.AmountFromString("5.0000000000000000003", currency.StorjToken)
+			require.NoError(t, err)
+
+			id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+			addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+			key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
+
+			createTX := stripe1.Transaction{
+				ID:        coinpayments.TransactionID(id),
+				AccountID: uuid.UUID{},
+				Address:   addr,
+				Amount:    amount,
+				Received:  received,
+				Status:    coinpayments.StatusPending,
+				Key:       key,
+			}
+
+			_, err = db.StripeCoinPayments().Transactions().TestInsert(ctx, createTX)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			// Transaction is pending -> apply minimum charge.
+			inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(1000), inv.AmountDue)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+
+			createTX.ID = coinpayments.TransactionID(base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B)))
+			createTX.Status = coinpayments.StatusCompleted
+
+			_, err = db.StripeCoinPayments().Transactions().TestInsert(ctx, createTX)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(invoiceItem)
+			require.NoError(t, err)
+
+			// Transaction is complete -> do not apply minimum charge.
+			inv, err = stripeService.CreateInvoice(ctx, cusID, user, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(100), inv.AmountDue)
 		})
 	})
 }

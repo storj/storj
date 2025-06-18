@@ -565,7 +565,8 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 		querySelectFields += `
 			,encrypted_metadata_nonce
 			,encrypted_metadata
-			,encrypted_metadata_encrypted_key`
+			,encrypted_metadata_encrypted_key
+			,encrypted_etag`
 	}
 
 	return querySelectFields
@@ -586,7 +587,7 @@ func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
@@ -611,7 +612,7 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key)
@@ -659,6 +660,7 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 			&item.EncryptedMetadataNonce,
 			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+			&item.EncryptedETag,
 		)
 	}
 

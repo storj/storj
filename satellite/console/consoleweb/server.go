@@ -123,6 +123,7 @@ type Config struct {
 	ObjectMountConsultationEnabled  bool          `help:"whether object mount consultation request form is visible" default:"false"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
 	BillingAddFundsEnabled          bool          `help:"whether billing add funds feature is enabled" default:"false"`
+	AddCardAuthorizationEnabled     bool          `help:"whether card authorization is enabled when adding a card" default:"false"`
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
 	ZipDownloadLimit                int           `help:"maximum number of objects allowed for a zip format download" default:"1000"`
 	LiveCheckBadPasswords           bool          `help:"whether to check if provided password is in bad passwords list" default:"false"`
@@ -172,6 +173,7 @@ type Server struct {
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
+	productBasedInvoicingEnabled    bool
 
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig
 
@@ -245,7 +247,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
 	csrfService *csrf.Service, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans,
-	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel) *Server {
+	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, productBasedInvoicingEnabled bool) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -259,6 +261,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		csrfService:                     csrfService,
 		stripePublicKey:                 stripePublicKey,
 		neededTokenPaymentConfirmations: neededTokenPaymentConfirmations,
+		productBasedInvoicingEnabled:    productBasedInvoicingEnabled,
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:                         nodeURL,
@@ -397,6 +400,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	domainsRouter.Use(server.withCORS)
 	domainsRouter.Use(server.withAuth)
 	domainsRouter.Handle("/check-dns", http.HandlerFunc(domainsController.CheckDNSRecords)).Methods(http.MethodPost, http.MethodOptions)
+	domainsRouter.Handle("/project/{projectID}", server.withCSRFProtection(http.HandlerFunc(domainsController.CreateDomain))).Methods(http.MethodPost, http.MethodOptions)
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)
@@ -408,7 +412,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	if config.BillingFeaturesEnabled {
-		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans)
+		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans, productBasedInvoicingEnabled)
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
@@ -425,6 +429,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.Handle("/cards/{cardId}", server.withCSRFProtection(http.HandlerFunc(paymentController.RemoveCreditCard))).Methods(http.MethodDelete, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/account/product-charges", paymentController.ProductCharges).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.Handle("/account/billing-address", server.withCSRFProtection(http.HandlerFunc(paymentController.SaveBillingAddress))).Methods(http.MethodPatch, http.MethodOptions)
@@ -449,8 +454,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}
 		if config.BillingAddFundsEnabled {
-			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(http.HandlerFunc(paymentController.AddFunds))).Methods(http.MethodPost, http.MethodOptions)
+			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddFunds)))).Methods(http.MethodPost, http.MethodOptions)
 			router.HandleFunc("/api/v0/payments/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
+		}
+		if config.AddCardAuthorizationEnabled {
+			paymentsRouter.Handle("/card-setup-secret", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.GetCardSetupSecret))).Methods(http.MethodGet, http.MethodOptions)
 		}
 	}
 
@@ -1041,6 +1049,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectMountConsultationEnabled:    server.config.ObjectMountConsultationEnabled,
 		CSRFToken:                         csrfToken,
 		BillingAddFundsEnabled:            server.config.BillingAddFundsEnabled,
+		AddCardAuthorizationEnabled:       server.config.AddCardAuthorizationEnabled,
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
 		MinAddFundsAmount:                 server.config.MinAddFundsAmount,
 		DownloadPrefixEnabled:             server.config.DownloadPrefixEnabled,
@@ -1049,6 +1058,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
+		ProductBasedInvoicingEnabled:      server.productBasedInvoicingEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

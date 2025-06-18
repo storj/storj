@@ -21,7 +21,11 @@ import (
 )
 
 func newCommand(ctx context.Context, directory string, name string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, name, args...)
+	target := append([]string{name}, args...)
+	if target[0] != "make" {
+		target = append([]string{"go", "tool", "-modfile", "./scripts/go.mod"}, target...)
+	}
+	cmd := exec.CommandContext(ctx, target[0], target[1:]...)
 	cmd.Dir = directory
 
 	return cmd
@@ -78,9 +82,7 @@ func main() {
 	ctx, halt := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer halt()
 
-	limiter := sync2.NewLimiter(*parallel)
-
-	submit := func(cmd *exec.Cmd) bool {
+	submit := func(limiter *sync2.Limiter, cmd *exec.Cmd) bool {
 		prefix := "[" + cmd.Dir + " " + strings.Join(cmd.Args, " ") + "]"
 
 		return limiter.Go(ctx, func() {
@@ -166,7 +168,7 @@ func main() {
 	}
 
 	if checks.GolangCI {
-		args := append([]string{"--config", "/go/ci/.golangci.yml", "--skip-dirs", "(^|/)node_modules($|/)", "-j=2", "run"}, target...)
+		args := append([]string{"--config", ".golangci.yml", "--skip-dirs", "(^|/)node_modules($|/)", "-j=2", "run"}, target...)
 		commands[1] = append(commands[1], newCommand(ctx, workDir, "golangci-lint", args...))
 	}
 
@@ -176,8 +178,9 @@ func main() {
 	}()
 
 	for _, tier := range commands {
+		limiter := sync2.NewLimiter(*parallel)
 		for _, cmd := range tier {
-			ok := submit(cmd)
+			ok := submit(limiter, cmd)
 			if !ok {
 				log.Fatalln("error", "failed to submit task to queue")
 			}
@@ -186,5 +189,4 @@ func main() {
 		limiter.Wait()
 	}
 
-	limiter.Wait()
 }

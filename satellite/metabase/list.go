@@ -26,9 +26,7 @@ type ObjectEntry struct {
 	Status       ObjectStatus
 	SegmentCount int32
 
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadata             []byte
-	EncryptedMetadataEncryptedKey []byte
+	EncryptedUserData
 
 	TotalPlainSize     int64
 	TotalEncryptedSize int64

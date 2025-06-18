@@ -1,16 +1,17 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"testing"
 
+	uplinkcli "storj.io/storj/cmd/uplink"
 	"storj.io/storj/cmd/uplink/ultest"
 )
 
 func TestMv(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://b1/file1.txt", "remote"),
 
 		ultest.WithFile("/home/user/file1.txt", "local"),
@@ -56,7 +57,7 @@ func TestMv(t *testing.T) {
 }
 
 func TestMvRecursive(t *testing.T) {
-	state := ultest.Setup(commands,
+	state := ultest.Setup(uplinkcli.Commands,
 		ultest.WithFile("sj://b1/file1.txt", "remote"),
 		ultest.WithFile("sj://b1/foo/file2.txt", "remote"),
 		ultest.WithFile("sj://b1/foo/file3.txt", "remote"),

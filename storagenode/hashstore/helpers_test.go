@@ -4,6 +4,7 @@
 package hashstore
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"fmt"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"storj.io/storj/storagenode/hashstore/platform"
 )
@@ -168,6 +171,9 @@ var (
 func init() {
 	// enable ordered rewrite for all tests.
 	compaction_OrderedRewrite = true
+
+	// enable checking log file size and offset
+	store_TestLogSizeAndOffset = true
 }
 
 func temporarily[T any](loc *T, val T) func() {
@@ -186,8 +192,8 @@ func temporarily[T any](loc *T, val T) func() {
 
 func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
 	mmaps := map[TableKind]*bool{
-		kind_HashTbl: &hashtbl_MMAP,
-		kind_MemTbl:  &memtbl_MMAP,
+		TableKind_HashTbl: &hashtbl_MMAP,
+		TableKind_MemTbl:  &memtbl_MMAP,
 	}
 
 	run := func(t T, kind TableKind, mmap bool) {
@@ -198,11 +204,11 @@ func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
 		})
 	}
 
-	run(t, kind_HashTbl, false)
-	run(t, kind_MemTbl, false)
+	run(t, TableKind_HashTbl, false)
+	run(t, TableKind_MemTbl, false)
 	if platform.MmapSupported {
-		run(t, kind_HashTbl, true)
-		run(t, kind_MemTbl, true)
+		run(t, TableKind_HashTbl, true)
+		run(t, TableKind_MemTbl, true)
 	}
 }
 
@@ -246,6 +252,14 @@ func withFilledTable(t *testing.T, keys *[]Key) WithConstructor {
 			}
 		}
 	})
+}
+
+func newMemoryLogger() *zap.Logger {
+	return zap.New(zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		zapcore.AddSync(new(bytes.Buffer)),
+		zapcore.DebugLevel,
+	))
 }
 
 //
@@ -463,7 +477,7 @@ type testStore struct {
 }
 
 func newTestStore(t testing.TB) *testStore {
-	s, err := NewStore(context.Background(), t.TempDir(), "", nil)
+	s, err := NewStore(context.Background(), t.TempDir(), "", newMemoryLogger())
 	assert.NoError(t, err)
 
 	ts := &testStore{t: t, Store: s, today: s.today()}
@@ -501,7 +515,7 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	data := key[:]
-	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
+	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	wr, err := ts.Create(context.Background(), key, expires)
@@ -529,7 +543,7 @@ func (ts *testStore) AssertRead(key Key, opts ...any) {
 	assert.Equal(ts.t, r.Key(), key)
 
 	data := key[:]
-	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
+	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	assert.Equal(ts.t, r.Size(), len(data))
@@ -556,6 +570,13 @@ func (ts *testStore) AssertExist(key Key) {
 	assert.True(ts.t, ok)
 }
 
+func (ts *testStore) LogFile(key Key) uint64 {
+	rec, ok, err := ts.tbl.Lookup(context.Background(), key)
+	assert.NoError(ts.t, err)
+	assert.True(ts.t, ok)
+	return rec.Log
+}
+
 //
 // db
 //
@@ -569,7 +590,7 @@ func newTestDB(t testing.TB,
 	dead func(context.Context, Key, time.Time) bool,
 	restore func(context.Context) time.Time,
 ) *testDB {
-	db, err := New(context.Background(), t.TempDir(), "", nil, dead, restore)
+	db, err := New(context.Background(), t.TempDir(), "", newMemoryLogger(), dead, restore)
 	assert.NoError(t, err)
 
 	td := &testDB{t: t, DB: db}
@@ -596,7 +617,7 @@ func (td *testDB) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithKey) { key = Key(t) })
 
 	data := key[:]
-	checkOptions(opts, func(t WithDataSize) { data = make([]byte, t) })
+	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
 	wr, err := td.Create(context.Background(), key, expires)
@@ -686,6 +707,23 @@ func newRecord(k Key) Record {
 		Created: n & 0x7fffff,
 		Expires: NewExpiration(n&0x7fffff, n%2 == 0),
 	}
+}
+
+func rngFromKey(key Key) *mwc.T {
+	return mwc.New(
+		binary.LittleEndian.Uint64(key[0:8]),
+		binary.LittleEndian.Uint64(key[8:16]),
+	)
+}
+
+func dataFromKey(key Key) []byte {
+	return dataSizedFromKey(key, rngFromKey(key).Intn(1024))
+}
+
+func dataSizedFromKey(key Key, size int) []byte {
+	buf := make([]byte, size)
+	_, _ = rngFromKey(key).Read(buf)
+	return buf
 }
 
 func alwaysTrash(ctx context.Context, key Key, created time.Time) bool {

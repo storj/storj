@@ -18,7 +18,7 @@ func TestBitshiftSuccessTracker(t *testing.T) {
 	t.Parallel()
 
 	run := func(t *testing.T, do func(func()), wait func()) {
-		tr := newBitshiftSuccessTracker()
+		tr := newBitshiftSuccessTracker(0)
 
 		check := func(id storj.NodeID, expect float64) {
 			got := tr.Get(&nodeselection.SelectedNode{ID: id})
@@ -432,4 +432,22 @@ func TestBigBitList_small(t *testing.T) {
 		tracker.Increment(storj.NodeID{}, true)
 	}
 	require.Equal(t, float64(3), tracker.Get(&nodeselection.SelectedNode{}))
+}
+
+func TestBitshiftNoiseTracker(t *testing.T) {
+	trackerFn, ok := GetNewSuccessTracker("bitshift-noise-32")
+	require.True(t, ok)
+
+	tr := trackerFn()
+	id := storj.NodeID{0: 1}
+	node := &nodeselection.SelectedNode{ID: id}
+	tr.Increment(id, true)
+
+	got := make(map[float64]struct{})
+	for i := 0; i < 1000; i++ {
+		val := tr.Get(node)
+		got[val] = struct{}{}
+		require.True(t, 64 <= val && val < 64+32)
+	}
+	require.Greater(t, len(got), 1) // ensure there was at least some noise
 }

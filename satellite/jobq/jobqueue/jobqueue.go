@@ -516,9 +516,7 @@ func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat,
 	var maxAttemptedAt, minAttemptedAt *uint64
 	first := true
 
-	// we use this like a map, where the key contains both NumOutOfPlacement numbers (high bits) and NumMissing (low bits)
-	// see key() function below for details
-	var histogram []*jobq.HistogramItem
+	histogram := map[int]*jobq.HistogramItem{}
 
 	updateStat := func(item jobq.RepairJob, stat *jobq.QueueStat) {
 		if first || item.InsertedAt > maxInsertedAt {
@@ -541,16 +539,15 @@ func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat,
 		if first || item.Health < stat.MinSegmentHealth {
 			stat.MinSegmentHealth = item.Health
 		}
-		k := key(item.NumOutOfPlacement, item.NumMissing)
-		if histogram == nil || len(histogram) < int(k) {
-			histogram = append(histogram, make([]*jobq.HistogramItem, int(k)-len(histogram)+1)...)
-		}
+		k := key(item.NumNormalizedHealthy, item.NumNormalizedRetrievable, item.NumOutOfPlacement)
+
 		if histogram[k] == nil {
 			histogram[k] = &jobq.HistogramItem{
-				NumOutOfPlacement: int64(item.NumOutOfPlacement),
-				NumMissing:        int64(item.NumMissing),
-				Count:             1,
-				Examplar:          item.ID,
+				NumNormalizedHealthy:     int64(item.NumNormalizedHealthy),
+				NumNormalizedRetrievable: int64(item.NumNormalizedRetrievable),
+				NumOutOfPlacement:        int64(item.NumOutOfPlacement),
+				Count:                    1,
+				Exemplar:                 item.ID,
 			}
 		} else {
 			histogram[k].Count++
@@ -610,14 +607,18 @@ func (q *Queue) Stat(ctx context.Context) (repairStat, retryStat jobq.QueueStat,
 	return repairStat, retryStat, nil
 }
 
-func key(oop uint16, missing uint16) uint16 {
+func key(healthy int16, retrievable int16, oop int16) int {
+	if healthy > 127 {
+		healthy = 127
+	}
+	if retrievable > 127 {
+		retrievable = 127
+	}
 	if oop > 127 {
 		oop = 127
 	}
-	if missing > 127 {
-		missing = 127
-	}
-	return oop<<7 | missing
+
+	return int(oop)<<14 | int(retrievable)<<7 | int(healthy)
 }
 
 // Truncate removes all items currently in the queue.

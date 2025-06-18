@@ -215,7 +215,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	log := repairer.log.With(zap.Stringer("Stream ID", queueSegment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()),
 		zap.Uint16("Placement", uint16(queueSegment.Placement)))
 
-	segment, err := repairer.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segment, err := repairer.metabase.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 		StreamID: queueSegment.StreamID,
 		Position: queueSegment.Position,
 	})
@@ -658,8 +658,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		cachedNodesReputation[id] = info.Reputation
 	}
 
+	segmentAudit := metabase.SegmentForAudit(segment)
 	report := audit.Report{
-		Segment:         &segment,
+		Segment:         &segmentAudit,
 		NodesReputation: cachedNodesReputation,
 	}
 
@@ -865,14 +866,14 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 }
 
 // checkIfSegmentAltered checks if oldSegment has been altered since it was selected for audit.
-func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldSegment metabase.Segment) (err error) {
+func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldSegment metabase.SegmentForRepair) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if repairer.OnTestingCheckSegmentAlteredHook != nil {
 		repairer.OnTestingCheckSegmentAlteredHook()
 	}
 
-	newSegment, err := repairer.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	newSegment, err := repairer.metabase.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 		StreamID: oldSegment.StreamID,
 		Position: oldSegment.Position,
 	})
@@ -932,7 +933,9 @@ type AdminFetchInfo struct {
 // limits from the storage nodes on which they are stored, and returns them intact to
 // the caller rather than decoding or decrypting or verifying anything. This is to be
 // used for debugging purposes.
-func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, log *zap.Logger, seg *metabase.Segment, saveDir string) (pieceInfos []AdminFetchInfo, err error) {
+func (repairer *SegmentRepairer) AdminFetchPieces(
+	ctx context.Context, log *zap.Logger, seg *metabase.SegmentForRepair, saveDir string,
+) (pieceInfos []AdminFetchInfo, err error) {
 	if seg.Inline() {
 		return nil, errs.New("cannot download an inline segment")
 	}

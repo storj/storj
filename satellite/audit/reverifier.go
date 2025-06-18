@@ -147,7 +147,7 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	defer mon.Task()(&ctx)(&err)
 
 	// First, we must ensure that the specified node still holds the indicated piece.
-	segment, err := reverifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segment, err := reverifier.metabase.GetSegmentByPositionForAudit(ctx, metabase.GetSegmentByPosition{
 		StreamID: locator.StreamID,
 		Position: locator.Position,
 	})

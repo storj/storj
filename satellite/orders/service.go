@@ -48,9 +48,9 @@ type Config struct {
 }
 
 // Overlay defines the overlay dependency of orders.Service.
-// use `go install github.com/golang/mock/mockgen@v1.6.0` if missing
+// use `go install go.uber.org/mock/mockgen@v0.5.2 if missing
 //
-//go:generate mockgen -destination mock_test.go -package orders . OverlayForOrders
+//go:generate mockgen -destination mock_test.go -package orders -mock_names Overlay=MockOverlayForOrders . Overlay
 type Overlay interface {
 	CachedGetOnlineNodesForGet(context.Context, []storj.NodeID) (map[storj.NodeID]*nodeselection.SelectedNode, error)
 	GetOnlineNodesForAuditRepair(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
@@ -376,7 +376,9 @@ func (service *Service) ReplacePutOrderLimits(ctx context.Context, rootPieceID s
 }
 
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of a segment.
-func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment metabase.Segment, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
+func (service *Service) CreateAuditOrderLimits(
+	ctx context.Context, segment metabase.SegmentForAudit, skip map[storj.NodeID]bool,
+) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
@@ -496,7 +498,7 @@ func (service *Service) createAuditOrderLimitWithSigner(ctx context.Context, nod
 //
 // The length of the returned orders slice is the total number of pieces of the
 // segment, setting to null the ones which don't correspond to a healthy piece.
-func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment metabase.Segment, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
+func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment metabase.SegmentForRepair, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceSize := segment.PieceSize()
@@ -549,7 +551,9 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment 
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of segment to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, segment metabase.Segment, newRedundancy storj.RedundancyScheme, getOrderLimits []*pb.AddressedOrderLimit, healthySet map[uint16]struct{}, newNodes []*nodeselection.SelectedNode) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreatePutRepairOrderLimits(
+	ctx context.Context, segment metabase.SegmentForRepair, newRedundancy storj.RedundancyScheme, getOrderLimits []*pb.AddressedOrderLimit, healthySet map[uint16]struct{}, newNodes []*nodeselection.SelectedNode,
+) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Create the order limits for being used to upload the repaired pieces

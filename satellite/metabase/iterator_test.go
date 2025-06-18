@@ -101,9 +101,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -113,11 +111,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			}.Check(ctx, t, db)
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream:                  committed,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					ObjectStream:              committed,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -131,15 +127,13 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{{
-					ObjectKey:                     committed.ObjectKey,
-					Version:                       committed.Version,
-					StreamID:                      committed.StreamID,
-					CreatedAt:                     now,
-					Status:                        metabase.CommittedUnversioned,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					ObjectKey:         committed.ObjectKey,
+					Version:           committed.Version,
+					StreamID:          committed.StreamID,
+					CreatedAt:         now,
+					Status:            metabase.CommittedUnversioned,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: userData,
 				}},
 			}.Check(ctx, t, db)
 
@@ -713,14 +707,14 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj1 := metabasetest.RandObjectStream()
+			userData := metabasetest.RandEncryptedUserData()
+
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj1,
-					Encryption:                    metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             []byte{3},
-					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        []byte{5},
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         userData,
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -737,9 +731,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, entry := range collector {
-				require.Equal(t, entry.EncryptedMetadata, []byte{3})
-				require.Equal(t, entry.EncryptedMetadataEncryptedKey, []byte{4})
-				require.Equal(t, entry.EncryptedMetadataNonce, []byte{5})
+				require.Equal(t, userData, entry.EncryptedUserData)
 			}
 		})
 
@@ -749,11 +741,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj1,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadata:             []byte{3},
-					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        []byte{5},
+					ObjectStream:      obj1,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -773,6 +763,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.Nil(t, entry.EncryptedMetadataNonce)
 				require.Nil(t, entry.EncryptedMetadata)
 				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
+				require.Nil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -782,12 +773,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj1,
-					Encryption:                    metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             []byte{3},
-					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        []byte{5},
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -822,6 +811,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.NotNil(t, entry.EncryptedMetadataNonce)
 				require.NotNil(t, entry.EncryptedMetadata)
 				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
+				require.NotNil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -2029,9 +2019,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			encryptedMetadata := testrand.Bytes(1024)
-			encryptedMetadataNonce := testrand.Nonce()
-			encryptedMetadataKey := testrand.Bytes(265)
+			userData := metabasetest.RandEncryptedUserData()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -2039,13 +2027,12 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
+
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream:                  committed,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					ObjectStream:              committed,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -2059,15 +2046,13 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{{
-					ObjectKey:                     committed.ObjectKey,
-					Version:                       committed.Version,
-					StreamID:                      committed.StreamID,
-					CreatedAt:                     now,
-					Status:                        metabase.CommittedUnversioned,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-					EncryptedMetadata:             encryptedMetadata,
-					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					ObjectKey:         committed.ObjectKey,
+					Version:           committed.Version,
+					StreamID:          committed.StreamID,
+					CreatedAt:         now,
+					Status:            metabase.CommittedUnversioned,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: userData,
 				}},
 			}.Check(ctx, t, db)
 
@@ -2641,14 +2626,14 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj1 := metabasetest.RandObjectStream()
+			userData := metabasetest.RandEncryptedUserData()
+
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj1,
-					Encryption:                    metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             []byte{3},
-					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        []byte{5},
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         userData,
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2665,9 +2650,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, entry := range collector {
-				require.Equal(t, entry.EncryptedMetadata, []byte{3})
-				require.Equal(t, entry.EncryptedMetadataEncryptedKey, []byte{4})
-				require.Equal(t, entry.EncryptedMetadataNonce, []byte{5})
+				require.Equal(t, userData, entry.EncryptedUserData)
 			}
 		})
 
@@ -2677,11 +2660,9 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj1,
-					Encryption:                    metabasetest.DefaultEncryption,
-					EncryptedMetadata:             []byte{3},
-					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        []byte{5},
+					ObjectStream:      obj1,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2701,6 +2682,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				require.Nil(t, entry.EncryptedMetadataNonce)
 				require.Nil(t, entry.EncryptedMetadata)
 				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
+				require.Nil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -2710,12 +2692,10 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj1,
-					Encryption:                    metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             []byte{3},
-					EncryptedMetadataEncryptedKey: []byte{4},
-					EncryptedMetadataNonce:        []byte{5},
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2750,6 +2730,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				require.NotNil(t, entry.EncryptedMetadataNonce)
 				require.NotNil(t, entry.EncryptedMetadata)
 				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
+				require.NotNil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -4180,22 +4161,20 @@ func prefixEntry(key metabase.ObjectKey) metabase.ObjectEntry {
 
 func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 	return metabase.ObjectEntry{
-		IsLatest:                      false,
-		IsPrefix:                      false,
-		ObjectKey:                     m.ObjectKey,
-		Version:                       m.Version,
-		StreamID:                      m.StreamID,
-		CreatedAt:                     m.CreatedAt,
-		ExpiresAt:                     m.ExpiresAt,
-		Status:                        m.Status,
-		SegmentCount:                  m.SegmentCount,
-		EncryptedMetadataNonce:        m.EncryptedMetadataNonce,
-		EncryptedMetadata:             m.EncryptedMetadata,
-		EncryptedMetadataEncryptedKey: m.EncryptedMetadataEncryptedKey,
-		TotalEncryptedSize:            m.TotalEncryptedSize,
-		TotalPlainSize:                m.TotalPlainSize,
-		FixedSegmentSize:              m.FixedSegmentSize,
-		Encryption:                    m.Encryption,
+		IsLatest:           false,
+		IsPrefix:           false,
+		ObjectKey:          m.ObjectKey,
+		Version:            m.Version,
+		StreamID:           m.StreamID,
+		CreatedAt:          m.CreatedAt,
+		ExpiresAt:          m.ExpiresAt,
+		Status:             m.Status,
+		SegmentCount:       m.SegmentCount,
+		EncryptedUserData:  m.EncryptedUserData,
+		TotalEncryptedSize: m.TotalEncryptedSize,
+		TotalPlainSize:     m.TotalPlainSize,
+		FixedSegmentSize:   m.FixedSegmentSize,
+		Encryption:         m.Encryption,
 	}
 }
 

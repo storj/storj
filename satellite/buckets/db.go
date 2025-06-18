@@ -5,6 +5,7 @@ package buckets
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -105,6 +106,28 @@ func (v Versioning) IsVersioned() bool {
 	return !v.IsUnversioned()
 }
 
+// String returns the name.
+func (v Versioning) String() string {
+	switch v {
+	case VersioningUnsupported:
+		return "unsupported"
+	case Unversioned:
+		return "unversioned"
+	case VersioningEnabled:
+		return "enabled"
+	case VersioningSuspended:
+		return "suspended"
+	default:
+		return fmt.Sprintf("unknown Versioning(%d)", v)
+	}
+}
+
+// Tag represents a single bucket tag.
+type Tag struct {
+	Key   string
+	Value string
+}
+
 // MinimalBucket contains minimal bucket fields for metainfo protocol.
 type MinimalBucket struct {
 	Name      []byte
@@ -177,4 +200,8 @@ type DB interface {
 	IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error)
 	// GetBucketObjectLockEnabled returns whether a bucket has Object Lock enabled.
 	GetBucketObjectLockEnabled(ctx context.Context, bucketName []byte, projectID uuid.UUID) (enabled bool, err error)
+	// GetBucketTagging returns the set of tags placed on a bucket.
+	GetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID) (tags []Tag, err error)
+	// SetBucketTagging places a set of tags on a bucket.
+	SetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID, tags []Tag) (err error)
 }

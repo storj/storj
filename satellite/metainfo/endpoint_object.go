@@ -212,9 +212,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		},
 		Encryption: encryptionParameters,
 
-		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-		EncryptedMetadataNonce:        nonce,
+		EncryptedUserData: metabase.EncryptedUserData{
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        nonce,
+		},
 
 		Retention: retention,
 		LegalHold: req.LegalHold,
@@ -662,9 +664,11 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		ExpiresAt:  expiresAt,
 		Encryption: encryptionParameters,
 
-		EncryptedMetadata:             commitObjectReq.EncryptedMetadata,
-		EncryptedMetadataEncryptedKey: commitObjectReq.EncryptedMetadataEncryptedKey,
-		EncryptedMetadataNonce:        metadataNonce,
+		EncryptedUserData: metabase.EncryptedUserData{
+			EncryptedMetadata:             commitObjectReq.EncryptedMetadata,
+			EncryptedMetadataEncryptedKey: commitObjectReq.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        metadataNonce,
+		},
 
 		Retention: retention,
 		LegalHold: beginObjectReq.LegalHold,
@@ -1393,7 +1397,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
-		if prefix[len(prefix)-1] != metabase.Delimiter {
+		if !req.ArbitraryPrefix && prefix[len(prefix)-1] != metabase.Delimiter {
 			prefix += metabase.ObjectKey(metabase.Delimiter)
 		}
 	}
@@ -1886,10 +1890,12 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		StreamID:                      id,
-		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataNonce:        encryptedMetadataNonce,
-		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		StreamID: id,
+		EncryptedUserData: metabase.EncryptedUserData{
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedMetadataNonce:        encryptedMetadataNonce,
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		},
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -2529,29 +2535,29 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 	}
 
 	// TODO we need this because of an uplink issue with how we are storing key and nonce
-	if result.EncryptedMetadataKey == nil {
+	if result.EncryptedMetadataEncryptedKey == nil {
 		streamMeta := &pb.StreamMeta{}
 		err := pb.Unmarshal(result.EncryptedMetadata, streamMeta)
 		if err != nil {
 			return nil, err
 		}
 		if streamMeta.LastSegmentMeta != nil {
-			result.EncryptedMetadataKey = streamMeta.LastSegmentMeta.EncryptedKey
-			result.EncryptedMetadataKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
+			result.EncryptedMetadataEncryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
+			result.EncryptedMetadataNonce = streamMeta.LastSegmentMeta.KeyNonce
 		}
 	}
 
 	var metadataNonce storj.Nonce
 	var err error
-	if len(result.EncryptedMetadataKeyNonce) != 0 {
-		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
+	if len(result.EncryptedMetadataNonce) != 0 {
+		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataNonce)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &pb.ObjectBeginMoveResponse{
-		EncryptedMetadataKey:      result.EncryptedMetadataKey,
+		EncryptedMetadataKey:      result.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataKeyNonce: metadataNonce,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
@@ -2668,11 +2674,11 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 			Version:    metabase.Version(streamID.Version),
 			StreamID:   streamUUID,
 		},
-		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
-		NewBucket:                    metabase.BucketName(req.NewBucket),
-		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
-		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
-		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+		NewSegmentKeys:                   protobufkeysToMetabase(req.NewSegmentKeys),
+		NewBucket:                        metabase.BucketName(req.NewBucket),
+		NewEncryptedObjectKey:            metabase.ObjectKey(req.NewEncryptedObjectKey),
+		NewEncryptedMetadataNonce:        req.NewEncryptedMetadataKeyNonce,
+		NewEncryptedMetadataEncryptedKey: req.NewEncryptedMetadataKey,
 
 		NewDisallowDelete: !canDelete,
 
@@ -2949,14 +2955,17 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 			Version:    metabase.Version(streamID.Version),
 			StreamID:   streamUUID,
 		},
-		NewStreamID:                  newStreamID,
-		NewSegmentKeys:               protobufkeysToMetabase(req.NewSegmentKeys),
-		NewBucket:                    metabase.BucketName(req.NewBucket),
-		NewEncryptedObjectKey:        metabase.ObjectKey(req.NewEncryptedObjectKey),
-		OverrideMetadata:             req.OverrideMetadata,
-		NewEncryptedMetadata:         req.NewEncryptedMetadata,
-		NewEncryptedMetadataKeyNonce: req.NewEncryptedMetadataKeyNonce,
-		NewEncryptedMetadataKey:      req.NewEncryptedMetadataKey,
+		NewStreamID:           newStreamID,
+		NewSegmentKeys:        protobufkeysToMetabase(req.NewSegmentKeys),
+		NewBucket:             metabase.BucketName(req.NewBucket),
+		NewEncryptedObjectKey: metabase.ObjectKey(req.NewEncryptedObjectKey),
+		OverrideMetadata:      req.OverrideMetadata,
+
+		NewEncryptedUserData: metabase.EncryptedUserData{
+			EncryptedMetadata:             req.NewEncryptedMetadata,
+			EncryptedMetadataNonce:        nonceBytes(req.NewEncryptedMetadataKeyNonce),
+			EncryptedMetadataEncryptedKey: req.NewEncryptedMetadataKey,
+		},
 
 		// TODO(ver): currently we always allow deletion, to not change behaviour.
 		NewDisallowDelete: false,
@@ -2988,6 +2997,13 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	return &pb.ObjectFinishCopyResponse{
 		Object: protoObject,
 	}, nil
+}
+
+func nonceBytes(nonce storj.Nonce) []byte {
+	if nonce.IsZero() {
+		return nil
+	}
+	return nonce.Bytes()
 }
 
 // protobufkeysToMetabase converts []*pb.EncryptedKeyAndNonce to []metabase.EncryptedKeyAndNonce.

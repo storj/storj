@@ -76,6 +76,7 @@ export class FrontendConfig {
     objectMountConsultationEnabled: boolean;
     csrfToken: string;
     billingAddFundsEnabled: boolean;
+    addCardAuthorizationEnabled: boolean;
     maxAddFundsAmount: number;
     minAddFundsAmount: number;
     downloadPrefixEnabled: boolean;
@@ -88,6 +89,7 @@ export class FrontendConfig {
     storageMBMonthCents: string;
     egressMBCents: string;
     segmentMonthCents: string;
+    productBasedInvoicingEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

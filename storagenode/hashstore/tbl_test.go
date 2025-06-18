@@ -321,7 +321,7 @@ func TestTable_InvalidHeaders(t *testing.T) {
 	hdr := TblHeader{
 		Created:  1,
 		HashKey:  true,
-		Kind:     kind_HashTbl,
+		Kind:     TableKind_HashTbl,
 		LogSlots: 4,
 	}
 

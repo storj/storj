@@ -26,6 +26,13 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 ) ;
+CREATE TABLE api_key_tails (
+	tail bytea NOT NULL,
+	parent_tail bytea NOT NULL,
+	caveat bytea NOT NULL,
+	last_used timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tail )
+) ;
 CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
@@ -552,6 +559,7 @@ CREATE TABLE bucket_metainfos (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
+	tags bytea,
 	user_agent bytea,
 	versioning integer NOT NULL DEFAULT 0,
 	object_lock_enabled boolean NOT NULL DEFAULT false,

@@ -77,7 +77,7 @@ func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 	header := TblHeader{
 		Created:  created,
 		HashKey:  true,
-		Kind:     kind_MemTbl,
+		Kind:     TableKind_MemTbl,
 		LogSlots: logSlots,
 	}
 
@@ -115,7 +115,7 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 	header, err := ReadTblHeader(fh)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	} else if header.Kind != kind_MemTbl {
+	} else if header.Kind != TableKind_MemTbl {
 		return nil, Error.New("invalid kind: %d", header.Kind)
 	} else if header.LogSlots > tbl_maxLogSlots {
 		return nil, Error.New("logSlots too large: logSlots=%d", header.LogSlots)
@@ -364,9 +364,7 @@ func (m *MemTbl) Close() {
 	defer m.opMu.Unlock()
 
 	if m.mmap != nil {
-		if err := platform.Munmap(m.mmap); err != nil {
-			panic(err)
-		}
+		_ = platform.Munmap(m.mmap)
 		m.mmap = nil
 	}
 
@@ -644,6 +642,20 @@ func (m *MemTbl) ensureAlignedLockedSlow(ctx context.Context) (err error) {
 
 	m.align = false
 	return nil
+}
+
+// Sync syncs any modifications to disk.
+func (m *MemTbl) Sync(ctx context.Context) (err error) {
+	if err := m.opMu.Lock(ctx, &m.closed); err != nil {
+		return err
+	}
+	defer m.opMu.Unlock()
+
+	if err := m.flushBufferLocked(ctx); err != nil {
+		return err
+	}
+
+	return Error.Wrap(m.fh.Sync())
 }
 
 //

@@ -40,20 +40,22 @@ func TestStore_SmallBlobReadsDontCreateData(t *testing.T) {
 	}
 
 	for _, format := range []blobstore.FormatVersion{filestore.FormatV0, filestore.FormatV1} {
-		id := testrand.PieceID()
-		w, err := store.WriterForFormatVersion(ctx, sat, id, format, pb.PieceHashAlgorithm_BLAKE3)
-		require.NoError(t, err)
-		_, err = w.Write([]byte("0123456789"))
-		require.NoError(t, err)
-		require.NoError(t, w.Commit(ctx, &pb.PieceHeader{}))
+		func() {
+			id := testrand.PieceID()
+			w, err := store.WriterForFormatVersion(ctx, sat, id, format, pb.PieceHashAlgorithm_BLAKE3)
+			require.NoError(t, err)
+			_, err = w.Write([]byte("0123456789"))
+			require.NoError(t, err)
+			require.NoError(t, w.Commit(ctx, &pb.PieceHeader{}))
 
-		r, err := store.Reader(ctx, sat, id)
-		require.NoError(t, err)
-		defer func() { _ = r.Close() }()
-		got, err := io.ReadAll(r)
-		require.NoError(t, err)
-		require.NoError(t, r.Close())
-		require.Equal(t, got, []byte("0123456789"))
+			r, err := store.Reader(ctx, sat, id)
+			require.NoError(t, err)
+			defer func() { _ = r.Close() }()
+			got, err := io.ReadAll(r)
+			require.NoError(t, err)
+			require.NoError(t, r.Close())
+			require.Equal(t, got, []byte("0123456789"))
+		}()
 	}
 }
 

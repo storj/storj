@@ -205,8 +205,15 @@ func (signer *Signer) Sign(ctx context.Context, node *pb.Node, pieceNum int32) (
 	return addressedLimit, nil
 }
 
-// SignLite signs an order limit for the specified node omitting any fields that differ per node except
-// for the node id, including the satellite signature.
+// SignLite is a streamlined version of the Sign method.
+//
+// While both methods are responsible for generating signed order limits, SignLite focuses on
+// creating a lightweight addressed order limit for a specific storage node without any
+// information that differ between them except the node ID and without the satellite signature
+// because we have observed that significantly improves compression.
+//
+// This makes SignLite suitable for scenarios where minimal overhead is required, at the expense
+// of having to work wwith pre-validated or trusted inputs.
 func (signer *Signer) SignLite(ctx context.Context, node *pb.Node, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 

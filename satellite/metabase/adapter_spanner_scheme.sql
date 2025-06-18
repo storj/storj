@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS objects
     retention_mode                   INT64,
     retain_until                     TIMESTAMP,
     product_id                       INT64,
+    encrypted_etag                   BYTES(MAX),
 ) PRIMARY KEY (project_id, bucket_name, object_key, version);
 
 CREATE TABLE IF NOT EXISTS node_aliases

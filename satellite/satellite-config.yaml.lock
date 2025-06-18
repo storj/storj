@@ -244,6 +244,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether active sessions table view should be shown
 # console.active-sessions-view-enabled: false
 
+# whether card authorization is enabled when adding a card
+# console.add-card-authorization-enabled: false
+
 # server address of the http api gateway and frontend app
 # console.address: :10100
 
@@ -467,7 +470,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.media-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
 
 # minimum amount (in cents) allowed to be added to an account balance.
-# console.min-add-funds-amount: 100
+# console.min-add-funds-amount: 1000
 
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
@@ -998,6 +1001,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
+# enable the use of the bucket tagging endpoints
+# metainfo.bucket-tagging-enabled: false
+
 # the database connection string to use
 # metainfo.database-url: postgres://
 
@@ -1297,6 +1303,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
+
+# the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold.
+# payments.delete-project-cost-threshold: 0
 
 # minimum amount in cents to charge customers per invoice period (0 to disable)
 # payments.minimum-charge.amount: 0

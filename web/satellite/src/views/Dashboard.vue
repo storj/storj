@@ -414,6 +414,8 @@ const isCouponCard = computed<boolean>(() => {
         selectedProject.value.ownerId === usersStore.state.user.id;
 });
 
+const productBasedInvoicingEnabled = computed<boolean>(() => configStore.state.config.productBasedInvoicingEnabled);
+
 /**
  * Indicates if billing features are enabled.
  */
@@ -426,7 +428,13 @@ const couponProgress = computed((): number => {
     if (!billingStore.state.coupon) {
         return 0;
     }
-    const charges = billingStore.state.projectCharges.getPrice();
+
+    let charges;
+    if (productBasedInvoicingEnabled.value) {
+        charges = billingStore.state.productCharges.getPrice();
+    } else {
+        charges = billingStore.state.projectCharges.getPrice();
+    }
     const couponValue = billingStore.state.coupon.amountOff;
     if (charges > couponValue) {
         return 100;
@@ -926,11 +934,16 @@ onMounted(async (): Promise<void> => {
 
     if (billingEnabled.value) {
         promises.push(
-            billingStore.getProjectUsageAndChargesCurrentRollup(),
             billingStore.getBalance(),
             billingStore.getCreditCards(),
             billingStore.getCoupon(),
         );
+
+        if (productBasedInvoicingEnabled.value) {
+            promises.push(billingStore.getProductUsageAndChargesCurrentRollup());
+        } else {
+            promises.push(billingStore.getProjectUsageAndChargesCurrentRollup());
+        }
     }
 
     if (configStore.state.config.nativeTokenPaymentsEnabled && billingEnabled.value) {

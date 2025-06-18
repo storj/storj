@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplink/internal"
 	"storj.io/storj/cmd/uplink/ulloc"
 	"storj.io/uplink"
 )
@@ -62,10 +63,10 @@ func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
 
 	ap.notBefore = params.Flag("not-before",
 		"Disallow access before this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700', 'none')",
-		nil, clingy.Transform(parseHumanDateNotBefore), clingy.Type("relative_date"), clingy.Optional).(*time.Time)
+		nil, clingy.Transform(internal.ParseHumanDateNotBefore), clingy.Type("relative_date"), clingy.Optional).(*time.Time)
 	ap.notAfter = params.Flag("not-after",
 		"Disallow access after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700', 'none')",
-		nil, clingy.Transform(parseHumanDateNotAfter), clingy.Type("relative_date"), clingy.Optional).(*time.Time)
+		nil, clingy.Transform(internal.ParseHumanDateNotAfter), clingy.Type("relative_date"), clingy.Optional).(*time.Time)
 
 	params.Break()
 

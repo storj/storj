@@ -93,7 +93,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	segmentInfo, err := metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segmentInfo, err := metabaseDB.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 		StreamID: streamID,
 		Position: metabase.SegmentPositionFromEncoded(streamPosition),
 	})

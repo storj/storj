@@ -163,7 +163,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	for _, segment := range segments {
-		segment, err := metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		segment, err := metabaseDB.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 			StreamID: segment.StreamID,
 			Position: metabase.SegmentPositionFromEncoded(segment.Position),
 		})
@@ -240,7 +240,9 @@ func collectInputSegments(args []string) (segments []segment, err error) {
 // * download whole segment into memory, use all available pieces
 // * reupload segment into new nodes
 // * replace segment.Pieces field with just new nodes.
-func repairSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment) {
+func repairSegment(
+	ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.SegmentForRepair,
+) {
 	log = log.With(zap.Stringer("stream-id", segment.StreamID), zap.Uint64("position", segment.Position.Encode()))
 	segmentData, failedDownloads, err := downloadSegment(ctx, log, peer, metabaseDB, segment)
 	if err != nil {
@@ -260,7 +262,10 @@ func repairSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repaire
 	printOutput(segment.StreamID, segment.Position.Encode(), "successful", len(segment.Pieces), failedDownloads)
 }
 
-func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment, segmentData []byte) error {
+func reuploadSegment(
+	ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB,
+	segment metabase.SegmentForRepair, segmentData []byte,
+) error {
 	excludeNodeIDs := make([]storj.NodeID, 0, len(segment.Pieces))
 	for _, piece := range segment.Pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.StorageNode)
@@ -328,7 +333,9 @@ func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 	})
 }
 
-func downloadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment) ([]byte, int, error) {
+func downloadSegment(
+	ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.SegmentForRepair,
+) ([]byte, int, error) {
 	// AdminFetchPieces downloads all pieces for specified segment and returns readers, readers data is kept on disk or inmemory
 	pieceInfos, err := peer.SegmentRepairer.AdminFetchPieces(ctx, log, &segment, "")
 	if err != nil {

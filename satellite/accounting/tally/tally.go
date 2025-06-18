@@ -248,6 +248,8 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 // Purge removes tallies older than the retention period.
 func (service *Service) Purge(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if service.config.RetentionDays == 0 {
 		return nil
 	}
