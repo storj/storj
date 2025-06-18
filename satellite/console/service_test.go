@@ -1230,6 +1230,51 @@ func TestService(t *testing.T) {
 				_, err = service.GetBucketMetadata(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
+			t.Run("DeleteDomain", func(t *testing.T) {
+				project, err := sat.AddProject(ctx, up1Proj.OwnerID, "Delete Domain")
+				require.NoError(t, err)
+
+				d := console.Domain{
+					ProjectID:       project.ID,
+					ProjectPublicID: project.PublicID,
+					CreatedBy:       project.OwnerID,
+					Subdomain:       "delete.example.com",
+					Prefix:          "delete",
+					AccessID:        "delete",
+				}
+
+				createdDomain, err := service.CreateDomain(userCtx1, d)
+				require.NoError(t, err)
+				require.NotNil(t, createdDomain)
+
+				err = service.DeleteDomain(userCtx1, project.PublicID, createdDomain.Subdomain)
+				require.NoError(t, err)
+
+				createdDomain, err = service.CreateDomain(userCtx1, d)
+				require.NoError(t, err)
+				require.NotNil(t, createdDomain)
+
+				err = service.DeleteDomain(userCtx2, project.PublicID, createdDomain.Subdomain)
+				require.True(t, console.ErrUnauthorized.Has(err))
+
+				anotherUser, err := sat.API.DB.Console().Users().Get(ctx, up2Proj.OwnerID)
+				require.NoError(t, err)
+
+				_, err = service.AddProjectMembers(userCtx1, project.PublicID, []string{anotherUser.Email})
+				require.NoError(t, err)
+
+				_, err = service.UpdateProjectMemberRole(userCtx1, anotherUser.ID, project.PublicID, console.RoleMember)
+				require.NoError(t, err)
+
+				err = service.DeleteDomain(userCtx2, project.PublicID, createdDomain.Subdomain)
+				require.True(t, console.ErrForbidden.Has(err))
+
+				_, err = service.UpdateProjectMemberRole(userCtx1, anotherUser.ID, project.PublicID, console.RoleAdmin)
+				require.NoError(t, err)
+
+				err = service.DeleteDomain(userCtx2, project.PublicID, createdDomain.Subdomain)
+				require.NoError(t, err)
+			})
 
 			t.Run("DeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
 				secret, err := macaroon.NewSecret()

@@ -6,12 +6,14 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -26,6 +28,9 @@ var (
 	// ErrDomainsAPI - console domains api error type.
 	ErrDomainsAPI = errs.Class("console domains")
 )
+
+// maxSubdomainLength is the maximum length of a subdomain, according to RFC 1035.
+const maxSubdomainLength = 253
 
 // Domains is an api controller that exposes all domains functionality.
 type Domains struct {
@@ -76,6 +81,21 @@ func (d *Domains) CreateDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if utf8.RuneCountInString(payload.Subdomain) < 3 || utf8.RuneCountInString(payload.Subdomain) > maxSubdomainLength {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("subdomain length must be between 3 and %d characters", maxSubdomainLength))
+		return
+	}
+
+	if utf8.RuneCountInString(payload.Prefix) < 3 {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("prefix length must be at least 3 characters"))
+	}
+
+	err = d.service.ValidateLongFormInputLengths(&payload.Prefix)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("prefix is too long: %w", err))
+		return
+	}
+
 	payload.ProjectPublicID = projectID
 
 	_, err = d.service.CreateDomain(ctx, payload)
@@ -91,6 +111,59 @@ func (d *Domains) CreateDomain(w http.ResponseWriter, r *http.Request) {
 		}
 
 		d.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
+// DeleteDomain deletes a domain for a given project.
+func (d *Domains) DeleteDomain(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if !d.domainsPageEnabled {
+		d.serveJSONError(ctx, w, http.StatusNotImplemented, errs.New("domains page is disabled"))
+		return
+	}
+
+	idParam, ok := mux.Vars(r)["projectID"]
+	if !ok {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing projectID route param"))
+		return
+	}
+
+	projectID, err := uuid.FromString(idParam)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	subdomain := strings.TrimSpace(string(bodyBytes))
+
+	if utf8.RuneCountInString(subdomain) < 3 || utf8.RuneCountInString(subdomain) > maxSubdomainLength {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("subdomain length must be between 3 and %d characters", maxSubdomainLength))
+		return
+	}
+
+	err = d.service.DeleteDomain(ctx, projectID, subdomain)
+	if err != nil {
+		switch {
+		case console.ErrUnauthorized.Has(err):
+			d.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+		case console.ErrNoSubdomain.Has(err):
+			d.serveJSONError(ctx, w, http.StatusNotFound, err)
+		case console.ErrForbidden.Has(err):
+			d.serveJSONError(ctx, w, http.StatusForbidden, err)
+		default:
+			d.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		}
 	}
 }
 

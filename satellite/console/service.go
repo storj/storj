@@ -4451,6 +4451,36 @@ func (s *Service) CreateDomain(ctx context.Context, domain Domain) (created *Dom
 	return created, Error.Wrap(err)
 }
 
+// DeleteDomain deletes a domain.
+func (s *Service) DeleteDomain(ctx context.Context, projectID uuid.UUID, subdomain string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "delete domain", zap.String("projectPublicID", projectID.String()))
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	membership, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	pid := membership.project.ID
+
+	// If not project owner or admin, make sure the user is the creator of the domain.
+	if membership.project.OwnerID != user.ID && membership.membership.Role != RoleAdmin {
+		domain, err := s.store.Domains().GetByProjectIDAndSubdomain(ctx, pid, subdomain)
+		if err != nil {
+			return err
+		}
+		if domain.CreatedBy != user.ID {
+			return ErrForbidden.New("only project owner, admin, or the creator can delete this domain")
+		}
+	}
+
+	return Error.Wrap(s.store.Domains().Delete(ctx, pid, subdomain))
+}
+
 // ListDomains returns paged domains list for a given Project.
 func (s *Service) ListDomains(ctx context.Context, projectID uuid.UUID, cursor DomainCursor) (page *DomainPage, err error) {
 	defer mon.Task()(&ctx)(&err)
