@@ -200,6 +200,7 @@ func NewSegmentRepairer(
 
 // Run background services needed for segment repair.
 func (repairer *SegmentRepairer) Run(ctx context.Context) error {
+	// TODO(storj#7502): Add the nodesForRepairCache background execution
 	if repairer.participatingNodesCache == nil {
 		return nil
 	}
@@ -376,7 +377,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			retrievablePieces = append(retrievablePieces, piece)
 		}
 	}
-	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, segment, retrievablePieces)
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(
+		ctx, segment, retrievablePieces, repairer.overlay.GetOnlineNodesForRepair,
+	)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
@@ -946,7 +949,9 @@ func (repairer *SegmentRepairer) AdminFetchPieces(
 
 	// we treat all pieces as "healthy" for our purposes here; we want to download as many
 	// of them as we reasonably can. Thus, we pass in seg.Pieces for 'healthy'
-	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(ctx, *seg, seg.Pieces)
+	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(
+		ctx, *seg, seg.Pieces, repairer.overlay.GetOnlineNodesForRepair,
+	)
 	if err != nil {
 		return nil, errs.New("could not create order limits: %w", err)
 	}

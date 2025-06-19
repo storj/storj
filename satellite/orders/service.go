@@ -503,7 +503,14 @@ func (service *Service) createAuditOrderLimitWithSigner(ctx context.Context, nod
 //
 // The length of the returned orders slice is the total number of pieces of the
 // segment, setting to null the ones which don't correspond to a healthy piece.
-func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment metabase.SegmentForRepair, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
+//
+// getNodes is a function to get the node information of the passed node IDs. The returned map may
+// not contain all the nodes because not all of them may fulfill the requirements to upload
+// repaired pieces. If getNodes is nil, then it panics.
+func (service *Service) CreateGetRepairOrderLimits(
+	ctx context.Context, segment metabase.SegmentForRepair, healthy metabase.Pieces,
+	getNodes func(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error),
+) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pieceSize := segment.PieceSize()
@@ -514,7 +521,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, segment 
 		nodeIDs[i] = piece.StorageNode
 	}
 
-	nodes, err := service.overlay.GetOnlineNodesForRepair(ctx, nodeIDs)
+	nodes, err := getNodes(ctx, nodeIDs)
 	if err != nil {
 		service.log.Debug("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
