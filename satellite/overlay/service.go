@@ -47,10 +47,21 @@ var ErrLowDifficulty = errs.Class("node id difficulty too low")
 //
 // architecture: Database
 type DB interface {
-	// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
-	// The return value contains necessary information to create orders as well as nodes'
+	// GetOnlineNodesForAudit returns a map of nodes for the supplied nodeIDs.
+	// The return value contains necessary information to create audit orders as well as nodes'
 	// current reputation status.
-	GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
+	GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
+	// GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
+	// The return value contains necessary information to create repair orders as well as nodes'
+	// current reputation status.
+	// TODO(storj#7502): If after reducing this, check if we can replace the calls to
+	// GetOnlineNodesForAudit by this one and if we can, unify the methods as before
+	// GetOnlineNodesForAuditRepair, otherwise, add a comment to see if we can optimize.
+	// Audits as we did with repairs. Reminder to remove unused methods from overlaycache.go which is
+	// the implementation of this interface.
+	GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
+	// TODO(storj#7502): Document or remove this method in favor of using one of the above in tests
+	TestGetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*nodeselection.SelectedNode, err error)
 	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading
@@ -425,11 +436,25 @@ func (service *Service) CachedGet(ctx context.Context, nodeID storj.NodeID) (_ *
 	return service.DownloadSelectionCache.GetNode(ctx, nodeID)
 }
 
-// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
-func (service *Service) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
+// GetOnlineNodesForAudit returns a map of nodes for the supplied nodeIDs.
+func (service *Service) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetOnlineNodesForAuditRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
+	return service.db.GetOnlineNodesForAudit(ctx, nodeIDs, service.config.Node.OnlineWindow)
+}
+
+// GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
+func (service *Service) GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetOnlineNodesForRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
+}
+
+// TestGetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
+func (service *Service) TestGetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.TestGetOnlineNodesForAuditRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
 // GetNodeIPsFromPlacement returns a map of node ip:port for the supplied nodeIDs. Results are filtered out by placement.
