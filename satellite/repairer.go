@@ -67,11 +67,10 @@ type Repairer struct {
 		Reporter audit.Reporter
 	}
 
-	EcRepairer              *repairer.ECRepairer
-	SegmentRepairer         *repairer.SegmentRepairer
-	ParticipatingNodesCache *repairer.ParticipatingNodesCache
-	Queue                   queue.RepairQueue
-	Repairer                *repairer.Service
+	EcRepairer      *repairer.ECRepairer
+	SegmentRepairer *repairer.SegmentRepairer
+	Queue           queue.RepairQueue
+	Repairer        *repairer.Service
 }
 
 // NewRepairer creates a new repairer peer.
