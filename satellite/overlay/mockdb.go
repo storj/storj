@@ -51,6 +51,11 @@ func (m *Mockdb) GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.No
 	panic("implement me")
 }
 
+// GetAllOnlineNodesForRepair satisfies nodeevents.DB interface.
+func (m *Mockdb) GetAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error) {
+	panic("implement me")
+}
+
 // TestGetOnlineNodesForAuditRepair satisfies nodeevents.DB interface.
 func (m *Mockdb) TestGetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error) {
 	panic("implement me")
