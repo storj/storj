@@ -1418,6 +1418,9 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			// set one node to US to filter it out from IP results
 			usNode := planet.FindNode(jonesSegments[0].Pieces[0].StorageNode)
+			usNode.Contact.Chore.Pause(ctx)
+			defer usNode.Contact.Chore.Restart(ctx)
+
 			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, usNode.ID(), "US"))
 			require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
 

@@ -666,6 +666,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
 			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
 		}
 
