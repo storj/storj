@@ -335,6 +335,8 @@ func TestGetNodesExcludeCountryCodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.StorageNodes[0].Contact.Chore.Pause(ctx)
+
 		err := planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, planet.StorageNodes[0].ID(), "FR")
 		require.NoError(t, err)
 

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -30,13 +31,16 @@ var (
 type Domains struct {
 	log     *zap.Logger
 	service *console.Service
+
+	domainsPageEnabled bool
 }
 
 // NewDomains is a constructor for Domains controller.
-func NewDomains(log *zap.Logger, service *console.Service) *Domains {
+func NewDomains(log *zap.Logger, service *console.Service, domainsPageEnabled bool) *Domains {
 	return &Domains{
-		log:     log,
-		service: service,
+		log:                log,
+		service:            service,
+		domainsPageEnabled: domainsPageEnabled,
 	}
 }
 
@@ -45,6 +49,13 @@ func (d *Domains) CreateDomain(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if !d.domainsPageEnabled {
+		d.serveJSONError(ctx, w, http.StatusNotImplemented, errs.New("domains page is disabled"))
+		return
+	}
 
 	idParam, ok := mux.Vars(r)["projectID"]
 	if !ok {
@@ -83,6 +94,108 @@ func (d *Domains) CreateDomain(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetProjectDomains returns paged domains by project ID.
+func (d *Domains) GetProjectDomains(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if !d.domainsPageEnabled {
+		d.serveJSONError(ctx, w, http.StatusNotImplemented, errs.New("domains page is disabled"))
+		return
+	}
+
+	idParam, ok := mux.Vars(r)["projectID"]
+	if !ok {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing projectID route param"))
+		return
+	}
+
+	projectID, err := uuid.FromString(idParam)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	query := r.URL.Query()
+
+	limitParam := query.Get("limit")
+	if limitParam == "" {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'limit' can't be empty"))
+		return
+	}
+
+	limit, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	pageParam := query.Get("page")
+	if pageParam == "" {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'page' can't be empty"))
+		return
+	}
+
+	page, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	orderParam := query.Get("order")
+	if orderParam == "" {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'order' can't be empty"))
+		return
+	}
+
+	order, err := strconv.ParseUint(orderParam, 10, 32)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	orderDirectionParam := query.Get("orderDirection")
+	if orderDirectionParam == "" {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("parameter 'orderDirection' can't be empty"))
+		return
+	}
+
+	orderDirection, err := strconv.ParseUint(orderDirectionParam, 10, 32)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	searchString := query.Get("search")
+
+	cursor := console.DomainCursor{
+		Search:         searchString,
+		Limit:          uint(limit),
+		Page:           uint(page),
+		Order:          console.DomainOrder(order),
+		OrderDirection: console.OrderDirection(orderDirection),
+	}
+
+	domainsPage, err := d.service.ListDomains(ctx, projectID, cursor)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			d.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		d.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(domainsPage)
+	if err != nil {
+		d.log.Error("failed to write json domains page response", zap.Error(ErrDomainsAPI.Wrap(err)))
+	}
+}
+
 type checkDNSRecordsResponse struct {
 	IsSuccess     bool     `json:"isSuccess"`
 	IsVerifyError bool     `json:"isVerifyError"`
@@ -99,6 +212,11 @@ func (d *Domains) CheckDNSRecords(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
+
+	if !d.domainsPageEnabled {
+		d.serveJSONError(ctx, w, http.StatusNotImplemented, errs.New("domains page is disabled"))
+		return
+	}
 
 	_, err = console.GetUser(ctx)
 	if err != nil {

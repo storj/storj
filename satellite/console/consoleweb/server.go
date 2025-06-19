@@ -395,12 +395,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/limit-increase", server.withAuth(http.HandlerFunc(authController.RequestLimitIncrease))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/change-email", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.ChangeEmail)))).Methods(http.MethodPost, http.MethodOptions)
 
-	domainsController := consoleapi.NewDomains(logger, service)
+	domainsController := consoleapi.NewDomains(logger, service, config.DomainsPageEnabled)
 	domainsRouter := router.PathPrefix("/api/v0/domains").Subrouter()
 	domainsRouter.Use(server.withCORS)
 	domainsRouter.Use(server.withAuth)
 	domainsRouter.Handle("/check-dns", http.HandlerFunc(domainsController.CheckDNSRecords)).Methods(http.MethodPost, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}", server.withCSRFProtection(http.HandlerFunc(domainsController.CreateDomain))).Methods(http.MethodPost, http.MethodOptions)
+	domainsRouter.Handle("/project/{projectID}/paged", http.HandlerFunc(domainsController.GetProjectDomains)).Methods(http.MethodGet, http.MethodOptions)
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)

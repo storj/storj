@@ -42,6 +42,9 @@ func TestDurabilityIntegration(t *testing.T) {
 			}
 		}
 
+		planet.StorageNodes[0].Contact.Chore.Pause(ctx)
+		planet.StorageNodes[1].Contact.Chore.Pause(ctx)
+
 		{
 			// we uploaded to 5 nodes, having 2 node in HU means that we control at least 1 piece, but max 2
 			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, planet.StorageNodes[0].NodeURL().ID, location.Hungary.String()))

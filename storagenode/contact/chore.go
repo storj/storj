@@ -110,6 +110,16 @@ func (chore *Chore) Pause(ctx context.Context) {
 	}
 }
 
+// Restart restarts all the cycles in the contact chore.
+func (chore *Chore) Restart(ctx context.Context) {
+	chore.started.Wait(ctx)
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	for _, cycle := range chore.cycles {
+		cycle.Restart()
+	}
+}
+
 // Trigger ensures that each cycle is done at least once.
 // If the cycle is currently running it waits for the previous to complete and then runs.
 func (chore *Chore) Trigger(ctx context.Context) {
