@@ -73,19 +73,34 @@ func (mr *MockOverlayForOrdersMockRecorder) Get(ctx, nodeID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockOverlayForOrders)(nil).Get), ctx, nodeID)
 }
 
-// GetOnlineNodesForAuditRepair mocks base method.
-func (m *MockOverlayForOrders) GetOnlineNodesForAuditRepair(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+// GetOnlineNodesForAudit mocks base method.
+func (m *MockOverlayForOrders) GetOnlineNodesForAudit(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOnlineNodesForAuditRepair", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetOnlineNodesForAudit", arg0, arg1)
 	ret0, _ := ret[0].(map[storj.NodeID]*overlay.NodeReputation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetOnlineNodesForAuditRepair indicates an expected call of GetOnlineNodesForAuditRepair.
-func (mr *MockOverlayForOrdersMockRecorder) GetOnlineNodesForAuditRepair(arg0, arg1 any) *gomock.Call {
+// GetOnlineNodesForAudit indicates an expected call of GetOnlineNodesForAudit.
+func (mr *MockOverlayForOrdersMockRecorder) GetOnlineNodesForAudit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOnlineNodesForAuditRepair", reflect.TypeOf((*MockOverlayForOrders)(nil).GetOnlineNodesForAuditRepair), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOnlineNodesForAudit", reflect.TypeOf((*MockOverlayForOrders)(nil).GetOnlineNodesForAudit), arg0, arg1)
+}
+
+// GetOnlineNodesForRepair mocks base method.
+func (m *MockOverlayForOrders) GetOnlineNodesForRepair(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOnlineNodesForRepair", arg0, arg1)
+	ret0, _ := ret[0].(map[storj.NodeID]*overlay.NodeReputation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetOnlineNodesForRepair indicates an expected call of GetOnlineNodesForRepair.
+func (mr *MockOverlayForOrdersMockRecorder) GetOnlineNodesForRepair(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOnlineNodesForRepair", reflect.TypeOf((*MockOverlayForOrders)(nil).GetOnlineNodesForRepair), arg0, arg1)
 }
 
 // IsOnline mocks base method.
@@ -100,4 +115,19 @@ func (m *MockOverlayForOrders) IsOnline(node *overlay.NodeDossier) bool {
 func (mr *MockOverlayForOrdersMockRecorder) IsOnline(node any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsOnline", reflect.TypeOf((*MockOverlayForOrders)(nil).IsOnline), node)
+}
+
+// TestGetOnlineNodesForAuditRepair mocks base method.
+func (m *MockOverlayForOrders) TestGetOnlineNodesForAuditRepair(arg0 context.Context, arg1 []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TestGetOnlineNodesForAuditRepair", arg0, arg1)
+	ret0, _ := ret[0].(map[storj.NodeID]*overlay.NodeReputation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TestGetOnlineNodesForAuditRepair indicates an expected call of TestGetOnlineNodesForAuditRepair.
+func (mr *MockOverlayForOrdersMockRecorder) TestGetOnlineNodesForAuditRepair(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TestGetOnlineNodesForAuditRepair", reflect.TypeOf((*MockOverlayForOrders)(nil).TestGetOnlineNodesForAuditRepair), arg0, arg1)
 }
