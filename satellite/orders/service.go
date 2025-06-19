@@ -54,7 +54,6 @@ type Config struct {
 type Overlay interface {
 	CachedGetOnlineNodesForGet(context.Context, []storj.NodeID) (map[storj.NodeID]*nodeselection.SelectedNode, error)
 	GetOnlineNodesForAudit(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
-	GetOnlineNodesForRepair(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
 	TestGetOnlineNodesForAuditRepair(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
 	Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error)
 	IsOnline(node *overlay.NodeDossier) bool
@@ -389,7 +388,7 @@ func (service *Service) CreateAuditOrderLimits(
 	}
 
 	// TODO(storj#7502): Check if what it calls CreateAuditOrderLimits only need the same fields as
-	// overlay.GetOnlineNodesForRepair. If that's the case unify them again under
+	// overlaycache.GetOnlineNodesForRepair. If that's the case unify them again under
 	// overlay.GetOnlineNodesForAuditRepair.
 	nodes, err := service.overlay.GetOnlineNodesForAudit(ctx, nodeIDs)
 	if err != nil {

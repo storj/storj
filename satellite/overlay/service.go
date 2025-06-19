@@ -60,6 +60,11 @@ type DB interface {
 	// Audits as we did with repairs. Reminder to remove unused methods from overlaycache.go which is
 	// the implementation of this interface.
 	GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
+	// GetAllOnlineNodesForRepair returns a map of all the online and valid nodes for upload repaired
+	// pieces.
+	// The return value contains necessary information to create repair orders as well as nodes'
+	// current reputation status.
+	GetAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
 	// TODO(storj#7502): Document or remove this method in favor of using one of the above in tests
 	TestGetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
@@ -448,6 +453,13 @@ func (service *Service) GetOnlineNodesForRepair(ctx context.Context, nodeIDs []s
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetOnlineNodesForRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
+}
+
+// GetAllOnlineNodesForRepair returns a map of online and valid nodes to upload repaired pieces.
+func (service *Service) GetAllOnlineNodesForRepair(ctx context.Context) (_ map[storj.NodeID]*NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetAllOnlineNodesForRepair(ctx, service.config.Node.OnlineWindow)
 }
 
 // TestGetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.

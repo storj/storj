@@ -1493,6 +1493,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
 
+# enable cache for nodes to upload repaired pieces
+# repairer.nodes-for-repair-cache-enabled: false
+
+# how often nodes for repaired pieces cache should be refreshed
+# repairer.nodes-for-repair-cache-interval: 5m0s
+
+# when does nodes for repaired pieces cache start blocking
+# repairer.nodes-for-repair-cache-stale: 10m0s
+
 # enable cache for participating nodes
 # repairer.participating-node-cache-enabled: false
 

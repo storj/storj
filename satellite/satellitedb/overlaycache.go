@@ -319,6 +319,23 @@ func (cache *overlaycache) GetOnlineNodesForRepair(ctx context.Context, nodeIDs 
 	return nodes, err
 }
 
+// GetAllOnlineNodesForRepair returns a map of all online and valid nodes for upload repaired
+// pieces.
+func (cache *overlaycache) GetAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
+	for {
+		nodes, err = cache.getAllOnlineNodesForRepair(ctx, onlineWindow)
+		if err != nil {
+			if retrydb.ShouldRetryIdempotent(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
 // TestGetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 func (cache *overlaycache) TestGetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
 	for {
@@ -420,6 +437,63 @@ func (cache *overlaycache) getOnlineNodesForRepair(ctx context.Context, nodeIDs 
 				AND exit_finished_at IS NULL
 				AND last_contact_success > ?
 		`), storj.NodeIDList(nodeIDs).Bytes(), time.Now().Add(-onlineWindow))
+	default:
+		return nil, Error.New("unsupported implementation")
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	nodes := make(map[storj.NodeID]*overlay.NodeReputation)
+	for rows.Next() {
+		var node overlay.NodeReputation
+		node.Address = &pb.NodeAddress{}
+
+		var lastIPPort sql.NullString
+
+		err = rows.Scan(
+			&node.ID, &node.Reputation.Email, &lastIPPort,
+			&node.Address.Address,
+			&node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
+		nodes[node.ID] = &node
+	}
+
+	return nodes, Error.Wrap(rows.Err())
+}
+
+func (cache *overlaycache) getAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows tagsql.Rows
+
+	switch cache.db.impl {
+	case dbutil.Cockroach, dbutil.Postgres:
+		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+			SELECT id, email, last_ip_port, address,
+				vetted_at, unknown_audit_suspended, offline_suspended
+			FROM nodes
+			WHERE disqualified IS NULL
+				AND exit_finished_at IS NULL
+				AND last_contact_success > $2
+		`), time.Now().Add(-onlineWindow))
+	case dbutil.Spanner:
+		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+			SELECT id, email, last_ip_port, address,
+			vetted_at, unknown_audit_suspended, offline_suspended
+			FROM nodes
+			WHERE disqualified IS NULL
+				AND exit_finished_at IS NULL
+				AND last_contact_success > ?
+		`), time.Now().Add(-onlineWindow))
 	default:
 		return nil, Error.New("unsupported implementation")
 	}

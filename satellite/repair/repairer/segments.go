@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
 
+	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -101,7 +102,12 @@ func zapRS(fieldName string, redundancy storj.RedundancyScheme) zap.Field {
 }
 
 // participatingNodesCache alias for making the code a bit nicer below.
+// This chaches the nodes retrieved from the database to upload repaired pieces.
 type participatingNodesCache = sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
+
+// nodesForRepairCache alias for making the code a bit nicer below.
+// This caches the nodes retrieved from the database for getting repair orders.
+type nodesForRepairCache = sync2.ReadCacheOf[map[storj.NodeID]*overlay.NodeReputation]
 
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
@@ -115,6 +121,7 @@ type SegmentRepairer struct {
 	reporter       audit.Reporter
 
 	participatingNodesCache *participatingNodesCache
+	nodesForRepairCache     *nodesForRepairCache
 
 	reputationUpdateEnabled bool
 	doDeclumping            bool
@@ -195,16 +202,37 @@ func NewSegmentRepairer(
 		return repairer, Error.Wrap(err)
 	}
 
+	if config.NodesForRepairCacheEnabled {
+		var err error
+		repairer.nodesForRepairCache, err = sync2.NewReadCache(config.NodesForRepairCacheInterval, config.NodesForRepairCacheStale, overlay.GetAllOnlineNodesForRepair)
+		return repairer, Error.Wrap(err)
+	}
+
 	return repairer, nil
 }
 
 // Run background services needed for segment repair.
 func (repairer *SegmentRepairer) Run(ctx context.Context) error {
-	// TODO(storj#7502): Add the nodesForRepairCache background execution
-	if repairer.participatingNodesCache == nil {
+	if repairer.participatingNodesCache == nil && repairer.nodesForRepairCache == nil {
 		return nil
 	}
-	return repairer.participatingNodesCache.Run(ctx)
+
+	group := errs2.Group{}
+
+	if repairer.participatingNodesCache != nil {
+		group.Go(func() error {
+			return repairer.participatingNodesCache.Run(ctx)
+
+		})
+	}
+
+	if repairer.nodesForRepairCache != nil {
+		group.Go(func() error {
+			return repairer.nodesForRepairCache.Run(ctx)
+		})
+	}
+
+	return errs.Combine(group.Wait()...)
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
@@ -378,7 +406,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		}
 	}
 	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(
-		ctx, segment, retrievablePieces, repairer.overlay.GetOnlineNodesForRepair,
+		ctx, segment, retrievablePieces, repairer.getNodesForRepair,
 	)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
@@ -950,7 +978,7 @@ func (repairer *SegmentRepairer) AdminFetchPieces(
 	// we treat all pieces as "healthy" for our purposes here; we want to download as many
 	// of them as we reasonably can. Thus, we pass in seg.Pieces for 'healthy'
 	getOrderLimits, getPrivateKey, cachedNodesInfo, err := repairer.orders.CreateGetRepairOrderLimits(
-		ctx, *seg, seg.Pieces, repairer.overlay.GetOnlineNodesForRepair,
+		ctx, *seg, seg.Pieces, repairer.getNodesForRepair,
 	)
 	if err != nil {
 		return nil, errs.New("could not create order limits: %w", err)
@@ -1050,4 +1078,19 @@ func (repairer *SegmentRepairer) RefreshParticipatingNodesCache(ctx context.Cont
 	}
 	_, err := repairer.participatingNodesCache.RefreshAndGet(ctx, time.Now())
 	return err
+}
+
+func (repairer *SegmentRepairer) getNodesForRepair(ctx context.Context, nodes []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+	if repairer.nodesForRepairCache == nil {
+		return repairer.overlay.GetOnlineNodesForRepair(ctx, nodes)
+	}
+
+	// We return all. We could filter out and return the asked ones, but it doesn't hurt to return
+	// not asked nodes and save the computation to filter them out.
+	result, err := repairer.nodesForRepairCache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return result, nil
 }

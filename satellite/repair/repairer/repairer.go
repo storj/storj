@@ -50,6 +50,10 @@ type Config struct {
 	ParticipatingNodeCacheInterval time.Duration `help:"how often participating nodes cache should be refreshed" default:"5m"`
 	ParticipatingNodeCacheStale    time.Duration `help:"when does participating nodes cache start blocking" default:"10m"`
 
+	NodesForRepairCacheEnabled  bool          `help:"enable cache for nodes to upload repaired pieces" default:"false" testDefault:"true"`
+	NodesForRepairCacheInterval time.Duration `help:"how often nodes for repaired pieces cache should be refreshed" default:"5m"`
+	NodesForRepairCacheStale    time.Duration `help:"when does nodes for repaired pieces cache start blocking" default:"10m"`
+
 	IncludedPlacements PlacementList `help:"comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)" default:""`
 	ExcludedPlacements PlacementList `help:"comma separated placement IDs (numbers), placements which should be ignored by the repairer" default:""`
 }
