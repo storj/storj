@@ -39,6 +39,7 @@ import (
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
+	"storj.io/storj/storagenode"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
@@ -3292,6 +3293,13 @@ func TestRepairClumpedPieces(t *testing.T) {
 					config.Repairer.DoDeclumping = true
 				},
 			),
+			StorageNode: func(index int, config *storagenode.Config) {
+				// Prevent storage nodes from overwriting check-in info that we'll manually insert.
+				// Though the contact loop is effectively disabled here, the satellite is still aware
+				// of the storage nodes' existence because testplanet forces the contact chore to run
+				// once before the test function runs.
+				config.Contact.Interval = time.Hour
+			},
 		},
 		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -3351,9 +3359,17 @@ func TestRepairClumpedPieces(t *testing.T) {
 		_, err = satellite.RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
+		count, err := satellite.Repair.Queue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+
 		// and subsequently running the repair worker should pull that off the queue and repair it
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
+
+		count, err = satellite.Repair.Queue.Count(ctx)
+		require.NoError(t, err)
+		require.Zero(t, count)
 
 		// confirm that the segment now has exactly one piece on (node0 or node1)
 		// and still has the right number of pieces.
