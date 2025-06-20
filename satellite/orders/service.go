@@ -54,7 +54,6 @@ type Config struct {
 type Overlay interface {
 	CachedGetOnlineNodesForGet(context.Context, []storj.NodeID) (map[storj.NodeID]*nodeselection.SelectedNode, error)
 	GetOnlineNodesForAudit(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
-	TestGetOnlineNodesForAuditRepair(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
 	Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error)
 	IsOnline(node *overlay.NodeDossier) bool
 }
@@ -521,66 +520,6 @@ func (service *Service) CreateGetRepairOrderLimits(
 	}
 
 	nodes, err := getNodes(ctx, nodeIDs)
-	if err != nil {
-		service.log.Debug("error getting nodes from overlay", zap.Error(err))
-		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-	}
-
-	signer, err := NewSignerRepairGet(service, segment.RootPieceID, time.Now(), pieceSize, metabase.BucketLocation{})
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-	}
-
-	cachedNodesInfo = make(map[storj.NodeID]overlay.NodeReputation, len(healthy))
-	var nodeErrors errs.Group
-	var limitsCount int
-	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	for _, piece := range healthy {
-		node, ok := nodes[piece.StorageNode]
-		if !ok {
-			nodeErrors.Add(errs.New("node %q is not reliable", piece.StorageNode))
-			continue
-		}
-
-		cachedNodesInfo[piece.StorageNode] = *node
-
-		limit, err := signer.Sign(ctx, resolveStorageNode_Reputation(node), int32(piece.Number))
-		if err != nil {
-			return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-		}
-
-		limits[piece.Number] = limit
-		limitsCount++
-	}
-
-	if limitsCount < int(segment.Redundancy.RequiredShares) {
-		err = ErrDownloadFailedNotEnoughPieces.New("not enough nodes available: got %d, required %d", limitsCount, segment.Redundancy.RequiredShares)
-		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
-	}
-
-	return limits, signer.PrivateKey, cachedNodesInfo, nil
-}
-
-// TestCreateGetRepairOrderLimits creates the order limits for downloading the
-// healthy pieces of segment as the source for repair.
-//
-// The length of the returned orders slice is the total number of pieces of the
-// segment, setting to null the ones which don't correspond to a healthy piece.
-//
-// TODO(storj#7502): The difference is that the GetOnlineNodesForAuditRepair is reduced to get less
-// data for the non-test one.
-func (service *Service) TestCreateGetRepairOrderLimits(ctx context.Context, segment metabase.SegmentForRepair, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	pieceSize := segment.PieceSize()
-	totalPieces := segment.Redundancy.TotalShares
-
-	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
-	for i, piece := range segment.Pieces {
-		nodeIDs[i] = piece.StorageNode
-	}
-
-	nodes, err := service.overlay.TestGetOnlineNodesForAuditRepair(ctx, nodeIDs)
 	if err != nil {
 		service.log.Debug("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)

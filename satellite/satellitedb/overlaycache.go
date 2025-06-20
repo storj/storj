@@ -290,7 +290,7 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *o
 func (cache *overlaycache) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
 	// TODO(storj#7502): Change this DB query to adapt to for Audits
 	for {
-		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
+		nodes, err = cache.getOnlineNodesForAudit(ctx, nodeIDs, onlineWindow)
 		if err != nil {
 			if retrydb.ShouldRetryIdempotent(err) {
 				continue
@@ -336,26 +336,7 @@ func (cache *overlaycache) GetAllOnlineNodesForRepair(ctx context.Context, onlin
 	return nodes, err
 }
 
-// TestGetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
-func (cache *overlaycache) TestGetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
-	for {
-		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
-		if err != nil {
-			if retrydb.ShouldRetryIdempotent(err) {
-				continue
-			}
-			return nodes, err
-		}
-		break
-	}
-
-	return nodes, err
-}
-
-// TODO(storj#7502): This is called by GetOnlineNodesForAudit and TestGetOnlineNodesForAuditRepair.
-// If we delete TestGetOnlineNodesForAuditRepair then rename this method to just
-// getOnlineNodesForAudit, otherwise rename to a better name to gather both purposes.
-func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
+func (cache *overlaycache) getOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
