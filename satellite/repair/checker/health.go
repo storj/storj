@@ -5,6 +5,7 @@ package checker
 
 import (
 	"context"
+	"math"
 
 	"storj.io/storj/satellite/repair"
 )
@@ -43,4 +44,24 @@ func (h *ProbabilityHealth) Calculate(ctx context.Context, numHealthy, minPieces
 	}
 
 	return repair.SegmentHealth(numHealthy, minPieces, totalNumNodes, h.failureRate, numForcingRepair)
+}
+
+// NormalizedHealth implements Health using a normalized health calculation (healthy -k).
+type NormalizedHealth struct {
+}
+
+// NewNormalizedHealth creates a new NormalizedHealth instance.
+func NewNormalizedHealth() *NormalizedHealth {
+	return &NormalizedHealth{}
+}
+
+// Calculate returns a value corresponding to the health of a segment.
+func (n *NormalizedHealth) Calculate(ctx context.Context, numHealthy, minPieces, numForcingRepair int) float64 {
+	base := float64(numHealthy-minPieces+1) / float64(minPieces)
+	if numForcingRepair > 0 {
+		// pop pieces are put between 0.2 and 0.4 importance
+		popSignificance := math.Min(float64(numForcingRepair)/float64(minPieces), 1)
+		return math.Min(base, 0.4-0.2*popSignificance)
+	}
+	return base
 }

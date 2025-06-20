@@ -183,7 +183,15 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 		peer.Repair.Queue = repairQueue
 
 		reliabilityCache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness)
-		health := checker.NewProbabilityHealth(config.Checker.NodeFailureRate, reliabilityCache)
+		var health checker.Health
+		switch config.Checker.HealthScore {
+		case "probability":
+			health = checker.NewProbabilityHealth(config.Checker.NodeFailureRate, reliabilityCache)
+		case "normalized":
+			health = checker.NewNormalizedHealth()
+		default:
+			panic("invalid health score: " + config.Checker.HealthScore)
+		}
 
 		peer.Repair.Observer = checker.NewObserver(
 			peer.Log.Named("repair:checker"),
