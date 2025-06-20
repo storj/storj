@@ -2533,8 +2533,7 @@ func TestECRepairerGet(t *testing.T) {
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
-		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
-		require.NoError(t, err)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 
 		_, piecesReport, err := ecRepairer.Get(ctx, zaptest.NewLogger(t), getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
 		require.NoError(t, err)
@@ -2601,7 +2600,7 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
-		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
 
 		ecRepairer.TestingSetMinFailures(1)
@@ -2671,7 +2670,7 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
-		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
 
 		ecRepairer.TestingSetMinFailures(1)
@@ -2739,7 +2738,7 @@ func TestECRepairerGetOffline(t *testing.T) {
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
-		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
 
 		ecRepairer.TestingSetMinFailures(1)
@@ -2807,7 +2806,7 @@ func TestECRepairerGetUnknown(t *testing.T) {
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
-		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
 
 		ecRepairer.TestingSetMinFailures(1)
@@ -2890,7 +2889,7 @@ func TestECRepairerGetFailure(t *testing.T) {
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
-		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
+		getOrderLimits, getPrivateKey, cachedIPsAndPorts := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
 
 		_, piecesReport, err := ecRepairer.Get(ctx, zaptest.NewLogger(t), getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
@@ -2939,7 +2938,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, len(segment.Pieces) > 1)
 
-		limits, privateKey, cachedNodesInfo, err := testSatellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
+		limits, privateKey, cachedNodesInfo := createGetRepairOrderLimits(t, testSatellite, ctx, segment, segment.Pieces)
 		require.NoError(t, err)
 
 		for i, l := range limits {
@@ -3014,8 +3013,7 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, len(segment.Pieces) > 1)
 
-		limits, privateKey, cachedNodesInfo, err := testSatellite.Orders.Service.TestCreateGetRepairOrderLimits(ctx, segment, segment.Pieces)
-		require.NoError(t, err)
+		limits, privateKey, cachedNodesInfo := createGetRepairOrderLimits(t, testSatellite, ctx, segment, segment.Pieces)
 
 		// make it so that when the cached IP is dialed, we dial the "right" address,
 		// but when the "right" address is dialed (meaning it came from the OrderLimit,
@@ -3687,4 +3685,15 @@ func TestRepairRSOverride(t *testing.T) {
 		// Overridden success threshold is greater than the default
 		require.True(t, len(segments[1].Pieces) > len(segments[0].Pieces))
 	})
+}
+
+//revive:disable:context-as-argument
+func createGetRepairOrderLimits(
+	t *testing.T, sat *testplanet.Satellite, ctx context.Context, segment metabase.SegmentForRepair, healthy metabase.Pieces,
+) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation) {
+	limits, privateKey, cachedNodesInfo, err := sat.Orders.Service.CreateGetRepairOrderLimits(
+		ctx, segment, segment.Pieces, sat.Overlay.Service.GetOnlineNodesForRepair,
+	)
+	require.NoError(t, err)
+	return limits, privateKey, cachedNodesInfo
 }
