@@ -418,6 +418,40 @@ func TestDeleteBucket(t *testing.T) {
 
 			requireBucketDeleted(t, bucketName)
 		})
+
+		t.Run("Ensure attribution after bucket delete", func(t *testing.T) {
+			bucketName := metabase.BucketName(testrand.BucketName())
+			uploadObjects(t, bucketName)
+
+			nameBytes := []byte(bucketName)
+
+			attrDB := sat.DB.Attribution()
+
+			attr, err := attrDB.Get(ctx, project.ID, nameBytes)
+			require.NoError(t, err)
+			require.NotNil(t, attr)
+
+			require.NoError(t, attrDB.TestDelete(ctx, project.ID, nameBytes))
+
+			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: ownerAPIKey.SerializeRaw(),
+				},
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, delResp)
+			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+			requireBucketDeleted(t, bucketName)
+
+			attr, err = attrDB.Get(ctx, project.ID, nameBytes)
+			require.NoError(t, err)
+			require.NotNil(t, attr)
+			require.Equal(t, bucketName.String(), string(attr.BucketName))
+			require.Equal(t, project.ID, attr.ProjectID)
+		})
 	})
 }
 

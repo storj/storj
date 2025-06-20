@@ -504,7 +504,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		}
 	}
 
-	err = endpoint.deleteBucket(ctx, req.Name, keyInfo.ProjectID)
+	err = endpoint.deleteBucket(ctx, bucket)
 	if err != nil {
 		if !canRead && !canList {
 			if !buckets.ErrBucketNotFound.Has(err) && !ErrBucketNotEmpty.Has(err) {
@@ -523,7 +523,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 				return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 			}
 
-			_, deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, keyInfo.ProjectID, req.Name)
+			_, deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket)
 			if err != nil {
 				return nil, err
 			}
@@ -540,10 +540,12 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 }
 
 // deleteBucket deletes a bucket from the bucekts db.
-func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucket buckets.Bucket) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	empty, err := endpoint.isBucketEmpty(ctx, projectID, bucketName)
+	nameBytes := []byte(bucket.Name)
+
+	empty, err := endpoint.isBucketEmpty(ctx, bucket.ProjectID, nameBytes)
 	if err != nil {
 		return err
 	}
@@ -551,7 +553,20 @@ func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucketName []byte, p
 		return ErrBucketNotEmpty.New("")
 	}
 
-	return endpoint.buckets.DeleteBucket(ctx, bucketName, projectID)
+	err = endpoint.buckets.DeleteBucket(ctx, nameBytes, bucket.ProjectID)
+	if err != nil {
+		return err
+	}
+
+	if err = endpoint.ensureAttributionOnBucketDelete(ctx, bucket); err != nil {
+		endpoint.log.Error("failed to ensure attribution on bucket delete",
+			zap.Error(err),
+			zap.String("bucket", bucket.Name),
+			zap.String("project_id", bucket.ProjectID.String()),
+		)
+	}
+
+	return nil
 }
 
 // isBucketEmpty returns whether bucket is empty.
@@ -565,24 +580,26 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 
 // deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
 // On success, it returns only the number of deleted objects.
-func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int64, error) {
-	deletedCount, err := endpoint.deleteAllBucketObjects(ctx, projectID, bucketName)
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket buckets.Bucket) ([]byte, int64, error) {
+	nameBytes := []byte(bucket.Name)
+
+	deletedCount, err := endpoint.deleteAllBucketObjects(ctx, bucket.ProjectID, nameBytes)
 	if err != nil {
 		return nil, 0, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
-	err = endpoint.deleteBucket(ctx, bucketName, projectID)
+	err = endpoint.deleteBucket(ctx, bucket)
 	if err != nil {
 		if ErrBucketNotEmpty.Has(err) {
 			return nil, deletedCount, rpcstatus.Error(rpcstatus.FailedPrecondition, "cannot delete the bucket because it's being used by another process")
 		}
 		if buckets.ErrBucketNotFound.Has(err) {
-			return bucketName, 0, nil
+			return nameBytes, 0, nil
 		}
 		return nil, deletedCount, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
-	return bucketName, deletedCount, nil
+	return nameBytes, deletedCount, nil
 }
 
 // deleteAllBucketObjects deletes all objects in a bucket.

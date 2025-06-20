@@ -70,6 +70,34 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 	return err
 }
 
+// ensureAttributionOnBucketDelete makes sure there’s an attribution record after deleting the bucket.
+func (endpoint *Endpoint) ensureAttributionOnBucketDelete(ctx context.Context, bucket buckets.Bucket) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nameBytes := []byte(bucket.Name)
+
+	if _, err = endpoint.attributions.Get(ctx, bucket.ProjectID, nameBytes); err == nil {
+		// Already attributed, nothing to do
+		return nil
+	}
+
+	if !attribution.ErrBucketNotAttributed.Has(err) {
+		return endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket attribution")
+	}
+
+	info := &attribution.Info{
+		ProjectID:  bucket.ProjectID,
+		BucketName: nameBytes,
+		UserAgent:  bucket.UserAgent,
+		Placement:  &bucket.Placement,
+	}
+	if _, err = endpoint.attributions.Insert(ctx, info); err != nil {
+		return endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket attribution")
+	}
+
+	return nil
+}
+
 // TrimUserAgent returns userAgentBytes that consist of only the product portion of the user agent, and is bounded by
 // the maxUserAgentLength.
 func TrimUserAgent(userAgent []byte) ([]byte, error) {
