@@ -98,6 +98,11 @@ func TestDB(t *testing.T) {
 			assert.Equal(t, info.UserAgent, got.UserAgent)
 			assert.Equal(t, info.Placement, got.Placement)
 		}
+
+		for _, info := range infos {
+			err := attributionDB.TestDelete(ctx, info.ProjectID, info.BucketName)
+			require.NoError(t, err)
+		}
 	})
 }
 

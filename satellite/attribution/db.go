@@ -56,4 +56,6 @@ type DB interface {
 	QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) ([]*BucketUsage, error)
 	// BackfillPlacementBatch updates up to batchSize rows of value_attributions.placement from bucket_metainfos.
 	BackfillPlacementBatch(ctx context.Context, batchSize int) (int64, bool, error)
+	// TestDelete is used for testing purposes to delete all attribution data for a given project and bucket.
+	TestDelete(ctx context.Context, projectID uuid.UUID, bucketName []byte) error
 }

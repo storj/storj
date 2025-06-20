@@ -89,6 +89,17 @@ func (a *attributionDB) UpdatePlacement(ctx context.Context, projectID uuid.UUID
 	return err
 }
 
+// TestDelete is used for testing purposes to delete all attribution data for a given project and bucket.
+func (a *attributionDB) TestDelete(ctx context.Context, projectID uuid.UUID, bucketName []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = a.db.Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+		dbx.ValueAttribution_ProjectId(projectID[:]),
+		dbx.ValueAttribution_BucketName(bucketName))
+
+	return err
+}
+
 // Insert implements create partner info.
 func (a *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
