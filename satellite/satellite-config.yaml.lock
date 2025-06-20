@@ -151,6 +151,9 @@
 # Treat pieces out of segment placement as in need of repair
 # checker.do-placement-check: true
 
+# Health score to use for segment health calculation. Options: 'probability', 'normalized'. 'probability' uses the original SegmentHealth logic with node count estimation, while 'normalized' uses a normalized health calculation (healthy -k).
+# checker.health-score: probability
+
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 

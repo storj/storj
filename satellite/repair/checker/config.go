@@ -28,6 +28,7 @@ type Config struct {
 	RepairExcludedCountryCodes []string `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
 	DoDeclumping               bool     `help:"Treat pieces on the same network as in need of repair" default:"true"`
 	DoPlacementCheck           bool     `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
+	HealthScore                string   `help:"Health score to use for segment health calculation. Options: 'probability', 'normalized'. 'probability' uses the original SegmentHealth logic with node count estimation, while 'normalized' uses a normalized health calculation (healthy -k)." default:"probability" enum:"probability,normalized"`
 }
 
 // RepairThresholdOverrides override values for repair threshold.
