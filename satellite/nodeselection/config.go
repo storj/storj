@@ -472,6 +472,7 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 			}
 			return Reduce(delegate, sorter, needMore...)
 		},
+		"daily": DailyPeriods,
 	}
 	env = AddArithmetic(env)
 	for k, v := range supportedFilters {

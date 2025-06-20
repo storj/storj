@@ -980,12 +980,23 @@ func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorI
 type NeedMore func() func(node *SelectedNode) bool
 
 // AtLeast is a needMore function, which will return true, if the number of nodes with the given attribute is less than the minimum value.
-func AtLeast(attribute NodeAttribute, min int64) NeedMore {
+func AtLeast(attribute NodeAttribute, min interface{}) NeedMore {
+	var minv int64
+	switch m := min.(type) {
+	case int64:
+		minv = m
+	case int:
+		minv = int64(m)
+	case func() int64:
+		minv = m()
+	default:
+		panic("min value for atleast must be int64, int or func()int64")
+	}
 	return func() func(node *SelectedNode) bool {
 		current := map[string]int64{}
 		return func(node *SelectedNode) bool {
 			current[attribute(*node)]++
-			return current[attribute(*node)] < min
+			return current[attribute(*node)] < minv
 		}
 	}
 }
@@ -1019,4 +1030,17 @@ func Reduce(delegate NodeSelectorInit, sortOrder CompareNodes, needMoreChecks ..
 		}
 		return delegate(ctx, filtered, filter)
 	}
+}
+
+// DailyPeriods returns a function, which returns the value of the period in days based on the current hour.
+func DailyPeriods(values ...int64) func() int64 {
+	return func() int64 {
+		return DailyPeriodsForHour(time.Now().UTC().Hour(), values)
+	}
+}
+
+// DailyPeriodsForHour returns the value of the period in days based on the given hour.
+func DailyPeriodsForHour(hour int, values []int64) int64 {
+	adjustedIndex := hour * len(values) / 24.0
+	return values[adjustedIndex]
 }

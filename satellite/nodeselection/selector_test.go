@@ -1594,3 +1594,12 @@ func TestReduceSortOrder(t *testing.T) {
 		require.Equal(t, int64(5000000), subnetToFreeDisk["192.168.2.0/24"], "Should select node with highest free disk from subnet 2")
 	})
 }
+
+func TestDailyPeriods(t *testing.T) {
+	require.Equal(t, int64(1), nodeselection.DailyPeriodsForHour(1, []int64{1, 2}))
+	require.Equal(t, int64(1), nodeselection.DailyPeriodsForHour(11, []int64{1, 2}))
+	require.Equal(t, int64(2), nodeselection.DailyPeriodsForHour(12, []int64{1, 2}))
+	require.Equal(t, int64(2), nodeselection.DailyPeriodsForHour(23, []int64{1, 2}))
+
+	require.Equal(t, int64(4), nodeselection.DailyPeriodsForHour(23, []int64{1, 2, 3, 4}))
+}
