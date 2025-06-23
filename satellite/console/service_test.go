@@ -46,7 +46,9 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/kms"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -56,6 +58,8 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/uplink/private/metaclient"
 )
+
+var hoursPerMonth = decimal.NewFromInt(24 * 30)
 
 func TestService(t *testing.T) {
 	placements := make(map[int]string)
@@ -1519,7 +1523,7 @@ func TestService(t *testing.T) {
 				items, err = service.GetUsageReport(usrCtx, params)
 				require.NoError(t, err)
 				require.Len(t, items, 1)
-				require.Equal(t, pr1.PublicID, items[0].ProjectID)
+				require.Equal(t, pr1.PublicID, items[0].ProjectPublicID)
 				require.Equal(t, bucket1.Name, items[0].BucketName)
 				require.Equal(t, amount.GB(), items[0].Egress)
 
@@ -1527,7 +1531,7 @@ func TestService(t *testing.T) {
 				items, err = service.GetUsageReport(usrCtx, params)
 				require.NoError(t, err)
 				require.Len(t, items, 1)
-				require.Equal(t, pr2.PublicID, items[0].ProjectID)
+				require.Equal(t, pr2.PublicID, items[0].ProjectPublicID)
 				require.Equal(t, bucket2.Name, items[0].BucketName)
 				require.Equal(t, amount.GB(), items[0].Egress)
 
@@ -1606,12 +1610,14 @@ func TestGetUsageReport(t *testing.T) {
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			now := time.Now().UTC()
 			var (
 				sat       = planet.Satellites[0]
 				upl       = planet.Uplinks[0]
 				service   = sat.API.Console.Service
 				projectID = upl.Projects[0].ID
+				now       = time.Now().UTC()
+				since     = now.Add(-24 * time.Hour)
+				before    = now.Add(time.Hour)
 			)
 
 			user, err := sat.DB.Console().Users().Get(ctx, upl.Projects[0].Owner.ID)
@@ -1638,42 +1644,21 @@ func TestGetUsageReport(t *testing.T) {
 			_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
 			require.NoError(t, err)
 
-			inFiveMinutes := time.Now().Add(5 * time.Minute).UTC()
+			err = generateRollups(ctx, sat.DB.Orders(), projectID, bucket1, bucket2, now)
+			require.NoError(t, err)
 
-			planet.Satellites[0].Orders.Chore.Loop.Pause()
-			sat.Accounting.Tally.Loop.Pause()
-
-			firstSegment := testrand.Bytes(30 * memory.MB)
-			secondSegment := testrand.Bytes(20 * memory.MB)
-
-			for _, bucket := range []buckets.Bucket{bucket1, bucket2} {
-				err = upl.Upload(ctx, sat, bucket.Name, "path", firstSegment)
-				require.NoError(t, err)
-
-				err = upl.Upload(ctx, sat, bucket.Name, "other_path", secondSegment)
-				require.NoError(t, err)
-
-				_, err = upl.Download(ctx, sat, bucket.Name, "path")
-				require.NoError(t, err)
-			}
-
-			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
-			planet.StorageNodes[0].Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
-
-			sat.Orders.Chore.Loop.TriggerWait()
-			sat.Accounting.Tally.Loop.TriggerWait()
-			// We trigger tally one more time because the most recent tally is skipped in service method.
-			sat.Accounting.Tally.Loop.TriggerWait()
+			err = generateTallies(ctx, sat.DB.ProjectAccounting(), projectID, bucket1, bucket2, now)
+			require.NoError(t, err)
 
 			params := console.GetUsageReportParam{
-				Since:     now,
-				Before:    inFiveMinutes,
+				Since:     since,
+				Before:    before,
 				ProjectID: projectID,
 			}
 			items, err := service.GetUsageReport(usrCtx, params)
 			require.NoError(t, err)
 			require.Len(t, items, 2)
-			require.Equal(t, project.PublicID, items[0].ProjectID)
+			require.Equal(t, project.PublicID, items[0].ProjectPublicID)
 
 			var item1, item2 accounting.ProjectReportItem
 			for _, item := range items {
@@ -1686,8 +1671,6 @@ func TestGetUsageReport(t *testing.T) {
 			require.NotZero(t, item1)
 			require.NotZero(t, item2)
 			require.Equal(t, bucket2.Name, item2.BucketName)
-
-			hoursPerMonth := decimal.NewFromInt(23 * 30)
 
 			checkUsages := func(rollup *accounting.BucketUsageRollup, item accounting.ProjectReportItem) {
 				require.Equal(t, rollup.GetEgress, item.Egress)
@@ -1704,11 +1687,11 @@ func TestGetUsageReport(t *testing.T) {
 				require.InDelta(t, storageTbMonth, item.StorageTbMonth, 2e-06)
 			}
 
-			usage1, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1.Name, now, inFiveMinutes)
+			usage1, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1.Name, since, before)
 			require.NoError(t, err)
 			checkUsages(usage1, item1)
 
-			usage2, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1.Name, now, inFiveMinutes)
+			usage2, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket2.Name, since, before)
 			require.NoError(t, err)
 			checkUsages(usage2, item2)
 
@@ -1736,18 +1719,271 @@ func TestGetUsageReport(t *testing.T) {
 			hoursToMonth := func(hours decimal.Decimal) decimal.Decimal {
 				return hours.Div(hoursPerMonth).Round(0)
 			}
-			expectedStorageCost := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(usageTotal.TotalStoredData))).Round(0).IntPart()
-			expectedEgressCost := priceModel.EgressMBCents.Mul(gbToMb(usageTotal.GetEgress).Round(0)).Round(0).IntPart()
-			expectedSegmentCost := priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(usageTotal.TotalSegments))).Round(0).IntPart()
+			expectedStorageCost, _ := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(usageTotal.TotalStoredData))).Round(0).Float64()
+			expectedEgressCost, _ := priceModel.EgressMBCents.Mul(gbToMb(usageTotal.GetEgress).Round(0)).Round(0).Float64()
+			expectedSegmentCost, _ := priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(usageTotal.TotalSegments))).Round(0).Float64()
 			expectedTotalCost := expectedStorageCost + expectedEgressCost + expectedSegmentCost
 
-			require.InDelta(t, expectedStorageCost, items[0].StorageCost, 0.01)
-			require.InDelta(t, expectedEgressCost, items[0].EgressCost, 0.01)
-			require.InDelta(t, expectedSegmentCost, items[0].SegmentCost, 0.01)
-			require.InDelta(t, expectedSegmentCost, items[0].SegmentCost, 0.01)
-			require.InDelta(t, expectedTotalCost, items[0].TotalCost, 0.01)
+			require.Equal(t, expectedStorageCost, items[0].StorageCost)
+			require.Equal(t, expectedEgressCost, items[0].EgressCost)
+			require.Equal(t, expectedSegmentCost, items[0].SegmentCost)
+			require.Equal(t, expectedTotalCost, items[0].TotalCost)
 		},
 	)
+}
+
+func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
+	// use large prices so that we can test the calculations with small usages
+	var (
+		productID         = int32(1)
+		productID2        = int32(2)
+		placement11       = storj.PlacementConstraint(11)
+		placementDetail11 = console.PlacementDetail{
+			ID:     11,
+			IdName: "placement11",
+		}
+		productPrice = paymentsconfig.ProductUsagePrice{
+			Name: "product1",
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "200000",
+				EgressTB:  "200000",
+				Segment:   "200000",
+			},
+		}
+		productPrice2 = paymentsconfig.ProductUsagePrice{
+			Name: "product2",
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "100000",
+				EgressTB:  "100000",
+				Segment:   "100000",
+			},
+		}
+	)
+
+	productModel, err := productPrice.ToModel()
+	require.NoError(t, err)
+	productModel2, err := productPrice2.ToModel()
+	require.NoError(t, err)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.NewDetailedUsageReportEnabled = true
+				config.Payments.StripeCoinPayments.ProductBasedInvoicing = true
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "defaultPlacement");11:annotation("location", "placement11")`,
+				}
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					productID:  productPrice,
+					productID2: productPrice2,
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+					int(storj.DefaultPlacement): productID,
+					int(placement11):            productID2,
+				})
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					storj.DefaultPlacement: {ID: 0},
+					placement11:            placementDetail11,
+				})
+			},
+		},
+	},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			now := time.Now().UTC()
+			var (
+				sat       = planet.Satellites[0]
+				upl       = planet.Uplinks[0]
+				service   = sat.API.Console.Service
+				projectID = upl.Projects[0].ID
+			)
+
+			user, err := sat.DB.Console().Users().Get(ctx, upl.Projects[0].Owner.ID)
+			require.NoError(t, err)
+
+			usrCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			bucket1 := buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      "testbucket",
+				ProjectID: projectID,
+				Placement: storj.DefaultPlacement,
+			}
+			bucket1, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket1)
+			require.NoError(t, err)
+
+			bucket2 := buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      "testbuckettwo",
+				ProjectID: projectID,
+				Placement: placement11,
+			}
+			_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
+			require.NoError(t, err)
+
+			err = generateRollups(ctx, sat.DB.Orders(), projectID, bucket1, bucket2, now)
+			require.NoError(t, err)
+
+			err = generateTallies(ctx, sat.DB.ProjectAccounting(), projectID, bucket1, bucket2, now)
+			require.NoError(t, err)
+
+			gbToMb := func(gig float64) decimal.Decimal {
+				return decimal.NewFromFloat(gig).Shift(-3)
+			}
+			hoursToMonth := func(hours decimal.Decimal) decimal.Decimal {
+				return hours.Div(hoursPerMonth).Round(0)
+			}
+
+			testCosts := func(item accounting.ProjectReportItem) {
+				require.True(t, item.Placement == placement11 || item.Placement == storj.DefaultPlacement)
+
+				var priceModel payments.ProjectUsagePriceModel
+				if item.Placement == storj.DefaultPlacement {
+					priceModel = productModel
+					require.Equal(t, productPrice.Name, item.ProductName)
+				} else {
+					priceModel = productModel2
+					require.Equal(t, productPrice2.Name, item.ProductName)
+				}
+
+				expectedStorageCost, _ := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(item.Storage))).Round(0).Float64()
+				expectedEgressCost, _ := priceModel.EgressMBCents.Mul(gbToMb(item.Egress).Round(0)).Round(0).Float64()
+				expectedSegmentCost, _ := priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(item.SegmentCount))).Round(0).Float64()
+				expectedTotalCost := expectedStorageCost + expectedEgressCost + expectedSegmentCost
+
+				require.Equal(t, expectedStorageCost, item.StorageCost)
+				require.Equal(t, expectedEgressCost, item.EgressCost)
+				require.Equal(t, expectedSegmentCost, item.SegmentCost)
+				require.Equal(t, expectedTotalCost, item.TotalCost)
+			}
+
+			params := console.GetUsageReportParam{
+				Since:       now.Add(-24 * time.Hour),
+				Before:      now.Add(time.Hour).UTC(),
+				ProjectID:   projectID,
+				IncludeCost: true,
+			}
+
+			items, err := service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 2)
+
+			for _, item := range items {
+				testCosts(item)
+			}
+
+			params.ProjectID = uuid.UUID{}
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 2)
+			for _, item := range items {
+				testCosts(item)
+			}
+
+			params.ProjectID = uuid.UUID{}
+			params.GroupByProject = true
+
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 1)
+			testCosts(items[0])
+		},
+	)
+}
+
+func generateTallies(ctx *testcontext.Context, db accounting.ProjectAccounting, projectID uuid.UUID, bucket1 buckets.Bucket, bucket2 buckets.Bucket, now time.Time) (err error) {
+	bucketLoc1 := metabase.BucketLocation{
+		ProjectID:  projectID,
+		BucketName: metabase.BucketName(bucket1.Name),
+	}
+	bucketLoc2 := metabase.BucketLocation{
+		ProjectID:  projectID,
+		BucketName: metabase.BucketName(bucket2.Name),
+	}
+
+	bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
+	for i := 1; i <= 10; i++ {
+		tally1 := &accounting.BucketTally{
+			BucketLocation: bucketLoc1,
+			ObjectCount:    10000,
+			TotalSegments:  10000,
+			TotalBytes:     (100 * memory.TB).Int64(),
+			MetadataSize:   (10 * memory.GB).Int64(),
+		}
+		bucketTallies[bucketLoc1] = tally1
+
+		tally2 := &accounting.BucketTally{
+			BucketLocation: bucketLoc2,
+			ObjectCount:    10000,
+			TotalSegments:  10000,
+			TotalBytes:     (100 * memory.TB).Int64(),
+			MetadataSize:   (10 * memory.GB).Int64(),
+		}
+		bucketTallies[bucketLoc2] = tally2
+
+		intervalPadding := -1 * (time.Duration(i) * time.Hour)
+		err = db.SaveTallies(ctx, now.Add(intervalPadding), bucketTallies)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID, bucket1 buckets.Bucket, bucket2 buckets.Bucket, now time.Time) (err error) {
+	actions := []pb.PieceAction{
+		pb.PieceAction_GET,
+		pb.PieceAction_GET_AUDIT,
+		pb.PieceAction_GET_REPAIR,
+	}
+	rollups := make([]orders.BucketBandwidthRollup, 0)
+	for _, action := range actions {
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucket1.Name,
+			Action:        action,
+			IntervalStart: now.Add(-time.Hour * 2),
+			Inline:        (30 * memory.GB).Int64(),
+			Allocated:     (60 * memory.TB).Int64(),
+			Settled:       (40 * memory.TB).Int64(),
+		})
+
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucket1.Name,
+			Action:        action,
+			IntervalStart: now,
+			Inline:        (30 * memory.GB).Int64(),
+			Allocated:     (60 * memory.TB).Int64(),
+			Settled:       (40 * memory.TB).Int64(),
+		})
+
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucket2.Name,
+			Action:        action,
+			IntervalStart: now.Add(-time.Hour * 2),
+			Inline:        (20 * memory.GB).Int64(),
+			Allocated:     (50 * memory.TB).Int64(),
+			Settled:       (30 * memory.TB).Int64(),
+		})
+
+		rollups = append(rollups, orders.BucketBandwidthRollup{
+			ProjectID:     projectID,
+			BucketName:    bucket2.Name,
+			Action:        action,
+			IntervalStart: now,
+			Inline:        (20 * memory.GB).Int64(),
+			Allocated:     (50 * memory.TB).Int64(),
+			Settled:       (30 * memory.TB).Int64(),
+		})
+	}
+	err = db.UpdateBandwidthBatch(ctx, rollups)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func TestChangeEmail(t *testing.T) {

@@ -202,8 +202,12 @@ type BucketUsageRollup struct {
 
 // ProjectReportItem is total bucket usage info with project details for certain period.
 type ProjectReportItem struct {
-	ProjectID   uuid.UUID
-	ProjectName string
+	ProjectID       uuid.UUID
+	ProjectPublicID uuid.UUID
+	ProjectName     string
+	ProductName     string
+
+	Placement storj.PlacementConstraint
 
 	BucketName        string
 	Storage           float64
