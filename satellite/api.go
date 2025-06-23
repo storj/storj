@@ -812,6 +812,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 
+			consoleConfig.ProductBasedInvoicing = config.Payments.StripeCoinPayments.ProductBasedInvoicing
+
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),

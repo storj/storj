@@ -5111,56 +5111,87 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 		projects = append(projects, *pr)
 	}
 
-	usage := make([]accounting.ProjectReportItem, 0)
+	reportUsages := make([]accounting.ProjectReportItem, 0)
 
 	for _, p := range projects {
-		rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, param.Since, param.Before)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		var aggregateItem accounting.ProjectReportItem
-		for _, r := range rollups {
-			item := accounting.ProjectReportItem{
-				ProjectName:  p.Name,
-				ProjectID:    p.PublicID,
-				BucketName:   r.BucketName,
-				Storage:      r.TotalStoredData,
-				Egress:       r.GetEgress,
-				ObjectCount:  r.ObjectCount,
-				SegmentCount: r.TotalSegments,
-				Since:        r.Since,
-				Before:       r.Before,
+		if !param.GroupByProject || !s.config.NewDetailedUsageReportEnabled {
+			rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, param.Since, param.Before)
+			if err != nil {
+				return nil, Error.Wrap(err)
 			}
 
-			if !s.config.NewDetailedUsageReportEnabled {
-				usage = append(usage, item)
-				continue
+			for _, r := range rollups {
+				item := accounting.ProjectReportItem{
+					ProjectName:     p.Name,
+					ProjectPublicID: p.PublicID,
+					ProjectID:       p.ID,
+					BucketName:      r.BucketName,
+					Storage:         r.TotalStoredData,
+					Egress:          r.GetEgress,
+					ObjectCount:     r.ObjectCount,
+					SegmentCount:    r.TotalSegments,
+					Since:           r.Since,
+					Before:          r.Before,
+				}
+
+				if !s.config.NewDetailedUsageReportEnabled {
+					reportUsages = append(reportUsages, item)
+					continue
+				}
+
+				bucket, err := s.buckets.GetBucket(ctx, []byte(r.BucketName), p.ID)
+				if err != nil {
+					return nil, Error.Wrap(err)
+				}
+
+				item.Placement = bucket.Placement
+
+				item, err = s.transformProjectReportItem(item, bucket.UserAgent, param.IncludeCost, payments.ProjectUsagePriceModel{})
+				if err != nil {
+					return nil, Error.Wrap(err)
+				}
+				reportUsages = append(reportUsages, item)
+			}
+		} else {
+			usages, err := s.projectAccounting.GetProjectTotalByPartnerAndPlacement(ctx, p.ID, s.accounts.GetPartnerNames(), param.Since, param.Before)
+			if err != nil {
+				return nil, err
 			}
 
-			if !param.GroupByProject {
-				item = s.transformProjectReportItem(item, string(p.UserAgent), param.IncludeCost)
-				usage = append(usage, item)
-				continue
-			}
+			for key, usage := range usages {
+				usage.Storage = memory.Size(usage.Storage).GB()
+				usage.Egress = int64(memory.Size(usage.Egress).GB())
 
-			if aggregateItem == (accounting.ProjectReportItem{}) {
-				aggregateItem = item
-				continue
+				var productName string
+				var productID int32
+				var priceModel payments.ProjectUsagePriceModel
+				if s.config.ProductBasedInvoicing {
+					productID, priceModel = s.accounts.ProductIdAndPriceForUsageKey(key)
+					productName, err = s.accounts.GetProductName(productID)
+					if err != nil {
+						return nil, Error.Wrap(err)
+					}
+				}
+				item := accounting.ProjectReportItem{
+					ProjectName:     p.Name,
+					ProjectPublicID: p.PublicID,
+					ProjectID:       p.ID,
+					ProductName:     productName,
+					Egress:          float64(usage.Egress),
+					Storage:         usage.Storage,
+					SegmentCount:    usage.SegmentCount,
+					ObjectCount:     usage.ObjectCount,
+				}
+				item, err = s.transformProjectReportItem(item, p.UserAgent, param.IncludeCost, priceModel)
+				if err != nil {
+					return nil, Error.Wrap(err)
+				}
+				reportUsages = append(reportUsages, item)
 			}
-			aggregateItem.Storage += item.Storage
-			aggregateItem.Egress += item.Egress
-			aggregateItem.ObjectCount += item.ObjectCount
-			aggregateItem.SegmentCount += item.SegmentCount
-		}
-		if param.GroupByProject && aggregateItem != (accounting.ProjectReportItem{}) {
-			aggregateItem = s.transformProjectReportItem(aggregateItem, string(p.UserAgent), param.IncludeCost)
-			aggregateItem.BucketName = ""
-			usage = append(usage, aggregateItem)
 		}
 	}
 
-	return usage, nil
+	return reportUsages, nil
 }
 
 // GetReportRow converts the report item into a row for the usage report.
@@ -5168,7 +5199,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	if !s.config.NewDetailedUsageReportEnabled {
 		return []string{
 			reportItem.ProjectName,
-			reportItem.ProjectID.String(),
+			reportItem.ProjectPublicID.String(),
 			reportItem.BucketName,
 			fmt.Sprintf("%f", reportItem.Storage),
 			fmt.Sprintf("%f", reportItem.Egress),
@@ -5180,7 +5211,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	}
 	row := []string{
 		reportItem.ProjectName,
-		reportItem.ProjectID.String(),
+		reportItem.ProjectPublicID.String(),
 	}
 	if !param.GroupByProject {
 		row = append(row, reportItem.BucketName)
@@ -5249,10 +5280,26 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 
 // transformProjectReportItem modifies the project report item, converting GB values to TB and
 // hour values to month values. It includes cost if addCost is true.
-func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, userAgent string, addCost bool) accounting.ProjectReportItem {
+func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, userAgent []byte, addCost bool, priceModel payments.ProjectUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
 	if addCost {
-		priceModel := s.accounts.GetProjectUsagePriceModel(userAgent)
+		if priceModel == (payments.ProjectUsagePriceModel{}) {
+			if s.config.ProductBasedInvoicing {
+				var productID int32
+				productID, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(userAgent), item.Placement)
+				if err != nil {
+					return accounting.ProjectReportItem{}, err
+				}
+				productName, err := s.accounts.GetProductName(productID)
+				if err != nil {
+					return accounting.ProjectReportItem{}, err
+				}
+				item.ProductName = productName
+			} else {
+				priceModel = s.accounts.GetProjectUsagePriceModel(string(userAgent))
+			}
+		}
+
 		item.Egress -= math.Round(item.Storage / float64(hoursPerMonth) * priceModel.EgressDiscountRatio)
 		if item.Egress < 0 {
 			item.Egress = 0
@@ -5274,7 +5321,7 @@ func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, 
 	item.StorageTbMonth, _ = decimal.NewFromFloat(item.Storage).Shift(3).Div(hoursPerMonthDecimal).Float64()
 	item.SegmentCountMonth, _ = decimal.NewFromFloat(item.SegmentCount).Div(hoursPerMonthDecimal).Float64()
 
-	return item
+	return item, nil
 }
 
 // GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
