@@ -693,6 +693,24 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 	return 0, payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
 }
 
+// GetProductName returns the product name for a given product ID.
+func (accounts *accounts) GetProductName(productID int32) (string, error) {
+	if price, ok := accounts.service.productPriceMap[productID]; ok {
+		return price.ProductName, nil
+	}
+	return "", ErrPricingNotfound.New("pricing not found for product %d", productID)
+}
+
+// GetPartnerNames returns the partners relevant to billing.
+func (accounts *accounts) GetPartnerNames() []string {
+	return accounts.service.partnerNames
+}
+
+// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key.
+func (accounts *accounts) ProductIdAndPriceForUsageKey(key string) (int32, payments.ProjectUsagePriceModel) {
+	return accounts.service.productIdAndPriceForUsageKey(key)
+}
+
 // GetPartnerPlacements returns the placements for a partner. It also includes the
 // placements for the default product price config that have not been overridden
 // for the partner.

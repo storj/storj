@@ -17,11 +17,13 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 )
@@ -184,7 +186,6 @@ func TestTotalUsageReport(t *testing.T) {
 		var (
 			satelliteSys     = planet.Satellites[0]
 			service          = satelliteSys.API.Console.Service
-			uplink           = planet.Uplinks[0]
 			now              = time.Now()
 			inFiveMinutes    = now.Add(5 * time.Minute)
 			inAnHour         = now.Add(1 * time.Hour)
@@ -214,7 +215,19 @@ func TestTotalUsageReport(t *testing.T) {
 		require.NoError(t, err)
 
 		bucketName := "bucket"
-		err = uplink.CreateBucket(ctx, satelliteSys, bucketName)
+		_, err = satelliteSys.API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      bucketName,
+			ProjectID: project1.ID,
+			Placement: storj.DefaultPlacement,
+		})
+		require.NoError(t, err)
+		_, err = satelliteSys.API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      bucketName,
+			ProjectID: project2.ID,
+			Placement: storj.DefaultPlacement,
+		})
 		require.NoError(t, err)
 
 		bucketLoc1 := metabase.BucketLocation{
