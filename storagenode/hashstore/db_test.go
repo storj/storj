@@ -349,7 +349,7 @@ func testDB_BackgroundCompaction(t *testing.T) {
 
 		// no compaction is going on and none can start, so we're safe to update the today callback
 		// on the store data-race free.
-		today := stats.Today + 2
+		today := stats.Today + 1
 		s.today = func() uint32 { return today }
 
 		db.mu.Unlock()
