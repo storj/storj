@@ -605,7 +605,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	}, time.Time{}))
 
 	// clear out the first page so that any updates to k1 don't overwrite the existing entry for k1.
-	_, err := s.tbl.Handle().WriteAt(make([]byte, pageSize), headerSize) // offset=headerSize to skip the header page
+	_, err := s.tbl.Handle().WriteAt(make([]byte, pageSize), tbl_headerSize) // offset=headerSize to skip the header page
 	assert.NoError(t, err)
 
 	// reading k1 will cause it to revive, adding the duplicate entry for k1.

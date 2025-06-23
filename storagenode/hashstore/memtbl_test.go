@@ -275,7 +275,7 @@ func testMemTbl_ReopenWithCorruptRecord(t *testing.T) {
 	m.AssertLookup(k1)
 
 	// corrupt the record.
-	_, err := m.fh.WriteAt(make([]byte, RecordSize), headerSize)
+	_, err := m.fh.WriteAt(make([]byte, RecordSize), tbl_headerSize)
 	assert.NoError(t, err)
 
 	// reopen the table.
