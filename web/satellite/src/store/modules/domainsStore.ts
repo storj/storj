@@ -4,15 +4,18 @@
 import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { CheckDNSResponse, CreateDomainRequest, Domain } from '@/types/domains';
+import { CheckDNSResponse, CreateDomainRequest, DomainsCursor, DomainsOrderBy, DomainsPage } from '@/types/domains';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DomainsHttpAPI } from '@/api/domains';
 import { useConfigStore } from '@/store/modules/configStore';
+import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { SortDirection } from '@/types/common';
 
 export class DomainsState {
-    public domains: Domain[] = [];
+    public cursor: DomainsCursor = new DomainsCursor();
+    public page: DomainsPage = new DomainsPage();
 }
 
 export const useDomainsStore = defineStore('domains', () => {
@@ -38,9 +41,6 @@ export const useDomainsStore = defineStore('domains', () => {
 
         const creds = await generatePublicCredentials(apiKey.secret, bucket, null, passphrase);
 
-        // TODO: rework when we have a way to store those.
-        state.domains.push(new Domain(accessName, new Date()));
-
         return creds.accessKeyId;
     }
 
@@ -48,10 +48,33 @@ export const useDomainsStore = defineStore('domains', () => {
         await api.create(projectsStore.state.selectedProject.id, request, csrfToken.value);
     }
 
+    async function fetchDomains(page: number, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
+        state.cursor.page = page;
+        state.cursor.limit = limit;
+
+        state.page = await api.getPaged(projectsStore.state.selectedProject.id, state.cursor);
+    }
+
+    function setSearchQuery(query: string): void {
+        state.cursor.search = query;
+    }
+
+    function setSortingBy(order: DomainsOrderBy): void {
+        state.cursor.order = order;
+    }
+
+    function setSortingDirection(direction: SortDirection): void {
+        state.cursor.orderDirection = direction;
+    }
+
     return {
         state,
         checkDNSRecords,
         generateDomainCredentials,
         storeDomain,
+        fetchDomains,
+        setSearchQuery,
+        setSortingBy,
+        setSortingDirection,
     };
 });

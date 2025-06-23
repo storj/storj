@@ -243,6 +243,7 @@ const bucket = resettableRef<string | undefined>(undefined);
 const accessKeyID = resettableRef<string>('');
 const passphrase = resettableRef<string>(bucketsStore.state.passphrase);
 const passphraseOption = resettableRef<PassphraseOption>(PassphraseOption.EnterNewPassphrase);
+const accessName = resettableRef<string>('');
 
 const innerContent = ref<Component>();
 const isFetching = ref<boolean>(true);
@@ -325,15 +326,6 @@ const storjAccess = computed<string>(() => `storj-access:${accessKeyID.value}`);
 const storjTLS = 'storj-tls:true';
 const txt = computed<string[]>(() => [storjRoot.value, storjAccess.value, storjTLS]);
 
-const accessName = computed<string>(() => {
-    let name = `custom-domain-access-${domain.value}`;
-    if (name.length > configStore.state.config.maxNameCharacters) {
-        name = `custom-domain-access-${new Date().toISOString()}`;
-    }
-
-    return name;
-});
-
 const currentTitle = computed<string>(() => {
     switch (step.value) {
     case NewDomainFlowStep.CustomDomain: return 'Setup Custom Domain';
@@ -352,8 +344,14 @@ async function generate(): Promise<void> {
         throw new Error('Passphrase and bucket must be set before generating access');
     }
 
+    // Re-generate a unique access name each time to avoid conflicts.
+    accessName.value = `custom-domain-access-${new Date().toISOString()}`;
+
     accessKeyID.value = await domainsStore.generateDomainCredentials(accessName.value, bucket.value, passphrase.value);
     await domainsStore.storeDomain({ subdomain: domain.value, prefix: bucket.value, accessID: accessKeyID.value });
+    domainsStore.fetchDomains(1, domainsStore.state.cursor.limit).catch(error => {
+        notify.notifyError(error, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
+    });
 }
 
 /**

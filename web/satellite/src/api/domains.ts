@@ -92,7 +92,7 @@ export class DomainsHttpAPI implements DomainsAPI {
         const domainsPage: DomainsPage = new DomainsPage();
 
         domainsPage.domains = page.domains.map(d => new Domain(
-            d.name,
+            d.subdomain,
             new Date(d.createdAt),
         ));
 

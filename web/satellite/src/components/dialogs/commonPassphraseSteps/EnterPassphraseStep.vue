@@ -85,6 +85,7 @@ defineExpose<DialogStepComponent>({
         form.value?.validate();
         return !!form.value?.isValid;
     },
+    onEnter: () => emit('passphraseChanged', passphrase.value),
     onExit: to => {
         if (!props.setOnNext || to !== 'next') return;
 
