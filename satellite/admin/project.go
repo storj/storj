@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"github.com/zeebo/errs/v2"
+	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -721,6 +722,11 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// if usage exist, return error to client and exit
+	if server.checkUsage(ctx, w, project.ID) {
+		return
+	}
+
 	err = server.db.Console().APIKeys().DeleteAllByProjectID(ctx, project.ID)
 	if err != nil {
 		sendJSONError(w, "unable to delete api-keys",
@@ -728,9 +734,12 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if usage exist, return error to client and exit
-	if server.checkUsage(ctx, w, project.ID) {
-		return
+	err = server.db.Console().Domains().DeleteAllByProjectID(ctx, project.ID)
+	if err != nil {
+		server.log.Error("failed to delete all domains for project",
+			zap.String("project_id", project.ID.String()),
+			zap.Error(err),
+		)
 	}
 
 	// We update status to disabled instead of deleting the project
@@ -739,7 +748,6 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		sendJSONError(w, "unable to delete project",
 			err.Error(), http.StatusInternalServerError)
-		return
 	}
 }
 
@@ -790,6 +798,14 @@ func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUI
 	err = server.db.Console().APIKeys().DeleteAllByProjectID(ctx, projectID)
 	if err != nil {
 		return err
+	}
+
+	err = server.db.Console().Domains().DeleteAllByProjectID(ctx, projectID)
+	if err != nil {
+		server.log.Error("failed to delete all domains for project",
+			zap.String("project_id", projectID.String()),
+			zap.Error(err),
+		)
 	}
 
 	// We update status to disabled instead of deleting the project
