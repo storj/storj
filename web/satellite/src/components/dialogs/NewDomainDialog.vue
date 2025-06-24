@@ -189,7 +189,6 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { IDialogFlowStep } from '@/types/common';
 import { PassphraseOption } from '@/types/setupAccess';
 import { useLinksharing } from '@/composables/useLinksharing';
-import { useConfigStore } from '@/store/modules/configStore';
 
 import AccessEncryptionStep from '@/components/dialogs/accessSetupSteps/AccessEncryptionStep.vue';
 import EnterPassphraseStep from '@/components/dialogs/commonPassphraseSteps/EnterPassphraseStep.vue';
@@ -223,7 +222,6 @@ class StepInfo {
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const domainsStore = useDomainsStore();
-const configStore = useConfigStore();
 
 const notify = useNotify();
 const { publicLinksharingURL } = useLinksharing();
@@ -449,7 +447,11 @@ watch(innerContent, async (comp: Component): Promise<void> => {
     isFetching.value = true;
 
     const projectID = projectsStore.state.selectedProject.id;
-    await bucketsStore.getAllBucketsNames(projectID).catch(error => {
+
+    await Promise.all([
+        domainsStore.getAllDomainNames(projectID),
+        bucketsStore.getAllBucketsNames(projectID),
+    ]).catch(error => {
         notify.notifyError(error, AnalyticsErrorEventSource.NEW_DOMAIN_MODAL);
     });
 

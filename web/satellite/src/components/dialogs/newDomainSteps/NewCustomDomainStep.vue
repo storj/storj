@@ -11,7 +11,7 @@
                     label="Website URL"
                     placeholder="www.yourdomain.com"
                     variant="outlined"
-                    :rules="[RequiredRule, DomainRule]"
+                    :rules="domainRules"
                     required
                     autofocus
                 />
@@ -36,10 +36,12 @@
 import { watch, ref, computed } from 'vue';
 import { VAutocomplete, VCol, VForm, VRow, VTextField } from 'vuetify/components';
 
-import { DomainRule, IDialogFlowStep, RequiredRule } from '@/types/common';
+import { DomainRule, IDialogFlowStep, RequiredRule, ValidationRule } from '@/types/common';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useDomainsStore } from '@/store/modules/domainsStore';
 
 const bucketsStore = useBucketsStore();
+const domainsStore = useDomainsStore();
 
 const form = ref<VForm>();
 const domain = ref<string>('');
@@ -55,6 +57,12 @@ const emit = defineEmits<{
  * Returns all bucket names from the store.
  */
 const allBucketNames = computed<string[]>(() => bucketsStore.state.allBucketNames);
+
+const domainRules = computed<ValidationRule<string>[]>(() => [
+    RequiredRule,
+    DomainRule,
+    v => !domainsStore.state.allDomainNames.includes(v) || 'This domain is already in use',
+]);
 
 watch(domain, value => emit('domainChanged', value));
 watch(bucket, value => emit('bucketChanged', value));

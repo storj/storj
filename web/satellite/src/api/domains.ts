@@ -67,6 +67,23 @@ export class DomainsHttpAPI implements DomainsAPI {
         }
     }
 
+    public async getAllNames(projectID: string): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/project/${projectID}/names`;
+        const response = await this.client.get(path);
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Cannot get all domain names',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        return result ? result : [];
+    }
+
     public async getPaged(projectID: string, cursor: DomainsCursor): Promise<DomainsPage> {
         const path = `${this.ROOT_PATH}/project/${projectID}/paged?search=${cursor.search}&limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
         const response = await this.client.get(path);

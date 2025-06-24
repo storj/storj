@@ -19,6 +19,7 @@ import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 import { useRestApiKeysStore } from '@/store/modules/apiKeysStore';
+import { useDomainsStore } from '@/store/modules/domainsStore';
 
 export function useLogout() {
     const auth: AuthHttpApi = new AuthHttpApi();
@@ -36,6 +37,7 @@ export function useLogout() {
     const obStore = useObjectBrowserStore();
     const configStore = useConfigStore();
     const apiKeysStore = useRestApiKeysStore();
+    const domainsStore = useDomainsStore();
 
     async function clearStores(): Promise<void> {
         const { stop } = useAccessGrantWorker();
@@ -53,6 +55,7 @@ export function useLogout() {
             billingStore.clear(),
             obStore.clear(),
             apiKeysStore.clear(),
+            domainsStore.clear(),
         ]);
     }
 

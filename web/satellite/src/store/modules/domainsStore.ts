@@ -16,6 +16,7 @@ import { SortDirection } from '@/types/common';
 export class DomainsState {
     public cursor: DomainsCursor = new DomainsCursor();
     public page: DomainsPage = new DomainsPage();
+    public allDomainNames: string[] = [];
 }
 
 export const useDomainsStore = defineStore('domains', () => {
@@ -59,6 +60,10 @@ export const useDomainsStore = defineStore('domains', () => {
         await api.delete(projectsStore.state.selectedProject.id, name, csrfToken.value);
     }
 
+    async function getAllDomainNames(projectID: string): Promise<void> {
+        state.allDomainNames = await api.getAllNames(projectID);
+    }
+
     function setSearchQuery(query: string): void {
         state.cursor.search = query;
     }
@@ -71,6 +76,12 @@ export const useDomainsStore = defineStore('domains', () => {
         state.cursor.orderDirection = direction;
     }
 
+    function clear(): void {
+        state.allDomainNames = [];
+        state.page = new DomainsPage();
+        state.cursor = new DomainsCursor();
+    }
+
     return {
         state,
         checkDNSRecords,
@@ -81,5 +92,7 @@ export const useDomainsStore = defineStore('domains', () => {
         setSortingBy,
         setSortingDirection,
         deleteDomain,
+        getAllDomainNames,
+        clear,
     };
 });

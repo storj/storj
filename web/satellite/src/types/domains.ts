@@ -35,6 +35,13 @@ export interface DomainsAPI {
      * @throws Error
      */
     getPaged(projectID: string, cursor: DomainsCursor): Promise<DomainsPage>;
+
+    /**
+     * Returns all domain names from a server side.
+     *
+     * @throws Error
+     */
+    getAllNames(projectID: string): Promise<string[]>;
 }
 
 export type CreateDomainRequest = {
