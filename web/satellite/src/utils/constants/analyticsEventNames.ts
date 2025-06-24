@@ -78,6 +78,7 @@ export enum AnalyticsErrorEventSource {
     BUCKET_DETAILS_MODAL = 'Bucket details modal',
     SETUP_ACCESS_MODAL = 'Setup access modal',
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
+    CONFIRM_DELETE_DOMAIN_MODAL = 'Confirm delete domain modal',
     FILE_BROWSER_LIST_CALL = 'File browser - list API call',
     FILE_BROWSER_ENTRY = 'File browser entry',
     FILE_BROWSER = 'File browser',

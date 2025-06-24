@@ -55,6 +55,10 @@ export const useDomainsStore = defineStore('domains', () => {
         state.page = await api.getPaged(projectsStore.state.selectedProject.id, state.cursor);
     }
 
+    async function deleteDomain(name: string): Promise<void> {
+        await api.delete(projectsStore.state.selectedProject.id, name, csrfToken.value);
+    }
+
     function setSearchQuery(query: string): void {
         state.cursor.search = query;
     }
@@ -76,5 +80,6 @@ export const useDomainsStore = defineStore('domains', () => {
         setSearchQuery,
         setSortingBy,
         setSortingDirection,
+        deleteDomain,
     };
 });

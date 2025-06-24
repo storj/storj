@@ -38,7 +38,7 @@
                 {{ Time.formattedDate(item.createdAt) }}
             </span>
         </template>
-        <template #item.actions>
+        <template #item.actions="{ item }">
             <v-btn
                 variant="outlined"
                 color="default"
@@ -51,7 +51,7 @@
                 <v-icon :icon="Ellipsis" />
                 <v-menu activator="parent">
                     <v-list class="pa-1">
-                        <v-list-item class="text-error" density="comfortable" link @click="() => {}">
+                        <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteClick(item)">
                             <template #prepend>
                                 <component :is="Trash2" :size="18" />
                             </template>
@@ -64,6 +64,12 @@
             </v-btn>
         </template>
     </v-data-table-server>
+
+    <delete-domain-dialog
+        v-model="isDeleteDomainDialogShown"
+        :domain-name="domainToDelete"
+        @deleted="() => onUpdatePage(FIRST_PAGE)"
+    />
 </template>
 
 <script setup lang="ts">
@@ -89,6 +95,8 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 
+import DeleteDomainDialog from '@/components/dialogs/DeleteDomainDialog.vue';
+
 const FIRST_PAGE = 1;
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -97,6 +105,8 @@ const domainsStore = useDomainsStore();
 
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
+const isDeleteDomainDialogShown = ref<boolean>(false);
+const domainToDelete = ref<string | undefined>();
 
 const headers: DataTableHeader[] = [
     {
@@ -126,6 +136,7 @@ function onUpdateLimit(limit: number): void {
 }
 
 function onUpdatePage(page: number): void {
+    domainToDelete.value = undefined;
     fetch(page, cursor.value.limit);
 }
 
@@ -138,6 +149,11 @@ function onUpdateSortBy(sortBy: { key: keyof DomainsOrderBy, order: keyof SortDi
     domainsStore.setSortingDirection(SortDirection[sorting.order]);
 
     fetch(FIRST_PAGE, cursor.value.limit);
+}
+
+function onDeleteClick(domain: Domain): void {
+    domainToDelete.value = domain.name;
+    isDeleteDomainDialogShown.value = true;
 }
 
 watch(() => search.value, () => {
