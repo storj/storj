@@ -2706,6 +2706,14 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
+	err = s.store.Domains().DeleteAllByProjectID(ctx, projectID)
+	if err != nil {
+		s.log.Error("failed to delete all domains for project",
+			zap.String("project_id", projectID.String()),
+			zap.Error(err),
+		)
+	}
+
 	// We update status to disabled instead of deleting the project
 	// to not lose the historical project/user usage data.
 	err = s.store.Projects().UpdateStatus(ctx, projectID, ProjectDisabled)
@@ -2748,15 +2756,23 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 
 	var errsList errs.Group
 	for _, p := range projects {
-		// We update status to disabled instead of deleting the project
-		// to not lose the historical project/user usage data.
-		err = s.store.Projects().UpdateStatus(ctx, p.ID, ProjectDisabled)
+		// We delete all API keys associated with the project as a precaution, in case any still exist.
+		err = s.store.APIKeys().DeleteAllByProjectID(ctx, p.ID)
 		if err != nil {
 			errsList.Add(err)
 		}
 
-		// We delete all API keys associated with the project as a precaution, in case any still exist.
-		err = s.store.APIKeys().DeleteAllByProjectID(ctx, p.ID)
+		err = s.store.Domains().DeleteAllByProjectID(ctx, p.ID)
+		if err != nil {
+			s.log.Error("failed to delete all domains for project",
+				zap.String("project_id", p.ID.String()),
+				zap.Error(err),
+			)
+		}
+
+		// We update status to disabled instead of deleting the project
+		// to not lose the historical project/user usage data.
+		err = s.store.Projects().UpdateStatus(ctx, p.ID, ProjectDisabled)
 		if err != nil {
 			errsList.Add(err)
 		}

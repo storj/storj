@@ -2234,9 +2234,27 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, project)
 
+		_, err = sat.DB.Console().Domains().Create(ctx, console.Domain{
+			Subdomain:       "example.test",
+			ProjectID:       p2.ID,
+			ProjectPublicID: p2.PublicID,
+			Prefix:          "example",
+			AccessID:        "access-id",
+			CreatedBy:       p2.OwnerID,
+		})
+		require.NoError(t, err)
+
+		domains, err := sat.DB.Console().Domains().GetAllDomainNamesByProjectID(ctx, p2.ID)
+		require.NoError(t, err)
+		require.Len(t, domains, 1)
+
 		resp, err = service.DeleteProject(userCtx, p2.ID, console.DeleteProjectStep, "")
 		require.NoError(t, err)
 		require.Nil(t, resp)
+
+		domains, err = sat.DB.Console().Domains().GetAllDomainNamesByProjectID(ctx, p2.ID)
+		require.NoError(t, err)
+		require.Len(t, domains, 0)
 
 		projects, err := db.Console().Projects().GetOwnActive(ctx, user.ID)
 		require.NoError(t, err)
@@ -2718,6 +2736,20 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, cards, 1)
 
+			_, err = sat.DB.Console().Domains().Create(ctx, console.Domain{
+				Subdomain:       "example.test",
+				ProjectID:       p2.ID,
+				ProjectPublicID: p2.PublicID,
+				Prefix:          "example",
+				AccessID:        "access-id",
+				CreatedBy:       p2.OwnerID,
+			})
+			require.NoError(t, err)
+
+			domains, err := sat.DB.Console().Domains().GetAllDomainNamesByProjectID(ctx, p2.ID)
+			require.NoError(t, err)
+			require.Len(t, domains, 1)
+
 			resp, err = service.DeleteAccount(userCtx, console.DeleteAccountStep, "")
 			require.NoError(t, err)
 			require.Nil(t, resp)
@@ -2728,6 +2760,10 @@ func TestDeleteAccount(t *testing.T) {
 			require.WithinDuration(t, timestamp, *user.StatusUpdatedAt, time.Minute)
 			require.Empty(t, user.ActivationCode)
 			require.Contains(t, user.Email, "deactivated")
+
+			domains, err = sat.DB.Console().Domains().GetAllDomainNamesByProjectID(ctx, p2.ID)
+			require.NoError(t, err)
+			require.Len(t, domains, 0)
 
 			projects, err := db.Console().Projects().GetOwnActive(ctx, user.ID)
 			require.NoError(t, err)
