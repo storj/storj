@@ -269,6 +269,48 @@ func (d *Domains) GetProjectDomains(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetProjectAllDomainNames returns all domain names by project ID.
+func (d *Domains) GetProjectAllDomainNames(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if !d.domainsPageEnabled {
+		d.serveJSONError(ctx, w, http.StatusNotImplemented, errs.New("domains page is disabled"))
+		return
+	}
+
+	idParam, ok := mux.Vars(r)["projectID"]
+	if !ok {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing projectID route param"))
+		return
+	}
+
+	projectID, err := uuid.FromString(idParam)
+	if err != nil {
+		d.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	names, err := d.service.GetAllDomainNames(ctx, projectID)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			d.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		d.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(names)
+	if err != nil {
+		d.log.Error("failed to write json all domain names response", zap.Error(ErrDomainsAPI.Wrap(err)))
+	}
+}
+
 type checkDNSRecordsResponse struct {
 	IsSuccess     bool     `json:"isSuccess"`
 	IsVerifyError bool     `json:"isVerifyError"`

@@ -402,6 +402,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	domainsRouter.Handle("/project/{projectID}", server.withCSRFProtection(http.HandlerFunc(domainsController.CreateDomain))).Methods(http.MethodPost, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}", server.withCSRFProtection(http.HandlerFunc(domainsController.DeleteDomain))).Methods(http.MethodDelete, http.MethodOptions)
 	domainsRouter.Handle("/project/{projectID}/paged", http.HandlerFunc(domainsController.GetProjectDomains)).Methods(http.MethodGet, http.MethodOptions)
+	domainsRouter.Handle("/project/{projectID}/names", http.HandlerFunc(domainsController.GetProjectAllDomainNames)).Methods(http.MethodGet, http.MethodOptions)
 
 	if config.ABTesting.Enabled {
 		abController := consoleapi.NewABTesting(logger, abTesting)

@@ -4507,6 +4507,24 @@ func (s *Service) ListDomains(ctx context.Context, projectID uuid.UUID, cursor D
 	return page, Error.Wrap(err)
 }
 
+// GetAllDomainNames returns all domain names for a given Project.
+func (s *Service) GetAllDomainNames(ctx context.Context, projectID uuid.UUID) (names []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get all domain names", zap.String("projectPublicID", projectID.String()))
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	names, err = s.store.Domains().GetAllDomainNamesByProjectID(ctx, isMember.project.ID)
+	return names, Error.Wrap(err)
+}
+
 // CreateAPIKey creates new api key.
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string, version macaroon.APIKeyVersion) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {

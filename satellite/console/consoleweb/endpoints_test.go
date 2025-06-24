@@ -637,6 +637,15 @@ func TestDomains(t *testing.T) {
 			require.Contains(t, body, "domains")
 			require.Len(t, page.Domains, 0)
 		}
+
+		{ // Get_ProjectAllDomainNames
+			var names []string
+			path := "/domains/project/" + test.defaultProjectID() + "/names"
+			resp, body := test.request(http.MethodGet, path, nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &names))
+			require.Len(t, names, 1)
+		}
 	})
 }
 
