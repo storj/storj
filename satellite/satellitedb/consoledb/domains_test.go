@@ -81,7 +81,7 @@ func TestDomainsRepository(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		t.Run("GetPagedByProjectID", func(t *testing.T) {
+		t.Run("GetPagedByProjectID + GetAllDomainNamesByProjectID", func(t *testing.T) {
 			const totalDomains = 10
 			for i := 0; i < totalDomains; i++ {
 				d := domain
@@ -104,7 +104,6 @@ func TestDomainsRepository(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, page)
 			require.Equal(t, uint64(totalDomains), page.TotalCount)
-
 			require.Len(t, page.Domains, int(cursor.Limit))
 
 			for i := 1; i < len(page.Domains); i++ {
@@ -119,6 +118,10 @@ func TestDomainsRepository(t *testing.T) {
 			require.NotNil(t, page2)
 			require.Equal(t, uint64(totalDomains), page2.TotalCount)
 			require.Len(t, page2.Domains, totalDomains-int(cursor.Limit))
+
+			names, err := domains.GetAllDomainNamesByProjectID(ctx, project1.ID)
+			require.NoError(t, err)
+			require.Len(t, names, totalDomains)
 		})
 
 		t.Run("DeleteAllByProjectID", func(t *testing.T) {

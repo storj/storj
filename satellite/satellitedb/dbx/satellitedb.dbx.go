@@ -14890,6 +14890,10 @@ type Status_Row struct {
 	Status int
 }
 
+type Subdomain_Row struct {
+	Subdomain string
+}
+
 type Tags_Row struct {
 	Tags []byte
 }
@@ -18066,6 +18070,51 @@ func (obj *pgxImpl) Get_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
 		return (*Domain)(nil), obj.makeErr(err)
 	}
 	return domain, nil
+
+}
+
+func (obj *pgxImpl) All_Domain_Subdomain_By_ProjectId(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field) (
+	rows []*Subdomain_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT domains.subdomain FROM domains WHERE domains.project_id = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Subdomain_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Subdomain_Row{}
+				err = __rows.Scan(&row.Subdomain)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -28344,6 +28393,51 @@ func (obj *pgxcockroachImpl) Get_Domain_By_ProjectId_And_Subdomain(ctx context.C
 		return (*Domain)(nil), obj.makeErr(err)
 	}
 	return domain, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_Domain_Subdomain_By_ProjectId(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field) (
+	rows []*Subdomain_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT domains.subdomain FROM domains WHERE domains.project_id = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Subdomain_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Subdomain_Row{}
+				err = __rows.Scan(&row.Subdomain)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -38901,6 +38995,51 @@ func (obj *spannerImpl) Get_Domain_By_ProjectId_And_Subdomain(ctx context.Contex
 
 }
 
+func (obj *spannerImpl) All_Domain_Subdomain_By_ProjectId(ctx context.Context,
+	domain_project_id Domain_ProjectId_Field) (
+	rows []*Subdomain_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT domains.subdomain FROM domains WHERE domains.project_id = ?")
+
+	var __values []any
+	__values = append(__values, domain_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Subdomain_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Subdomain_Row{}
+				err = __rows.Scan(&row.Subdomain)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -45791,6 +45930,10 @@ type Methods interface {
 	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
+
+	All_Domain_Subdomain_By_ProjectId(ctx context.Context,
+		domain_project_id Domain_ProjectId_Field) (
+		rows []*Subdomain_Row, err error)
 
 	All_NodeTags(ctx context.Context) (
 		rows []*NodeTags, err error)

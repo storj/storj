@@ -30,6 +30,8 @@ type Domains interface {
 	GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor DomainCursor) (*DomainPage, error)
 	// GetByProjectIDAndSubdomain returns Domain by projectID and subdomain.
 	GetByProjectIDAndSubdomain(ctx context.Context, projectID uuid.UUID, subdomain string) (*Domain, error)
+	// GetAllDomainNamesByProjectID returns all domain names (subdomains) for the given project ID.
+	GetAllDomainNamesByProjectID(ctx context.Context, projectID uuid.UUID) ([]string, error)
 	// Delete deletes Domain from store.
 	Delete(ctx context.Context, projectID uuid.UUID, subdomain string) error
 	// DeleteAllByProjectID deletes all Domains for the given project.

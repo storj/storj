@@ -81,6 +81,28 @@ func (d *domains) GetByProjectIDAndSubdomain(ctx context.Context, projectID uuid
 	return domainFromDBX(ctx, dbxDomain)
 }
 
+// GetAllDomainNamesByProjectID implements satellite.Domains get all domain names by project ID method.
+func (d *domains) GetAllDomainNamesByProjectID(ctx context.Context, projectID uuid.UUID) (names []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := d.db.All_Domain_Subdomain_By_ProjectId(ctx, dbx.Domain_ProjectId(projectID[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	names = make([]string, 0, len(rows))
+
+	for _, row := range rows {
+		if row == nil {
+			return nil, errs.New("nil row in database result")
+		}
+
+		names = append(names, row.Subdomain)
+	}
+
+	return names, nil
+}
+
 // GetPagedByProjectID implements satellite.Domains get domains by project ID and cursor method.
 func (d *domains) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.DomainCursor) (page *console.DomainPage, err error) {
 	defer mon.Task()(&ctx)(&err)

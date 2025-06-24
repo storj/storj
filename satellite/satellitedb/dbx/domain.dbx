@@ -30,3 +30,8 @@ read one (
 	where domain.project_id = ?
     where domain.subdomain = ?
 )
+
+read all (
+	select domain.subdomain
+	where domain.project_id = ?
+)
