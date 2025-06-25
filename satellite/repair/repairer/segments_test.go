@@ -43,6 +43,8 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				testplanet.ReconfigureRS(1, 1, piecesCount, piecesCount),
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.DoDeclumping = false
+					// Disable stray node disqualification because the storage nodes' contact chores are paused.
+					config.StrayNodes.EnableDQ = false
 				},
 			),
 		},
