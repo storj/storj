@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -1397,7 +1398,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
-		if !req.ArbitraryPrefix && prefix[len(prefix)-1] != metabase.Delimiter {
+		if !req.ArbitraryPrefix && !strings.HasSuffix(string(prefix), metabase.Delimiter) {
 			prefix += metabase.ObjectKey(metabase.Delimiter)
 		}
 	}

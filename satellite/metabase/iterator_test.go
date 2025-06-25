@@ -3998,8 +3998,6 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 		t.Run("batch-size", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			afterDelimiter := metabase.ObjectKey(metabase.Delimiter + 1)
-
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"2017/05/08",
 				"2017/05/08/a",
@@ -4007,7 +4005,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 				"2017/05/08/c",
 				"2017/05/08/d",
 				"2017/05/08/e",
-				"2017/05/08" + afterDelimiter,
+				"2017/05/08" + metabase.DelimiterNext,
 				"2017/05/09/a",
 				"2017/05/09/b",
 				"2017/05/09/c",
@@ -4037,7 +4035,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					prefixEntry(metabase.ObjectKey("08/")),
-					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
+					withoutPrefix1("2017/05/", objects["2017/05/08"+metabase.DelimiterNext]),
 					prefixEntry(metabase.ObjectKey("09/")),
 					prefixEntry(metabase.ObjectKey("10/")),
 				},
@@ -4059,7 +4057,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
+					withoutPrefix1("2017/05/", objects["2017/05/08"+metabase.DelimiterNext]),
 					prefixEntry(metabase.ObjectKey("09/")),
 					prefixEntry(metabase.ObjectKey("10/")),
 				},
@@ -4080,7 +4078,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 					IncludeSystemMetadata: true,
 				},
 				Result: []metabase.ObjectEntry{
-					withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
+					withoutPrefix1("2017/05/", objects["2017/05/08"+metabase.DelimiterNext]),
 					prefixEntry(metabase.ObjectKey("09/")),
 					prefixEntry(metabase.ObjectKey("10/")),
 				},

@@ -185,7 +185,7 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 	}
 
 	// should this be treated as a prefix?
-	p := strings.IndexByte(string(item.ObjectKey), Delimiter)
+	p := strings.Index(string(item.ObjectKey), Delimiter)
 	if p >= 0 {
 		it.skipPrefix = item.ObjectKey[:p+1]
 		*item = ObjectEntry{
@@ -212,7 +212,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 
 		if !it.recursive {
 			afterPrefix := it.cursor.Key[len(it.prefix):]
-			p := bytes.IndexByte([]byte(afterPrefix), Delimiter)
+			p := strings.Index(string(afterPrefix), Delimiter)
 			if p >= 0 {
 				it.cursor.Key = it.prefix + PrefixLimit(afterPrefix[:p+1])
 				it.cursor.StreamID = uuid.UUID{}
@@ -717,7 +717,7 @@ func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 	// In this case, we want the skip prefix to be `x/y/z` + string('/' + 1).
 
 	cursorWithoutPrefix := cursor.Key[len(prefix):]
-	p := strings.IndexByte(string(cursorWithoutPrefix), Delimiter)
+	p := strings.Index(string(cursorWithoutPrefix), Delimiter)
 	if p < 0 {
 		// The cursor is not a prefix, but instead a path inside the prefix,
 		// so we can use it directly.
@@ -729,7 +729,7 @@ func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 
 	// return the next prefix given a scoped path
 	return ObjectsIteratorCursor{
-		Key:       cursor.Key[:len(prefix)+p] + ObjectKey(Delimiter+1),
+		Key:       cursor.Key[:len(prefix)+p] + DelimiterNext,
 		Version:   MaxVersion,
 		Inclusive: true,
 	}

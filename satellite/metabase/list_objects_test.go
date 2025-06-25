@@ -769,8 +769,6 @@ func TestListObjectsSkipCursor(t *testing.T) {
 		t.Run("batch-size", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			afterDelimiter := metabase.ObjectKey(metabase.Delimiter + 1)
-
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"2017/05/08",
 				"2017/05/08/a",
@@ -778,7 +776,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				"2017/05/08/c",
 				"2017/05/08/d",
 				"2017/05/08/e",
-				"2017/05/08" + afterDelimiter,
+				"2017/05/08" + metabase.DelimiterNext,
 				"2017/05/09/a",
 				"2017/05/09/b",
 				"2017/05/09/c",
@@ -810,7 +808,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 					Result: metabase.ListObjectsResult{
 						Objects: []metabase.ObjectEntry{
 							prefixEntry(metabase.ObjectKey("08/")),
-							withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
+							withoutPrefix1("2017/05/", objects["2017/05/08"+metabase.DelimiterNext]),
 							prefixEntry(metabase.ObjectKey("09/")),
 							prefixEntry(metabase.ObjectKey("10/")),
 						}},
@@ -834,7 +832,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 					},
 					Result: metabase.ListObjectsResult{
 						Objects: []metabase.ObjectEntry{
-							withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
+							withoutPrefix1("2017/05/", objects["2017/05/08"+metabase.DelimiterNext]),
 							prefixEntry(metabase.ObjectKey("09/")),
 							prefixEntry(metabase.ObjectKey("10/")),
 						}},
@@ -857,7 +855,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 					},
 					Result: metabase.ListObjectsResult{
 						Objects: []metabase.ObjectEntry{
-							withoutPrefix1("2017/05/", objects["2017/05/08"+afterDelimiter]),
+							withoutPrefix1("2017/05/", objects["2017/05/08"+metabase.DelimiterNext]),
 							prefixEntry(metabase.ObjectKey("09/")),
 							prefixEntry(metabase.ObjectKey("10/")),
 						}},
@@ -2675,7 +2673,7 @@ func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
 func TestListObjects_Delimiter(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		const delimiter = "###"
-		defaultDelimiter := metabase.ObjectKey(metabase.Delimiter)
+		const defaultDelimiter = metabase.Delimiter
 
 		projectID := testrand.UUID()
 		bucketName := metabase.BucketName(testrand.BucketName())

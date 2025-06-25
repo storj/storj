@@ -18,9 +18,6 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-// DelimiterNext is the string that comes immediately after Delimiter="/".
-const DelimiterNext = "0"
-
 // ListObjectsCursor is a cursor used during iteration through objects.
 type ListObjectsCursor IterateCursor
 
@@ -95,7 +92,7 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 	ensureRange(&opts.Params.QueryExtraForNonRecursive, 10, 1, 100000)
 
 	if opts.Delimiter == "" {
-		opts.Delimiter = ObjectKey(Delimiter)
+		opts.Delimiter = Delimiter
 	}
 
 	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
@@ -688,7 +685,7 @@ func (opts *ListObjects) StartCursor() (cursor ListObjectsCursor, ok bool) {
 		// Check whether we need to skip outside of a prefix.
 		delimiter := opts.Delimiter
 		if delimiter == "" {
-			delimiter = ObjectKey(Delimiter)
+			delimiter = Delimiter
 		}
 
 		firstDelimiterIdx := strings.Index(string(keyWithoutPrefix), string(delimiter))

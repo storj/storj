@@ -38,7 +38,9 @@ var (
 
 // Common constants for segment keys.
 const (
-	Delimiter        = '/'
+	Delimiter = "/"
+	// DelimiterNext is the string that comes immediately after Delimiter="/".
+	DelimiterNext    = "0"
 	LastSegmentName  = "l"
 	LastSegmentIndex = uint32(math.MaxUint32)
 )

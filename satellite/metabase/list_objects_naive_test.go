@@ -55,7 +55,7 @@ func NewNaiveObjectsDB(rawentries []metabase.ObjectEntry) *NaiveObjectsDB {
 func (db *NaiveObjectsDB) ListObjects(ctx context.Context, opts metabase.ListObjects) (result metabase.ListObjectsResult, err error) {
 	metabase.ListLimit.Ensure(&opts.Limit)
 	if opts.Delimiter == "" {
-		opts.Delimiter = metabase.ObjectKey(metabase.Delimiter)
+		opts.Delimiter = metabase.Delimiter
 	}
 
 	entries := db.VersionDesc
