@@ -386,9 +386,6 @@ func (service *Service) CreateAuditOrderLimits(
 		nodeIDs[i] = piece.StorageNode
 	}
 
-	// TODO(storj#7502): Check if what it calls CreateAuditOrderLimits only need the same fields as
-	// overlaycache.GetOnlineNodesForRepair. If that's the case unify them again under
-	// overlay.GetOnlineNodesForAuditRepair.
 	nodes, err := service.overlay.GetOnlineNodesForAudit(ctx, nodeIDs)
 	if err != nil {
 		service.log.Debug("error getting nodes from overlay", zap.Error(err))
