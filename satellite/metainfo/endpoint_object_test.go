@@ -881,6 +881,10 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 					CipherSuite: pb.CipherSuite_ENC_AESGCM,
 				},
 			}
+
+			now := time.Now()
+			ctx, machine := time2.WithNewMachine(ctx, time2.WithTimeAt(now))
+
 			// upload to the same location one by one should fail
 			_, err := endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
@@ -890,7 +894,7 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 
 			// Set the context clock enough in the future to ensure that the rate limit is reset.
-			ctx, _ := time2.WithNewMachine(ctx, time2.WithTimeAt(time.Now().Add(uploadLimitSingleObject)))
+			machine.Advance(uploadLimitSingleObject + time.Millisecond)
 
 			_, err = endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
