@@ -274,9 +274,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		return false, overlayQueryError.New("GetParticipatingNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
-	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, repairer.placements[segment.Placement])
+	placementDef := repairer.placements[segment.Placement]
+	piecesCheck := repair.ClassifySegmentPieces(pieces, selectedNodes, repairer.excludedCountryCodes, repairer.doPlacementCheck, repairer.doDeclumping, placementDef)
 
-	newRedundancy := repairer.newRedundancy(segment.Redundancy)
+	newRedundancy := checker.AdjustRedundancy(segment.Redundancy, repairer.repairThresholdOverrides, repairer.repairTargetOverrides, repairer.placements[segment.Placement])
 
 	// irreparable segment
 	if piecesCheck.Retrievable.Count() < int(newRedundancy.RequiredShares) {
@@ -905,26 +906,6 @@ func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldS
 
 func (repairer *SegmentRepairer) getStatsByRS(redundancy storj.RedundancyScheme) *stats {
 	return repairer.statsCollector.getStatsByRS(getRSString(redundancy))
-}
-
-func (repairer *SegmentRepairer) newRedundancy(redundancy storj.RedundancyScheme) storj.RedundancyScheme {
-	if overrideValue := repairer.repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
-		redundancy.RepairShares = int16(overrideValue)
-	}
-	if overrideValue := repairer.repairTargetOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
-		redundancy.OptimalShares = int16(overrideValue)
-	}
-	if redundancy.OptimalShares <= redundancy.RepairShares {
-		// if a segment has exactly repair segments, we consider it in need of
-		// repair. we don't want to upload a new object right into the state of
-		// needing repair, so we need at least one more, though arguably this is
-		// a misconfiguration.
-		redundancy.OptimalShares = redundancy.RepairShares + 1
-	}
-	if redundancy.TotalShares < redundancy.OptimalShares {
-		redundancy.TotalShares = redundancy.OptimalShares
-	}
-	return redundancy
 }
 
 // SetNow allows tests to have the server act as if the current time is whatever they want.

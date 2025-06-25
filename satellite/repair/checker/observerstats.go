@@ -4,7 +4,6 @@
 package checker
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -228,8 +227,4 @@ func (a *aggregateStats) combine(stats aggregateStats) {
 	a.remoteSegmentsOverThreshold[2] += stats.remoteSegmentsOverThreshold[2]
 	a.remoteSegmentsOverThreshold[3] += stats.remoteSegmentsOverThreshold[3]
 	a.remoteSegmentsOverThreshold[4] += stats.remoteSegmentsOverThreshold[4]
-}
-
-func getRSString(min, repair, success, total int) string {
-	return fmt.Sprintf("%d/%d/%d/%d", min, repair, success, total)
 }

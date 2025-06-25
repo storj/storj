@@ -251,40 +251,14 @@ func (observer *Observer) getObserverStats(redundancy redundancyStyle) *observer
 
 	observerStats, exists := observer.statsCollector[redundancy]
 	if !exists {
-		rsString := getRSString(loadRedundancy(redundancy.Scheme, observer.repairThresholdOverrides, observer.repairTargetOverrides))
+		adjustedRedundancy := AdjustRedundancy(redundancy.Scheme, observer.repairThresholdOverrides, observer.repairTargetOverrides, observer.placements[redundancy.Placement])
+		rsString := fmt.Sprintf("%d/%d/%d/%d", adjustedRedundancy.RequiredShares, adjustedRedundancy.RepairShares, adjustedRedundancy.OptimalShares, adjustedRedundancy.TotalShares)
 		observerStats = &observerRSStats{aggregateStats{}, newIterationRSStats(rsString), newSegmentRSStats(rsString, redundancy.Placement)}
 		mon.Chain(observerStats)
 		observer.statsCollector[redundancy] = observerStats
 	}
 
 	return observerStats
-}
-
-func loadRedundancy(redundancy storj.RedundancyScheme, repairThresholdOverrides RepairThresholdOverrides, repairTargetOverrides RepairTargetOverrides) (int, int, int, int) {
-	repair := int(redundancy.RepairShares)
-	optimal := int(redundancy.OptimalShares)
-	total := int(redundancy.TotalShares)
-
-	if overrideValue := repairThresholdOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
-		repair = int(overrideValue)
-	}
-
-	if overrideValue := repairTargetOverrides.GetOverrideValue(redundancy); overrideValue != 0 {
-		optimal = int(overrideValue)
-	}
-
-	if optimal <= repair {
-		// if a segment has exactly repair segments, we consider it in need of
-		// repair. we don't want to upload a new object right into the state of
-		// needing repair, so we need at least one more, though arguably this is
-		// a misconfiguration.
-		optimal = repair + 1
-	}
-	if total < optimal {
-		total = optimal
-	}
-
-	return int(redundancy.RequiredShares), repair, optimal, total
 }
 
 // RefreshReliabilityCache forces refreshing node online status cache.
@@ -505,8 +479,8 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		stats.segmentStats.yearOldSegmentPiecesLostPerWeek.Observe(piecesLostPerWeek)
 	}
 
-	required, repairThreshold, successThreshold, _ := loadRedundancy(segment.Redundancy, fork.repairThresholdOverrides, fork.repairTargetOverrides)
-	segmentHealth := fork.health.Calculate(ctx, numHealthy, required, piecesCheck.ForcingRepair.Count())
+	adjustedRedundancy := AdjustRedundancy(segment.Redundancy, fork.repairThresholdOverrides, fork.repairTargetOverrides, fork.placements[segment.Placement])
+	segmentHealth := fork.health.Calculate(ctx, numHealthy, int(adjustedRedundancy.RequiredShares), piecesCheck.ForcingRepair.Count())
 	segmentHealthFloatVal.Observe(segmentHealth)
 	stats.segmentStats.segmentHealth.Observe(segmentHealth)
 
@@ -515,7 +489,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing).
 	// separate case is when we find pieces which are outside segment placement. in such case we are putting segment
 	// into queue right away.
-	repairDueToHealth := numHealthy <= repairThreshold && numHealthy < successThreshold
+	repairDueToHealth := numHealthy <= int(adjustedRedundancy.RepairShares) && numHealthy < int(adjustedRedundancy.OptimalShares)
 	repairDueToForcing := piecesCheck.ForcingRepair.Count() > 0
 	if repairDueToHealth || repairDueToForcing {
 
@@ -549,11 +523,11 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 			return nil
 		}
 
-		log := log.With(zap.Int("Repair Threshold", repairThreshold), zap.Int("Success Threshold", successThreshold),
-			zap.Int("Total Pieces", len(pieces)), zap.Int("Min Required", required))
+		log := log.With(zap.Int16("Repair Threshold", adjustedRedundancy.RepairShares), zap.Int16("Success Threshold", adjustedRedundancy.OptimalShares),
+			zap.Int("Total Pieces", len(pieces)), zap.Int16("Min Required", adjustedRedundancy.RequiredShares))
 
 		switch {
-		case piecesCheck.Retrievable.Count() < required:
+		case piecesCheck.Retrievable.Count() < int(adjustedRedundancy.RequiredShares):
 			// monitor irreparable segments
 			if !slices.Contains(fork.totalStats[segment.Placement].objectsLost, segment.StreamID) {
 				fork.totalStats[segment.Placement].objectsLost = append(
@@ -583,7 +557,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 			log.Warn("checker found irreparable segment",
 				zap.String("Unavailable Node IDs", strings.Join(missingNodes, ",")))
 
-		case piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > repairThreshold &&
+		case piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > int(adjustedRedundancy.RepairShares) &&
 			piecesCheck.ForcingRepair.Count() == 0:
 
 			// This segment is to be repaired because of clumping (it wouldn't need repair yet
@@ -603,24 +577,24 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		return nil
 	}
 
-	if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(
+	if numHealthy > int(adjustedRedundancy.RepairShares) && numHealthy <= (int(adjustedRedundancy.RepairShares)+len(
 		fork.totalStats[segment.Placement].remoteSegmentsOverThreshold,
 	)) {
 		// record metrics for segments right above repair threshold
 		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
 		for i := range fork.totalStats[segment.Placement].remoteSegmentsOverThreshold {
-			if numHealthy == (repairThreshold + i + 1) {
+			if numHealthy == (int(adjustedRedundancy.RepairShares) + i + 1) {
 				fork.totalStats[segment.Placement].remoteSegmentsOverThreshold[i]++
 				break
 			}
 		}
 	}
 
-	if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(stats.iterationAggregates.remoteSegmentsOverThreshold)) {
+	if numHealthy > int(adjustedRedundancy.RepairShares) && numHealthy <= (int(adjustedRedundancy.RepairShares)+len(stats.iterationAggregates.remoteSegmentsOverThreshold)) {
 		// record metrics for segments right above repair threshold
 		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
 		for i := range stats.iterationAggregates.remoteSegmentsOverThreshold {
-			if numHealthy == (repairThreshold + i + 1) {
+			if numHealthy == (int(adjustedRedundancy.RepairShares) + i + 1) {
 				stats.iterationAggregates.remoteSegmentsOverThreshold[i]++
 				break
 			}
