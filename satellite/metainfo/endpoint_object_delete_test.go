@@ -87,6 +87,10 @@ func testDeleteObject(t *testing.T,
 				),
 			},
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, node := range planet.StorageNodes {
+				node.Storage2.MigrationChore.Loop.Pause()
+			}
+
 			for _, tc := range testCases {
 				tc := tc
 				t.Run(tc.caseDescription, func(t *testing.T) {
@@ -145,6 +149,10 @@ func testDeleteObject(t *testing.T,
 				),
 			},
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, node := range planet.StorageNodes {
+				node.Storage2.MigrationChore.Loop.Pause()
+			}
+
 			numToShutdown := 2
 
 			for _, tc := range testCases {
@@ -206,6 +214,10 @@ func testDeleteObject(t *testing.T,
 				),
 			},
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, node := range planet.StorageNodes {
+				node.Storage2.MigrationChore.Loop.Pause()
+			}
+
 			for _, tc := range testCases {
 				createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
 			}
