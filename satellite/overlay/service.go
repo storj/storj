@@ -47,19 +47,10 @@ var ErrLowDifficulty = errs.Class("node id difficulty too low")
 //
 // architecture: Database
 type DB interface {
-	// GetOnlineNodesForAudit returns a map of nodes for the supplied nodeIDs.
-	// The return value contains necessary information to create audit orders as well as nodes'
-	// current reputation status.
-	GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
-	// GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
-	// The return value contains necessary information to create repair orders as well as nodes'
-	// current reputation status.
-	// TODO(storj#7502): If after reducing this, check if we can replace the calls to
-	// GetOnlineNodesForAudit by this one and if we can, unify the methods as before
-	// GetOnlineNodesForAuditRepair, otherwise, add a comment to see if we can optimize.
-	// Audits as we did with repairs. Reminder to remove unused methods from overlaycache.go which is
-	// the implementation of this interface.
-	GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
+	// GetOnlineNodesForAuditAndRepair returns a map of nodes for the supplied nodeIDs.
+	// The return value contains necessary information to create audit and repair orders as well as
+	// 	nodes' current reputation status.
+	GetOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error)
 	// GetAllOnlineNodesForRepair returns a map of all the online and valid nodes for upload repaired
 	// pieces.
 	// The return value contains necessary information to create repair orders as well as nodes'
@@ -443,14 +434,14 @@ func (service *Service) CachedGet(ctx context.Context, nodeID storj.NodeID) (_ *
 func (service *Service) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetOnlineNodesForAudit(ctx, nodeIDs, service.config.Node.OnlineWindow)
+	return service.db.GetOnlineNodesForAuditAndRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
 // GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
 func (service *Service) GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetOnlineNodesForRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
+	return service.db.GetOnlineNodesForAuditAndRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
 // GetAllOnlineNodesForRepair returns a map of online and valid nodes to upload repaired pieces.
