@@ -41,13 +41,8 @@ func (m *Mockdb) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg N
 	return reputable, new, nil
 }
 
-// GetOnlineNodesForAudit satisfies nodeevents.DB interface.
-func (m *Mockdb) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error) {
-	panic("implement me")
-}
-
-// GetOnlineNodesForRepair satisfies nodeevents.DB interface.
-func (m *Mockdb) GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error) {
+// GetOnlineNodesForAuditAndRepair satisfies nodeevents.DB interface.
+func (m *Mockdb) GetOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*NodeReputation, error) {
 	panic("implement me")
 }
 
