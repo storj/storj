@@ -2077,30 +2077,33 @@ func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buck
 func TestEndpoint_CopyObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 4,
+		Reconfigure: testplanet.Reconfigure{
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.DefaultPathCipher = storj.EncNull
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		satelliteSys := planet.Satellites[0]
+		sat := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
 		uplnk := planet.Uplinks[0]
+		endpoint := sat.API.Metainfo.Endpoint
 
 		// upload a small inline object
-		err := uplnk.Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		err := uplnk.Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
 		require.NoError(t, err)
-		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objects, 1)
 
-		getResp, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+		getResp, err := endpoint.GetObject(ctx, &pb.ObjectGetRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
 			Bucket:             []byte("testbucket"),
-			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			EncryptedObjectKey: []byte("testobject"),
 		})
 		require.NoError(t, err)
 
 		testEncryptedMetadataNonce := testrand.Nonce()
-		// update the object metadata
-		beginResp, err := satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+		// copy the object and apply new metadata
+		beginResp, err := endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -2111,8 +2114,8 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		})
 		require.NoError(t, err)
 		assert.Len(t, beginResp.SegmentKeys, 1)
-		assert.Equal(t, beginResp.EncryptedMetadataKey, objects[0].EncryptedMetadataEncryptedKey)
-		assert.Equal(t, beginResp.EncryptedMetadataKeyNonce.Bytes(), objects[0].EncryptedMetadataNonce)
+		assert.Equal(t, getResp.Object.EncryptedMetadataEncryptedKey, beginResp.EncryptedMetadataKey)
+		assert.Equal(t, getResp.Object.EncryptedMetadataNonce, beginResp.EncryptedMetadataKeyNonce)
 
 		segmentKeys := pb.EncryptedKeyAndNonce{
 			Position:          beginResp.SegmentKeys[0].Position,
@@ -2122,14 +2125,14 @@ func TestEndpoint_CopyObject(t *testing.T) {
 
 		{
 			// metadata too large
-			_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+			_, err = endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
 				StreamId:                     getResp.Object.StreamId,
 				NewBucket:                    []byte("testbucket"),
 				NewEncryptedObjectKey:        []byte("newobjectkey"),
-				NewEncryptedMetadata:         testrand.Bytes(satelliteSys.Config.Metainfo.MaxMetadataSize + 1),
+				NewEncryptedMetadata:         testrand.Bytes(sat.Config.Metainfo.MaxMetadataSize + 1),
 				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
 				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
 				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
@@ -2137,14 +2140,14 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 			// invalid encrypted metadata key
-			_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+			_, err = endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
 				StreamId:                     getResp.Object.StreamId,
 				NewBucket:                    []byte("testbucket"),
 				NewEncryptedObjectKey:        []byte("newobjectkey"),
-				NewEncryptedMetadata:         testrand.Bytes(satelliteSys.Config.Metainfo.MaxMetadataSize),
+				NewEncryptedMetadata:         testrand.Bytes(sat.Config.Metainfo.MaxMetadataSize),
 				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
 				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
 				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
@@ -2152,7 +2155,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 		}
 
-		_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+		_, err = endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -2165,18 +2168,14 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		objectsAfterCopy, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Len(t, objectsAfterCopy, 2)
-
-		getCopyResp, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+		getCopyResp, err := endpoint.GetObject(ctx, &pb.ObjectGetRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
 			Bucket:             []byte("testbucket"),
 			EncryptedObjectKey: []byte("newobjectkey"),
 		})
-		require.NoError(t, err, objectsAfterCopy[1])
+		require.NoError(t, err)
 		require.NotEqual(t, getResp.Object.StreamId, getCopyResp.Object.StreamId)
 		require.NotZero(t, getCopyResp.Object.StreamId)
 		require.Equal(t, getResp.Object.InlineSize, getCopyResp.Object.InlineSize)
@@ -2186,7 +2185,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			State: tls.ConnectionState{
 				PeerCertificates: uplnk.Identity.Chain(),
 			}})
-		originalSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
+		originalSegment, err := endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -2194,7 +2193,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			CursorPosition: segmentKeys.Position,
 		})
 		require.NoError(t, err)
-		copiedSegment, err := satelliteSys.API.Metainfo.Endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
+		copiedSegment, err := endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -2206,47 +2205,43 @@ func TestEndpoint_CopyObject(t *testing.T) {
 
 		{ // test copy respects project storage size limit
 			// set storage limit
-			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[1].Projects[0].ID, 1000)
+			err = sat.DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[1].Projects[0].ID, 1000)
 			require.NoError(t, err)
 
 			// test object below the limit when copied
-			err = planet.Uplinks[1].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(100))
-			require.NoError(t, err)
-			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			err = planet.Uplinks[1].Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(100))
 			require.NoError(t, err)
 
-			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+			_, err = endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 				Header: &pb.RequestHeader{
-					ApiKey: planet.Uplinks[1].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+					ApiKey: planet.Uplinks[1].APIKey[sat.ID()].SerializeRaw(),
 				},
 				Bucket:                []byte("testbucket"),
-				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				EncryptedObjectKey:    []byte("testobject"),
 				NewBucket:             []byte("testbucket"),
 				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
 			})
 			require.NoError(t, err)
-			err = satelliteSys.API.Metainfo.Metabase.TestingDeleteAll(ctx)
+			err = sat.API.Metainfo.Metabase.TestingDeleteAll(ctx)
 			require.NoError(t, err)
 
 			// set storage limit
-			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[2].Projects[0].ID, 1000)
+			err = sat.DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[2].Projects[0].ID, 1000)
 			require.NoError(t, err)
 
 			// test object exceeding the limit when copied
-			err = planet.Uplinks[2].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(400))
-			require.NoError(t, err)
-			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			err = planet.Uplinks[2].Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(400))
 			require.NoError(t, err)
 
-			err = planet.Uplinks[2].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject", "testbucket", "testobject1")
+			err = planet.Uplinks[2].CopyObject(ctx, sat, "testbucket", "testobject", "testbucket", "testobject1")
 			require.NoError(t, err)
 
-			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+			_, err = endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 				Header: &pb.RequestHeader{
-					ApiKey: planet.Uplinks[2].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+					ApiKey: planet.Uplinks[2].APIKey[sat.ID()].SerializeRaw(),
 				},
 				Bucket:                []byte("testbucket"),
-				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				EncryptedObjectKey:    []byte("testobject"),
 				NewBucket:             []byte("testbucket"),
 				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
 			})
@@ -2286,35 +2281,33 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			// assert.EqualError(t, err, "Exceeded Storage Limit")
 
 			// test that a smaller object can still be uploaded and copied
-			err = planet.Uplinks[2].Upload(ctx, planet.Satellites[0], "testbucket", "testobject2", testrand.Bytes(10))
+			err = planet.Uplinks[2].Upload(ctx, sat, "testbucket", "testobject2", testrand.Bytes(10))
 			require.NoError(t, err)
 
-			err = planet.Uplinks[2].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject2", "testbucket", "testobject2copy")
+			err = planet.Uplinks[2].CopyObject(ctx, sat, "testbucket", "testobject2", "testbucket", "testobject2copy")
 			require.NoError(t, err)
 
-			err = satelliteSys.API.Metainfo.Metabase.TestingDeleteAll(ctx)
+			err = sat.API.Metainfo.Metabase.TestingDeleteAll(ctx)
 			require.NoError(t, err)
 		}
 
 		{ // test copy respects project segment limit
 			// set segment limit
-			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectSegmentLimit(ctx, planet.Uplinks[3].Projects[0].ID, 2)
+			err = sat.DB.ProjectAccounting().UpdateProjectSegmentLimit(ctx, planet.Uplinks[3].Projects[0].ID, 2)
 			require.NoError(t, err)
 
-			err = planet.Uplinks[3].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(100))
-			require.NoError(t, err)
-			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			err = planet.Uplinks[3].Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(100))
 			require.NoError(t, err)
 
-			err = planet.Uplinks[3].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject", "testbucket", "testobject1")
+			err = planet.Uplinks[3].CopyObject(ctx, sat, "testbucket", "testobject", "testbucket", "testobject1")
 			require.NoError(t, err)
 
-			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+			_, err = endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 				Header: &pb.RequestHeader{
-					ApiKey: planet.Uplinks[3].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+					ApiKey: planet.Uplinks[3].APIKey[sat.ID()].SerializeRaw(),
 				},
 				Bucket:                []byte("testbucket"),
-				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				EncryptedObjectKey:    []byte("testobject"),
 				NewBucket:             []byte("testbucket"),
 				NewEncryptedObjectKey: []byte("newencryptedobjectkey1"),
 			})
