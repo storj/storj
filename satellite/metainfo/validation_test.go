@@ -284,6 +284,13 @@ func TestEndpoint_checkRate(t *testing.T) {
 				},
 				Direction: buckets.DirectionForward,
 			}
+
+			// Mock the rate limiter time to depend on the execution time
+			rateLimiterTime := time.Now()
+			endpoint.TestingSetRateLimiterTime(func() time.Time {
+				return rateLimiterTime
+			})
+
 			_, err = endpoint.ListBuckets(ctx, listReq)
 			require.NoError(t, err)
 			_, err = endpoint.ListBuckets(ctx, listReq)
@@ -297,12 +304,6 @@ func TestEndpoint_checkRate(t *testing.T) {
 			burstList := int64(5)
 			burstDelete := int64(6)
 			burstPut := int64(7)
-
-			// Mock the rate limiter time to depend on the execution time
-			rateLimiterTime := time.Now()
-			endpoint.TestingSetRateLimiterTime(func() time.Time {
-				return rateLimiterTime
-			})
 
 			// switch project so that cached rate limiter isn't used for next test stage
 			peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
