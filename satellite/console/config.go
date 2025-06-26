@@ -44,6 +44,7 @@ type Config struct {
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
 	UseNewRestKeysTable               bool                      `help:"whether to use the new rest keys table" default:"false"`
 	NewDetailedUsageReportEnabled     bool                      `help:"whether to use the new detailed usage report" default:"false"`
+	NewAccountSetupEnabled            bool                      `help:"whether to use new account setup flow" default:"false"`
 	RestAPIKeys                       RestAPIKeysConfig
 	Placement                         PlacementsConfig
 	UsageLimits                       UsageLimitsConfig
