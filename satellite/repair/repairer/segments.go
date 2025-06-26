@@ -904,20 +904,19 @@ func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldS
 		repairer.OnTestingCheckSegmentAlteredHook()
 	}
 
-	newSegment, err := repairer.metabase.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
-		StreamID: oldSegment.StreamID,
-		Position: oldSegment.Position,
-	})
+	altered, err := repairer.metabase.CheckSegmentPiecesAlteration(ctx, oldSegment.StreamID, oldSegment.Position, oldSegment.Pieces)
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
 			return segmentDeletedError.New("StreamID: %q Position: %d", oldSegment.StreamID.String(), oldSegment.Position.Encode())
 		}
+
 		return err
 	}
 
-	if !oldSegment.Pieces.Equal(newSegment.Pieces) {
+	if altered {
 		return segmentModifiedError.New("StreamID: %q Position: %d", oldSegment.StreamID.String(), oldSegment.Position.Encode())
 	}
+
 	return nil
 }
 
