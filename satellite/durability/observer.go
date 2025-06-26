@@ -253,6 +253,7 @@ func (c *Report) resetStat() {
 	for _, h := range c.healthStat {
 		h.Reset()
 	}
+	c.healthMatrix = &HealthMatrix{}
 }
 
 func (c *Report) classifyNodeAliases(aliasMap *metabase.NodeAliasMap) {
