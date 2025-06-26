@@ -607,6 +607,36 @@ func TestListObjects(t *testing.T) {
 			}
 		})
 
+		t.Run("final prefix", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
+
+			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"\xff\x00",
+				"\xffA",
+				"\xff\xff",
+			})
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             true,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+					Prefix:                "\xff",
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("\xff",
+						objects["\xff\x00"],
+						objects["\xffA"],
+						objects["\xff\xff"],
+					),
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -2313,7 +2343,37 @@ func TestListObjectsVersioned(t *testing.T) {
 					},
 				},
 			}.Check(ctx, t, db)
+		})
 
+		t.Run("final prefix", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
+
+			objects := metabasetest.CreateVersionedObjectsWithKeys(ctx, t, db, projectID, bucketName, map[metabase.ObjectKey][]metabase.Version{
+				"\xff\x00": {1000},
+				"\xffA":    {1000},
+				"\xff\xff": {1000},
+			})
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					AllVersions:           false,
+					Recursive:             true,
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+					Prefix:                "\xff",
+				},
+				Result: metabase.ListObjectsResult{
+					Objects: withoutPrefix("\xff",
+						objects["\xff\x00"],
+						objects["\xffA"],
+						objects["\xff\xff"],
+					),
+				},
+			}.Check(ctx, t, db)
 		})
 	})
 }

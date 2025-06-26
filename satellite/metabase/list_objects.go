@@ -156,7 +156,10 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 			batchSize, nextBucket(opts.BucketName),
 		}
 		if opts.Prefix != "" {
-			args = append(args, len(opts.Prefix)+1, opts.stopKey())
+			args = append(args, len(opts.Prefix)+1)
+			if limit, ok := opts.stopKey(); ok {
+				args = append(args, limit)
+			}
 		}
 
 		var objectKey = `object_key`
@@ -373,7 +376,9 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 		}
 		if opts.Prefix != "" {
 			args["prefix_len"] = len(opts.Prefix) + 1
-			args["stop_key"] = opts.stopKey()
+			if limit, ok := opts.stopKey(); ok {
+				args["stop_key"] = limit
+			}
 		}
 
 		var objectKey = `object_key`
@@ -544,11 +549,11 @@ func entryKeyMatchesCursor(prefix, entryKey, cursorKey ObjectKey) bool {
 		entryKey == cursorKey[len(prefix):]
 }
 
-func (opts *ListObjects) stopKey() []byte {
+func (opts *ListObjects) stopKey() (ObjectKey, bool) {
 	if opts.Prefix != "" {
-		return []byte(PrefixLimit(opts.Prefix))
+		return SkipPrefix(opts.Prefix)
 	}
-	return nil
+	return "", false
 }
 
 func (opts *ListObjects) boundaryPostgres() string {
@@ -556,13 +561,13 @@ func (opts *ListObjects) boundaryPostgres() string {
 
 	if opts.VersionAscending() {
 		const compare = `(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)`
-		if opts.Prefix != "" {
+		if opts.Prefix != "" && !IsFinalPrefix(opts.Prefix) {
 			return compare + " AND " + prefixBoundaryCondition
 		}
 		return compare
 	} else {
 		const compare = `((project_id, bucket_name, object_key) > ($1, $2, $3) OR ((project_id, bucket_name, object_key) = ($1, $2, $3) AND version < $4))`
-		if opts.Prefix != "" {
+		if opts.Prefix != "" && !IsFinalPrefix(opts.Prefix) {
 			return compare + " AND " + prefixBoundaryCondition
 		}
 		return compare
@@ -583,7 +588,7 @@ func (opts *ListObjects) boundarySpanner() string {
 			OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key > @cursor_key)
 			OR (project_id = @project_id AND bucket_name = @bucket_name AND object_key = @cursor_key AND version > @cursor_version)
 		)`
-		if opts.Prefix != "" {
+		if opts.Prefix != "" && !IsFinalPrefix(opts.Prefix) {
 			return compare + " AND " + prefixBoundaryCondition
 		}
 		return compare
@@ -597,7 +602,7 @@ func (opts *ListObjects) boundarySpanner() string {
 			OR
 			((project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key) AND version < @cursor_version)
 		)`
-		if opts.Prefix != "" {
+		if opts.Prefix != "" && !IsFinalPrefix(opts.Prefix) {
 			return compare + " AND " + prefixBoundaryCondition
 		}
 		return compare
@@ -825,8 +830,17 @@ func TrimAfterDelimiter(s string, delimiter string) (trimmed string, ok bool) {
 	return s, false
 }
 
+// IsFinalPrefix returns true when the prefix has no object keys after.
+func IsFinalPrefix(prefix ObjectKey) bool {
+	for _, b := range []byte(prefix) {
+		if b != 0xff {
+			return false
+		}
+	}
+	return true
+}
+
 // SkipPrefix returns the lexicographically smallest object key that is greater than any key with the given prefix.
-// Unlike what is returned by PrefixLimit, this key is at most as long as the given prefix.
 // If no such prefix exists, it returns "", false.
 func SkipPrefix(prefix ObjectKey) (next ObjectKey, ok bool) {
 	prefixBytes := []byte(prefix)
