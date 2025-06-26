@@ -809,8 +809,15 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 	}
 
 	if previousMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
-		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-		if !errs.Is(err, ErrProjectRecordExists) {
+		err := accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+		switch {
+		case errs.Is(err, ErrProjectRecordExists):
+			// there’s already a record for last month → nothing to do, fall through.
+		case err != nil:
+			// some unexpected DB error → propagate it.
+			return false, false, currentMonthPrice, err
+		default:
+			// err == nil → no record exists for last month → unbilled usage.
 			return false, true, currentMonthPrice, payments.ErrUnbilledUsageLastMonth
 		}
 	}
