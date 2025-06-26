@@ -94,6 +94,7 @@ type FrontendConfig struct {
 	EgressMBCents                     string                      `json:"egressMBCents"`
 	SegmentMonthCents                 string                      `json:"segmentMonthCents"`
 	ProductBasedInvoicingEnabled      bool                        `json:"productBasedInvoicingEnabled"`
+	NewAccountSetupEnabled            bool                        `json:"newAccountSetupEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

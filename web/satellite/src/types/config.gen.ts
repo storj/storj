@@ -90,6 +90,7 @@ export class FrontendConfig {
     egressMBCents: string;
     segmentMonthCents: string;
     productBasedInvoicingEnabled: boolean;
+    newAccountSetupEnabled: boolean;
 }
 
 export class MinimumChargeConfig {
