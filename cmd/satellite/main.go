@@ -366,7 +366,7 @@ var (
 		Long:  "Operations to administrate satellite users accounts",
 	}
 
-	batchSizeDeleteObjects = 45
+	batchSizeDeleteObjects = 100
 	deleteObjectsCmd       = &cobra.Command{
 		Use:   "delete-objects",
 		Short: "Delete objects and their segments",
@@ -541,10 +541,10 @@ func init() {
 	billingCmd.AddCommand(stripeCustomerCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
-	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
+	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
 	usersCmd.AddCommand(deleteAccountsCmd)
 	usersCmd.AddCommand(deleteAllObjectsUncoordinatedCmd)
-	deleteAllObjectsUncoordinatedCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 45, "Number of objects/segments to delete in a single batch")
+	deleteAllObjectsUncoordinatedCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
 	deleteAllObjectsUncoordinatedCmd.Flags().BoolVar(&executeDeleteAllObjectsUncoordinated, "really-run-this-dangerous-command-without-any-confirmation", false, "This disables bucket reconfirmation.")
 	usersCmd.AddCommand(setAccountsStatusPendingDeletionCmd)
 	usersCmd.AddCommand(setUserKindCmd)
