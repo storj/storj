@@ -24,6 +24,9 @@ const (
 type DeleteAllBucketObjects struct {
 	Bucket    BucketLocation
 	BatchSize int
+
+	MaxStaleness   time.Duration
+	MaxCommitDelay *time.Duration
 }
 
 // DeleteAllBucketObjects deletes all objects in the specified bucket.

@@ -153,12 +153,15 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
+	maxCommitDelay := 25 * time.Millisecond
 	deletedObjectCount, err := metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 		Bucket: metabase.BucketLocation{
 			ProjectID:  project.ID,
 			BucketName: metabase.BucketName(bucketName),
 		},
-		BatchSize: batchSizeDeleteObjects,
+		BatchSize:      batchSizeDeleteObjects,
+		MaxStaleness:   10 * time.Second,
+		MaxCommitDelay: &maxCommitDelay,
 	})
 	log.Info("total deleted objects", zap.Int64("count", deletedObjectCount))
 	if err != nil {
