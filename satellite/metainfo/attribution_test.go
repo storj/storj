@@ -140,29 +140,15 @@ func TestBucketAttribution(t *testing.T) {
 
 func TestBucketPlacementAttribution(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 1,
-		UplinkCount:      1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
+		sat := planet.Satellites[0]
 
-		user, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "user@test",
-		}, 1)
+		satProject, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
 		require.NoError(t, err)
 
-		satProject, err := satellite.AddProject(ctx, user.ID, "testproject")
-		require.NoError(t, err)
-
-		userCtx, err := satellite.UserContext(ctx, user.ID)
-		require.NoError(t, err)
-
-		_, apiKeyInfo, err := satellite.API.Console.Service.CreateAPIKey(userCtx, satProject.ID, "apiKeyName", macaroon.APIKeyVersionMin)
-		require.NoError(t, err)
-
-		config := uplink.Config{}
-		access, err := config.RequestAccessWithPassphrase(ctx, satellite.NodeURL().String(), apiKeyInfo.Serialize(), "mypassphrase")
+		config := planet.Uplinks[0].Config
+		access, err := config.RequestAccessWithPassphrase(ctx, sat.NodeURL().String(), planet.Uplinks[0].APIKey[sat.ID()].Serialize(), "mypassphrase")
 		require.NoError(t, err)
 
 		project, err := config.OpenProject(ctx, access)
@@ -173,7 +159,7 @@ func TestBucketPlacementAttribution(t *testing.T) {
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err)
 
-		bucketInfo, err := satellite.API.Buckets.Service.GetBucket(ctx, []byte(bucketName), satProject.ID)
+		bucketInfo, err := sat.API.Buckets.Service.GetBucket(ctx, []byte(bucketName), satProject.ID)
 		require.NoError(t, err)
 		assert.Equal(t, storj.DefaultPlacement, bucketInfo.Placement)
 
@@ -185,11 +171,31 @@ func TestBucketPlacementAttribution(t *testing.T) {
 		require.NoError(t, planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte(bucketName), satProject.ID))
 
 		// Change the project default placement and confirm that recreating bucket fails due to preexisting attribution with different placement.
-		require.NoError(t, satellite.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.PlacementConstraint(1)))
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.PlacementConstraint(1)))
 
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "already attributed to a different placement constraint")
+
+		// test case where bucket attribution has nil placement
+		bucketName += "2"
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.DefaultPlacement))
+		_, err = project.CreateBucket(ctx, bucketName)
+		require.NoError(t, err)
+
+		err = planet.Satellites[0].DB.Attribution().UpdatePlacement(ctx, satProject.ID, bucketName, nil)
+		require.NoError(t, err)
+
+		require.NoError(t, planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte(bucketName), satProject.ID))
+
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.PlacementConstraint(1)))
+		_, err = project.CreateBucket(ctx, bucketName)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "already attributed to a different placement constraint")
+
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, satProject.ID, storj.DefaultPlacement))
+		_, err = project.CreateBucket(ctx, bucketName)
+		require.NoError(t, err)
 	})
 }
 
