@@ -73,7 +73,7 @@ func TestHashTbl_LostPage(t *testing.T) {
 	h.AssertLookup(k1)
 
 	// zero out the first page manually and invalidate the page cache.
-	_, err = h.fh.WriteAt(make([]byte, pageSize), headerSize) // offset=headerSize to skip the header page.
+	_, err = h.fh.WriteAt(make([]byte, pageSize), tbl_headerSize) // offset=headerSize to skip the header page.
 	assert.NoError(t, err)
 
 	// we should still be able to read the second key.
@@ -95,11 +95,11 @@ func TestHashTbl_SmallFileSizes(t *testing.T) {
 	_, err = OpenHashTbl(ctx, fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(headerSize))
+	assert.NoError(t, fh.Truncate(tbl_headerSize))
 	_, err = OpenHashTbl(ctx, fh)
 	assert.Error(t, err)
 
-	assert.NoError(t, fh.Truncate(headerSize+(pageSize-1)))
+	assert.NoError(t, fh.Truncate(tbl_headerSize+(pageSize-1)))
 	_, err = OpenHashTbl(ctx, fh)
 	assert.Error(t, err)
 }
@@ -186,7 +186,7 @@ func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
 	// ensure no 4096 byte page is empty. the probability of any page being empty with a random distribution
 	// is less than 2^50.
 	var p [4096]byte
-	for offset := int64(headerSize); offset < int64(hashtblSize(tbl_minLogSlots)); offset += int64(len(p)) {
+	for offset := int64(tbl_headerSize); offset < int64(hashtblSize(tbl_minLogSlots)); offset += int64(len(p)) {
 		_, err := h.fh.ReadAt(p[:], offset)
 		assert.NoError(t, err)
 		if p == ([4096]byte{}) {
@@ -205,7 +205,7 @@ func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
 	}
 
 	// overwrite the first half of the table with zeros.
-	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(tbl_minLogSlots)-headerSize)/2), headerSize)
+	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(tbl_minLogSlots)-tbl_headerSize)/2), tbl_headerSize)
 	assert.NoError(t, err)
 
 	// the load should be around 0.5 after recomputing the estimates. it's hard to get a good value
@@ -218,7 +218,7 @@ func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
 }
 
 func TestMMAPCache(t *testing.T) {
-	data := make([]byte, headerSize+RecordSize)
+	data := make([]byte, tbl_headerSize+RecordSize)
 	c := newMMAPCache(data)
 
 	exp := newRecord(newKey())
@@ -230,7 +230,7 @@ func TestMMAPCache(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, exp, got)
 
-	data[headerSize]++
+	data[tbl_headerSize]++
 	ok, err = c.ReadRecord(0, &got)
 	assert.NoError(t, err)
 	assert.False(t, ok)
