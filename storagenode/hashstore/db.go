@@ -6,12 +6,12 @@ package hashstore
 import (
 	"context"
 	"io/fs"
+	"math/rand"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
-	"github.com/zeebo/mwc"
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
@@ -450,32 +450,52 @@ func (d *DB) backgroundCompactions() {
 	defer d.wg.Done()
 
 	const (
-		avgMinutes = 12 * 60 // 12 hours so that s0 and s1 are compacted once per day.
-		maxMinutes = 2 * avgMinutes
+		averageSleep = 24     // hours
+		maxSleep     = 2 * 24 // hours
 	)
 
-	rng := mwc.Rand()
-	mins := 0
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	for {
+		// jitter background compactions so that they happen randomly through a day. we sample an
+		// exponential distribution because if you have a uniform distribution of events over some
+		// time range, the gaps between the events will be exponentially distributed. statistics!
+		// also note that a float64 can represent all integers up to 2^53 exactly, so in terms of
+		// nanoseconds, that's ~100 days, so there's no need to worry about float imprecision.
+		sleep := rng.ExpFloat64() * averageSleep
+		if sleep > maxSleep {
+			sleep = maxSleep
+		}
+		timer := time.NewTimer(time.Duration(sleep * float64(time.Hour)))
+
 		select {
 		case <-d.closed.Signal():
+			timer.Stop()
 			return
 
-		case <-time.After(time.Minute):
-			// perform a background compaction approximately once per avgMinutes but at least once
-			// per maxMinutes.
-
-			mins++
-			if rng.Intn(avgMinutes) == 0 || mins >= maxMinutes {
-				mins = 0
-				d.checkBackgroundCompactions()
-			}
+		case <-timer.C:
+			d.checkBackgroundCompactions()
 		}
 	}
 }
 
 func (d *DB) checkBackgroundCompactions() {
+	shouldCompact := func(s *Store) bool {
+		stats := s.Stats()
+		// if the store is already compacting, no need to start another compaction.
+		if stats.Compacting {
+			return false
+		}
+		// we require that the hash table be created long enough ago and that the last time we ran a
+		// compaction be long enough ago. we check both because a compaction doesn't necessarily
+		// rewrite the hash table if it detects there would be no modifications. we compare to a
+		// value of 2 days because we want to ensure that it's been at least a full day since the
+		// last compaction, and our granularity is only to the day (if it was 1, then if the last
+		// compaction was right before midnight, we would immediately be able to compact again right
+		// after midnight).
+		return stats.Today-stats.LastCompact >= 2 && stats.Today-stats.Table.Created >= 2
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -484,34 +504,21 @@ func (d *DB) checkBackgroundCompactions() {
 		return
 	}
 
-	storeAge := func(s *Store) uint32 {
-		stats := s.Stats()
-		if stats.Compacting {
-			return 0
-		} else if stats.LastCompact > 0 {
-			return stats.Today - stats.LastCompact
-		} else {
-			return stats.Today - stats.Table.Created
-		}
-	}
-
-	// we will compact whichever store has the oldest compaction as tracked by both the table
-	// creation and last compact timestamp. it will only compact if the age is greater than 0
-	// days.
-	activeAge, passiveAge := storeAge(d.active), storeAge(d.passive)
-
-	// if both stores are compacted on the same day, we don't compact either.
-	if activeAge == 0 && passiveAge == 0 {
+	// compact the active store if it needs it. we do this first in case the passive store has
+	// nothing to compact but is old enough to flag that it should be attempted. in that case, we'll
+	// spin doing nothing compacting the passive store forever and never attempt to compact the
+	// active store, defeating the point of background compactions.
+	if shouldCompact(d.active) {
+		d.swapStoresLocked()
+		d.beginPassiveCompaction()
 		return
 	}
 
-	// if the active store is older, make it passive so that when we compact the passive store we
-	// are compacting the older one.
-	if activeAge > passiveAge {
-		d.swapStoresLocked()
+	// compact the passive store if it needs it.
+	if shouldCompact(d.passive) {
+		d.beginPassiveCompaction()
+		return
 	}
-
-	d.beginPassiveCompaction()
 }
 
 func (d *DB) performPassiveCompaction(ctx context.Context, compact *compactState) {

@@ -50,7 +50,7 @@ type HashTbl struct {
 }
 
 // hashtblSize returns the size in bytes of the hashtbl given an logSlots.
-func hashtblSize(logSlots uint64) uint64 { return tbl_headerSize + 1<<logSlots*RecordSize }
+func hashtblSize(logSlots uint64) uint64 { return headerSize + 1<<logSlots*RecordSize }
 
 type (
 	slotIdxT    uint64 // index of a slot in the hashtbl
@@ -66,9 +66,9 @@ func (s slotIdxT) BigPageIndexes() (bigPageIdxT, uint64) {
 	return bigPageIdxT(s / recordsPerBigPage), uint64(s % recordsPerBigPage)
 }
 
-func (s slotIdxT) Offset() int64    { return tbl_headerSize + int64(s*RecordSize) }
-func (p pageIdxT) Offset() int64    { return tbl_headerSize + int64(p*pageSize) }
-func (p bigPageIdxT) Offset() int64 { return tbl_headerSize + int64(p*bigPageSize) }
+func (s slotIdxT) Offset() int64    { return headerSize + int64(s*RecordSize) }
+func (p pageIdxT) Offset() int64    { return headerSize + int64(p*pageSize) }
+func (p bigPageIdxT) Offset() int64 { return headerSize + int64(p*bigPageSize) }
 
 // CreateHashTbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
@@ -90,7 +90,7 @@ func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 
 	// clear the file and truncate it to the correct length and write the header page.
 	size := int64(hashtblSize(logSlots))
-	if size < tbl_headerSize+bigPageSize {
+	if size < headerSize+bigPageSize {
 		return nil, Error.New("hashtbl size too small: size=%d logSlots=%d", size, logSlots)
 	} else if err := fh.Truncate(0); err != nil {
 		return nil, Error.New("unable to truncate hashtbl to 0: %w", err)
@@ -119,12 +119,12 @@ func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 	size, err := fileSize(fh)
 	if err != nil {
 		return nil, Error.New("unable to determine hashtbl size: %w", err)
-	} else if size < tbl_headerSize+pageSize { // header page + at least 1 page of records
+	} else if size < headerSize+pageSize { // header page + at least 1 page of records
 		return nil, Error.New("hashtbl file too small: size=%d", size)
 	}
 
 	// compute the logSlots from the size.
-	logSlots := uint64(bits.Len64(uint64(size-tbl_headerSize)/RecordSize) - 1)
+	logSlots := uint64(bits.Len64(uint64(size-headerSize)/RecordSize) - 1)
 
 	// sanity check that our logSlots is correct.
 	if int64(hashtblSize(logSlots)) != size {

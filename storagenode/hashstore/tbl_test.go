@@ -326,7 +326,7 @@ func TestTable_InvalidHeaders(t *testing.T) {
 	}
 
 	// ensure modifying every byte in the header is an error
-	for offset := int64(0); offset < tbl_headerSize; offset++ {
+	for offset := int64(0); offset < headerSize; offset++ {
 		assert.NoError(t, WriteTblHeader(fh, hdr))
 		_, err = fh.WriteAt([]byte{0xde}, offset)
 		assert.NoError(t, err)

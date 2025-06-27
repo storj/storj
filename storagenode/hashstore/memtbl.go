@@ -84,8 +84,8 @@ func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 	// clear the file and truncate it to the correct length and write the header page.
 	if err := fh.Truncate(0); err != nil {
 		return nil, Error.New("unable to truncate memtbl to 0: %w", err)
-	} else if err := fh.Truncate(tbl_headerSize); err != nil {
-		return nil, Error.New("unable to truncate memtbl to %d: %w", tbl_headerSize, err)
+	} else if err := fh.Truncate(headerSize); err != nil {
+		return nil, Error.New("unable to truncate memtbl to %d: %w", headerSize, err)
 	} else if err := WriteTblHeader(fh, header); err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -107,7 +107,7 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 	size, err := fh.Seek(0, io.SeekEnd)
 	if err != nil {
 		return nil, Error.New("unable to determine memtbl size: %w", err)
-	} else if size < tbl_headerSize {
+	} else if size < headerSize {
 		return nil, Error.New("memtbl size too small for header: size=%d", size)
 	}
 
@@ -127,7 +127,7 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		fh:     fh,
 		header: header,
 
-		idx:   memtblIdx((size - tbl_headerSize) / RecordSize),
+		idx:   memtblIdx((size - headerSize) / RecordSize),
 		align: size%RecordSize != 0,
 
 		entries:    newFlatMap(make([]byte, flatMapSize(1<<header.LogSlots))),
@@ -178,7 +178,7 @@ func (m *MemTbl) rangeWithIdxLocked(
 	size, err := fileSize(m.fh)
 	if err != nil {
 		return Error.New("unable to determine file size: %w", err)
-	} else if size < tbl_headerSize {
+	} else if size < headerSize {
 		return Error.New("file too small: size=%d", size)
 	}
 
@@ -187,9 +187,9 @@ func (m *MemTbl) rangeWithIdxLocked(
 	// mmap data, go back to bufio.NewReader with an io.SectionReader so that we use ReadAt calls
 	// and avoid modifying the file pos for writes.
 	var r io.Reader
-	if len(m.mmap) < tbl_headerSize {
+	if len(m.mmap) < headerSize {
 		r = bufio.NewReaderSize(
-			io.NewSectionReader(m.fh, tbl_headerSize, size-tbl_headerSize),
+			io.NewSectionReader(m.fh, headerSize, size-headerSize),
 			1<<20,
 		)
 	} else {
@@ -197,7 +197,7 @@ func (m *MemTbl) rangeWithIdxLocked(
 		defer platform.AdviseRandom(m.mmap)
 
 		r = io.MultiReader(
-			bytes.NewReader(m.mmap[tbl_headerSize:]),
+			bytes.NewReader(m.mmap[headerSize:]),
 			bufio.NewReaderSize(
 				io.NewSectionReader(m.fh, int64(len(m.mmap)), size-int64(len(m.mmap))),
 				1<<20,
@@ -316,7 +316,7 @@ func (m *MemTbl) readRecord(ctx context.Context, idx memtblIdx, rec *Record) err
 
 	var (
 		valid bool
-		off   = tbl_headerSize + int64(idx)*RecordSize
+		off   = headerSize + int64(idx)*RecordSize
 		b     = uint64(off)
 		e     = uint64(off + RecordSize)
 	)
@@ -399,7 +399,7 @@ func (m *MemTbl) Stats() TblStats {
 		AvgTTL: safeDivide(float64(m.recStats.lenTTL), float64(m.recStats.numTTL)),
 
 		NumSlots:  uint64(1 << m.header.LogSlots),
-		TableSize: memory.Size(tbl_headerSize + RecordSize*m.recStats.numSet),
+		TableSize: memory.Size(headerSize + RecordSize*m.recStats.numSet),
 		Load:      safeDivide(float64(m.recStats.numSet), float64(uint64(1)<<m.header.LogSlots)),
 
 		Created: m.header.Created,
@@ -569,7 +569,7 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 }
 
 func (m *MemTbl) remapIfNeeded() {
-	size := tbl_headerSize + int64(m.idx)*RecordSize
+	size := headerSize + int64(m.idx)*RecordSize
 	if size-int64(len(m.mmap)) >= platform.PageSize {
 		m.remapIfNeededSlow(size)
 	}
