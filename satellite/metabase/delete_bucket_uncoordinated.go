@@ -60,6 +60,9 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 			spanner.ApplyAtLeastOnce(),
 			spanner.Priority(spannerpb.RequestOptions_PRIORITY_MEDIUM),
 			spanner.TransactionTag("uncoordinated-delete-all-bucket-objects"),
+			spanner.ApplyCommitOptions(spanner.CommitOptions{
+				MaxCommitDelay: opts.MaxCommitDelay,
+			}),
 		)
 		if err != nil {
 			return Error.New("failed to delete bucket batch: %w", err)
@@ -77,11 +80,14 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 	//   3. user uploads object A with stream id Y
 	//   4. deletes object A#X, and deletes stream X, leaving stream Y dangling
 
-	err = s.client.Single().Read(ctx, "objects", spanner.KeyRange{
+	err = s.client.Single().WithTimestampBound(spanner.MaxStaleness(opts.MaxStaleness)).ReadWithOptions(ctx, "objects", spanner.KeyRange{
 		Start: spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
 		End:   spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
 		Kind:  spanner.ClosedClosed,
-	}, []string{"object_key", "version", "stream_id", "status", "segment_count"}).Do(func(r *spanner.Row) error {
+	}, []string{"object_key", "version", "stream_id", "status", "segment_count"},
+		&spanner.ReadOptions{
+			Priority: spannerpb.RequestOptions_PRIORITY_MEDIUM,
+		}).Do(func(r *spanner.Row) error {
 		var objectKey ObjectKey
 		var version Version
 		var streamID []byte
