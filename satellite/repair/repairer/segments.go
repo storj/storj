@@ -82,25 +82,6 @@ type FetchResultReport struct {
 	Unknown    []PieceFetchResult
 }
 
-type redundancySchemePrinter storj.RedundancyScheme
-
-// TODO: this should be a method on storj.RedundancyScheme.
-func (r redundancySchemePrinter) String() string {
-	var algorithm string
-	switch r.Algorithm {
-	case storj.InvalidRedundancyAlgorithm:
-		algorithm = "XX"
-	case storj.ReedSolomon:
-		algorithm = "RS"
-	}
-	return fmt.Sprintf("%s:%d/%d/%d/%d", algorithm, r.RequiredShares, r.RepairShares, r.OptimalShares, r.TotalShares)
-}
-
-// zapRS creates a zap.Field containing a storj.RedundancyScheme.
-func zapRS(fieldName string, redundancy storj.RedundancyScheme) zap.Field {
-	return zap.Stringer(fieldName, redundancySchemePrinter(redundancy))
-}
-
 // participatingNodesCache alias for making the code a bit nicer below.
 // This chaches the nodes retrieved from the database to upload repaired pieces.
 type participatingNodesCache = sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
@@ -486,7 +467,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 
 	log.Debug("fetching pieces for segment",
 		zap.Int("numOrderLimits", len(getOrderLimits)),
-		zapRS("RS", segment.Redundancy))
+		zap.Stringer("RS", segment.Redundancy))
 
 	// this will pass additional info to restored from trash event sent by underlying libuplink
 	//nolint: revive
@@ -748,7 +729,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	log.Debug("putting pieces for segment",
 		zap.Int("numOrderLimits", len(putLimits)),
 		zap.Int("minSuccessfulNeeded", minSuccessfulNeeded),
-		zapRS("RS", newRedundancy))
+		zap.Stringer("RS", newRedundancy))
 
 	// Upload the repaired pieces
 	successfulNodes, _, err := repairer.ec.Repair(ctx, log, putLimits, putPrivateKey, newRedundancyStrategy, segmentReader, repairer.timeout, minSuccessfulNeeded)
