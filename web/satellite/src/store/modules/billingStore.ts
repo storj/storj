@@ -105,9 +105,9 @@ export const useBillingStore = defineStore('billing', () => {
 
         return new PricingPlanInfo(
             PricingPlanType.PRO,
-            'Pro Account',
+            'Activated Account',
             subtitle,
-            `Pay for what you need. ${storagePrice.value} storage, ${egressPrice.value} for download bandwidth.`,
+            `Pay for what you need. As low as ${storagePrice.value} storage, as low as ${egressPrice.value} for download bandwidth.`,
             `Additional per-segment fee of ${segmentPrice.value} applies.`,
             null,
             null,

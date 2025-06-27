@@ -5,7 +5,6 @@ import { Duration } from '@/utils/time';
 import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { centsToDollars } from '@/utils/strings';
 
 /**
  * Exposes all user-related functionality.
@@ -379,6 +378,7 @@ export enum OnboardingStep {
     AccountTypeSelection = 'AccountTypeSelection',
     PersonalAccountForm = 'PersonalAccountForm',
     PlanTypeSelection = 'PlanTypeSelection',
+    AccountInfo = 'AccountInfo',
     PaymentMethodSelection = 'PaymentMethodSelection',
     PricingPlanSelection = 'PricingPlanSelection',
     ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
@@ -408,9 +408,24 @@ export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.SetupComplete,
 ];
 
+export const NEW_ACCOUNT_SETUP_STEPS = [
+    OnboardingStep.AccountInfo,
+    OnboardingStep.PlanTypeSelection,
+    OnboardingStep.PaymentMethodSelection,
+    OnboardingStep.PricingPlanSelection,
+    OnboardingStep.ManagedPassphraseOptIn,
+    OnboardingStep.SetupComplete,
+];
+
 export enum SsoCheckState {
     NotChecked = 'NotChecked',
     None = 'None', // email is not associated with an SSO account
     Failed = 'Failed', // email is not associated with an SSO account
     // a valid sso url represents a successful check
+}
+
+export enum AccountSetupStorageNeeds {
+    UP_TO_100TB = 'Up to 100 TB',
+    _100TB_TO_1PB = '100 TB to 1 PB',
+    OVER_1PB = 'Over 1 PB',
 }

@@ -185,7 +185,8 @@
         </template>
     </v-app-bar>
 
-    <account-setup-dialog />
+    <new-account-setup-dialog v-if="newAccountSetupFlow" />
+    <account-setup-dialog v-else />
 </template>
 
 <script setup lang="ts">
@@ -220,6 +221,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
+import NewAccountSetupDialog from '@/components/dialogs/NewAccountSetupDialog.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -238,6 +240,8 @@ withDefaults(defineProps<{
 }>(), {
     showNavDrawerButton: false,
 });
+
+const newAccountSetupFlow = computed<boolean>(() => configStore.state.config.newAccountSetupEnabled);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {

@@ -58,7 +58,7 @@
             <v-col cols="12" sm="8" md="6" lg="4">
                 <v-card variant="outlined" rounded="xlg" class="h-100">
                     <div class="h-100 d-flex flex-column justify-space-between pa-6 pa-sm-8">
-                        <h3 class="font-weight-black mb-1">Pro Account</h3>
+                        <h3 class="font-weight-black mb-1">Activate your account</h3>
                         <p class="mb-2 text-body-2">
                             Only pay for what you use.
                         </p>
@@ -100,14 +100,14 @@
 
                             <p class="text-body-2 my-2">
                                 <v-icon :icon="Check" size="14" class="mr-2" />
-                                Storage {{ storagePrice }}
+                                Storage as low as {{ storagePrice }}
                             </p>
 
                             <v-divider />
 
                             <p class="text-body-2 my-2">
                                 <v-icon :icon="Check" size="14" class="mr-2" />
-                                Download bandwidth {{ egressPrice }}
+                                Download bandwidth as low as {{ egressPrice }}
                             </p>
 
                             <v-divider />
