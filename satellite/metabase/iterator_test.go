@@ -1936,6 +1936,33 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Result: expected,
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("final prefix", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
+
+			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"\xff\x00",
+				"\xffA",
+				"\xff\xff",
+			})
+
+			metabasetest.IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					Prefix:                "\xff",
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: withoutPrefix("\xff",
+					objects["\xff\x00"],
+					objects["\xffA"],
+					objects["\xff\xff"],
+				),
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -3849,6 +3876,33 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Recursive:             true,
 				},
 				Result: expected,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("final prefix", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
+
+			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"\xff\x00",
+				"\xffA",
+				"\xff\xff",
+			})
+
+			metabasetest.IterateObjectsWithStatusAscending{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Pending:               false,
+					Prefix:                "\xff",
+					IncludeCustomMetadata: true,
+					IncludeSystemMetadata: true,
+				},
+				Result: withoutPrefix("\xff",
+					objects["\xff\x00"],
+					objects["\xffA"],
+					objects["\xff\xff"],
+				),
 			}.Check(ctx, t, db)
 		})
 	})

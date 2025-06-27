@@ -7,29 +7,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/satellite/metabase"
 )
-
-func TestPrefixLimit(t *testing.T) {
-	unchanged := metabase.ObjectKey("unchanged")
-	_ = metabase.PrefixLimit(unchanged)
-	require.Equal(t, metabase.ObjectKey("unchanged"), unchanged)
-
-	tests := []struct{ in, exp metabase.ObjectKey }{
-		{"", ""},
-		{"a", "b"},
-		{"\xF1", "\xF2"},
-		{"\xFF", "\xFF\x00"},
-	}
-	for _, test := range tests {
-		require.Equal(t, test.exp, metabase.PrefixLimit(test.in))
-		if test.in != "" {
-			require.True(t, metabase.LessObjectKey(test.in, test.exp))
-		}
-	}
-}
 
 func TestFirstIterateCursor(t *testing.T) {
 	afterDelimiter := metabase.ObjectKey('/' + 1)
