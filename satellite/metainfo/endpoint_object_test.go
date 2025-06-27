@@ -2092,6 +2092,10 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		uplnk := planet.Uplinks[0]
 		endpoint := sat.API.Metainfo.Endpoint
 
+		// If an object is uploaded during a run of the tally loop, the storage usage
+		// in the live accounting cache will be inaccurate.
+		sat.Accounting.Tally.Loop.Pause()
+
 		// upload a small inline object
 		err := uplnk.Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
 		require.NoError(t, err)
