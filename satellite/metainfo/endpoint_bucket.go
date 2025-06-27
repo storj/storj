@@ -368,6 +368,9 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	if attribution, err := endpoint.attributions.Get(ctx, keyInfo.ProjectID, req.GetName()); err == nil {
+		if attribution.Placement == nil && bucketReq.Placement != storj.DefaultPlacement {
+			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %s already attributed to a different placement constraint", bucketReq.Name)
+		}
 		if attribution.Placement != nil && *attribution.Placement != bucketReq.Placement {
 			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %s already attributed to a different placement constraint", bucketReq.Name)
 		}
