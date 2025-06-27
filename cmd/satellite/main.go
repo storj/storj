@@ -384,7 +384,7 @@ var (
 
 	executeDeleteAllObjectsUncoordinated = false
 	deleteAllObjectsUncoordinatedCmd     = &cobra.Command{
-		Use:   "delete-all-objects-uncoordinated <project-id> <bucket-name>",
+		Use:   "delete-all-objects-uncoordinated <public-project-id> <bucket-name>",
 		Short: "Delete all the objects in a bucket",
 		Long: "Deletes the objects in a given bucket, but does not guarantee consistency, while the " +
 			"delete is in progress. There must be no uploads, downloads or deletes happening while this is being run." +
