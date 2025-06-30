@@ -300,7 +300,7 @@ func (tx ddlBatchTx) QueryRow(ctx context.Context, query string, args ...interfa
 }
 
 // ensureVersionTable creates migration.Table table if not exists.
-func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
+func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) (err error) {
 	if err := migration.ValidTableName(); err != nil {
 		return Error.Wrap(err)
 	}
@@ -308,9 +308,36 @@ func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Log
 	createTableSQL := `CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)` //nolint:misspell
 	// allow for differences in CREATE TABLE syntax between databases
 	if db.Name() == tagsql.SpannerName {
+		// schema checks are slow in Spanner. check if the table exists using schema info
+		r, err := db.QueryContext(ctx, `
+			SELECT count(1)
+			FROM information_schema.tables AS t
+			WHERE
+				t.table_catalog = ''
+				AND t.table_schema = ''
+				AND t.table_name = ?
+			LIMIT 1
+		`, migration.Table)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, r.Close())
+		}()
+
+		for r.Next() {
+			var count int
+			if err := r.Scan(&count); err != nil {
+				return Error.Wrap(err)
+			}
+			if count == 1 {
+				return nil
+			}
+		}
+
 		createTableSQL = `CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version INT64, commited_at STRING(MAX)) PRIMARY KEY (version)` //nolint:misspell
 	}
-	_, err := db.ExecContext(ctx, createTableSQL)
+	_, err = db.ExecContext(ctx, createTableSQL)
 	return Error.Wrap(err)
 }
 
