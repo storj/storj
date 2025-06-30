@@ -91,6 +91,7 @@ type IterateObjectsWithStatus struct {
 	Recursive             bool
 	BatchSize             int
 	Prefix                ObjectKey
+	Delimiter             ObjectKey
 	Cursor                IterateCursor
 	Pending               bool
 	IncludeCustomMetadata bool

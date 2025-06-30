@@ -24,6 +24,7 @@ type objectsIterator struct {
 	pending               bool
 	prefix                ObjectKey
 	prefixLimit           ObjectKey
+	delimiter             ObjectKey
 	batchSize             int
 	recursive             bool
 	includeCustomMetadata bool
@@ -56,6 +57,16 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 
 	prefixLimit, _ := SkipPrefix(opts.Prefix)
 
+	if opts.Delimiter == "" {
+		opts.Delimiter = Delimiter
+	}
+
+	cursor, ok := FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix, opts.Delimiter)
+	if !ok {
+		// the prefix and cursor combination does not match any objects
+		return nil
+	}
+
 	it := &objectsIterator{
 		adapter: adapter,
 
@@ -64,13 +75,14 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
 		prefixLimit:           prefixLimit,
+		delimiter:             opts.Delimiter,
 		batchSize:             opts.BatchSize,
 		recursive:             opts.Recursive,
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
 
 		curIndex: 0,
-		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
+		cursor:   cursor,
 
 		doNextQuery: adapter.doNextQueryAllVersionsWithStatus,
 	}
@@ -90,6 +102,16 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter,
 
 	prefixLimit, _ := SkipPrefix(opts.Prefix)
 
+	if opts.Delimiter == "" {
+		opts.Delimiter = Delimiter
+	}
+
+	cursor, ok := FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix, opts.Delimiter)
+	if !ok {
+		// the prefix and cursor combination does not match any objects
+		return nil
+	}
+
 	it := &objectsIterator{
 		adapter: adapter,
 
@@ -98,13 +120,14 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter,
 		pending:               opts.Pending,
 		prefix:                opts.Prefix,
 		prefixLimit:           prefixLimit,
+		delimiter:             opts.Delimiter,
 		batchSize:             opts.BatchSize,
 		recursive:             opts.Recursive,
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
 
 		curIndex: 0,
-		cursor:   FirstIterateCursor(opts.Recursive, opts.Cursor, opts.Prefix),
+		cursor:   cursor,
 
 		doNextQuery: adapter.doNextQueryAllVersionsWithStatusAscending,
 	}
@@ -129,6 +152,7 @@ func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts Itera
 		bucketName:            opts.BucketName,
 		prefix:                "",
 		prefixLimit:           "",
+		delimiter:             "",
 		batchSize:             opts.BatchSize,
 		recursive:             true,
 		includeCustomMetadata: true,
@@ -191,12 +215,13 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 	}
 
 	// should this be treated as a prefix?
-	p := strings.Index(string(item.ObjectKey), Delimiter)
+	p := strings.Index(string(item.ObjectKey), string(it.delimiter))
 	if p >= 0 {
-		it.ignorePrefix = item.ObjectKey[:p+len(Delimiter)]
+		prefix := item.ObjectKey[:p+len(it.delimiter)]
+		it.ignorePrefix = prefix
 		*item = ObjectEntry{
 			IsPrefix:  true,
-			ObjectKey: item.ObjectKey[:p+len(Delimiter)],
+			ObjectKey: prefix,
 			Status:    Prefix,
 		}
 	}
@@ -218,9 +243,9 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 
 		if !it.recursive {
 			afterPrefix := it.cursor.Key[len(it.prefix):]
-			p := strings.Index(string(afterPrefix), Delimiter)
+			p := strings.Index(string(afterPrefix), string(it.delimiter))
 			if p >= 0 {
-				skipPrefix, ok := SkipPrefix(afterPrefix[:p+len(Delimiter)])
+				skipPrefix, ok := SkipPrefix(afterPrefix[:p+len(it.delimiter)])
 				if !ok {
 					// there are no more objects with it.prefix and the "folder"
 					// we currently are in, is the last one.
@@ -615,12 +640,12 @@ func LessObjectKey(a, b ObjectKey) bool {
 // FirstIterateCursor adjust the cursor for a non-recursive iteration.
 // The cursor is non-inclusive and we need to adjust to handle prefix as cursor properly.
 // We return the next possible key from the prefix.
-func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) ObjectsIteratorCursor {
+func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix, delimiter ObjectKey) (_ ObjectsIteratorCursor, ok bool) {
 	if recursive {
 		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
-		}
+		}, true
 	}
 
 	// when the cursor does not match the prefix, we'll return the original cursor.
@@ -628,7 +653,7 @@ func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
-		}
+		}, true
 	}
 
 	// handle case where:
@@ -637,20 +662,27 @@ func FirstIterateCursor(recursive bool, cursor IterateCursor, prefix ObjectKey) 
 	// In this case, we want the skip prefix to be `x/y/z` + string('/' + 1).
 
 	cursorWithoutPrefix := cursor.Key[len(prefix):]
-	p := strings.Index(string(cursorWithoutPrefix), Delimiter)
+	p := strings.Index(string(cursorWithoutPrefix), string(delimiter))
 	if p < 0 {
 		// The cursor is not a prefix, but instead a path inside the prefix,
 		// so we can use it directly.
 		return ObjectsIteratorCursor{
 			Key:     cursor.Key,
 			Version: cursor.Version,
-		}
+		}, true
+	}
+
+	afterPrefix, ok := SkipPrefix(cursorWithoutPrefix[:p+len(delimiter)])
+	if !ok {
+		// the cursor is inside a final prefix, so there are no objects after this object,
+		// let's just return the original cursor
+		return ObjectsIteratorCursor{}, false
 	}
 
 	// return the next prefix given a scoped path
 	return ObjectsIteratorCursor{
-		Key:       cursor.Key[:len(prefix)+p] + DelimiterNext,
+		Key:       cursor.Key[:len(prefix)] + afterPrefix,
 		Version:   MaxVersion,
 		Inclusive: true,
-	}
+	}, true
 }
