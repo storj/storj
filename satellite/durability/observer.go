@@ -445,16 +445,6 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			c.healthStat[i][s.Placement].AddPieceCount(healthyPiceces-int(s.Redundancy.RequiredShares), s.StreamID, s.Position, maxClass)
 			healthyPiceces -= counters.Counters[maxIndex].Counter
 			counters.Counters[maxIndex].Counter = 0
-
-			if healthyPiceces < int(s.Redundancy.RequiredShares) {
-				ek.Event("durability_segment_loss",
-					eventkit.String("segment", s.StreamID.String()),
-					eventkit.Int64("position", int64(s.Position.Encode())),
-					eventkit.Int64("healthy", int64(healthyPiceces)),
-					eventkit.Int64("required", int64(s.Redundancy.RequiredShares)),
-					eventkit.Int64("placement", int64(s.Placement)),
-				)
-			}
 		}
 
 	}
