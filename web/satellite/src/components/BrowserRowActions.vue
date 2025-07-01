@@ -10,7 +10,7 @@
         </v-tooltip>
         <template v-else>
             <v-btn
-                v-if="file.type !== 'folder' && !file.isDeleteMarker"
+                v-if="!file.isDeleteMarker || (file.type === 'folder' && downloadPrefixEnabled)"
                 variant="text"
                 color="default"
                 size="small"
@@ -274,6 +274,11 @@ async function onDownloadClick(): Promise<void> {
     withTrialCheck(async () => {
         if (disableDownload.value) {
             notify.error('Bandwidth limit exceeded, can not download this object.');
+            return;
+        }
+
+        if (props.file.type === 'folder' && downloadPrefixEnabled.value) {
+            emit('downloadFolderClick');
             return;
         }
 
