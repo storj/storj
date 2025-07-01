@@ -1062,6 +1062,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
 		ProductBasedInvoicingEnabled:      server.productBasedInvoicingEnabled,
 		NewAccountSetupEnabled:            server.config.NewAccountSetupEnabled,
+		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

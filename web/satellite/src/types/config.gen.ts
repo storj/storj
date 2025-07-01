@@ -91,6 +91,7 @@ export class FrontendConfig {
     segmentMonthCents: string;
     productBasedInvoicingEnabled: boolean;
     newAccountSetupEnabled: boolean;
+    upgradePayUpfrontAmount: number;
 }
 
 export class MinimumChargeConfig {

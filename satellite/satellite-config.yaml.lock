@@ -601,6 +601,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates whether invitation emails can be sent to unregistered email addresses
 # console.unregistered-invite-emails-enabled: true
 
+# amount (in cents) required to upgrade to a paid tier, use 0 to disable
+# console.upgrade-pay-upfront-amount: 0
+
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 25.00 GB
 
