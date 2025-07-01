@@ -18,7 +18,6 @@ import (
 
 	"storj.io/common/encryption"
 	"storj.io/common/errs2"
-	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -892,10 +891,10 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, err
 	}
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
+	peer, trusted, err := endpoint.uplinkPeer(ctx)
 	if err != nil {
 		// N.B. jeff thinks this is a bad idea but jt convinced him
-		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+		return nil, err
 	}
 
 	var canGetRetention bool
@@ -933,6 +932,10 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		},
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := validateServerSideCopyFlag(req.ServerSideCopy, trusted); err != nil {
 		return nil, err
 	}
 
@@ -1045,9 +1048,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		}
 
 		if segment.Inline() {
-			err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize)
-			if err != nil {
-				return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
+			// skip egress tracking for server-side copy operation
+			if !req.ServerSideCopy {
+				if err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize); err != nil {
+					return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
+				}
 			}
 
 			// TODO we may think about fallback to encrypted size
@@ -1083,6 +1088,14 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			// Only needed for lite requests.
 			encodedSegmentID []byte
 		)
+
+		bucketLocation := object.Location().Bucket()
+		if req.ServerSideCopy {
+			// skip egress tracking for server-side copy operation, empty bucket location will
+			// be skipped while orders settlement
+			bucketLocation = metabase.BucketLocation{}
+		}
+
 		var privateKey storj.PiecePrivateKey
 		if req.LiteRequest {
 			// Lite responses don't have signed orders limits and the piece ID because the lite request are
@@ -1097,9 +1110,9 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
 			}
 
-			limits, privateKey, err = endpoint.orders.CreateLiteGetOrderLimits(ctx, peer, object.Location().Bucket(), segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
+			limits, privateKey, err = endpoint.orders.CreateLiteGetOrderLimits(ctx, peer, bucketLocation, segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
 		} else {
-			limits, privateKey, err = endpoint.orders.CreateGetOrderLimits(ctx, peer, object.Location().Bucket(), segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
+			limits, privateKey, err = endpoint.orders.CreateGetOrderLimits(ctx, peer, bucketLocation, segment, req.GetDesiredNodes(), downloadSizes.orderLimit)
 		}
 		if err != nil {
 			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {

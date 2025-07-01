@@ -702,10 +702,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
+	peer, trusted, err := endpoint.uplinkPeer(ctx)
 	if err != nil {
 		// N.B. jeff thinks this is a bad idea but jt convinced him
-		return nil, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+		return nil, err
 	}
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
@@ -724,7 +724,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
+	if err := validateServerSideCopyFlag(req.ServerSideCopy, trusted); err != nil {
+		return nil, err
+	}
 
 	if err := endpoint.checkDownloadLimits(ctx, keyInfo); err != nil {
 		return nil, err
@@ -782,10 +784,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get encryption key nonce from metadata")
 	}
 
+	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(streamID.Bucket)}
+
 	if segment.Inline() {
-		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData)))
-		if err != nil {
-			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
+		// skip egress tracking for server-side copy operation
+		if !req.ServerSideCopy {
+			if err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData))); err != nil {
+				return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
+			}
 		}
 
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
@@ -806,6 +812,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				Index:      int32(segment.Position.Index),
 			},
 		}, nil
+	}
+
+	if req.ServerSideCopy {
+		// skip egress tracking for server-side copy operation, empty bucket location will
+		// be skipped while orders settlement
+		bucket = metabase.BucketLocation{}
 	}
 
 	// Remote segment

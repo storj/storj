@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
 	"net"
@@ -55,6 +56,7 @@ import (
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/object"
+	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -6735,6 +6737,124 @@ func TestListObjects_ArbitraryPrefix(t *testing.T) {
 			require.Equal(t, "3/image1.jpg", string(resp.Items[0].EncryptedObjectKey))
 			require.Equal(t, "3/image2.jpg", string(resp.Items[1].EncryptedObjectKey))
 			require.Equal(t, "4/image3.jpg", string(resp.Items[2].EncryptedObjectKey))
+		})
+	})
+}
+
+func TestDownloadObject_DownloadSegment_ServerSideCopy(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.DefaultPathCipher = storj.EncNull
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
+		endpoint := planet.Satellites[0].API.Metainfo.Endpoint
+
+		now := time.Now()
+
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test"))
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test", "remote", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test", "inline", testrand.Bytes(500))
+		require.NoError(t, err)
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
+
+		t.Run("untrusted uplink", func(t *testing.T) {
+			for _, objectKey := range []string{"remote", "inline"} {
+				_, err = endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey},
+					Bucket:             []byte("test"),
+					EncryptedObjectKey: []byte(objectKey),
+
+					ServerSideCopy: true,
+				})
+				rpctest.AssertCode(t, err, rpcstatus.InvalidArgument)
+
+				resp, err := endpoint.GetObject(ctx, &pb.GetObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey},
+					Bucket:             []byte("test"),
+					EncryptedObjectKey: []byte(objectKey),
+				})
+				require.NoError(t, err)
+
+				_, err = endpoint.DownloadSegment(peerctx, &pb.DownloadSegmentRequest{
+					Header:         &pb.RequestHeader{ApiKey: apiKey},
+					StreamId:       resp.Object.StreamId,
+					CursorPosition: &pb.SegmentPosition{},
+					ServerSideCopy: true,
+				})
+				rpctest.AssertCode(t, err, rpcstatus.InvalidArgument)
+			}
+		})
+		t.Run("trusted uplink", func(t *testing.T) {
+			endpoint.TestingAddTrustedUplink(planet.Uplinks[0].ID())
+
+			for _, objectKey := range []string{"remote", "inline"} {
+				func() {
+					resp, err := endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
+						Header:             &pb.RequestHeader{ApiKey: apiKey},
+						Bucket:             []byte("test"),
+						EncryptedObjectKey: []byte(objectKey),
+
+						ServerSideCopy: true,
+					})
+					require.NoError(t, err)
+
+					dsResp, err := endpoint.DownloadSegment(peerctx, &pb.DownloadSegmentRequest{
+						Header:         &pb.RequestHeader{ApiKey: apiKey},
+						StreamId:       resp.Object.StreamId,
+						CursorPosition: &pb.SegmentPosition{},
+						ServerSideCopy: true,
+					})
+					require.NoError(t, err)
+
+					// test egress skip while using DownloadObject and DownloadSegment endpoints
+					for _, toDownload := range []*pb.DownloadSegmentResponse{resp.SegmentDownload[0], dsResp} {
+						var data []byte
+						if toDownload.EncryptedInlineData != nil {
+							data = toDownload.EncryptedInlineData
+							// encrypted data takes more space than the original data
+							require.GreaterOrEqual(t, len(data), 500)
+						} else {
+							limit := toDownload.AddressedLimits[0]
+							nodeURL := storj.NodeURL{
+								ID:      limit.Limit.StorageNodeId,
+								Address: limit.StorageNodeAddress.Address,
+							}
+							require.NoError(t, err)
+
+							client, err := piecestore.Dial(ctx, planet.Uplinks[0].Dialer, nodeURL, piecestore.DefaultConfig)
+							require.NoError(t, err)
+							defer ctx.Check(client.Close)
+
+							download, err := client.Download(ctx, limit.Limit, toDownload.PrivateKey, 0, 400)
+							require.NoError(t, err)
+							defer ctx.Check(download.Close)
+
+							data, err = io.ReadAll(download)
+							require.NoError(t, err)
+							require.Len(t, data, 400)
+						}
+					}
+
+				}()
+			}
+
+			for _, sn := range planet.StorageNodes {
+				sn.Storage2.Orders.SendOrders(ctx, now.Add(24*time.Hour))
+			}
+			planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+			usage, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectTotal(ctx, planet.Uplinks[0].Projects[0].ID, now.Add(-time.Hour), now.Add(time.Hour))
+			require.NoError(t, err)
+			require.Zero(t, usage.Egress)
 		})
 	})
 }

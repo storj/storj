@@ -32,3 +32,8 @@ func NewTrustedPeerList(nodes []storj.NodeID) *TrustedPeersList {
 func (list *TrustedPeersList) IsTrusted(node storj.NodeID) bool {
 	return list.isTrusted[node]
 }
+
+// TestingAddTrustedUplink is a helper function for tests to add a trusted uplink.
+func (list *TrustedPeersList) TestingAddTrustedUplink(id storj.NodeID) {
+	list.isTrusted[id] = true
+}

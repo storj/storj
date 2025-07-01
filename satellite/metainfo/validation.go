@@ -959,3 +959,10 @@ func keyInfoToLimits(keyInfo *console.APIKeyInfo) accounting.ProjectLimits {
 		BurstLimit: keyInfo.ProjectBurstLimit,
 	}
 }
+
+func validateServerSideCopyFlag(flag bool, trustedUplink bool) error {
+	if flag && !trustedUplink {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "ServerSideCopy flag is only allowed for trusted uplink clients")
+	}
+	return nil
+}
