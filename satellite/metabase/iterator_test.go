@@ -4141,6 +4141,35 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 	})
 }
 
+func TestIterateObjectsWithStatus_Delimiter(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		ascending bool
+	}{
+		{"Descending", false}, {"Ascending", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			testListObjectsDelimiter(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB, testCase listObjectsDelimiterTestCase) ([]metabase.ObjectEntry, error) {
+				var result metabasetest.IterateCollector
+
+				iter := db.IterateObjectsAllVersionsWithStatus
+				if tt.ascending {
+					iter = db.IterateObjectsAllVersionsWithStatusAscending
+				}
+				err := iter(ctx, metabase.IterateObjectsWithStatus{
+					ProjectID:             testCase.projectID,
+					BucketName:            testCase.bucketName,
+					Prefix:                testCase.prefix,
+					Delimiter:             testCase.delimiter,
+					IncludeSystemMetadata: true,
+				}, result.Add)
+
+				return []metabase.ObjectEntry(result), err
+			})
+		})
+	}
+}
+
 func createObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName metabase.BucketName) []metabase.RawObject {
 	objects := make([]metabase.RawObject, numberOfObjects)
 	for i := 0; i < numberOfObjects; i++ {

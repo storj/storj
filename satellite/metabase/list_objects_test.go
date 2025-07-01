@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -2731,131 +2733,15 @@ func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
 }
 
 func TestListObjects_Delimiter(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		const delimiter = "###"
-		const defaultDelimiter = metabase.Delimiter
-
-		projectID := testrand.UUID()
-		bucketName := metabase.BucketName(testrand.BucketName())
-
-		createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
-			"abc" + delimiter,
-			"abc" + delimiter + "def",
-			"abc" + delimiter + "def" + delimiter + "ghi",
-			"abc" + defaultDelimiter + "def",
-			"xyz" + delimiter + "uvw",
+	testListObjectsDelimiter(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB, testCase listObjectsDelimiterTestCase) ([]metabase.ObjectEntry, error) {
+		result, err := db.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:             testCase.projectID,
+			BucketName:            testCase.bucketName,
+			Prefix:                testCase.prefix,
+			Delimiter:             testCase.delimiter,
+			IncludeSystemMetadata: true,
 		})
-
-		requireKeysAndPrefixes := func(t *testing.T, expectedKeys []metabase.ObjectKey, expectedPrefixes []metabase.ObjectKey, result metabase.ListObjectsResult) {
-			var (
-				actualKeys     []metabase.ObjectKey
-				actualPrefixes []metabase.ObjectKey
-			)
-			for i := 0; i < len(result.Objects); i++ {
-				entry := result.Objects[i]
-				if entry.IsPrefix {
-					actualPrefixes = append(actualPrefixes, entry.ObjectKey)
-				} else {
-					actualKeys = append(actualKeys, entry.ObjectKey)
-				}
-			}
-
-			if len(expectedKeys) == 0 {
-				require.Empty(t, actualKeys)
-			} else {
-				require.Equal(t, expectedKeys, actualKeys)
-			}
-
-			if len(expectedPrefixes) == 0 {
-				require.Empty(t, actualPrefixes)
-			} else {
-				require.Equal(t, expectedPrefixes, actualPrefixes)
-			}
-		}
-
-		t.Run("Default delimiter", func(t *testing.T) {
-			result, err := db.ListObjects(ctx, metabase.ListObjects{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-			})
-			require.NoError(t, err)
-
-			requireKeysAndPrefixes(t, []metabase.ObjectKey{
-				"abc" + delimiter,
-				"abc" + delimiter + "def",
-				"abc" + delimiter + "def" + delimiter + "ghi",
-				"xyz" + delimiter + "uvw",
-			}, []metabase.ObjectKey{
-				"abc" + defaultDelimiter,
-			}, result)
-		})
-
-		t.Run("Root", func(t *testing.T) {
-			result, err := db.ListObjects(ctx, metabase.ListObjects{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				Delimiter:  delimiter,
-			})
-			require.NoError(t, err)
-
-			requireKeysAndPrefixes(t, []metabase.ObjectKey{
-				"abc" + defaultDelimiter + "def",
-			}, []metabase.ObjectKey{
-				"abc" + delimiter,
-				"xyz" + delimiter,
-			}, result)
-		})
-
-		t.Run("1 level deep", func(t *testing.T) {
-			result, err := db.ListObjects(ctx, metabase.ListObjects{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				Delimiter:  delimiter,
-				Prefix:     "abc" + delimiter,
-			})
-			require.NoError(t, err)
-
-			requireKeysAndPrefixes(t, []metabase.ObjectKey{
-				"",
-				"def",
-			}, []metabase.ObjectKey{
-				"def" + delimiter,
-			}, result)
-		})
-
-		t.Run("2 levels deep", func(t *testing.T) {
-			result, err := db.ListObjects(ctx, metabase.ListObjects{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				Delimiter:  delimiter,
-				Prefix:     "abc" + delimiter + "def" + delimiter,
-			})
-			require.NoError(t, err)
-
-			requireKeysAndPrefixes(t, []metabase.ObjectKey{
-				"ghi",
-			}, nil, result)
-		})
-
-		t.Run("Prefix suffixed with partial delimiter", func(t *testing.T) {
-			partialDelimiter := metabase.ObjectKey(delimiter[:len(delimiter)-1])
-			remainingDelimiter := metabase.ObjectKey(delimiter[len(delimiter)-1:])
-
-			result, err := db.ListObjects(ctx, metabase.ListObjects{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				Delimiter:  delimiter,
-				Prefix:     "abc" + partialDelimiter,
-			})
-			require.NoError(t, err)
-
-			requireKeysAndPrefixes(t, []metabase.ObjectKey{
-				remainingDelimiter,
-				remainingDelimiter + "def",
-			}, []metabase.ObjectKey{
-				remainingDelimiter + "def" + delimiter,
-			}, result)
-		})
+		return result.Objects, err
 	})
 }
 
@@ -2876,4 +2762,120 @@ func TestSkipPrefix(t *testing.T) {
 		assert.Equal(t, tt.expected, output, "Prefix: %q", tt.prefix)
 		assert.Equal(t, tt.expectedOk, ok, "Prefix: %q", tt.prefix)
 	}
+}
+
+type listObjectsDelimiterTestCase struct {
+	projectID  uuid.UUID
+	bucketName metabase.BucketName
+	delimiter  metabase.ObjectKey
+	prefix     metabase.ObjectKey
+}
+
+func testListObjectsDelimiter(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB, testCase listObjectsDelimiterTestCase) ([]metabase.ObjectEntry, error)) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		const delimiter = "###"
+		const defaultDelimiter = metabase.Delimiter
+
+		projectID := testrand.UUID()
+		bucketName := metabase.BucketName(testrand.BucketName())
+
+		requireResult := func(t *testing.T, expected, actual []metabase.ObjectEntry) {
+			diff := cmp.Diff(expected, actual, metabasetest.DefaultTimeDiff(),
+				// Iterators don't implement IsLatest.
+				cmpopts.IgnoreFields(metabase.ObjectEntry{}, "IsLatest"),
+			)
+			require.Zero(t, diff)
+		}
+
+		objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+			"abc" + delimiter,
+			"abc" + delimiter + "def",
+			"abc" + delimiter + "def" + delimiter + "ghi",
+			"abc" + defaultDelimiter + "def",
+			"xyz" + delimiter + "uvw",
+		})
+
+		t.Run("Default delimiter", func(t *testing.T) {
+			result, err := fn(ctx, t, db, listObjectsDelimiterTestCase{
+				projectID:  projectID,
+				bucketName: bucketName,
+			})
+			require.NoError(t, err)
+
+			requireResult(t, []metabase.ObjectEntry{
+				objects["abc"+delimiter],
+				objects["abc"+delimiter+"def"],
+				objects["abc"+delimiter+"def"+delimiter+"ghi"],
+				prefixEntry("abc" + defaultDelimiter),
+				objects["xyz"+delimiter+"uvw"],
+			}, result)
+		})
+
+		t.Run("Root", func(t *testing.T) {
+			result, err := fn(ctx, t, db, listObjectsDelimiterTestCase{
+				projectID:  projectID,
+				bucketName: bucketName,
+				delimiter:  delimiter,
+			})
+			require.NoError(t, err)
+
+			requireResult(t, []metabase.ObjectEntry{
+				prefixEntry("abc" + delimiter),
+				objects["abc"+defaultDelimiter+"def"],
+				prefixEntry("xyz" + delimiter),
+			}, result)
+		})
+
+		t.Run("1 level deep", func(t *testing.T) {
+			result, err := fn(ctx, t, db, listObjectsDelimiterTestCase{
+				projectID:  projectID,
+				bucketName: bucketName,
+				delimiter:  delimiter,
+				prefix:     "abc" + delimiter,
+			})
+			require.NoError(t, err)
+
+			requireResult(t, []metabase.ObjectEntry{
+				withoutPrefix1("abc"+delimiter, objects["abc"+delimiter]),
+				withoutPrefix1("abc"+delimiter, objects["abc"+delimiter+"def"]),
+				prefixEntry("def" + delimiter),
+			}, result)
+		})
+
+		t.Run("2 levels deep", func(t *testing.T) {
+			result, err := fn(ctx, t, db, listObjectsDelimiterTestCase{
+				projectID:  projectID,
+				bucketName: bucketName,
+				delimiter:  delimiter,
+				prefix:     "abc" + delimiter + "def" + delimiter,
+			})
+			require.NoError(t, err)
+
+			requireResult(t, []metabase.ObjectEntry{
+				withoutPrefix1(
+					"abc"+delimiter+"def"+delimiter,
+					objects["abc"+delimiter+"def"+delimiter+"ghi"],
+				),
+			}, result)
+		})
+
+		t.Run("Prefix suffixed with partial delimiter", func(t *testing.T) {
+			partialDelimiter := metabase.ObjectKey(delimiter[:len(delimiter)-1])
+			remainingDelimiter := metabase.ObjectKey(delimiter[len(delimiter)-1:])
+
+			result, err := fn(ctx, t, db, listObjectsDelimiterTestCase{
+				projectID:  projectID,
+				bucketName: bucketName,
+				delimiter:  delimiter,
+				prefix:     "abc" + partialDelimiter,
+			})
+			require.NoError(t, err)
+
+			requireResult(t, []metabase.ObjectEntry{
+				withoutPrefix1("abc"+partialDelimiter, objects["abc"+delimiter]),
+				withoutPrefix1("abc"+partialDelimiter, objects["abc"+delimiter+"def"]),
+				prefixEntry(remainingDelimiter + "def" + delimiter),
+			}, result)
+		})
+	})
 }
