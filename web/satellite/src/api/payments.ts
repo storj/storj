@@ -23,6 +23,7 @@ import {
     PriceModelForPlacementRequest,
     AddFundsResponse,
     ProductCharges,
+    ChargeCardIntent,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -41,9 +42,9 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @throws Error
      */
-    public async addFunds(cardID: string, amount: number, csrfProtectionToken: string): Promise<AddFundsResponse> {
+    public async addFunds(cardID: string, amount: number, intent: ChargeCardIntent, csrfProtectionToken: string): Promise<AddFundsResponse> {
         const path = `${this.ROOT_PATH}/add-funds`;
-        const response = await this.client.post(path, JSON.stringify({ cardID, amount }), { csrfProtectionToken });
+        const response = await this.client.post(path, JSON.stringify({ cardID, amount, intent }), { csrfProtectionToken });
 
         const result = await response.json();
 

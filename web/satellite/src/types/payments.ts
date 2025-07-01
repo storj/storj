@@ -65,10 +65,11 @@ export interface PaymentsApi {
      * Add credit card
      * @param cardID - the ID of the credit card to charge
      * @param amount - the amount of funds to add, in cents
+     * @param intent - the intent of the charge, either to add funds or upgrade account
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addFunds(cardID: string, amount: number, csrfProtectionToken: string): Promise<AddFundsResponse>;
+    addFunds(cardID: string, amount: number, intent: ChargeCardIntent, csrfProtectionToken: string): Promise<AddFundsResponse>;
 
     /**
      * Gets a setup intent secret to set up a card with stripe.
@@ -401,6 +402,11 @@ export enum PaymentsHistoryItemStatus {
      * This is to filter when the backend sends an item with an empty status.
      */
     Empty = '',
+}
+
+export enum ChargeCardIntent {
+    AddFunds = 1,
+    UpgradeAccount = 2,
 }
 
 /**

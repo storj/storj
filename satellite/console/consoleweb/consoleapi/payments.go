@@ -870,6 +870,15 @@ func (p *Payments) AddFunds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if params.Intent != payments.AddFundsIntent {
+		p.serveJSONError(ctx, w, http.StatusForbidden, errs.New("invalid intent: %s", params.Intent))
+		return
+	}
+	if params.CardID == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("card id is required"))
+		return
+	}
+
 	resp, err := p.service.Payments().AddFunds(ctx, params)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {

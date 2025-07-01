@@ -114,24 +114,24 @@
 <script setup lang="ts">
 import {
     VBtn,
-    VChip,
     VCard,
     VCardActions,
     VCardItem,
     VCardText,
     VCardTitle,
+    VChip,
     VCol,
     VDialog,
     VDivider,
     VForm,
+    VIcon,
+    VListItem,
     VRow,
     VSelect,
     VSheet,
     VTextField,
-    VListItem,
     VWindow,
     VWindowItem,
-    VIcon,
 } from 'vuetify/components';
 import { computed, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
@@ -139,7 +139,7 @@ import { Stripe } from '@stripe/stripe-js';
 import { CircleCheckBig } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
-import { CreditCard } from '@/types/payments';
+import { ChargeCardIntent, CreditCard } from '@/types/payments';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -216,7 +216,7 @@ function proceed(): void {
         if (!selectedPaymentMethod.value) return;
 
         try {
-            const resp = await billingStore.addFunds(selectedPaymentMethod.value, amount.value * 100);
+            const resp = await billingStore.addFunds(selectedPaymentMethod.value, amount.value * 100, ChargeCardIntent.AddFunds);
             if (resp.success) {
                 notify.success('Payment confirmed! Your account balance will be updated shortly.');
                 step.value = Step.Success;

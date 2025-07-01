@@ -27,6 +27,7 @@ import {
     PriceModelForPlacementRequest,
     AddFundsResponse,
     ProductCharges,
+    ChargeCardIntent,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
@@ -136,8 +137,8 @@ export const useBillingStore = defineStore('billing', () => {
         state.taxes = await api.getCountryTaxes(countryCode);
     }
 
-    async function addFunds(cardID: string, amount: number): Promise<AddFundsResponse> {
-        return await api.addFunds(cardID, amount, csrfToken.value);
+    async function addFunds(cardID: string, amount: number, intent: ChargeCardIntent): Promise<AddFundsResponse> {
+        return await api.addFunds(cardID, amount, intent, csrfToken.value);
     }
 
     async function getCardSetupSecret(): Promise<string> {

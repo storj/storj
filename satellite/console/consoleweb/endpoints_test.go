@@ -423,6 +423,7 @@ func TestPayments(t *testing.T) {
 				resp, _ := test.request(http.MethodPost, "/payments/add-funds", test.toJSON(map[string]any{
 					"cardID": cardID,
 					"amount": amount,
+					"intent": payments.AddFundsIntent,
 				}))
 
 				return resp

@@ -813,14 +813,11 @@ func (payment Payments) GetCardSetupSecret(ctx context.Context) (secret string, 
 func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsParams) (response *payments.ChargeCardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := payment.service.getUserAndAuditLog(ctx, "add funds")
+	user, err := payment.service.getUserAndAuditLog(ctx, "add funds", zap.String("intent", params.Intent.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if params.CardID == "" {
-		return nil, ErrValidation.New("card id is required")
-	}
 	if params.Amount < payment.service.config.MinAddFundsAmount {
 		return nil, ErrValidation.New("amount is too low")
 	}
@@ -832,7 +829,7 @@ func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsPa
 		UserID:   user.ID,
 		CardID:   params.CardID,
 		Amount:   int64(params.Amount),
-		Metadata: map[string]string{"user_id": user.ID.String(), "add_funds": "1"},
+		Metadata: map[string]string{"user_id": user.ID.String(), params.Intent.String(): "1"},
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -877,9 +874,10 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 		return errs.New("webhook event metadata missing or invalid")
 	}
 
-	_, ok = metadata["add_funds"]
-	if !ok {
-		// We ignore this event if it's not related to adding funds.
+	_, addFundsFound := metadata[payments.AddFundsIntent.String()]
+	_, upgradeAccountFound := metadata[payments.UpgradeAccountIntent.String()]
+	if !addFundsFound && !upgradeAccountFound {
+		// We ignore this event if it's not related to adding funds or account upgrade.
 		// Most likely it's related to a paid invoice.
 		return nil
 	}
