@@ -6,8 +6,10 @@ import { defineStore } from 'pinia';
 
 import {
     AccountBalance,
-    BillingInformation,
+    AddFundsResponse,
     BillingAddress,
+    BillingInformation,
+    ChargeCardIntent,
     Coupon,
     CreditCard,
     DateRange,
@@ -17,17 +19,16 @@ import {
     PaymentsApi,
     PaymentStatus,
     PaymentWithConfirmations,
+    PriceModelForPlacementRequest,
+    ProductCharges,
     ProjectCharges,
-    UsagePriceModel,
-    Wallet,
-    TaxCountry,
+    PurchaseIntent,
     Tax,
+    TaxCountry,
     TaxID,
     UpdateCardParams,
-    PriceModelForPlacementRequest,
-    AddFundsResponse,
-    ProductCharges,
-    ChargeCardIntent,
+    UsagePriceModel,
+    Wallet,
 } from '@/types/payments';
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
@@ -295,7 +296,7 @@ export const useBillingStore = defineStore('billing', () => {
     }
 
     async function purchasePricingPackage(dataStr: string): Promise<void> {
-        await api.purchasePricingPackage(dataStr, csrfToken.value);
+        await api.purchase(dataStr, PurchaseIntent.PackagePlan, csrfToken.value);
     }
 
     function setPricingPlansAvailable(available: boolean, info: PricingPlanInfo | null = null): void {

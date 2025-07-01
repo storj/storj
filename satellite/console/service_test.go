@@ -346,7 +346,7 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 
 				// add a credit card to put the user in the paid tier
-				card, err := service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID)
+				card, err := service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID, false)
 				require.NoError(t, err)
 				require.NotEmpty(t, card)
 				// user should be in paid tier
@@ -5234,95 +5234,102 @@ func TestWalletPaymentsWithConfirmations(t *testing.T) {
 func TestPaymentsPurchase(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
+					"partner": {Price: 1000, Credit: 1500},
+				}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		p := sat.API.Console.Service.Payments()
+		stripeClient := sat.API.Payments.StripeClient
+
 		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "test@mail.test",
+			FullName:  "Test User",
+			Email:     "test@mail.test",
+			UserAgent: []byte("partner"),
 		}, 1)
 		require.NoError(t, err)
+		require.True(t, user.IsFree())
 
 		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
-		testDesc := "testDescription"
-		testPaymentMethod := "testPaymentMethod"
+		pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+			Card: &stripeLib.PaymentMethodCardParams{
+				Token:    stripeLib.String("test"),
+				ExpYear:  stripeLib.Int64(int64(2050)),
+				ExpMonth: stripeLib.Int64(int64(05)),
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, pm)
 
-		tests := []struct {
-			name          string
-			purchaseDesc  string
-			paymentMethod string
-			shouldErr     bool
-			ctx           context.Context
-		}{
-			{
-				"Purchase returns error with unknown user",
-				testDesc,
-				testPaymentMethod,
-				true,
-				ctx,
-			},
-			{
-				"Purchase returns error when underlying payments.Invoices.New returns error",
-				stripe.MockInvoicesNewFailure,
-				testPaymentMethod,
-				true,
-				userCtx,
-			},
-			{
-				"Purchase returns error when underlying payments.Invoices.Pay returns error",
-				testDesc,
-				stripe.MockInvoicesPayFailure,
-				true,
-				userCtx,
-			},
-			{
-				"Purchase success",
-				testDesc,
-				testPaymentMethod,
-				false,
-				userCtx,
-			},
-		}
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				err := p.Purchase(tt.ctx, 1000, tt.purchaseDesc, tt.paymentMethod)
-				if tt.shouldErr {
-					require.NotNil(t, err)
-				} else {
-					require.Nil(t, err)
-				}
-			})
-		}
+		err = p.Purchase(userCtx, pm.ID, payments.PurchaseIntent(999))
+		require.NoError(t, err)
+
+		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.True(t, user.IsFree())
+
+		err = p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent)
+		require.NoError(t, err)
+
+		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.True(t, user.IsPaid())
 	})
 }
 
 func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
+					"partner": {Price: 1000, Credit: 1500},
+				}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		p := sat.API.Console.Service.Payments()
+		stripeClient := sat.API.Payments.StripeClient
+
+		partner := "partner"
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "test@mail.test",
+			FullName:  "Test User",
+			Email:     "test@mail.test",
+			UserAgent: []byte(partner),
 		}, 1)
 		require.NoError(t, err)
 
 		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
-		draftInvDesc := "testDraftDescription"
-		testPaymentMethod := "testPaymentMethod"
+		pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+			Card: &stripeLib.PaymentMethodCardParams{
+				Token:    stripeLib.String(stripe.MockInvoicesPaySuccess),
+				ExpYear:  stripeLib.Int64(int64(2050)),
+				ExpMonth: stripeLib.Int64(int64(05)),
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, pm)
 
 		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 0)
 
 		// test purchase with draft invoice
-		inv, err := sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, draftInvDesc)
+		invoiceDesc := partner + " package plan"
+
+		inv, err := sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, invoiceDesc)
 		require.NoError(t, err)
 		require.Equal(t, payments.InvoiceStatusDraft, inv.Status)
 
@@ -5333,7 +5340,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Len(t, invs, 1)
 		require.Equal(t, draftInv, invs[0].ID)
 
-		require.NoError(t, p.Purchase(userCtx, 1000, draftInvDesc, stripe.MockInvoicesPaySuccess))
+		require.NoError(t, p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
@@ -5341,12 +5348,12 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.NotEqual(t, draftInv, invs[0].ID)
 		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
 
-		// test purchase with open invoice
-		openInvDesc := "testOpenDescription"
-		inv, err = sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, openInvDesc)
+		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Delete(ctx, invs[0].ID)
 		require.NoError(t, err)
 
-		openInv := inv.ID
+		// test purchase with open invoice
+		inv, err = sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, invoiceDesc)
+		require.NoError(t, err)
 
 		// attempting to pay a draft invoice changes it to open if payment fails
 		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Pay(ctx, inv.ID, stripe.MockInvoicesPayFailure)
@@ -5354,36 +5361,22 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
-		require.Len(t, invs, 2)
-		var foundInv bool
-		for _, inv := range invs {
-			if inv.ID == openInv {
-				foundInv = true
-				require.Equal(t, payments.InvoiceStatusOpen, inv.Status)
-			}
-		}
-		require.True(t, foundInv)
+		require.Len(t, invs, 1)
+		require.Equal(t, payments.InvoiceStatusOpen, invs[0].Status)
 
-		require.NoError(t, p.Purchase(userCtx, 1000, openInvDesc, stripe.MockInvoicesPaySuccess))
+		require.NoError(t, p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
-		require.Len(t, invs, 2)
-		foundInv = false
-		for _, inv := range invs {
-			if inv.ID == openInv {
-				foundInv = true
-				require.Equal(t, payments.InvoiceStatusPaid, inv.Status)
-			}
-		}
-		require.True(t, foundInv)
+		require.Len(t, invs, 1)
+		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
 
 		// purchase with paid invoice skips creating and or paying invoice
-		require.NoError(t, p.Purchase(userCtx, 1000, openInvDesc, testPaymentMethod))
+		require.NoError(t, p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
-		require.Len(t, invs, 2)
+		require.Len(t, invs, 1)
 	})
 }
 

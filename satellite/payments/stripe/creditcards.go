@@ -18,13 +18,6 @@ import (
 )
 
 var (
-	// ErrCardNotFound is returned when card is not found for a user.
-	ErrCardNotFound = errs.Class("card not found")
-	// ErrDefaultCard is returned when a user tries to delete their default card.
-	ErrDefaultCard = errs.Class("default card")
-	// ErrDuplicateCard is returned when a user tries to add duplicate card.
-	ErrDuplicateCard = errs.Class("duplicate card")
-
 	// UnattachedErrString is part of the err string returned by stripe if a payment
 	// method does not belong to a customer.
 	UnattachedErrString = "The payment method must be attached to the customer"
@@ -127,7 +120,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 		if stripeCard.Card.Fingerprint == card.Card.Fingerprint &&
 			stripeCard.Card.ExpMonth == card.Card.ExpMonth &&
 			stripeCard.Card.ExpYear == card.Card.ExpYear {
-			return payments.CreditCard{}, ErrDuplicateCard.New("this card is already on file for your account.")
+			return payments.CreditCard{}, payments.ErrDuplicateCard.New("this card is already on file for your account.")
 		}
 
 		if stripeCard.Card.ExpYear < currentYear || (stripeCard.Card.ExpYear == currentYear && stripeCard.Card.ExpMonth < currentMonth) {
@@ -215,7 +208,7 @@ func (creditCards *creditCards) Update(ctx context.Context, userID uuid.UUID, pa
 	}
 
 	if !isUserCard {
-		return ErrCardNotFound.New("this card is not attached to this account.")
+		return payments.ErrCardNotFound.New("this card is not attached to this account.")
 	}
 
 	cardParams := &stripe.PaymentMethodParams{
@@ -241,7 +234,7 @@ func (creditCards *creditCards) Update(ctx context.Context, userID uuid.UUID, pa
 // AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
 // using the payment method id instead of the token. In this case, the payment method should already be
 // created by the frontend using the stripe payment element for example.
-func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string) (_ payments.CreditCard, err error) {
+func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string, force bool) (_ payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID, pmID)(&err)
 
 	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
@@ -274,8 +267,9 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 
 		if stripeCard.Card.Fingerprint == card.Card.Fingerprint &&
 			stripeCard.Card.ExpMonth == card.Card.ExpMonth &&
-			stripeCard.Card.ExpYear == card.Card.ExpYear {
-			return payments.CreditCard{}, ErrDuplicateCard.New("this card is already on file for your account.")
+			stripeCard.Card.ExpYear == card.Card.ExpYear &&
+			!force {
+			return payments.CreditCard{}, payments.ErrDuplicateCard.New("this card is already on file for your account.")
 		}
 
 		if stripeCard.Card.ExpYear < currentYear || (stripeCard.Card.ExpYear == currentYear && stripeCard.Card.ExpMonth < currentMonth) {
@@ -354,7 +348,7 @@ func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUI
 
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
 	if err != nil && strings.Contains(err.Error(), UnattachedErrString) {
-		return ErrCardNotFound.New("this card is not attached to this account.")
+		return payments.ErrCardNotFound.New("this card is not attached to this account.")
 	}
 
 	return Error.Wrap(err)
@@ -377,7 +371,7 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 	if customer.InvoiceSettings != nil &&
 		customer.InvoiceSettings.DefaultPaymentMethod != nil &&
 		customer.InvoiceSettings.DefaultPaymentMethod.ID == cardID {
-		return ErrDefaultCard.New("can not detach default payment method.")
+		return payments.ErrDefaultCard.New("can not detach default payment method.")
 	}
 
 	cardIter := creditCards.service.stripeClient.PaymentMethods().List(&stripe.PaymentMethodListParams{
@@ -399,7 +393,7 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 	}
 
 	if !isUserCard {
-		return ErrCardNotFound.New("this card is not attached to this account.")
+		return payments.ErrCardNotFound.New("this card is not attached to this account.")
 	}
 
 	cardParams := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}

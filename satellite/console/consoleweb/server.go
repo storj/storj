@@ -105,7 +105,6 @@ type Config struct {
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
-	PricingPackagesEnabled          bool          `help:"whether to allow purchasing pricing packages" default:"true"`
 	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
@@ -179,7 +178,6 @@ type Server struct {
 
 	AnalyticsConfig analytics.Config
 
-	packagePlans        paymentsconfig.PackagePlans
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig
 	usagePrices         payments.ProjectUsagePriceModel
 
@@ -246,7 +244,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
 	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
 	csrfService *csrf.Service, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
-	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config, packagePlans paymentsconfig.PackagePlans,
+	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, productBasedInvoicingEnabled bool) *Server {
 	initAdditionalMimeTypes()
 
@@ -266,7 +264,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:                         nodeURL,
 		AnalyticsConfig:                 analyticsConfig,
-		packagePlans:                    packagePlans,
 		minimumChargeConfig:             minimumChargeConfig,
 		usagePrices:                     usagePrices,
 		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
@@ -414,7 +411,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	}
 
 	if config.BillingFeaturesEnabled {
-		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans, productBasedInvoicingEnabled)
+		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, productBasedInvoicingEnabled)
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
@@ -451,8 +448,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		paymentsRouter.HandleFunc("/placement-pricing", paymentController.GetPartnerPlacementPriceModel).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.Handle("/purchase", server.withCSRFProtection(http.HandlerFunc(paymentController.Purchase))).Methods(http.MethodPost, http.MethodOptions)
 		if config.PricingPackagesEnabled {
-			paymentsRouter.Handle("/purchase-package", server.withCSRFProtection(http.HandlerFunc(paymentController.PurchasePackage))).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}
 		if config.BillingAddFundsEnabled {

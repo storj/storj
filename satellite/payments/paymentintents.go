@@ -45,8 +45,6 @@ type ChargeCardIntent int
 const (
 	// AddFundsIntent is used when the charge is for adding funds to an account balance.
 	AddFundsIntent ChargeCardIntent = 1
-	// UpgradeAccountIntent is used when the charge is for upgrading an account.
-	UpgradeAccountIntent ChargeCardIntent = 2
 )
 
 // String returns the string representation of the ChargeCardIntent.
@@ -54,9 +52,17 @@ func (cci ChargeCardIntent) String() string {
 	switch cci {
 	case AddFundsIntent:
 		return "add_funds"
-	case UpgradeAccountIntent:
-		return "upgrade_account"
 	default:
 		return "unknown_intent"
 	}
 }
+
+// PurchaseIntent represents the intent of a purchase operation.
+type PurchaseIntent int
+
+const (
+	// PurchasePackageIntent is used when the purchase is for a package plan.
+	PurchasePackageIntent PurchaseIntent = 1
+	// PurchaseUpgradedAccountIntent is used when the purchase is for upgrading an account.
+	PurchaseUpgradedAccountIntent PurchaseIntent = 2
+)

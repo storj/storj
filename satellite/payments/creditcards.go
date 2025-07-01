@@ -6,7 +6,18 @@ package payments
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
+)
+
+var (
+	// ErrCardNotFound is returned when card is not found for a user.
+	ErrCardNotFound = errs.Class("card not found")
+	// ErrDefaultCard is returned when a user tries to delete their default card.
+	ErrDefaultCard = errs.Class("default card")
+	// ErrDuplicateCard is returned when a user tries to add duplicate card.
+	ErrDuplicateCard = errs.Class("duplicate card")
 )
 
 // CreditCards exposes all needed functionality to manage account credit cards.
@@ -25,7 +36,7 @@ type CreditCards interface {
 	// AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
 	// using the payment method id instead of the token. In this case, the payment method should already be
 	// created by the frontend using stripe elements for example.
-	AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string) (CreditCard, error)
+	AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string, force bool) (CreditCard, error)
 
 	// Remove is used to detach a credit card from payment account.
 	Remove(ctx context.Context, userID uuid.UUID, cardID string) error

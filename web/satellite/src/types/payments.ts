@@ -238,13 +238,15 @@ export interface PaymentsApi {
     removeTaxID(taxID: string, csrfProtectionToken: string): Promise<BillingInformation>;
 
     /**
-     * Purchases the pricing package associated with the user's partner.
+     * Purchases makes a purchase using a credit card action.
+     * Used for pricing packages and upgrade account.
      *
-     * @param dataStr - the Stripe payment method id or token of the credit card
+     * @param pmID - the Stripe payment method id or token of the credit card
+     * @param intent - the intent of the purchase, either to purchase a package plan or upgrade account
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    purchasePricingPackage(dataStr: string, csrfProtectionToken: string): Promise<void>;
+    purchase(pmID: string, intent: PurchaseIntent, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Returns whether there is a pricing package configured for the user's partner.
@@ -406,6 +408,10 @@ export enum PaymentsHistoryItemStatus {
 
 export enum ChargeCardIntent {
     AddFunds = 1,
+}
+
+export enum PurchaseIntent {
+    PackagePlan = 1,
     UpgradeAccount = 2,
 }
 

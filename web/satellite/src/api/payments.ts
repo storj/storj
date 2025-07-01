@@ -24,6 +24,7 @@ import {
     AddFundsResponse,
     ProductCharges,
     ChargeCardIntent,
+    PurchaseIntent,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -801,23 +802,27 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Purchases the pricing package associated with the user's partner.
+     * Purchases makes a purchase using a credit card action.
+     * Used for pricing packages and upgrade account.
      *
-     * @param dataStr - the Stripe payment method id or token of the credit card
+     * @param pmID - the Stripe payment method id or token of the credit card
+     * @param intent - the intent of the purchase, either to purchase a package plan or upgrade account
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async purchasePricingPackage(dataStr: string, csrfProtectionToken: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/purchase-package`;
-        const response = await this.client.post(path, dataStr, { csrfProtectionToken });
+    public async purchase(pmID: string, intent: PurchaseIntent, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/purchase`;
+        const response = await this.client.post(path, JSON.stringify({ token: pmID, intent }), { csrfProtectionToken });
 
         if (response.ok) {
             return;
         }
 
+        const result = await response.json();
+
         throw new APIError({
             status: response.status,
-            message: 'Can not purchase pricing package',
+            message: result.error || 'Can not process purchase action',
             requestID: response.headers.get('x-request-id'),
         });
     }

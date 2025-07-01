@@ -501,6 +501,8 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 			return nil, &stripe.Error{}
 		case TestPaymentMethodsAttachFailure:
 			id = TestPaymentMethodsAttachFailure
+		case MockInvoicesPaySuccess:
+			id = MockInvoicesPaySuccess
 		case MockInvoicesPayFailure:
 			id = MockInvoicesPayFailure
 		}

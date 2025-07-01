@@ -37,6 +37,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/private/blockchain"
@@ -185,6 +186,9 @@ var (
 	// ErrConflict occurs when a user attempts an operation that conflicts with the current state.
 	ErrConflict = errs.Class("conflict detected")
 
+	// ErrNotFound occurs when a user attempts an operation that references a resource that does not exist.
+	ErrNotFound = errs.Class("not found")
+
 	// ErrSatelliteManagedEncryption occurs when a user attempts to create a satellite managed
 	// encryption project when it is disabled.
 	ErrSatelliteManagedEncryption = ErrConflict.New("satellite managed encryption is not enabled")
@@ -262,6 +266,8 @@ type Service struct {
 	minimumChargeAmount int64
 	minimumChargeDate   *time.Time
 
+	packagePlans map[string]payments.PackagePlan
+
 	nowFn func() time.Time
 }
 
@@ -289,7 +295,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
-	minimumChargeDate *time.Time, config Config) (*Service, error) {
+	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -370,6 +376,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 
 		minimumChargeAmount: minimumChargeAmount,
 		minimumChargeDate:   minimumChargeDate,
+		packagePlans:        packagePlans,
 
 		nowFn: time.Now,
 	}, nil
@@ -592,7 +599,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFree() {
+	if user.IsFree() && payment.service.config.UpgradePayUpfrontAmount == 0 {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
@@ -636,7 +643,7 @@ func (payment Payments) UpdateCreditCard(ctx context.Context, params payments.Ca
 }
 
 // AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
-func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID string) (card payments.CreditCard, err error) {
+func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID string, force bool) (card payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, pmID)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
@@ -649,17 +656,17 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	card, err = payment.service.accounts.CreditCards().AddByPaymentMethodID(ctx, user.ID, pmID)
+	card, err = payment.service.accounts.CreditCards().AddByPaymentMethodID(ctx, user.ID, pmID, force)
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFree() {
+	if user.IsFree() && payment.service.config.UpgradePayUpfrontAmount == 0 {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
-			return payments.CreditCard{}, Error.Wrap(err)
+			return payments.CreditCard{}, err
 		}
 
 		payment.service.mailService.SendRenderedAsync(
@@ -853,7 +860,7 @@ func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string
 	switch event.Type {
 	case payments.EventTypePaymentIntentSucceeded:
 		if err = payment.handlePaymentIntentSucceeded(ctx, event); err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 	case payments.EventTypePaymentIntentPaymentFailed:
 		payment.service.log.Warn("Payment intent payment failed", zap.String("event_id", event.ID))
@@ -869,17 +876,16 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 
 	// Unlikely to happen, but just in case.
 	if event == nil {
-		return errs.New("webhook event is nil")
+		return Error.New("webhook event is nil")
 	}
 
 	metadata, ok := event.Data["metadata"].(map[string]interface{})
 	if !ok {
-		return errs.New("webhook event metadata missing or invalid")
+		return Error.New("webhook event metadata missing or invalid")
 	}
 
 	_, addFundsFound := metadata[payments.AddFundsIntent.String()]
-	_, upgradeAccountFound := metadata[payments.UpgradeAccountIntent.String()]
-	if !addFundsFound && !upgradeAccountFound {
+	if !addFundsFound {
 		// We ignore this event if it's not related to adding funds or account upgrade.
 		// Most likely it's related to a paid invoice.
 		return nil
@@ -887,17 +893,17 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 
 	userIDStr, ok := metadata["user_id"].(string)
 	if !ok {
-		return errs.New("user_id missing in webhook event metadata")
+		return Error.New("user_id missing in webhook event metadata")
 	}
 
 	amount, ok := event.Data["amount_received"].(float64)
 	if !ok {
-		return errs.New("amount_received missing in webhook event data")
+		return Error.New("amount_received missing in webhook event data")
 	}
 
 	userID, err := uuid.FromString(userIDStr)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	var idempotencyKey string
@@ -909,7 +915,7 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 
 	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, userID, int64(amount), description, idempotencyKey)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -6053,18 +6059,70 @@ func (payment Payments) WalletPaymentsWithConfirmations(ctx context.Context) (pa
 // Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `paymentMethodID`.
 // If a paid invoice with the same description exists, then we assume this is a retried request and don't create and pay
 // another invoice.
-func (payment Payments) Purchase(ctx context.Context, price int64, desc string, paymentMethodID string) (err error) {
+func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, intent payments.PurchaseIntent) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if desc == "" {
-		return ErrPurchaseDesc.New("description cannot be empty")
-	}
 	user, err := GetUser(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrUnauthorized.Wrap(err)
 	}
 
-	invoices, err := payment.service.accounts.Invoices().List(ctx, user.ID)
+	switch intent {
+	case payments.PurchasePackageIntent:
+		if !payment.service.config.PricingPackagesEnabled {
+			return ErrForbidden.New("pricing packages are not enabled")
+		}
+
+		pkg, err := payment.GetPackagePlanByUserAgent(user.UserAgent)
+		if err != nil {
+			return ErrNotFound.Wrap(err)
+		}
+
+		card, err := payment.AddCardByPaymentMethodID(ctx, paymentMethodID, true)
+		if err != nil {
+			return err
+		}
+
+		description := string(user.UserAgent) + " package plan"
+		err = payment.UpdatePackage(ctx, description, time.Now())
+		if err != nil {
+			if !ErrAlreadyHasPackage.Has(err) {
+				return err
+			}
+		}
+
+		err = payment.applyCreditFromPaidInvoice(ctx, addCreditFromPaidInvoiceParams{
+			User:            user,
+			PaymentMethodID: card.ID,
+			Price:           pkg.Price,
+			Credit:          pkg.Credit,
+			Description:     description,
+		})
+		if err != nil {
+			return err
+		}
+	case payments.PurchaseUpgradedAccountIntent:
+		// TODO: add support for upgraded account purchase.
+	}
+
+	return nil
+}
+
+type addCreditFromPaidInvoiceParams struct {
+	User            *User
+	PaymentMethodID string
+	Price           int64
+	Credit          int64
+	Description     string
+}
+
+func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params addCreditFromPaidInvoiceParams) error {
+	// Unlikely to happen.
+	if params.User == nil {
+		return ErrUnauthorized.New("user is not authorized")
+	}
+
+	invoices, err := payment.service.accounts.Invoices().List(ctx, params.User.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -6073,7 +6131,7 @@ func (payment Payments) Purchase(ctx context.Context, price int64, desc string, 
 	// If draft, delete it and create new and pay. If open, pay it and don't create new.
 	// If paid, skip.
 	for _, inv := range invoices {
-		if inv.Description == desc {
+		if inv.Description == params.Description {
 			if inv.Status == payments.InvoiceStatusPaid {
 				return nil
 			}
@@ -6083,23 +6141,54 @@ func (payment Payments) Purchase(ctx context.Context, price int64, desc string, 
 					return Error.Wrap(err)
 				}
 			} else if inv.Status == payments.InvoiceStatusOpen {
-				_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, paymentMethodID)
+				_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, params.PaymentMethodID)
 				return Error.Wrap(err)
 			}
 		}
 	}
 
-	inv, err := payment.service.accounts.Invoices().Create(ctx, user.ID, price, desc)
+	inv, err := payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, paymentMethodID)
+	_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, params.PaymentMethodID)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	if err = payment.ApplyCredit(ctx, params.Credit, params.Description); err != nil {
+		return err
+	}
+
+	if params.User.IsFree() && payment.service.config.UpgradePayUpfrontAmount > 0 {
+		err = payment.upgradeToPaidTier(ctx, params.User)
+		if err != nil {
+			return err
+		}
+
+		payment.service.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: params.User.Email}},
+			&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+		)
 	}
 
 	return nil
+}
+
+// GetPackagePlanByUserAgent returns a package plan by user agent.
+func (payment Payments) GetPackagePlanByUserAgent(userAgent []byte) (payments.PackagePlan, error) {
+	entries, err := useragent.ParseEntries(userAgent)
+	if err != nil {
+		return payments.PackagePlan{}, Error.Wrap(err)
+	}
+	for _, entry := range entries {
+		if pkg, ok := payment.service.packagePlans[entry.Product]; ok {
+			return pkg, nil
+		}
+	}
+	return payments.PackagePlan{}, Error.New("no matching partner for (%s)", userAgent)
 }
 
 // UpdatePackage updates a user's package information unless they already have a package.

@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -38,18 +37,16 @@ type Payments struct {
 	log                          *zap.Logger
 	service                      *console.Service
 	accountFreezeService         *console.AccountFreezeService
-	packagePlans                 paymentsconfig.PackagePlans
 	productBasedInvoicingEnabled bool
 }
 
 // NewPayments is a constructor for api payments controller.
 func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService,
-	packagePlans paymentsconfig.PackagePlans, productBasedInvoicingEnabled bool) *Payments {
+	productBasedInvoicingEnabled bool) *Payments {
 	return &Payments{
 		log:                          log,
 		service:                      service,
 		accountFreezeService:         accountFreezeService,
-		packagePlans:                 packagePlans,
 		productBasedInvoicingEnabled: productBasedInvoicingEnabled,
 	}
 }
@@ -292,8 +289,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
-
-		if stripe.ErrDuplicateCard.Has(err) {
+		if payments.ErrDuplicateCard.Has(err) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
 			return
 		}
@@ -342,14 +338,14 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 
 	pmID := string(bodyBytes)
 
-	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, pmID)
+	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, pmID, false)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
 
-		if stripe.ErrDuplicateCard.Has(err) {
+		if payments.ErrDuplicateCard.Has(err) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
 			return
 		}
@@ -403,11 +399,10 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 
 	err = p.service.Payments().MakeCreditCardDefault(ctx, string(cardID))
 	if err != nil {
-		if stripe.ErrCardNotFound.Has(err) {
+		if payments.ErrCardNotFound.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusNotFound, err)
 			return
 		}
-
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
@@ -434,7 +429,7 @@ func (p *Payments) RemoveCreditCard(w http.ResponseWriter, r *http.Request) {
 
 	err = p.service.Payments().RemoveCreditCard(ctx, cardID)
 	if err != nil {
-		if stripe.ErrCardNotFound.Has(err) {
+		if payments.ErrCardNotFound.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusNotFound, err)
 			return
 		}
@@ -765,61 +760,48 @@ func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.
 	}
 }
 
-// PurchasePackage purchases one of the configured paymentsconfig.PackagePlans.
-func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
+// PurchaseParams holds purchase request parameters.
+type PurchaseParams struct {
+	Token  string                  `json:"token"`
+	Intent payments.PurchaseIntent `json:"intent"`
+}
+
+// Purchase makes a purchase action using an invoice.
+// Is used for purchasing package plan or upgraded account.
+func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+
+	var params PurchaseParams
+
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
-	token := string(bodyBytes)
-
-	u, err := console.GetUser(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+	if params.Intent != payments.PurchasePackageIntent && params.Intent != payments.PurchaseUpgradedAccountIntent {
+		p.serveJSONError(ctx, w, http.StatusForbidden, errs.New("invalid intent: %d", params.Intent))
 		return
 	}
 
-	pkg, err := p.packagePlans.Get(u.UserAgent)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusNotFound, err)
-		return
-	}
-
-	card, err := p.service.Payments().AddCardByPaymentMethodID(ctx, token)
-	if err != nil {
-		switch {
-		case console.ErrUnauthorized.Has(err):
+	if err = p.service.Payments().Purchase(ctx, params.Token, params.Intent); err != nil {
+		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
-		default:
-			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		}
-		return
-	}
-
-	description := string(u.UserAgent) + " package plan"
-	err = p.service.Payments().UpdatePackage(ctx, description, time.Now())
-	if err != nil {
-		if !console.ErrAlreadyHasPackage.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 			return
 		}
-	}
+		if console.ErrForbidden.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+		if console.ErrNotFound.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
+			return
+		}
 
-	err = p.service.Payments().Purchase(ctx, pkg.Price, description, card.ID)
-	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	if err = p.service.Payments().ApplyCredit(ctx, pkg.Credit, description); err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
 	}
 }
 
@@ -835,7 +817,7 @@ func (p *Payments) PackageAvailable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg, err := p.packagePlans.Get(u.UserAgent)
+	pkg, err := p.service.Payments().GetPackagePlanByUserAgent(u.UserAgent)
 	hasPkg := err == nil && pkg != payments.PackagePlan{}
 
 	if err = json.NewEncoder(w).Encode(hasPkg); err != nil {
