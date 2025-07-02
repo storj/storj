@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 
 	"github.com/zeebo/clingy"
 
@@ -19,6 +20,7 @@ import (
 // Includes common subcommands like `exec` and any other component which is registered with RegisterSubcommand.
 func Run(module func(ball *mud.Ball)) {
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ = signal.NotifyContext(ctx, os.Interrupt)
 
 	ball := mud.NewBall()
 	{
