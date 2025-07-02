@@ -366,8 +366,9 @@ var (
 		Long:  "Operations to administrate satellite users accounts",
 	}
 
-	batchSizeDeleteObjects = 100
-	deleteObjectsCmd       = &cobra.Command{
+	batchSizeDeleteObjects           = 100
+	useDeleteAllObjectsUncoordinated = false
+	deleteObjectsCmd                 = &cobra.Command{
 		Use:   "delete-objects",
 		Short: "Delete objects and their segments",
 		Long: "Delete from a list of users accounts their objects and segments.\nAccounts must be on " +
@@ -542,6 +543,7 @@ func init() {
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
+	deleteObjectsCmd.Flags().BoolVar(&useDeleteAllObjectsUncoordinated, "use-delete-all-objects-uncoordinated", false, "Delete all objects with a more performant way at the expense of no consistency guarantee")
 	usersCmd.AddCommand(deleteAccountsCmd)
 	usersCmd.AddCommand(deleteAllObjectsUncoordinatedCmd)
 	deleteAllObjectsUncoordinatedCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
