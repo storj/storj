@@ -975,3 +975,48 @@ func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorI
 		}
 	}
 }
+
+// NeedMore is a stateful function, which returns true, if more nodes are needed.
+type NeedMore func() func(node *SelectedNode) bool
+
+// AtLeast is a needMore function, which will return true, if the number of nodes with the given attribute is less than the minimum value.
+func AtLeast(attribute NodeAttribute, min int64) NeedMore {
+	return func() func(node *SelectedNode) bool {
+		current := map[string]int64{}
+		return func(node *SelectedNode) bool {
+			current[attribute(*node)]++
+			return current[attribute(*node)] < min
+		}
+	}
+}
+
+// Reduce is a NodeSelectorInit, which will reduce the number of nodes selected by the delegate.
+func Reduce(delegate NodeSelectorInit, sortOrder CompareNodes, needMoreChecks ...NeedMore) NodeSelectorInit {
+	var checks []func(node *SelectedNode) bool
+	for _, inv := range needMoreChecks {
+		checks = append(checks, inv())
+	}
+
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		if sortOrder != nil {
+			slices.SortFunc(nodes, sortOrder(storj.NodeID{}))
+		}
+		var filtered []*SelectedNode
+		for _, node := range nodes {
+			if filter != nil && !filter.Match(node) {
+				continue
+			}
+
+			filtered = append(filtered, node)
+
+			needMore := false
+			for _, check := range checks {
+				needMore = needMore || check(node)
+			}
+			if !needMore {
+				break
+			}
+		}
+		return delegate(ctx, filtered, filter)
+	}
+}

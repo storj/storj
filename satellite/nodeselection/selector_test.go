@@ -1265,3 +1265,332 @@ func TestWeightedSelector(t *testing.T) {
 	require.Greater(t, float64(histogram[nodes[0].ID])/float64(histogram[nodes[1].ID]), float64(3))
 
 }
+
+func TestReduce(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	t.Run("no constraints", func(t *testing.T) {
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.2.0/24"},
+		}
+
+		selectorInit := nodeselection.Reduce(nodeselection.RandomSelector(), nil)
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 2, nil, nil)
+		require.NoError(t, err)
+		require.Greater(t, len(selected), 0)
+	})
+
+	t.Run("single constraint - functional test", func(t *testing.T) {
+		// Create nodes all with same subnet
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
+		}
+
+		attr, err := nodeselection.CreateNodeAttribute("last_net")
+		require.NoError(t, err)
+
+		selectorInit := nodeselection.Reduce(
+			nodeselection.RandomSelector(),
+			nil,
+			nodeselection.AtLeast(attr, 2), // Include nodes while count <= 2
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 5, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 2, "Should include exactly 2 nodes (when count reaches 3, needMore becomes false)")
+	})
+
+	t.Run("multiple constraints", func(t *testing.T) {
+		// Create nodes with different attributes
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24", CountryCode: location.Germany},
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24", CountryCode: location.Germany},
+			{ID: testrand.NodeID(), LastNet: "192.168.2.0/24", CountryCode: location.Austria},
+			{ID: testrand.NodeID(), LastNet: "192.168.2.0/24", CountryCode: location.Austria},
+		}
+
+		subnetAttr, err := nodeselection.CreateNodeAttribute("last_net")
+		require.NoError(t, err)
+		countryAttr, err := nodeselection.CreateNodeAttribute("country")
+		require.NoError(t, err)
+
+		// Two constraints: need at most 1 per subnet AND at most 1 per country
+		selectorInit := nodeselection.Reduce(
+			nodeselection.RandomSelector(),
+			nil,
+			nodeselection.AtLeast(subnetAttr, 1),  // Include while subnet count <= 1
+			nodeselection.AtLeast(countryAttr, 1), // Include while country count <= 1
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 4, nil, nil)
+		require.NoError(t, err)
+
+		require.Len(t, selected, 1)
+	})
+
+	t.Run("with node filter", func(t *testing.T) {
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24", CountryCode: location.Germany},
+			{ID: testrand.NodeID(), LastNet: "192.168.2.0/24", CountryCode: location.Austria},
+			{ID: testrand.NodeID(), LastNet: "192.168.3.0/24", CountryCode: location.Germany},
+		}
+
+		// Filter that only allows German nodes
+		filter := nodeselection.NodeFilterFunc(func(node *nodeselection.SelectedNode) bool {
+			return node.CountryCode == location.Germany
+		})
+
+		selectorInit := nodeselection.Reduce(nodeselection.RandomSelector(), nil)
+		selector := selectorInit(ctx, nodes, filter)
+
+		selected, err := selector(ctx, storj.NodeID{}, 3, nil, nil)
+		require.NoError(t, err)
+
+		require.Len(t, selected, 1)
+		require.NotEqual(t, selected[0].CountryCode, location.Austria, "Should only select German nodes")
+	})
+
+	t.Run("with constraint and filter", func(t *testing.T) {
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24", CountryCode: location.Germany},
+			{ID: testrand.NodeID(), LastNet: "192.168.2.0/24", CountryCode: location.Austria},
+			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24", CountryCode: location.Germany},
+		}
+
+		filter := nodeselection.NodeFilterFunc(func(node *nodeselection.SelectedNode) bool {
+			return node.CountryCode == location.Germany
+		})
+
+		subnetAttr, err := nodeselection.CreateNodeAttribute("last_net")
+		require.NoError(t, err)
+
+		selectorInit := nodeselection.Reduce(
+			nodeselection.RandomSelector(),
+			nil,
+			nodeselection.AtLeast(subnetAttr, 1), // Include while count <= 1 per subnet
+		)
+		selector := selectorInit(ctx, nodes, filter)
+
+		selected, err := selector(ctx, storj.NodeID{}, 3, nil, nil)
+		require.NoError(t, err)
+
+		require.Len(t, selected, 1)
+
+		for _, node := range selected {
+			require.Equal(t, location.Germany, node.CountryCode)
+		}
+	})
+}
+
+func TestReduceConfigExpression(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// Test that parses the config expression but documents the issue
+	t.Run("config expression parsing", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 15; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+				Tags: nodeselection.NodeTags{
+					{
+						Name:  "server_name",
+						Value: []byte("server" + string(rune('A'+i/5))), // 3 servers: A, B, C (5 nodes each)
+					},
+				},
+			})
+		}
+
+		environment := nodeselection.NewPlacementConfigEnvironment(nil, nil)
+
+		// This expression should parse without error
+		selectorInit, err := nodeselection.SelectorFromString(
+			`reduce(random(), node_value("free_disk") * -1, atleast(node_attribute("tag:server_name"), 10))`,
+			environment,
+		)
+		require.NoError(t, err, "Expression should parse successfully")
+
+		selector := selectorInit(ctx, nodes, nil)
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err, "Selector should execute without error")
+
+		require.Len(t, selected, 10)
+	})
+
+	t.Run("equivalent working expression", func(t *testing.T) {
+		// Show how to write a working version using a custom needMore function
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 15; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+				Tags: nodeselection.NodeTags{
+					{
+						Name:  "server_name",
+						Value: []byte("server" + string(rune('A'+i/5))),
+					},
+				},
+			})
+		}
+
+		attr, err := nodeselection.CreateNodeAttribute("tag:server_name")
+		require.NoError(t, err)
+
+		selectorInit := nodeselection.Reduce(
+			nodeselection.RandomSelector(),
+			nil,
+			nodeselection.AtLeast(attr, 3), // Include until we have 3 of each server
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+
+		// Should include nodes from first server until we have 3, then stop
+		require.Len(t, selected, 3, "Should include 3 nodes from first server then stop")
+
+		// Verify all selected nodes are from the same server
+		serverCounts := make(map[string]int)
+		for _, node := range selected {
+			serverName := ""
+			for _, tag := range node.Tags {
+				if tag.Name == "server_name" {
+					serverName = string(tag.Value)
+					break
+				}
+			}
+			if serverName != "" {
+				serverCounts[serverName]++
+			}
+		}
+
+		require.Len(t, serverCounts, 1, "All nodes should be from same server")
+		for _, count := range serverCounts {
+			require.Equal(t, 3, count, "Should have exactly 3 nodes from the server")
+		}
+	})
+}
+
+func TestReduceSortOrder(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	t.Run("sort order with node_value free_disk", func(t *testing.T) {
+		// Create nodes with different free disk values, all with same subnet
+		// This will test that the sort order determines which nodes are processed first
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), FreeDisk: 1000000, LastNet: "192.168.1.0/24"}, // 1MB
+			{ID: testrand.NodeID(), FreeDisk: 5000000, LastNet: "192.168.1.0/24"}, // 5MB
+			{ID: testrand.NodeID(), FreeDisk: 2000000, LastNet: "192.168.1.0/24"}, // 2MB
+			{ID: testrand.NodeID(), FreeDisk: 8000000, LastNet: "192.168.1.0/24"}, // 8MB
+			{ID: testrand.NodeID(), FreeDisk: 3000000, LastNet: "192.168.1.0/24"}, // 3MB
+		}
+
+		// Create a sort order based on free_disk (descending - higher free disk first)
+		freeDiskValue, err := nodeselection.CreateNodeValue("free_disk")
+		require.NoError(t, err)
+
+		sortOrder := nodeselection.Compare(nodeselection.Desc(nodeselection.ScoreNodeFunc(func(uplink storj.NodeID, node *nodeselection.SelectedNode) float64 {
+			return freeDiskValue(*node)
+		})))
+
+		subnetAttr, err := nodeselection.CreateNodeAttribute("last_net")
+		require.NoError(t, err)
+
+		// Use Reduce with the sort order - should process nodes in descending order of free disk
+		// Since all nodes have the same subnet, only the first 3 nodes (highest free disk) should be selected
+		selectorInit := nodeselection.Reduce(
+			nodeselection.RandomSelector(),
+			sortOrder,
+			nodeselection.AtLeast(subnetAttr, 3), // Include 3 nodes from the same subnet
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+
+		// Should select exactly 3 nodes (due to the AtLeast constraint)
+		require.Len(t, selected, 3)
+
+		// Verify that the 3 nodes with highest free disk are selected
+		// Sort the selected nodes by FreeDisk descending to verify order
+		selectedFreeDisk := make([]int64, len(selected))
+		for i, node := range selected {
+			selectedFreeDisk[i] = node.FreeDisk
+		}
+
+		// The top 3 should be 8MB, 5MB, 3MB in some order
+		require.Contains(t, selectedFreeDisk, int64(8000000), "Should include node with 8MB")
+		require.Contains(t, selectedFreeDisk, int64(5000000), "Should include node with 5MB")
+		require.Contains(t, selectedFreeDisk, int64(3000000), "Should include node with 3MB")
+
+		// Should not include the lower values
+		require.NotContains(t, selectedFreeDisk, int64(1000000), "Should not include node with 1MB")
+		require.NotContains(t, selectedFreeDisk, int64(2000000), "Should not include node with 2MB")
+	})
+
+	t.Run("sort order affects selection with different subnets", func(t *testing.T) {
+		// Create nodes where sort order matters for selection across different subnets
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), FreeDisk: 1000000, LastNet: "192.168.1.0/24"}, // 1MB - subnet1 (lower priority)
+			{ID: testrand.NodeID(), FreeDisk: 8000000, LastNet: "192.168.1.0/24"}, // 8MB - subnet1 (should be selected first)
+			{ID: testrand.NodeID(), FreeDisk: 3000000, LastNet: "192.168.1.0/24"}, // 3MB - subnet1
+			{ID: testrand.NodeID(), FreeDisk: 2000000, LastNet: "192.168.2.0/24"}, // 2MB - subnet2 (lower priority)
+			{ID: testrand.NodeID(), FreeDisk: 5000000, LastNet: "192.168.2.0/24"}, // 5MB - subnet2 (should be selected first)
+		}
+
+		freeDiskValue, err := nodeselection.CreateNodeValue("free_disk")
+		require.NoError(t, err)
+
+		// Sort by free_disk descending (highest first)
+		sortOrder := nodeselection.Compare(nodeselection.Desc(nodeselection.ScoreNodeFunc(func(uplink storj.NodeID, node *nodeselection.SelectedNode) float64 {
+			return freeDiskValue(*node)
+		})))
+
+		// Custom needMore function that stops after we've seen at least one node from each of the two subnets
+		var seenSubnets map[string]bool
+		needMoreFunc := func() func(node *nodeselection.SelectedNode) bool {
+			seenSubnets = make(map[string]bool)
+			return func(node *nodeselection.SelectedNode) bool {
+				subnet := node.LastNet
+				seenSubnets[subnet] = true
+				// Continue while we haven't seen both subnets yet
+				return len(seenSubnets) < 2
+			}
+		}
+
+		// Use Reduce with constraint that ensures we get at least one node from each subnet
+		selectorInit := nodeselection.Reduce(
+			nodeselection.RandomSelector(),
+			sortOrder,
+			needMoreFunc, // Custom logic for cross-subnet selection
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+
+		// Should select 2 nodes (one from each subnet, the highest FreeDisk from each)
+		require.Len(t, selected, 2)
+
+		// Verify that the nodes with highest free disk from each subnet are selected
+		subnetToFreeDisk := make(map[string]int64)
+		for _, node := range selected {
+			subnetToFreeDisk[node.LastNet] = node.FreeDisk
+		}
+
+		// Should have selected the 8MB node from subnet 1 and 5MB node from subnet 2
+		// because the sort order processes nodes by descending free disk
+		require.Equal(t, int64(8000000), subnetToFreeDisk["192.168.1.0/24"], "Should select node with highest free disk from subnet 1")
+		require.Equal(t, int64(5000000), subnetToFreeDisk["192.168.2.0/24"], "Should select node with highest free disk from subnet 2")
+	})
+}
