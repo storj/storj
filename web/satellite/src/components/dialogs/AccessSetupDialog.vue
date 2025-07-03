@@ -579,7 +579,7 @@ async function createAPIKey(): Promise<void> {
             ...permissionsMsg,
             isPutObjectRetention: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectRetention),
             isGetObjectRetention: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectRetention),
-            isBypassGovernanceRetention: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.BypassGovernanceRetention),
+            isBypassGovernanceRetention: objectLockPermissions.value.includes(ObjectLockPermission.BypassGovernanceRetention),
             isPutObjectLegalHold: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLegalHold),
             isGetObjectLegalHold: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLegalHold),
             isPutObjectLockConfiguration: noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLockConfiguration),
