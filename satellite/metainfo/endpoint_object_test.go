@@ -92,11 +92,11 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 
 		bucketName := "testbucket"
 		deleteBucket := func() error {
-			_, err := metainfoClient.DeleteBucket(ctx, metaclient.DeleteBucketParams{
-				Name:      []byte(bucketName),
-				DeleteAll: true,
-			})
-			return err
+			if err := planet.Satellites[0].Metabase.DB.TestingDeleteAll(ctx); err != nil {
+				return err
+			}
+
+			return planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte(bucketName), planet.Uplinks[0].Projects[0].ID)
 		}
 
 		t.Run("get objects", func(t *testing.T) {
@@ -1138,11 +1138,11 @@ func TestEndpoint_Object_No_StorageNodes_TestListingQuery(t *testing.T) {
 
 		bucketName := "testbucket"
 		deleteBucket := func() error {
-			_, err := metainfoClient.DeleteBucket(ctx, metaclient.DeleteBucketParams{
-				Name:      []byte(bucketName),
-				DeleteAll: true,
-			})
-			return err
+			if err := planet.Satellites[0].Metabase.DB.TestingDeleteAll(ctx); err != nil {
+				return err
+			}
+
+			return planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte(bucketName), planet.Uplinks[0].Projects[0].ID)
 		}
 
 		t.Run("list service with listing query test", func(t *testing.T) {
@@ -1258,11 +1258,11 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		bucketName := "testbucket"
 		deleteBucket := func(bucketName string) func() error {
 			return func() error {
-				_, err := metainfoClient.DeleteBucket(ctx, metaclient.DeleteBucketParams{
-					Name:      []byte(bucketName),
-					DeleteAll: true,
-				})
-				return err
+				if err := planet.Satellites[0].Metabase.DB.TestingDeleteAll(ctx); err != nil {
+					return err
+				}
+
+				return planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte(bucketName), planet.Uplinks[0].Projects[0].ID)
 			}
 		}
 
