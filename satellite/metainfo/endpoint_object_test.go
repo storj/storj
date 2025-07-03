@@ -6882,6 +6882,187 @@ func TestDownloadObject_DownloadSegment_ServerSideCopy(t *testing.T) {
 	})
 }
 
+func TestListObjects_Delimiter(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.DefaultPathCipher = storj.EncNull
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			delimiter        = "###"
+			defaultDelimiter = metabase.Delimiter
+		)
+
+		sat := planet.Satellites[0]
+		endpoint := sat.Metainfo.Endpoint
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()].SerializeRaw()
+		bucketName := testrand.BucketName()
+
+		_, err := endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{ApiKey: apiKey},
+			Name:   []byte(bucketName),
+		})
+		require.NoError(t, err)
+
+		objects := make(map[string]*pb.ObjectListItem)
+
+		for _, objectKey := range []string{
+			"abc" + delimiter,
+			"abc" + delimiter + "def",
+			"abc" + delimiter + "def" + delimiter + "ghi",
+			"abc" + defaultDelimiter + "def",
+			"xyz" + delimiter + "uvw",
+		} {
+			object := metabasetest.CreateObject(ctx, t, sat.Metabase.DB, metabase.ObjectStream{
+				ProjectID:  planet.Uplinks[0].Projects[0].ID,
+				BucketName: metabase.BucketName(bucketName),
+				ObjectKey:  metabase.ObjectKey(objectKey),
+				Version:    1,
+				StreamID:   testrand.UUID(),
+			}, 0)
+
+			objects[objectKey] = &pb.ObjectListItem{
+				EncryptedObjectKey: []byte(object.ObjectKey),
+				Status:             pb.Object_COMMITTED_UNVERSIONED,
+				ObjectVersion:      object.StreamVersionID().Bytes(),
+				IsLatest:           true,
+			}
+		}
+
+		prefixEntry := func(objectKey string) *pb.ObjectListItem {
+			return &pb.ObjectListItem{
+				EncryptedObjectKey: []byte(objectKey),
+				Status:             pb.Object_PREFIX,
+				ObjectVersion:      metabase.StreamVersionID{}.Bytes(),
+			}
+		}
+
+		withoutPrefix := func(prefix string, item *pb.ObjectListItem) *pb.ObjectListItem {
+			newItem := *item
+			newItem.EncryptedObjectKey = item.EncryptedObjectKey[len(prefix):]
+			return &newItem
+		}
+
+		t.Run("Default delimiter", func(t *testing.T) {
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:            []byte(bucketName),
+				UseObjectIncludes: true,
+				ObjectIncludes:    &pb.ObjectListItemIncludes{ExcludeSystemMetadata: true},
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, []*pb.ObjectListItem{
+				objects["abc"+delimiter],
+				objects["abc"+delimiter+"def"],
+				objects["abc"+delimiter+"def"+delimiter+"ghi"],
+				prefixEntry("abc" + defaultDelimiter),
+				objects["xyz"+delimiter+"uvw"],
+			}, resp.Items)
+		})
+
+		t.Run("Root", func(t *testing.T) {
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:            []byte(bucketName),
+				Delimiter:         []byte(delimiter),
+				UseObjectIncludes: true,
+				ObjectIncludes:    &pb.ObjectListItemIncludes{ExcludeSystemMetadata: true},
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, []*pb.ObjectListItem{
+				prefixEntry("abc" + delimiter),
+				objects["abc"+defaultDelimiter+"def"],
+				prefixEntry("xyz" + delimiter),
+			}, resp.Items)
+		})
+
+		t.Run("1 level deep", func(t *testing.T) {
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:            []byte(bucketName),
+				Delimiter:         []byte(delimiter),
+				EncryptedPrefix:   []byte("abc" + delimiter),
+				UseObjectIncludes: true,
+				ObjectIncludes:    &pb.ObjectListItemIncludes{ExcludeSystemMetadata: true},
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, []*pb.ObjectListItem{
+				withoutPrefix("abc"+delimiter, objects["abc"+delimiter]),
+				withoutPrefix("abc"+delimiter, objects["abc"+delimiter+"def"]),
+				prefixEntry("def" + delimiter),
+			}, resp.Items)
+		})
+
+		t.Run("2 levels deep", func(t *testing.T) {
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:            []byte(bucketName),
+				Delimiter:         []byte(delimiter),
+				EncryptedPrefix:   []byte("abc" + delimiter + "def" + delimiter),
+				UseObjectIncludes: true,
+				ObjectIncludes:    &pb.ObjectListItemIncludes{ExcludeSystemMetadata: true},
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, []*pb.ObjectListItem{
+				withoutPrefix(
+					"abc"+delimiter+"def"+delimiter,
+					objects["abc"+delimiter+"def"+delimiter+"ghi"],
+				),
+			}, resp.Items)
+		})
+
+		t.Run("Prefix suffixed with partial delimiter", func(t *testing.T) {
+			partialDelimiter := delimiter[:len(delimiter)-1]
+			remainingDelimiter := delimiter[len(delimiter)-1:]
+
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:            []byte(bucketName),
+				Delimiter:         []byte(delimiter),
+				EncryptedPrefix:   []byte("abc" + partialDelimiter),
+				ArbitraryPrefix:   true,
+				UseObjectIncludes: true,
+				ObjectIncludes:    &pb.ObjectListItemIncludes{ExcludeSystemMetadata: true},
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, []*pb.ObjectListItem{
+				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter]),
+				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter+"def"]),
+				prefixEntry(remainingDelimiter + "def" + delimiter),
+			}, resp.Items)
+		})
+
+		t.Run("Delimiter with recursive", func(t *testing.T) {
+			// Ensure that the delimiter has no effect if recursive listing was requested.
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:            []byte(bucketName),
+				Delimiter:         []byte(delimiter),
+				Recursive:         true,
+				UseObjectIncludes: true,
+				ObjectIncludes:    &pb.ObjectListItemIncludes{ExcludeSystemMetadata: true},
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, []*pb.ObjectListItem{
+				objects["abc"+delimiter],
+				objects["abc"+delimiter+"def"],
+				objects["abc"+delimiter+"def"+delimiter+"ghi"],
+				objects["abc"+defaultDelimiter+"def"],
+				objects["xyz"+delimiter+"uvw"],
+			}, resp.Items)
+		})
+	})
+}
+
 func randRetention(mode storj.RetentionMode) metabase.Retention {
 	randDur := time.Duration(rand.Int63n(1000 * int64(time.Hour)))
 	return metabase.Retention{

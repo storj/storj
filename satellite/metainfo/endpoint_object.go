@@ -1401,11 +1401,16 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 	metabase.ListLimit.Ensure(&limit)
 
+	delimiter := metabase.ObjectKey(metabase.Delimiter)
+	if len(req.Delimiter) > 0 {
+		delimiter = metabase.ObjectKey(req.Delimiter)
+	}
+
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
-		if !req.ArbitraryPrefix && !strings.HasSuffix(string(prefix), metabase.Delimiter) {
-			prefix += metabase.ObjectKey(metabase.Delimiter)
+		if !req.ArbitraryPrefix && !strings.HasSuffix(string(prefix), string(delimiter)) {
+			prefix += delimiter
 		}
 	}
 
@@ -1480,6 +1485,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: metabase.BucketName(req.Bucket),
 				Prefix:     prefix,
+				Delimiter:  delimiter,
 				Cursor: metabase.ListObjectsCursor{
 					Key:     cursorKey,
 					Version: cursorVersion,
@@ -1518,6 +1524,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					ProjectID:  keyInfo.ProjectID,
 					BucketName: metabase.BucketName(req.Bucket),
 					Prefix:     prefix,
+					Delimiter:  delimiter,
 					Cursor: metabase.IterateCursor{
 						Key:     cursorKey,
 						Version: cursorVersion,
@@ -1552,6 +1559,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						ProjectID:  keyInfo.ProjectID,
 						BucketName: metabase.BucketName(req.Bucket),
 						Prefix:     prefix,
+						Delimiter:  delimiter,
 						Cursor: metabase.IterateCursor{
 							Key:     cursorKey,
 							Version: cursorVersion,
@@ -1584,6 +1592,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						ProjectID:  keyInfo.ProjectID,
 						BucketName: metabase.BucketName(req.Bucket),
 						Prefix:     prefix,
+						Delimiter:  delimiter,
 						Cursor: metabase.ListObjectsCursor{
 							Key:     cursorKey,
 							Version: cursorVersion,
@@ -1616,6 +1625,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					ProjectID:  keyInfo.ProjectID,
 					BucketName: metabase.BucketName(req.Bucket),
 					Prefix:     prefix,
+					Delimiter:  delimiter,
 					Cursor: metabase.IterateCursor{
 						Key:     cursorKey,
 						Version: cursorVersion,
