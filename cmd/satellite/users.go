@@ -70,16 +70,18 @@ func cmdDeleteObjects(cmd *cobra.Command, args []string) error {
 		csvData = csvFile
 	}
 
-	return deleteObjects(ctx, log, satDB, metabaseDB, batchSizeDeleteObjects, csvData)
+	return deleteObjects(
+		ctx, log, satDB, metabaseDB, batchSizeDeleteObjects, useDeleteAllObjectsUncoordinated, csvData,
+	)
 }
 
 func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	projectID, err := uuid.FromString(args[0])
+	publicID, err := uuid.FromString(args[0])
 	if err != nil {
-		return errs.New("invalid project id %q: %+v", args[0], err)
+		return errs.New("invalid public project id %q: %+v", args[0], err)
 	}
 	bucketName := args[1]
 
@@ -93,8 +95,11 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 	}
 	defer func() { err = errs.Combine(err, satDB.Close()) }()
 
-	project, err := satDB.Console().Projects().GetByPublicID(ctx, projectID)
+	project, err := satDB.Console().Projects().GetByPublicID(ctx, publicID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errs.New("project with public id %q not found", publicID)
+		}
 		return errs.New("failed to get project information: %+v", err)
 	}
 
@@ -118,7 +123,7 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 		zap.Stringer("user status", &owner.Status),
 	)
 
-	bucket, err := satDB.Buckets().GetBucket(ctx, []byte(bucketName), projectID)
+	bucket, err := satDB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 	if err != nil {
 		return errs.New("failed to get bucket information: %+v", err)
 	}
@@ -150,13 +155,9 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	deletedObjectCount, err := metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
-		Bucket: metabase.BucketLocation{
-			ProjectID:  projectID,
-			BucketName: metabase.BucketName(bucketName),
-		},
-		BatchSize: batchSizeDeleteObjects,
-	})
+	deletedObjectCount, err := deleteAllObjectsUncoordinated(
+		ctx, metabaseDB, project.ID, bucketName, batchSizeDeleteObjects,
+	)
 	log.Info("total deleted objects", zap.Int64("count", deletedObjectCount))
 	if err != nil {
 		return errs.New("error in deleting objects: %+v", err)
@@ -269,7 +270,7 @@ func cmdSetAccountsStatusPendingDeletion(cmd *cobra.Command, args []string) erro
 // It returns an error when a system error is found or when the CSV file has an error.
 func deleteObjects(
 	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, batchSize int,
-	csvData io.Reader,
+	useUncoordinated bool, csvData io.Reader,
 ) error {
 	rows := CSVEmails{
 		Data: csvData,
@@ -284,7 +285,7 @@ func deleteObjects(
 		}
 
 		for _, p := range projects {
-			err := deleteAllBucketsAndObjects(ctx, satDB.Buckets(), metabaseDB, p.ID, batchSize)
+			err := deleteAllBucketsAndObjects(ctx, satDB.Buckets(), metabaseDB, p.ID, batchSize, useUncoordinated)
 			if err != nil {
 				return errs.New("error deleting objects (%q): %w", user.Email, err)
 			}
@@ -598,7 +599,7 @@ func (ce *CSVEmails) ForEachWithProjects(
 
 func deleteAllBucketsAndObjects(
 	ctx context.Context, bucketsDB buckets.DB, metabaseDB *metabase.DB, projectID uuid.UUID,
-	batchSize int,
+	batchSize int, useUncoordinated bool,
 ) error {
 	var (
 		blopts = buckets.ListOptions{
@@ -619,13 +620,17 @@ func deleteAllBucketsAndObjects(
 		}
 
 		for _, b := range bcks.Items {
-			_, err := metabaseDB.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
-				Bucket: metabase.BucketLocation{
-					ProjectID:  projectID,
-					BucketName: metabase.BucketName(b.Name),
-				},
-				BatchSize: batchSize,
-			})
+			if useUncoordinated {
+				_, err = deleteAllObjectsUncoordinated(ctx, metabaseDB, projectID, b.Name, batchSize)
+			} else {
+				_, err = metabaseDB.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+					Bucket: metabase.BucketLocation{
+						ProjectID:  projectID,
+						BucketName: metabase.BucketName(b.Name),
+					},
+					BatchSize: batchSize,
+				})
+			}
 			if err != nil {
 				return errs.New(
 					"error deleting all objects from bucket %q (project: %q): %+v",
@@ -642,6 +647,23 @@ func deleteAllBucketsAndObjects(
 	}
 
 	return nil
+}
+
+func deleteAllObjectsUncoordinated(
+	ctx context.Context, metabaseDB *metabase.DB, projectID uuid.UUID, bucketName string,
+	batchSize int,
+) (deleteCount int64, err error) {
+
+	maxCommitDelay := 25 * time.Millisecond
+	return metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+		Bucket: metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: metabase.BucketName(bucketName),
+		},
+		BatchSize:      batchSizeDeleteObjects,
+		MaxStaleness:   10 * time.Second,
+		MaxCommitDelay: &maxCommitDelay,
+	})
 }
 
 func cmdSetUserKindWithPaidTier(cmd *cobra.Command, args []string) error {
