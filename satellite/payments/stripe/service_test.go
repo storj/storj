@@ -853,34 +853,36 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		usage := map[string]accounting.ProjectUsage{
-			"": {
+			"|0": {
 				Storage:      10000000000,             // Byte-hours
 				Egress:       123 * memory.GB.Int64(), // Bytes
 				SegmentCount: 200000,                  // Segment-Hours
 			},
-			partnerName: {
+			partnerName + "|0": {
 				Storage:      20000000000,
 				Egress:       456 * memory.GB.Int64(),
 				SegmentCount: 400000,
 			},
-			noOverridePartnerName: {
+			noOverridePartnerName + "|0": {
 				Storage:      30000000000,
 				Egress:       789 * memory.GB.Int64(),
 				SegmentCount: 600000,
 			},
 		}
 
-		items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
+		items, err := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
+		require.NoError(t, err)
 		require.Len(t, items, len(usage)*3)
 
 		for i, tt := range []struct {
 			name       string
 			partner    string
+			placement  string
 			priceModel payments.ProjectUsagePriceModel
 		}{
-			{"default pricing - no partner", "", defaultModel},
-			{"default pricing - no override for partner", noOverridePartnerName, defaultModel},
-			{"partner pricing", partnerName, partnerModel},
+			{"default pricing - no partner", "", "0", defaultModel},
+			{"default pricing - no override for partner", noOverridePartnerName, "0", defaultModel},
+			{"partner pricing", partnerName, "0", partnerModel},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				prefix := "Project " + projectName
@@ -888,7 +890,7 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 					prefix += " (" + tt.partner + ")"
 				}
 
-				usage := usage[tt.partner]
+				usage := usage[tt.partner+"|"+tt.placement]
 				usage.Egress -= int64(math.Round(usage.Storage / hoursPerMonth * tt.priceModel.EgressDiscountRatio))
 				if usage.Egress < 0 {
 					usage.Egress = 0
@@ -979,8 +981,8 @@ func TestService_InvoiceItemsFromProjectUsage_PartnerAggregation(t *testing.T) {
 				},
 			}
 
-			items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
-
+			items, err := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
+			require.NoError(t, err)
 			// Should have 6 items total: 3 for "partner" (aggregated), 3 for "other"
 			require.Len(t, items, 6)
 
