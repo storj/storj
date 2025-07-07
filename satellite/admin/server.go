@@ -185,6 +185,7 @@ func NewServer(
 	limitUpdateAPI.Use(server.withAuth([]string{config.Groups.LimitUpdate}, false))
 	limitUpdateAPI.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/status/{userstatus}", server.updateUserStatus).Methods("PUT")
+	limitUpdateAPI.HandleFunc("/users/{useremail}/kind/{userkind}", server.updateUserKind).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
 	limitUpdateAPI.HandleFunc("/users/{useremail}/billing-freeze", server.billingFreezeUser).Methods("PUT")

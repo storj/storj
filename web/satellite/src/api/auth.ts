@@ -7,7 +7,7 @@ import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import {
     AccountDeletionData,
     AccountSetupData,
-    FreezeStatus,
+    FreezeStatus, KindInfo,
     Session,
     SessionsCursor,
     SessionsPage,
@@ -373,7 +373,7 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.projectStorageLimit,
                 userResponse.projectBandwidthLimit,
                 userResponse.projectSegmentLimit,
-                userResponse.paidTier,
+                new KindInfo(userResponse.kindInfo.value, userResponse.kindInfo.name, userResponse.kindInfo.hasPaidPrivileges),
                 userResponse.isMFAEnabled,
                 userResponse.isProfessional,
                 userResponse.position,

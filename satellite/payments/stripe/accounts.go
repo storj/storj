@@ -635,7 +635,7 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 	}
 
 	for _, project := range projects {
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, project.ID, accounts.service.partnerNames, since, before)
+		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, project.ID, accounts.service.partnerNames, since, before, false)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -643,6 +643,10 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 		partnerCharges := make(map[string]payments.ProjectCharge)
 
 		for key, usage := range usages {
+			if key == "" {
+				return nil, Error.New("invalid usage key format")
+			}
+
 			// Split the key to extract partner and placement
 			parts := strings.Split(key, "|")
 			partner := parts[0]
@@ -796,13 +800,17 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 	}
 
 	getCostTotal := func(start, before time.Time) (decimal.Decimal, error) {
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, accounts.service.partnerNames, start, before)
+		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, accounts.service.partnerNames, start, before, false)
 		if err != nil {
 			return decimal.Zero, err
 		}
 
 		total := decimal.Zero
 		for key, usage := range usages {
+			if key == "" {
+				return decimal.Zero, errs.New("invalid usage key format")
+			}
+
 			_, priceModel := accounts.service.productIdAndPriceForUsageKey(key)
 			usage.Egress = applyEgressDiscount(usage, priceModel)
 			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)

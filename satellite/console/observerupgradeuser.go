@@ -57,7 +57,7 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		return err
 	}
 
-	if user.PaidTier {
+	if !user.IsFree() {
 		return nil
 	}
 

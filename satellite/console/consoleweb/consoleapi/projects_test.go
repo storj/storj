@@ -398,7 +398,7 @@ func TestDeleteProject(t *testing.T) {
 		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
 		require.NoError(t, err)
 
-		user.PaidTier = true
+		user.Kind = console.PaidUser
 		user.MFAEnabled = true
 		mfaSecret, err := console.NewMFASecretKey()
 		require.NoError(t, err)
@@ -419,7 +419,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
-			PaidTier:     &user.PaidTier,
+			Kind:         &user.Kind,
 			MFAEnabled:   &user.MFAEnabled,
 			MFASecretKey: &mfaSecretKeyPtr,
 		}))

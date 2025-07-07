@@ -102,7 +102,7 @@
                     :limit="storageLimitTxt"
                     :available="storageAvailableTxt"
                     :cta="storageCTA"
-                    :no-limit="noLimitsUiEnabled && isProjectOwnerPaidTier && !limits.userSetStorageLimit"
+                    :no-limit="noLimitsUiEnabled && ownerHasPaidPrivileges && !limits.userSetStorageLimit"
                     extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
                     @cta-click="onNeedMoreClicked(LimitToChange.Storage)"
                 />
@@ -116,7 +116,7 @@
                     :limit="bandwidthLimitTxt"
                     :available="bandwidthAvailableTxt"
                     :cta="bandwidthCTA"
-                    :no-limit="noLimitsUiEnabled && isProjectOwnerPaidTier && !limits.userSetBandwidthLimit"
+                    :no-limit="noLimitsUiEnabled && ownerHasPaidPrivileges && !limits.userSetBandwidthLimit"
                     extra-info="The download bandwidth usage is only for the current billing period of one month."
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
@@ -419,7 +419,7 @@ const productBasedInvoicingEnabled = computed<boolean>(() => configStore.state.c
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
 
 /**
  * Returns percent of coupon used.
@@ -480,7 +480,7 @@ const noLimitsUiEnabled = computed((): boolean => {
  * Whether the user is in paid tier.
  */
 const isPaidTier = computed((): boolean => {
-    return usersStore.state.user.paidTier;
+    return usersStore.state.user.isPaid;
 });
 
 /**
@@ -523,6 +523,10 @@ const segmentUsedPercent = computed((): number => {
  * Returns whether this project is owned by a paid tier user.
  */
 const isProjectOwnerPaidTier = computed(() => projectsStore.selectedProjectConfig.isOwnerPaidTier);
+/**
+ * Returns whether the owner of this project has paid privileges
+ */
+const ownerHasPaidPrivileges = computed(() => projectsStore.selectedProjectConfig.hasPaidPrivileges);
 
 /**
  * Returns whether this project is owned by the current user
@@ -538,7 +542,7 @@ const isProjectOwnerOrAdmin = computed(() => {
  */
 const availableEgress = computed((): number => {
     let diff = (limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit) - limits.value.bandwidthUsed;
-    if (isProjectOwnerPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
+    if (ownerHasPaidPrivileges.value && noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
         diff = Number.MAX_SAFE_INTEGER;
     } else if (!noLimitsUiEnabled.value) {
         diff = limits.value.bandwidthLimit - limits.value.bandwidthUsed;
@@ -557,7 +561,7 @@ const egressUsedPercent = computed((): number => {
  * Returns the CTA text on the bandwidth usage card.
  */
 const bandwidthCTA = computed((): string => {
-    if (!isProjectOwnerPaidTier.value) {
+    if (!ownerHasPaidPrivileges.value) {
         return getCTALabel(egressUsedPercent.value);
     }
     if (limits.value.userSetBandwidthLimit) {
@@ -571,7 +575,7 @@ const bandwidthCTA = computed((): string => {
  * Returns the used bandwidth text for the storage usage card.
  */
 const bandwidthLimitTxt = computed((): string => {
-    if (isProjectOwnerPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
+    if (ownerHasPaidPrivileges.value && noLimitsUiEnabled.value && !limits.value.userSetBandwidthLimit) {
         return 'This Month';
     }
     return `Limit: ${usedLimitFormatted(limits.value.userSetBandwidthLimit || limits.value.bandwidthLimit)}`;
@@ -592,7 +596,7 @@ const bandwidthAvailableTxt = computed((): string => {
  */
 const availableStorage = computed((): number => {
     let diff = (limits.value.userSetStorageLimit || limits.value.storageLimit) - limits.value.storageUsed;
-    if (isProjectOwnerPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
+    if (ownerHasPaidPrivileges.value && noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
         diff = Number.MAX_SAFE_INTEGER;
     } else if (!noLimitsUiEnabled.value) {
         diff = limits.value.storageLimit - limits.value.storageUsed;
@@ -611,7 +615,7 @@ const storageUsedPercent = computed((): number => {
  * Returns the CTA text on the storage usage card.
  */
 const storageCTA = computed((): string => {
-    if (!isProjectOwnerPaidTier.value) {
+    if (!ownerHasPaidPrivileges.value) {
         return getCTALabel(storageUsedPercent.value);
     }
     if (limits.value.userSetStorageLimit) {
@@ -625,7 +629,7 @@ const storageCTA = computed((): string => {
  * Returns the used storage text for the storage usage card.
  */
 const storageLimitTxt = computed((): string => {
-    if (isProjectOwnerPaidTier.value && noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
+    if (ownerHasPaidPrivileges.value && noLimitsUiEnabled.value && !limits.value.userSetStorageLimit) {
         return 'Total';
     }
     return `Limit: ${usedLimitFormatted(limits.value.userSetStorageLimit || limits.value.storageLimit)}`;
@@ -825,7 +829,7 @@ function onNeedMoreClicked(source: LimitToChange): void {
         appStore.toggleUpgradeFlow(true);
         return;
     }
-    if (!isProjectOwnerPaidTier.value) {
+    if (!ownerHasPaidPrivileges.value) {
         notify.notify('Contact project owner to upgrade to edit limits');
         return;
     }
@@ -891,7 +895,7 @@ function onBucketsCTAClicked(): void {
         appStore.toggleUpgradeFlow(true);
         return;
     }
-    if (!isProjectOwnerPaidTier.value) {
+    if (!ownerHasPaidPrivileges.value) {
         notify.notify('Contact project owner to upgrade to edit limits');
         return;
     }

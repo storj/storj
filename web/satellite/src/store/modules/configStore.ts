@@ -8,6 +8,7 @@ import { FrontendConfig, FrontendConfigApi } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 import { centsToDollars } from '@/utils/strings';
 import { Time } from '@/utils/time';
+import { User } from '@/types/users';
 
 export class ConfigState {
     public config: FrontendConfig = new FrontendConfig();
@@ -39,8 +40,8 @@ export const useConfigStore = defineStore('config', () => {
         return result;
     }
 
-    function getBillingEnabled(hasVarPartner: boolean): boolean {
-        return state.config.billingFeaturesEnabled && !hasVarPartner;
+    function getBillingEnabled(user: User): boolean {
+        return state.config.billingFeaturesEnabled && !user.hasVarPartner && !user.isNFR;
     }
 
     return {

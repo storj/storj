@@ -107,7 +107,7 @@ func (e *Endpoint) Get(ctx context.Context, req *pb.GetUserInfoRequest) (respons
 	}
 
 	return &pb.GetUserInfoResponse{
-		PaidTier: user.PaidTier,
+		PaidTier: user.HasPaidPrivileges(),
 	}, nil
 }
 

@@ -178,7 +178,7 @@ const isLoading = ref<boolean>(true);
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
 
 /**
  * Returns whether to use the table view.

@@ -37,14 +37,13 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		boolPtr := true
+		kind := console.PaidUser
 		require.NoError(t, users.Update(ctx, proUser, console.UpdateUserRequest{
-			PaidTier: &boolPtr,
+			Kind: &kind,
 		}))
 
 		u, err := users.Get(ctx, proUser)
 		require.NoError(t, err)
-		require.True(t, u.PaidTier)
 		require.Equal(t, console.PaidUser, u.Kind)
 		require.Nil(t, u.TrialExpiration)
 		require.Zero(t, u.TrialNotifications)
@@ -66,7 +65,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 
 		u, err = users.Get(ctx, trialUserNeedsReminder)
 		require.NoError(t, err)
-		require.False(t, u.PaidTier)
+		require.Equal(t, console.FreeUser, u.Kind)
 		require.WithinDuration(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond), time.Nanosecond)
 		require.Zero(t, u.TrialNotifications)
 
@@ -88,7 +87,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 
 		u, err = users.Get(ctx, trialUserAlreadyReminded)
 		require.NoError(t, err)
-		require.False(t, u.PaidTier)
+		require.Equal(t, console.FreeUser, u.Kind)
 		require.WithinDuration(t, tomorrow.Truncate(time.Millisecond), u.TrialExpiration.Truncate(time.Millisecond), time.Nanosecond)
 		require.Equal(t, int(notifiedStatus), u.TrialNotifications)
 
@@ -195,7 +194,6 @@ func TestUpdateUser(t *testing.T) {
 			ProjectBandwidthLimit:  1,
 			ProjectStorageLimit:    1,
 			ProjectSegmentLimit:    1,
-			PaidTier:               true,
 			Kind:                   console.PaidUser,
 			MFAEnabled:             true,
 			MFASecretKey:           "secretKey",
@@ -222,7 +220,6 @@ func TestUpdateUser(t *testing.T) {
 		require.NotEqual(t, u.ProjectBandwidthLimit, newInfo.ProjectBandwidthLimit)
 		require.NotEqual(t, u.ProjectStorageLimit, newInfo.ProjectStorageLimit)
 		require.NotEqual(t, u.ProjectSegmentLimit, newInfo.ProjectSegmentLimit)
-		require.NotEqual(t, u.PaidTier, newInfo.PaidTier)
 		require.NotEqual(t, u.Kind, newInfo.Kind)
 		require.NotEqual(t, u.MFAEnabled, newInfo.MFAEnabled)
 		require.NotEqual(t, u.MFASecretKey, newInfo.MFASecretKey)
@@ -339,7 +336,7 @@ func TestUpdateUser(t *testing.T) {
 
 		// update just paid tier
 		updateReq = console.UpdateUserRequest{
-			PaidTier: &newInfo.PaidTier,
+			Kind: &newInfo.Kind,
 		}
 
 		err = users.Update(ctx, id, updateReq)
@@ -348,7 +345,6 @@ func TestUpdateUser(t *testing.T) {
 		updatedUser, err = users.Get(ctx, id)
 		require.NoError(t, err)
 
-		u.PaidTier = newInfo.PaidTier
 		u.Kind = newInfo.Kind
 		usersAreEqual(t, u, updatedUser)
 
@@ -719,7 +715,7 @@ func TestUsersSetStatusPendingDeletion(t *testing.T) {
 	// There are 2 loops around satellitedbtest.Run and 3 inside because having all of them inside
 	// exhaust the Spanner emulator. I don't know the reasons, I founded with a trial and error
 	// approach.
-	for _, paid := range []bool{true, false} {
+	for _, kind := range []console.UserKind{console.FreeUser, console.PaidUser} {
 		for status := 0; status < console.UserStatusCount; status++ {
 			satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 				usersRepo := db.Console().Users()
@@ -758,7 +754,7 @@ func TestUsersSetStatusPendingDeletion(t *testing.T) {
 						for days := -1; days <= 1; days++ {
 							t.Run(fmt.Sprintf(
 								"PaidTier=%t_Status=%s_Member=%s_Event=%s=DaysUntilEscalation=%d",
-								paid, userStatus.String(), memberType, event, days,
+								kind == console.PaidUser, userStatus.String(), memberType, event, days,
 							), func(t *testing.T) {
 								// Create user and set the account freeze event.
 								user, err := usersRepo.Insert(ctx, &console.User{
@@ -766,7 +762,7 @@ func TestUsersSetStatusPendingDeletion(t *testing.T) {
 									FullName:     "Test User",
 									Email:        fmt.Sprintf("test-%s@mail.test", testrand.UUID().String()),
 									PasswordHash: []byte("password"),
-									PaidTier:     paid,
+									Kind:         kind,
 								})
 								require.NoError(t, err)
 
@@ -825,7 +821,7 @@ func TestUsersSetStatusPendingDeletion(t *testing.T) {
 								require.GreaterOrEqual(t, defaultDaysTillEscalation, 2,
 									"days till escalation is required to be at least 2 for this test setup",
 								)
-								if !paid &&
+								if kind == console.FreeUser &&
 									userStatus == console.Active &&
 									event == console.TrialExpirationFreeze &&
 									days == 0 &&
@@ -878,12 +874,17 @@ func TestSetUserKindWithPaidTier(t *testing.T) {
 			paidTierUsers := make([]uuid.UUID, 0, 10)
 			for i := 0; i < 20; i++ {
 				id := testrand.UUID()
+				kind := console.FreeUser
+				if i%2 == 0 {
+					// every second user is a paid user
+					kind = console.PaidUser
+				}
 				user, err := users.Insert(ctx, &console.User{
 					ID:           id,
 					FullName:     "test",
 					Email:        fmt.Sprintf("%d@test.test", i),
 					PasswordHash: []byte("testpassword"),
-					PaidTier:     i%2 == 0, // every second user is a paid user
+					Kind:         kind,
 				})
 				require.NoError(t, err)
 				if i%2 == 0 {

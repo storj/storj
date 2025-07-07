@@ -191,7 +191,7 @@ const maxWidth = computed(() => {
 /**
  * Returns whether the user is in paid tier.
  */
-const isPaidTier = computed((): boolean => usersStore.state.user.paidTier);
+const isPaidTier = computed((): boolean => usersStore.state.user.isPaid);
 
 /**
  * Claims wallet and sets add token step.

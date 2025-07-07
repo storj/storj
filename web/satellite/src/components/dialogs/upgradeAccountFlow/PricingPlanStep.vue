@@ -196,6 +196,7 @@ async function onCardAdded(res: string): Promise<void> {
 
 function onSuccess() {
     if (props.isAccountSetup) {
+        loading.value = false;
         emit('success');
     } else {
         isSuccess.value = true;

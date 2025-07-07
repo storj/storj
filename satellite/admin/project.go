@@ -698,7 +698,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if server.console.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (!user.PaidTier || user.FinalInvoiceGenerated) {
+	if server.console.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsFree() || user.FinalInvoiceGenerated) {
 		err = server.forceDeleteProject(ctx, project.ID)
 		if err != nil {
 			sendJSONError(w, "unable to delete project",
@@ -894,13 +894,13 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	}
 
 	// If user is paid tier, check the usage limit, otherwise it is ok to delete it.
-	paid, err := server.db.Console().Users().GetUserPaidTier(ctx, prj.OwnerID)
+	kind, err := server.db.Console().Users().GetUserKind(ctx, prj.OwnerID)
 	if err != nil {
 		sendJSONError(w, "unable to project owner tier",
 			err.Error(), http.StatusInternalServerError)
 		return false
 	}
-	if paid {
+	if kind == console.PaidUser {
 		// check current month usage and do not allow deletion if usage exists
 		currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, server.nowFn())
 		if err != nil {

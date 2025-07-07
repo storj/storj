@@ -7,7 +7,7 @@
     <template v-else>
         <router-view />
         <trial-expiration-dialog
-            v-if="!user.paidTier"
+            v-if="!user.isPaid"
             v-model="appStore.state.isExpirationDialogShown"
             :expired="user.freezeStatus.trialExpiredFrozen"
         />
@@ -92,12 +92,12 @@ const user = computed<User>(() => usersStore.state.user);
  * Determine whether the current user is eligible for pricing plans.
  */
 async function getPricingPlansAvailable() {
-    if (!configStore.getBillingEnabled(usersStore.state.user.hasVarPartner)
+    if (!configStore.getBillingEnabled(usersStore.state.user)
         || !configStore.state.config.pricingPackagesEnabled) {
         return;
     }
     const user: User = usersStore.state.user;
-    if (user.paidTier || !user.partner) {
+    if (user.hasPaidPrivileges || !user.partner) {
         return;
     }
 
@@ -213,7 +213,7 @@ usersStore.$onAction(({ name, after }) => {
     if (name === 'login') {
         after((_) => {
             setup().then(() => {
-                if (user.value.paidTier || route.name !== ROUTES.Dashboard.name || projectsStore.state.selectedProject.ownerId !== user.value.id) return;
+                if (user.value.hasPaidPrivileges || route.name !== ROUTES.Dashboard.name || projectsStore.state.selectedProject.ownerId !== user.value.id) return;
 
                 const expirationInfo = user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification);
                 if (user.value.freezeStatus.trialExpiredFrozen || expirationInfo.isCloseToExpiredTrial) {
@@ -300,10 +300,10 @@ watch(pendingPayments, async newPayments => {
 
     unprocessedConfirmedPayments.forEach(p => processedTXs.add(p.transaction));
 
-    if (!user.value.paidTier) {
+    if (user.value.isFree) {
         await usersStore.getUser();
 
-        if (user.value.paidTier) {
+        if (user.value.isPaid) {
             await Promise.all([
                 projectsStore.getProjectConfig(),
                 projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
@@ -317,7 +317,7 @@ watch(pendingPayments, async newPayments => {
 /**
  * reset pricing plans available when user upgrades to paid tier.
  */
-watch(() => user.value.paidTier, (paidTier) => {
+watch(() => user.value.hasPaidPrivileges, (paidTier) => {
     if (paidTier) {
         billingStore.setPricingPlansAvailable(false, null);
     }

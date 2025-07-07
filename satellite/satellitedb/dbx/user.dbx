@@ -146,7 +146,7 @@ read one (
 	where user.id = ?
 )
 read one (
-	select user.paid_tier
+	select user.kind
 	where user.id = ?
 )
 read one (

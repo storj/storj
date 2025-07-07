@@ -121,6 +121,7 @@ Gets user by email address
 	fullName: string
 	email: string
 	paidTier: boolean
+	kind: number
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	status: string
 	userAgent: string

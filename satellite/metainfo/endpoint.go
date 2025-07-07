@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"storj.io/common/encryption"
+	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -525,4 +526,19 @@ func (endpoint *Endpoint) TestingSetRSConfig(rs RSConfig) {
 // TestingSetRateLimiterTime sets the time function used by the rate limiter.
 func (endpoint *Endpoint) TestingSetRateLimiterTime(time func() time.Time) {
 	endpoint.rateLimiterTime = time
+}
+
+// TestingAddTrustedUplink is a helper function for tests to add a trusted uplink.
+func (endpoint *Endpoint) TestingAddTrustedUplink(id storj.NodeID) {
+	endpoint.trustedUplinks.TestingAddTrustedUplink(id)
+}
+
+func (endpoint *Endpoint) uplinkPeer(ctx context.Context) (peer *identity.PeerIdentity, trusted bool, err error) {
+	peer, err = identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		// N.B. jeff thinks this is a bad idea but jt convinced him
+		return nil, false, rpcstatus.Errorf(rpcstatus.Unauthenticated, "unable to get peer identity: %w", err)
+	}
+
+	return peer, endpoint.trustedUplinks.IsTrusted(peer.ID), nil
 }

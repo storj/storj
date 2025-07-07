@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 
 	"github.com/zeebo/clingy"
 
 	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
 
@@ -18,8 +20,26 @@ import (
 // Includes common subcommands like `exec` and any other component which is registered with RegisterSubcommand.
 func Run(module func(ball *mud.Ball)) {
 	ctx, cancel := context.WithCancel(context.Background())
+	ctx, _ = signal.NotifyContext(ctx, os.Interrupt)
 
 	ball := mud.NewBall()
+	{
+		// register generic subcommands
+		mud.Provide[*Version](ball, NewVersion)
+		RegisterSubcommand[*Version](ball, "version", "print version information")
+
+		mud.Provide[*ComponentList](ball, NewComponentList)
+		RegisterSubcommand[*ComponentList](ball, "components-list", "list the name of activated components, and dependencies")
+		config.RegisterConfig[ComponentListConfig](ball, "")
+
+		mud.Provide[*ComponentAll](ball, NewComponentAll)
+		RegisterSubcommand[*ComponentAll](ball, "components-all", "list the name of all the defined, registered components")
+
+		mud.Provide[*ComponentGraph](ball, NewComponentGraph)
+		RegisterSubcommand[*ComponentGraph](ball, "components-graph", "generate SVG graph of all components. (requires dot binary of graphviz)")
+		config.RegisterConfig[ComponentGraphConfig](ball, "")
+	}
+
 	module(ball)
 	mud.Supply[*modular.StopTrigger](ball, &modular.StopTrigger{
 		Cancel: cancel,

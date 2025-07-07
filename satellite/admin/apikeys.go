@@ -192,7 +192,7 @@ func (server *Server) getAPIKey(w http.ResponseWriter, r *http.Request) {
 			ID:       user.ID,
 			FullName: user.FullName,
 			Email:    user.Email,
-			PaidTier: user.PaidTier,
+			PaidTier: user.IsPaid(),
 		},
 	})
 	if err != nil {

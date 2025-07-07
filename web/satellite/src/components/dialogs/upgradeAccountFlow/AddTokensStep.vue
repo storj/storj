@@ -256,7 +256,7 @@ const pendingPayments = computed((): PaymentWithConfirmations[] => {
 /**
  * Returns whether the user is in paid tier.
  */
-const isPaidTier = computed((): boolean => usersStore.state.user.paidTier);
+const isPaidTier = computed((): boolean => usersStore.state.user.isPaid);
 
 /**
  * Copies address to user's clipboard.

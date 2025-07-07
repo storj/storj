@@ -127,7 +127,7 @@
                                 variant="tonal"
                                 size="small"
                             >
-                                {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
+                                {{ user.kind.name }}
                             </v-chip>
                         </v-list-item-title>
                     </v-list-item>
@@ -185,7 +185,8 @@
         </template>
     </v-app-bar>
 
-    <account-setup-dialog />
+    <new-account-setup-dialog v-if="newAccountSetupFlow" />
+    <account-setup-dialog v-else />
 </template>
 
 <script setup lang="ts">
@@ -220,6 +221,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
+import NewAccountSetupDialog from '@/components/dialogs/NewAccountSetupDialog.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -238,6 +240,8 @@ withDefaults(defineProps<{
 }>(), {
     showNavDrawerButton: false,
 });
+
+const newAccountSetupFlow = computed<boolean>(() => configStore.state.config.newAccountSetupEnabled);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {
@@ -264,7 +268,7 @@ const activeThemeIcon = computed(() => {
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
 
 /**
  * Returns the name of the current satellite.
@@ -281,9 +285,7 @@ const user = computed<User>(() => usersStore.state.user);
 /**
  * Indicates if user is in paid tier.
  */
-const isPaidTier = computed<boolean>(() => {
-    return user.value.paidTier ?? false;
-});
+const isPaidTier = computed<boolean>(() => user.value.isPaid);
 
 function closeSideNav(): void {
     if (mdAndDown.value) appStore.toggleNavigationDrawer(false);

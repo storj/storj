@@ -808,15 +808,15 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 
 // checkEncryptedMetadata checks encrypted metadata and it's encrypted key sizes. Metadata encrypted key nonce
 // is serialized to storj.Nonce automatically.
-func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encryptedKey []byte) error {
-	metadataSize := memory.Size(len(encryptedMetadata))
+func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.EncryptedUserData) error {
+	metadataSize := memory.Size(len(userData.EncryptedMetadata) + len(userData.EncryptedETag))
 	if metadataSize > endpoint.config.MaxMetadataSize {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
 	}
 
 	// verify key only if any metadata was set
-	if metadataSize > 0 && len(encryptedKey) != encryptedKeySize {
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(encryptedKey), encryptedKeySize)
+	if metadataSize > 0 && len(userData.EncryptedMetadataEncryptedKey) != encryptedKeySize {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(userData.EncryptedMetadataEncryptedKey), encryptedKeySize)
 	}
 	return nil
 }
@@ -958,4 +958,11 @@ func keyInfoToLimits(keyInfo *console.APIKeyInfo) accounting.ProjectLimits {
 		RateLimit:  keyInfo.ProjectRateLimit,
 		BurstLimit: keyInfo.ProjectBurstLimit,
 	}
+}
+
+func validateServerSideCopyFlag(flag bool, trustedUplink bool) error {
+	if flag && !trustedUplink {
+		return rpcstatus.Error(rpcstatus.InvalidArgument, "ServerSideCopy flag is only allowed for trusted uplink clients")
+	}
+	return nil
 }

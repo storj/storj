@@ -18,7 +18,7 @@ export function useLowTokenBalance() {
             billingStore.state.balance.sum < microDollarsToCents(configStore.state.config.userBalanceForUpgrade);
 
         return (
-            userStore.state.user.paidTier && !billingStore.state.creditCards.length && notEnoughBalance
+            userStore.state.user.isPaid && !billingStore.state.creditCards.length && notEnoughBalance
         ) || (
             billingStore.state.creditCards.length > 0 && billingStore.state.balance.sum > 0 && notEnoughBalance
         );

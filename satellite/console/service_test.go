@@ -258,7 +258,6 @@ func TestService(t *testing.T) {
 			t.Run("AddCreditCard fails when payments.CreditCards.Add returns error", func(t *testing.T) {
 				// user should be in free tier
 				user, userCtx1 := getOwnerAndCtx(ctx, up1Proj)
-				require.False(t, user.PaidTier)
 				require.Equal(t, console.FreeUser, user.Kind)
 
 				// stripecoinpayments.TestPaymentMethodsAttachFailure triggers the underlying mock stripe client to return an error
@@ -269,7 +268,6 @@ func TestService(t *testing.T) {
 				// user still in free tier
 				user, err = service.GetUser(ctx, up1Proj.OwnerID)
 				require.NoError(t, err)
-				require.False(t, user.PaidTier)
 				require.Equal(t, console.FreeUser, user.Kind)
 
 				cards, err := service.Payments().ListCreditCards(userCtx1)
@@ -293,7 +291,6 @@ func TestService(t *testing.T) {
 			t.Run("AddCreditCard", func(t *testing.T) {
 				// user should be in free tier
 				user, userCtx1 := getOwnerAndCtx(ctx, up1Proj)
-				require.False(t, user.PaidTier)
 				require.Equal(t, console.FreeUser, user.Kind)
 
 				// add a credit card to put the user in the paid tier
@@ -303,7 +300,6 @@ func TestService(t *testing.T) {
 				// user should be in paid tier
 				user, err = service.GetUser(ctx, up1Proj.OwnerID)
 				require.NoError(t, err)
-				require.True(t, user.PaidTier)
 				require.Equal(t, console.PaidUser, user.Kind)
 
 				cards, err := service.Payments().ListCreditCards(userCtx1)
@@ -339,7 +335,6 @@ func TestService(t *testing.T) {
 			t.Run("AddCreditCardByPaymentMethodID", func(t *testing.T) {
 				// user should be in free tier
 				user, userCtx3 := getOwnerAndCtx(ctx, up3Proj)
-				require.False(t, user.PaidTier)
 				require.Equal(t, console.FreeUser, user.Kind)
 
 				pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
@@ -357,7 +352,6 @@ func TestService(t *testing.T) {
 				// user should be in paid tier
 				user, err = service.GetUser(ctx, up3Proj.OwnerID)
 				require.NoError(t, err)
-				require.True(t, user.PaidTier)
 				require.Equal(t, console.PaidUser, user.Kind)
 
 				cards, err := service.Payments().ListCreditCards(userCtx3)
@@ -369,7 +363,6 @@ func TestService(t *testing.T) {
 				freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 				user4, userCtx4 := getOwnerAndCtx(ctx, up4Proj)
-				require.False(t, user4.PaidTier)
 				require.Equal(t, console.FreeUser, user4.Kind)
 
 				// trial expiration freeze user
@@ -386,7 +379,6 @@ func TestService(t *testing.T) {
 				// user should be in paid tier
 				user4, err = service.GetUser(ctx, up1Proj.OwnerID)
 				require.NoError(t, err)
-				require.True(t, user4.PaidTier)
 				require.Equal(t, console.PaidUser, user4.Kind)
 				limits := sat.Config.Console.UsageLimits
 				require.Equal(t, limits.Storage.Paid.Int64(), user4.ProjectStorageLimit)
@@ -674,6 +666,34 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, project.UserSpecifiedStorageLimit)
 				require.Equal(t, updatedBandwidthLimit, *project.UserSpecifiedBandwidthLimit)
+
+				kind := console.FreeUser
+				err = sat.API.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+				_, userCtx1 = getOwnerAndCtx(ctx, up1Proj)
+
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up1Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit: &limit100,
+				})
+				// free users should not be able to set limits.
+				require.Error(t, err)
+
+				kind = console.NFRUser
+				err = sat.API.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+				_, userCtx1 = getOwnerAndCtx(ctx, up1Proj)
+
+				err = service.UpdateUserSpecifiedLimits(userCtx1, up1Proj.ID, console.UpdateLimitsInfo{
+					StorageLimit: &limit100,
+				})
+				// nfr users should be able to set limits.
+				require.NoError(t, err)
+
+				// reset user back to paid user
+				kind = console.PaidUser
+				err = sat.API.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+				_, userCtx1 = getOwnerAndCtx(ctx, up1Proj)
 
 				err = service.UpdateUserSpecifiedLimits(userCtx1, disabledProject.ID, console.UpdateLimitsInfo{StorageLimit: &limit0})
 				require.True(t, console.ErrUnauthorized.Has(err))
@@ -1569,13 +1589,13 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, config)
 				require.True(t, config.IsOwnerPaidTier)
+				require.True(t, config.HasPaidPrivileges)
 				require.Equal(t, console.RoleAdmin, config.Role)
 				require.Equal(t, base64.StdEncoding.EncodeToString(salt), config.Salt)
 
 				// add userCtx2 as member
 				member, err := service.GetUser(ctx, up2Proj.OwnerID)
 				require.NoError(t, err)
-				require.False(t, member.PaidTier)
 				require.Equal(t, console.FreeUser, member.Kind)
 
 				_, err = service.AddProjectMembers(userCtx1, pr.ID, []string{member.Email})
@@ -1586,9 +1606,25 @@ func TestService(t *testing.T) {
 				require.Equal(t, console.RoleMember, config.Role)
 				// member is not paid tier, but project owner is.
 				require.True(t, config.IsOwnerPaidTier)
+				require.True(t, config.HasPaidPrivileges)
+
+				kind := console.NFRUser
+				err = sat.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.False(t, config.IsOwnerPaidTier)
+				// nfr user has paid privileges
+				require.True(t, config.HasPaidPrivileges)
 
 				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))
+
+				kind = console.PaidUser
+				err = sat.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
+				require.NoError(t, err)
 			})
 		})
 }
@@ -2225,8 +2261,8 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, user)
 
-		user.PaidTier = true
-		require.NoError(t, db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &user.PaidTier}))
+		user.Kind = console.PaidUser
+		require.NoError(t, db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &user.Kind}))
 
 		require.Len(t, uplink.Projects, 1)
 		p := uplink.Projects[0]
@@ -2500,7 +2536,7 @@ func TestDeleteProject(t *testing.T) {
 		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
 			Email:    "test@sso.test",
 			FullName: "test test",
-			PaidTier: true,
+			Kind:     console.PaidUser,
 		}, 1)
 		require.NoError(t, err)
 		require.NoError(t, service.UpdateExternalID(ctx, ssoUser, "test:1234"))
@@ -2546,7 +2582,7 @@ func TestDeleteProject_WithDeleteThreshold(t *testing.T) {
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "example1@mail.test",
-			PaidTier: true,
+			Kind:     console.PaidUser,
 		}, 1)
 		require.NoError(t, err)
 
@@ -2649,8 +2685,8 @@ func TestDeleteAccount(t *testing.T) {
 
 			// ensure one user is paid tier
 			if i != 0 {
-				user.PaidTier = true
-				require.NoError(t, db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &user.PaidTier}))
+				user.Kind = console.PaidUser
+				require.NoError(t, db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &user.Kind}))
 			}
 
 			require.Len(t, uplink.Projects, 1)
@@ -2765,7 +2801,7 @@ func TestDeleteAccount(t *testing.T) {
 
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
-			if user.PaidTier {
+			if user.IsPaid() {
 				require.NotNil(t, resp)
 				require.True(t, resp.CurrentUsage)
 			} else {
@@ -2784,7 +2820,7 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, p2.ID, []byte(bucket.Name), pb.PieceAction_GET, 1000000, 0, interval))
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
-			if user.PaidTier {
+			if user.IsPaid() {
 				require.NotNil(t, resp)
 				require.True(t, resp.CurrentUsage)
 			} else {
@@ -2802,7 +2838,7 @@ func TestDeleteAccount(t *testing.T) {
 
 			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
 			require.NoError(t, err)
-			if user.PaidTier {
+			if user.IsPaid() {
 				require.NotNil(t, resp)
 				require.True(t, resp.InvoicingIncomplete)
 			} else {
@@ -3057,7 +3093,7 @@ func TestDeleteAccount_WithDeleteThreshold(t *testing.T) {
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "example1@mail.test",
-			PaidTier: true,
+			Kind:     console.PaidUser,
 		}, 1)
 		require.NoError(t, err)
 
@@ -3225,7 +3261,6 @@ func TestPaidTier(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		userRepo := sat.API.DB.Console().Users()
 		service := sat.API.Console.Service
 
 		// project should have free tier usage limits
@@ -3238,7 +3273,6 @@ func TestPaidTier(t *testing.T) {
 		// user should be in free tier
 		user, err := service.GetUser(ctx, proj1.OwnerID)
 		require.NoError(t, err)
-		require.False(t, user.PaidTier)
 		require.Equal(t, console.FreeUser, user.Kind)
 
 		userCtx, err := sat.UserContext(ctx, user.ID)
@@ -3251,7 +3285,6 @@ func TestPaidTier(t *testing.T) {
 		// expect user to be in paid tier
 		user, err = service.GetUser(ctx, user.ID)
 		require.NoError(t, err)
-		require.True(t, user.PaidTier)
 		require.Equal(t, console.PaidUser, user.Kind)
 		require.Equal(t, usageConfig.Project.Paid, user.ProjectLimit)
 
@@ -3270,18 +3303,6 @@ func TestPaidTier(t *testing.T) {
 		proj2, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "Project 2"})
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj2.StorageLimit)
-
-		// test a case where the user is in paid tier (user.PaidTier = true) but user.Kind is still free (user.Kind = console.FreeUser)
-		kind := console.FreeUser
-		err = userRepo.Update(ctx, user.ID, console.UpdateUserRequest{
-			Kind: &kind,
-		})
-		require.NoError(t, err)
-
-		user, err = service.GetUser(ctx, user.ID)
-		require.NoError(t, err)
-		require.True(t, user.PaidTier)
-		require.Equal(t, console.PaidUser, user.Kind)
 	})
 }
 
@@ -5483,8 +5504,8 @@ func TestProjectInvitations(t *testing.T) {
 		}
 
 		upgradeToPaidTier := func(t *testing.T, ctx context.Context, user *console.User) context.Context {
-			paid := true
-			err := sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{PaidTier: &paid})
+			kind := console.PaidUser
+			err := sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &kind})
 			require.NoError(t, err)
 			ctx, err = sat.UserContext(ctx, user.ID)
 			require.NoError(t, err)

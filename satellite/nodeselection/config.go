@@ -20,16 +20,17 @@ import (
 )
 
 func convertToCompareNodes(arg any) (CompareNodes, error) {
-	if comparer, ok := arg.(CompareNodes); ok {
-		return comparer, nil
+	switch a := arg.(type) {
+	case CompareNodes:
+		return a, nil
+	case ScoreNode:
+		return Compare(a), nil
+	case NodeValue:
+		return Compare(ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			return a(*node)
+		})), nil
 	}
-	if scoreNode, ok := arg.(ScoreNode); ok {
-		return Compare(scoreNode), nil
-	}
-	if uploadSuccessTracker, ok := arg.(UploadSuccessTracker); ok {
-		return Compare(uploadSuccessTracker), nil
-	}
-	return nil, errs.New("argument for choiceofn/choiceoftwo must be CompareNodes, ScoreNode, or UploadSuccessTracker, got %T", arg)
+	return nil, errs.New("argument for choiceofn/choiceoftwo must be CompareNodes, ScoreNode, NodeValue, or UploadSuccessTracker, got %T", arg)
 }
 
 // placementConfig is the representation of YAML based placement configuration.
@@ -462,6 +463,14 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 			default:
 				panic(fmt.Sprintf("Argument of maxgroup must be a node attribute (or string), not %T", attribute))
 			}
+		},
+		"atleast": AtLeast,
+		"reduce": func(delegate NodeSelectorInit, sortOrder any, needMore ...NeedMore) NodeSelectorInit {
+			sorter, err := convertToCompareNodes(sortOrder)
+			if err != nil {
+				panic(err)
+			}
+			return Reduce(delegate, sorter, needMore...)
 		},
 	}
 	env = AddArithmetic(env)

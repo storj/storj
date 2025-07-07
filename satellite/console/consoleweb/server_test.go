@@ -97,8 +97,8 @@ func TestInvitedRouting(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		paid := true
-		err = sat.DB.Console().Users().Update(ctx, owner.ID, console.UpdateUserRequest{PaidTier: &paid})
+		kind := console.PaidUser
+		err = sat.DB.Console().Users().Update(ctx, owner.ID, console.UpdateUserRequest{Kind: &kind})
 		require.NoError(t, err)
 
 		project, err := sat.AddProject(ctx, owner.ID, "Test Project")

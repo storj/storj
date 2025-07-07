@@ -105,7 +105,7 @@ const isUpgradeSuccessShown = ref(false);
  * Triggers enter card info inputs to be shown.
  */
 function onShowCardInput(): void {
-    if (!usersStore.state.user.paidTier) {
+    if (usersStore.state.user.isFree) {
         appStore.toggleUpgradeFlow(true);
         return;
     }
@@ -159,14 +159,14 @@ async function addCardToDB(res: string) {
             notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         }
     }
-    const oldPaidTier = usersStore.state.user.paidTier;
+    const oldPaidTier = usersStore.state.user.isPaid;
     if (oldPaidTier && !frozenOrWarned) {
         return;
     }
     try {
         // We fetch User one more time to update their Paid Tier and freeze status.
         await usersStore.getUser();
-        const newPaidTier = usersStore.state.user.paidTier;
+        const newPaidTier = usersStore.state.user.isPaid;
         if (!oldPaidTier && newPaidTier) {
             isUpgradeSuccessShown.value = true;
         }

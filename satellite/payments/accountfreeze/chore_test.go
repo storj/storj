@@ -731,10 +731,10 @@ func TestAutoFreezeChore(t *testing.T) {
 			// set past expiry and paid tier
 			newTime = now.Add(-120 * time.Hour)
 			newTimePtr = &newTime
-			paidTier := true
+			kind := console.PaidUser
 			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
 				TrialExpiration: &newTimePtr,
-				PaidTier:        &paidTier,
+				Kind:            &kind,
 			})
 			require.NoError(t, err)
 
@@ -745,9 +745,9 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, frozen)
 
-			paidTier = false
+			kind = console.FreeUser
 			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
-				PaidTier: &paidTier,
+				Kind: &kind,
 			})
 			require.NoError(t, err)
 

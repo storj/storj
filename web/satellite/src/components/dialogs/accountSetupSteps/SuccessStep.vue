@@ -66,13 +66,13 @@ async function finishSetup() {
     await userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] });
     await userStore.getUser();
 
-    emit('finish');
-
     await nextTick();
-    router.push({
+    await router.push({
         name: ROUTES.Dashboard.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
+
+    emit('finish');
 }
 
 defineExpose({

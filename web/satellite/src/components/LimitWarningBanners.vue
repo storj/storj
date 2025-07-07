@@ -15,16 +15,16 @@
         <template v-if="!isProjectOwner" #text>
             Contact project owner to upgrade to avoid any service interruptions.
         </template>
-        <template v-else-if="isPaidTier && !reachedThresholds[threshold].includes(LimitType.Segment)" #text>
+        <template v-else-if="hasPaidPrivileges && !reachedThresholds[threshold].includes(LimitType.Segment)" #text>
             You can increase your limits
             <a class="text-decoration-underline text-cursor-pointer" @click="openLimitDialog(bannerText[threshold].limitType)">here</a>
             or in the
             <a class="text-decoration-underline text-cursor-pointer" @click="goToProjectSettings">project settings page</a>.
         </template>
-        <template v-else-if="!isPaidTier && bannerText[threshold].hundred" #text>
+        <template v-else-if="!hasPaidPrivileges && bannerText[threshold].hundred" #text>
             <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> to avoid any service interruptions.
         </template>
-        <template v-else-if="!isPaidTier && !bannerText[threshold].hundred" #text>
+        <template v-else-if="!hasPaidPrivileges && !bannerText[threshold].hundred" #text>
             Avoid interrupting your usage by
             <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">upgrading</a>
             your account.
@@ -116,12 +116,12 @@ const reachedThresholds = computed((): LimitThresholdsReached => {
     };
 
     (Object.entries(info) as [LimitType, LimitInfo][]).forEach(([limitType, info]) => {
-        const maxLimit = (isPaidTier.value && info.paidLimit) ? Math.max(info.currentLimit, info.paidLimit) : info.currentLimit;
+        const maxLimit = (hasPaidPrivileges.value && info.paidLimit) ? Math.max(info.currentLimit, info.paidLimit) : info.currentLimit;
         if (info.used >= maxLimit) {
             reached.Hundred.push(limitType);
         } else if (info.used >= 0.8 * maxLimit) {
             reached.Eighty.push(limitType);
-        } else if (isPaidTier.value) {
+        } else if (hasPaidPrivileges.value) {
             if (info.used >= info.currentLimit) {
                 reached.CustomHundred.push(limitType);
             } else if (info.used >= 0.8 * info.currentLimit) {
@@ -146,10 +146,10 @@ const activeThresholds = computed<LimitThreshold[]>(() => {
 });
 
 /**
- * Returns whether user is in the paid tier.
+ * Returns whether user has paid privileges.
  */
-const isPaidTier = computed<boolean>(() => {
-    return usersStore.state.user.paidTier;
+const hasPaidPrivileges = computed<boolean>(() => {
+    return usersStore.state.user.hasPaidPrivileges;
 });
 
 /**

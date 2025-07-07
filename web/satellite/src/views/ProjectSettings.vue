@@ -55,7 +55,7 @@
             </v-col>
         </v-row>
 
-        <template v-if="isProjectOwner || (!isProjectOwner && isProjectOwnerPaidTier)">
+        <template v-if="isProjectOwner || (!isProjectOwner && ownerHasPaidPrivileges)">
             <v-row>
                 <v-col>
                     <h3 class="mt-5">Project Limits</h3>
@@ -266,7 +266,7 @@ const noLimitsUiEnabled = computed((): boolean => {
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
 
 /**
  * Returns selected project from the store.
@@ -326,6 +326,10 @@ const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.st
  * Returns whether this project is owned by a paid tier user.
  */
 const isProjectOwnerPaidTier = computed(() => projectsStore.selectedProjectConfig.isOwnerPaidTier);
+/**
+ * Returns whether the owner of this project has paid privileges
+ */
+const ownerHasPaidPrivileges = computed(() => projectsStore.selectedProjectConfig.hasPaidPrivileges);
 
 /**
  * Returns the current project limits from store.

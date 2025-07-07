@@ -52,7 +52,7 @@ function onCreateAPIKey(): void {
 }
 
 onBeforeMount(() => {
-    if (!userStore.state.user.paidTier) {
+    if (!userStore.state.user.hasPaidPrivileges) {
         router.replace(ROUTES.Projects.path);
     }
 });

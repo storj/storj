@@ -22,7 +22,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="Gauge" v-if="isProjectLimitReached && usersStore.state.user.paidTier && showLimitIncreaseDialog" :size="18" />
+                        <component :is="Gauge" v-if="isProjectLimitReached && usersStore.state.user.isPaid && showLimitIncreaseDialog" :size="18" />
                         <component :is="Box" v-else :size="18" />
                     </v-sheet>
                 </template>
@@ -145,7 +145,7 @@
                 </v-window-item>
             </v-window>
 
-            <v-form v-else-if="isProjectLimitReached && usersStore.state.user.paidTier" v-model="formValid" class="pa-6" @submit.prevent>
+            <v-form v-else-if="isProjectLimitReached && usersStore.state.user.hasPaidPrivileges" v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
                     <template v-if="!showLimitIncreaseDialog">
                         <v-col cols="12">
@@ -325,7 +325,7 @@ const descriptionRules: ValidationRule<string>[] = [
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user.hasVarPartner));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
 
 /**
  * Indicates if satellite managed encryption passphrase is enabled.
@@ -360,7 +360,7 @@ async function onPrimaryClick(): Promise<void> {
             });
             notify.success('Project created.');
         });
-    } else if (usersStore.state.user.paidTier) {
+    } else if (usersStore.state.user.isPaid) {
         if (!isLimitIncreaseRequestEnabled.value) {
             model.value = false;
             window.open('https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212', '_blank', 'noopener');
@@ -426,7 +426,7 @@ const buttonTitle = computed((): string => {
     if (!isProjectLimitReached.value || !billingEnabled.value) {
         return 'Create Project';
     }
-    if (usersStore.state.user.paidTier) {
+    if (usersStore.state.user.isPaid) {
         if (showLimitIncreaseDialog.value) {
             return 'Submit';
         }
@@ -439,7 +439,7 @@ const cardTitle = computed((): string => {
     if (!isProjectLimitReached.value || !billingEnabled.value) {
         return 'Create New Project';
     }
-    if (usersStore.state.user.paidTier && showLimitIncreaseDialog.value) {
+    if (usersStore.state.user.isPaid && showLimitIncreaseDialog.value) {
         return 'Projects Limit Request';
     }
     return 'Get More Projects';

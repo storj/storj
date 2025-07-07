@@ -14768,6 +14768,10 @@ type Id_Row struct {
 	Id []byte
 }
 
+type Kind_Row struct {
+	Kind int
+}
+
 type LeafSerialNumber_Row struct {
 	LeafSerialNumber []byte
 }
@@ -14848,10 +14852,6 @@ type Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_Greater
 	_value_interval_start time.Time
 	_value_action         uint
 	_set                  bool
-}
-
-type PaidTier_Row struct {
-	PaidTier bool
 }
 
 type PassphraseEnc_PassphraseEncKeyId_Row struct {
@@ -20550,15 +20550,15 @@ func (obj *pgxImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_User_PaidTier_By_Id(ctx context.Context,
+func (obj *pgxImpl) Get_User_Kind_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
+	row *Kind_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.kind FROM users WHERE users.id = ?")
 
 	var __values []any
 	__values = append(__values, user_id.value())
@@ -20566,10 +20566,10 @@ func (obj *pgxImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
+	row = &Kind_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
+		return (*Kind_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -30873,15 +30873,15 @@ func (obj *pgxcockroachImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_User_PaidTier_By_Id(ctx context.Context,
+func (obj *pgxcockroachImpl) Get_User_Kind_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
+	row *Kind_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.kind FROM users WHERE users.id = ?")
 
 	var __values []any
 	__values = append(__values, user_id.value())
@@ -30889,10 +30889,10 @@ func (obj *pgxcockroachImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
+	row = &Kind_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
+		return (*Kind_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -41478,15 +41478,15 @@ func (obj *spannerImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Get_User_PaidTier_By_Id(ctx context.Context,
+func (obj *spannerImpl) Get_User_Kind_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
-	row *PaidTier_Row, err error) {
+	row *Kind_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.paid_tier FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.kind FROM users WHERE users.id = ?")
 
 	var __values []any
 	__values = append(__values, user_id.value())
@@ -41494,10 +41494,10 @@ func (obj *spannerImpl) Get_User_PaidTier_By_Id(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	row = &PaidTier_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PaidTier)
+	row = &Kind_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Kind)
 	if err != nil {
-		return (*PaidTier_Row)(nil), obj.makeErr(err)
+		return (*Kind_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -46692,9 +46692,9 @@ type Methods interface {
 		user_normalized_email User_NormalizedEmail_Field) (
 		user *User, err error)
 
-	Get_User_PaidTier_By_Id(ctx context.Context,
+	Get_User_Kind_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
-		row *PaidTier_Row, err error)
+		row *Kind_Row, err error)
 
 	Get_User_ProjectLimit_By_Id(ctx context.Context,
 		user_id User_Id_Field) (

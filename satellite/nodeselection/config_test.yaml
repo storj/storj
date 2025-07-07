@@ -52,3 +52,6 @@ placements:
   - id: 14
     name: stream
     selector: stream(randomstream, streamfilter(groupconstraint(node_attribute("last_ip"),1)), choiceofns(2,1 + node_value("free_disk") ^ 0.5 / 2500000))
+  - id: 15
+    name: reduce
+    selector: reduce(random(), node_value("free_disk") * -1, atleast(node_attribute("id"), 30), atleast(node_attribute("tag:server_name"), 10))
