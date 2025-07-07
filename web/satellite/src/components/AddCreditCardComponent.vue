@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Plus } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -79,18 +79,21 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
+    initStripe(): Promise<string>;
 }
 
 const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
 const appStore = useAppStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const { withLoading, isLoading } = useLoading();
@@ -100,6 +103,8 @@ const stripeReady = ref<boolean>(false);
 
 const isCardInputShown = ref(false);
 const isUpgradeSuccessShown = ref(false);
+
+const cardAuthorizationEnabled = computed(() => configStore.state.config.addCardAuthorizationEnabled);
 
 /**
  * Triggers enter card info inputs to be shown.
@@ -145,6 +150,11 @@ async function addCardToDB(res: string) {
 
         billingStore.getCreditCards().catch((_) => {});
     } catch (error) {
+        if (cardAuthorizationEnabled.value) {
+            // initStripe will get a new card setup secret if there's an error
+            // on our side after the card is already added on stripe side.
+            stripeCardInput.value?.initStripe();
+        }
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         return;
     }

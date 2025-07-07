@@ -72,15 +72,18 @@ async function initStripe(): Promise<void> {
             options.paymentMethodTypes = ['card'];
         }
 
-        // load stripe library
-        stripe.value = await loadStripe(stripePublicKey);
-        if (!stripe.value) throw new Error('Unable to initialize stripe');
+        if (!stripe.value) {
+            // load stripe library
+            stripe.value = await loadStripe(stripePublicKey);
+            if (!stripe.value) throw new Error('Unable to initialize stripe');
+        }
 
         // initialize stripe elements
         elements.value = stripe.value?.elements(options);
         if (!elements.value) throw new Error('Unable to instantiate elements');
 
         // create payment element
+        paymentElement.value?.off('ready');
         paymentElement.value = elements.value.create('payment');
         if (!paymentElement.value) throw new Error('Unable to create card element');
 
@@ -176,5 +179,6 @@ onBeforeUnmount(() => {
 
 defineExpose({
     onSubmit,
+    initStripe,
 });
 </script>
