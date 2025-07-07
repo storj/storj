@@ -150,6 +150,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             return new ProjectConfig(
                 result.hasManagedPassphrase,
                 result.passphrase ?? '',
+                result.encryptPath,
                 result.isOwnerPaidTier,
                 result.hasPaidPrivileges,
                 result.role,
