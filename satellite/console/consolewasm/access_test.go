@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	console "storj.io/storj/satellite/console/consolewasm"
 	"storj.io/uplink"
+	"storj.io/uplink/private/access"
 )
 
 // TestGenerateAccessGrant confirms that the access grant produced by the wasm access code
@@ -46,12 +47,23 @@ func TestGenerateAccessGrant(t *testing.T) {
 
 		passphrase := "supersecretpassphrase"
 
-		wasmAccessString, err := console.GenAccessGrant(satelliteNodeURL, apiKeyString, passphrase, b64Salt)
+		wasmAccessString, err := console.GenAccessGrant(satelliteNodeURL, apiKeyString, passphrase, b64Salt, true)
 		require.NoError(t, err)
 
 		uplinkCliAccess, err := uplinkPeer.Config.RequestAccessWithPassphrase(ctx, satelliteNodeURL, apiKeyString, passphrase)
 		require.NoError(t, err)
 		uplinkCliAccessString, err := uplinkCliAccess.Serialize()
+		require.NoError(t, err)
+		require.Equal(t, wasmAccessString, uplinkCliAccessString)
+
+		// test disabled path encryption
+		wasmAccessString, err = console.GenAccessGrant(satelliteNodeURL, apiKeyString, passphrase, b64Salt, false)
+		require.NoError(t, err)
+
+		access.DisableObjectKeyEncryption(&uplinkPeer.Config)
+		uplinkCliAccess, err = uplinkPeer.Config.RequestAccessWithPassphrase(ctx, satelliteNodeURL, apiKeyString, passphrase)
+		require.NoError(t, err)
+		uplinkCliAccessString, err = uplinkCliAccess.Serialize()
 		require.NoError(t, err)
 		require.Equal(t, wasmAccessString, uplinkCliAccessString)
 	})
@@ -86,7 +98,7 @@ func TestDefaultAccess(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(bodyString), &b64Salt))
 
 		// Create an access with the console access grant code that allows full access.
-		access, err := console.GenAccessGrant(satelliteNodeURL, APIKey.Serialize(), passphrase, b64Salt)
+		access, err := console.GenAccessGrant(satelliteNodeURL, APIKey.Serialize(), passphrase, b64Salt, true)
 		require.NoError(t, err)
 		newAccess, err := uplink.ParseAccess(access)
 		require.NoError(t, err)
