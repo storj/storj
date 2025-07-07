@@ -123,12 +123,12 @@ function setAPIKeyPermission(apiKey, buckets, permission)
 ### function generateAccessGrant
 
 ```js
-function generateAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectID)
+function generateAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectSalt, encryptPath)
 
 ```
 
 - **Arguments**
-    Accepts four arguments: `satelliteNodeURL`, `apiKey`, `encryptionPassphrase` and `projectID`
+    Accepts five arguments: `satelliteNodeURL`, `apiKey`, `encryptionPassphrase`, `projectSalt` and `encryptPath`
 
     - **satelliteNodeURL**
         - **Type:** `String`
@@ -148,12 +148,18 @@ function generateAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, pro
             A string that's used for encryption.
             This parameter is required.
 
-    - **projectID**
+    - **projectSalt**
         - **Type:** `String`
         - **Details:**
             A project-based salt for determinitic key derivation.
             Currently it's referring to a project ID. However, it might change in the future to have more randomness.
             This parameter is required.
+    - **encryptPath**
+       - **Type:** `Boolean`
+       - **Details:**
+           Whether path encryption is enabled for the project.
+           Giving `false` makes it so that object keys created with the generated access are not encrypted.
+    
 
 - **Returns**
     ```js
@@ -173,7 +179,8 @@ function generateAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, pro
         var apiKey = "super-secret-key";
         var passphrase = "123";
         var projectID = "project-id"
-        var result = generateAccessGrant(satelliteNodeURL, apiKey, passphrase, projectID);
+        var encryptPath = true
+        var result = generateAccessGrant(satelliteNodeURL, apiKey, passphrase, projectID, encryptPath);
         if (result.err != "") {
             // something went wrong
         }
