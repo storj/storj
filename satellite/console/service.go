@@ -3425,8 +3425,11 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite", user.HubspotObjectID)
 	}
 
+	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
+
 	return &ProjectConfig{
 		HasManagedPassphrase: hasManagedPassphrase,
+		EncryptPath:          pathEncryptionEnabled,
 		Passphrase:           string(passphrase),
 		IsOwnerPaidTier:      ownerKind == PaidUser,
 		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser,
