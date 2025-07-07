@@ -798,12 +798,15 @@ func (service *Service) processInvoiceItems(
 		return false, err
 	}
 
-	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, record.ProjectID, service.partnerNames, from, to)
+	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, record.ProjectID, service.partnerNames, from, to, false)
 	if err != nil {
 		return false, err
 	}
 
-	items := service.InvoiceItemsFromProjectUsage(projName, usages, updateExisting)
+	items, err := service.InvoiceItemsFromProjectUsage(projName, usages, updateExisting)
+	if err != nil {
+		return false, err
+	}
 
 	if updateExisting {
 		existingItems, err := service.getExistingInvoiceItems(ctx, cusID)
@@ -877,13 +880,17 @@ func (service *Service) getAndProcessUsages(
 	productInfos map[int32]payments.ProductUsagePriceModel,
 	from, to time.Time,
 ) error {
-	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, service.partnerNames, from, to)
+	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, service.partnerNames, from, to, false)
 	if err != nil {
 		return err
 	}
 
 	// Process each partner/placement usage entry.
 	for key, usage := range usages {
+		if key == "" {
+			return errs.New("invalid usage key format")
+		}
+
 		productID, priceModel := service.productIdAndPriceForUsageKey(key)
 
 		// Create or update the product usage entry.
@@ -1130,7 +1137,7 @@ func (service *Service) updateExistingInvoiceItems(ctx context.Context, existing
 
 // InvoiceItemsFromProjectUsage calculates Stripe invoice item from project usage.
 // It is only used if product-based invoicing is disabled.
-func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsages map[string]accounting.ProjectUsage, aggregated bool) (result []*stripe.InvoiceItemParams) {
+func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsages map[string]accounting.ProjectUsage, aggregated bool) (result []*stripe.InvoiceItemParams, _ error) {
 	// Aggregate usage by partner (discard placement)
 	aggregatedUsages := make(map[string]accounting.ProjectUsage)
 
@@ -1138,6 +1145,10 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 		aggregatedUsages[""] = accounting.ProjectUsage{}
 	} else {
 		for key, usage := range partnerUsages {
+			if key == "" {
+				return nil, errs.New("invalid usage key format")
+			}
+
 			// Split the key to extract partner and placement
 			parts := strings.Split(key, "|")
 			partner := parts[0]
@@ -1204,7 +1215,7 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 
 	service.log.Info("invoice items", zap.Any("result", result))
 
-	return result
+	return result, nil
 }
 
 // RemoveExpiredPackageCredit removes a user's package plan credit, or sends an analytics event, if it has expired.
