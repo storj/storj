@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -155,7 +156,8 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 	log.Debug("creating", zap.String("suffix", schemaSuffix))
 	schema := SchemaName(name, category, index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema, dbInfo.ExtraStatements)
+	extraStatements := slices.Clone(dbInfo.ExtraStatements)
+	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema, extraStatements)
 	if err != nil {
 		return nil, err
 	}
