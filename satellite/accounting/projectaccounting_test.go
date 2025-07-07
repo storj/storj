@@ -764,7 +764,7 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 			t.Run("get usages by partner and placement", func(t *testing.T) {
 				ctx := testcontext.New(t)
 
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, partnerNames, since, before)
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, partnerNames, since, before, false)
 				require.NoError(t, err)
 
 				// Verify that entries exist and match expected values for all the keys
@@ -785,7 +785,7 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 				filteredPartners := []string{partnerNames[1]}
 
 				// Debug first how GetProjectTotalByPartner works
-				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before)
+				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before, false)
 				require.NoError(t, err)
 				for key, usage := range usagesByPartner {
 					t.Logf("Partner '%s': storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
@@ -793,7 +793,7 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 				}
 
 				// Now test our new function
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before)
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before, false)
 				require.NoError(t, err)
 
 				// Check specific entries
@@ -821,6 +821,27 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 					isEmptyPartner := strings.HasPrefix(key, "|")
 					require.True(t, isFilteredPartner || isEmptyPartner, "Unexpected key %s in results", key)
 				}
+			})
+
+			t.Run("aggregated", func(t *testing.T) {
+				ctx := testcontext.New(t)
+
+				expected := expectedTotal{}
+				for _, usage := range expectedTotals {
+					expected.storage += usage.storage
+					expected.objects += usage.objects
+					expected.segments += usage.segments
+					expected.egress += usage.egress
+				}
+
+				aggregatedUsages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, partnerNames, since, before, true)
+				require.NoError(t, err)
+				require.Len(t, aggregatedUsages, 1)
+
+				result, ok := aggregatedUsages[""]
+				require.True(t, ok)
+
+				requireTotal(t, expected, since, before, result)
 			})
 		},
 	)

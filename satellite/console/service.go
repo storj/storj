@@ -5119,7 +5119,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				reportUsages = append(reportUsages, item)
 			}
 		} else {
-			usages, err := s.projectAccounting.GetProjectTotalByPartnerAndPlacement(ctx, p.ID, s.accounts.GetPartnerNames(), param.Since, param.Before)
+			usages, err := s.projectAccounting.GetProjectTotalByPartnerAndPlacement(ctx, p.ID, s.accounts.GetPartnerNames(), param.Since, param.Before, false)
 			if err != nil {
 				return nil, err
 			}
@@ -5132,6 +5132,10 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				var productID int32
 				var priceModel payments.ProjectUsagePriceModel
 				if s.config.ProductBasedInvoicing {
+					if key == "" {
+						return nil, Error.New("invalid usage key format")
+					}
+
 					productID, priceModel = s.accounts.ProductIdAndPriceForUsageKey(key)
 					productName, err = s.accounts.GetProductName(productID)
 					if err != nil {

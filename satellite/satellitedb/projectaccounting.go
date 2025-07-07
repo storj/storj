@@ -867,11 +867,11 @@ func (db *ProjectAccounting) GetProjectSegmentLimit(ctx context.Context, project
 // GetProjectTotal retrieves project usage for a given period.
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usages, err := db.GetProjectTotalByPartnerAndPlacement(ctx, projectID, nil, since, before)
+	usages, err := db.GetProjectTotalByPartnerAndPlacement(ctx, projectID, nil, since, before, true)
 	if err != nil {
 		return nil, err
 	}
-	if usage, ok := usages["|0"]; ok {
+	if usage, ok := usages[""]; ok {
 		return &usage, nil
 	}
 	return &accounting.ProjectUsage{Since: since, Before: before}, nil
@@ -879,6 +879,9 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 // GetProjectTotalByPartnerAndPlacement retrieves project usage for a given period categorized by partner name and placement constraint.
 // Unpartnered usage or usage for a partner not present in partnerNames is mapped to "|<placement>".
+//
+// If aggregate is true, the function ignores partners and placements and returns aggregated usage
+// values with an empty string key instead of the partner|placement format.
 //
 // Storage tallies are calculated on intervals of two consecutive entries by multiplying the hours
 // between the periods of the 2 entries by the bytes stored, number of segments, and number of
@@ -897,7 +900,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 //     the storage since the last period of March until April, which will be included in the next
 //     monthly calculation (1st of April to 1st of May) as it happened with the last February entry
 //     for this period.
-func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]accounting.ProjectUsage, err error) {
+func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time, aggregate bool) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 	bucketNames, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
@@ -963,32 +966,36 @@ func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Co
 	usages = make(map[string]accounting.ProjectUsage)
 
 	for _, bucket := range bucketNames {
-		valueAttr, err := db.db.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx,
-			dbx.ValueAttribution_ProjectId(projectID[:]),
-			dbx.ValueAttribution_BucketName([]byte(bucket)))
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
+		key := ""
 
-		var partner string
-		var placement int
+		if !aggregate {
+			valueAttr, err := db.db.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+				dbx.ValueAttribution_ProjectId(projectID[:]),
+				dbx.ValueAttribution_BucketName([]byte(bucket)))
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return nil, err
+			}
 
-		if valueAttr != nil {
-			if valueAttr.UserAgent != nil {
-				partner, err = tryFindPartnerByUserAgent(valueAttr.UserAgent, partnerNames)
-				if err != nil {
-					return nil, err
+			var partner string
+			var placement int
+
+			if valueAttr != nil {
+				if valueAttr.UserAgent != nil {
+					partner, err = tryFindPartnerByUserAgent(valueAttr.UserAgent, partnerNames)
+					if err != nil {
+						return nil, err
+					}
+				}
+
+				// Get placement from value attribution
+				if valueAttr.Placement != nil {
+					placement = *valueAttr.Placement
 				}
 			}
 
-			// Get placement from value attribution
-			if valueAttr.Placement != nil {
-				placement = *valueAttr.Placement
-			}
+			// Create a key that combines partner and placement
+			key = fmt.Sprintf("%s|%d", partner, placement)
 		}
-
-		// Create a key that combines partner and placement
-		key := fmt.Sprintf("%s|%d", partner, placement)
 
 		if _, ok := usages[key]; !ok {
 			usages[key] = accounting.ProjectUsage{Since: since, Before: before}
