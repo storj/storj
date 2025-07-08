@@ -273,6 +273,15 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		return nil, nil, err
 	}
 
+	if endpoint.keyTailsHandler != nil && endpoint.keyTailsHandler.combiner != nil && keyInfo.Version.SupportsAuditability() {
+		endpoint.keyTailsHandler.combiner.Enqueue(ctx, keyTailTask{
+			rootKeyID:  keyInfo.ID,
+			serialized: key.Serialize(),
+			raw:        key.SerializeRaw(),
+			secret:     keyInfo.Secret,
+		})
+	}
+
 	return key, keyInfo, nil
 }
 

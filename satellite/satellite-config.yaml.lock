@@ -1115,6 +1115,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # if true, always update the global tracker with info, even if the uplink is registered
 # metainfo.always-update-global-tracker: false
 
+# API key tails cache capacity
+# metainfo.api-key-tails-config.cache-capacity: 10000
+
+# API key tails cache expiration
+# metainfo.api-key-tails-config.cache-expiration: 5m0s
+
+# whether combiner queue is enabled for processing API key tails
+# metainfo.api-key-tails-config.combiner-queue-enabled: false
+
+# size of API key tails combiner queue
+# metainfo.api-key-tails-config.queue-size: 100
+
 # enable the use of the bucket tagging endpoints
 # metainfo.bucket-tagging-enabled: false
 

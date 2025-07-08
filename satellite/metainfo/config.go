@@ -183,6 +183,14 @@ type UserInfoValidationConfig struct {
 	CacheCapacity   int           `help:"user info cache capacity" default:"10000"`
 }
 
+// APIKeyTailsConfig is a configuration struct for API key tails processing.
+type APIKeyTailsConfig struct {
+	CombinerQueueEnabled bool          `help:"whether combiner queue is enabled for processing API key tails" default:"false"`
+	QueueSize            int           `help:"size of API key tails combiner queue" default:"100"`
+	CacheExpiration      time.Duration `help:"API key tails cache expiration" default:"5m"`
+	CacheCapacity        int           `help:"API key tails cache capacity" default:"10000"`
+}
+
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
 	DatabaseURL          string      `help:"the database connection string to use" default:"postgres://"`
@@ -236,6 +244,8 @@ type Config struct {
 	DeleteObjectsEnabled bool `help:"enable the use of the DeleteObjects endpoint" default:"false"`
 
 	BucketTaggingEnabled bool `help:"enable the use of the bucket tagging endpoints" default:"false"`
+
+	APIKeyTailsConfig APIKeyTailsConfig `help:"Config for API key tails processing"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`

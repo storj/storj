@@ -87,6 +87,7 @@ type Endpoint struct {
 	projectMembers                 console.ProjectMembers
 	users                          console.Users
 	apiKeys                        APIKeys
+	apiKeyTails                    console.APIKeyTails
 	satellite                      signing.Signer
 	limiterCache                   *lrucache.ExpiringLRUOf[*rate.Limiter]
 	singleObjectUploadLimitCache   *bloomrate.BloomRate
@@ -109,6 +110,7 @@ type Endpoint struct {
 	bucketEventing                 eventing.BucketLocationTopicIDMap
 	entitlementsService            *entitlements.Service
 	entitlementsConfig             entitlements.Config
+	keyTailsHandler                *keyTailsHandler
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -118,11 +120,12 @@ type Endpoint struct {
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects, projectMembers console.ProjectMembers, users console.Users,
-	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
-	trustedUplinks *trust.TrustedPeersList, config Config, migrationModeFlag *MigrationModeFlagExtension,
-	placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats,
-	bucketEventing eventing.BucketLocationTopicIDMap, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config) (
+	apiKeys APIKeys, apiKeyTails console.APIKeyTails, projectUsage *accounting.Service, projects console.Projects,
+	projectMembers console.ProjectMembers, users console.Users, satellite signing.Signer, revocations revocation.DB,
+	successTrackers *SuccessTrackers, failureTracker SuccessTracker, trustedUplinks *trust.TrustedPeersList, config Config,
+	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
+	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventing.BucketLocationTopicIDMap,
+	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config) (
 	*Endpoint, error) {
 	trustedOrders := ordersConfig.TrustedOrders
 	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
@@ -156,7 +159,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		selfServePlacements[storj.PlacementConstraint(p.ID)] = p
 	}
 
-	return &Endpoint{
+	e := &Endpoint{
 		log:                 log,
 		buckets:             buckets,
 		metabase:            metabaseDB,
@@ -165,6 +168,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		attributions:        attributions,
 		pointerVerification: pointerverification.NewService(peerIdentities, cache, trustedUplinks, trustedOrders),
 		apiKeys:             apiKeys,
+		apiKeyTails:         apiKeyTails,
 		projectUsage:        projectUsage,
 		projects:            projects,
 		projectMembers:      projectMembers,
@@ -207,7 +211,18 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		bucketEventing:            bucketEventing,
 		entitlementsService:       entitlementsService,
 		entitlementsConfig:        entitlementsConfig,
-	}, nil
+	}
+	if config.APIKeyTailsConfig.CombinerQueueEnabled {
+		e.keyTailsHandler = &keyTailsHandler{
+			cache: lrucache.NewOf[struct{}](lrucache.Options{
+				Expiration: config.APIKeyTailsConfig.CacheExpiration,
+				Capacity:   config.APIKeyTailsConfig.CacheCapacity,
+				Name:       "seen_macaroon_tail_cache",
+			}),
+		}
+	}
+
+	return e, nil
 }
 
 // TestingNewAPIKeysEndpoint returns an endpoint suitable for testing api keys behaviour.
@@ -232,6 +247,10 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 	failureTicker := time.NewTicker(endpoint.config.FailureTrackerTickDuration)
 	defer failureTicker.Stop()
 
+	if endpoint.config.APIKeyTailsConfig.CombinerQueueEnabled && endpoint.keyTailsHandler != nil {
+		endpoint.initTailsCombiner(ctx)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -245,7 +264,13 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 }
 
 // Close closes resources.
-func (endpoint *Endpoint) Close() error { return nil }
+func (endpoint *Endpoint) Close() error {
+	if endpoint.keyTailsHandler != nil && endpoint.keyTailsHandler.combiner != nil {
+		endpoint.keyTailsHandler.combiner.Close()
+	}
+
+	return nil
+}
 
 // TestSetObjectLockEnabled sets whether bucket-level Object Lock functionality should be globally enabled.
 // Used for testing.
