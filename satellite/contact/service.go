@@ -4,7 +4,10 @@
 package contact
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"fmt"
 	"time"
 
@@ -17,10 +20,32 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/version"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/shared/nodetag"
 )
+
+// HashstoreRolloutSettings are a flag config struct for use with rolling out
+// Hashstore settings to nodes connected to this satellite.
+type HashstoreRolloutSettings struct {
+	ActiveMigrate  bool `default:"false"`
+	PassiveMigrate bool `default:"false"`
+	WriteToNew     bool `default:"false"`
+	ReadNewFirst   bool `default:"false"`
+	TTLToNew       bool `default:"false"`
+}
+
+// ToProto converts this to the protocol buffer form.
+func (settings HashstoreRolloutSettings) ToProto() *pb.HashstoreSettings {
+	return &pb.HashstoreSettings{
+		ActiveMigrate:  settings.ActiveMigrate,
+		PassiveMigrate: settings.PassiveMigrate,
+		WriteToNew:     settings.WriteToNew,
+		ReadNewFirst:   settings.ReadNewFirst,
+		TtlToNew:       settings.TTLToNew,
+	}
+}
 
 // Config contains configurable values for contact service.
 type Config struct {
@@ -31,6 +56,13 @@ type Config struct {
 	RateLimitInterval  time.Duration `help:"the amount of time that should happen between contact attempts usually" releaseDefault:"10m0s" devDefault:"1ns"`
 	RateLimitBurst     int           `help:"the maximum burst size for the contact rate limit token bucket" releaseDefault:"2" devDefault:"1000"`
 	RateLimitCacheSize int           `help:"the number of nodes or addresses to keep token buckets for" default:"1000"`
+
+	HashstoreRollout struct {
+		Seed    string  `help:"the hashstore rollout seed" default:""`
+		Cursor  float64 `help:"the hashstore rollout cursor (between 0 and 1)" default:"0"`
+		Current HashstoreRolloutSettings
+		Next    HashstoreRolloutSettings
+	}
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -50,6 +82,7 @@ type Service struct {
 	allowPrivateIP bool
 
 	nodeTagAuthority nodetag.Authority
+	config           Config
 }
 
 // NewService creates a new contact service.
@@ -63,6 +96,7 @@ func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerI
 		idLimiter:        NewRateLimiter(config.RateLimitInterval, config.RateLimitBurst, config.RateLimitCacheSize),
 		allowPrivateIP:   config.AllowPrivateIP,
 		nodeTagAuthority: authority,
+		config:           config,
 	}
 }
 
@@ -175,6 +209,22 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 		}
 	}
 	return nil
+}
+
+func (service *Service) getHashstoreSettings(ctx context.Context, nodeID storj.NodeID) (settings *pb.HashstoreSettings, err error) {
+	rollout := version.PercentageToCursorF(service.config.HashstoreRollout.Cursor)
+
+	hash := hmac.New(sha256.New, []byte(service.config.HashstoreRollout.Seed))
+	_, err = hash.Write(nodeID[:])
+	if err != nil {
+		return nil, err
+	}
+
+	if bytes.Compare(hash.Sum(nil), rollout[:]) <= 0 {
+		return service.config.HashstoreRollout.Next.ToProto(), nil
+	}
+
+	return service.config.HashstoreRollout.Current.ToProto(), nil
 }
 
 func verifyTags(ctx context.Context, authority nodetag.Authority, nodeID storj.NodeID, t *pb.SignedNodeTagSet) (*pb.NodeTagSet, storj.NodeID, error) {

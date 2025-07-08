@@ -655,6 +655,32 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
 
+# contact.hashstore-rollout.current.active-migrate: false
+
+# contact.hashstore-rollout.current.passive-migrate: false
+
+# contact.hashstore-rollout.current.read-new-first: false
+
+# contact.hashstore-rollout.current.ttl-to-new: false
+
+# contact.hashstore-rollout.current.write-to-new: false
+
+# the hashstore rollout cursor (between 0 and 1)
+# contact.hashstore-rollout.cursor: 0
+
+# contact.hashstore-rollout.next.active-migrate: false
+
+# contact.hashstore-rollout.next.passive-migrate: false
+
+# contact.hashstore-rollout.next.read-new-first: false
+
+# contact.hashstore-rollout.next.ttl-to-new: false
+
+# contact.hashstore-rollout.next.write-to-new: false
+
+# the hashstore rollout seed
+# contact.hashstore-rollout.seed: ""
+
 # the maximum burst size for the contact rate limit token bucket
 # contact.rate-limit-burst: 2
 

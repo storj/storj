@@ -145,11 +145,18 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
+	hashstoreSettings, err := endpoint.service.getHashstoreSettings(ctx, nodeID)
+	if err != nil {
+		endpoint.log.Info("failed to get hashstore settings", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+	}
+
 	endpoint.log.Debug("checking in", zap.Stringer("Node ID", nodeID), zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
 	return &pb.CheckInResponse{
 		PingNodeSuccess:     pingNodeSuccess,
 		PingNodeSuccessQuic: pingNodeSuccessQUIC,
 		PingErrorMessage:    pingErrorMessage,
+		HashstoreSettings:   hashstoreSettings,
 	}, nil
 }
 
