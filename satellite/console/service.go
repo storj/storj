@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
@@ -228,6 +229,7 @@ type Service struct {
 	projectAccounting          accounting.ProjectAccounting
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
+	attributions               attribution.DB
 	placements                 nodeselection.PlacementDefinitions
 	placementNameLookup        map[string]storj.PlacementConstraint
 	accounts                   payments.Accounts
@@ -282,7 +284,7 @@ type Payments struct {
 
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting,
-	projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
+	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
@@ -341,6 +343,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		projectAccounting:             projectAccounting,
 		projectUsage:                  projectUsage,
 		buckets:                       buckets,
+		attributions:                  attributions,
 		placements:                    placements,
 		placementNameLookup:           placementNameLookup,
 		accounts:                      accounts,
@@ -5170,14 +5173,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					continue
 				}
 
-				bucket, err := s.buckets.GetBucket(ctx, []byte(r.BucketName), p.ID)
-				if err != nil {
-					return nil, Error.Wrap(err)
-				}
-
-				item.Placement = bucket.Placement
-
-				item, err = s.transformProjectReportItem(item, bucket.UserAgent, param.IncludeCost, payments.ProjectUsagePriceModel{})
+				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, payments.ProjectUsagePriceModel{})
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
@@ -5216,8 +5212,9 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					Storage:         usage.Storage,
 					SegmentCount:    usage.SegmentCount,
 					ObjectCount:     usage.ObjectCount,
+					UserAgent:       p.UserAgent,
 				}
-				item, err = s.transformProjectReportItem(item, p.UserAgent, param.IncludeCost, priceModel)
+				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, priceModel)
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
@@ -5315,13 +5312,24 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 
 // transformProjectReportItem modifies the project report item, converting GB values to TB and
 // hour values to month values. It includes cost if addCost is true.
-func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, userAgent []byte, addCost bool, priceModel payments.ProjectUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
+func (s *Service) transformProjectReportItem(ctx context.Context, item accounting.ProjectReportItem, addCost bool, priceModel payments.ProjectUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
 	if addCost {
 		if priceModel == (payments.ProjectUsagePriceModel{}) {
 			if s.config.ProductBasedInvoicing {
+				var placement storj.PlacementConstraint
+				info, err := s.attributions.Get(ctx, item.ProjectID, []byte(item.BucketName))
+				if err != nil {
+					return accounting.ProjectReportItem{}, Error.Wrap(err)
+				}
+				if info.Placement != nil {
+					placement = *info.Placement
+					item.Placement = placement
+				}
+				item.UserAgent = info.UserAgent
+
 				var productID int32
-				productID, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(userAgent), item.Placement)
+				productID, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(item.UserAgent), item.Placement)
 				if err != nil {
 					return accounting.ProjectReportItem{}, err
 				}
@@ -5331,7 +5339,7 @@ func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, 
 				}
 				item.ProductName = productName
 			} else {
-				priceModel = s.accounts.GetProjectUsagePriceModel(string(userAgent))
+				priceModel = s.accounts.GetProjectUsagePriceModel(string(item.UserAgent))
 			}
 		}
 

@@ -208,6 +208,7 @@ type ProjectReportItem struct {
 	ProductName     string
 
 	Placement storj.PlacementConstraint
+	UserAgent []byte
 
 	BucketName        string
 	Storage           float64
