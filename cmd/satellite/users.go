@@ -278,17 +278,20 @@ func deleteObjects(
 		DB:   satDB.Console(),
 	}
 
-	return rows.ForEachWithProjects(ctx, func(user *console.User, projects []console.Project) error {
+	return rows.ForEachWithProjects(ctx, func(log *zap.Logger, user *console.User, projects []console.Project) error {
 		if user.Status != console.PendingDeletion {
 			log.Info("skipping not pending deletion user's account", zap.String("email", user.Email))
 			return nil
 		}
 
+		logb := log.With(zap.String("email", user.Email))
 		for _, p := range projects {
-			err := deleteAllBucketsAndObjects(ctx, satDB.Buckets(), metabaseDB, p.ID, batchSize, useUncoordinated)
+			err := deleteAllBucketsAndObjects(ctx, logb, satDB.Buckets(), metabaseDB, p.ID, batchSize, useUncoordinated)
 			if err != nil {
 				return errs.New("error deleting objects (%q): %w", user.Email, err)
 			}
+
+			logb.Debug("all project buckets deleted", zap.Stringer("project_id", p.ID))
 		}
 
 		return nil
@@ -335,7 +338,7 @@ func deleteAccounts(
 		DB:   satDB.Console(),
 	}
 
-	return rows.ForEachWithProjects(ctx, func(user *console.User, projects []console.Project) error {
+	return rows.ForEachWithProjects(ctx, func(log *zap.Logger, user *console.User, projects []console.Project) error {
 		if user.Status != console.PendingDeletion {
 			log.Info("skipping not pending deletion user's account", zap.String("email", user.Email))
 			return nil
@@ -476,6 +479,7 @@ func deleteAccounts(
 			)
 		}
 
+		log.Debug("account marked as deleted", zap.String("email", user.Email))
 		return nil
 	})
 }
@@ -499,7 +503,7 @@ func setAccountsStatusPendingDeletion(
 		DB:   satDB.Console(),
 	}
 
-	return rows.ForEach(ctx, func(user *console.User) error {
+	return rows.ForEach(ctx, func(log *zap.Logger, user *console.User) error {
 		err := satDB.Console().Users().SetStatusPendingDeletion(ctx, user.ID, defaultDaysTillEscalation)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
@@ -533,7 +537,7 @@ type CSVEmails struct {
 //
 // It returns an error if there is an error in the CSV, retrieving the user or projects, a user's
 // account doesn't have the UserStatus, or the fn returns an error.
-func (ce *CSVEmails) ForEach(ctx context.Context, fn func(user *console.User) error) error {
+func (ce *CSVEmails) ForEach(ctx context.Context, fn func(log *zap.Logger, user *console.User) error) error {
 	firstRow := true
 	csvReader := csv.NewReader(ce.Data)
 	for {
@@ -565,7 +569,7 @@ func (ce *CSVEmails) ForEach(ctx context.Context, fn func(user *console.User) er
 			return errs.New("error getting user %q: %+v", email, err)
 		}
 
-		if err := fn(user); err != nil {
+		if err := fn(ce.Log, user); err != nil {
 			return err
 		}
 	}
@@ -574,21 +578,22 @@ func (ce *CSVEmails) ForEach(ctx context.Context, fn func(user *console.User) er
 }
 
 // ForEachWithProjects gets the user and its projects for each email in the CSV and call fn.
+// Logger passed to fn include a field with the account's email.
 //
 // It skips the emails which don't match any user's account and logs a debug message.
 //
 // It returns an error if there is an error in the CSV, retrieving the user or projects, a user's
 // account doesn't have the UserStatus, or the fn returns an error.
 func (ce *CSVEmails) ForEachWithProjects(
-	ctx context.Context, fn func(user *console.User, projects []console.Project) error) error {
+	ctx context.Context, fn func(log *zap.Logger, user *console.User, projects []console.Project) error) error {
 
-	return ce.ForEach(ctx, func(user *console.User) error {
+	return ce.ForEach(ctx, func(log *zap.Logger, user *console.User) error {
 		projects, err := ce.DB.Projects().GetOwn(ctx, user.ID)
 		if err != nil {
 			return errs.New("error getting project from user %q: %+v", user.Email, err)
 		}
 
-		if err := fn(user, projects); err != nil {
+		if err := fn(log, user, projects); err != nil {
 			return err
 		}
 
@@ -598,7 +603,7 @@ func (ce *CSVEmails) ForEachWithProjects(
 }
 
 func deleteAllBucketsAndObjects(
-	ctx context.Context, bucketsDB buckets.DB, metabaseDB *metabase.DB, projectID uuid.UUID,
+	ctx context.Context, log *zap.Logger, bucketsDB buckets.DB, metabaseDB *metabase.DB, projectID uuid.UUID,
 	batchSize int, useUncoordinated bool,
 ) error {
 	var (
@@ -641,6 +646,8 @@ func deleteAllBucketsAndObjects(
 			if err := bucketsDB.DeleteBucket(ctx, []byte(b.Name), projectID); err != nil {
 				return errs.New("error deleting bucket %q (project: %q): %+v", b.Name, projectID, err)
 			}
+
+			log.Debug("bucked deleted", zap.Stringer("project_id", projectID), zap.String("bucket_name", b.Name))
 		}
 
 		blopts = blopts.NextPage(bcks)
