@@ -1627,8 +1627,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # age at which a rollup is archived
 # rollup-archive.archive-age: 2160h0m0s
 
-# number of records to delete per delete execution. Used only for crdb which is slow without limit.
-# rollup-archive.batch-size: 500
+# number of records to delete per delete execution.
+# rollup-archive.batch-size: 100
 
 # whether or not the rollup archive is enabled.
 # rollup-archive.enabled: true
