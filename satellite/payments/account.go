@@ -89,7 +89,7 @@ type Accounts interface {
 	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
 
 	// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement.
-	GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ ProjectUsagePriceModel, _ error)
+	GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel, _ error)
 
 	// GetProductName returns the product name for a given product ID.
 	GetProductName(productID int32) (string, error)
@@ -98,7 +98,7 @@ type Accounts interface {
 	GetPartnerNames() []string
 
 	// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key.
-	ProductIdAndPriceForUsageKey(key string) (int32, ProjectUsagePriceModel)
+	ProductIdAndPriceForUsageKey(key string) (int32, ProductUsagePriceModel)
 
 	// GetPartnerPlacements returns the placements for a partner.
 	GetPartnerPlacements(partner string) []storj.PlacementConstraint

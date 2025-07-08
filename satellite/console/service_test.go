@@ -1798,8 +1798,14 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			ID:     11,
 			IdName: "placement11",
 		}
+		skus = paymentsconfig.ProductSKUs{
+			StorageSKU: "StorageSKU",
+			EgressSKU:  "EgressSKU",
+			SegmentSKU: "SegmentSKU",
+		}
 		productPrice = paymentsconfig.ProductUsagePrice{
-			Name: "product1",
+			Name:        "product1",
+			ProductSKUs: skus,
 			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
 				StorageTB: "200000",
 				EgressTB:  "200000",
@@ -1807,7 +1813,8 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			},
 		}
 		productPrice2 = paymentsconfig.ProductUsagePrice{
-			Name: "product2",
+			Name:        "product2",
+			ProductSKUs: skus,
 			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
 				StorageTB: "100000",
 				EgressTB:  "100000",
@@ -1827,6 +1834,7 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.NewDetailedUsageReportEnabled = true
 				config.Payments.StripeCoinPayments.ProductBasedInvoicing = true
+				config.Payments.StripeCoinPayments.SkuEnabled = true
 				config.Placement = nodeselection.ConfigurablePlacementRule{
 					PlacementRules: `0:annotation("location", "defaultPlacement");11:annotation("location", "placement11")`,
 				}
@@ -1869,10 +1877,11 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			bucket2 := "testbuckettwo"
+			bucket2 := "bucket2"
 			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
-				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-				Name:   []byte(bucket2),
+				Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:      []byte(bucket2),
+				Placement: []byte(placementDetail11.IdName),
 			})
 			require.NoError(t, err)
 
@@ -1890,6 +1899,9 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			}
 
 			testCosts := func(item accounting.ProjectReportItem, rollup accounting.BucketUsageRollup) {
+				require.Equal(t, skus.StorageSKU, item.StorageSKU)
+				require.Equal(t, skus.EgressSKU, item.EgressSKU)
+				require.Equal(t, skus.SegmentSKU, item.SegmentSKU)
 				require.True(t, item.Placement == placement11 || item.Placement == storj.DefaultPlacement)
 
 				var priceModel payments.ProjectUsagePriceModel
@@ -1945,7 +1957,6 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			items, err := service.GetUsageReport(usrCtx, params)
 			require.NoError(t, err)
 			require.Len(t, items, 2)
-
 			for _, item := range items {
 				testCosts(item, rollupsForItem(item))
 			}
@@ -1958,9 +1969,7 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 				testCosts(item, rollupsForItem(item))
 			}
 
-			params.ProjectID = uuid.UUID{}
 			params.GroupByProject = true
-
 			items, err = service.GetUsageReport(usrCtx, params)
 			require.NoError(t, err)
 			require.Len(t, items, 1)
@@ -1980,11 +1989,26 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, items, 2)
 			testCosts(items[0], rollupsForItem(items[0]))
+
+			user, err = sat.AddUser(ctx, console.CreateUser{
+				FullName:  "test_name",
+				ShortName: "",
+				Email:     "test@storj.test",
+			}, 1)
+			require.NoError(t, err)
+
+			usrCtx2, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			params.ProjectID = projectID
+			params.GroupByProject = false
+			_, err = service.GetUsageReport(usrCtx2, params)
+			require.True(t, console.ErrUnauthorized.Has(err))
 		},
 	)
 }
 
-func generateTallies(ctx *testcontext.Context, db accounting.ProjectAccounting, projectID uuid.UUID, bucket1 string, bucket2 string, now time.Time) (err error) {
+func generateTallies(ctx *testcontext.Context, db accounting.ProjectAccounting, projectID uuid.UUID, bucket1, bucket2 string, now time.Time) (err error) {
 	bucketLoc1 := metabase.BucketLocation{
 		ProjectID:  projectID,
 		BucketName: metabase.BucketName(bucket1),
@@ -2023,7 +2047,7 @@ func generateTallies(ctx *testcontext.Context, db accounting.ProjectAccounting, 
 	return nil
 }
 
-func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID, bucket1 string, bucket2 string, now time.Time) (err error) {
+func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID, bucket1, bucket2 string, now time.Time) (err error) {
 	actions := []pb.PieceAction{
 		pb.PieceAction_GET,
 		pb.PieceAction_GET_AUDIT,

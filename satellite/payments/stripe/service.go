@@ -901,7 +901,7 @@ func (service *Service) getAndProcessUsages(
 				StorageSKU:             storageSKU,
 				EgressSKU:              egressSKU,
 				SegmentSKU:             segmentSKU,
-				ProjectUsagePriceModel: priceModel,
+				ProjectUsagePriceModel: priceModel.ProjectUsagePriceModel,
 			}
 		}
 	}
@@ -909,7 +909,7 @@ func (service *Service) getAndProcessUsages(
 	return nil
 }
 
-func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payments.ProjectUsagePriceModel) {
+func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payments.ProductUsagePriceModel) {
 	partner := ""
 	placement := int(storj.DefaultPlacement)
 
@@ -931,7 +931,9 @@ func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payment
 		service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
 		// Use partner-only price model as a fallback.
 		// This should be removed once the tests are updated
-		priceModel = service.Accounts().GetProjectUsagePriceModel(partner)
+		priceModel = payments.ProductUsagePriceModel{
+			ProjectUsagePriceModel: service.Accounts().GetProjectUsagePriceModel(partner),
+		}
 	}
 	return productID, priceModel
 }

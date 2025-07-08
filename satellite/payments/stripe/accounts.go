@@ -686,15 +686,15 @@ func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.Pro
 }
 
 // GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement.
-func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
+func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ payments.ProductUsagePriceModel, _ error) {
 	productID, ok := accounts.service.pricingConfig.PartnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
 	if !ok {
 		productID, _ = accounts.service.pricingConfig.PlacementProductMap.GetProductByPlacement(int(placement))
 	}
 	if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
-		return productID, price.ProjectUsagePriceModel, nil
+		return productID, price, nil
 	}
-	return 0, payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
+	return 0, payments.ProductUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
 }
 
 // GetProductName returns the product name for a given product ID.
@@ -711,7 +711,7 @@ func (accounts *accounts) GetPartnerNames() []string {
 }
 
 // ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key.
-func (accounts *accounts) ProductIdAndPriceForUsageKey(key string) (int32, payments.ProjectUsagePriceModel) {
+func (accounts *accounts) ProductIdAndPriceForUsageKey(key string) (int32, payments.ProductUsagePriceModel) {
 	return accounts.service.productIdAndPriceForUsageKey(key)
 }
 
@@ -812,8 +812,8 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 			}
 
 			_, priceModel := accounts.service.productIdAndPriceForUsageKey(key)
-			usage.Egress = applyEgressDiscount(usage, priceModel)
-			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)
+			usage.Egress = applyEgressDiscount(usage, priceModel.ProjectUsagePriceModel)
+			price := accounts.service.calculateProjectUsagePrice(usage, priceModel.ProjectUsagePriceModel)
 
 			total = total.Add(price.Total())
 		}

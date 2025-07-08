@@ -5179,7 +5179,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					continue
 				}
 
-				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, payments.ProjectUsagePriceModel{})
+				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, payments.ProductUsagePriceModel{})
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
@@ -5195,25 +5195,14 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				usage.Storage = memory.Size(usage.Storage).GB()
 				usage.Egress = int64(memory.Size(usage.Egress).GB())
 
-				var productName string
-				var productID int32
-				var priceModel payments.ProjectUsagePriceModel
+				var priceModel payments.ProductUsagePriceModel
 				if s.config.ProductBasedInvoicing {
-					if key == "" {
-						return nil, Error.New("invalid usage key format")
-					}
-
-					productID, priceModel = s.accounts.ProductIdAndPriceForUsageKey(key)
-					productName, err = s.accounts.GetProductName(productID)
-					if err != nil {
-						return nil, Error.Wrap(err)
-					}
+					_, priceModel = s.accounts.ProductIdAndPriceForUsageKey(key)
 				}
 				item := accounting.ProjectReportItem{
 					ProjectName:     p.Name,
 					ProjectPublicID: p.PublicID,
 					ProjectID:       p.ID,
-					ProductName:     productName,
 					Egress:          float64(usage.Egress),
 					Storage:         usage.Storage,
 					SegmentCount:    usage.SegmentCount,
@@ -5254,10 +5243,16 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	if !param.GroupByProject {
 		row = append(row, reportItem.BucketName)
 	}
+	if s.config.ProductBasedInvoicing && s.config.SkuEnabled {
+		row = append(row, reportItem.StorageSKU)
+	}
 	row = append(row, fmt.Sprintf("%f", reportItem.Storage))
 	row = append(row, fmt.Sprintf("%f", reportItem.StorageTbMonth))
 	if param.IncludeCost {
 		row = append(row, fmt.Sprintf("%f", reportItem.StorageCost))
+	}
+	if s.config.ProductBasedInvoicing && s.config.SkuEnabled {
+		row = append(row, reportItem.EgressSKU)
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.Egress))
 	row = append(row, fmt.Sprintf("%f", reportItem.EgressTb))
@@ -5265,6 +5260,9 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 		row = append(row, fmt.Sprintf("%f", reportItem.EgressCost))
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.ObjectCount))
+	if s.config.ProductBasedInvoicing && s.config.SkuEnabled {
+		row = append(row, reportItem.SegmentSKU)
+	}
 	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCount))
 	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCountMonth))
 	if param.IncludeCost {
@@ -5287,10 +5285,21 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 		}
 	}
 	headers = []string{
-		"ProjectName", "ProjectID", "BucketName", "Storage GB-hour", "Storage TB-months",
-		"Storage Price (Estimated)", "Egress GB", "Egress TB", "Egress Price (Estimated)",
-		"ObjectCount objects-hour", "SegmentCount segments-hour", "Segment Months",
+		"ProjectName", "ProjectID", "BucketName", "Storage SKU", "Storage GB-hour", "Storage TB-months",
+		"Storage Price (Estimated)", "Egress SKU", "Egress GB", "Egress TB", "Egress Price (Estimated)",
+		"ObjectCount objects-hour", "Segment SKU", "SegmentCount segments-hour", "Segment Months",
 		"Segment Price (Estimated)", "Estimated Total Amount", "Since", "Before",
+	}
+
+	if !s.config.ProductBasedInvoicing || !s.config.SkuEnabled {
+		updateHeaders := make([]string, 0, len(headers)-4)
+		for _, header := range headers {
+			if strings.Contains(header, "SKU") {
+				continue
+			}
+			updateHeaders = append(updateHeaders, header)
+		}
+		headers = updateHeaders
 	}
 	if param.GroupByProject {
 		headerSlice := headers[:2]
@@ -5318,37 +5327,39 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 
 // transformProjectReportItem modifies the project report item, converting GB values to TB and
 // hour values to month values. It includes cost if addCost is true.
-func (s *Service) transformProjectReportItem(ctx context.Context, item accounting.ProjectReportItem, addCost bool, priceModel payments.ProjectUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
+func (s *Service) transformProjectReportItem(ctx context.Context, item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
-	if addCost {
-		if priceModel == (payments.ProjectUsagePriceModel{}) {
-			if s.config.ProductBasedInvoicing {
-				var placement storj.PlacementConstraint
-				info, err := s.attributions.Get(ctx, item.ProjectID, []byte(item.BucketName))
-				if err != nil {
-					return accounting.ProjectReportItem{}, Error.Wrap(err)
-				}
-				if info.Placement != nil {
-					placement = *info.Placement
-					item.Placement = placement
-				}
-				item.UserAgent = info.UserAgent
+	if priceModel == (payments.ProductUsagePriceModel{}) {
+		if s.config.ProductBasedInvoicing {
+			var placement storj.PlacementConstraint
+			info, err := s.attributions.Get(ctx, item.ProjectID, []byte(item.BucketName))
+			if err != nil {
+				return accounting.ProjectReportItem{}, Error.Wrap(err)
+			}
+			if info.Placement != nil {
+				placement = *info.Placement
+				item.Placement = placement
+			}
+			item.UserAgent = info.UserAgent
 
-				var productID int32
-				productID, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(item.UserAgent), item.Placement)
-				if err != nil {
-					return accounting.ProjectReportItem{}, err
-				}
-				productName, err := s.accounts.GetProductName(productID)
-				if err != nil {
-					return accounting.ProjectReportItem{}, err
-				}
-				item.ProductName = productName
-			} else {
-				priceModel = s.accounts.GetProjectUsagePriceModel(string(item.UserAgent))
+			_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(info.UserAgent), placement)
+			if err != nil {
+				return accounting.ProjectReportItem{}, err
+			}
+		} else {
+			priceModel = payments.ProductUsagePriceModel{
+				ProjectUsagePriceModel: s.accounts.GetProjectUsagePriceModel(string(item.UserAgent)),
 			}
 		}
+	}
+	item.ProductName = priceModel.ProductName
+	if s.config.SkuEnabled {
+		item.StorageSKU = priceModel.StorageSKU
+		item.SegmentSKU = priceModel.SegmentSKU
+		item.EgressSKU = priceModel.EgressSKU
+	}
 
+	if addCost {
 		item.Egress -= math.Round(item.Storage / float64(hoursPerMonth) * priceModel.EgressDiscountRatio)
 		if item.Egress < 0 {
 			item.Egress = 0
@@ -6287,7 +6298,12 @@ func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, proje
 	if err != nil {
 		return 0, payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
 	}
-	return payment.service.accounts.GetPartnerPlacementPriceModel(string(isMember.project.UserAgent), placement)
+	productID, model, err := payment.service.accounts.GetPartnerPlacementPriceModel(string(isMember.project.UserAgent), placement)
+	if err != nil {
+		return 0, payments.ProjectUsagePriceModel{}, Error.Wrap(err)
+	}
+
+	return productID, model.ProjectUsagePriceModel, nil
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {

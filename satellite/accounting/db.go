@@ -211,10 +211,13 @@ type ProjectReportItem struct {
 	UserAgent []byte
 
 	BucketName        string
+	StorageSKU        string
 	Storage           float64
 	StorageTbMonth    float64
+	EgressSKU         string
 	Egress            float64
 	EgressTb          float64
+	SegmentSKU        string
 	SegmentCount      float64
 	SegmentCountMonth float64
 	ObjectCount       float64
