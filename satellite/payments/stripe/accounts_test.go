@@ -106,6 +106,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,
+			db.Attribution(),
 			paymentsService.Accounts(),
 			// TODO: do we need a payment deposit wallet here?
 			nil,
