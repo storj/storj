@@ -1497,27 +1497,46 @@ func TestService(t *testing.T) {
 				usrCtx, err := sat.UserContext(ctx, usr.ID)
 				require.NoError(t, err)
 
+				createApiKey := func(project *console.Project) *macaroon.APIKey {
+					secret, err := macaroon.NewSecret()
+					require.NoError(t, err)
+
+					key, err := macaroon.NewAPIKey(secret)
+					require.NoError(t, err)
+
+					keyInfo := console.APIKeyInfo{
+						Name:      project.Name,
+						ProjectID: project.ID,
+						Secret:    secret,
+					}
+					_, err = sat.DB.Console().APIKeys().Create(ctx, key.Head(), keyInfo)
+					require.NoError(t, err)
+
+					return key
+				}
+
 				pr1, err := sat.AddProject(ctx, usr.ID, "report test 1")
 				require.NoError(t, err)
-				require.NotNil(t, pr1)
+				createdAPIKey := createApiKey(pr1)
+
 				pr2, err := sat.AddProject(ctx, usr.ID, "report test 2")
 				require.NoError(t, err)
-				require.NotNil(t, pr2)
+				createdAPIKey2 := createApiKey(pr2)
 
-				bucket1 := buckets.Bucket{
-					ID:        testrand.UUID(),
-					Name:      "testBucket1",
-					ProjectID: pr1.ID,
-				}
-				bucket2 := buckets.Bucket{
-					ID:        testrand.UUID(),
-					Name:      "testBucket2",
-					ProjectID: pr2.ID,
-				}
+				endpoint := sat.API.Metainfo.Endpoint
 
-				_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket1)
+				bucket1 := "bucket1"
+				_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+					Header: &pb.RequestHeader{ApiKey: createdAPIKey.SerializeRaw()},
+					Name:   []byte(bucket1),
+				})
 				require.NoError(t, err)
-				_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
+
+				bucket2 := "testbuckettwo"
+				_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+					Header: &pb.RequestHeader{ApiKey: createdAPIKey2.SerializeRaw()},
+					Name:   []byte(bucket2),
+				})
 				require.NoError(t, err)
 
 				now := time.Now()
@@ -1535,16 +1554,16 @@ func TestService(t *testing.T) {
 				require.Nil(t, items)
 
 				amount := memory.Size(1000)
-				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr1.ID, []byte(bucket1.Name), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr1.ID, []byte(bucket1), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
 				require.NoError(t, err)
-				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr2.ID, []byte(bucket2.Name), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, pr2.ID, []byte(bucket2), pb.PieceAction_GET, amount.Int64(), 0, inHalfAnHour)
 				require.NoError(t, err)
 
 				items, err = service.GetUsageReport(usrCtx, params)
 				require.NoError(t, err)
 				require.Len(t, items, 1)
 				require.Equal(t, pr1.PublicID, items[0].ProjectPublicID)
-				require.Equal(t, bucket1.Name, items[0].BucketName)
+				require.Equal(t, bucket1, items[0].BucketName)
 				require.Equal(t, amount.GB(), items[0].Egress)
 
 				params.ProjectID = pr2.PublicID
@@ -1552,7 +1571,7 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Len(t, items, 1)
 				require.Equal(t, pr2.PublicID, items[0].ProjectPublicID)
-				require.Equal(t, bucket2.Name, items[0].BucketName)
+				require.Equal(t, bucket2, items[0].BucketName)
 				require.Equal(t, amount.GB(), items[0].Egress)
 
 				params.ProjectID = uuid.UUID{}
@@ -1654,6 +1673,8 @@ func TestGetUsageReport(t *testing.T) {
 				now       = time.Now().UTC()
 				since     = now.Add(-24 * time.Hour)
 				before    = now.Add(time.Hour)
+				endpoint  = sat.API.Metainfo.Endpoint
+				apiKey    = upl.APIKey[sat.ID()]
 			)
 
 			user, err := sat.DB.Console().Users().Get(ctx, upl.Projects[0].Owner.ID)
@@ -1665,19 +1686,18 @@ func TestGetUsageReport(t *testing.T) {
 			project, err := sat.DB.Console().Projects().Get(ctx, projectID)
 			require.NoError(t, err)
 
-			bucket1 := buckets.Bucket{
-				ID:        testrand.UUID(),
-				Name:      "testbucket",
-				ProjectID: projectID,
-			}
-			_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket1)
+			bucket1 := "bucket1"
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucket1),
+			})
 			require.NoError(t, err)
-			bucket2 := buckets.Bucket{
-				ID:        testrand.UUID(),
-				Name:      "testbuckettwo",
-				ProjectID: projectID,
-			}
-			_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
+
+			bucket2 := "testbuckettwo"
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucket2),
+			})
 			require.NoError(t, err)
 
 			err = generateRollups(ctx, sat.DB.Orders(), projectID, bucket1, bucket2, now)
@@ -1698,7 +1718,7 @@ func TestGetUsageReport(t *testing.T) {
 
 			var item1, item2 accounting.ProjectReportItem
 			for _, item := range items {
-				if item.BucketName == bucket1.Name {
+				if item.BucketName == bucket1 {
 					item1 = item
 					continue
 				}
@@ -1706,7 +1726,7 @@ func TestGetUsageReport(t *testing.T) {
 			}
 			require.NotZero(t, item1)
 			require.NotZero(t, item2)
-			require.Equal(t, bucket2.Name, item2.BucketName)
+			require.Equal(t, bucket2, item2.BucketName)
 
 			checkUsages := func(rollup *accounting.BucketUsageRollup, item accounting.ProjectReportItem) {
 				require.Equal(t, rollup.GetEgress, item.Egress)
@@ -1723,11 +1743,11 @@ func TestGetUsageReport(t *testing.T) {
 				require.InDelta(t, storageTbMonth, item.StorageTbMonth, 2e-06)
 			}
 
-			usage1, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1.Name, since, before)
+			usage1, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket1, since, before)
 			require.NoError(t, err)
 			checkUsages(usage1, item1)
 
-			usage2, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket2.Name, since, before)
+			usage2, err := sat.DB.ProjectAccounting().GetSingleBucketUsageRollup(ctx, projectID, bucket2, since, before)
 			require.NoError(t, err)
 			checkUsages(usage2, item2)
 
@@ -1832,6 +1852,8 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 				upl       = planet.Uplinks[0]
 				service   = sat.API.Console.Service
 				projectID = upl.Projects[0].ID
+				endpoint  = sat.API.Metainfo.Endpoint
+				apiKey    = upl.APIKey[sat.ID()]
 			)
 
 			user, err := sat.DB.Console().Users().Get(ctx, upl.Projects[0].Owner.ID)
@@ -1840,22 +1862,18 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			usrCtx, err := sat.UserContext(ctx, user.ID)
 			require.NoError(t, err)
 
-			bucket1 := buckets.Bucket{
-				ID:        testrand.UUID(),
-				Name:      "testbucket",
-				ProjectID: projectID,
-				Placement: storj.DefaultPlacement,
-			}
-			bucket1, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket1)
+			bucket1 := "bucket1"
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucket1),
+			})
 			require.NoError(t, err)
 
-			bucket2 := buckets.Bucket{
-				ID:        testrand.UUID(),
-				Name:      "testbuckettwo",
-				ProjectID: projectID,
-				Placement: placement11,
-			}
-			_, err = sat.API.Buckets.Service.CreateBucket(usrCtx, bucket2)
+			bucket2 := "testbuckettwo"
+			_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucket2),
+			})
 			require.NoError(t, err)
 
 			err = generateRollups(ctx, sat.DB.Orders(), projectID, bucket1, bucket2, now)
@@ -1871,7 +1889,7 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 				return hours.Div(hoursPerMonth).Round(0)
 			}
 
-			testCosts := func(item accounting.ProjectReportItem) {
+			testCosts := func(item accounting.ProjectReportItem, rollup accounting.BucketUsageRollup) {
 				require.True(t, item.Placement == placement11 || item.Placement == storj.DefaultPlacement)
 
 				var priceModel payments.ProjectUsagePriceModel
@@ -1883,9 +1901,9 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 					require.Equal(t, productPrice2.Name, item.ProductName)
 				}
 
-				expectedStorageCost, _ := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(item.Storage))).Round(0).Float64()
-				expectedEgressCost, _ := priceModel.EgressMBCents.Mul(gbToMb(item.Egress).Round(0)).Round(0).Float64()
-				expectedSegmentCost, _ := priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(item.SegmentCount))).Round(0).Float64()
+				expectedStorageCost, _ := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(rollup.TotalStoredData))).Round(0).Float64()
+				expectedEgressCost, _ := priceModel.EgressMBCents.Mul(gbToMb(rollup.GetEgress).Round(0)).Round(0).Float64()
+				expectedSegmentCost, _ := priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(rollup.TotalSegments))).Round(0).Float64()
 				expectedTotalCost := expectedStorageCost + expectedEgressCost + expectedSegmentCost
 
 				require.Equal(t, expectedStorageCost, item.StorageCost)
@@ -1901,12 +1919,35 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 				IncludeCost: true,
 			}
 
+			rollups, err := sat.DB.ProjectAccounting().GetBucketUsageRollups(ctx, projectID, params.Since, params.Before)
+			require.NoError(t, err)
+			require.Len(t, rollups, 2)
+
+			rollupsForItem := func(item accounting.ProjectReportItem) accounting.BucketUsageRollup {
+				if item.BucketName == "" {
+					// sum rollups for all buckets
+					sum := rollups[0]
+					sum.GetEgress += rollups[1].GetEgress
+					sum.TotalSegments += rollups[1].TotalSegments
+					sum.ObjectCount += rollups[1].ObjectCount
+					sum.TotalStoredData += rollups[1].TotalStoredData
+
+					return sum
+				}
+				for _, rollup := range rollups {
+					if rollup.BucketName == item.BucketName {
+						return rollup
+					}
+				}
+				return rollups[0] // should not happen, but just in case
+			}
+
 			items, err := service.GetUsageReport(usrCtx, params)
 			require.NoError(t, err)
 			require.Len(t, items, 2)
 
 			for _, item := range items {
-				testCosts(item)
+				testCosts(item, rollupsForItem(item))
 			}
 
 			params.ProjectID = uuid.UUID{}
@@ -1914,7 +1955,7 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, items, 2)
 			for _, item := range items {
-				testCosts(item)
+				testCosts(item, rollupsForItem(item))
 			}
 
 			params.ProjectID = uuid.UUID{}
@@ -1923,19 +1964,34 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 			items, err = service.GetUsageReport(usrCtx, params)
 			require.NoError(t, err)
 			require.Len(t, items, 1)
-			testCosts(items[0])
+			testCosts(items[0], rollupsForItem(items[0]))
+
+			// test that deleted bucket with usage is still included in the report
+			err = sat.API.Buckets.Service.DeleteBucket(usrCtx, []byte(bucket1), projectID)
+			require.NoError(t, err)
+
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 1)
+			testCosts(items[0], rollupsForItem(items[0]))
+
+			params.GroupByProject = false
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 2)
+			testCosts(items[0], rollupsForItem(items[0]))
 		},
 	)
 }
 
-func generateTallies(ctx *testcontext.Context, db accounting.ProjectAccounting, projectID uuid.UUID, bucket1 buckets.Bucket, bucket2 buckets.Bucket, now time.Time) (err error) {
+func generateTallies(ctx *testcontext.Context, db accounting.ProjectAccounting, projectID uuid.UUID, bucket1 string, bucket2 string, now time.Time) (err error) {
 	bucketLoc1 := metabase.BucketLocation{
 		ProjectID:  projectID,
-		BucketName: metabase.BucketName(bucket1.Name),
+		BucketName: metabase.BucketName(bucket1),
 	}
 	bucketLoc2 := metabase.BucketLocation{
 		ProjectID:  projectID,
-		BucketName: metabase.BucketName(bucket2.Name),
+		BucketName: metabase.BucketName(bucket2),
 	}
 
 	bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
@@ -1967,7 +2023,7 @@ func generateTallies(ctx *testcontext.Context, db accounting.ProjectAccounting, 
 	return nil
 }
 
-func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID, bucket1 buckets.Bucket, bucket2 buckets.Bucket, now time.Time) (err error) {
+func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID, bucket1 string, bucket2 string, now time.Time) (err error) {
 	actions := []pb.PieceAction{
 		pb.PieceAction_GET,
 		pb.PieceAction_GET_AUDIT,
@@ -1977,7 +2033,7 @@ func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID
 	for _, action := range actions {
 		rollups = append(rollups, orders.BucketBandwidthRollup{
 			ProjectID:     projectID,
-			BucketName:    bucket1.Name,
+			BucketName:    bucket1,
 			Action:        action,
 			IntervalStart: now.Add(-time.Hour * 2),
 			Inline:        (30 * memory.GB).Int64(),
@@ -1987,7 +2043,7 @@ func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID
 
 		rollups = append(rollups, orders.BucketBandwidthRollup{
 			ProjectID:     projectID,
-			BucketName:    bucket1.Name,
+			BucketName:    bucket1,
 			Action:        action,
 			IntervalStart: now,
 			Inline:        (30 * memory.GB).Int64(),
@@ -1997,7 +2053,7 @@ func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID
 
 		rollups = append(rollups, orders.BucketBandwidthRollup{
 			ProjectID:     projectID,
-			BucketName:    bucket2.Name,
+			BucketName:    bucket2,
 			Action:        action,
 			IntervalStart: now.Add(-time.Hour * 2),
 			Inline:        (20 * memory.GB).Int64(),
@@ -2007,7 +2063,7 @@ func generateRollups(ctx *testcontext.Context, db orders.DB, projectID uuid.UUID
 
 		rollups = append(rollups, orders.BucketBandwidthRollup{
 			ProjectID:     projectID,
-			BucketName:    bucket2.Name,
+			BucketName:    bucket2,
 			Action:        action,
 			IntervalStart: now,
 			Inline:        (20 * memory.GB).Int64(),
