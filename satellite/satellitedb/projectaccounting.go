@@ -1573,28 +1573,56 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 		`, before).Scan(&archivedCount)
 		return archivedCount, Error.Wrap(err)
 	case dbutil.Spanner:
-		row := db.db.DB.QueryRowContext(ctx, `SELECT count(*) FROM bucket_bandwidth_rollups
-                                WHERE interval_start <= ?`, before)
-		err = row.Scan(&archivedCount)
-		if err != nil {
-			return archivedCount, Error.Wrap(err)
+		// use INSERT OR UPDATE in case data was archived partially before
+		query := `
+			INSERT OR UPDATE INTO bucket_bandwidth_rollup_archives(
+				bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled
+			)
+			SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled
+				FROM bucket_bandwidth_rollups WHERE interval_start <= ? LIMIT ?
+			THEN RETURN project_id, bucket_name, interval_start, action`
+
+		type rollupToDelete struct {
+			ProjectID     []byte
+			BucketName    []byte
+			IntervalStart time.Time
+			Action        int64
 		}
 
-		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-			_, err = tx.Tx.ExecContext(ctx, `
-				 INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-						SELECT  bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM bucket_bandwidth_rollups WHERE interval_start <= ?`, before)
+		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
+			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				return withRows(db.db.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
+					var toDelete []rollupToDelete
+					for rows.Next() {
+						var rollup rollupToDelete
+						if err := rows.Scan(&rollup.ProjectID, &rollup.BucketName, &rollup.IntervalStart, &rollup.Action); err != nil {
+							err = errs.Combine(err, rows.Err(), rows.Close())
+							return err
+						}
+						toDelete = append(toDelete, rollup)
+					}
 
+					res, err := db.db.ExecContext(ctx, `
+						DELETE FROM bucket_bandwidth_rollups
+							WHERE STRUCT<ProjectID BYTES, BucketName BYTES, IntervalStart TIMESTAMP, Action INT64>(project_id, bucket_name, interval_start, action) IN UNNEST(?)`,
+						toDelete)
+					if err != nil {
+						return err
+					}
+
+					rowCount, err = res.RowsAffected()
+					if err != nil {
+						return err
+					}
+					archivedCount += int(rowCount)
+
+					return nil
+				})
+			})
 			if err != nil {
-				return err
+				return 0, Error.Wrap(err)
 			}
-
-			_, err = tx.Tx.ExecContext(ctx, `
-				DELETE FROM bucket_bandwidth_rollups WHERE interval_start <= ?
-			`, before)
-
-			return err
-		})
+		}
 
 		return archivedCount, Error.Wrap(err)
 	default:
