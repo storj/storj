@@ -540,7 +540,8 @@ func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i <= rateLimit; i++ {
 			group.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		groupErrs := group.Wait()
@@ -576,7 +577,8 @@ func TestBurstLimit_ProjectBurstLimitZero(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i <= rateLimit; i++ {
 			group.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		groupErrs := group.Wait()

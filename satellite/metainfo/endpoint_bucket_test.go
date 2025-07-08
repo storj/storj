@@ -71,7 +71,7 @@ func TestMaxOutBuckets(t *testing.T) {
 			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], name)
 			require.NoError(t, err)
 		}
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], fmt.Sprintf("test%d", limit+1))
+		err := planet.Uplinks[0].FullCreateBucket(ctx, planet.Satellites[0], fmt.Sprintf("test%d", limit+1))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("number of allocated buckets (%d) exceeded", limit))
 	})
@@ -201,6 +201,7 @@ func TestDeleteBucket(t *testing.T) {
 		}
 
 		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
+			require.NoError(t, uplnk.FullCreateBucket(ctx, sat, bucketName.String()))
 			for name, bytes := range expectedObjects {
 				require.NoError(t, uplnk.Upload(ctx, sat, bucketName.String(), name, bytes))
 			}

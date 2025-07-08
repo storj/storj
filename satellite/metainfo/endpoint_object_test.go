@@ -1394,12 +1394,13 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		t.Run("get object IP", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+
 			access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 			uplnk := planet.Uplinks[0]
 			uplinkCtx := testuplink.WithMaxSegmentSize(ctx, 5*memory.KB)
 			sat := planet.Satellites[0]
 
-			require.NoError(t, uplnk.CreateBucket(uplinkCtx, sat, bucketName))
 			require.NoError(t, uplnk.Upload(uplinkCtx, sat, bucketName, "jones", testrand.Bytes(20*memory.KB)))
 
 			jonesSegments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
@@ -1856,7 +1857,6 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 		t.Run("DownloadObject no lite request", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("bucket"))
-
 			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
 
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "lite-object", testrand.Bytes(11*memory.KiB))
@@ -1895,7 +1895,6 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 		t.Run("DownloadObject lite request", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("bucket"))
-
 			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
 
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "lite-object", testrand.Bytes(11*memory.KiB))

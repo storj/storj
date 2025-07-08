@@ -22,6 +22,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
@@ -285,8 +286,8 @@ func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellit
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	_, err = project.EnsureBucket(ctx, bucketName)
-	if err != nil {
+	err = client.CreateBucket(ctx, satellite, bucketName)
+	if err != nil && !buckets.ErrBucketAlreadyExists.Has(err) {
 		return nil, errs.Wrap(err)
 	}
 
@@ -404,8 +405,34 @@ func (client *Uplink) CopyObject(ctx context.Context, satellite *Satellite, oldB
 	return err
 }
 
-// CreateBucket creates a new bucket.
+// CreateBucket creates a new bucket. It's doing it using directly DB API
+// so it's faster than using uplink API.
 func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var projectID uuid.UUID
+	for _, project := range client.Projects {
+		if project.Satellite == satellite {
+			projectID = project.ID
+			break
+		}
+	}
+
+	if projectID.IsZero() {
+		return errs.New("project not found for satellite %s", satellite.ID())
+	}
+
+	_, err = satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+		Name:      bucketName,
+		ProjectID: projectID,
+	})
+	return errs.Wrap(err)
+}
+
+// FullCreateBucket creates a new bucket. It doing it using uplink API.
+// TODO we may consider later to rename it to CreateBucket and current
+// CreateBucket rename to CreateBucketFast or something like that.
+func (client *Uplink) FullCreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)
@@ -414,7 +441,7 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bu
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	_, err = project.CreateBucket(ctx, bucketName)
+	_, err = project.EnsureBucket(ctx, bucketName)
 	if err != nil {
 		return errs.Wrap(err)
 	}

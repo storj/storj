@@ -515,7 +515,7 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			now := time.Now()
 			before := now.Add(time.Hour * 10)
 
-			err := planet.Uplinks[0].CreateBucket(ctx, sat, bucketName)
+			err := planet.Uplinks[0].FullCreateBucket(ctx, sat, bucketName)
 			require.NoError(t, err)
 
 			client, err := planet.Uplinks[0].Projects[0].DialMetainfo(ctx)
@@ -616,7 +616,7 @@ func TestGetSingleBucketTotal(t *testing.T) {
 
 			bucketName1 := testrand.BucketName()
 
-			err = planet.Uplinks[0].CreateBucket(ctx, sat, bucketName1)
+			err = planet.Uplinks[0].FullCreateBucket(ctx, sat, bucketName1)
 			require.NoError(t, err)
 
 			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{

@@ -481,7 +481,8 @@ func TestRateLimit(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i <= rateLimit; i++ {
 			group.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		groupErrs := group.Wait()
@@ -601,7 +602,8 @@ func TestRateLimit_ProjectRateLimitOverride(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i <= rateLimit; i++ {
 			group.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		groupErrs := group.Wait()
@@ -641,7 +643,8 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 
 		for i := 0; i <= rateLimit; i++ {
 			group1.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		group1Errs := group1.Wait()
@@ -659,7 +662,8 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 
 		for i := 0; i <= rateLimit; i++ {
 			group2.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		group2Errs := group2.Wait()
@@ -689,7 +693,8 @@ func TestRateLimit_ExceededBurstLimit(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i <= burstLimit; i++ {
 			group.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		groupErrs := group.Wait()
@@ -708,7 +713,8 @@ func TestRateLimit_ExceededBurstLimit(t *testing.T) {
 		var group2 errs2.Group
 		for i := 0; i <= burstLimit; i++ {
 			group2.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				_, err := ul.ListBuckets(ctx, satellite)
+				return err
 			})
 		}
 		group2Errs := group2.Wait()

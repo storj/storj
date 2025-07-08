@@ -564,7 +564,7 @@ func TestUsageRollups(t *testing.T) {
 		for i := 0; i < numBuckets; i++ {
 			bucketName := fmt.Sprintf("bucket-%d", i)
 
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err := planet.Uplinks[0].FullCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			// project 1
@@ -581,7 +581,7 @@ func TestUsageRollups(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = planet.Uplinks[1].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err = planet.Uplinks[1].FullCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			// project 2
@@ -598,7 +598,7 @@ func TestUsageRollups(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = planet.Uplinks[2].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err = planet.Uplinks[2].FullCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			// project 3

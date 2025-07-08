@@ -462,14 +462,14 @@ func TestAttributionDeletedBucketRecreated(t *testing.T) {
 
 		require.NoError(t, satellite.DB.Console().Projects().UpdateUserAgent(ctx, proj, ua1))
 
-		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
+		require.NoError(t, upl.FullCreateBucket(ctx, satellite, bucket))
 		b, err := satellite.DB.Buckets().GetBucket(ctx, []byte(bucket), proj)
 		require.NoError(t, err)
 		require.Equal(t, ua1, b.UserAgent)
 
 		// test recreate with same user agent
 		require.NoError(t, upl.DeleteBucket(ctx, satellite, bucket))
-		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
+		require.NoError(t, upl.FullCreateBucket(ctx, satellite, bucket))
 		b, err = satellite.DB.Buckets().GetBucket(ctx, []byte(bucket), proj)
 		require.NoError(t, err)
 		require.Equal(t, ua1, b.UserAgent)
@@ -478,7 +478,7 @@ func TestAttributionDeletedBucketRecreated(t *testing.T) {
 		// should still have original user agent
 		require.NoError(t, upl.DeleteBucket(ctx, satellite, bucket))
 		upl.Config.UserAgent = string(ua2)
-		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
+		require.NoError(t, upl.FullCreateBucket(ctx, satellite, bucket))
 		require.NoError(t, err)
 		require.Equal(t, ua1, b.UserAgent)
 	})

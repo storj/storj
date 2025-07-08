@@ -1194,7 +1194,7 @@ func TestService(t *testing.T) {
 			t.Run("GetSingleBucketTotals", func(t *testing.T) {
 				bucketName := "test-single-bucket"
 
-				err = planet.Uplinks[1].CreateBucket(ctx, sat, bucketName)
+				err = planet.Uplinks[1].FullCreateBucket(ctx, sat, bucketName)
 				require.NoError(t, err)
 
 				storedBucket, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), up2Proj.ID)
