@@ -886,6 +886,6 @@ INSERT INTO "value_attributions" ("project_id", "bucket_name", "user_agent", "pl
 
 INSERT INTO "bucket_metainfos" ("id", "project_id", "name", "tags", "path_cipher", "created_at", "default_segment_size", "default_encryption_cipher_suite", "default_encryption_block_size", "default_redundancy_algorithm", "default_redundancy_share_size", "default_redundancy_required_shares", "default_redundancy_repair_shares", "default_redundancy_optimal_shares", "default_redundancy_total_shares") VALUES (E'\\144/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\035'::bytea, E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'bucket with tags'::bytea, E'tag1:value1;tag2:value2'::bytea, 1, '2019-06-14 08:28:24.677953+00', 65536, 1, 8192, 1, 4096, 4, 6, 8, 10);
 
--- NEW DATA --
-
 INSERT INTO "api_key_tails" ("tail", "parent_tail", "caveat", "last_used") VALUES (E'testtail'::bytea, E'testparenttail'::bytea, E'testcaveat'::bytea, '2025-01-01 09:13:44.614594+00');
+
+-- NEW DATA --

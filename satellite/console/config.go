@@ -47,6 +47,7 @@ type Config struct {
 	NewDetailedUsageReportEnabled     bool                      `help:"whether to use the new detailed usage report" default:"false"`
 	NewAccountSetupEnabled            bool                      `help:"whether to use new account setup flow" default:"false"`
 	ProductBasedInvoicing             bool                      `help:"whether to use product-based invoicing" default:"false" hidden:"true"`
+	ManagedEncryption                 SatelliteManagedEncryptionConfig
 	RestAPIKeys                       RestAPIKeysConfig
 	Placement                         PlacementsConfig
 	UsageLimits                       UsageLimitsConfig
@@ -56,6 +57,11 @@ type Config struct {
 
 	SupportURL string `help:"url link to general request page" hidden:"true"`
 	LoginURL   string `help:"url link to the satellite UI login" hidden:"true"`
+}
+
+// SatelliteManagedEncryptionConfig contains configurations for Satellite Managed Encryption.
+type SatelliteManagedEncryptionConfig struct {
+	PathEncryptionEnabled bool `help:"indicates whether projects with managed encryption should have path encryption enabled" default:"true"`
 }
 
 // RestAPIKeysConfig contains configurations for REST API keys.
