@@ -814,6 +814,9 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	object, err := endpoint.objectToProto(ctx, mbObject)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
+	}
 
 	// TODO this code is triggered only by very old uplink library (<1.4.2) and we will remove it eventually.
 	// note: for non-default RS schema it
@@ -852,9 +855,6 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 		// monitor how many uplinks is still using this additional code
 		mon.Meter("req_get_object_rs_per_object").Mark(1)
-	}
-	if err != nil {
-		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
 	if !canGetRetention {
@@ -2311,6 +2311,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		EncryptedMetadata:             metadataBytes,
 		EncryptedMetadataNonce:        nonce,
 		EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
+		EncryptedEtag:                 object.EncryptedETag,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),

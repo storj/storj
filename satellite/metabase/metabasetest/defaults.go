@@ -33,7 +33,7 @@ func RandEncryptedUserData() metabase.EncryptedUserData {
 	return metabase.EncryptedUserData{
 		EncryptedMetadata:             testrand.Bytes(32),
 		EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-		EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+		EncryptedMetadataEncryptedKey: testrand.Bytes(48),
 		EncryptedETag:                 testrand.Bytes(32),
 	}
 }
@@ -43,7 +43,7 @@ func RandEncryptedUserDataWithoutETag() metabase.EncryptedUserData {
 	return metabase.EncryptedUserData{
 		EncryptedMetadata:             testrand.Bytes(32),
 		EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-		EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+		EncryptedMetadataEncryptedKey: testrand.Bytes(48),
 	}
 }
 

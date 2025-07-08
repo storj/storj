@@ -345,9 +345,18 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			testEncryptedMetadata := testrand.BytesInt(64)
-			testEncryptedMetadataEncryptedKey := randomEncryptedKey
-			testEncryptedMetadataNonce := testrand.Nonce()
+			encryptedUserData := metabasetest.RandEncryptedUserData()
+			metadata, err := pb.Marshal(&pb.StreamMeta{
+				NumberOfSegments:    1,
+				EncryptionBlockSize: int32(getResp.Object.EncryptionParameters.BlockSize),
+				EncryptionType:      int32(getResp.Object.EncryptionParameters.CipherSuite),
+				LastSegmentMeta: &pb.SegmentMeta{
+					EncryptedKey: encryptedUserData.EncryptedMetadata,
+					KeyNonce:     encryptedUserData.EncryptedMetadataNonce,
+				},
+			})
+			require.NoError(t, err)
+			encryptedUserData.EncryptedMetadata = metadata
 
 			// update the object metadata
 			_, err = satelliteSys.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
@@ -357,9 +366,11 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				Bucket:                        getResp.Object.Bucket,
 				EncryptedObjectKey:            getResp.Object.EncryptedObjectKey,
 				StreamId:                      getResp.Object.StreamId,
-				EncryptedMetadataNonce:        testEncryptedMetadataNonce,
-				EncryptedMetadata:             testEncryptedMetadata,
-				EncryptedMetadataEncryptedKey: testEncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(encryptedUserData.EncryptedMetadataNonce),
+				EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
+				EncryptedEtag:                 encryptedUserData.EncryptedETag,
+				SetEncryptedEtag:              true,
 			})
 			require.NoError(t, err)
 
@@ -367,9 +378,22 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)
-			assert.Equal(t, testEncryptedMetadata, objects[0].EncryptedMetadata)
-			assert.Equal(t, testEncryptedMetadataEncryptedKey, objects[0].EncryptedMetadataEncryptedKey)
-			assert.Equal(t, testEncryptedMetadataNonce[:], objects[0].EncryptedMetadataNonce)
+			assert.Equal(t, encryptedUserData, objects[0].EncryptedUserData)
+
+			// ensure we get that information from get object as well
+			resp, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:             getResp.Object.Bucket,
+				EncryptedObjectKey: getResp.Object.EncryptedObjectKey,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, encryptedUserData.EncryptedMetadata, resp.Object.EncryptedMetadata)
+			require.Equal(t, encryptedUserData.EncryptedMetadataEncryptedKey, resp.Object.EncryptedMetadataEncryptedKey)
+			require.Equal(t, encryptedUserData.EncryptedETag, resp.Object.EncryptedEtag)
+			require.Equal(t, encryptedUserData.EncryptedMetadataNonce, resp.Object.EncryptedMetadataNonce.Bytes())
 		})
 
 		t.Run("check delete rights on upload", func(t *testing.T) {
