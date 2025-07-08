@@ -745,13 +745,15 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		return nodeRollupsDeleted, err
 
 	case dbutil.Spanner:
+		// use INSERT OR UPDATE in case data was archived partially before
 		query := `
-					INSERT INTO storagenode_bandwidth_rollup_archives
-					(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-					(SELECT
-					storagenode_id, interval_start, interval_seconds, action, allocated, settled
-					FROM storagenode_bandwidth_rollups
-					WHERE interval_start <= ? LIMIT ?) THEN RETURN storagenode_id, interval_start, action`
+			INSERT OR UPDATE INTO storagenode_bandwidth_rollup_archives (
+				storagenode_id, interval_start, interval_seconds, action, allocated, settled
+			)
+			SELECT storagenode_id, interval_start, interval_seconds, action, allocated, settled
+				FROM storagenode_bandwidth_rollups
+				WHERE interval_start <= ? LIMIT ?
+			THEN RETURN storagenode_id, interval_start, action`
 
 		type storagenodeToDelete struct {
 			StoragenodeID []byte
@@ -760,37 +762,39 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		}
 
 		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
-			err := withRows(db.db.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
-				var storagenodesToDelete []storagenodeToDelete
-				for rows.Next() {
-					var s storagenodeToDelete
-					if err := rows.Scan(&s.StoragenodeID, &s.IntervalStart, &s.Action); err != nil {
-						err = errs.Combine(err, rows.Err(), rows.Close())
+			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				return withRows(db.db.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
+					var storagenodesToDelete []storagenodeToDelete
+					for rows.Next() {
+						var s storagenodeToDelete
+						if err := rows.Scan(&s.StoragenodeID, &s.IntervalStart, &s.Action); err != nil {
+							err = errs.Combine(err, rows.Err(), rows.Close())
+							return err
+						}
+						storagenodesToDelete = append(storagenodesToDelete, s)
+					}
+
+					res, err := db.db.ExecContext(ctx,
+						`DELETE FROM storagenode_bandwidth_rollups
+							WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
+						storagenodesToDelete)
+					if err != nil {
 						return err
 					}
-					storagenodesToDelete = append(storagenodesToDelete, s)
-				}
 
-				res, err := db.db.ExecContext(ctx,
-					`DELETE FROM storagenode_bandwidth_rollups WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
-					storagenodesToDelete)
-				if err != nil {
-					return err
-				}
+					rowCount, err = res.RowsAffected()
+					if err != nil {
+						return err
+					}
+					nodeRollupsDeleted += int(rowCount)
 
-				rowCount, err = res.RowsAffected()
-				if err != nil {
-					return err
-				}
-				nodeRollupsDeleted += int(rowCount)
-
-				return nil
+					return nil
+				})
 			})
 			if err != nil {
 				return 0, Error.Wrap(err)
 			}
 		}
-
 	default:
 		return 0, Error.New("unsupported database: %v", db.db.impl)
 	}
