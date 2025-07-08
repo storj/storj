@@ -49,6 +49,13 @@ type Rollup struct {
 	IntervalEndTime time.Time
 }
 
+// BucketInfo holds information about a bucket.
+type BucketInfo struct {
+	Name      string
+	UserAgent []byte
+	Placement *storj.PlacementConstraint
+}
+
 // StorageNodePeriodUsage represents a statement for a node for a compensation period.
 type StorageNodePeriodUsage struct {
 	NodeID         storj.NodeID
@@ -186,6 +193,9 @@ type BucketUsageRollup struct {
 	ProjectID  uuid.UUID `json:"projectID"`
 	BucketName string    `json:"bucketName"`
 
+	Placement storj.PlacementConstraint `json:"-"`
+	UserAgent []byte                    `json:"-"`
+
 	TotalStoredData float64 `json:"totalStoredData"`
 
 	TotalSegments float64 `json:"totalSegments"`
@@ -321,7 +331,8 @@ type ProjectAccounting interface {
 	// GetProjectObjectsSegments returns project objects and segments number.
 	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (ProjectObjectsSegments, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
-	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
+	// If withInfo is true, it includes the placement and user agent of the bucket.
+	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time, withInfo bool) ([]BucketUsageRollup, error)
 	// GetSingleBucketUsageRollup returns usage rollup per single bucket for specified period of time.
 	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
 	// GetSingleBucketTotals returns single bucket total usage summary since bucket creation.

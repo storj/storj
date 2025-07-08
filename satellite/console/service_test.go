@@ -1931,7 +1931,7 @@ func TestGetUsageReport_WithProductBasedInvoicing(t *testing.T) {
 				IncludeCost: true,
 			}
 
-			rollups, err := sat.DB.ProjectAccounting().GetBucketUsageRollups(ctx, projectID, params.Since, params.Before)
+			rollups, err := sat.DB.ProjectAccounting().GetBucketUsageRollups(ctx, projectID, params.Since, params.Before, false)
 			require.NoError(t, err)
 			require.Len(t, rollups, 2)
 

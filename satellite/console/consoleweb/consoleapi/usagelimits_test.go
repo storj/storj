@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 )
@@ -208,25 +208,42 @@ func TestTotalUsageReport(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusForbidden, status)
 
+		createApiKey := func(project *console.Project) *macaroon.APIKey {
+			secret, err := macaroon.NewSecret()
+			require.NoError(t, err)
+
+			key, err := macaroon.NewAPIKey(secret)
+			require.NoError(t, err)
+
+			keyInfo := console.APIKeyInfo{
+				Name:      project.Name,
+				ProjectID: project.ID,
+				Secret:    secret,
+			}
+			_, err = satelliteSys.DB.Console().APIKeys().Create(ctx, key.Head(), keyInfo)
+			require.NoError(t, err)
+
+			return key
+		}
+
 		project1, err := satelliteSys.AddProject(ctx, user.ID, "testProject1")
 		require.NoError(t, err)
+		createdAPIKey := createApiKey(project1)
 
 		project2, err := satelliteSys.AddProject(ctx, user.ID, "testProject2")
 		require.NoError(t, err)
+		createdAPIKey2 := createApiKey(project2)
 
 		bucketName := "bucket"
-		_, err = satelliteSys.API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
-			ID:        testrand.UUID(),
-			Name:      bucketName,
-			ProjectID: project1.ID,
-			Placement: storj.DefaultPlacement,
+		_, err = satelliteSys.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{ApiKey: createdAPIKey.SerializeRaw()},
+			Name:   []byte(bucketName),
 		})
 		require.NoError(t, err)
-		_, err = satelliteSys.API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
-			ID:        testrand.UUID(),
-			Name:      bucketName,
-			ProjectID: project2.ID,
-			Placement: storj.DefaultPlacement,
+
+		_, err = satelliteSys.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+			Header: &pb.RequestHeader{ApiKey: createdAPIKey2.SerializeRaw()},
+			Name:   []byte(bucketName),
 		})
 		require.NoError(t, err)
 

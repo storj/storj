@@ -713,23 +713,23 @@ func TestUsageRollups(t *testing.T) {
 		})
 
 		t.Run("bucket usage rollups", func(t *testing.T) {
-			rollups1, err := usageRollups.GetBucketUsageRollups(ctx, project1, start, now)
+			rollups1, err := usageRollups.GetBucketUsageRollups(ctx, project1, start, now, false)
 			require.NoError(t, err)
 			require.NotNil(t, rollups1)
 
-			rollups2, err := usageRollups.GetBucketUsageRollups(ctx, project2, start, now)
+			rollups2, err := usageRollups.GetBucketUsageRollups(ctx, project2, start, now, false)
 			require.NoError(t, err)
 			require.NotNil(t, rollups2)
 
-			rollups3, err := usageRollups.GetBucketUsageRollups(ctx, project3, start, now)
+			rollups3, err := usageRollups.GetBucketUsageRollups(ctx, project3, start, now, false)
 			require.NoError(t, err)
 			require.NotNil(t, rollups3)
 
-			rollups3Prev2Hours, err := usageRollups.GetBucketUsageRollups(ctx, project3, now.Add(-time.Hour*2), now.Add(-time.Hour*1))
+			rollups3Prev2Hours, err := usageRollups.GetBucketUsageRollups(ctx, project3, now.Add(-time.Hour*2), now.Add(-time.Hour*1), false)
 			require.NoError(t, err)
 			require.NotNil(t, rollups3Prev2Hours)
 
-			rollups3Prev3Hours, err := usageRollups.GetBucketUsageRollups(ctx, project3, now.Add(-time.Hour*3), now.Add(-time.Hour*2))
+			rollups3Prev3Hours, err := usageRollups.GetBucketUsageRollups(ctx, project3, now.Add(-time.Hour*3), now.Add(-time.Hour*2), false)
 			require.NoError(t, err)
 			require.NotNil(t, rollups3Prev3Hours)
 		})

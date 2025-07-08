@@ -903,7 +903,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time, aggregate bool) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-	bucketNames, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
+	buckets, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before, false)
 	if err != nil {
 		return nil, err
 	}
@@ -965,13 +965,13 @@ func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Co
 	// If no partner, key is "|placement"
 	usages = make(map[string]accounting.ProjectUsage)
 
-	for _, bucket := range bucketNames {
+	for _, bucket := range buckets {
 		key := ""
 
 		if !aggregate {
 			valueAttr, err := db.db.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx,
 				dbx.ValueAttribution_ProjectId(projectID[:]),
-				dbx.ValueAttribution_BucketName([]byte(bucket)))
+				dbx.ValueAttribution_BucketName([]byte(bucket.Name)))
 			if err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
 			}
@@ -1002,7 +1002,7 @@ func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Co
 		}
 		usage := usages[key]
 
-		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before, since)
+		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket.Name), since, before, since)
 		if err != nil {
 			return nil, err
 		}
@@ -1041,7 +1041,7 @@ func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Co
 			return nil, err
 		}
 
-		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, int64(pb.PieceAction_GET))
+		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket.Name), since, before, int64(pb.PieceAction_GET))
 
 		var egress int64
 		if err = totalEgressRow.Scan(&egress); err != nil {
@@ -1092,22 +1092,28 @@ func tryFindPartnerByUserAgent(userAgent []byte, partnerNames []string) (string,
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
-func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
+// If withInfo is true, it includes the placement and user agent of the bucket.
+func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time, withInfo bool) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since.UTC())
 	before = before.UTC()
 
-	buckets, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
+	buckets, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before, withInfo)
 	if err != nil {
 		return nil, err
 	}
 
 	var bucketUsageRollups []accounting.BucketUsageRollup
 	for _, bucket := range buckets {
-		bucketRollup, err := db.getSingleBucketRollup(ctx, projectID, bucket, since, before)
+		bucketRollup, err := db.getSingleBucketRollup(ctx, projectID, bucket.Name, since, before)
 		if err != nil {
 			return nil, err
 		}
+
+		if bucket.Placement != nil {
+			bucketRollup.Placement = *bucket.Placement
+		}
+		bucketRollup.UserAgent = bucket.UserAgent
 
 		bucketUsageRollups = append(bucketUsageRollups, *bucketRollup)
 	}
@@ -1678,45 +1684,79 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 }
 
 // getBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.
-func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time) (buckets []string, err error) {
+// If withInfo is true, it also retrieves bucket information such as placement and user agent.
+func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time, withInfo bool) (buckets []accounting.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	queryFormat := `SELECT DISTINCT bucket_name
-		FROM %s
-		WHERE project_id = ?
-		AND interval_start >= ?
-		AND interval_start < ?`
+	query := `SELECT DISTINCT bucket_name
+		FROM (
+			SELECT bst.bucket_name
+				FROM bucket_storage_tallies bst
+			WHERE bst.project_id = ?
+				AND bst.interval_start >= ?
+				AND bst.interval_start < ?
+		UNION DISTINCT
+			SELECT bbr.bucket_name
+				FROM bucket_bandwidth_rollups bbr
+			WHERE bbr.project_id = ?
+				AND bbr.interval_start >= ?
+				AND bbr.interval_start < ?
+		) combined_buckets`
 
-	bucketMap := make(map[string]struct{})
+	if withInfo {
+		query = `SELECT DISTINCT bucket_name, placement, user_agent
+		FROM (
+			SELECT bst.bucket_name, va.placement, va.user_agent
+				FROM bucket_storage_tallies bst
+			JOIN value_attributions va ON va.bucket_name = bst.bucket_name
+			WHERE bst.project_id = ?
+				AND bst.interval_start >= ?
+				AND bst.interval_start < ?
+		UNION DISTINCT
+			SELECT bbr.bucket_name, va.placement, va.user_agent
+				FROM bucket_bandwidth_rollups bbr
+			JOIN value_attributions va ON va.bucket_name = bbr.bucket_name
+			WHERE bbr.project_id = ?
+				AND bbr.interval_start >= ?
+				AND bbr.interval_start < ?
+		) combined_buckets`
+	}
 
-	for _, tableName := range []string{"bucket_storage_tallies", "bucket_bandwidth_rollups"} {
-		query := db.db.Rebind(fmt.Sprintf(queryFormat, tableName))
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), projectID[:], since, before, projectID[:], since, before)
+	if err != nil {
+		return nil, err
+	}
 
-		rows, err := db.db.QueryContext(ctx, query, projectID[:], since, before)
-		if err != nil {
-			return nil, err
-		}
-
-		for rows.Next() {
-			var bucket string
-			err = rows.Scan(&bucket)
+	for rows.Next() {
+		var bucket string
+		if withInfo {
+			var placement *storj.PlacementConstraint
+			var userAgent []byte
+			err = rows.Scan(&bucket, &placement, &userAgent)
 			if err != nil {
-				return nil, errs.Combine(err, rows.Close())
+				return nil, err
 			}
-			bucketMap[bucket] = struct{}{}
+			buckets = append(buckets, accounting.BucketInfo{
+				Name:      bucket,
+				Placement: placement,
+				UserAgent: userAgent,
+			})
+			continue
 		}
 
-		err = errs.Combine(rows.Err(), rows.Close())
+		err = rows.Scan(&bucket)
 		if err != nil {
 			return nil, err
 		}
+		buckets = append(buckets, accounting.BucketInfo{Name: bucket})
 	}
 
-	for bucket := range bucketMap {
-		buckets = append(buckets, bucket)
+	err = errs.Combine(rows.Err(), rows.Close())
+	if err != nil {
+		return nil, err
 	}
 
-	return buckets, nil
+	return buckets, errs.Combine(err, rows.Err())
 }
 
 // timeTruncateDown truncates down to the hour before to be in sync with orders endpoint.

@@ -5155,7 +5155,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 
 	for _, p := range projects {
 		if !param.GroupByProject || !s.config.NewDetailedUsageReportEnabled {
-			rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, param.Since, param.Before)
+			rollups, err := s.projectAccounting.GetBucketUsageRollups(ctx, p.ID, param.Since, param.Before, true)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
@@ -5172,6 +5172,8 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					SegmentCount:    r.TotalSegments,
 					Since:           r.Since,
 					Before:          r.Before,
+					Placement:       r.Placement,
+					UserAgent:       r.UserAgent,
 				}
 
 				if !s.config.NewDetailedUsageReportEnabled {
@@ -5179,7 +5181,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					continue
 				}
 
-				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, payments.ProductUsagePriceModel{})
+				item, err = s.transformProjectReportItem(item, param.IncludeCost, payments.ProductUsagePriceModel{})
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
@@ -5209,7 +5211,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					ObjectCount:     usage.ObjectCount,
 					UserAgent:       p.UserAgent,
 				}
-				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, priceModel)
+				item, err = s.transformProjectReportItem(item, param.IncludeCost, priceModel)
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
@@ -5327,22 +5329,11 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 
 // transformProjectReportItem modifies the project report item, converting GB values to TB and
 // hour values to month values. It includes cost if addCost is true.
-func (s *Service) transformProjectReportItem(ctx context.Context, item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
+func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
 	if priceModel == (payments.ProductUsagePriceModel{}) {
 		if s.config.ProductBasedInvoicing {
-			var placement storj.PlacementConstraint
-			info, err := s.attributions.Get(ctx, item.ProjectID, []byte(item.BucketName))
-			if err != nil {
-				return accounting.ProjectReportItem{}, Error.Wrap(err)
-			}
-			if info.Placement != nil {
-				placement = *info.Placement
-				item.Placement = placement
-			}
-			item.UserAgent = info.UserAgent
-
-			_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(info.UserAgent), placement)
+			_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(item.UserAgent), item.Placement)
 			if err != nil {
 				return accounting.ProjectReportItem{}, err
 			}
@@ -5407,7 +5398,7 @@ func (s *Service) GenGetBucketUsageRollups(ctx context.Context, reqProjectID uui
 
 	projectID := isMember.project.ID
 
-	rollups, err = s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
+	rollups, err = s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before, false)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusInternalServerError,
