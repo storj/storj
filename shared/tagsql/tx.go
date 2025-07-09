@@ -16,13 +16,6 @@ import (
 
 // Tx is an interface for *sql.Tx-like transactions.
 type Tx interface {
-	// Exec and other methods take a context for tracing
-	// purposes, but do not pass the context to the underlying database query
-	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	Prepare(ctx context.Context, query string) (Stmt, error)
-	Query(ctx context.Context, query string, args ...interface{}) (Rows, error)
-	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
-
 	// ExecContext and other Context methods take a context for tracing and also
 	// pass the context to the underlying database, if this tagsql instance is
 	// configured to do so. (By default, lib/pq does not ever, and
@@ -44,14 +37,6 @@ type sqlTx struct {
 	box        *flightrecorder.Box
 }
 
-func (s *sqlTx) Exec(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query, args)(&err)
-
-	return s.tx.Exec(query, args...)
-}
-
 func (s *sqlTx) ExecContext(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
 	s.record()
 	traces.Tag(ctx, traces.TagDB)
@@ -61,23 +46,6 @@ func (s *sqlTx) ExecContext(ctx context.Context, query string, args ...interface
 		return s.tx.Exec(query, args...)
 	}
 	return s.tx.ExecContext(ctx, query, args...)
-}
-
-func (s *sqlTx) Prepare(ctx context.Context, query string) (_ Stmt, err error) {
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query)(&err)
-
-	stmt, err := s.tx.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	return &sqlStmt{
-		query:      query,
-		stmt:       stmt,
-		useContext: s.useContext,
-		tracker:    s.tracker.Child("sqlStmt", 1),
-		box:        s.box,
-	}, nil
 }
 
 func (s *sqlTx) PrepareContext(ctx context.Context, query string) (_ Stmt, err error) {
@@ -105,14 +73,6 @@ func (s *sqlTx) PrepareContext(ctx context.Context, query string) (_ Stmt, err e
 	}, err
 }
 
-func (s *sqlTx) Query(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query, args)(&err)
-
-	return s.wrapRows(s.tx.Query(query, args...))
-}
-
 func (s *sqlTx) QueryContext(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
 	s.record()
 	traces.Tag(ctx, traces.TagDB)
@@ -122,14 +82,6 @@ func (s *sqlTx) QueryContext(ctx context.Context, query string, args ...interfac
 		return s.wrapRows(s.tx.Query(query, args...))
 	}
 	return s.wrapRows(s.tx.QueryContext(ctx, query, args...))
-}
-
-func (s *sqlTx) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query, args)(nil)
-
-	return s.tx.QueryRow(query, args...)
 }
 
 func (s *sqlTx) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {

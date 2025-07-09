@@ -74,7 +74,7 @@ func Explain(ctx context.Context, db tagsql.DB, query string, args ...any) (_ Ex
 		return Explanation{}, fmt.Errorf("failed to inline arguments: %w", err)
 	}
 
-	tx, err := db.Begin(ctx)
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return Explanation{}, fmt.Errorf("failed to start a transaction: %w", err)
 	}

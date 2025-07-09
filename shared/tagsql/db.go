@@ -108,15 +108,6 @@ func AllowContext(db *sql.DB) DB {
 type DB interface {
 	Name() string
 
-	// To be deprecated, the following take ctx as argument,
-	// however do not pass it forward to the underlying database.
-	Begin(ctx context.Context) (Tx, error)
-	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	Ping(ctx context.Context) error
-	Prepare(ctx context.Context, query string) (Stmt, error)
-	Query(ctx context.Context, query string, args ...interface{}) (Rows, error)
-	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
-
 	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error)
 	Conn(ctx context.Context) (Conn, error)
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
@@ -180,20 +171,6 @@ func (s *sqlDB) Name() string {
 
 }
 
-func (s *sqlDB) Begin(ctx context.Context) (Tx, error) {
-	traces.Tag(ctx, traces.TagDB)
-	tx, err := s.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	return &sqlTx{
-		tx:         tx,
-		useContext: s.useContext && s.useTxContext,
-		tracker:    s.tracker.Child("sqlTx", 1),
-		box:        s.box,
-	}, err
-}
-
 func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error) {
 	if txOptions != nil {
 		return nil, errors.New("txOptions not supported")
@@ -251,14 +228,6 @@ func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
 	}, nil
 }
 
-func (s *sqlDB) Exec(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query, args)(&err)
-
-	return s.db.Exec(query, args...)
-}
-
 func (s *sqlDB) ExecContext(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
 	s.record()
 	traces.Tag(ctx, traces.TagDB)
@@ -270,34 +239,12 @@ func (s *sqlDB) ExecContext(ctx context.Context, query string, args ...interface
 	return s.db.ExecContext(ctx, query, args...)
 }
 
-func (s *sqlDB) Ping(ctx context.Context) error {
-	traces.Tag(ctx, traces.TagDB)
-	return s.db.Ping()
-}
-
 func (s *sqlDB) PingContext(ctx context.Context) error {
 	traces.Tag(ctx, traces.TagDB)
 	if !s.useContext {
 		return s.db.Ping()
 	}
 	return s.db.PingContext(ctx)
-}
-
-func (s *sqlDB) Prepare(ctx context.Context, query string) (_ Stmt, err error) {
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query)(&err)
-
-	stmt, err := s.db.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-	return &sqlStmt{
-		query:      query,
-		stmt:       stmt,
-		useContext: s.useContext,
-		tracker:    s.tracker.Child("sqlStmt", 1),
-		box:        s.box,
-	}, nil
 }
 
 func (s *sqlDB) PrepareContext(ctx context.Context, query string) (_ Stmt, err error) {
@@ -325,14 +272,6 @@ func (s *sqlDB) PrepareContext(ctx context.Context, query string) (_ Stmt, err e
 	}, nil
 }
 
-func (s *sqlDB) Query(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query, args)(&err)
-
-	return s.wrapRows(s.db.Query(query, args...))
-}
-
 func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {
 	s.record()
 	traces.Tag(ctx, traces.TagDB)
@@ -342,14 +281,6 @@ func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interfac
 		return s.wrapRows(s.db.Query(query, args...))
 	}
 	return s.wrapRows(s.db.QueryContext(ctx, query, args...))
-}
-
-func (s *sqlDB) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, query, args)(nil)
-
-	return s.db.QueryRow(query, args...)
 }
 
 func (s *sqlDB) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {

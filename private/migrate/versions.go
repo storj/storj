@@ -352,7 +352,7 @@ func (migration *Migration) getLatestVersion(ctx context.Context, log *zap.Logge
 	var version sql.NullInt64
 	/* #nosec G202 */ // Table name is white listed by the ValidTableName method
 	// executed at the beginning of the function
-	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+migration.Table).Scan(&version)
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+migration.Table).Scan(&version)
 	if errors.Is(err, sql.ErrNoRows) || !version.Valid {
 		version.Int64 = -1
 		err = nil
@@ -370,7 +370,7 @@ func (migration *Migration) addVersion(ctx context.Context, tx tagsql.Tx, db tag
 
 	/* #nosec G202 */ // Table name is white listed by the ValidTableName method
 	// executed at the beginning of the function
-	_, err = tx.Exec(ctx, rebind(db, `
+	_, err = tx.ExecContext(ctx, rebind(db, `
 		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
 	)
@@ -395,7 +395,7 @@ func (sql SQL) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql
 		if tx == nil {
 			_, err = db.ExecContext(ctx, rebind(db, query))
 		} else {
-			_, err = tx.Exec(ctx, rebind(db, query))
+			_, err = tx.ExecContext(ctx, rebind(db, query))
 		}
 		if err != nil {
 			return errs.Wrap(err)

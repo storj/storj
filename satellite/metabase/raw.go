@@ -736,7 +736,7 @@ func (db *DB) TestingSetObjectVersion(ctx context.Context, object ObjectStream, 
 
 // TestingSetObjectVersion sets the version of the object to the given value.
 func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
-	res, err := p.db.Exec(ctx,
+	res, err := p.db.ExecContext(ctx,
 		"UPDATE objects SET version = $1 WHERE project_id = $2 AND bucket_name = $3 AND object_key = $4 AND stream_id = $5",
 		randomVersion, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
 	)
@@ -832,7 +832,7 @@ func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement stor
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
 func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
-	_, err = p.db.Exec(ctx, "UPDATE segments SET placement = $1", placement)
+	_, err = p.db.ExecContext(ctx, "UPDATE segments SET placement = $1", placement)
 	return Error.Wrap(err)
 }
 

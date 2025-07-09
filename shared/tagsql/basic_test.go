@@ -50,14 +50,7 @@ func TestDetect(t *testing.T) {
 		}
 
 		if support.Transactions() {
-			var tx tagsql.Tx
-			tx, err = db.Begin(ctx)
-			require.NoError(t, err)
-			if tx != nil {
-				require.NoError(t, tx.Rollback())
-			}
-
-			tx, err = db.BeginTx(ctx, nil)
+			tx, err := db.BeginTx(ctx, nil)
 			require.Error(t, err)
 			if tx != nil {
 				require.NoError(t, tx.Rollback())
@@ -71,34 +64,25 @@ func TestDetect(t *testing.T) {
 			verifyTx = require.NoError
 		}
 
-		for _, alt := range []bool{false, true} {
-			t.Log("Transactions", alt)
-			var tx tagsql.Tx
-			if alt {
-				tx, err = db.Begin(parentctx)
-			} else {
-				tx, err = db.BeginTx(parentctx, nil)
-			}
-			require.NoError(t, err)
+		tx, err := db.BeginTx(parentctx, nil)
+		require.NoError(t, err)
 
-			_, err = tx.ExecContext(ctx, "INSERT INTO example (num) values (1)")
-			verifyTx(t, err)
+		_, err = tx.ExecContext(ctx, "INSERT INTO example (num) values (1)")
+		verifyTx(t, err)
 
-			var rows tagsql.Rows
-			rows, err = tx.QueryContext(ctx, "select num from example")
-			verifyTx(t, err)
-			if rows != nil {
-				require.NoError(t, rows.Err())
-				require.NoError(t, rows.Close())
-			}
-
-			row := tx.QueryRowContext(ctx, "select num from example")
-			var value int64
-			// lib/pq seems to stall here for some reason?
-			err = row.Scan(&value)
-			verifyTx(t, err)
-
-			require.NoError(t, tx.Commit())
+		rows, err = tx.QueryContext(ctx, "select num from example")
+		verifyTx(t, err)
+		if rows != nil {
+			require.NoError(t, rows.Err())
+			require.NoError(t, rows.Close())
 		}
+
+		row = tx.QueryRowContext(ctx, "select num from example")
+		var value2 int64
+		// lib/pq seems to stall here for some reason?
+		err = row.Scan(&value2)
+		verifyTx(t, err)
+
+		require.NoError(t, tx.Commit())
 	})
 }
