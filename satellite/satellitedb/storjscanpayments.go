@@ -254,7 +254,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 		query := `SELECT chain_id, block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, block_timestamp
 				  FROM storjscan_payments WHERE chain_id = any($1::INT8[]) AND (storjscan_payments.block_number, storjscan_payments.log_index) > ($2, $3)
 				  AND storjscan_payments.status = $4 ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
-		rows, err = storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
+		rows, err = storjscanPayments.db.QueryContext(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
 	case dbutil.Spanner:
 		query := `SELECT
 			chain_id,
@@ -276,7 +276,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 		ORDER BY
 			block_number,
 			log_index`
-		rows, err = storjscanPayments.db.Query(ctx, query, chainIDs, blockNumber, blockNumber, logIndex, payments.PaymentStatusConfirmed)
+		rows, err = storjscanPayments.db.QueryContext(ctx, query, chainIDs, blockNumber, blockNumber, logIndex, payments.PaymentStatusConfirmed)
 	default:
 		return nil, Error.New("unsupported database: %v", storjscanPayments.db.impl)
 	}

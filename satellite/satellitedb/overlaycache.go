@@ -102,7 +102,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 				version.Major, version.Major, version.Minor, version.Minor, version.Patch,
 			)
 		}
-		rows, err = cache.db.Query(ctx, query, args...)
+		rows, err = cache.db.QueryContext(ctx, query, args...)
 	case dbutil.Spanner:
 		query := `
 			SELECT id, address, email, wallet, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk
@@ -132,7 +132,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 			)
 		}
 
-		rows, err = cache.db.Query(ctx, query, args...)
+		rows, err = cache.db.QueryContext(ctx, query, args...)
 	default:
 		return nil, nil, Error.New("unsupported implementation")
 	}
@@ -219,7 +219,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 			time.Now().Add(-onlineWindow),
 		}
 
-		rows, err = cache.db.Query(ctx, query, args...)
+		rows, err = cache.db.QueryContext(ctx, query, args...)
 	case dbutil.Spanner:
 		query := `
 			SELECT id, address, email, wallet, last_net, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code, piece_count, free_disk,
@@ -235,7 +235,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 			time.Now().Add(-onlineWindow),
 		}
 
-		rows, err = cache.db.Query(ctx, query, args...)
+		rows, err = cache.db.QueryContext(ctx, query, args...)
 	default:
 		return nil, Error.New("unsupported database: %v", cache.db.impl)
 	}
@@ -326,7 +326,7 @@ func (cache *overlaycache) getOnlineNodesForAuditAndRepair(ctx context.Context, 
 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id, email, last_ip_port, address,
 				vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
@@ -336,7 +336,7 @@ func (cache *overlaycache) getOnlineNodesForAuditAndRepair(ctx context.Context, 
 				AND last_contact_success > $2
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
 	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id, email, last_ip_port, address,
 			vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
@@ -385,7 +385,7 @@ func (cache *overlaycache) getAllOnlineNodesForRepair(ctx context.Context, onlin
 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id, email, last_ip_port, address,
 				vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
@@ -394,7 +394,7 @@ func (cache *overlaycache) getAllOnlineNodesForRepair(ctx context.Context, onlin
 				AND last_contact_success > $2
 		`), time.Now().Add(-onlineWindow))
 	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id, email, last_ip_port, address,
 			vetted_at, unknown_audit_suspended, offline_suspended
 			FROM nodes
@@ -536,7 +536,7 @@ func (cache *overlaycache) GetParticipatingNodes(ctx context.Context, nodeIDs st
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		records = make([]nodeselection.SelectedNode, len(nodeIDs))
-		err = withRows(cache.db.Query(ctx, `
+		err = withRows(cache.db.QueryContext(ctx, `
 			SELECT
 				id, address, email, wallet,
 				last_net, last_ip_port, country_code, piece_count, free_disk,
@@ -682,14 +682,14 @@ func (cache *overlaycache) AccountingNodeInfo(ctx context.Context, nodeIDs storj
 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, `
+		rows, err = cache.db.QueryContext(ctx, `
 			SELECT id, created_at, wallet, disqualified
 			FROM nodes
 			WHERE id = any($1::bytea[])
 		`, pgutil.NodeIDArray(nodeIDs))
 
 	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, `
+		rows, err = cache.db.QueryContext(ctx, `
 			SELECT id, created_at, wallet, disqualified
 			FROM nodes
 			WHERE id IN UNNEST(?)
@@ -722,7 +722,7 @@ func (cache *overlaycache) GetAllParticipatingNodes(ctx context.Context, onlineW
 
 	var nodes []*nodeselection.SelectedNode
 
-	err = withRows(cache.db.Query(ctx, cache.db.Rebind(`
+	err = withRows(cache.db.QueryContext(ctx, cache.db.Rebind(`
 		SELECT id, address, email, wallet, last_net, last_ip_port, country_code, piece_count, free_disk,
 			last_contact_success > ? AS online,
 			(offline_suspended IS NOT NULL OR unknown_audit_suspended IS NOT NULL) AS suspended,
@@ -1083,7 +1083,7 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 func (cache *overlaycache) getExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
 		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 		AND exit_finished_at IS NULL
@@ -1124,7 +1124,7 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
 		SELECT id, exit_initiated_at, exit_loop_completed_at, exit_finished_at, exit_success
 		FROM nodes
 		WHERE id = ?
@@ -1165,7 +1165,7 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 func (cache *overlaycache) getGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 			AND exit_finished_at IS NOT NULL
@@ -1209,7 +1209,7 @@ func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Cont
 func (cache *overlaycache) getGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
 		SELECT id FROM nodes
 		WHERE exit_initiated_at IS NOT NULL
 			AND exit_finished_at IS NULL
@@ -1435,7 +1435,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		err = Error.Wrap(withRows(cache.db.Query(ctx, cache.db.Rebind(`
+		err = Error.Wrap(withRows(cache.db.QueryContext(ctx, cache.db.Rebind(`
 			UPDATE nodes
 			SET disqualified = current_timestamp,
 				disqualification_reason = $3
@@ -1451,7 +1451,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 		// TODO(spanner): it needs to use tx so that go-sql-spanner library can understand that it's not a
 		//                read-only transaction. See issue https://github.com/googleapis/go-sql-spanner/issues/235.
 		err = Error.Wrap(txutil.WithTx(ctx, cache.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-			return withRows(tx.Query(ctx, `
+			return withRows(tx.QueryContext(ctx, `
 				UPDATE nodes
 				SET disqualified = current_timestamp,
 					disqualification_reason = ?
@@ -1474,7 +1474,7 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 	var rows tagsql.Rows
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id
 			FROM nodes
 			WHERE last_contact_success < $1
@@ -1484,7 +1484,7 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 			LIMIT $2
 		`), cutoff, limit)
 	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id
 			FROM nodes
 			WHERE last_contact_success < ?
@@ -2151,9 +2151,9 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		_, err = cache.db.Exec(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = $1;`, nodeID)
+		_, err = cache.db.ExecContext(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = $1;`, nodeID)
 	case dbutil.Spanner:
-		_, err = cache.db.Exec(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = ?;`, nodeID.Bytes())
+		_, err = cache.db.ExecContext(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = ?;`, nodeID.Bytes())
 	default:
 		return Error.New("unsupported implementation")
 	}
@@ -2204,7 +2204,7 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 
 	var rows tagsql.Rows
 	// 2018-04-06 is the date of the first storj v3 commit.
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+	rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, debounce_limit, features, country_code,
 		       exit_initiated_at IS NOT NULL AS exiting, (unknown_audit_suspended IS NOT NULL OR offline_suspended IS NOT NULL) AS suspended
 		FROM nodes
@@ -2371,7 +2371,7 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 
 	switch cache.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id, last_ip_port FROM nodes n
 			JOIN node_tags nt ON n.id = nt.node_id
 			WHERE nt.node_id = any($1::bytea[])
@@ -2380,7 +2380,7 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 				AND n.last_ip_port IS NOT NULL;
 		`), pgutil.NodeIDArray(ids), pgutil.TextArray(tagNames))
 	case dbutil.Spanner:
-		rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
 			SELECT id, last_ip_port FROM nodes n
 			JOIN node_tags nt ON n.id = nt.node_id
 			WHERE nt.node_id IN UNNEST(?)

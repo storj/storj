@@ -66,7 +66,7 @@ func OpenUnique(ctx context.Context, connstr string, databasePrefix string, extr
 	}
 
 	for _, query := range insertStatements {
-		_, err := db.Exec(ctx, query)
+		_, err := db.ExecContext(ctx, query)
 		if err != nil {
 			_ = ephemeral.Close(ctx)
 			return nil, errs.New("failed to execute %q with driver spanner: %w", query, err)

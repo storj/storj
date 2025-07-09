@@ -114,12 +114,12 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	var version int
 	/* #nosec G202 */ // This is a test besides the dbName value is generated in
 	// a controlled way
-	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, version)
 
 	var id int
-	err = db.QueryRow(ctx, `SELECT MAX(id) FROM users`).Scan(&id)
+	err = db.QueryRowContext(ctx, `SELECT MAX(id) FROM users`).Scan(&id)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, id)
 
@@ -207,7 +207,7 @@ func multipleMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB t
 	var version int
 	/* #nosec G202 */ // This is a test besides the dbName value is generated in
 	// a controlled way
-	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, version)
 
@@ -262,7 +262,7 @@ func failedMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB tag
 	var version sql.NullInt64
 	/* #nosec G202 */ // This is a test besides the dbName value is generated in
 	// a controlled way
-	err = db.QueryRow(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
+	err = db.QueryRowContext(ctx, `SELECT MAX(version) FROM `+dbName).Scan(&version)
 	assert.NoError(t, err)
 	assert.Equal(t, false, version.Valid)
 }
@@ -323,7 +323,7 @@ func TestInvalidStepsOrder(t *testing.T) {
 func dropTables(ctx context.Context, db tagsql.DB, names ...string) error {
 	var errlist errs.Group
 	for _, name := range names {
-		_, err := db.Exec(ctx, `DROP TABLE `+name)
+		_, err := db.ExecContext(ctx, `DROP TABLE `+name)
 		errlist.Add(err)
 	}
 

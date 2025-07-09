@@ -16,12 +16,6 @@ import (
 
 // Stmt is an interface for *sql.Stmt.
 type Stmt interface {
-	// Exec and other methods take a context for tracing
-	// purposes, but do not pass the context to the underlying database query.
-	Exec(ctx context.Context, args ...interface{}) (sql.Result, error)
-	Query(ctx context.Context, args ...interface{}) (Rows, error)
-	QueryRow(ctx context.Context, args ...interface{}) *sql.Row
-
 	// ExecContext and other Context methods take a context for tracing and also
 	// pass the context to the underlying database, if this tagsql instance is
 	// configured to do so. (By default, lib/pq does not ever, and
@@ -47,14 +41,6 @@ func (s *sqlStmt) Close() error {
 	return errs.Combine(s.tracker.Close(), s.stmt.Close())
 }
 
-func (s *sqlStmt) Exec(ctx context.Context, args ...interface{}) (_ sql.Result, err error) {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, s.query, args)(&err)
-
-	return s.stmt.Exec(args...)
-}
-
 func (s *sqlStmt) ExecContext(ctx context.Context, args ...interface{}) (_ sql.Result, err error) {
 	s.record()
 	traces.Tag(ctx, traces.TagDB)
@@ -66,14 +52,6 @@ func (s *sqlStmt) ExecContext(ctx context.Context, args ...interface{}) (_ sql.R
 	return s.stmt.ExecContext(ctx, args...)
 }
 
-func (s *sqlStmt) Query(ctx context.Context, args ...interface{}) (_ Rows, err error) {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, s.query, args)(&err)
-
-	return s.wrapRows(s.stmt.Query(args...))
-}
-
 func (s *sqlStmt) QueryContext(ctx context.Context, args ...interface{}) (_ Rows, err error) {
 	s.record()
 	traces.Tag(ctx, traces.TagDB)
@@ -83,14 +61,6 @@ func (s *sqlStmt) QueryContext(ctx context.Context, args ...interface{}) (_ Rows
 		return s.wrapRows(s.stmt.Query(args...))
 	}
 	return s.wrapRows(s.stmt.QueryContext(ctx, args...))
-}
-
-func (s *sqlStmt) QueryRow(ctx context.Context, args ...interface{}) *sql.Row {
-	s.record()
-	traces.Tag(ctx, traces.TagDB)
-	defer mon.Task()(&ctx, s.query, args)(nil)
-
-	return s.stmt.QueryRow(args...)
 }
 
 func (s *sqlStmt) QueryRowContext(ctx context.Context, args ...interface{}) *sql.Row {

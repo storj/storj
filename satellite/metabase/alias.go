@@ -139,7 +139,7 @@ func (p *PostgresAdapter) ListNodeAliases(ctx context.Context) (_ []NodeAliasEnt
 	defer mon.Task()(&ctx)(&err)
 
 	var aliases []NodeAliasEntry
-	rows, err := p.db.Query(ctx, `
+	rows, err := p.db.QueryContext(ctx, `
 		SELECT node_id, node_alias
 		FROM node_aliases
 	`)
@@ -201,7 +201,7 @@ func (p *PostgresAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeA
 	defer mon.Task()(&ctx)(&err)
 
 	var entries []NodeAliasEntry
-	rows, err := p.db.Query(ctx, `
+	rows, err := p.db.QueryContext(ctx, `
 		SELECT node_id, node_alias
 		FROM node_aliases
 		WHERE node_id = ANY($1) OR node_alias = ANY($2)
