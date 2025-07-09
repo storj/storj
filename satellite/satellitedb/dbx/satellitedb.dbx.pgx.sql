@@ -26,13 +26,6 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 ) ;
-CREATE TABLE api_key_tails (
-	tail bytea NOT NULL,
-	parent_tail bytea NOT NULL,
-	caveat bytea NOT NULL,
-	last_used timestamp with time zone NOT NULL,
-	PRIMARY KEY ( tail )
-) ;
 CREATE TABLE billing_balances (
 	user_id bytea NOT NULL,
 	balance bigint NOT NULL,
@@ -619,6 +612,14 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	state integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
+) ;
+CREATE TABLE api_key_tails (
+	root_key_id bytea REFERENCES api_keys( id ) ON DELETE CASCADE,
+	tail bytea NOT NULL,
+	parent_tail bytea NOT NULL,
+	caveat bytea NOT NULL,
+	last_used timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tail )
 ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
