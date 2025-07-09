@@ -84,7 +84,7 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 
 	// TODO: optimize using arrays like overlay
 
-	rows, err := idents.db.Query(ctx, idents.db.Rebind(`
+	rows, err := idents.db.QueryContext(ctx, idents.db.Rebind(`
 		SELECT chain
 		FROM peer_identities
 		WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)
