@@ -142,7 +142,7 @@ func NewSegmentRepairer(
 	repairThresholdOverrides checker.RepairThresholdOverrides,
 	repairTargetOverrides checker.RepairTargetOverrides,
 	config Config,
-) (*SegmentRepairer, error) {
+) (_ *SegmentRepairer, err error) {
 
 	excessOptimalThreshold := config.MaxExcessRateOptimalThreshold
 	if excessOptimalThreshold < 0 {
@@ -178,15 +178,17 @@ func NewSegmentRepairer(
 	}
 
 	if config.ParticipatingNodeCacheEnabled {
-		var err error
 		repairer.participatingNodesCache, err = sync2.NewReadCache(config.ParticipatingNodeCacheInterval, config.ParticipatingNodeCacheStale, repairer.fetchParticipatingNodes)
-		return repairer, Error.Wrap(err)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	if config.NodesForRepairCacheEnabled {
-		var err error
 		repairer.nodesForRepairCache, err = sync2.NewReadCache(config.NodesForRepairCacheInterval, config.NodesForRepairCacheStale, overlay.GetAllOnlineNodesForRepair)
-		return repairer, Error.Wrap(err)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	return repairer, nil
