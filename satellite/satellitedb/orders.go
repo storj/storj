@@ -397,7 +397,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 
 	var sum *int64
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND bucket_name = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&sum)
+	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&sum)
 	if errors.Is(err, sql.ErrNoRows) || sum == nil {
 		return 0, nil
 	}
@@ -409,7 +409,7 @@ func (db *ordersDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.U
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT SUM(allocated),SUM(inline), SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND bucket_name = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&allocated, &inline, &settled)
+	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&allocated, &inline, &settled)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, 0, 0, nil
 	}
@@ -422,7 +422,7 @@ func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.No
 
 	var sum int64
 
-	err = db.db.QueryRow(ctx, db.db.Rebind(`
+	err = db.db.QueryRowContext(ctx, db.db.Rebind(`
 		SELECT COALESCE(SUM(settled), 0)
 		FROM storagenode_bandwidth_rollups
 		WHERE storagenode_id = ?

@@ -339,7 +339,7 @@ func (db *ProjectAccounting) GetProjectSettledBandwidthTotal(ctx context.Context
 	// action uses int64 for compatibility with Spanner as Spanner does not support int32
 	actionGet := int64(pb.PieceAction_GET)
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start >= ?;`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], actionGet, from.UTC()).Scan(&sum)
+	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:], actionGet, from.UTC()).Scan(&sum)
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && sum == nil) {
 		return 0, nil
 	}
@@ -376,12 +376,12 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 				) SELECT sum(amount) FROM egress` + db.db.impl.AsOfSystemInterval(asOfSystemInterval)
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
+		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
 	case dbutil.Spanner:
 		expiredSinceCivil := civil.DateOf(expiredSince)
 		startOfMonthCivil := civil.DateOf(startOfMonth)
 		periodEndCivil := civil.DateOf(periodEnd)
-		err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSinceCivil, projectID[:], startOfMonthCivil, periodEndCivil).Scan(&egress)
+		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), expiredSinceCivil, projectID[:], startOfMonthCivil, periodEndCivil).Scan(&egress)
 	default:
 		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -408,9 +408,9 @@ func (db *ProjectAccounting) GetProjectSettledBandwidth(ctx context.Context, pro
 		` WHERE project_id = ? AND interval_day >= ? AND interval_day < ?`
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], startOfMonth, periodEnd).Scan(&egress)
+		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:], startOfMonth, periodEnd).Scan(&egress)
 	case dbutil.Spanner:
-		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], civil.DateOf(startOfMonth), civil.DateOf(periodEnd)).Scan(&egress)
+		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:], civil.DateOf(startOfMonth), civil.DateOf(periodEnd)).Scan(&egress)
 	default:
 		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -433,9 +433,9 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 	query := `SELECT egress_allocated, egress_settled, egress_dead FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
 	switch db.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
-		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID.Bytes(), startOfMonth).Scan(&allocated, &settled, &dead)
+		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID.Bytes(), startOfMonth).Scan(&allocated, &settled, &dead)
 	case dbutil.Spanner:
-		err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID.Bytes(), civil.DateOf(startOfMonth)).Scan(&allocated, &settled, &dead)
+		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID.Bytes(), civil.DateOf(startOfMonth)).Scan(&allocated, &settled, &dead)
 	default:
 		return 0, 0, 0, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -1559,7 +1559,7 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 		}
 		return archivedCount, nil
 	case dbutil.Postgres:
-		err := db.db.DB.QueryRow(ctx, `
+		err := db.db.DB.QueryRowContext(ctx, `
 			WITH rollups_to_move AS (
 				DELETE FROM bucket_bandwidth_rollups
 				WHERE interval_start <= $1
@@ -1573,7 +1573,7 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 		`, before).Scan(&archivedCount)
 		return archivedCount, Error.Wrap(err)
 	case dbutil.Spanner:
-		row := db.db.DB.QueryRow(ctx, `SELECT count(*) FROM bucket_bandwidth_rollups
+		row := db.db.DB.QueryRowContext(ctx, `SELECT count(*) FROM bucket_bandwidth_rollups
                                 WHERE interval_start <= ?`, before)
 		err = row.Scan(&archivedCount)
 		if err != nil {
@@ -1609,7 +1609,7 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 	case dbutil.Cockroach, dbutil.Postgres:
 		for {
 			var rowCount int
-			err := db.db.QueryRow(ctx, `
+			err := db.db.QueryRowContext(ctx, `
 				WITH rollups_to_move AS (
 					DELETE FROM bucket_bandwidth_rollups
 					WHERE action = $1 AND interval_start <= $2
@@ -1634,7 +1634,7 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 		for {
 			var rowCount int
 			err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-				row := tx.Tx.QueryRow(ctx, `
+				row := tx.Tx.QueryRowContext(ctx, `
 					SELECT count(*) FROM bucket_bandwidth_rollups
 					 WHERE action = ? AND interval_start <= ? LIMIT ?
 				`, int(action), before, batchSize)

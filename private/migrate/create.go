@@ -30,7 +30,7 @@ func Create(ctx context.Context, identifier string, db DBX) error {
 		if err != nil {
 			return err
 		}
-		row := tx.QueryRow(ctx, db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
+		row := tx.QueryRowContext(ctx, db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
 		var previousSchema string
 		err = row.Scan(&previousSchema)
 		// not created yet
@@ -69,7 +69,7 @@ func CreateSpanner(ctx context.Context, identifier string, db DBX) error {
 		return err
 	}
 
-	row := db.QueryRow(ctx, db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
+	row := db.QueryRowContext(ctx, db.Rebind(`SELECT schemaText FROM table_schemas WHERE id = ?;`), identifier)
 
 	var previousSchema string
 	err = row.Scan(&previousSchema)
