@@ -198,7 +198,7 @@ func (vq *verifyQueue) Next(ctx context.Context) (seg audit.Segment, err error) 
 			ORDER BY inserted_at, stream_id, position
 			LIMIT 1`
 
-			row := tx.Tx.QueryRow(ctx, getQuery)
+			row := tx.Tx.QueryRowContext(ctx, getQuery)
 
 			var insertedAt time.Time
 

@@ -705,7 +705,7 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 	switch db.db.impl {
 	case dbutil.Cockroach:
 		for {
-			row := db.db.QueryRow(ctx, `
+			row := db.db.QueryRowContext(ctx, `
 			WITH rollups_to_move AS (
 				DELETE FROM storagenode_bandwidth_rollups
 				WHERE interval_start <= $1
@@ -740,7 +740,7 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 			)
 			SELECT count(*) FROM moved_rollups
 		`
-		row := db.db.DB.QueryRow(ctx, storagenodeStatement, before)
+		row := db.db.DB.QueryRowContext(ctx, storagenodeStatement, before)
 		err = row.Scan(&nodeRollupsDeleted)
 		return nodeRollupsDeleted, err
 

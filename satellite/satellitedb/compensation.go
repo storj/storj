@@ -33,7 +33,7 @@ func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.
 	`)
 
 	var totalHeld, totalDisposed, totalPaid, totalDistributed int64
-	if err := comp.db.DB.QueryRow(ctx, stmt, nodeID).Scan(&totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
+	if err := comp.db.DB.QueryRowContext(ctx, stmt, nodeID).Scan(&totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
 		return compensation.TotalAmounts{}, Error.Wrap(err)
 	}
 

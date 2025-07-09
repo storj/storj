@@ -49,11 +49,11 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return errs.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		_, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
 			pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return errs.Wrap(err)
@@ -104,11 +104,11 @@ func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return ErrMigrateMinVersion.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pgutil.QuoteIdentifier(dbName)))
+		_, err := db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`, pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
@@ -1843,14 +1843,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				SeparateTx:  true,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 					if db.Name() == tagsql.CockroachName {
-						_, err := db.Exec(ctx,
+						_, err := db.ExecContext(ctx,
 							`ALTER TABLE accounting_rollups RENAME TO accounting_rollups_original;`,
 						)
 						if err != nil {
 							return ErrMigrate.Wrap(err)
 						}
 
-						_, err = db.Exec(ctx,
+						_, err = db.ExecContext(ctx,
 							`CREATE TABLE accounting_rollups (
 								node_id bytea NOT NULL,
 								start_time timestamp with time zone NOT NULL,
@@ -1886,7 +1886,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						return nil
 					}
 
-					_, err := db.Exec(ctx,
+					_, err := db.ExecContext(ctx,
 						`CREATE TABLE accounting_rollups_new (
 								node_id bytea NOT NULL,
 								start_time timestamp with time zone NOT NULL,
@@ -1985,14 +1985,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Description: "add distributed column to storagenode_paystubs table",
 				Version:     140,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					_, err := db.Exec(ctx, `
+					_, err := db.ExecContext(ctx, `
 							ALTER TABLE storagenode_paystubs ADD COLUMN distributed BIGINT;
 						`)
 					if err != nil {
 						return ErrMigrate.Wrap(err)
 					}
 
-					_, err = db.Exec(ctx, `
+					_, err = db.ExecContext(ctx, `
 							UPDATE storagenode_paystubs ps
 							SET distributed = coalesce((
 								SELECT sum(amount)::bigint
@@ -2005,7 +2005,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						return ErrMigrate.Wrap(err)
 					}
 
-					_, err = db.Exec(ctx, `
+					_, err = db.ExecContext(ctx, `
 							ALTER TABLE storagenode_paystubs ALTER COLUMN distributed SET NOT NULL;
 						`)
 					if err != nil {
@@ -2033,7 +2033,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     142,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 					if db.Name() == tagsql.CockroachName {
-						_, err := db.Exec(ctx,
+						_, err := db.ExecContext(ctx,
 							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
 						)
 						if err != nil {
@@ -2042,7 +2042,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						return nil
 					}
 
-					_, err := db.Exec(ctx,
+					_, err := db.ExecContext(ctx,
 						`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_name_project_id_key;`,
 					)
 					if err != nil {
@@ -3117,7 +3117,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					// for crdb lets check if key was already altered, for pg we will do migration always
 					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
-						err := db.QueryRow(ctx,
+						err := db.QueryRowContext(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
 						).Scan(&primaryKey)
 						if err != nil {
@@ -3309,7 +3309,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					// for crdb lets check if key was already altered, for pg we will do migration always
 					if db.Name() == tagsql.CockroachName {
 						var primaryKey string
-						err := db.QueryRow(ctx,
+						err := db.QueryRowContext(ctx,
 							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_metainfos) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
 						).Scan(&primaryKey)
 						if err != nil {
