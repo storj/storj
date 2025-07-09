@@ -6797,39 +6797,39 @@ func TestDownloadObject_DownloadSegment_ServerSideCopy(t *testing.T) {
 			endpoint.TestingAddTrustedUplink(planet.Uplinks[0].ID())
 
 			for _, objectKey := range []string{"remote", "inline"} {
-				func() {
-					resp, err := endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
-						Header:             &pb.RequestHeader{ApiKey: apiKey},
-						Bucket:             []byte("test"),
-						EncryptedObjectKey: []byte(objectKey),
+				resp, err := endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
+					Header:             &pb.RequestHeader{ApiKey: apiKey},
+					Bucket:             []byte("test"),
+					EncryptedObjectKey: []byte(objectKey),
 
-						ServerSideCopy: true,
-					})
-					require.NoError(t, err)
+					ServerSideCopy: true,
+				})
+				require.NoError(t, err)
 
-					dsResp, err := endpoint.DownloadSegment(peerctx, &pb.DownloadSegmentRequest{
-						Header:         &pb.RequestHeader{ApiKey: apiKey},
-						StreamId:       resp.Object.StreamId,
-						CursorPosition: &pb.SegmentPosition{},
-						ServerSideCopy: true,
-					})
-					require.NoError(t, err)
+				dsResp, err := endpoint.DownloadSegment(peerctx, &pb.DownloadSegmentRequest{
+					Header:         &pb.RequestHeader{ApiKey: apiKey},
+					StreamId:       resp.Object.StreamId,
+					CursorPosition: &pb.SegmentPosition{},
+					ServerSideCopy: true,
+				})
+				require.NoError(t, err)
 
-					// test egress skip while using DownloadObject and DownloadSegment endpoints
-					for _, toDownload := range []*pb.DownloadSegmentResponse{resp.SegmentDownload[0], dsResp} {
-						var data []byte
-						if toDownload.EncryptedInlineData != nil {
-							data = toDownload.EncryptedInlineData
-							// encrypted data takes more space than the original data
-							require.GreaterOrEqual(t, len(data), 500)
-						} else {
-							limit := toDownload.AddressedLimits[0]
-							nodeURL := storj.NodeURL{
-								ID:      limit.Limit.StorageNodeId,
-								Address: limit.StorageNodeAddress.Address,
-							}
-							require.NoError(t, err)
+				// test egress skip while using DownloadObject and DownloadSegment endpoints
+				for _, toDownload := range []*pb.DownloadSegmentResponse{resp.SegmentDownload[0], dsResp} {
+					var data []byte
+					if toDownload.EncryptedInlineData != nil {
+						data = toDownload.EncryptedInlineData
+						// encrypted data takes more space than the original data
+						require.GreaterOrEqual(t, len(data), 500)
+					} else {
+						limit := toDownload.AddressedLimits[0]
+						nodeURL := storj.NodeURL{
+							ID:      limit.Limit.StorageNodeId,
+							Address: limit.StorageNodeAddress.Address,
+						}
+						require.NoError(t, err)
 
+						func() {
 							client, err := piecestore.Dial(ctx, planet.Uplinks[0].Dialer, nodeURL, piecestore.DefaultConfig)
 							require.NoError(t, err)
 							defer ctx.Check(client.Close)
@@ -6841,10 +6841,9 @@ func TestDownloadObject_DownloadSegment_ServerSideCopy(t *testing.T) {
 							data, err = io.ReadAll(download)
 							require.NoError(t, err)
 							require.Len(t, data, 400)
-						}
+						}()
 					}
-
-				}()
+				}
 			}
 
 			for _, sn := range planet.StorageNodes {
