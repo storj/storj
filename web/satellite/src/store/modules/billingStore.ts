@@ -33,7 +33,7 @@ import {
 import { PaymentsHttpApi } from '@/api/payments';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
-import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
+import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
 
 export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
@@ -67,6 +67,8 @@ export const useBillingStore = defineStore('billing', () => {
 
     const defaultCard = computed<CreditCard>(() => state.creditCards.find(card => card.isDefault) ?? new CreditCard());
 
+    const upgradePayUpfrontAmount = computed<number>(() => configStore.state.config.upgradePayUpfrontAmount);
+
     const storagePrice = computed(() => {
         const storage =  formatPrice(decimalShift(configStore.state.config.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
         return `${storage} per GB-month`;
@@ -96,7 +98,7 @@ export const useBillingStore = defineStore('billing', () => {
             subtitle += ', no minimum';
         }
 
-        let activationDesc = 'Add a credit card to activate your pro account. Only pay for what you use';
+        let activationDesc = 'Add a credit card to activate your account. Only pay for what you use';
         if (minimumCharge.priorNoticeEnabled) {
             activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
         } else if (minimumCharge.isEnabled) {
@@ -105,16 +107,19 @@ export const useBillingStore = defineStore('billing', () => {
             activationDesc += ', no minimum. Billed monthly.';
         }
 
+        const payUpfrontDollars = centsToDollars(upgradePayUpfrontAmount.value);
+
         return new PricingPlanInfo(
             PricingPlanType.PRO,
             'Activated Account',
             subtitle,
             `Pay for what you need. As low as ${storagePrice.value} storage, as low as ${egressPrice.value} for download bandwidth.`,
             `Additional per-segment fee of ${segmentPrice.value} applies.`,
-            null,
+            upgradePayUpfrontAmount.value > 0 ? `Activate account - ${payUpfrontDollars}` : null,
             null,
             activationDesc,
-            'No charge today',
+            upgradePayUpfrontAmount.value > 0 ? 'Secure payment processing' : 'No charge today',
+            upgradePayUpfrontAmount.value > 0 ? `<b>Pay ${payUpfrontDollars} to activate</b> - Includes ${payUpfrontDollars} usage credit to get you started.` : null,
             '',
         );
     });
@@ -299,6 +304,10 @@ export const useBillingStore = defineStore('billing', () => {
         await api.purchase(dataStr, PurchaseIntent.PackagePlan, csrfToken.value);
     }
 
+    async function purchaseUpgradedAccount(dataStr: string): Promise<void> {
+        await api.purchase(dataStr, PurchaseIntent.UpgradeAccount, csrfToken.value);
+    }
+
     function setPricingPlansAvailable(available: boolean, info: PricingPlanInfo | null = null): void {
         state.pricingPlansAvailable = available;
         state.pricingPlanInfo = info;
@@ -362,6 +371,7 @@ export const useBillingStore = defineStore('billing', () => {
         getCoupon,
         getPricingPackageAvailable,
         purchasePricingPackage,
+        purchaseUpgradedAccount,
         setPricingPlansAvailable,
         clear,
     };

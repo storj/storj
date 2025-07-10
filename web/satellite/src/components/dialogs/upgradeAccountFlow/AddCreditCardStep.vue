@@ -8,7 +8,9 @@
             <!-- eslint-disable-next-line vue/no-v-html -->
             <p v-html="plan.activationDescriptionHTML" />
             <!-- eslint-disable-next-line vue/no-v-html -->
-            <v-chip v-if="plan.activationPriceHTML" color="success" :prepend-icon="Check" class="mt-2"><p class="font-weight-bold" v-html="plan.activationPriceHTML" /></v-chip>
+            <div v-if="plan.activationPriceInfo" class="mt-2"><v-chip color="info"><p v-html="plan.activationPriceInfo" /></v-chip></div>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <v-chip v-if="plan.activationPriceHTML" variant="text" color="success" :prepend-icon="Check" class="mt-2"><p class="font-weight-bold" v-html="plan.activationPriceHTML" /></v-chip>
         </v-col>
     </v-row>
 
@@ -39,7 +41,7 @@
                 :prepend-icon="LockKeyhole"
                 @click="onSaveCardClick"
             >
-                Save card
+                {{ upgradePayUpfrontAmount > 0 ? `Activate account - ${centsToDollars(upgradePayUpfrontAmount)}` : 'Save card' }}
             </v-btn>
         </v-col>
     </v-row>
@@ -59,6 +61,8 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
+import { centsToDollars } from '@/utils/strings';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 
@@ -70,6 +74,7 @@ const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const route = useRoute();
@@ -85,6 +90,8 @@ const emit = defineEmits<{
 
 const stripeCardInput = ref<StripeForm | null>(null);
 const stripeReady = ref<boolean>(false);
+
+const upgradePayUpfrontAmount = computed(() => configStore.state.config.upgradePayUpfrontAmount);
 
 /**
  * Provides card information to Stripe.
@@ -109,26 +116,28 @@ async function onSaveCardClick(): Promise<void> {
  * depending on the paymentElementEnabled flag.
  */
 async function addCardToDB(res: string): Promise<void> {
-    try {
+    if (upgradePayUpfrontAmount.value > 0) {
+        await billingStore.purchaseUpgradedAccount(res);
+        notify.success('Card successfully added and account upgraded');
+    } else {
         await billingStore.addCardByPaymentMethodID(res);
         notify.success('Card successfully added');
-        // We fetch User one more time to update their Paid Tier status.
-        usersStore.getUser().catch((_) => {});
-
-        if (route.name === ROUTES.Dashboard.name) {
-            projectsStore.getProjectConfig().catch((_) => {});
-            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
-        }
-
-        if (route.name === ROUTES.Billing.name) {
-            billingStore.getCreditCards().catch((_) => {});
-        }
-
-        analyticsStore.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
-
-        emit('success');
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
+
+    // We fetch User one more time to update their Paid Tier status.
+    usersStore.getUser().catch((_) => {});
+
+    if (route.name === ROUTES.Dashboard.name) {
+        projectsStore.getProjectConfig().catch((_) => {});
+        projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
+    }
+
+    if (route.name === ROUTES.Billing.name) {
+        billingStore.getCreditCards().catch((_) => {});
+    }
+
+    analyticsStore.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+
+    emit('success');
 }
 </script>

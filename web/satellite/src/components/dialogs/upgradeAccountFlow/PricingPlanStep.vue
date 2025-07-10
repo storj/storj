@@ -9,7 +9,9 @@
                 <!-- eslint-disable-next-line vue/no-v-html -->
                 <p v-html="plan.activationDescriptionHTML" />
                 <!-- eslint-disable-next-line vue/no-v-html -->
-                <v-chip v-if="plan.activationPriceHTML" color="success" :prepend-icon="Check" class="mt-2"><p class="font-weight-bold" v-html="plan.activationPriceHTML" /></v-chip>
+                <div v-if="plan.activationPriceInfo" class="mt-2"><v-chip color="info"><p v-html="plan.activationPriceInfo" /></v-chip></div>
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <v-chip v-if="plan.activationPriceHTML" variant="text" color="success" :prepend-icon="Check" class="mt-2"><p class="font-weight-bold" v-html="plan.activationPriceHTML" /></v-chip>
             </v-col>
         </v-row>
 
@@ -102,6 +104,7 @@ import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 
@@ -111,6 +114,7 @@ interface StripeForm {
 
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 
@@ -138,9 +142,9 @@ const loading = defineModel<boolean>('loading');
 /**
  * Returns whether current plan is a free pricing plan.
  */
-const isFree = computed((): boolean => {
-    return props.plan?.type === PricingPlanType.FREE;
-});
+const isFree = computed<boolean>(() => props.plan?.type === PricingPlanType.FREE);
+
+const upgradePayUpfrontAmount = computed(() => configStore.state.config.upgradePayUpfrontAmount);
 
 function onBack(): void {
     stripeReady.value = false;
@@ -177,21 +181,22 @@ async function onActivateClick() {
  */
 async function onCardAdded(res: string): Promise<void> {
     if (!props.plan) return;
-    try {
-        if (props.plan.type === PricingPlanType.PARTNER) {
-            await billingStore.purchasePricingPackage(res);
+
+    if (props.plan.type === PricingPlanType.PARTNER) {
+        await billingStore.purchasePricingPackage(res);
+    } else {
+        if (upgradePayUpfrontAmount.value > 0) {
+            await billingStore.purchaseUpgradedAccount(res);
         } else {
             await billingStore.addCardByPaymentMethodID(res);
         }
-        onSuccess();
-
-        // Fetch user to update paid tier status
-        usersStore.getUser().catch((_) => {});
-        // Fetch cards to hide paid tier banner
-        billingStore.getCreditCards().catch((_) => {});
-    } catch (error) {
-        notify.notifyError(error);
     }
+    onSuccess();
+
+    Promise.all([
+        usersStore.getUser(),
+        billingStore.getCreditCards(),
+    ]).catch((_) => {});
 }
 
 function onSuccess() {
