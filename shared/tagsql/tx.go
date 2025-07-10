@@ -58,7 +58,7 @@ func (s *sqlTx) ExecContext(ctx context.Context, query string, args ...interface
 	defer mon.Task()(&ctx, query, args)(&err)
 
 	if !s.useContext {
-		return s.tx.Exec(query, args...)
+		return s.tx.Exec(query, args...) //nolint: noctx, fallback for non-context behaviour
 	}
 	return s.tx.ExecContext(ctx, query, args...)
 }
@@ -86,7 +86,7 @@ func (s *sqlTx) PrepareContext(ctx context.Context, query string) (_ Stmt, err e
 
 	var stmt *sql.Stmt
 	if !s.useContext {
-		stmt, err = s.tx.Prepare(query)
+		stmt, err = s.tx.Prepare(query) //nolint: noctx, fallback for non-context behaviour
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func (s *sqlTx) QueryContext(ctx context.Context, query string, args ...interfac
 	defer mon.Task()(&ctx, query, args)(&err)
 
 	if !s.useContext {
-		return s.wrapRows(s.tx.Query(query, args...))
+		return s.wrapRows(s.tx.Query(query, args...)) //nolint: noctx, fallback for non-context behaviour
 	}
 	return s.wrapRows(s.tx.QueryContext(ctx, query, args...))
 }
@@ -138,7 +138,7 @@ func (s *sqlTx) QueryRowContext(ctx context.Context, query string, args ...inter
 	defer mon.Task()(&ctx, query, args)(nil)
 
 	if !s.useContext {
-		return s.tx.QueryRow(query, args...)
+		return s.tx.QueryRow(query, args...) //nolint: noctx, fallback for non-context behaviour
 	}
 	return s.tx.QueryRowContext(ctx, query, args...)
 }
