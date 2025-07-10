@@ -39,7 +39,7 @@ type CreditCards interface {
 	AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string, force bool) (CreditCard, error)
 
 	// Remove is used to detach a credit card from payment account.
-	Remove(ctx context.Context, userID uuid.UUID, cardID string) error
+	Remove(ctx context.Context, userID uuid.UUID, cardID string, force bool) error
 
 	// RemoveAll is used to detach all credit cards from payment account.
 	// It should only be used in case of a user deletion.

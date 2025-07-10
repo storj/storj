@@ -947,7 +947,7 @@ func (payment Payments) RemoveCreditCard(ctx context.Context, cardID string) (er
 		return Error.Wrap(err)
 	}
 
-	return payment.service.accounts.CreditCards().Remove(ctx, user.ID, cardID)
+	return payment.service.accounts.CreditCards().Remove(ctx, user.ID, cardID, false)
 }
 
 // BillingHistory returns a list of billing history items for payment account.
@@ -6102,7 +6102,30 @@ func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, in
 			return err
 		}
 	case payments.PurchaseUpgradedAccountIntent:
-		// TODO: add support for upgraded account purchase.
+		if payment.service.config.UpgradePayUpfrontAmount == 0 {
+			return ErrForbidden.New("upgrade to paid account via purchase is not enabled")
+		}
+
+		card, err := payment.AddCardByPaymentMethodID(ctx, paymentMethodID, false)
+		if err != nil {
+			return err
+		}
+
+		err = payment.applyCreditFromPaidInvoice(ctx, addCreditFromPaidInvoiceParams{
+			User:            user,
+			PaymentMethodID: card.ID,
+			Price:           int64(payment.service.config.UpgradePayUpfrontAmount),
+			Credit:          int64(payment.service.config.UpgradePayUpfrontAmount),
+			Description:     "upgrade to paid account",
+		})
+		if err != nil {
+			removeErr := payment.service.accounts.CreditCards().Remove(ctx, user.ID, card.ID, true)
+			if removeErr != nil {
+				payment.service.log.Warn("failed to remove credit card after failed purchase", zap.Error(removeErr), zap.String("cardID", card.ID), zap.String("userID", user.ID.String()))
+			}
+
+			return err
+		}
 	}
 
 	return nil

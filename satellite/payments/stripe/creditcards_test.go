@@ -203,17 +203,17 @@ func TestCreditCards_Remove(t *testing.T) {
 
 		// user2ID should not be able to delete userID's cards
 		for _, card := range cards {
-			err = satellite.API.Payments.Accounts.CreditCards().Remove(ctx, user2ID, card.ID)
+			err = satellite.API.Payments.Accounts.CreditCards().Remove(ctx, user2ID, card.ID, false)
 			require.Error(t, err)
 			require.True(t, payments.ErrCardNotFound.Has(err))
 		}
 
 		// Can not remove default card
-		err = satellite.API.Payments.Accounts.CreditCards().Remove(ctx, userID, card2.ID)
+		err = satellite.API.Payments.Accounts.CreditCards().Remove(ctx, userID, card2.ID, false)
 		require.Error(t, err)
 		require.True(t, payments.ErrDefaultCard.Has(err))
 
-		err = satellite.API.Payments.Accounts.CreditCards().Remove(ctx, userID, card1.ID)
+		err = satellite.API.Payments.Accounts.CreditCards().Remove(ctx, userID, card1.ID, false)
 		require.NoError(t, err)
 
 		cards, err = satellite.API.Payments.Accounts.CreditCards().List(ctx, userID)

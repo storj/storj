@@ -5239,6 +5239,7 @@ func TestPaymentsPurchase(t *testing.T) {
 				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
 					"partner": {Price: 1000, Credit: 1500},
 				}
+				config.Console.UpgradePayUpfrontAmount = 500
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -5276,6 +5277,23 @@ func TestPaymentsPurchase(t *testing.T) {
 		require.True(t, user.IsFree())
 
 		err = p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent)
+		require.NoError(t, err)
+
+		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.True(t, user.IsPaid())
+
+		user, err = sat.AddUser(ctx, console.CreateUser{
+			FullName: "Another User",
+			Email:    "test1@mail.test",
+		}, 1)
+		require.NoError(t, err)
+		require.True(t, user.IsFree())
+
+		userCtx, err = sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		err = p.Purchase(userCtx, pm.ID, payments.PurchaseUpgradedAccountIntent)
 		require.NoError(t, err)
 
 		user, err = sat.DB.Console().Users().Get(ctx, user.ID)

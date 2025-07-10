@@ -355,7 +355,8 @@ func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUI
 }
 
 // Remove is used to remove credit card from payment account.
-func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, cardID string) (err error) {
+// Setting force to true will allow to remove the default payment method.
+func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, cardID string, force bool) (err error) {
 	defer mon.Task()(&ctx, cardID)(&err)
 
 	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
@@ -370,7 +371,8 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 	}
 	if customer.InvoiceSettings != nil &&
 		customer.InvoiceSettings.DefaultPaymentMethod != nil &&
-		customer.InvoiceSettings.DefaultPaymentMethod.ID == cardID {
+		customer.InvoiceSettings.DefaultPaymentMethod.ID == cardID &&
+		!force {
 		return payments.ErrDefaultCard.New("can not detach default payment method.")
 	}
 
