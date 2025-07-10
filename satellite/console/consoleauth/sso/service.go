@@ -14,7 +14,6 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/microsoft"
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -85,17 +84,14 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 			verifier = &MockVerifier{}
 		} else {
 			providerUrl := info.ProviderURL.String()
-			endpoint := oauth2.Endpoint{
-				AuthURL:  providerUrl + "/oauth2/v1/authorize",
-				TokenURL: providerUrl + "/oauth2/v1/token",
+			provider, err := goOIDC.NewProvider(ctx, providerUrl)
+			if err != nil {
+				return Error.Wrap(err)
 			}
-			if strings.Contains(providerUrl, MicrosoftEntraUrlHost) {
-				// the Microsoft Entra provider url is in the format
-				// https://login.microsoftonline.com/<tenant_id>/v2.0
-				split := strings.Split(providerUrl, "/")
-				tenantID := strings.Split(providerUrl, "/")[len(split)-2]
-				endpoint = microsoft.AzureADEndpoint(tenantID)
-			}
+
+			endpoint := provider.Endpoint()
+			verifier = provider.Verifier(&goOIDC.Config{ClientID: info.ClientID})
+
 			conf = &oauth2.Config{
 				ClientID:     info.ClientID,
 				ClientSecret: info.ClientSecret,
@@ -103,16 +99,6 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 				Endpoint:     endpoint,
 				Scopes:       []string{goOIDC.ScopeOpenID, "email", "profile"},
 			}
-
-			provider, err := goOIDC.NewProvider(ctx, providerUrl)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			v := provider.Verifier(&goOIDC.Config{ClientID: info.ClientID})
-			if v == nil {
-				return Error.New("failed to create Verifier")
-			}
-			verifier = v
 		}
 
 		verifierMap[providerName] = OidcSetup{
