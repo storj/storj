@@ -180,7 +180,7 @@ func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, erro
 	var tx *sql.Tx
 	var err error
 	if !s.useContext {
-		tx, err = s.db.Begin()
+		tx, err = s.db.Begin() //nolint: noctx, fallback for non-context behaviour
 	} else {
 		tx, err = s.db.BeginTx(ctx, nil)
 	}
@@ -234,7 +234,7 @@ func (s *sqlDB) ExecContext(ctx context.Context, query string, args ...interface
 	defer mon.Task()(&ctx, query, args)(&err)
 
 	if !s.useContext {
-		return s.db.Exec(query, args...)
+		return s.db.Exec(query, args...) //nolint: noctx, fallback for non-context behaviour
 	}
 	return s.db.ExecContext(ctx, query, args...)
 }
@@ -242,7 +242,7 @@ func (s *sqlDB) ExecContext(ctx context.Context, query string, args ...interface
 func (s *sqlDB) PingContext(ctx context.Context) error {
 	traces.Tag(ctx, traces.TagDB)
 	if !s.useContext {
-		return s.db.Ping()
+		return s.db.Ping() //nolint: noctx, fallback for non-context behaviour
 	}
 	return s.db.PingContext(ctx)
 }
@@ -253,7 +253,7 @@ func (s *sqlDB) PrepareContext(ctx context.Context, query string) (_ Stmt, err e
 
 	var stmt *sql.Stmt
 	if !s.useContext {
-		stmt, err = s.db.Prepare(query)
+		stmt, err = s.db.Prepare(query) //nolint: noctx, fallback for non-context behaviour
 		if err != nil {
 			return nil, err
 		}
@@ -278,7 +278,7 @@ func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interfac
 	defer mon.Task()(&ctx, query, args)(&err)
 
 	if !s.useContext {
-		return s.wrapRows(s.db.Query(query, args...))
+		return s.wrapRows(s.db.Query(query, args...)) //nolint: noctx, fallback for non-context behaviour
 	}
 	return s.wrapRows(s.db.QueryContext(ctx, query, args...))
 }
@@ -289,7 +289,7 @@ func (s *sqlDB) QueryRowContext(ctx context.Context, query string, args ...inter
 	defer mon.Task()(&ctx, query, args)(nil)
 
 	if !s.useContext {
-		return s.db.QueryRow(query, args...)
+		return s.db.QueryRow(query, args...) //nolint: noctx, fallback for non-context behaviour
 	}
 	return s.db.QueryRowContext(ctx, query, args...)
 }
