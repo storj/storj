@@ -16,33 +16,35 @@ import (
 )
 
 func TestUTCDB(t *testing.T) {
+	ctx := context.Background()
+
 	notUTC := time.FixedZone("not utc", -1)
 	db := sql.OpenDB(utccheck.WrapConnector(emptyConnector{}))
 
 	{ // time.Time not in UTC
-		_, err := db.Exec("", time.Now().In(notUTC))
+		_, err := db.ExecContext(ctx, "", time.Now().In(notUTC))
 		require.Error(t, err)
 	}
 
 	{ // *time.Time not in UTC
 		now := time.Now().In(notUTC)
-		_, err := db.Exec("", &now)
+		_, err := db.ExecContext(ctx, "", &now)
 		require.Error(t, err)
 	}
 
 	{ // time.Time in UTC
-		_, err := db.Exec("", time.Now().UTC())
+		_, err := db.ExecContext(ctx, "", time.Now().UTC())
 		require.NoError(t, err)
 	}
 
 	{ // *time.Time in UTC
 		now := time.Now().UTC()
-		_, err := db.Exec("", &now)
+		_, err := db.ExecContext(ctx, "", &now)
 		require.NoError(t, err)
 	}
 
 	{ // nil *time.Time
-		_, err := db.Exec("", (*time.Time)(nil))
+		_, err := db.ExecContext(ctx, "", (*time.Time)(nil))
 		require.NoError(t, err)
 	}
 }
