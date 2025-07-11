@@ -1411,6 +1411,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # if set, skips the creation of empty invoices for customers with zero usage for the billing period
 # payments.stripe-coin-payments.skip-empty-invoices: true
 
+# whether we should use SKUs for product usages
+# payments.stripe-coin-payments.sku-enabled: false
+
 # stripe free tier coupon ID
 # payments.stripe-coin-payments.stripe-free-tier-coupon-id: ""
 

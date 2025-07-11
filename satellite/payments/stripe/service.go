@@ -955,7 +955,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		// Create storage invoice item.
 		storageItem := &stripe.InvoiceItemParams{}
 		storageDesc := prefix + storageInvoiceItemDesc
-		if info.StorageSKU != "" {
+		if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
 			storageDesc += " - " + info.StorageSKU
 		}
 		storageItem.Description = stripe.String(storageDesc)
@@ -971,7 +971,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		// Create egress invoice item.
 		egressItem := &stripe.InvoiceItemParams{}
 		egressDesc := prefix + egressInvoiceItemDesc
-		if info.EgressSKU != "" {
+		if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
 			egressDesc += " - " + info.EgressSKU
 		}
 		egressItem.Description = stripe.String(egressDesc)
@@ -987,7 +987,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		// Create segment invoice item.
 		segmentItem := &stripe.InvoiceItemParams{}
 		segmentDesc := prefix + segmentInvoiceItemDesc
-		if info.SegmentSKU != "" {
+		if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
 			segmentDesc += " - " + info.SegmentSKU
 		}
 		segmentItem.Description = stripe.String(segmentDesc)
