@@ -712,7 +712,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Initial setup",
 				Version:     0,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, DeprecatedInfoDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, DeprecatedInfoDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1132,31 +1132,31 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, BandwidthDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, BandwidthDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, OrdersDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, OrdersDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, PieceExpirationDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, PieceExpirationDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, PieceInfoDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, PieceInfoDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, PieceSpaceUsedDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, PieceSpaceUsedDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, ReputationDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, ReputationDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, StorageUsageDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, StorageUsageDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, UsedSerialsDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, UsedSerialsDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ctx, SatellitesDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, SatellitesDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1256,7 +1256,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create notifications table",
 				Version:     28,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, NotificationsDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, NotificationsDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1317,7 +1317,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create paystubs table and payments table",
 				Version:     32,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, HeldAmountDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, HeldAmountDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1416,7 +1416,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create pricing table",
 				Version:     35,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, PricingDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, PricingDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1877,7 +1877,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create secret table",
 				Version:     46,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, APIKeysDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, APIKeysDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -2088,7 +2088,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create gc_filewalker_progress db",
 				Version:     55,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, GCFilewalkerProgressDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, GCFilewalkerProgressDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -2108,7 +2108,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create used_space_per_prefix db",
 				Version:     56,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, UsedSpacePerPrefixDBName); err != nil {
+					if err := db.openDatabaseWithStat(ctx, UsedSpacePerPrefixDBName, false); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
