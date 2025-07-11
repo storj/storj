@@ -7063,6 +7063,78 @@ func TestListObjects_Delimiter(t *testing.T) {
 	})
 }
 
+func TestDownloadObject_DownloadSegment_DesiredNodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.DefaultPathCipher = storj.EncNull
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
+		endpoint := planet.Satellites[0].API.Metainfo.Endpoint
+
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test"))
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test", "remote", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
+
+		defaultNodesNumber := planet.Satellites[0].API.Orders.Service.DownloadNodes(storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 2,
+			TotalShares:    6,
+		})
+
+		for desiredNodes, result := range map[int32]int{
+			// TODO right now DesiredNodes feature can return default number of nodes or more
+			0:             int(defaultNodesNumber),
+			3:             3,
+			4:             4,
+			10:            4,
+			math.MaxInt32: 4,
+		} {
+			resp, err := endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey},
+				Bucket:             []byte("test"),
+				EncryptedObjectKey: []byte("remote"),
+
+				DesiredNodes: desiredNodes,
+			})
+			require.NoError(t, err)
+
+			orderLimits := 0
+			for _, limit := range resp.SegmentDownload[0].AddressedLimits {
+				if limit.Limit != nil {
+					orderLimits++
+				}
+			}
+			require.Equal(t, result, orderLimits)
+
+			dsResp, err := endpoint.DownloadSegment(peerctx, &pb.DownloadSegmentRequest{
+				Header:         &pb.RequestHeader{ApiKey: apiKey},
+				StreamId:       resp.Object.StreamId,
+				CursorPosition: &pb.SegmentPosition{},
+				DesiredNodes:   desiredNodes,
+			})
+			require.NoError(t, err)
+
+			orderLimits = 0
+			for _, limit := range dsResp.AddressedLimits {
+				if limit.Limit != nil {
+					orderLimits++
+				}
+			}
+			require.Equal(t, result, orderLimits)
+		}
+	})
+}
+
 func randRetention(mode storj.RetentionMode) metabase.Retention {
 	randDur := time.Duration(rand.Int63n(1000 * int64(time.Hour)))
 	return metabase.Retention{
