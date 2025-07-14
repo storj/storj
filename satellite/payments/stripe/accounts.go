@@ -78,7 +78,7 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 
 	if signupPromoCode == "" {
 
-		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
+		params.Coupon = stripe.String(accounts.service.stripeConfig.StripeFreeTierCouponID)
 
 		customer, err := accounts.service.stripeClient.Customers().New(params)
 		if err != nil {
@@ -111,8 +111,8 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	if promoCode != nil && promoCode.Coupon != nil {
 		params.Coupon = stripe.String(promoCode.Coupon.ID)
 		couponType = payments.SignupCoupon
-	} else if accounts.service.StripeFreeTierCouponID != "" {
-		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
+	} else if accounts.service.stripeConfig.StripeFreeTierCouponID != "" {
+		params.Coupon = stripe.String(accounts.service.stripeConfig.StripeFreeTierCouponID)
 	}
 
 	customer, err := accounts.service.stripeClient.Customers().New(params)
@@ -172,8 +172,8 @@ func (accounts *accounts) ShouldSkipMinimumCharge(ctx context.Context, cusID str
 	}
 	// We check for plan expiration one step before creating an invoice so there is no need to do it here again.
 	// We should just make sure that service.removeExpiredCredit is set to true.
-	if packagePlanInfo != nil && purchaseDate != nil && accounts.service.minimumChargeDate != nil {
-		if purchaseDate.After(*accounts.service.minimumChargeDate) {
+	if packagePlanInfo != nil && purchaseDate != nil && accounts.service.pricingConfig.MinimumChargeDate != nil {
+		if purchaseDate.After(*accounts.service.pricingConfig.MinimumChargeDate) {
 			return false, nil // User has a package plan, but it was purchased after the minimum charge date, so we should not skip.
 		}
 
@@ -604,7 +604,7 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 
 		if len(productCharges) == 0 {
 			name := "Global"
-			if product, ok := accounts.service.productPriceMap[0]; ok {
+			if product, ok := accounts.service.pricingConfig.ProductPriceMap[0]; ok {
 				name = product.ProductName
 			}
 
@@ -612,7 +612,7 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 				ProjectUsage: accounting.ProjectUsage{Since: since, Before: before},
 				ProductUsagePriceModel: payments.ProductUsagePriceModel{
 					ProductName:            name,
-					ProjectUsagePriceModel: accounts.service.usagePrices,
+					ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
 				},
 			}
 		}
@@ -679,19 +679,19 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 
 // GetProjectUsagePriceModel returns the project usage price model for a partner name.
 func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.ProjectUsagePriceModel {
-	if override, ok := accounts.service.usagePriceOverrides[partner]; ok {
+	if override, ok := accounts.service.pricingConfig.UsagePriceOverrides[partner]; ok {
 		return override
 	}
-	return accounts.service.usagePrices
+	return accounts.service.pricingConfig.UsagePrices
 }
 
 // GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement.
 func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
-	productID, ok := accounts.service.partnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
+	productID, ok := accounts.service.pricingConfig.PartnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
 	if !ok {
-		productID, _ = accounts.service.placementProductMap.GetProductByPlacement(int(placement))
+		productID, _ = accounts.service.pricingConfig.PlacementProductMap.GetProductByPlacement(int(placement))
 	}
-	if price, ok := accounts.service.productPriceMap[productID]; ok {
+	if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
 		return productID, price.ProjectUsagePriceModel, nil
 	}
 	return 0, payments.ProjectUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
@@ -699,7 +699,7 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placemen
 
 // GetProductName returns the product name for a given product ID.
 func (accounts *accounts) GetProductName(productID int32) (string, error) {
-	if price, ok := accounts.service.productPriceMap[productID]; ok {
+	if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
 		return price.ProductName, nil
 	}
 	return "", ErrPricingNotfound.New("pricing not found for product %d", productID)
@@ -720,11 +720,11 @@ func (accounts *accounts) ProductIdAndPriceForUsageKey(key string) (int32, payme
 // for the partner.
 func (accounts *accounts) GetPartnerPlacements(partner string) []storj.PlacementConstraint {
 	placements := make([]storj.PlacementConstraint, 0)
-	placementMap, ok := accounts.service.partnerPlacementMap[partner]
+	placementMap, ok := accounts.service.pricingConfig.PartnerPlacementMap[partner]
 	if !ok {
 		placementMap = make(payments.PlacementProductIdMap)
 	}
-	for i, i2 := range accounts.service.placementProductMap {
+	for i, i2 := range accounts.service.pricingConfig.PlacementProductMap {
 		if _, ok = placementMap[i]; !ok {
 			placementMap[i] = i2
 		}
@@ -774,7 +774,7 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 	year, month, _ := accounts.service.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	if accounts.service.deleteProjectCostThreshold == 0 {
+	if accounts.service.config.DeleteProjectCostThreshold == 0 {
 		// check current month usage and do not allow deletion if usage exists
 		currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
 		if err != nil {
@@ -825,7 +825,7 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 		return false, false, decimal.Zero, err
 	}
 
-	if currentMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
+	if currentMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.config.DeleteProjectCostThreshold)) {
 		return true, false, currentMonthPrice, payments.ErrUnbilledUsageCurrentMonth
 	}
 
@@ -834,7 +834,7 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 		return false, false, decimal.Zero, err
 	}
 
-	if previousMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.deleteProjectCostThreshold)) {
+	if previousMonthPrice.GreaterThanOrEqual(decimal.NewFromInt(accounts.service.config.DeleteProjectCostThreshold)) {
 		err := accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		switch {
 		case errs.Is(err, ErrProjectRecordExists):

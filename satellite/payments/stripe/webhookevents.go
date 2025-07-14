@@ -21,12 +21,12 @@ func (we *webhookEvents) ParseEvent(ctx context.Context, signature string, paylo
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if we.service.webhookSecret == "" {
+	if we.service.stripeConfig.StripeWebhookSecret == "" {
 		we.service.log.Debug("webhookEvents secret not set")
 		return nil, nil
 	}
 
-	stripeEvent, err := wh.ConstructEvent(payload, signature, we.service.webhookSecret)
+	stripeEvent, err := wh.ConstructEvent(payload, signature, we.service.stripeConfig.StripeWebhookSecret)
 	if err != nil {
 		return nil, errs.New("error verifying webhookEvents event signature: %v", err)
 	}

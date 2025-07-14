@@ -33,7 +33,7 @@ func (balances *balances) ApplyCredit(ctx context.Context, userID uuid.UUID, amo
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 	}
 
-	if balances.service.useIdempotency && idempotencyKey != "" {
+	if balances.service.stripeConfig.UseIdempotency && idempotencyKey != "" {
 		params.SetIdempotencyKey(idempotencyKey)
 	}
 

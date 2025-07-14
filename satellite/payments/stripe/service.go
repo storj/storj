@@ -63,96 +63,84 @@ const (
 	partnerMetadataKey = "partner"
 )
 
-// Config stores needed information for payment service initialization.
-type Config struct {
-	StripeSecretKey        string `help:"stripe API secret key" default:""`
-	StripePublicKey        string `help:"stripe API public key" default:""`
-	StripeFreeTierCouponID string `help:"stripe free tier coupon ID" default:""`
-	StripeWebhookSecret    string `help:"stripe webhookEvents secret token" default:""`
-	AutoAdvance            bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
-	ListingLimit           int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
-	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
-	MaxParallelCalls       int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
-	RemoveExpiredCredit    bool   `help:"whether to remove expired package credit or not" default:"true"`
-	UseIdempotency         bool   `help:"whether to use idempotency for create/update requests" default:"true"`
-	ProductBasedInvoicing  bool   `help:"whether to use product-based invoicing" default:"false"`
-	SkipNoCustomer         bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
-	Retries                RetryConfig
+// ServiceDependencies consolidates all database and service dependencies for stripe.NewService.
+type ServiceDependencies struct {
+	DB         DB
+	WalletsDB  storjscan.WalletsDB
+	BillingDB  billing.TransactionsDB
+	ProjectsDB console.Projects
+	UsersDB    console.Users
+	UsageDB    accounting.ProjectAccounting
+	Analytics  *analytics.Service
+	Emission   *emission.Service
+}
+
+// PricingConfig consolidates all pricing-related configuration for stripe.NewService.
+type PricingConfig struct {
+	UsagePrices         payments.ProjectUsagePriceModel
+	UsagePriceOverrides map[string]payments.ProjectUsagePriceModel
+	ProductPriceMap     map[int32]payments.ProductUsagePriceModel
+	PartnerPlacementMap payments.PartnersPlacementProductMap
+	PlacementProductMap payments.PlacementProductIdMap
+	PackagePlans        map[string]payments.PackagePlan
+	BonusRate           int64
+	MinimumChargeAmount int64
+	MinimumChargeDate   *time.Time
+}
+
+// ServiceConfig consolidates various service configuration flags for stripe.NewService.
+type ServiceConfig struct {
+	DeleteAccountEnabled       bool
+	DeleteProjectCostThreshold int64
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
 //
 // architecture: Service
 type Service struct {
-	log *zap.Logger
-
-	db        DB
-	walletsDB storjscan.WalletsDB
-	billingDB billing.TransactionsDB
-
-	projectsDB   console.Projects
-	usersDB      console.Users
-	usageDB      accounting.ProjectAccounting
+	log          *zap.Logger
 	stripeClient Client
 
-	analytics *analytics.Service
-	emission  *emission.Service
+	db         DB
+	walletsDB  storjscan.WalletsDB
+	billingDB  billing.TransactionsDB
+	projectsDB console.Projects
+	usersDB    console.Users
+	usageDB    accounting.ProjectAccounting
+	analytics  *analytics.Service
+	emission   *emission.Service
 
-	usagePrices         payments.ProjectUsagePriceModel
-	usagePriceOverrides map[string]payments.ProjectUsagePriceModel
-	packagePlans        map[string]payments.PackagePlan
+	config        ServiceConfig
+	stripeConfig  Config
+	pricingConfig PricingConfig
+
 	// partnerNames is a list of partner names that may appear as bucket "user agent", and are explicitly associated with custom pricing.
 	// If a bucket has a "partner"/"user agent" that does not appear in this list, it is treated as "unpartnered usage" from a billing perspective.
 	partnerNames []string
-	// BonusRate amount of percents
-	BonusRate int64
-	// Coupon Values
-	StripeFreeTierCouponID string
 
-	// Stripe Extended Features
-	AutoAdvance bool
-
-	listingLimit          int
-	skipEmptyInvoices     bool
-	maxParallelCalls      int
-	removeExpiredCredit   bool
-	useIdempotency        bool
-	productBasedInvoicing bool
-	deleteAccountEnabled  bool
-	skipNoCustomer        bool
-	webhookSecret         string
-	nowFn                 func() time.Time
-	partnerPlacementMap   payments.PartnersPlacementProductMap
-	placementProductMap   payments.PlacementProductIdMap
-	productPriceMap       map[int32]payments.ProductUsagePriceModel
-
-	deleteProjectCostThreshold int64
-
-	minimumChargeAmount int64
-	minimumChargeDate   *time.Time // nil to apply immediately
+	nowFn func() time.Time
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, walletsDB storjscan.WalletsDB,
-	billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users,
-	usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel,
-	usagePriceOverrides map[string]payments.ProjectUsagePriceModel,
-	productPriceMap map[int32]payments.ProductUsagePriceModel, partnerPlacementMap payments.PartnersPlacementProductMap,
-	placementProductMap payments.PlacementProductIdMap, packagePlans map[string]payments.PackagePlan, bonusRate int64,
-	analyticsService *analytics.Service, emissionService *emission.Service, deleteAccountEnabled bool,
-	deleteProjectCostThreshold, minimumChargeAmount int64, minimumChargeDate *time.Time,
+func NewService(
+	log *zap.Logger,
+	stripeClient Client,
+	deps ServiceDependencies,
+	config ServiceConfig,
+	stripeConfig Config,
+	pricing PricingConfig,
 ) (*Service, error) {
 	var partners []string
 	addedPartners := make(map[string]struct{})
 	// partners relevant to billing may be defined as part of `usagePriceOverrides`, or `partnerPlacementMap`. Eventually, `usagePriceOverrides` will become legacy, and be replaced with `partnerPlacementMap`.
-	for partner := range usagePriceOverrides {
+	for partner := range pricing.UsagePriceOverrides {
 		if _, ok := addedPartners[partner]; ok {
 			continue
 		}
 		partners = append(partners, partner)
 		addedPartners[partner] = struct{}{}
 	}
-	for partner := range partnerPlacementMap {
+	for partner := range pricing.PartnerPlacementMap {
 		if _, ok := addedPartners[partner]; ok {
 			continue
 		}
@@ -161,40 +149,23 @@ func NewService(log *zap.Logger, stripeClient Client, config Config, db DB, wall
 	}
 
 	return &Service{
-		log:                    log,
-		db:                     db,
-		walletsDB:              walletsDB,
-		billingDB:              billingDB,
-		projectsDB:             projectsDB,
-		usersDB:                usersDB,
-		usageDB:                usageDB,
-		stripeClient:           stripeClient,
-		analytics:              analyticsService,
-		emission:               emissionService,
-		usagePrices:            usagePrices,
-		usagePriceOverrides:    usagePriceOverrides,
-		packagePlans:           packagePlans,
-		partnerNames:           partners,
-		BonusRate:              bonusRate,
-		StripeFreeTierCouponID: config.StripeFreeTierCouponID,
-		AutoAdvance:            config.AutoAdvance,
-		listingLimit:           config.ListingLimit,
-		skipEmptyInvoices:      config.SkipEmptyInvoices,
-		maxParallelCalls:       config.MaxParallelCalls,
-		removeExpiredCredit:    config.RemoveExpiredCredit,
-		useIdempotency:         config.UseIdempotency,
-		skipNoCustomer:         config.SkipNoCustomer,
-		productBasedInvoicing:  config.ProductBasedInvoicing,
-		webhookSecret:          config.StripeWebhookSecret,
-		partnerPlacementMap:    partnerPlacementMap,
-		placementProductMap:    placementProductMap,
-		productPriceMap:        productPriceMap,
-		deleteAccountEnabled:   deleteAccountEnabled,
+		log:          log,
+		stripeClient: stripeClient,
 
-		deleteProjectCostThreshold: deleteProjectCostThreshold,
+		db:         deps.DB,
+		walletsDB:  deps.WalletsDB,
+		billingDB:  deps.BillingDB,
+		projectsDB: deps.ProjectsDB,
+		usersDB:    deps.UsersDB,
+		usageDB:    deps.UsageDB,
+		analytics:  deps.Analytics,
+		emission:   deps.Emission,
 
-		minimumChargeAmount: minimumChargeAmount,
-		minimumChargeDate:   minimumChargeDate,
+		config:        config,
+		pricingConfig: pricing,
+		stripeConfig:  stripeConfig,
+
+		partnerNames: partners,
 
 		nowFn: time.Now,
 	}, nil
@@ -229,7 +200,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 			return Error.Wrap(err)
 		}
 
-		customersPage, err = service.db.Customers().List(ctx, customersPage.Cursor, service.listingLimit, end)
+		customersPage, err = service.db.Customers().List(ctx, customersPage.Cursor, service.stripeConfig.ListingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -274,7 +245,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 
 		// We can support only 83 projects in a single invoice (249 invoice items).
 		// We don't use legacy aggregation for product-based invoicing.
-		if !service.productBasedInvoicing && len(projects) > 83 {
+		if !service.stripeConfig.ProductBasedInvoicing && len(projects) > 83 {
 			recordsToAggregate = append(recordsToAggregate, records...)
 		} else {
 			regularRecords = append(regularRecords, records...)
@@ -305,7 +276,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 // If the customer does not exist in stripe, we skip it.
 // This is a workaround for the issue with missing customers in stripe for QA stellite.
 func (service *Service) ignoreNoStripeCustomer(ctx context.Context, customerID string) bool {
-	if !service.skipNoCustomer {
+	if !service.stripeConfig.SkipNoCustomer {
 		return false
 	}
 
@@ -388,7 +359,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		mu.Unlock()
 	}
 
-	limiter := sync2.NewLimiter(service.maxParallelCalls)
+	limiter := sync2.NewLimiter(service.stripeConfig.MaxParallelCalls)
 	defer func() {
 		limiter.Wait()
 	}()
@@ -398,7 +369,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 	}
 
 	for customersPage.Next {
-		customersPage, err = service.db.Customers().List(ctx, customersPage.Cursor, service.listingLimit, end)
+		customersPage, err = service.db.Customers().List(ctx, customersPage.Cursor, service.stripeConfig.ListingLimit, end)
 		if err != nil {
 			return err
 		}
@@ -439,7 +410,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 					return
 				}
 
-				if service.productBasedInvoicing {
+				if service.stripeConfig.ProductBasedInvoicing {
 					// Create structures to aggregate all usage by product ID.
 					// Those maps are mutated per record.
 					productUsages := make(map[int32]accounting.ProjectUsage)
@@ -546,7 +517,7 @@ func (service *Service) InvoiceApplyToBeAggregatedProjectRecords(ctx context.Con
 		}
 
 		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err := service.db.ProjectRecords().ListToBeAggregated(ctx, uuid.UUID{}, service.listingLimit, start, end)
+		recordsPage, err := service.db.ProjectRecords().ListToBeAggregated(ctx, uuid.UUID{}, service.stripeConfig.ListingLimit, start, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -586,7 +557,7 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 		// get the stripe customer invoice balance
 		customerID, err := service.db.Customers().GetCustomerID(ctx, wallet.UserID)
 		if err != nil {
-			if service.skipNoCustomer && errors.Is(err, ErrNoCustomer) {
+			if service.stripeConfig.SkipNoCustomer && errors.Is(err, ErrNoCustomer) {
 				continue
 			}
 
@@ -778,14 +749,14 @@ func (service *Service) processInvoiceItems(
 ) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !service.useIdempotency {
+	if !service.stripeConfig.UseIdempotency {
 		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
 			return false, err
 		}
 	}
 
-	if service.skipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
-		if service.useIdempotency {
+	if service.stripeConfig.SkipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+		if service.stripeConfig.UseIdempotency {
 			if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
 				return false, err
 			}
@@ -840,7 +811,7 @@ func (service *Service) processInvoiceItems(
 		}
 	}
 
-	if service.useIdempotency {
+	if service.stripeConfig.UseIdempotency {
 		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
 			return false, err
 		}
@@ -861,7 +832,7 @@ func (service *Service) ProcessRecord(
 ) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if service.skipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+	if service.stripeConfig.SkipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
 		// TODO: should we consider this as skipped?
 		return true, nil
 	}
@@ -912,7 +883,7 @@ func (service *Service) getAndProcessUsages(
 				egressSKU   string
 				segmentSKU  string
 			)
-			if product, ok := service.productPriceMap[productID]; ok {
+			if product, ok := service.pricingConfig.ProductPriceMap[productID]; ok {
 				productName = product.ProductName
 				storageSKU = product.StorageSKU
 				egressSKU = product.EgressSKU
@@ -991,7 +962,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
 		storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
 		storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
-		if service.useIdempotency {
+		if service.stripeConfig.UseIdempotency {
 			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
 		}
 
@@ -1007,7 +978,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		egressItem.Quantity = stripe.Int64(egressMBDecimal(discountedUsage.Egress).IntPart())
 		egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
 		egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-		if service.useIdempotency {
+		if service.stripeConfig.UseIdempotency {
 			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
 		}
 
@@ -1023,7 +994,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
 		segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
 		segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-		if service.useIdempotency {
+		if service.stripeConfig.UseIdempotency {
 			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
 		}
 
@@ -1065,7 +1036,7 @@ func (service *Service) createNewInvoiceItems(ctx context.Context, items []*stri
 		// TODO: do not expose regular project ID.
 		item.AddMetadata("projectID", projectID.String())
 
-		if service.useIdempotency {
+		if service.stripeConfig.UseIdempotency {
 			item.SetIdempotencyKey(getIdempotencyKey(projectID, item.Metadata[partnerMetadataKey], *item.Description, period))
 		}
 
@@ -1146,7 +1117,7 @@ func (service *Service) updateExistingInvoiceItems(ctx context.Context, existing
 			Quantity: stripe.Int64(item.Quantity),
 		}
 
-		if service.useIdempotency {
+		if service.stripeConfig.UseIdempotency {
 			params.SetIdempotencyKey(getIdempotencyKey(projectID, item.Metadata[partnerMetadataKey], item.Description, period))
 		}
 
@@ -1330,7 +1301,7 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 
 	customers := service.db.Customers()
 
-	limiter := sync2.NewLimiter(service.maxParallelCalls)
+	limiter := sync2.NewLimiter(service.stripeConfig.MaxParallelCalls)
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		cancel()
@@ -1408,7 +1379,7 @@ func (service *Service) applyFreeTierCoupon(ctx context.Context, cusID string) (
 
 	params = &stripe.CustomerParams{
 		Params: stripe.Params{Context: ctx},
-		Coupon: stripe.String(service.StripeFreeTierCouponID),
+		Coupon: stripe.String(service.stripeConfig.StripeFreeTierCouponID),
 	}
 	_, err = service.stripeClient.Customers().Update(cusID, params)
 	if err != nil {
@@ -1436,12 +1407,12 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 	var nextCursor uuid.UUID
 	var totalDraft, totalScheduled int
 	for {
-		cusPage, err := service.db.Customers().List(ctx, nextCursor, service.listingLimit, end)
+		cusPage, err := service.db.Customers().List(ctx, nextCursor, service.stripeConfig.ListingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		if service.removeExpiredCredit {
+		if service.stripeConfig.RemoveExpiredCredit {
 			for _, c := range cusPage.Customers {
 
 				if c.PackagePlan != nil {
@@ -1487,8 +1458,8 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 		hasShortFall bool
 	)
 
-	minimumChargeDate := service.minimumChargeDate
-	applyMinimumCharge := service.minimumChargeAmount > 0 && (minimumChargeDate == nil || !start.Before(*minimumChargeDate))
+	minimumChargeDate := service.pricingConfig.MinimumChargeDate
+	applyMinimumCharge := service.pricingConfig.MinimumChargeAmount > 0 && (minimumChargeDate == nil || !start.Before(*minimumChargeDate))
 
 	if applyMinimumCharge {
 		skip, err := service.Accounts().ShouldSkipMinimumCharge(ctx, cusID, user.ID)
@@ -1553,7 +1524,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			if err = itemsIter.Err(); err != nil {
 				return nil, err
 			}
-			if service.skipEmptyInvoices && !hasItems {
+			if service.stripeConfig.SkipEmptyInvoices && !hasItems {
 				return nil, nil
 			}
 
@@ -1600,7 +1571,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			&stripe.InvoiceParams{
 				Params:                      stripe.Params{Context: ctx},
 				Customer:                    stripe.String(cusID),
-				AutoAdvance:                 stripe.Bool(service.AutoAdvance),
+				AutoAdvance:                 stripe.Bool(service.stripeConfig.AutoAdvance),
 				Description:                 stripe.String(description),
 				PendingInvoiceItemsBehavior: stripe.String("include"),
 				Footer:                      footer,
@@ -1616,8 +1587,8 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 		return nil, Error.New("stripe invoice couldn't be generated for customer %s", cusID)
 	}
 
-	if applyMinimumCharge && stripeInvoice.AmountDue < service.minimumChargeAmount {
-		shortfall := service.minimumChargeAmount - stripeInvoice.AmountDue
+	if applyMinimumCharge && stripeInvoice.AmountDue < service.pricingConfig.MinimumChargeAmount {
+		shortfall := service.pricingConfig.MinimumChargeAmount - stripeInvoice.AmountDue
 
 		_, err = service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
 			Params:      stripe.Params{Context: ctx},
@@ -1657,7 +1628,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 func (service *Service) createInvoices(ctx context.Context, customers []Customer, start, end time.Time) (scheduled, draft int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	limiter := sync2.NewLimiter(service.maxParallelCalls)
+	limiter := sync2.NewLimiter(service.stripeConfig.MaxParallelCalls)
 	var errGrp errs.Group
 	var mu sync.Mutex
 
@@ -1826,7 +1797,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 
 		userID, err := service.db.Customers().GetUserID(ctx, itr.Customer().ID)
 		if err != nil {
-			if service.skipNoCustomer && errs.Is(err, ErrNoCustomer) {
+			if service.stripeConfig.SkipNoCustomer && errs.Is(err, ErrNoCustomer) {
 				continue
 			}
 
@@ -1950,7 +1921,7 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		if service.deleteAccountEnabled {
+		if service.config.DeleteAccountEnabled {
 			user, err := service.usersDB.Get(ctx, userID)
 			if err != nil {
 				return Error.Wrap(err)
@@ -2244,8 +2215,8 @@ func (service *Service) SetNow(now func() time.Time) {
 
 // TestSetMinimumChargeCfg allows tests to set the minimum charge configuration.
 func (service *Service) TestSetMinimumChargeCfg(amount int64, allUsersDate *time.Time) {
-	service.minimumChargeAmount = amount
-	service.minimumChargeDate = allUsersDate
+	service.pricingConfig.MinimumChargeAmount = amount
+	service.pricingConfig.MinimumChargeDate = allUsersDate
 }
 
 // getFromToDates returns from/to date values used for data usage calculations depending on users upgrade time and status.
@@ -2266,7 +2237,7 @@ func (service *Service) getFromToDates(ctx context.Context, userID uuid.UUID, st
 	}
 
 	to := end
-	if service.deleteAccountEnabled && user.Status == console.UserRequestedDeletion && user.StatusUpdatedAt != nil {
+	if service.config.DeleteAccountEnabled && user.Status == console.UserRequestedDeletion && user.StatusUpdatedAt != nil {
 		statusUpdatedAt := user.StatusUpdatedAt.UTC()
 
 		if !user.FinalInvoiceGenerated && statusUpdatedAt.Before(end) && statusUpdatedAt.After(start) {
