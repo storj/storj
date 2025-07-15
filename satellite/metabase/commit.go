@@ -1350,49 +1350,27 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	if opts.OverrideEncryptedMetadata {
 		oldUserData = opts.EncryptedUserData
 	}
-	args := map[string]interface{}{
-		"project_id":                       opts.ProjectID,
-		"bucket_name":                      opts.BucketName,
-		"object_key":                       opts.ObjectKey,
-		"version":                          nextVersion,
-		"stream_id":                        opts.StreamID,
-		"created_at":                       object.CreatedAt,
-		"expires_at":                       object.ExpiresAt,
-		"status":                           nextStatus,
-		"segment_count":                    len(finalSegments),
-		"encrypted_metadata_nonce":         oldUserData.EncryptedMetadataNonce,
-		"encrypted_metadata":               oldUserData.EncryptedMetadata,
-		"encrypted_metadata_encrypted_key": oldUserData.EncryptedMetadataEncryptedKey,
-		"encrypted_etag":                   oldUserData.EncryptedETag,
-		"total_plain_size":                 totalPlainSize,
-		"total_encrypted_size":             totalEncryptedSize,
-		"fixed_segment_size":               int64(fixedSegmentSize),
-		"encryption":                       encryptionParameters{encryptionArg},
-		"retention_mode":                   lockMode,
-		"retain_until":                     retainUntil,
-		"next_version":                     nextVersion,
-	}
 
-	_, err = stx.tx.Update(ctx, spanner.Statement{
-		SQL: `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version,
-				stream_id, created_at, expires_at, status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption, zombie_deletion_deadline,
-				retention_mode, retain_until
-			) VALUES (
-				@project_id, @bucket_name, @object_key, @version,
-				@stream_id, @created_at, @expires_at, @status, @segment_count,
-				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key, @encrypted_etag,
-				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
-				@encryption, NULL,
-				@retention_mode, @retain_until
-			)
-		`,
-		Params: args,
-	})
+	// Create insert mutation for objects table
+	objectInsert := spanner.Insert("objects",
+		[]string{
+			"project_id", "bucket_name", "object_key", "version",
+			"stream_id", "created_at", "expires_at", "status", "segment_count",
+			"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key", "encrypted_etag",
+			"total_plain_size", "total_encrypted_size", "fixed_segment_size",
+			"encryption", "zombie_deletion_deadline",
+			"retention_mode", "retain_until",
+		},
+		[]any{
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, nextVersion,
+			opts.StreamID, object.CreatedAt, object.ExpiresAt, nextStatus, len(finalSegments),
+			oldUserData.EncryptedMetadataNonce, oldUserData.EncryptedMetadata, oldUserData.EncryptedMetadataEncryptedKey, oldUserData.EncryptedETag,
+			totalPlainSize, totalEncryptedSize, int64(fixedSegmentSize),
+			encryptionParameters{encryptionArg}, nil, // zombie_deletion_deadline is NULL
+			lockMode, retainUntil,
+		})
+
+	err = stx.tx.BufferWrite([]*spanner.Mutation{objectInsert})
 	if err != nil {
 		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
 			// TODO maybe we should check message if 'encryption' label is there
