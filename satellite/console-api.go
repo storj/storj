@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
+	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
@@ -122,11 +123,12 @@ type ConsoleAPI struct {
 	}
 
 	Console struct {
-		Listener   net.Listener
-		Service    *console.Service
-		RestKeys   restapikeys.Service
-		Endpoint   *consoleweb.Server
-		AuthTokens *consoleauth.Service
+		Listener       net.Listener
+		Service        *console.Service
+		ConsoleService *consoleservice.Service // this is a duplicate of Service, but should replace it in the future.
+		RestKeys       restapikeys.Service
+		Endpoint       *consoleweb.Server
+		AuthTokens     *consoleauth.Service
 	}
 
 	Valdi struct {
@@ -586,6 +588,18 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Console.ConsoleService, err = consoleservice.NewService(
+			peer.Log.Named("console:service"),
+			consoleservice.ServiceDependencies{
+				ConsoleDB:            peer.DB.Console(),
+				AccountFreezeService: accountFreezeService,
+			},
+			consoleConfig.Config,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Console.RestKeys = peer.Console.Service
 		peer.CSRF.Service = csrf.NewService(signer)
 
@@ -598,6 +612,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
+			peer.Console.ConsoleService,
 			peer.OIDC.Service,
 			peer.Mail.Service,
 			peer.Analytics.Service,

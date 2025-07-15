@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
+	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
@@ -155,12 +156,13 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config      Config
-	service     *console.Service
-	mailService *mailservice.Service
-	analytics   *analytics.Service
-	abTesting   *abtesting.Service
-	csrfService *csrf.Service
+	config         Config
+	service        *console.Service
+	consoleService *consoleservice.Service // this is a duplicate of service, but should replace it in the future.
+	mailService    *mailservice.Service
+	analytics      *analytics.Service
+	abTesting      *abtesting.Service
+	csrfService    *csrf.Service
 
 	listener          net.Listener
 	server            http.Server
@@ -241,7 +243,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service,
+func NewServer(logger *zap.Logger, config Config, service *console.Service, consoleService *consoleservice.Service, oidcService *oidc.Service, mailService *mailservice.Service,
 	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
 	csrfService *csrf.Service, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config,
@@ -253,6 +255,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		config:                          config,
 		listener:                        listener,
 		service:                         service,
+		consoleService:                  consoleService,
 		mailService:                     mailService,
 		analytics:                       analytics,
 		abTesting:                       abTesting,

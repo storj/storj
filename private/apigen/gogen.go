@@ -134,7 +134,13 @@ func (a *API) generateGo() ([]byte, error) {
 		// Define the service interface
 		pf("type %sService interface {", capitalize(group.Name))
 		for _, e := range group.endpoints {
-			params[e] = append(e.PathParams, e.QueryParams...)
+			// Collect extra parameters from middleware.
+			var extraParams []Param
+			for _, m := range group.Middleware {
+				extraParams = append(extraParams, m.ExtraServiceParams(a, group, e)...)
+			}
+
+			params[e] = append(extraParams, append(e.PathParams, e.QueryParams...)...)
 
 			var paramStr string
 			for i, param := range params[e] {

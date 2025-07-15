@@ -280,7 +280,7 @@ func NewParam(name string, instance interface{}) Param {
 	case reflect.TypeOf(uuid.UUID{}), reflect.TypeOf(time.Time{}):
 	default:
 		switch k := t.Kind(); k {
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String, reflect.Pointer:
 		default:
 			panic(
 				fmt.Sprintf(
@@ -338,6 +338,9 @@ type Middleware interface {
 	// Make sure to not declare variable with those names in the generated code unless that's wrapped
 	// in a scope.
 	Generate(api *API, group *EndpointGroup, ep *FullEndpoint) string
+	// ExtraServiceParams returns additional parameters that should be passed to the service method.
+	// This allows middleware to inject parameters based on the endpoint context.
+	ExtraServiceParams(api *API, group *EndpointGroup, ep *FullEndpoint) []Param
 }
 
 func middlewareImports(m any) []string {

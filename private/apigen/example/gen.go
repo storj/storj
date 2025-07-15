@@ -212,6 +212,11 @@ func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, e
 	}`, !nocookie, !noapikey)
 }
 
+// ExtraServiceParams satisfies the apigen.Middleware interface.
+func (a authMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, _ *apigen.FullEndpoint) []apigen.Param {
+	return nil
+}
+
 var _ apigen.Middleware = authMiddleware{}
 
 type (
