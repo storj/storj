@@ -631,6 +631,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 100.00 TB
 
+# whether to use generated private API
+# console.use-generated-private-api: false
+
 # whether to use the new rest keys table
 # console.use-new-rest-keys-table: false
 

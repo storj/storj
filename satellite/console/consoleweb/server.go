@@ -127,6 +127,7 @@ type Config struct {
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
 	ZipDownloadLimit                int           `help:"maximum number of objects allowed for a zip format download" default:"1000"`
 	LiveCheckBadPasswords           bool          `help:"whether to check if provided password is in bad passwords list" default:"false"`
+	UseGeneratedPrivateAPI          bool          `help:"whether to use generated private API" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
