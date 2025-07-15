@@ -28,15 +28,16 @@ type AuthManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service AuthManagementService
+	cors    api.CORS
 	auth    api.Auth
 }
 
-func NewAuthManagement(log *zap.Logger, mon *monkit.Scope, service AuthManagementService, router *mux.Router, auth api.Auth) *AuthManagementHandler {
+func NewAuthManagement(log *zap.Logger, mon *monkit.Scope, service AuthManagementService, router *mux.Router, cors api.CORS, auth api.Auth) *AuthManagementHandler {
 	handler := &AuthManagementHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
-		auth:    auth,
+		cors:    cors, auth: auth,
 	}
 
 	authRouter := router.PathPrefix("/api/v1/auth").Subrouter()
@@ -51,6 +52,11 @@ func (h *AuthManagementHandler) handleGetUserAccount(w http.ResponseWriter, r *h
 	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
+
+	isPreflight := h.cors.Handle(w, r)
+	if isPreflight {
+		return
+	}
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, false)
 	if err != nil {

@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/privateapi"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
@@ -187,62 +188,6 @@ type Server struct {
 	errorTemplate *template.Template
 }
 
-// apiAuth exposes methods to control authentication process for each generated API endpoint.
-type apiAuth struct {
-	server *Server
-}
-
-// IsAuthenticated checks if request is performed with all needed authorization credentials.
-func (a *apiAuth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth, isKeyAuth bool) (_ context.Context, err error) {
-	if isCookieAuth && isKeyAuth {
-		ctx, err = a.cookieAuth(ctx, r)
-		if err != nil {
-			ctx, err = a.keyAuth(ctx, r)
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else if isCookieAuth {
-		ctx, err = a.cookieAuth(ctx, r)
-		if err != nil {
-			return nil, err
-		}
-	} else if isKeyAuth {
-		ctx, err = a.keyAuth(ctx, r)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return ctx, nil
-}
-
-// cookieAuth returns an authenticated context by session cookie.
-func (a *apiAuth) cookieAuth(ctx context.Context, r *http.Request) (context.Context, error) {
-	tokenInfo, err := a.server.cookieAuth.GetToken(r)
-	if err != nil {
-		return nil, err
-	}
-
-	return a.server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
-}
-
-// cookieAuth returns an authenticated context by api key.
-func (a *apiAuth) keyAuth(ctx context.Context, r *http.Request) (context.Context, error) {
-	authToken := r.Header.Get("Authorization")
-	split := strings.Split(authToken, "Bearer ")
-	if len(split) != 2 {
-		return ctx, errs.New("authorization key format is incorrect. Should be 'Bearer <key>'")
-	}
-
-	return a.server.service.KeyAuth(ctx, split[1], time.Now())
-}
-
-// RemoveAuthCookie indicates to the client that the authentication cookie should be removed.
-func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
-	a.server.cookieAuth.RemoveTokenCookie(w)
-}
-
 // NewServer creates new instance of console server.
 func NewServer(logger *zap.Logger, config Config, service *console.Service, consoleService *consoleservice.Service, oidcService *oidc.Service, mailService *mailservice.Service,
 	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
@@ -318,6 +263,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
+	if server.config.UseGeneratedPrivateAPI {
+		privateapi.NewAuthManagement(logger, mon, server.consoleService.Users(), router, &apiCORS{&server}, &apiAuth{&server})
+	}
+
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
@@ -368,6 +317,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords, badPasswordsEncoded)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
+
+	// DEPRECATED if server.config.UseGeneratedPrivateAPI == true.
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet, http.MethodOptions)
 	authRouter.Handle("/account", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.UpdateAccount)))).Methods(http.MethodPatch, http.MethodOptions)
 	authRouter.Handle("/account", server.withCSRFProtection(server.withAuth(http.HandlerFunc(authController.DeleteAccount)))).Methods(http.MethodDelete, http.MethodOptions)
@@ -1469,4 +1420,86 @@ func newBodyLimiterMiddleware(log *zap.Logger, limit memory.Size) mux.Middleware
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// apiAuth exposes methods to control authentication process for each generated API endpoint.
+type apiAuth struct {
+	server *Server
+}
+
+// IsAuthenticated checks if request is performed with all needed authorization credentials.
+func (a *apiAuth) IsAuthenticated(ctx context.Context, r *http.Request, isCookieAuth, isKeyAuth bool) (_ context.Context, err error) {
+	if isCookieAuth && isKeyAuth {
+		ctx, err = a.cookieAuth(ctx, r)
+		if err != nil {
+			ctx, err = a.keyAuth(ctx, r)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else if isCookieAuth {
+		ctx, err = a.cookieAuth(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+	} else if isKeyAuth {
+		ctx, err = a.keyAuth(ctx, r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ctx, nil
+}
+
+// cookieAuth returns an authenticated context by session cookie.
+func (a *apiAuth) cookieAuth(ctx context.Context, r *http.Request) (context.Context, error) {
+	tokenInfo, err := a.server.cookieAuth.GetToken(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+}
+
+// cookieAuth returns an authenticated context by api key.
+func (a *apiAuth) keyAuth(ctx context.Context, r *http.Request) (context.Context, error) {
+	authToken := r.Header.Get("Authorization")
+	split := strings.Split(authToken, "Bearer ")
+	if len(split) != 2 {
+		return ctx, errs.New("authorization key format is incorrect. Should be 'Bearer <key>'")
+	}
+
+	return a.server.service.KeyAuth(ctx, split[1], time.Now())
+}
+
+// RemoveAuthCookie indicates to the client that the authentication cookie should be removed.
+func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
+	a.server.cookieAuth.RemoveTokenCookie(w)
+}
+
+// apiCORS exposes methods to control CORS process for each generated API endpoint.
+type apiCORS struct {
+	server *Server
+}
+
+// Handle sets the necessary CORS headers for the request and checks if the request is an OPTIONS preflight request.
+func (c *apiCORS) Handle(w http.ResponseWriter, r *http.Request) (isPreflight bool) {
+	w.Header().Set("Access-Control-Allow-Origin", strings.Trim(c.server.config.ExternalAddress, "/"))
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	w.Header().Set("Access-Control-Expose-Headers", "*, Authorization")
+
+	if r.Method == http.MethodOptions {
+		match := &mux.RouteMatch{}
+		if c.server.router.Match(r, match) {
+			methods, err := match.Route.GetMethods()
+			if err == nil && len(methods) > 0 {
+				w.Header().Set("Access-Control-Allow-Methods", strings.Join(methods, ", "))
+			}
+		}
+		return true
+	}
+
+	return false
 }

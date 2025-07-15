@@ -6,6 +6,7 @@ package apigen
 import (
 	"fmt"
 	"go/format"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/api"
 )
 
 // DateFormat is the layout of dates passed into and out of the API.
@@ -217,7 +219,12 @@ func (a *API) generateGo() ([]byte, error) {
 		autodedefined := map[string]struct{}{"log": {}, "mon": {}, "service": {}}
 		middlewareArgs := make([]string, 0, len(group.Middleware))
 		middlewareFieldsList := make([]string, 0, len(group.Middleware))
+		useCORS := false
 		for _, m := range group.Middleware {
+			if _, ok := m.(api.CORS); ok {
+				useCORS = true
+			}
+
 			for _, f := range middlewareFields(a, m) {
 				if _, ok := autodedefined[f.Name]; !ok {
 					middlewareArgs = append(middlewareArgs, fmt.Sprintf("%s %s", f.Name, f.Type))
@@ -262,12 +269,18 @@ func (a *API) generateGo() ([]byte, error) {
 		)
 		for _, endpoint := range group.endpoints {
 			handlerName := "handle" + endpoint.GoName
+
+			methods := []string{endpoint.Method}
+			if useCORS {
+				methods = append(methods, http.MethodOptions)
+			}
+
 			pf(
 				"%sRouter.HandleFunc(\"%s\", handler.%s).Methods(\"%s\")",
 				uncapitalize(group.Prefix),
 				endpoint.Path,
 				handlerName,
-				endpoint.Method,
+				strings.Join(methods, ", "),
 			)
 		}
 		pf("")

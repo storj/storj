@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/api"
 )
 
 var (
@@ -263,6 +264,32 @@ func (eg *EndpointGroup) addEndpoint(path, method string, endpoint *Endpoint) {
 		}
 	}
 	eg.endpoints = append(eg.endpoints, ep)
+}
+
+// UseCORS adds CORS middleware to the endpoint group.
+// This is a convenience method that appends a CORS middleware to the group.
+func (eg *EndpointGroup) UseCORS() {
+	eg.Middleware = append(eg.Middleware, corsMiddleware{})
+}
+
+// corsMiddleware is a standard CORS middleware implementation.
+type corsMiddleware struct {
+	//lint:ignore U1000 this field is used by the API generator to expose in the handler.
+	cors api.CORS
+}
+
+// Generate satisfies the apigen.Middleware interface.
+func (c corsMiddleware) Generate(_ *API, _ *EndpointGroup, _ *FullEndpoint) string {
+	return `isPreflight := h.cors.Handle(w, r)
+	if isPreflight {
+		return
+	}
+	`
+}
+
+// ExtraServiceParams satisfies the apigen.Middleware interface.
+func (c corsMiddleware) ExtraServiceParams(_ *API, _ *EndpointGroup, _ *FullEndpoint) []Param {
+	return nil
 }
 
 // Param represents string interpretation of param's name and type.
