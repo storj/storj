@@ -174,10 +174,17 @@ func clearEntryMetadata(opts *metabase.ListObjects, entry *metabase.ObjectEntry)
 		entry.FixedSegmentSize = 0
 	}
 
-	if !opts.IncludeCustomMetadata {
+	if !opts.IncludeCustomMetadata && !opts.IncludeETag {
 		entry.EncryptedMetadataNonce = nil
-		entry.EncryptedMetadata = nil
 		entry.EncryptedMetadataEncryptedKey = nil
+	}
+
+	if !opts.IncludeCustomMetadata {
+		entry.EncryptedMetadata = nil
+	}
+
+	if !opts.IncludeETag {
+		entry.EncryptedETag = nil
 	}
 }
 

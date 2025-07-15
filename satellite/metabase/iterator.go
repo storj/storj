@@ -19,16 +19,18 @@ import (
 type objectsIterator struct {
 	adapter Adapter
 
-	projectID             uuid.UUID
-	bucketName            BucketName
-	pending               bool
-	prefix                ObjectKey
-	prefixLimit           ObjectKey
-	delimiter             ObjectKey
-	batchSize             int
-	recursive             bool
+	projectID   uuid.UUID
+	bucketName  BucketName
+	pending     bool
+	prefix      ObjectKey
+	prefixLimit ObjectKey
+	delimiter   ObjectKey
+	batchSize   int
+	recursive   bool
+
 	includeCustomMetadata bool
 	includeSystemMetadata bool
+	includeETag           bool
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -70,16 +72,18 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 	it := &objectsIterator{
 		adapter: adapter,
 
-		projectID:             opts.ProjectID,
-		bucketName:            opts.BucketName,
-		pending:               opts.Pending,
-		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit,
-		delimiter:             opts.Delimiter,
-		batchSize:             opts.BatchSize,
-		recursive:             opts.Recursive,
+		projectID:   opts.ProjectID,
+		bucketName:  opts.BucketName,
+		pending:     opts.Pending,
+		prefix:      opts.Prefix,
+		prefixLimit: prefixLimit,
+		delimiter:   opts.Delimiter,
+		batchSize:   opts.BatchSize,
+		recursive:   opts.Recursive,
+
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
+		includeETag:           opts.IncludeETag,
 
 		curIndex: 0,
 		cursor:   cursor,
@@ -115,16 +119,18 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter,
 	it := &objectsIterator{
 		adapter: adapter,
 
-		projectID:             opts.ProjectID,
-		bucketName:            opts.BucketName,
-		pending:               opts.Pending,
-		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit,
-		delimiter:             opts.Delimiter,
-		batchSize:             opts.BatchSize,
-		recursive:             opts.Recursive,
+		projectID:   opts.ProjectID,
+		bucketName:  opts.BucketName,
+		pending:     opts.Pending,
+		prefix:      opts.Prefix,
+		prefixLimit: prefixLimit,
+		delimiter:   opts.Delimiter,
+		batchSize:   opts.BatchSize,
+		recursive:   opts.Recursive,
+
 		includeCustomMetadata: opts.IncludeCustomMetadata,
 		includeSystemMetadata: opts.IncludeSystemMetadata,
+		includeETag:           opts.IncludeETag,
 
 		curIndex: 0,
 		cursor:   cursor,
@@ -148,16 +154,19 @@ func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts Itera
 	it := &objectsIterator{
 		adapter: adapter,
 
-		projectID:             opts.ProjectID,
-		bucketName:            opts.BucketName,
-		prefix:                "",
-		prefixLimit:           "",
-		delimiter:             "",
-		batchSize:             opts.BatchSize,
-		recursive:             true,
+		projectID:   opts.ProjectID,
+		bucketName:  opts.BucketName,
+		prefix:      "",
+		prefixLimit: "",
+		delimiter:   "",
+		batchSize:   opts.BatchSize,
+		recursive:   true,
+
 		includeCustomMetadata: true,
 		includeSystemMetadata: true,
-		pending:               true,
+		includeETag:           true,
+
+		pending: true,
 
 		curIndex: 0,
 		cursor: ObjectsIteratorCursor{
@@ -521,11 +530,19 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 			,fixed_segment_size`
 	}
 
-	if it.includeCustomMetadata {
+	if it.includeCustomMetadata || it.includeETag {
 		querySelectFields += `
 			,encrypted_metadata_nonce
-			,encrypted_metadata
-			,encrypted_metadata_encrypted_key
+			,encrypted_metadata_encrypted_key`
+	}
+
+	if it.includeCustomMetadata {
+		querySelectFields += `
+			,encrypted_metadata`
+	}
+
+	if it.includeETag {
+		querySelectFields += `
 			,encrypted_etag`
 	}
 
@@ -615,11 +632,21 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 		)
 	}
 
-	if it.includeCustomMetadata {
+	if it.includeCustomMetadata || it.includeETag {
 		fields = append(fields,
 			&item.EncryptedMetadataNonce,
-			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+		)
+	}
+
+	if it.includeCustomMetadata {
+		fields = append(fields,
+			&item.EncryptedMetadata,
+		)
+	}
+
+	if it.includeETag {
+		fields = append(fields,
 			&item.EncryptedETag,
 		)
 	}

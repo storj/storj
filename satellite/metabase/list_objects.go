@@ -28,17 +28,19 @@ type ListObjectsCursor IterateCursor
 //
 // If Delimiter is empty, it will default to "/".
 type ListObjects struct {
-	ProjectID             uuid.UUID
-	BucketName            BucketName
-	Recursive             bool
-	Limit                 int
-	Prefix                ObjectKey
-	Delimiter             ObjectKey
-	Cursor                ListObjectsCursor
-	Pending               bool
-	AllVersions           bool
+	ProjectID   uuid.UUID
+	BucketName  BucketName
+	Recursive   bool
+	Limit       int
+	Prefix      ObjectKey
+	Delimiter   ObjectKey
+	Cursor      ListObjectsCursor
+	Pending     bool
+	AllVersions bool
+
 	IncludeCustomMetadata bool
 	IncludeSystemMetadata bool
+	IncludeETag           bool
 
 	Unversioned bool
 	Params      ListObjectsParams
@@ -639,31 +641,8 @@ func (opts *ListObjects) orderBy() string {
 	}
 }
 
-func (opts ListObjects) selectedFields() (selectedFields string) {
-	selectedFields += `
-	,stream_id
-	,status
-	,encryption`
-
-	if opts.IncludeSystemMetadata {
-		selectedFields += `
-		,created_at
-		,expires_at
-		,segment_count
-		,total_plain_size
-		,total_encrypted_size
-		,fixed_segment_size`
-	}
-
-	if opts.IncludeCustomMetadata {
-		selectedFields += `
-		,encrypted_metadata_nonce
-		,encrypted_metadata
-		,encrypted_metadata_encrypted_key
-		,encrypted_etag`
-	}
-
-	return selectedFields
+func (opts ListObjects) needsEncryptionKey() bool {
+	return opts.IncludeCustomMetadata || opts.IncludeETag
 }
 
 // StartCursor returns the starting object cursor for this listing.
@@ -717,6 +696,40 @@ func (opts *ListObjects) StartCursor() (cursor ListObjectsCursor, ok bool) {
 	return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}, true
 }
 
+func (opts ListObjects) selectedFields() (selectedFields string) {
+	selectedFields += `
+	,stream_id
+	,status
+	,encryption`
+
+	if opts.IncludeSystemMetadata {
+		selectedFields += `
+		,created_at
+		,expires_at
+		,segment_count
+		,total_plain_size
+		,total_encrypted_size
+		,fixed_segment_size`
+	}
+
+	if opts.needsEncryptionKey() {
+		selectedFields += `
+		,encrypted_metadata_nonce
+		,encrypted_metadata_encrypted_key`
+	}
+
+	if opts.IncludeCustomMetadata {
+		selectedFields += `
+		,encrypted_metadata`
+	}
+	if opts.IncludeETag {
+		selectedFields += `
+		,encrypted_etag`
+	}
+
+	return selectedFields
+}
+
 func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item ObjectEntry, err error) {
 	fields := []interface{}{
 		&item.ObjectKey,
@@ -737,11 +750,19 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 		)
 	}
 
-	if opts.IncludeCustomMetadata {
+	if opts.needsEncryptionKey() {
 		fields = append(fields,
 			&item.EncryptedMetadataNonce,
-			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+		)
+	}
+	if opts.IncludeCustomMetadata {
+		fields = append(fields,
+			&item.EncryptedMetadata,
+		)
+	}
+	if opts.IncludeETag {
+		fields = append(fields,
 			&item.EncryptedETag,
 		)
 	}
@@ -789,11 +810,19 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 		)
 	}
 
-	if opts.IncludeCustomMetadata {
+	if opts.needsEncryptionKey() {
 		fields = append(fields,
 			&item.EncryptedMetadataNonce,
-			&item.EncryptedMetadata,
 			&item.EncryptedMetadataEncryptedKey,
+		)
+	}
+	if opts.IncludeCustomMetadata {
+		fields = append(fields,
+			&item.EncryptedMetadata,
+		)
+	}
+	if opts.IncludeETag {
+		fields = append(fields,
 			&item.EncryptedETag,
 		)
 	}

@@ -86,16 +86,18 @@ type StreamIDCursor struct {
 
 // IterateObjectsWithStatus contains arguments necessary for listing objects in a bucket.
 type IterateObjectsWithStatus struct {
-	ProjectID             uuid.UUID
-	BucketName            BucketName
-	Recursive             bool
-	BatchSize             int
-	Prefix                ObjectKey
-	Delimiter             ObjectKey
-	Cursor                IterateCursor
-	Pending               bool
+	ProjectID  uuid.UUID
+	BucketName BucketName
+	Recursive  bool
+	BatchSize  int
+	Prefix     ObjectKey
+	Delimiter  ObjectKey
+	Cursor     IterateCursor
+	Pending    bool
+
 	IncludeCustomMetadata bool
 	IncludeSystemMetadata bool
+	IncludeETag           bool
 }
 
 // IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.

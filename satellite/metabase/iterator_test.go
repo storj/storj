@@ -125,6 +125,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:         committed.ObjectKey,
@@ -145,6 +146,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:  pending.ObjectKey,
@@ -175,6 +177,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -199,6 +202,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -226,6 +230,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -255,6 +260,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -288,6 +294,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -310,6 +317,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
@@ -333,6 +341,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -356,6 +365,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 				},
@@ -374,6 +384,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -393,6 +404,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
@@ -411,6 +423,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -442,6 +455,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -459,6 +473,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
@@ -477,6 +492,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: metabase.MaxVersion},
 				},
@@ -495,6 +511,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 				},
@@ -512,6 +529,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -530,6 +548,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
@@ -547,6 +566,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -561,6 +581,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "c/",
 					Cursor: metabase.IterateCursor{Key: "c/", Version: metabase.MaxVersion},
@@ -579,6 +600,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "c//",
 				},
@@ -726,6 +748,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: true,
+				IncludeETag:           true,
 			}, collector.Add)
 
 			require.NoError(t, err)
@@ -741,9 +764,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:      obj1,
-					Encryption:        metabasetest.DefaultEncryption,
-					EncryptedUserData: metabasetest.RandEncryptedUserData(),
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -755,6 +779,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: false,
 				IncludeSystemMetadata: true,
+				IncludeETag:           false,
 			}, collector.Add)
 
 			require.NoError(t, err)
@@ -764,6 +789,40 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.Nil(t, entry.EncryptedMetadata)
 				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
 				require.Nil(t, entry.EncryptedETag)
+			}
+		})
+
+		t.Run("include etag", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.RandObjectStream()
+			metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+				},
+			}.Run(ctx, t, db, obj1, 4)
+
+			var collector metabasetest.IterateCollector
+			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+				ProjectID:             obj1.ProjectID,
+				BucketName:            obj1.BucketName,
+				Recursive:             true,
+				Pending:               false,
+				IncludeCustomMetadata: false,
+				IncludeSystemMetadata: false,
+				IncludeETag:           true,
+			}, collector.Add)
+
+			require.NoError(t, err)
+
+			for _, entry := range collector {
+				require.NotNil(t, entry.EncryptedMetadataNonce)
+				require.Nil(t, entry.EncryptedMetadata)
+				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
+				require.NotNil(t, entry.EncryptedETag)
 			}
 		})
 
@@ -788,6 +847,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: false,
+				IncludeETag:           true,
 			}, collector.Add)
 
 			require.NoError(t, err)
@@ -2071,6 +2131,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:         committed.ObjectKey,
@@ -2091,6 +2152,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:  pending.ObjectKey,
@@ -2121,6 +2183,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2145,6 +2208,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2172,6 +2236,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2201,6 +2266,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2234,6 +2300,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -2256,6 +2323,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
@@ -2279,6 +2347,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -2302,6 +2371,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 				},
@@ -2320,6 +2390,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -2339,6 +2410,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
@@ -2357,6 +2429,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -2388,6 +2461,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -2405,6 +2479,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
@@ -2423,6 +2498,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -2441,6 +2517,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 				},
@@ -2458,6 +2535,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -2476,6 +2554,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
@@ -2493,6 +2572,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -2507,6 +2587,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "c/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -2525,6 +2606,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Pending:               false,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 
 					Prefix: "c//",
 				},
@@ -2585,6 +2667,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 						Prefix:                prefix.ObjectKey,
 						Pending:               false,
 						IncludeCustomMetadata: true,
+						IncludeETag:           true,
 					}, collector.Add)
 					require.NoError(t, err)
 
@@ -2600,6 +2683,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 						Recursive:             true,
 						Pending:               false,
 						IncludeCustomMetadata: true,
+						IncludeETag:           true,
 					}, collector.Add)
 					require.NoError(t, err)
 				}
@@ -2623,6 +2707,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: true,
+				IncludeETag:           true,
 			}, collector.Add)
 			require.NoError(t, err)
 		})
@@ -2645,6 +2730,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				BatchSize:             1,
 				Pending:               false,
 				IncludeCustomMetadata: true,
+				IncludeETag:           true,
 			}, collector.Add)
 			require.NoError(t, err)
 		})
@@ -2672,6 +2758,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: true,
+				IncludeETag:           true,
 			}, collector.Add)
 
 			require.NoError(t, err)
@@ -2687,9 +2774,10 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:      obj1,
-					Encryption:        metabasetest.DefaultEncryption,
-					EncryptedUserData: metabasetest.RandEncryptedUserData(),
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2701,6 +2789,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: false,
 				IncludeSystemMetadata: true,
+				IncludeETag:           false,
 			}, collector.Add)
 
 			require.NoError(t, err)
@@ -2734,6 +2823,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: false,
+				IncludeETag:           true,
 			}, collector.Add)
 
 			require.NoError(t, err)
