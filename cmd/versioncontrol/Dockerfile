@@ -1,5 +1,5 @@
 ARG DOCKER_ARCH
-FROM ${DOCKER_ARCH:-amd64}/debian:buster-slim
+FROM ${DOCKER_ARCH:-amd64}/debian:bookworm-slim
 ARG TAG
 ARG GOARCH
 ENV GOARCH ${GOARCH}
