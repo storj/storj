@@ -135,30 +135,30 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 
 // ListSegments lists specified stream segments.
 func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
-	var stmt spanner.Statement
+	var iter *spanner.RowIterator
 	if opts.Range == nil {
-		stmt = spanner.Statement{
-			SQL: `
-				SELECT
-					position, created_at, expires_at, root_piece_id,
-					encrypted_key_nonce, encrypted_key, encrypted_size,
-					plain_offset, plain_size, encrypted_etag, redundancy,
-					inline_data, remote_alias_pieces, placement
-				FROM segments
-				WHERE
-					stream_id = @stream_id AND
-					(@position = 0 OR position > @position)
-				ORDER BY stream_id, position ASC
-				LIMIT @limit
-			`,
-			Params: map[string]any{
-				"stream_id": opts.StreamID,
-				"position":  opts.Cursor,
-				"limit":     opts.Limit + 1,
-			},
+		keys := spanner.KeyRange{
+			Start: spanner.Key{opts.StreamID},
+			End:   spanner.Key{opts.StreamID},
+			Kind:  spanner.ClosedClosed,
 		}
+		if opts.Cursor.Encode() > 0 {
+			keys = spanner.KeyRange{
+				Start: spanner.Key{opts.StreamID, int64(opts.Cursor.Encode())},
+				End:   spanner.Key{opts.StreamID},
+				Kind:  spanner.OpenClosed,
+			}
+		}
+		iter = s.client.Single().ReadWithOptions(ctx, "segments", keys, []string{
+			"position", "created_at", "expires_at", "root_piece_id",
+			"encrypted_key_nonce", "encrypted_key", "encrypted_size",
+			"plain_offset", "plain_size", "encrypted_etag", "redundancy",
+			"inline_data", "remote_alias_pieces", "placement",
+		}, &spanner.ReadOptions{
+			Limit: opts.Limit + 1,
+		})
 	} else {
-		stmt = spanner.Statement{
+		stmt := spanner.Statement{
 			SQL: `
 				SELECT
 					position, created_at, expires_at, root_piece_id,
@@ -181,9 +181,10 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 				"plain_limit": opts.Range.PlainLimit,
 			},
 		}
+		iter = s.client.Single().Query(ctx, stmt)
 	}
 
-	result.Segments, err = spannerutil.CollectRows(s.client.Single().Query(ctx, stmt),
+	result.Segments, err = spannerutil.CollectRows(iter,
 		func(row *spanner.Row, segment *Segment) error {
 			segment.StreamID = opts.StreamID
 
