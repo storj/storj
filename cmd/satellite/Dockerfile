@@ -8,7 +8,7 @@ RUN npm install
 RUN npm run build
 
 # Fetch ca-certificates file for arch independent builds below
-FROM debian:buster-slim as ca-cert
+FROM debian:bookworm-slim as ca-cert
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod  \
     go install github.com/go-delve/delve/cmd/dlv@latest
 
-FROM ${DOCKER_ARCH:-amd64}/debian:buster-slim
+FROM ${DOCKER_ARCH:-amd64}/debian:bookworm-slim
 ARG TAG
 ARG GOARCH
 ENV GOARCH ${GOARCH}
