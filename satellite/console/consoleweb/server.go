@@ -1022,6 +1022,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewAccountSetupEnabled:            server.config.NewAccountSetupEnabled,
 		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,
 		UserFeedbackEnabled:               server.config.UserFeedbackEnabled,
+		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

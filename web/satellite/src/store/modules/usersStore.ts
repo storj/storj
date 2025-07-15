@@ -23,6 +23,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { AuthManagementHttpApiV1 } from '@/api/private.gen';
 
 export class UsersState {
     public user: User = new User();
@@ -39,6 +40,7 @@ export const useUsersStore = defineStore('users', () => {
 
     const configStore = useConfigStore();
     const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
+    const useGeneratedAPI = computed<boolean>(() => configStore.state.config.useGeneratedPrivateAPI);
 
     const userName = computed(() => {
         return state.user.getFullName();
@@ -47,6 +49,7 @@ export const useUsersStore = defineStore('users', () => {
     const noticeDismissal = computed(() => state.settings.noticeDismissal);
 
     const api: UsersApi = new AuthHttpApi();
+    const generatedAPI = new AuthManagementHttpApiV1();
 
     async function updateUser(userInfo: UpdatedUser): Promise<void> {
         await api.update(userInfo, csrfToken.value);
@@ -93,7 +96,12 @@ export const useUsersStore = defineStore('users', () => {
     async function getUser(): Promise<void> {
         const configStore = useConfigStore();
 
-        const user = await api.get();
+        let user: User;
+        if (useGeneratedAPI.value) {
+            user = User.fromUserAccount(await generatedAPI.getUserAccount());
+        } else {
+            user = await api.get();
+        }
         user.projectLimit ||= configStore.state.config.defaultProjectLimit;
 
         state.user = user;

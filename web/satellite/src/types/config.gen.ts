@@ -94,6 +94,7 @@ export class FrontendConfig {
     newAccountSetupEnabled: boolean;
     upgradePayUpfrontAmount: number;
     userFeedbackEnabled: boolean;
+    useGeneratedPrivateAPI: boolean;
 }
 
 export class MinimumChargeConfig {

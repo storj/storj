@@ -5,6 +5,7 @@ import { Duration } from '@/utils/time';
 import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { UserAccount } from '@/api/private.gen';
 
 /**
  * Exposes all user-related functionality.
@@ -201,6 +202,44 @@ export class User {
             isCloseToExpiredTrial: diff < daysBeforeNotifyInMilliseconds,
             days: Math.round(Math.abs(diff) / millisecondsInDay),
         };
+    }
+
+    public static fromUserAccount(account: UserAccount): User {
+        const user = new User(
+            account.id,
+            account.externalID,
+            account.fullName,
+            account.shortName,
+            account.email,
+            account.partner,
+            '', // password is empty when coming from API.
+            account.projectLimit,
+            account.projectStorageLimit,
+            account.projectBandwidthLimit,
+            account.projectSegmentLimit,
+            account.kindInfo,
+            account.isMFAEnabled,
+            account.isProfessional,
+            account.position,
+            account.companyName,
+            account.employeeCount,
+            account.haveSalesContact,
+            account.mfaRecoveryCodeCount,
+            account.createdAt,
+            account.pendingVerification,
+            account.trialExpiration ? new Date(account.trialExpiration) : null,
+            account.hasVarPartner,
+        );
+        if (account.freezeStatus) {
+            user.freezeStatus = new FreezeStatus(
+                account.freezeStatus.frozen,
+                account.freezeStatus.warned,
+                account.freezeStatus.trialExpiredFrozen,
+                account.freezeStatus.trialExpirationGracePeriod,
+            );
+        }
+
+        return user;
     }
 }
 
