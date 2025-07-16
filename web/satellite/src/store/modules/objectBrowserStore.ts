@@ -922,7 +922,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 Bucket: state.bucket,
                 Delete: {
                     Objects: files.map((file: _Object | BrowserObject) => ({
-                        Key: file.Key,
+                        Key: state.path + file.Key,
                         VersionId: file['VersionId'] || undefined,
                     })),
                 },
