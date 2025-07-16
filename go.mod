@@ -35,7 +35,7 @@ require (
 	github.com/klauspost/compress v1.17.11
 	github.com/linkedin/goavro/v2 v2.13.1
 	github.com/loov/hrtime v1.0.3
-	github.com/mattn/go-sqlite3 v1.14.19
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
 	github.com/oschwald/maxminddb-golang v1.12.0
