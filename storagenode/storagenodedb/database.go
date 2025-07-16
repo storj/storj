@@ -382,7 +382,7 @@ func (db *DB) openDatabaseWithStat(ctx context.Context, dbName string, registerS
 
 	wal := "&_journal=WAL"
 	if db.config.TestingDisableWAL {
-		wal = "&_journal=MEMORY"
+		wal = "&_journal=MEMORY&_txlock=immediate"
 	}
 
 	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_busy_timeout=10000"+wal, nil)
@@ -392,6 +392,10 @@ func (db *DB) openDatabaseWithStat(ctx context.Context, dbName string, registerS
 
 	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
+
+	if db.config.TestingDisableWAL {
+		sqlDB.SetMaxOpenConns(1)
+	}
 
 	if registerStat {
 		dbutil.Configure(ctx, sqlDB, dbName, mon)

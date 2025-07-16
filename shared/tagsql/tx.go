@@ -14,6 +14,13 @@ import (
 	"storj.io/storj/shared/flightrecorder"
 )
 
+// ExecQueryer contains methods for executing queries.
+type ExecQueryer interface {
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
 // Tx is an interface for *sql.Tx-like transactions.
 type Tx interface {
 	// ExecContext and other Context methods take a context for tracing and also

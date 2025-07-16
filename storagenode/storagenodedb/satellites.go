@@ -137,9 +137,14 @@ func (db *satellitesDB) GetSatellitesUrls(ctx context.Context) (satelliteURLs []
 
 // UpdateSatelliteStatus updates satellite status.
 func (db *satellitesDB) UpdateSatelliteStatus(ctx context.Context, satelliteID storj.NodeID, status satellites.Status) (err error) {
+	return db.updateSatelliteStatus(ctx, db.DB, satelliteID, status)
+}
+
+// updateSatelliteStatus updates satellite status.
+func (db *satellitesDB) updateSatelliteStatus(ctx context.Context, tx tagsql.ExecQueryer, satelliteID storj.NodeID, status satellites.Status) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.ExecContext(ctx, "UPDATE satellites SET status = ? WHERE node_id = ?", status, satelliteID)
+	_, err = tx.ExecContext(ctx, "UPDATE satellites SET status = ? WHERE node_id = ?", status, satelliteID)
 	return ErrSatellitesDB.Wrap(err)
 }
 
@@ -178,7 +183,7 @@ func (db *satellitesDB) UpdateGracefulExit(ctx context.Context, satelliteID stor
 func (db *satellitesDB) CompleteGracefulExit(ctx context.Context, satelliteID storj.NodeID, finishedAt time.Time, exitStatus satellites.Status, completionReceipt []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return ErrSatellitesDB.Wrap(sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
-		err := db.UpdateSatelliteStatus(ctx, satelliteID, exitStatus)
+		err := db.updateSatelliteStatus(ctx, tx, satelliteID, exitStatus)
 		if err != nil {
 			return err
 		}
