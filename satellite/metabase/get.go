@@ -184,7 +184,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 
 // GetObjectExactVersion returns object information for exact version.
 func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error) {
-	object, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	object, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, status,
@@ -205,23 +205,24 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	}), func(row *spanner.Row, object *Object) error {
-		object.ProjectID = opts.ProjectID
-		object.BucketName = opts.BucketName
-		object.ObjectKey = opts.ObjectKey
-		object.Version = opts.Version
+	}, spanner.QueryOptions{RequestTag: "get-object-exact-version"}),
+		func(row *spanner.Row, object *Object) error {
+			object.ProjectID = opts.ProjectID
+			object.BucketName = opts.BucketName
+			object.ObjectKey = opts.ObjectKey
+			object.Version = opts.Version
 
-		return Error.Wrap(row.Columns(
-			&object.StreamID, &object.Status,
-			&object.CreatedAt, &object.ExpiresAt,
-			spannerutil.Int(&object.SegmentCount),
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
-			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
-			timeWrapper{&object.Retention.RetainUntil},
-		))
-	})
+			return Error.Wrap(row.Columns(
+				&object.StreamID, &object.Status,
+				&object.CreatedAt, &object.ExpiresAt,
+				spannerutil.Int(&object.SegmentCount),
+				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+				encryptionParameters{&object.Encryption},
+				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+				timeWrapper{&object.Retention.RetainUntil},
+			))
+		})
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
@@ -304,7 +305,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 
 // GetObjectLastCommitted implements Adapter.
 func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
-	object, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	object, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, version, status,
@@ -328,22 +329,23 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
-	}), func(row *spanner.Row, object *Object) error {
-		object.ProjectID = opts.ProjectID
-		object.BucketName = opts.BucketName
-		object.ObjectKey = opts.ObjectKey
+	}, spanner.QueryOptions{RequestTag: "get-object-last-committed"}),
+		func(row *spanner.Row, object *Object) error {
+			object.ProjectID = opts.ProjectID
+			object.BucketName = opts.BucketName
+			object.ObjectKey = opts.ObjectKey
 
-		return Error.Wrap(row.Columns(
-			&object.StreamID, &object.Version, &object.Status,
-			&object.CreatedAt, &object.ExpiresAt,
-			spannerutil.Int(&object.SegmentCount),
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
-			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-			encryptionParameters{&object.Encryption},
-			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
-			timeWrapper{&object.Retention.RetainUntil},
-		))
-	})
+			return Error.Wrap(row.Columns(
+				&object.StreamID, &object.Version, &object.Status,
+				&object.CreatedAt, &object.ExpiresAt,
+				spannerutil.Int(&object.SegmentCount),
+				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
+				encryptionParameters{&object.Encryption},
+				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+				timeWrapper{&object.Retention.RetainUntil},
+			))
+		})
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
 			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
@@ -533,7 +535,7 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+	row, err := s.client.Single().ReadRowWithOptions(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
 		"created_at", "expires_at", "repaired_at",
 		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
 		"encrypted_size", "plain_offset", "plain_size",
@@ -541,7 +543,7 @@ func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegme
 		"redundancy",
 		"inline_data", "remote_alias_pieces",
 		"placement",
-	})
+	}, &spanner.ReadOptions{RequestTag: "get-segment-by-position"})
 	if err != nil {
 		if errors.Is(err, spanner.ErrRowNotFound) {
 			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
@@ -604,14 +606,14 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 func (s *SpannerAdapter) GetSegmentByPositionForAudit(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
-	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+	row, err := s.client.Single().ReadRowWithOptions(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
 		"created_at", "expires_at", "repaired_at",
 		"root_piece_id",
 		"encrypted_size",
 		"redundancy",
 		"remote_alias_pieces",
 		"placement",
-	})
+	}, &spanner.ReadOptions{RequestTag: "get-segment-by-position-for-audit"})
 	if err != nil {
 		if errors.Is(err, spanner.ErrRowNotFound) {
 			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
@@ -673,14 +675,14 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 func (s *SpannerAdapter) GetSegmentByPositionForRepair(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
-	row, err := s.client.Single().ReadRow(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
+	row, err := s.client.Single().ReadRowWithOptions(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
 		"created_at", "expires_at", "repaired_at",
 		"root_piece_id",
 		"encrypted_size",
 		"redundancy",
 		"remote_alias_pieces",
 		"placement",
-	})
+	}, &spanner.ReadOptions{RequestTag: "get-segment-by-position-for-repair"})
 	if err != nil {
 		if errors.Is(err, spanner.ErrRowNotFound) {
 			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
@@ -778,7 +780,7 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 
 // GetLatestObjectLastSegment returns an object last segment information.
 func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
-	segment, err = spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	segment, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, position,
@@ -808,18 +810,19 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
-	}), func(row *spanner.Row, segment *Segment) error {
-		return Error.Wrap(row.Columns(
-			&segment.StreamID, &segment.Position,
-			&segment.CreatedAt, &segment.RepairedAt,
-			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.EncryptedETag,
-			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
-			&segment.Placement,
-		))
-	})
+	}, spanner.QueryOptions{RequestTag: "get-latest-object-last-segment"}),
+		func(row *spanner.Row, segment *Segment) error {
+			return Error.Wrap(row.Columns(
+				&segment.StreamID, &segment.Position,
+				&segment.CreatedAt, &segment.RepairedAt,
+				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+				spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
+				&segment.EncryptedETag,
+				&segment.Redundancy,
+				&segment.InlineData, &aliasPieces,
+				&segment.Placement,
+			))
+		})
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
@@ -869,7 +872,7 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
 func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
-	return spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	return spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `SELECT NOT EXISTS (
 			SELECT 1 FROM objects WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
 		)`,
@@ -877,9 +880,10 @@ func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (emp
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 		},
-	}), func(row *spanner.Row, noitems *bool) error {
-		return Error.Wrap(row.Columns(noitems))
-	})
+	}, spanner.QueryOptions{RequestTag: "bucket-empty"}),
+		func(row *spanner.Row, noitems *bool) error {
+			return Error.Wrap(row.Columns(noitems))
+		})
 }
 
 // GetObjectExactVersionLegalHold contains arguments necessary for retrieving
@@ -934,7 +938,7 @@ func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, op
 func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT retention_mode, status
 			FROM objects
@@ -946,13 +950,14 @@ func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opt
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
-		err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		return nil
-	})
+	}, spanner.QueryOptions{RequestTag: "get-object-exact-version-legal-hold"}),
+		func(row *spanner.Row, info *lockInfoAndStatus) error {
+			err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			return nil
+		})
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
@@ -1025,7 +1030,7 @@ func (p *PostgresAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, o
 func (s *SpannerAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT retention_mode, status
 			FROM objects
@@ -1040,13 +1045,14 @@ func (s *SpannerAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, op
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
-	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
-		err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		return nil
-	})
+	}, spanner.QueryOptions{RequestTag: "get-object-last-committed-legal-hold"}),
+		func(row *spanner.Row, info *lockInfoAndStatus) error {
+			err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			return nil
+		})
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
@@ -1123,7 +1129,7 @@ func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, op
 func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT retention_mode, retain_until, status
 			FROM objects
@@ -1135,13 +1141,14 @@ func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opt
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
-		err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		return nil
-	})
+	}, spanner.QueryOptions{RequestTag: "get-object-exact-version-retention"}),
+		func(row *spanner.Row, info *lockInfoAndStatus) error {
+			err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			return nil
+		})
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
@@ -1225,7 +1232,7 @@ func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, o
 func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT retention_mode, retain_until, status
 			FROM objects
@@ -1240,13 +1247,14 @@ func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, op
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
-	}), func(row *spanner.Row, info *lockInfoAndStatus) error {
-		err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		return nil
-	})
+	}, spanner.QueryOptions{RequestTag: "get-object-last-committed-retention"}),
+		func(row *spanner.Row, info *lockInfoAndStatus) error {
+			err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			return nil
+		})
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {

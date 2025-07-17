@@ -143,7 +143,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 		_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 			deleteSegments := []*spanner.Mutation{}
 
-			iter := tx.Query(ctx, spanner.Statement{
+			iter := tx.QueryWithOptions(ctx, spanner.Statement{
 				SQL: `
 					DELETE FROM objects
 					WHERE
@@ -162,7 +162,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 					"delete_limit": opts.BatchSize,
 					"cursor":       cursor,
 				},
-			})
+			}, spanner.QueryOptions{RequestTag: "delete-all-bucket-objects"})
 			err := iter.Do(func(row *spanner.Row) error {
 				var objectKey ObjectKey
 				var version Version
@@ -221,7 +221,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 
 	// We query the first object to be deleted to account for a scenario where a bucket has been already partially
 	// been deleted and contains a lot of deleted rows, potentially timing out the following delete queries.
-	cursor, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	cursor, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT object_key
 			FROM objects
@@ -233,7 +233,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 			"project_id":  opts.Bucket.ProjectID,
 			"bucket_name": opts.Bucket.BucketName,
 		},
-	}), func(row *spanner.Row, item *ObjectKey) error {
+	}, spanner.QueryOptions{RequestTag: "delete-all-bucket-objects-prequery"}), func(row *spanner.Row, item *ObjectKey) error {
 		return row.Columns(item)
 	})
 	if err != nil {

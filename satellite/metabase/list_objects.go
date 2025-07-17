@@ -417,7 +417,7 @@ func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (res
 		foundDeleteMarker := false
 
 		err := func() error {
-			rowIterator := s.client.Single().Query(ctx, stmt)
+			rowIterator := s.client.Single().QueryWithOptions(ctx, stmt, spanner.QueryOptions{RequestTag: "list-objects"})
 			defer rowIterator.Stop()
 
 			for {

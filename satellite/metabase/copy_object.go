@@ -339,7 +339,7 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
 
 	index := 0
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				position,
@@ -359,7 +359,7 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 			"stream_id":     sourceObject.StreamID,
 			"segment_count": int64(sourceObject.SegmentCount),
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "get-segments-for-copy"}).Do(func(row *spanner.Row) error {
 		err := row.Columns(
 			&segments.Positions[index],
 			&segments.ExpiresAts[index],
@@ -465,7 +465,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 
 	newObject = sourceObject
 
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
@@ -507,7 +507,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "finalize-object-copy"}).Do(func(row *spanner.Row) error {
 		err := row.Columns(&newObject.CreatedAt)
 		if err != nil {
 			return Error.New("unable to scan created_at: %w", err)
@@ -603,7 +603,7 @@ func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx contex
 
 	found := false
 	object := Object{}
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, status,
@@ -623,7 +623,7 @@ func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx contex
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "get-object-non-pending-exact-version"}).Do(func(row *spanner.Row) error {
 		found = true
 		err := row.Columns(
 			&object.StreamID, &object.Status,

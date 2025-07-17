@@ -168,10 +168,10 @@ func (s *SpannerAdapter) ListNodeAliases(ctx context.Context) (aliases []NodeAli
 	defer mon.Task()(&ctx)(&err)
 
 	return spannerutil.CollectRows(
-		s.client.Single().Query(ctx,
+		s.client.Single().QueryWithOptions(ctx,
 			spanner.Statement{SQL: `
 				SELECT node_id, node_alias FROM node_aliases
-			`}),
+			`}, spanner.QueryOptions{RequestTag: "list-node-aliases"}),
 		func(row *spanner.Row, item *NodeAliasEntry) error {
 			return Error.Wrap(row.Columns(&item.ID, spannerutil.Int(&item.Alias)))
 		})
@@ -240,7 +240,7 @@ func (s *SpannerAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeAl
 	}
 
 	return spannerutil.CollectRows(
-		s.client.Single().Query(ctx,
+		s.client.Single().QueryWithOptions(ctx,
 			spanner.Statement{SQL: `
 					SELECT node_id, node_alias FROM node_aliases
 					WHERE node_id IN unnest(@nodes) OR node_alias IN unnest(@aliases)
@@ -248,7 +248,7 @@ func (s *SpannerAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeAl
 				Params: map[string]any{
 					"nodes":   nodeids,
 					"aliases": aliases,
-				}}),
+				}}, spanner.QueryOptions{RequestTag: "get-node-alias-entries"}),
 		func(row *spanner.Row, item *NodeAliasEntry) error {
 			return Error.Wrap(row.Columns(&item.ID, spannerutil.Int(&item.Alias)))
 		})

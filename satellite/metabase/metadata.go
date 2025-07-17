@@ -171,7 +171,7 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 
 	if opts.SetEncryptedETag {
 		_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-			affected, err = tx.Update(ctx, spanner.Statement{
+			affected, err = tx.UpdateWithOptions(ctx, spanner.Statement{
 				SQL: `
 					UPDATE objects SET
 						encrypted_metadata_nonce         = @encrypted_metadata_nonce,
@@ -199,7 +199,7 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 					"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
 					"encrypted_etag":                   opts.EncryptedETag,
 				},
-			})
+			}, spanner.QueryOptions{RequestTag: "update-object-last-committed-metadata-with-encrypted-etag"})
 			if err != nil {
 				return Error.New("unable to update object metadata: %w", err)
 			}
@@ -214,7 +214,7 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 		return affected, nil
 	} else {
 		_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-			affected, err = tx.Update(ctx, spanner.Statement{
+			affected, err = tx.UpdateWithOptions(ctx, spanner.Statement{
 				SQL: `
 					UPDATE objects SET
 						encrypted_metadata_nonce         = @encrypted_metadata_nonce,
@@ -241,7 +241,7 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 					"encrypted_metadata":               opts.EncryptedMetadata,
 					"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
 				},
-			})
+			}, spanner.QueryOptions{RequestTag: "update-object-last-committed-metadata"})
 			if err != nil {
 				return Error.New("unable to update object metadata: %w", err)
 			}

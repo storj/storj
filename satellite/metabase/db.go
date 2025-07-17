@@ -198,7 +198,10 @@ func (p *PostgresAdapter) Ping(ctx context.Context) error {
 
 // Ping checks whether connection has been established.
 func (s *SpannerAdapter) Ping(ctx context.Context) error {
-	ok, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{SQL: `SELECT true`}),
+	ok, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx,
+		spanner.Statement{SQL: `SELECT true`},
+		spanner.QueryOptions{RequestTag: "ping"},
+	),
 		func(row *spanner.Row, item *bool) error {
 			return row.Columns(item)
 		})
@@ -765,7 +768,10 @@ func (p *PostgresAdapter) Now(ctx context.Context) (time.Time, error) {
 // Now returns the current time according to the database.
 func (s *SpannerAdapter) Now(ctx context.Context) (time.Time, error) {
 	return spannerutil.CollectRow(
-		s.client.Single().Query(ctx, spanner.Statement{SQL: `SELECT CURRENT_TIMESTAMP`}),
+		s.client.Single().QueryWithOptions(ctx,
+			spanner.Statement{SQL: `SELECT CURRENT_TIMESTAMP`},
+			spanner.QueryOptions{RequestTag: "now"},
+		),
 		func(row *spanner.Row, now *time.Time) error {
 			return row.Columns(now)
 		},

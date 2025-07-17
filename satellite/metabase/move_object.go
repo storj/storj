@@ -151,7 +151,7 @@ func (p *PostgresAdapter) GetSegmentPositionsAndKeys(ctx context.Context, stream
 // GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
 // segments in the db for the given stream ID, ordered by position.
 func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
-	keysNonces, err = spannerutil.CollectRows(s.client.Single().Query(ctx, spanner.Statement{
+	keysNonces, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				position, encrypted_key_nonce, encrypted_key
@@ -162,13 +162,14 @@ func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamI
 		Params: map[string]interface{}{
 			"stream_id": streamID,
 		},
-	}), func(row *spanner.Row, keys *EncryptedKeyAndNonce) error {
-		err := row.Columns(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
-		if err != nil {
-			return Error.New("failed to scan segments: %w", err)
-		}
-		return nil
-	})
+	}, spanner.QueryOptions{RequestTag: "get-segment-positions-and-keys"}),
+		func(row *spanner.Row, keys *EncryptedKeyAndNonce) error {
+			err := row.Columns(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+			return nil
+		})
 	return keysNonces, Error.Wrap(err)
 }
 
@@ -418,7 +419,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		zombieDeletionDeadline        *time.Time
 	)
 
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM objects
 			WHERE
@@ -437,7 +438,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			"object_key":  opts.ObjectKey,
 			"version":     opts.Version,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "object-move-delete"}).Do(func(row *spanner.Row) error {
 		found = true
 		err := row.Columns(
 			&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
@@ -471,7 +472,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		encryptedMetadataNonce = opts.NewEncryptedMetadataNonce[:]
 	}
 
-	_, err = stx.tx.Update(ctx, spanner.Statement{
+	_, err = stx.tx.UpdateWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version,
@@ -513,7 +514,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 		},
-	})
+	}, spanner.QueryOptions{RequestTag: "object-move-insert"})
 	if err != nil {
 		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to create new object record: %w", err)
 	}
@@ -565,7 +566,7 @@ func (stx *spannerTransactionAdapter) objectMoveEncryption(ctx context.Context, 
 			},
 		})
 	}
-	affecteds, err := stx.tx.BatchUpdate(ctx, stmts)
+	affecteds, err := stx.tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "object-move-encryption"})
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}

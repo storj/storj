@@ -475,7 +475,7 @@ func (p *PostgresAdapter) PendingObjectExists(ctx context.Context, opts BeginSeg
 
 // PendingObjectExists checks whether an object already exists.
 func (s *SpannerAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
-	err = s.client.Single().Query(ctx, spanner.Statement{
+	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT EXISTS (
 				SELECT 1
@@ -496,7 +496,7 @@ func (s *SpannerAdapter) PendingObjectExists(ctx context.Context, opts BeginSegm
 			"version":     opts.Version,
 			"stream_id":   opts.StreamID,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "pending-object-exists"}).Do(func(row *spanner.Row) error {
 		return Error.Wrap(row.Columns(&exists))
 	})
 	return exists, Error.Wrap(err)
@@ -1294,7 +1294,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	// We can not simply UPDATE the row, because we are changing the 'version' column,
 	// which is part of the primary key. Spanner does not allow changing a primary key
 	// column on an existing row. We must DELETE then INSERT a new row.
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 				DELETE FROM objects
 				WHERE
@@ -1317,7 +1317,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			"version":     opts.Version,
 			"stream_id":   opts.StreamID,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "finalize-object-commit"}).Do(func(row *spanner.Row) error {
 		deleted = true
 		return Error.Wrap(row.Columns(
 			&object.CreatedAt, &object.ExpiresAt,
@@ -1602,7 +1602,7 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(spanner) should we perform these two inserts as a Migration
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
@@ -1644,7 +1644,7 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 			},
 			"retain_until": timeWrapper{&object.Retention.RetainUntil},
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "finalize-inline-object-commit"}).Do(func(row *spanner.Row) error {
 		err := row.Columns(&object.CreatedAt)
 		if err != nil {
 			return Error.New("failed to read object created_at: %w", err)
@@ -1656,7 +1656,7 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 	}
 
 	// TODO consider not inserting segment if inline data is empty
-	_, err = stx.tx.Update(ctx, spanner.Statement{
+	_, err = stx.tx.UpdateWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO segments (
 				stream_id, position, expires_at,
@@ -1682,7 +1682,7 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 			"plain_size":          int64(segment.PlainSize),
 			"inline_data":         segment.InlineData,
 		},
-	})
+	}, spanner.QueryOptions{RequestTag: "finalize-inline-object-commit-segments"})
 	if err != nil {
 		return Error.New("failed to create segment: %w", err)
 	}

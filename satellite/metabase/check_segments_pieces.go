@@ -107,7 +107,7 @@ func (s *SpannerAdapter) CheckSegmentPiecesAlteration(ctx context.Context, strea
 		isInline    bool
 		piecesMatch bool
 	}
-	res, err := spannerutil.CollectRow(s.client.Single().Query(ctx, spanner.Statement{
+	res, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				COALESCE(LENGTH(remote_alias_pieces), 0) = 0 AS is_inline,
@@ -120,9 +120,10 @@ func (s *SpannerAdapter) CheckSegmentPiecesAlteration(ctx context.Context, strea
 			"position":     position,
 			"alias_pieces": aliasPieces,
 		},
-	}), func(row *spanner.Row, res *result) error {
-		return row.Columns(&res.isInline, &res.piecesMatch)
-	})
+	}, spanner.QueryOptions{RequestTag: "check-segment-pieces-alteration"}),
+		func(row *spanner.Row, res *result) error {
+			return row.Columns(&res.isInline, &res.piecesMatch)
+		})
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {

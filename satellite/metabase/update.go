@@ -169,7 +169,7 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		resultPieces, err = spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
+		resultPieces, err = spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				UPDATE segments SET
 					remote_alias_pieces = CASE
@@ -198,7 +198,7 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 				"new_repaired_at":    opts.NewRepairedAt,
 				"update_repaired_at": updateRepairAt,
 			},
-		}), func(row *spanner.Row, item *AliasPieces) error {
+		}, spanner.QueryOptions{RequestTag: "update-segment-pieces"}), func(row *spanner.Row, item *AliasPieces) error {
 			err = row.Columns(item)
 			if err != nil {
 				return Error.New("unable to decode result pieces: %w", err)
@@ -315,7 +315,7 @@ func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opt
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
+		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, expires_at, retention_mode
 				FROM objects
@@ -327,13 +327,14 @@ func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opt
 				"object_key":  opts.ObjectKey,
 				"version":     opts.Version,
 			},
-		}), func(row *spanner.Row, item *preUpdateRetentionInfo) error {
-			return errs.Wrap(row.Columns(
-				&item.Status,
-				&item.ExpiresAt,
-				lockModeWrapper{retentionMode: &item.Retention.Mode},
-			))
-		})
+		}, spanner.QueryOptions{RequestTag: "set-object-exact-version-legal-hold-check"}),
+			func(row *spanner.Row, item *preUpdateRetentionInfo) error {
+				return errs.Wrap(row.Columns(
+					&item.Status,
+					&item.ExpiresAt,
+					lockModeWrapper{retentionMode: &item.Retention.Mode},
+				))
+			})
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				return ErrObjectNotFound.New("")
@@ -463,7 +464,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 	}
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
+		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, version, expires_at, retention_mode
 				FROM objects
@@ -478,7 +479,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
 			},
-		}), func(row *spanner.Row, item *info) error {
+		}, spanner.QueryOptions{RequestTag: "set-object-last-committed-legal-hold-check"}), func(row *spanner.Row, item *info) error {
 			return errs.Wrap(row.Columns(
 				&item.Status,
 				&item.version,
@@ -522,7 +523,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 func (s *SpannerAdapter) setObjectExactVersionLegalHold(ctx context.Context, tx *spanner.ReadWriteTransaction, opts SetObjectExactVersionLegalHold, existingRetMode storj.RetentionMode) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	affected, err := tx.Update(ctx, spanner.Statement{
+	affected, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 		SQL: `
 				UPDATE objects
 				SET
@@ -537,7 +538,7 @@ func (s *SpannerAdapter) setObjectExactVersionLegalHold(ctx context.Context, tx 
 			"version":        opts.Version,
 			"retention_mode": lockModeWrapper{legalHold: &opts.Enabled, retentionMode: &existingRetMode},
 		},
-	})
+	}, spanner.QueryOptions{RequestTag: "set-object-last-committed-legal-hold"})
 	if err != nil {
 		return errs.New("unable to update object legal hold configuration: %w", err)
 	}
@@ -668,7 +669,7 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 	now := time.Now()
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
+		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, expires_at, retention_mode, retain_until
 				FROM objects
@@ -680,14 +681,15 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 				"object_key":  opts.ObjectKey,
 				"version":     opts.Version,
 			},
-		}), func(row *spanner.Row, item *preUpdateRetentionInfo) error {
-			return errs.Wrap(row.Columns(
-				&item.Status,
-				&item.ExpiresAt,
-				lockModeWrapper{retentionMode: &item.Retention.Mode},
-				timeWrapper{&item.Retention.RetainUntil},
-			))
-		})
+		}, spanner.QueryOptions{RequestTag: "set-object-exact-version-retention-check"}),
+			func(row *spanner.Row, item *preUpdateRetentionInfo) error {
+				return errs.Wrap(row.Columns(
+					&item.Status,
+					&item.ExpiresAt,
+					lockModeWrapper{retentionMode: &item.Retention.Mode},
+					timeWrapper{&item.Retention.RetainUntil},
+				))
+			})
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				return ErrObjectNotFound.New("")
@@ -717,7 +719,7 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, tx *spanner.ReadWriteTransaction, opts SetObjectExactVersionRetention) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	affected, err := tx.Update(ctx, spanner.Statement{
+	affected, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 		SQL: `
 			UPDATE objects
 			SET
@@ -737,7 +739,7 @@ func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, tx 
 			"retention_mode": lockModeWrapper{retentionMode: &opts.Retention.Mode},
 			"retain_until":   timeWrapper{&opts.Retention.RetainUntil},
 		},
-	})
+	}, spanner.QueryOptions{RequestTag: "set-object-exact-version-retention"})
 	if err != nil {
 		return errs.New("unable to update object retention configuration: %w", err)
 	}
@@ -879,7 +881,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 	now := time.Now()
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.Query(ctx, spanner.Statement{
+		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				SELECT status, version, expires_at, retention_mode, retain_until
 				FROM objects
@@ -894,7 +896,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
 			},
-		}), func(row *spanner.Row, item *info) error {
+		}, spanner.QueryOptions{RequestTag: "set-object-last-committed-retention-check"}), func(row *spanner.Row, item *info) error {
 			return errs.Wrap(row.Columns(
 				&item.Status,
 				&item.version,

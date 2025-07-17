@@ -391,8 +391,9 @@ func (it *spannerLoopSegmentIterator) doNextReadQuery(ctx context.Context) (_ *s
 	defer mon.Task()(&ctx)(nil)
 
 	opts := &spanner.ReadOptions{
-		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-		Limit:    it.batchSize,
+		Priority:   spannerpb.RequestOptions_PRIORITY_LOW,
+		Limit:      it.batchSize,
+		RequestTag: "loop-segment-iterator",
 	}
 
 	keyRange := spanner.KeyRange{

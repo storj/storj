@@ -386,7 +386,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 		}
 	}
 
-	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+	rowIterator := s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				` + querySelectFields + `
@@ -404,7 +404,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 			LIMIT @batch_size
 		`,
 		Params: args,
-	})
+	}, spanner.QueryOptions{RequestTag: "do-next-query-all-versions-with-status"})
 	return newSpannerRows(rowIterator), nil
 }
 
@@ -491,7 +491,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 		}
 	}
 
-	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+	rowIterator := s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				` + querySelectFields + `
@@ -509,7 +509,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 			LIMIT @batch_size
 		`,
 		Params: args,
-	})
+	}, spanner.QueryOptions{RequestTag: "do-next-query-all-versions-with-status-ascending"})
 	return newSpannerRows(rowIterator), nil
 }
 
@@ -582,7 +582,7 @@ func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it
 func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rowIterator := s.client.Single().Query(ctx, spanner.Statement{
+	rowIterator := s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				object_key, stream_id, version, status, encryption,
@@ -605,7 +605,7 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 			"stream_id":   it.cursor.StreamID,
 			"batch_size":  int64(it.batchSize),
 		},
-	})
+	}, spanner.QueryOptions{RequestTag: "do-next-query-pending-objects-by-key"})
 	return newSpannerRows(rowIterator), nil
 }
 

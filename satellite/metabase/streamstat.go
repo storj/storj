@@ -83,7 +83,7 @@ func (p *PostgresAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts G
 // GetStreamPieceCountByAlias returns piece count by node alias.
 func (s *SpannerAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[NodeAlias]int64, err error) {
 	countByAlias := map[NodeAlias]int64{}
-	err = s.client.Single().Query(ctx, spanner.Statement{
+	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT remote_alias_pieces
 			FROM   segments
@@ -92,18 +92,19 @@ func (s *SpannerAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts Ge
 		Params: map[string]interface{}{
 			"stream_id": opts.StreamID,
 		},
-	}).Do(func(row *spanner.Row) error {
-		var aliasPieces AliasPieces
-		err = row.Columns(&aliasPieces)
-		if err != nil {
-			return Error.New("failed to scan segments: %w", err)
-		}
+	}, spanner.QueryOptions{RequestTag: "get-stream-piece-count-by-alias"}).Do(
+		func(row *spanner.Row) error {
+			var aliasPieces AliasPieces
+			err = row.Columns(&aliasPieces)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
 
-		for i := range aliasPieces {
-			countByAlias[aliasPieces[i].Alias]++
-		}
-		return nil
-	})
+			for i := range aliasPieces {
+				countByAlias[aliasPieces[i].Alias]++
+			}
+			return nil
+		})
 	if err != nil {
 		return result, Error.New("unable to fetch object segments: %w", err)
 	}

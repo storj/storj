@@ -181,7 +181,7 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 				"plain_limit": opts.Range.PlainLimit,
 			},
 		}
-		iter = s.client.Single().Query(ctx, stmt)
+		iter = s.client.Single().QueryWithOptions(ctx, stmt, spanner.QueryOptions{RequestTag: "list-segments"})
 	}
 
 	result.Segments, err = spannerutil.CollectRows(iter,
@@ -387,7 +387,7 @@ func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStrea
 		}
 	}
 
-	result.Segments, err = spannerutil.CollectRows(s.client.Single().Query(ctx, stmt),
+	result.Segments, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, stmt, spanner.QueryOptions{RequestTag: "list-stream-positions"}),
 		func(row *spanner.Row, segment *SegmentPositionInfo) error {
 			err = row.Columns(
 				&segment.Position, spannerutil.Int(&segment.PlainSize), &segment.PlainOffset, &segment.CreatedAt,

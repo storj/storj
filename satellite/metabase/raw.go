@@ -367,7 +367,7 @@ func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects 
 			}
 			muts = append(muts, spanner.Insert("objects", source.Columns(), vals))
 		}
-		_, err = s.client.Apply(ctx, muts)
+		_, err = s.client.Apply(ctx, muts, spanner.TransactionTag("testing-batch-insert-objects"))
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -725,7 +725,7 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 		mutations[i] = spanner.InsertOrUpdate("segments", rawSegmentColumns, vals)
 	}
 
-	_, err = s.client.Apply(ctx, mutations)
+	_, err = s.client.Apply(ctx, mutations, spanner.TransactionTag("testing-batch-insert-segments"))
 	return Error.Wrap(err)
 }
 
@@ -752,7 +752,7 @@ func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object Obj
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		// Spanner doesn't support to update primary key columns, so we need to delete and insert the objects.
 		// https://cloud.google.com/spanner/docs/reference/standard-sql/dml-syntax#update-statement
-		deletedRows := tx.Query(ctx, spanner.Statement{
+		deletedRows := tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: "DELETE FROM objects " +
 				"WHERE project_id = @project_id AND " +
 				"bucket_name = @bucket_name AND " +
@@ -764,7 +764,9 @@ func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object Obj
 				"bucket_name": object.BucketName,
 				"object_key":  object.ObjectKey,
 				"stream_id":   object.StreamID,
-			}})
+			}},
+			spanner.QueryOptions{RequestTag: "testing-set-object-version"},
+		)
 
 		deleteObjsNames := []string{}
 		deleteObjsVals := []any{}
@@ -839,10 +841,10 @@ func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, pl
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
 func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		_, err := tx.Update(ctx, spanner.Statement{
+		_, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL:    "UPDATE segments SET placement = @placement WHERE true",
 			Params: map[string]interface{}{"placement": placement},
-		})
+		}, spanner.QueryOptions{RequestTag: "testing-set-placement-all-segments"})
 		return err
 	}, spanner.TransactionOptions{
 		TransactionTag: "testing-set-placement-all-segments",

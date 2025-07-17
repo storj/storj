@@ -126,7 +126,7 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighest(ctx context.Context
 func (stx *spannerTransactionAdapter) precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	highest, err = spannerutil.CollectRow(stx.tx.Query(ctx, spanner.Statement{
+	highest, err = spannerutil.CollectRow(stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT version
 			FROM objects
@@ -139,7 +139,7 @@ func (stx *spannerTransactionAdapter) precommitQueryHighest(ctx context.Context,
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}), func(row *spanner.Row, highest *Version) error {
+	}, spanner.QueryOptions{RequestTag: "precommit-query-highest"}), func(row *spanner.Row, highest *Version) error {
 		return Error.Wrap(row.Columns(highest))
 	})
 	if err != nil {
@@ -195,7 +195,7 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighestAndStatusUnversioned
 func (stx *spannerTransactionAdapter) precommitQueryHighestAndStatusUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, status ObjectStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			WITH object_versions AS (
 				SELECT version, status
@@ -222,7 +222,7 @@ func (stx *spannerTransactionAdapter) precommitQueryHighestAndStatusUnversioned(
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "precommit-query-highest-and-status-unversioned"}).Do(func(row *spanner.Row) error {
 		var versionOptional *int64
 		err := Error.Wrap(row.Columns(&versionOptional, &status))
 		if err != nil {
@@ -282,7 +282,7 @@ func (ptx *postgresTransactionAdapter) precommitQueryHighestAndStatusVersioned(c
 func (stx *spannerTransactionAdapter) precommitQueryHighestAndStatusVersioned(ctx context.Context, loc ObjectLocation) (highest Version, status ObjectStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			WITH object_versions AS (
 				SELECT version, status
@@ -309,7 +309,7 @@ func (stx *spannerTransactionAdapter) precommitQueryHighestAndStatusVersioned(ct
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "precommit-query-highest-and-status-versioned"}).Do(func(row *spanner.Row) error {
 		var versionOptional *int64
 		err := Error.Wrap(row.Columns(&versionOptional, &status))
 		if err != nil {
@@ -476,7 +476,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	defer mon.Task()(&ctx)(&err)
 
 	var status ObjectStatus
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 				SELECT version, status
 				FROM objects
@@ -489,7 +489,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-check"}).Do(func(row *spanner.Row) error {
 		return Error.Wrap(row.Columns(&result.HighestVersion, &status))
 	})
 
@@ -509,7 +509,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 		return result, nil
 	}
 
-	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc, stx.tx.Query(ctx, spanner.Statement{
+	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc, stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM objects
 			WHERE
@@ -523,7 +523,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}))
+	}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned"}))
 
 	if err != nil {
 		return result, Error.Wrap(err)
@@ -551,7 +551,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 			return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 		}
 
-		rowCount, err := stx.tx.Update(ctx, spanner.Statement{
+		rowCount, err := stx.tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM segments
 				WHERE segments.stream_id = @stream_id
@@ -559,7 +559,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 			Params: map[string]interface{}{
 				"stream_id": result.Deleted[0].StreamID,
 			},
-		})
+		}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-segments"})
 		if err != nil {
 			return result, Error.Wrap(err)
 		}
@@ -902,7 +902,7 @@ func (stx *spannerTransactionAdapter) PrecommitDeleteUnversionedWithNonPending(c
 func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(ctx context.Context, loc ObjectLocation) (result PrecommitConstraintWithNonPendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result, err = spannerutil.CollectRow(stx.tx.Query(ctx, spanner.Statement{
+	result, err = spannerutil.CollectRow(stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			WITH highest_object AS (
 				SELECT version
@@ -927,16 +927,17 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}), func(row *spanner.Row, result *PrecommitConstraintWithNonPendingResult) error {
-		return Error.Wrap(row.Columns(&result.HighestVersion, &result.HighestNonPendingVersion))
-	})
+	}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-with-non-pending"}),
+		func(row *spanner.Row, result *PrecommitConstraintWithNonPendingResult) error {
+			return Error.Wrap(row.Columns(&result.HighestVersion, &result.HighestNonPendingVersion))
+		})
 	if err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
 
 	// TODO(spanner): is there a better way to combine these deletes from different tables?
 	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc,
-		stx.tx.Query(ctx, spanner.Statement{
+		stx.tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
 				WHERE
@@ -948,7 +949,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 				"bucket_name": loc.BucketName,
 				"object_key":  loc.ObjectKey,
 			},
-		}))
+		}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-with-non-pending-objects"}))
 	if err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
@@ -964,7 +965,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPending(c
 	}
 
 	if len(stmts) > 0 {
-		segmentsDeleted, err := stx.tx.BatchUpdate(ctx, stmts)
+		segmentsDeleted, err := stx.tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-with-non-pending-segments"})
 		if err != nil {
 			return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
 		}
@@ -1006,7 +1007,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 		objectToDelete                                         *versionAndLockInfo
 	)
 
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT version, status, retention_mode, retain_until
 			FROM objects
@@ -1018,7 +1019,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-with-non-pending-using-object-lock-check"}).Do(func(row *spanner.Row) error {
 		var (
 			version   Version
 			status    ObjectStatus
@@ -1079,7 +1080,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 
 	// TODO(spanner): is there a better way to combine these deletes from different tables?
 	result.Deleted, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
-		stx.tx.Query(ctx, spanner.Statement{
+		stx.tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
 				WHERE
@@ -1091,7 +1092,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 				"object_key":  opts.ObjectKey,
 				"version":     objectToDelete.version,
 			},
-		}),
+		}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-with-non-pending-using-object-lock-objects"}),
 	)
 	if err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
@@ -1122,7 +1123,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 			"stream_id": result.Deleted[0].StreamID,
 		},
 	}
-	segmentsDeleted, err := stx.tx.Update(ctx, segmentDeletion)
+	segmentsDeleted, err := stx.tx.UpdateWithOptions(ctx, segmentDeletion, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-with-non-pending-using-object-lock-segments"})
 	if err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.New("unable to delete segments: %w", err)
 	}

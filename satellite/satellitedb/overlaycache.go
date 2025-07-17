@@ -1966,7 +1966,7 @@ func (cache *overlaycache) TestAddNodes(ctx context.Context, nodes []*overlay.No
 		}
 
 		return Error.Wrap(spannerutil.UnderlyingClient(ctx, cache.db.DB, func(client *spanner.Client) error {
-			_, err := client.Apply(ctx, muts)
+			_, err := client.Apply(ctx, muts, spanner.TransactionTag("test-add-nodes"))
 			return Error.Wrap(err)
 		}))
 	default:

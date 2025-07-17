@@ -86,7 +86,8 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 		Kind:  spanner.ClosedClosed,
 	}, []string{"object_key", "version", "stream_id", "status", "segment_count"},
 		&spanner.ReadOptions{
-			Priority: spannerpb.RequestOptions_PRIORITY_MEDIUM,
+			Priority:   spannerpb.RequestOptions_PRIORITY_MEDIUM,
+			RequestTag: "uncoordinated-delete-all-bucket-objects-iterate",
 		}).Do(func(r *spanner.Row) error {
 		var objectKey ObjectKey
 		var version Version

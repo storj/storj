@@ -216,7 +216,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 	// insert a new one.
 
 	deleted := false
-	err = stx.tx.Query(ctx, spanner.Statement{
+	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM objects
 			WHERE project_id    = @project_id
@@ -235,7 +235,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 			"previous_version": opts.Version,
 			"stream_id":        opts.StreamID,
 		},
-	}).Do(func(row *spanner.Row) error {
+	}, spanner.QueryOptions{RequestTag: "finalize-object-commit-with-segments-delete"}).Do(func(row *spanner.Row) error {
 		deleted = true
 		err := row.Columns(&object.CreatedAt, &object.ExpiresAt, encryptionParameters{&object.Encryption})
 		if err != nil {
@@ -250,7 +250,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 		return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
 	}
 
-	_, err = stx.tx.Update(ctx, spanner.Statement{
+	_, err = stx.tx.UpdateWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version,
@@ -289,7 +289,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 			"fixed_segment_size":               int64(fixedSegmentSize),
 			"encryption":                       encryptionParameters{&object.Encryption},
 		},
-	})
+	}, spanner.QueryOptions{RequestTag: "finalize-object-commit-with-segments-insert"})
 
 	return Error.Wrap(err)
 }
@@ -355,8 +355,9 @@ func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context
 		Kind:  spanner.ClosedClosed, // both keys are included.
 	}
 
-	segments, err = spannerutil.CollectRows(stx.tx.Read(ctx, "segments", keyRange,
+	segments, err = spannerutil.CollectRows(stx.tx.ReadWithOptions(ctx, "segments", keyRange,
 		[]string{"position", "encrypted_size", "plain_offset", "plain_size"},
+		&spanner.ReadOptions{RequestTag: "fetch-segments-for-commit"},
 	), func(row *spanner.Row, segment *segmentInfoForCommit) error {
 		return Error.Wrap(row.Columns(
 			&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
@@ -550,7 +551,7 @@ func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Cont
 	}
 
 	if len(stmts) > 0 {
-		deleted, err := stx.tx.BatchUpdate(ctx, stmts)
+		deleted, err := stx.tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "delete-segments-not-in-commit"})
 		if err != nil {
 			return 0, Error.New("unable to delete segments: %w", err)
 		}
