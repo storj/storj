@@ -249,10 +249,45 @@ func TestPackagePlansGet(t *testing.T) {
 	}
 }
 
+var placementOverrides = paymentsconfig.PlacementOverrides{
+	ProductPlacements: map[int32][]int{
+		1: {0},
+	},
+	PartnerProductPlacements: map[string]map[int32][]int{
+		"somepartner": {
+			1: {3},
+			3: {1},
+		},
+	},
+}
+
 func TestPlacementPriceOverrides(t *testing.T) {
+	bytes, err := yaml.Marshal(placementOverrides.ProductPlacements)
+	require.NoError(t, err)
+	validYaml := string(bytes)
+
+	bytes, err = json.Marshal(placementOverrides.ProductPlacements)
+	require.NoError(t, err)
+	jsonStr := string(bytes)
+
+	tmpFile, err := os.CreateTemp(t.TempDir(), "mapping_*.yaml")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, tmpFile.Close())
+	}()
+
+	bytes, err = yaml.Marshal(placementOverrides)
+	require.NoError(t, err)
+	_, err = tmpFile.Write(bytes)
+	require.NoError(t, err)
+
 	tests := []struct {
-		id        string
-		config    string
+		id     string
+		config string
+		// in the case of JSON, we only allow using it for backwards compatibility
+		// the expected config string of cfg.String() will be in YAML format.
+		expectStr string
 		expectErr bool
 	}{
 		{
@@ -260,12 +295,22 @@ func TestPlacementPriceOverrides(t *testing.T) {
 			config: "",
 		},
 		{
-			id:     "valid JSON",
-			config: `{"0":[0],"1":[2]}`,
+			id:     "valid YAML",
+			config: validYaml,
 		},
 		{
-			id:        "invalid JSON",
-			config:    `{0:[0],1:[2]}`,
+			id:        "YAML file",
+			config:    tmpFile.Name(),
+			expectStr: validYaml,
+		},
+		{
+			id:        "valid JSON",
+			config:    jsonStr,
+			expectStr: validYaml,
+		},
+		{
+			id:        "invalid string",
+			config:    "invalid string",
 			expectErr: true,
 		},
 	}
@@ -279,15 +324,42 @@ func TestPlacementPriceOverrides(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			if tt.expectStr != "" {
+				require.Equal(t, tt.expectStr, mapFromCfg.String())
+				return
+			}
 			require.Equal(t, tt.config, mapFromCfg.String())
 		})
 	}
 }
 
 func TestPartnerPlacementPriceOverrides(t *testing.T) {
+	bytes, err := yaml.Marshal(placementOverrides.PartnerProductPlacements)
+	require.NoError(t, err)
+	validYaml := string(bytes)
+
+	bytes, err = json.Marshal(placementOverrides.PartnerProductPlacements)
+	require.NoError(t, err)
+	jsonStr := string(bytes)
+
+	tmpFile, err := os.CreateTemp(t.TempDir(), "mapping_*.yaml")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, tmpFile.Close())
+	}()
+
+	bytes, err = yaml.Marshal(placementOverrides)
+	require.NoError(t, err)
+	_, err = tmpFile.Write(bytes)
+	require.NoError(t, err)
+
 	tests := []struct {
-		id        string
-		config    string
+		id     string
+		config string
+		// in the case of JSON, we only allow using it for backwards compatibility
+		// the expected config string of cfg.String() will be in YAML format.
+		expectStr string
 		expectErr bool
 	}{
 		{
@@ -295,12 +367,22 @@ func TestPartnerPlacementPriceOverrides(t *testing.T) {
 			config: "",
 		},
 		{
-			id:     "valid JSON",
-			config: `{"partner0":{"0":[1]}}`,
+			id:     "valid YAML",
+			config: validYaml,
 		},
 		{
-			id:        "invalid JSON",
-			config:    `{partner0:{"0":[1]}}`,
+			id:        "YAML file",
+			config:    tmpFile.Name(),
+			expectStr: validYaml,
+		},
+		{
+			id:        "valid JSON",
+			config:    jsonStr,
+			expectStr: validYaml,
+		},
+		{
+			id:        "invalid YAML",
+			config:    "invalid string",
 			expectErr: true,
 		},
 	}
@@ -315,6 +397,10 @@ func TestPartnerPlacementPriceOverrides(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			if tt.expectStr != "" {
+				require.Equal(t, tt.expectStr, mapFromCfg.String())
+				return
+			}
 			require.Equal(t, tt.config, mapFromCfg.String())
 		})
 	}

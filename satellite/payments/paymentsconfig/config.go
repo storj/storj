@@ -43,8 +43,8 @@ type Config struct {
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
 	Products                        ProductPriceOverrides       `help:"a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details."`
-	PlacementPriceOverrides         PlacementProductMap         `help:"a JSON mapping of product ID to placements in the format: {productID0:[placement0],productID1:[placement1,placement2]}. Products must be defined by the --payments.products config, or the satellite will not start."`
-	PartnersPlacementPriceOverrides PartnersPlacementProductMap `help:"a JSON mapping of partners to a mapping of product ID to placements in the format: {\"partner0\":{productID0:[placement0],productID1:[placement1,placement2]}}. If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides."`
+	PlacementPriceOverrides         PlacementProductMap         `help:"a YAML mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details."`
+	PartnersPlacementPriceOverrides PartnersPlacementProductMap `help:"a YAML mapping of partners to a mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details."`
 
 	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
@@ -379,6 +379,14 @@ func (p *ProductPriceOverrides) Get(id int32) (prices ProductUsagePrice, ok bool
 	return ProductUsagePrice{}, false
 }
 
+// PlacementOverrides holds the placement overrides for products and partners defined in a common file.
+// This format is to be used if placement override configurations are to be defined in a single file.
+// Exported for testing purposes.
+type PlacementOverrides struct {
+	ProductPlacements        map[int32][]int            `yaml:"product-placements"`
+	PartnerProductPlacements map[string]map[int32][]int `yaml:"partner-product-placements"`
+}
+
 // Ensure that PlacementProductMap implements pflag.Value.
 var _ pflag.Value = (*PlacementProductMap)(nil)
 
@@ -400,7 +408,7 @@ func (p *PlacementProductMap) ToMap() payments.PlacementProductIdMap {
 // Type returns the type of the pflag.Value.
 func (PlacementProductMap) Type() string { return "paymentsconfig.PlacementProductIdMap" }
 
-// String returns the JSON string representation of the placements to product map.
+// String returns the YAML string representation of the placements to product map.
 func (p *PlacementProductMap) String() string {
 	if p == nil || len(p.placementProductMap) == 0 {
 		return ""
@@ -411,27 +419,53 @@ func (p *PlacementProductMap) String() string {
 		productToPlacements[product] = append(productToPlacements[product], placement)
 	}
 
-	data, err := json.Marshal(productToPlacements)
+	data, err := yaml.Marshal(productToPlacements)
 	if err != nil {
 		return ""
 	}
 	return string(data)
 }
 
-// Set sets the placement to product mappings to the JSON string.
+// Set sets the placement to product mappings to the YAML string.
 func (p *PlacementProductMap) Set(s string) error {
 	if s == "" {
 		return nil
 	}
 
-	mapping := make(map[int32][]int)
-	err := json.Unmarshal([]byte(s), &mapping)
-	if err != nil {
-		return err
+	s = strings.TrimSpace(s)
+	strBytes := []byte(s)
+
+	var placementProducts map[int32][]int
+	switch {
+	case strings.HasSuffix(s, ".yaml"):
+		// YAML file path
+		data, err := os.ReadFile(s)
+		if err != nil {
+			return errs.New("Couldn't read product config file from %s: %v", s, err)
+		}
+
+		var overrides PlacementOverrides
+		err = yaml.Unmarshal(data, &overrides)
+		if err != nil {
+			return errs.New("failed to parse override config YAML file: %v", err)
+		}
+		placementProducts = overrides.ProductPlacements
+	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
+		// JSON string
+		err := json.Unmarshal(strBytes, &placementProducts)
+		if err != nil {
+			return errs.New("failed to parse override config JSON: %v", err)
+		}
+	default:
+		// YAML string
+		err := yaml.Unmarshal(strBytes, &placementProducts)
+		if err != nil {
+			return errs.New("failed to parse override config YAML: %v", err)
+		}
 	}
 
 	placementProductMap := make(map[int]int32)
-	for productID, placements := range mapping {
+	for productID, placements := range placementProducts {
 		for _, placement := range placements {
 			placementProductMap[placement] = productID
 		}
@@ -481,7 +515,7 @@ func (p *PartnersPlacementProductMap) String() string {
 		mapping[partner] = productPlacements
 	}
 
-	data, err := json.Marshal(mapping)
+	data, err := yaml.Marshal(mapping)
 	if err != nil {
 		return ""
 	}
@@ -494,13 +528,40 @@ func (p *PartnersPlacementProductMap) Set(s string) error {
 		return nil
 	}
 
-	var mapping map[string]map[int32][]int
-	err := json.Unmarshal([]byte(s), &mapping)
-	if err != nil {
-		return err
+	s = strings.TrimSpace(s)
+	strBytes := []byte(s)
+
+	var partnerProductPlacements map[string]map[int32][]int
+	switch {
+	case strings.HasSuffix(s, ".yaml"):
+		// YAML file path
+		data, err := os.ReadFile(s)
+		if err != nil {
+			return errs.New("Couldn't read product config file from %s: %v", s, err)
+		}
+
+		var overrides PlacementOverrides
+		err = yaml.Unmarshal(data, &overrides)
+		if err != nil {
+			return errs.New("failed to parse override config YAML file: %v", err)
+		}
+		partnerProductPlacements = overrides.PartnerProductPlacements
+	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
+		// JSON string
+		err := json.Unmarshal(strBytes, &partnerProductPlacements)
+		if err != nil {
+			return errs.New("failed to parse override config JSON: %v", err)
+		}
+	default:
+		// YAML string
+		err := yaml.Unmarshal(strBytes, &partnerProductPlacements)
+		if err != nil {
+			return errs.New("failed to parse override config YAML: %v", err)
+		}
 	}
+
 	partnerPlacementProductMap := make(map[string]PlacementProductMap)
-	for partner, productPlacement := range mapping {
+	for partner, productPlacement := range partnerProductPlacements {
 		placementProductMap := PlacementProductMap{
 			placementProductMap: make(map[int]int32),
 		}

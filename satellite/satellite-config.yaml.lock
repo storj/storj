@@ -1378,10 +1378,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 
-# a JSON mapping of partners to a mapping of product ID to placements in the format: {"partner0":{productID0:[placement0],productID1:[placement1,placement2]}}. If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides.
+# a YAML mapping of partners to a mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details.
 # payments.partners-placement-price-overrides: ""
 
-# a JSON mapping of product ID to placements in the format: {productID0:[placement0],productID1:[placement1,placement2]}. Products must be defined by the --payments.products config, or the satellite will not start.
+# a YAML mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details.
 # payments.placement-price-overrides: ""
 
 # a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details.

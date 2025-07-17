@@ -82,3 +82,180 @@ STORJ_PAYMENTS_PRODUCTS: |
     segment-sku: "segment_sku_value_3"
     egress-discount-ratio: 0.0
 ```
+
+## PlacementPriceOverrides
+
+This maps specific placements to product IDs, allowing different pricing for different placements.
+Expected configuration is a YAML or JSON string, or a YAML file. JSON support is for backwards compatibility, but YAML is preferred.
+
+### Configuration Format
+
+```yaml
+STORJ_PAYMENTS_PLACEMENT_PRICE_OVERRIDES: |
+  productID1:
+    - placement1
+    - placement2
+  productID2:
+    - placement3
+```
+**OR**
+```json
+{
+    "productID1": [ 1, 2 ],
+    "productID2": [ 3 ]
+}
+```
+If a YAML file is used, it should be in the format:
+
+```yaml
+product-placements:
+  1:
+    - 0
+```
+`product-placements` are the same as `STORJ_PAYMENTS_PLACEMENT_PRICE_OVERRIDES`.
+
+### Example Configuration
+
+```yaml
+STORJ_PAYMENTS_PLACEMENT_PRICE_OVERRIDES: |
+  1:
+    - 11  # US 1
+    - 12  # US 2
+  2:
+    - 21  # EU 1
+    - 22  # EU 2
+  3:
+    - 31  # AP 1
+    - 32  # AP 2
+```
+
+### Usage Notes
+
+- Products must be defined in the `Products` configuration first
+- Placements must correspond to valid placement constraints in the network
+- If a placement is not explicitly mapped, it will use default pricing
+
+## PartnersPlacementPriceOverrides
+
+This configures partner-specific placement-to-product mappings, allowing different pricing structures for different partners.
+Expected configuration is a YAML or JSON string, or a YAML file. JSON support is for backwards compatibility, but YAML is preferred.
+
+### Configuration Format
+
+```yaml
+STORJ_PAYMENTS_PARTNERS_PLACEMENT_PRICE_OVERRIDES: |
+  partner1:
+    productID1:
+      - placement1
+      - placement2
+    productID2:
+      - placement3
+  partner2:
+    productID1:
+      - placement4
+```
+**OR**
+```json
+{
+    "partner1": {
+        "productID1": [ 1, 2 ],
+        "productID2": [ 3 ]
+    },
+    "partner2": {
+        "productID1": [ 4 ]
+    }
+}
+```
+
+If a YAML file is used, it should be in the format:
+
+```yaml
+partner-product-placements:
+  somepartner:
+    1:
+      - 3
+    3:
+      - 1
+```
+`partner-product-placements` are the same as `STORJ_PAYMENTS_PARTNERS_PLACEMENT_PRICE_OVERRIDES`.
+
+Both `partner-product-placements` and `product-placements` can be defined in the same file as such:
+```yaml
+product-placements:
+  1:
+    - 0
+partner-product-placements:
+  somepartner:
+    1:
+      - 3
+    3:
+      - 1
+```
+
+### Example Configuration
+
+```yaml
+STORJ_PAYMENTS_PARTNERS_PLACEMENT_PRICE_OVERRIDES: |
+  enterprise-partner:
+    3:
+      - 21  # EU 1 with enterprise pricing
+  startup-partner:
+    2:
+      - 11  # US 1 with startup pricing
+      - 22  # EU 2 with startup pricing
+  research-partner:
+    1:
+      - 31  # AP 1 with basic pricing
+```
+
+### Usage Notes
+
+- If a partner uses a placement not defined in their specific configuration, they fall back to the general `PlacementPriceOverrides`
+- Products referenced must exist in the `Products` configuration
+
+## Configuration Dependencies
+
+1. **Products must be defined first**: Both placement override configurations depend on products being defined in the `Products` field
+2. **Valid placement IDs**: All placement IDs must exist in the satellite's placement definitions
+3. **Non-zero product IDs**: Product IDs must be greater than 0
+4. **YAML format**: All configurations use YAML format strings
+
+## Example Complete Configuration
+
+```yaml
+STORJ_PAYMENTS_PRODUCTS: |
+  1:
+    name: "Standard"
+    storage: "4"
+    egress: "7"
+    segment: "0.0000088"
+    egress-discount-ratio: 0.1
+  2:
+    name: "Professional"
+    storage: "3"
+    egress: "6"
+    segment: "0.0000077"
+    egress-discount-ratio: 0.0
+
+STORJ_PAYMENTS_PLACEMENT_PRICE_OVERRIDES: |
+  1:
+    - 11  # US 1
+    - 22  # EU 2
+  2:
+    - 21  # EU 1
+    - 12  # EU 2
+
+STORJ_PAYMENTS_PARTNERS_PLACEMENT_PRICE_OVERRIDES: |
+  enterprise-client:
+    2:
+      - 11  # Enterprise gets professional pricing in US1
+  startup-client:
+    1:
+      - 21  # Startup gets standard pricing EU 1
+```
+
+This configuration:
+- Defines two products
+- Maps US 1 and EU 1 to standard pricing and US 2 and EU 2 to professional pricing by default
+- Give enterprise partners professional pricing US 1, other placements use default pricing in `STORJ_PAYMENTS_PRODUCTS`
+- Give startup partners standard pricing in EU 1, other placements use default pricing in `STORJ_PAYMENTS_PRODUCTS`
