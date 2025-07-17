@@ -93,7 +93,7 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		var b64Salt string
 		require.NoError(t, json.Unmarshal([]byte(bodyString), &b64Salt))
 
-		restrictedAccessGrant, err := consolewasm.GenAccessGrant(satelliteNodeURL, restrictedKey.Serialize(), passphrase, b64Salt, true)
+		restrictedAccessGrant, err := consolewasm.GenAccessGrant(satelliteNodeURL, restrictedKey.Serialize(), passphrase, b64Salt)
 		require.NoError(t, err)
 		restrictedAccess, err := uplink.ParseAccess(restrictedAccessGrant)
 		require.NoError(t, err)
@@ -431,7 +431,7 @@ func withAccessKey(ctx *testcontext.Context, t *testing.T, planet *testplanet.Pl
 		restrictedKey, err := consolewasm.SetPermission(apikey.Serialize(), bucket, permissions)
 		require.NoError(t, err)
 
-		restrictedGrant, err := consolewasm.GenAccessGrant(sat.NodeURL().String(), restrictedKey.Serialize(), passphrase, salt, true)
+		restrictedGrant, err := consolewasm.GenAccessGrant(sat.NodeURL().String(), restrictedKey.Serialize(), passphrase, salt)
 		require.NoError(t, err)
 
 		access, err := uplink.ParseAccess(restrictedGrant)

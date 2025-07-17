@@ -181,7 +181,6 @@ export class ProjectConfig {
     public constructor(
         public hasManagedPassphrase: boolean = false,
         public passphrase: string = '',
-        public encryptPath: boolean = false,
         public isOwnerPaidTier: boolean = false,
         public hasPaidPrivileges: boolean = false,
         public _role: number = 1,

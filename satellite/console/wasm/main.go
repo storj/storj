@@ -20,7 +20,6 @@ import (
 func main() {
 	js.Global().Set("deriveAndAESEncryptRootKey", deriveAndEncryptRootKey())
 	js.Global().Set("generateNewAccessGrant", generateAccessGrant())
-	js.Global().Set("generateNewAccessGrantWithPathEncryption", generateNewAccessGrantWithPathEncryption())
 	js.Global().Set("setAPIKeyPermission", setAPIKeyPermission())
 	js.Global().Set("newPermission", newPermission())
 	js.Global().Set("restrictGrant", restrictGrant())
@@ -74,35 +73,6 @@ func generateAccessGrant() js.Func {
 			apiKey,
 			encryptionPassphrase,
 			projectSalt,
-			true,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		return access, nil
-	}))
-}
-
-// generateNewAccessGrantWithPathEncryption creates a new access grant with the provided api key and encryption passphrase
-// and path encryption state.
-func generateNewAccessGrantWithPathEncryption() js.Func {
-	return js.FuncOf(responseHandler(func(this js.Value, args []js.Value) (interface{}, error) {
-		if len(args) < 5 {
-			return nil, errs.New("not enough arguments. Need 5, but only %d supplied. The order of arguments are: "+
-				"satellite Node URL, API key, encryption passphrase, project ID, and path encryption enabled.", len(args))
-		}
-		satelliteNodeURL := args[0].String()
-		apiKey := args[1].String()
-		encryptionPassphrase := args[2].String()
-		projectSalt := args[3].String()
-		pathEncryptionEnabled := args[4].Bool()
-
-		access, err := console.GenAccessGrant(satelliteNodeURL,
-			apiKey,
-			encryptionPassphrase,
-			projectSalt,
-			pathEncryptionEnabled,
 		)
 		if err != nil {
 			return nil, err

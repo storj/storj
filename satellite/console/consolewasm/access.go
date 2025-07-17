@@ -12,9 +12,8 @@ import (
 	"storj.io/common/storj"
 )
 
-// GenAccessGrant creates a new access grant with optional path encryption
-// and returns it serialized form.
-func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64EncodedSalt string, encryptPath bool) (string, error) {
+// GenAccessGrant creates a new access grant and returns it serialized form.
+func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64EncodedSalt string) (string, error) {
 	parsedAPIKey, err := macaroon.ParseAPIKey(apiKey)
 	if err != nil {
 		return "", err
@@ -27,9 +26,6 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64Encode
 
 	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
 	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
-	if !encryptPath {
-		encAccess.SetDefaultPathCipher(storj.EncNull)
-	}
 	encAccess.LimitTo(parsedAPIKey)
 
 	accessString, err := (&grant.Access{

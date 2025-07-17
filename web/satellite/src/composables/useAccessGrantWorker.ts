@@ -63,7 +63,6 @@ export function useAccessGrantWorker() {
         if (!worker.value) throw new Error('Worker is not defined');
 
         message['salt'] = await projectsStore.getProjectSalt(projectID);
-        message['encryptPath'] = projectsStore.selectedProjectConfig.encryptPath;
         message['satelliteNodeURL'] = configStore.state.config.satelliteNodeURL;
         message['type'] = 'GenerateAccess';
 
