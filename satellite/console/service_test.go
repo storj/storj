@@ -873,21 +873,44 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("CreateDomain", func(t *testing.T) {
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Domain Creator",
+					Email:    "create_domain@example.test",
+				}, 1)
+				require.NoError(t, err)
+
+				project, err := sat.AddProject(ctx, user.ID, "Create Domain")
+				require.NoError(t, err)
+
 				domain := console.Domain{
-					ProjectPublicID: up2Proj.PublicID,
-					CreatedBy:       up2Proj.OwnerID,
-					Subdomain:       "test.example.com",
+					ProjectPublicID: project.PublicID,
+					CreatedBy:       user.ID,
+					Subdomain:       "test.example.test",
 					Prefix:          "test",
 					AccessID:        "test",
 				}
 
-				createdDomain, err := service.CreateDomain(userCtx2, domain)
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				createdDomain, err := service.CreateDomain(userCtx, domain)
+				require.True(t, console.ErrNotPaidTier.Has(err))
+				require.Nil(t, createdDomain)
+
+				paidKind := console.PaidUser
+				err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind})
+				require.NoError(t, err)
+
+				userCtx, err = sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				createdDomain, err = service.CreateDomain(userCtx, domain)
 				require.NoError(t, err)
 				require.NotNil(t, createdDomain)
-				require.Equal(t, up2Proj.OwnerID, createdDomain.CreatedBy)
+				require.Equal(t, user.ID, createdDomain.CreatedBy)
 
 				// Creating a domain with the same subdomain should fail.
-				createdDomain, err = service.CreateDomain(userCtx2, domain)
+				createdDomain, err = service.CreateDomain(userCtx, domain)
 				require.True(t, console.ErrSubdomainAlreadyExists.Has(err))
 				require.Nil(t, createdDomain)
 
@@ -1255,7 +1278,17 @@ func TestService(t *testing.T) {
 				require.True(t, console.ErrUnauthorized.Has(err))
 			})
 			t.Run("DeleteDomain", func(t *testing.T) {
-				project, err := sat.AddProject(ctx, up1Proj.OwnerID, "Delete Domain")
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Domain Deleter",
+					Email:    "delete_domain@example.test",
+				}, 1)
+				require.NoError(t, err)
+
+				paidKind := console.PaidUser
+				err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind})
+				require.NoError(t, err)
+
+				project, err := sat.AddProject(ctx, user.ID, "Delete Domain")
 				require.NoError(t, err)
 
 				d := console.Domain{
@@ -1267,14 +1300,17 @@ func TestService(t *testing.T) {
 					AccessID:        "delete",
 				}
 
-				createdDomain, err := service.CreateDomain(userCtx1, d)
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				createdDomain, err := service.CreateDomain(userCtx, d)
 				require.NoError(t, err)
 				require.NotNil(t, createdDomain)
 
-				err = service.DeleteDomain(userCtx1, project.PublicID, createdDomain.Subdomain)
+				err = service.DeleteDomain(userCtx, project.PublicID, createdDomain.Subdomain)
 				require.NoError(t, err)
 
-				createdDomain, err = service.CreateDomain(userCtx1, d)
+				createdDomain, err = service.CreateDomain(userCtx, d)
 				require.NoError(t, err)
 				require.NotNil(t, createdDomain)
 
@@ -1284,16 +1320,16 @@ func TestService(t *testing.T) {
 				anotherUser, err := sat.API.DB.Console().Users().Get(ctx, up2Proj.OwnerID)
 				require.NoError(t, err)
 
-				_, err = service.AddProjectMembers(userCtx1, project.PublicID, []string{anotherUser.Email})
+				_, err = service.AddProjectMembers(userCtx, project.PublicID, []string{anotherUser.Email})
 				require.NoError(t, err)
 
-				_, err = service.UpdateProjectMemberRole(userCtx1, anotherUser.ID, project.PublicID, console.RoleMember)
+				_, err = service.UpdateProjectMemberRole(userCtx, anotherUser.ID, project.PublicID, console.RoleMember)
 				require.NoError(t, err)
 
 				err = service.DeleteDomain(userCtx2, project.PublicID, createdDomain.Subdomain)
 				require.True(t, console.ErrForbidden.Has(err))
 
-				_, err = service.UpdateProjectMemberRole(userCtx1, anotherUser.ID, project.PublicID, console.RoleAdmin)
+				_, err = service.UpdateProjectMemberRole(userCtx, anotherUser.ID, project.PublicID, console.RoleAdmin)
 				require.NoError(t, err)
 
 				err = service.DeleteDomain(userCtx2, project.PublicID, createdDomain.Subdomain)

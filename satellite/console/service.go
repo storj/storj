@@ -4500,7 +4500,20 @@ func (s *Service) CreateDomain(ctx context.Context, domain Domain) (created *Dom
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	domain.ProjectID = isMember.project.ID
+	project := isMember.project
+
+	kind := user.Kind
+	if project.OwnerID != user.ID {
+		kind, err = s.store.Users().GetUserKind(ctx, project.OwnerID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+	if kind == FreeUser {
+		return nil, ErrNotPaidTier.New("Only Pro users may create domains")
+	}
+
+	domain.ProjectID = project.ID
 	domain.CreatedBy = user.ID
 
 	created, err = s.store.Domains().Create(ctx, domain)

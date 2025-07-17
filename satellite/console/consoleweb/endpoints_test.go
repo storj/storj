@@ -589,6 +589,7 @@ func TestDomains(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		user := test.defaultUser()
+		test.upgradeUser(ctx, user.email)
 		test.login(user.email, user.password)
 
 		{ // Post_Create_Domain
@@ -1095,6 +1096,18 @@ func (test *test) activateUser(ctx context.Context, email string) {
 
 	activeStatus := console.Active
 	err = usersDB.Update(ctx, users[0].ID, console.UpdateUserRequest{Status: &activeStatus})
+	require.NoError(test.t, err)
+}
+
+func (test *test) upgradeUser(ctx context.Context, email string) {
+	usersDB := test.planet.Satellites[0].DB.Console().Users()
+
+	user, _, err := usersDB.GetByEmailWithUnverified(ctx, email)
+	require.NoError(test.t, err)
+	require.NotNil(test.t, user)
+
+	paidKind := console.PaidUser
+	err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind})
 	require.NoError(test.t, err)
 }
 

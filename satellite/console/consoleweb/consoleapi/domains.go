@@ -104,7 +104,10 @@ func (d *Domains) CreateDomain(w http.ResponseWriter, r *http.Request) {
 			d.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
-
+		if console.ErrNotPaidTier.Has(err) {
+			d.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
 		if console.ErrSubdomainAlreadyExists.Has(err) {
 			d.serveJSONError(ctx, w, http.StatusConflict, err)
 			return
