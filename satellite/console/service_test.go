@@ -4741,7 +4741,6 @@ func TestSatelliteManagedProject(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = true
-				config.Console.ManagedEncryption.PathEncryptionEnabled = true
 				config.KeyManagement.KeyInfos = kms.KeyInfos{
 					Values: map[int]kms.KeyInfo{
 						1: {
@@ -4783,16 +4782,6 @@ func TestSatelliteManagedProject(t *testing.T) {
 		config, err := srv.GetProjectConfig(userCtx, project.ID)
 		require.NoError(t, err)
 		require.Empty(t, config.Passphrase)
-
-		pathEncProj, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
-			Name:             "Path Enc Project",
-			ManagePassphrase: true,
-		})
-		require.NoError(t, err)
-		require.NotNil(t, pathEncProj.PathEncryption)
-		require.True(t, *pathEncProj.PathEncryption)
-
-		srv.TestToggleManagedEncryptionPathEncryption(false)
 
 		project2, err := srv.CreateProject(userCtx, console.UpsertProjectInfo{
 			Name:             "Test Project2",
@@ -4923,7 +4912,6 @@ func TestSatelliteManagedProjectWithDisabledAndConfig(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = false
-				config.Console.ManagedEncryption.PathEncryptionEnabled = false
 				config.KeyManagement.KeyInfos = kms.KeyInfos{
 					Values: map[int]kms.KeyInfo{
 						1: {

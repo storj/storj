@@ -460,9 +460,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
-# indicates whether projects with managed encryption should have path encryption enabled
-# console.managed-encryption.path-encryption-enabled: true
-
 # maximum amount (in cents) allowed to be added to an account balance.
 # console.max-add-funds-amount: 10000
 
