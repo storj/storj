@@ -146,8 +146,8 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	}
 
 	selfServePlacements := make(map[storj.PlacementConstraint]console.PlacementDetail)
-	for p, d := range consoleConfig.Placement.SelfServeDetails.GetMap() {
-		selfServePlacements[p] = d
+	for _, p := range consoleConfig.Placement.SelfServeDetails {
+		selfServePlacements[storj.PlacementConstraint(p.ID)] = p
 	}
 
 	return &Endpoint{

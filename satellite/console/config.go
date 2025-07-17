@@ -5,9 +5,13 @@ package console
 
 import (
 	"encoding/json"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
+	"github.com/zeebo/errs"
+	"gopkg.in/yaml.v3"
 
 	"storj.io/common/storj"
 )
@@ -77,7 +81,7 @@ type RestAPIKeysConfig struct {
 // PlacementsConfig contains configurations for self-serve placement logic.
 type PlacementsConfig struct {
 	SelfServeEnabled bool             `help:"whether self-serve placement selection feature is enabled" default:"false"`
-	SelfServeDetails PlacementDetails `help:"human-readable details for placements allowed for self serve placement in the format {\"placementID\": {\"idName\": \"...\", \"name\": \"...\", \"title\": \"...\", \"description\": \"...\"}}"`
+	SelfServeDetails PlacementDetails `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.
@@ -176,21 +180,19 @@ func (ov *PlacementEdgeURLOverrides) Get(placement storj.PlacementConstraint) (o
 
 // PlacementDetail represents human-readable details of a placement.
 type PlacementDetail struct {
-	ID          storj.PlacementConstraint `json:"id"`
-	IdName      string                    `json:"idName"`
-	Name        string                    `json:"name"`
-	Title       string                    `json:"title"`
-	Description string                    `json:"description"`
+	ID          int    `json:"id" yaml:"id"`
+	IdName      string `json:"idName" yaml:"id-name"`
+	Name        string `json:"name" yaml:"name"`
+	Title       string `json:"title" yaml:"title"`
+	Description string `json:"description" yaml:"description"`
 	// WaitlistURL is only parsed from configuration and not sent to the front-end.
-	WaitlistURL string `json:"waitlistURL,omitempty"`
+	WaitlistURL string `json:"waitlist_url,omitempty" yaml:"wait-list-url,omitempty"`
 	// Pending indicates whether the placement has a waitlist - to be sent to the front-end.
-	Pending bool `json:"pending"`
+	Pending bool `json:"pending" yaml:"-"`
 }
 
 // PlacementDetails represents a mapping between placement IDs and their human-readable details.
-type PlacementDetails struct {
-	detailMap map[storj.PlacementConstraint]PlacementDetail
-}
+type PlacementDetails []PlacementDetail
 
 // Ensure that PlacementDetails implements pflag.Value.
 var _ pflag.Value = (*PlacementDetails)(nil)
@@ -200,26 +202,34 @@ func (PlacementDetails) Type() string { return "console.PlacementDetails" }
 
 // String implements pflag.Value.
 func (pd *PlacementDetails) String() string {
-	if pd == nil || len(pd.detailMap) == 0 {
+	if pd == nil || len(*pd) == 0 {
 		return ""
 	}
 
-	details, err := json.Marshal(pd.detailMap)
+	bytes, err := yaml.Marshal(pd)
 	if err != nil {
 		return ""
 	}
 
-	return string(details)
+	return string(bytes)
 }
 
 // SetMap sets the internal mapping between a placement and detail.
 func (pd *PlacementDetails) SetMap(overrides map[storj.PlacementConstraint]PlacementDetail) {
-	pd.detailMap = overrides
+	details := make([]PlacementDetail, 0, len(overrides))
+	for _, detail := range overrides {
+		details = append(details, detail)
+	}
+	*pd = details
 }
 
 // GetMap returns the internal mapping between a placement and detail.
 func (pd *PlacementDetails) GetMap() map[storj.PlacementConstraint]PlacementDetail {
-	return pd.detailMap
+	detailMap := make(map[storj.PlacementConstraint]PlacementDetail, len(*pd))
+	for _, detail := range *pd {
+		detailMap[storj.PlacementConstraint(detail.ID)] = detail
+	}
+	return detailMap
 }
 
 // Set implements pflag.Value.
@@ -228,16 +238,43 @@ func (pd *PlacementDetails) Set(s string) error {
 		return nil
 	}
 
-	details := make(map[storj.PlacementConstraint]PlacementDetail)
-	err := json.Unmarshal([]byte(s), &details)
-	if err != nil {
-		return err
+	s = strings.TrimSpace(s)
+	strBytes := []byte(s)
+
+	var details PlacementDetails
+	switch {
+	case strings.HasSuffix(s, ".yaml"):
+		// YAML file path
+		data, err := os.ReadFile(s)
+		if err != nil {
+			return errs.New("Couldn't read placement config file from %s: %v", s, err)
+		}
+
+		err = yaml.Unmarshal(data, &details)
+		if err != nil {
+			return errs.New("failed to parse placement config YAML file: %v", err)
+		}
+	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
+		// JSON string
+		// This is how this config is defined in production.
+		var jsonForm map[storj.PlacementConstraint]PlacementDetail
+		err := json.Unmarshal(strBytes, &jsonForm)
+		if err != nil {
+			return errs.New("failed to parse placement config JSON: %v", err)
+		}
+		for id, detail := range jsonForm {
+			detail.ID = int(id)
+			details = append(details, detail)
+		}
+	default:
+		// YAML string
+		err := yaml.Unmarshal(strBytes, &details)
+		if err != nil {
+			return errs.New("failed to parse placement config YAML: %v", err)
+		}
 	}
-	pd.detailMap = details
-	for constraint, detail := range details {
-		detail.ID = constraint
-		pd.detailMap[constraint] = detail
-	}
+
+	*pd = details
 
 	return nil
 }
@@ -247,6 +284,10 @@ func (pd *PlacementDetails) Get(placement storj.PlacementConstraint) (details Pl
 	if pd == nil {
 		return PlacementDetail{}, false
 	}
-	details, ok = pd.detailMap[placement]
-	return details, ok
+	for _, detail := range *pd {
+		if detail.ID == int(placement) {
+			return detail, true
+		}
+	}
+	return PlacementDetail{}, false
 }

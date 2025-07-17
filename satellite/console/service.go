@@ -3709,7 +3709,7 @@ func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.Trac
 	}
 
 	data.Email = user.Email
-	placement, ok := s.config.Placement.SelfServeDetails.detailMap[data.Placement]
+	placement, ok := s.config.Placement.SelfServeDetails.Get(data.Placement)
 	if !ok {
 		return ErrPlacementNotFound.New("")
 	}
@@ -3717,7 +3717,7 @@ func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.Trac
 	data.WaitlistURL = placement.WaitlistURL
 	s.analytics.JoinPlacementWaitlist(data)
 
-	noticeDismissal.PlacementWaitlistsJoined = append(noticeDismissal.PlacementWaitlistsJoined, placement.ID)
+	noticeDismissal.PlacementWaitlistsJoined = append(noticeDismissal.PlacementWaitlistsJoined, storj.PlacementConstraint(placement.ID))
 	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
 		NoticeDismissal: &noticeDismissal,
 	})
@@ -5207,7 +5207,7 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 	details := make([]PlacementDetail, 0)
 	placements := s.accounts.GetPartnerPlacements(string(isMember.project.UserAgent))
 	for _, placement := range placements {
-		if detail, ok := s.config.Placement.SelfServeDetails.detailMap[placement]; ok {
+		if detail, ok := s.config.Placement.SelfServeDetails.Get(placement); ok {
 			details = append(details, detail)
 		}
 	}
