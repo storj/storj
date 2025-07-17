@@ -94,6 +94,11 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	var deletedObjects []*pb.Object
 
+	var maxCommitDelay *time.Duration
+	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
+		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
+	}
+
 	if req.GetStatus() == int32(metabase.Pending) {
 		if req.StreamId == nil {
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "StreamID missing")
@@ -104,14 +109,16 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			var streamID uuid.UUID
 			streamID, err = uuid.FromBytes(pbStreamID.StreamId)
 			if err == nil {
-				deletedObjects, err = endpoint.DeletePendingObject(ctx,
-					metabase.ObjectStream{
+				deletedObjects, err = endpoint.DeletePendingObject(ctx, metabase.DeletePendingObject{
+					ObjectStream: metabase.ObjectStream{
 						ProjectID:  keyInfo.ProjectID,
 						BucketName: metabase.BucketName(pbStreamID.Bucket),
 						ObjectKey:  metabase.ObjectKey(pbStreamID.EncryptedObjectKey),
 						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
-					})
+					},
+					MaxCommitDelay: maxCommitDelay,
+				})
 			}
 		}
 	} else {
@@ -248,12 +255,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream) (deletedObjects []*pb.Object, err error) {
-	req := metabase.DeletePendingObject{
-		ObjectStream: stream,
-	}
-
-	result, err := endpoint.metabase.DeletePendingObject(ctx, req)
+func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, opts metabase.DeletePendingObject) (deletedObjects []*pb.Object, err error) {
+	result, err := endpoint.metabase.DeletePendingObject(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

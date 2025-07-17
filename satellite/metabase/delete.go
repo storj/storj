@@ -409,6 +409,9 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 // DeletePendingObject contains arguments necessary for deleting a pending object.
 type DeletePendingObject struct {
 	ObjectStream
+
+	// supported only by Spanner.
+	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies delete pending object fields validity.
@@ -505,6 +508,9 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 		}
 		return errs.Wrap(err)
 	}, spanner.TransactionOptions{
+		CommitOptions: spanner.CommitOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+		},
 		TransactionTag: "delete-pending-object",
 	})
 	if err != nil {
