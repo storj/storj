@@ -997,14 +997,6 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					) PRIMARY KEY ( tail )`,
 				},
 			},
-			{
-				DB:          &db.migrationDB,
-				Description: "update project path encryption to true",
-				Version:     296,
-				Action: migrate.SQL{
-					`UPDATE projects SET path_encryption = true WHERE path_encryption = false`,
-				},
-			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3842,14 +3834,6 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						last_used timestamp with time zone NOT NULL,
 						PRIMARY KEY ( tail )
 					)`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "update project path encryption to true",
-				Version:     296,
-				Action: migrate.SQL{
-					`UPDATE projects SET path_encryption = true WHERE path_encryption = false`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

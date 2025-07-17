@@ -282,7 +282,6 @@ type ProjectConfig struct {
 	// HasManagedPassphrase is a failsafe to prevent user-managed-encryption behavior in the UI if
 	// managed encryption is enabled for a project, but the satellite is unable to decrypt the passphrase.
 	HasManagedPassphrase bool              `json:"hasManagedPassphrase"`
-	EncryptPath          bool              `json:"encryptPath"`
 	Passphrase           string            `json:"passphrase,omitempty"`
 	IsOwnerPaidTier      bool              `json:"isOwnerPaidTier"`
 	HasPaidPrivileges    bool              `json:"hasPaidPrivileges"`

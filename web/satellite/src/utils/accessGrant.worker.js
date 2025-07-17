@@ -64,17 +64,8 @@ self.onmessage = async function (event) {
             const passphrase = data.passphrase;
             const salt = data.salt;
             const nodeURL = data.satelliteNodeURL;
-            const encryptPath = data.encryptPath;
 
-            if (!encryptPath) {
-                if (!self.generateNewAccessGrantWithPathEncryption) {
-                    self.postMessage({ error: new Error('This page has an update, hard refresh for it to work correctly.') });
-                    return;
-                }
-                result = self.generateNewAccessGrantWithPathEncryption(nodeURL, apiKey, passphrase, salt, encryptPath);
-            } else {
-                result = self.generateNewAccessGrant(nodeURL, apiKey, passphrase, salt);
-            }
+            result = self.generateNewAccessGrant(nodeURL, apiKey, passphrase, salt);
             self.postMessage(result);
         }
         break;

@@ -888,4 +888,4 @@ INSERT INTO "bucket_metainfos" ("id", "project_id", "name", "tags", "path_cipher
 
 -- NEW DATA --
 
-INSERT INTO "api_key_tails" ("tail", "parent_tail", "caveat", "last_used") VALUES (E'testtail'::bytea, E'testparenttail'::bytea, E'testcaveat'::bytea, '2025-01-01 09:13:44.614594+00');
+INSERT INTO "api_key_tails" ("tail", "parent_tail", "caveat", "last_used",) VALUES (E'testtail'::bytea, E'testparenttail'::bytea, E'testcaveat'::bytea, '2025-01-01 09:13:44.614594+00');

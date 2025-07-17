@@ -3428,11 +3428,8 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite", user.HubspotObjectID)
 	}
 
-	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
-
 	return &ProjectConfig{
 		HasManagedPassphrase: hasManagedPassphrase,
-		EncryptPath:          pathEncryptionEnabled,
 		Passphrase:           string(passphrase),
 		IsOwnerPaidTier:      ownerKind == PaidUser,
 		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser,
@@ -3745,7 +3742,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			}
 			newProject.PassphraseEnc = encPassphrase
 			newProject.PassphraseEncKeyID = &keyID
-			newProject.PathEncryption = &s.config.ManagedEncryption.PathEncryptionEnabled
+			newProject.PathEncryption = new(bool)
 
 			satManagedPassphrase = true
 		} else if projectInfo.ManagePassphrase {
@@ -6807,12 +6804,6 @@ func (s *Service) TestSetNow(now func() time.Time) {
 // TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.
 func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 	s.config.SatelliteManagedEncryptionEnabled = b
-}
-
-// TestToggleManagedEncryptionPathEncryption toggles whether managed encryption projects should have
-// path encryption in tests.
-func (s *Service) TestToggleManagedEncryptionPathEncryption(b bool) {
-	s.config.ManagedEncryption.PathEncryptionEnabled = b
 }
 
 // TestToggleSsoEnabled is used in tests to toggle SSO.
