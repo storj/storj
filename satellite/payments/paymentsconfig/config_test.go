@@ -4,13 +4,16 @@
 package paymentsconfig_test
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -318,9 +321,43 @@ func TestPartnerPlacementPriceOverrides(t *testing.T) {
 }
 
 func TestProductPriceOverrides(t *testing.T) {
+	price := paymentsconfig.ProductUsagePriceYaml{
+		ID:                  1,
+		Name:                "select-product",
+		Storage:             "5",
+		StorageSKU:          "storage",
+		Egress:              "6",
+		EgressSKU:           "egress",
+		Segment:             "6",
+		SegmentSKU:          "segment",
+		EgressDiscountRatio: "0.10",
+	}
+	bytes, err := yaml.Marshal([]paymentsconfig.ProductUsagePriceYaml{price})
+	require.NoError(t, err)
+	validYaml := string(bytes)
+
+	tmpFile, err := os.CreateTemp(t.TempDir(), "products_*.yaml")
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, os.Remove(tmpFile.Name()))
+		require.NoError(t, tmpFile.Close())
+	}()
+
+	_, err = tmpFile.WriteString(validYaml)
+	require.NoError(t, err)
+
+	bytes, err = json.Marshal(map[int32]paymentsconfig.ProductUsagePriceYaml{
+		price.ID: price,
+	})
+	require.NoError(t, err)
+	jsonStr := string(bytes)
+
 	tests := []struct {
-		id        string
-		config    string
+		id     string
+		config string
+		// in the case of JSON, we only allow using it for backwards compatibility
+		// the expected config string of cfg.String() will be in YAML format.
+		expectStr string
 		expectErr bool
 	}{
 		{
@@ -328,17 +365,22 @@ func TestProductPriceOverrides(t *testing.T) {
 			config: "",
 		},
 		{
-			id:     "valid JSON",
-			config: `{"1":{"name":"product","storage_sku":"ST-GL-ST","egress_sku":"ST-GL-EG","segment_sku":"ST-GL-SE","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
+			id:     "valid YAML",
+			config: validYaml,
 		},
 		{
-			id:        "invalid product ID",
-			config:    `{"0":{"name":"product","storage_sku":"ST-GL-ST","egress_sku":"ST-GL-EG","segment_sku":"ST-GL-SE","storage":"4","egress":"2","segment":"2","egress_discount_ratio":"0.50"}}`,
-			expectErr: true,
+			id:        "YAML file",
+			config:    tmpFile.Name(),
+			expectStr: validYaml,
 		},
 		{
-			id:        "invalid JSON",
-			config:    `{"1":{"name":"product","storage_sku":"ST-GL-ST","egress_sku":"ST-GL-EG","segment_sku":"ST-GL-SE","storage":4,"egress":2,"segment":2,"egress_discount_ratio":0.50}}`,
+			id:        "JSON",
+			config:    jsonStr,
+			expectStr: validYaml,
+		},
+		{
+			id:        "invalid YAML",
+			config:    "invalid string",
 			expectErr: true,
 		},
 	}
@@ -352,6 +394,10 @@ func TestProductPriceOverrides(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			if tt.expectStr != "" {
+				require.Equal(t, tt.expectStr, mapFromCfg.String())
+				return
+			}
 			require.Equal(t, tt.config, mapFromCfg.String())
 		})
 	}

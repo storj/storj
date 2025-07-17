@@ -6,6 +6,7 @@ package paymentsconfig
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
+	"gopkg.in/yaml.v3"
 
 	"storj.io/common/storj"
 	"storj.io/common/useragent"
@@ -40,7 +42,7 @@ type Config struct {
 	DeleteProjectCostThreshold int64 `help:"the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold." default:"0"`
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
-	Products                        ProductPriceOverrides       `help:"a JSON mapping of non-zero product IDs to their names and price structures in the format: {\"productID\": {\"name\": \"...\", \"storage_sku\": \"...\", \"egress_sku\": \"...\", \"segment_sku\": \"...\", \"storage\": \"...\", \"egress\": \"...\", \"segment\": \"...\", \"egress_discount_ratio\": \"...\"}}. The egress discount ratio is the ratio of free egress per unit-month of storage"`
+	Products                        ProductPriceOverrides       `help:"a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details."`
 	PlacementPriceOverrides         PlacementProductMap         `help:"a JSON mapping of product ID to placements in the format: {productID0:[placement0],productID1:[placement1,placement2]}. Products must be defined by the --payments.products config, or the satellite will not start."`
 	PartnersPlacementPriceOverrides PartnersPlacementProductMap `help:"a JSON mapping of partners to a mapping of product ID to placements in the format: {\"partner0\":{productID0:[placement0],productID1:[placement1,placement2]}}. If a partner uses a placement not defined for them in this config, they will be charged according to --payments.placement-price-overrides."`
 
@@ -200,6 +202,7 @@ func (p PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, 
 
 // ProductUsagePrice represents the product name, SKUs and usage price for a product.
 type ProductUsagePrice struct {
+	ID   int32
 	Name string
 	ProductSKUs
 	ProjectUsagePrice
@@ -213,44 +216,46 @@ type ProductSKUs struct {
 }
 
 // ProductPriceOverrides represents a mapping between a string and product price overrides.
-type ProductPriceOverrides struct {
-	overrideMap map[int32]ProductUsagePrice
-}
+type ProductPriceOverrides []ProductUsagePrice
 
 // Type returns the type of the pflag.Value.
 func (ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPriceOverrides" }
 
-type productUsagePriceJson struct {
-	Name                string `json:"name"`
-	StorageSKU          string `json:"storage_sku"`
-	EgressSKU           string `json:"egress_sku"`
-	SegmentSKU          string `json:"segment_sku"`
-	Storage             string `json:"storage"`
-	Egress              string `json:"egress"`
-	Segment             string `json:"segment"`
-	EgressDiscountRatio string `json:"egress_discount_ratio"`
+// ProductUsagePriceYaml represents the YAML representation of a product usage price.
+// exported for testing purposes.s
+type ProductUsagePriceYaml struct {
+	ID                  int32  `yaml:"id" json:"id"`
+	Name                string `yaml:"name" json:"name"`
+	Storage             string `yaml:"storage" json:"storage"`
+	StorageSKU          string `yaml:"storage-sku" json:"storage_sku"`
+	Egress              string `yaml:"egress" json:"egress"`
+	EgressSKU           string `yaml:"egress-sku" json:"egress_sku"`
+	Segment             string `yaml:"segment" json:"segment"`
+	SegmentSKU          string `yaml:"segment-sku" json:"segment_sku"`
+	EgressDiscountRatio string `yaml:"egress-discount-ratio" json:"egress_discount_ratio"`
 }
 
-// String returns the JSON string representation of the price overrides.
+// String returns the YAML string representation of the price overrides.
 func (p *ProductPriceOverrides) String() string {
-	if p == nil || len(p.overrideMap) == 0 {
+	if p == nil || len(*p) == 0 {
 		return ""
 	}
 
-	pricesConv := make(map[int32]productUsagePriceJson)
-	for i, price := range p.overrideMap {
-		pricesConv[i] = productUsagePriceJson{
+	pricesConv := make([]ProductUsagePriceYaml, len(*p))
+	for i, price := range *p {
+		pricesConv[i] = ProductUsagePriceYaml{
+			ID:                  price.ID,
 			Name:                price.Name,
-			StorageSKU:          price.StorageSKU,
-			EgressSKU:           price.EgressSKU,
-			SegmentSKU:          price.SegmentSKU,
 			Storage:             price.StorageTB,
+			StorageSKU:          price.StorageSKU,
 			Egress:              price.EgressTB,
+			EgressSKU:           price.EgressSKU,
 			Segment:             price.Segment,
+			SegmentSKU:          price.SegmentSKU,
 			EgressDiscountRatio: fmt.Sprintf("%.2f", price.EgressDiscountRatio),
 		}
 	}
-	prices, err := json.Marshal(pricesConv)
+	prices, err := yaml.Marshal(pricesConv)
 	if err != nil {
 		return ""
 	}
@@ -258,20 +263,50 @@ func (p *ProductPriceOverrides) String() string {
 	return string(prices)
 }
 
-// Set sets the list of price overrides to the JSON string.
+// Set sets the list of price overrides to the YAML string.
 func (p *ProductPriceOverrides) Set(s string) error {
 	if s == "" {
 		return nil
 	}
 
-	pricesConv := make(map[int32]productUsagePriceJson)
-	err := json.Unmarshal([]byte(s), &pricesConv)
-	if err != nil {
-		return err
+	s = strings.TrimSpace(s)
+	strBytes := []byte(s)
+	var pricesConv []ProductUsagePriceYaml
+	switch {
+	case strings.HasSuffix(s, ".yaml"):
+		// YAML file path
+		data, err := os.ReadFile(s)
+		if err != nil {
+			return errs.New("Couldn't read product config file from %s: %v", s, err)
+		}
+
+		err = yaml.Unmarshal(data, &pricesConv)
+		if err != nil {
+			return errs.New("failed to parse product config YAML file: %v", err)
+		}
+	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
+		// JSON string
+		var jsonConv map[int32]ProductUsagePriceYaml
+		err := json.Unmarshal(strBytes, &jsonConv)
+		if err != nil {
+			return errs.New("failed to parse product config JSON: %v", err)
+		}
+
+		pricesConv = make([]ProductUsagePriceYaml, 0)
+		for i, price := range jsonConv {
+			price.ID = i
+			pricesConv = append(pricesConv, price)
+		}
+	default:
+		// YAML string
+		err := yaml.Unmarshal(strBytes, &pricesConv)
+		if err != nil {
+			return errs.New("failed to parse product config YAML: %v", err)
+		}
 	}
-	prices := make(map[int32]ProductUsagePrice)
-	for id, price := range pricesConv {
-		if id == 0 {
+	prices := make(ProductPriceOverrides, len(pricesConv))
+	for i, price := range pricesConv {
+		if price.ID == 0 {
 			return Error.New("Product ID must not be 0")
 		}
 		if price.Name == "" {
@@ -281,7 +316,8 @@ func (p *ProductPriceOverrides) Set(s string) error {
 		if err != nil {
 			return Error.New("Invalid egress discount ratio '%s' (%s)", price.EgressDiscountRatio, err)
 		}
-		prices[id] = ProductUsagePrice{
+		prices[i] = ProductUsagePrice{
+			ID:   price.ID,
 			Name: price.Name,
 			ProductSKUs: ProductSKUs{
 				StorageSKU: price.StorageSKU,
@@ -296,25 +332,30 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			},
 		}
 	}
-	p.overrideMap = prices
+	*p = prices
 	return nil
 }
 
 // SetMap sets the internal mapping between a product ID and usage prices.
 func (p *ProductPriceOverrides) SetMap(overrides map[int32]ProductUsagePrice) {
-	p.overrideMap = overrides
+	productPrices := make([]ProductUsagePrice, 0, len(overrides))
+	for id, price := range overrides {
+		price.ID = id
+		productPrices = append(productPrices, price)
+	}
+	*p = productPrices
 }
 
 // ToModels returns the price overrides represented as a mapping between a string and product usage price models.
 func (p ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePriceModel, error) {
 	models := make(map[int32]payments.ProductUsagePriceModel)
-	for key, prices := range p.overrideMap {
+	for _, prices := range p {
 		projectUsageModel, err := prices.ToModel()
 		if err != nil {
 			return nil, err
 		}
-		models[key] = payments.ProductUsagePriceModel{
-			ProductID:              key,
+		models[prices.ID] = payments.ProductUsagePriceModel{
+			ProductID:              prices.ID,
 			ProductName:            prices.Name,
 			StorageSKU:             prices.StorageSKU,
 			EgressSKU:              prices.EgressSKU,
@@ -330,8 +371,12 @@ func (p *ProductPriceOverrides) Get(id int32) (prices ProductUsagePrice, ok bool
 	if p == nil {
 		return ProductUsagePrice{}, false
 	}
-	prices, ok = p.overrideMap[id]
-	return prices, ok
+	for _, price := range *p {
+		if price.ID == id {
+			return price, true
+		}
+	}
+	return ProductUsagePrice{}, false
 }
 
 // Ensure that PlacementProductMap implements pflag.Value.

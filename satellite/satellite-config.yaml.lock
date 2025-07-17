@@ -1384,7 +1384,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # a JSON mapping of product ID to placements in the format: {productID0:[placement0],productID1:[placement1,placement2]}. Products must be defined by the --payments.products config, or the satellite will not start.
 # payments.placement-price-overrides: ""
 
-# a JSON mapping of non-zero product IDs to their names and price structures in the format: {"productID": {"name": "...", "storage_sku": "...", "egress_sku": "...", "segment_sku": "...", "storage": "...", "egress": "...", "segment": "...", "egress_discount_ratio": "..."}}. The egress discount ratio is the ratio of free egress per unit-month of storage
+# a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details.
 # payments.products: ""
 
 # payments provider to use

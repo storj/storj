@@ -942,7 +942,7 @@ watch(enableObjectLock, value => {
 });
 
 watch(bucketLocation, async (value) => {
-    if (!value) return;
+    if (!value || selectedPlacement.value?.pending) return;
     isGettingPricing.value = true;
     try {
         pricingForLocation.value = await billingStore.getPriceModelForPlacement({
