@@ -86,9 +86,9 @@ test.describe('buckets', () => {
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
-        await objectBrowserPage.waitLoading();
+        await objectBrowserPage.waitForPage();
         await objectBrowserPage.uploadFile(fileName, 'image/jpeg');
-        await objectBrowserPage.openObjectPreview(fileName, 'Image');
+        await objectBrowserPage.clickItem(fileName);
 
         // Checks the image preview of the tiny apple png file
         await objectBrowserPage.verifyImagePreviewIsVisible();

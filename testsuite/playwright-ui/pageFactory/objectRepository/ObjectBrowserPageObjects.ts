@@ -2,6 +2,9 @@
 // See LICENSE for copying information.
 
 export class ObjectBrowserPageObjects {
+    static MAIN_VIEW_CLASS = `.bucket-view`;
+    static BREADCRUMB_CLASS = `.v-breadcrumbs-item`;
+    static TABLE_ROW_SELECTOR = `tbody tr:not(.v-data-table-rows-no-data)`;
     static DOWNLOAD_BUTTON_XPATH = `//button[@id='Download']`;
     static DISTRIBUTION_BUTTON_XPATH = `//button[@id='Distribution']`;
     static SHARE_BUTTON_XPATH = `//button[@id='Share']`;
@@ -10,9 +13,9 @@ export class ObjectBrowserPageObjects {
     static COPIED_TEXT = `Copied`;
     static SHARE_MODAL_LOADER_CLASS = `.share-dialog__content--loading`;
     static OBJECT_MAP_IMAGE_XPATH = `//img[@id='Map']`;
-    static OBJECT_ROW_MORE_BUTTON_XPATH = `//button[@title='More Actions'][ancestor::td]`;
     static DELETE_ROW_ACTION_BUTTON_XPATH = `//div[div[div[text()=' Delete ']]]`;
-    static CONFIRM_DELETE_BUTTON_XPATH = `//button[span[text()=' Delete ']]`;
+    static SNACKBAR_DELETE_BUTTON_SELECTOR = `.v-snackbar button:has-text("Delete")`;
+    static CONFIRM_DELETE_BUTTON_SELECTOR = `.v-dialog button:has-text("Delete")`;
     static FILE_INPUT_XPATH = `//input[@id='File Input']`;
     static FOLDER_INPUT_XPATH = `//input[@id='Folder Input']`;
     static LOADING_ITEMS_LABEL_XPATH = `//td[text()='Loading items...']`;

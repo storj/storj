@@ -1,7 +1,7 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import type { Download, Page } from '@playwright/test';
+import type { Download, Page, Locator } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { CommonObjects } from '@objects/CommonObjects';
 import { ObjectBrowserPageObjects } from '@objects/ObjectBrowserPageObjects';
@@ -9,9 +9,19 @@ import { ObjectBrowserPageObjects } from '@objects/ObjectBrowserPageObjects';
 export class ObjectBrowserPage {
     constructor(readonly page: Page) {}
 
-    async waitLoading(): Promise<void> {
-        const loader = this.page.locator(ObjectBrowserPageObjects.LOADING_ITEMS_LABEL_XPATH);
-        await expect(loader).toBeHidden();
+    async waitForPage(): Promise<void> {
+        await expect(this.page.locator(ObjectBrowserPageObjects.MAIN_VIEW_CLASS)).toBeVisible();
+
+        const tableLoader = this.page.getByRole('alert', { name: 'Loading...' });
+        await expect(tableLoader).toBeHidden();
+    }
+
+    async waitForItems(): Promise<void> {
+        const progressBar = this.page.locator('table').getByRole('progressbar');
+        await expect(progressBar).toBeHidden();
+
+        const itemsLoader = this.page.locator(ObjectBrowserPageObjects.LOADING_ITEMS_LABEL_XPATH);
+        await expect(itemsLoader).toBeHidden();
     }
 
     async uploadFile(name: string, format: string): Promise<void> {
@@ -22,25 +32,35 @@ export class ObjectBrowserPage {
         });
     }
 
-    async uploadFolder(folderPath: string, folderName: string): Promise<void> {
-        await this.page.locator(ObjectBrowserPageObjects.FOLDER_INPUT_XPATH).setInputFiles(folderPath);
-        await expect(this.page.getByRole('button', { name: `Foldericon ${folderName}` })).toBeVisible();
+    async expectItems(names: string[]) {
+        for (const name of names) {
+            await expect(new ItemLocator(this.page, name).getRow()).toBeVisible();
+        }
+        expect(this.page.locator(ObjectBrowserPageObjects.TABLE_ROW_SELECTOR)).toHaveCount(names.length);
     }
 
-    async openObjectPreview(name: string, type: string): Promise<void> {
-        const uiTestFile = this.page.getByRole('button', { name: `${type}icon ${name}` });
-        await expect(uiTestFile).toBeVisible();
-        await uiTestFile.click();
+    async uploadFolder(folderPath: string, folderName: string): Promise<void> {
+        await this.page.locator(ObjectBrowserPageObjects.FOLDER_INPUT_XPATH).setInputFiles(folderPath);
+        await expect(new ItemLocator(this.page, folderName).getRow()).toBeVisible();
+    }
+
+    async clickItem(name: string): Promise<void> {
+        const itemButton = new ItemLocator(this.page, name).getNameButton();
+        await expect(itemButton).toBeVisible();
+        await itemButton.click();
     }
 
     async doubleClickFolder(name: string): Promise<void> {
-        const folder = this.page.getByRole('button', { name: `Foldericon ${name}` });
-        await folder.dblclick();
+        await new ItemLocator(this.page, name).getNameButton().dblclick();
     }
 
-    async checkSingleBreadcrumb(tag: string, label: string): Promise<void> {
-        const items = await this.page.locator(`//${tag}[text()='${label}']`).all();
-        expect(items).toHaveLength(1);
+    async clickBreadcrumb(index: number): Promise<void> {
+        await this.page.locator(ObjectBrowserPageObjects.BREADCRUMB_CLASS).nth(index).click();
+    }
+
+    async checkSingleBreadcrumb(name: string): Promise<void> {
+        const items = this.page.locator(ObjectBrowserPageObjects.BREADCRUMB_CLASS).getByText(name, { exact: true });
+        expect(items).toHaveCount(1);
     }
 
     async closePreview(): Promise<void> {
@@ -81,15 +101,32 @@ export class ObjectBrowserPage {
         await this.page.locator(ObjectBrowserPageObjects.CLOSE_SHARE_MODAL_BUTTON_XPATH).click();
     }
 
-    async deleteSingleObject(): Promise<void> {
-        await this.page.locator(ObjectBrowserPageObjects.OBJECT_ROW_MORE_BUTTON_XPATH).click();
-        await this.page.locator(ObjectBrowserPageObjects.DELETE_ROW_ACTION_BUTTON_XPATH).click();
-        await this.page.locator(ObjectBrowserPageObjects.CONFIRM_DELETE_BUTTON_XPATH).click();
+    async selectItem(name: string): Promise<void> {
+        await new ItemLocator(this.page, name).getSelectionCheckbox().click();
     }
 
-    async deleteObjectByName(name: string, type: string): Promise<void> {
-        await this.deleteSingleObject();
-        await this.page.getByRole('button', { name: `${type}icon ${name}` }).waitFor({ state: 'hidden' });
+    async selectAllItems(): Promise<void> {
+        const checkbox = this.page.locator('thead input[type="checkbox"]');
+        await checkbox.uncheck(); // clear existing selection
+        await checkbox.check();
+    }
+
+    async deleteSelectedItems(): Promise<void> {
+        await this.page.locator(ObjectBrowserPageObjects.SNACKBAR_DELETE_BUTTON_SELECTOR).click();
+        await this.page.locator(ObjectBrowserPageObjects.CONFIRM_DELETE_BUTTON_SELECTOR).click();
+
+        const selectedRows = this.page.locator(ObjectBrowserPageObjects.TABLE_ROW_SELECTOR, {
+            has: this.page.locator('input[type="checkbox"]:checked'),
+        });
+        await expect(selectedRows).toHaveCount(0);
+    }
+
+    async deleteItemByName(name: string): Promise<void> {
+        const itemLocator = new ItemLocator(this.page, name);
+        await itemLocator.getMoreActionsButton().click();
+        await this.page.locator(ObjectBrowserPageObjects.DELETE_ROW_ACTION_BUTTON_XPATH).click();
+        await this.page.locator(ObjectBrowserPageObjects.CONFIRM_DELETE_BUTTON_SELECTOR).click();
+        await itemLocator.getRow().waitFor({ state: 'hidden' });
     }
 
     async createFolder(folderName: string): Promise<void> {
@@ -100,5 +137,38 @@ export class ObjectBrowserPage {
 
     async verifyImagePreviewIsVisible(): Promise<void> {
         await this.page.getByRole('img', { name: 'preview' }).isVisible();
+    }
+}
+
+// ItemColumnIndex is the index of a column within an item row.
+enum ItemColumnIndex {
+    SelectionCheckbox = 0,
+    Name = 1,
+    Actions = 5,
+}
+
+class ItemLocator {
+    private rowLocator: Locator;
+
+    constructor(readonly page: Page, name: string) {
+        this.rowLocator = this.page.locator(ObjectBrowserPageObjects.TABLE_ROW_SELECTOR, {
+            has: this.page.locator('td').nth(ItemColumnIndex.Name).getByText(name, { exact: true }),
+        });
+    }
+
+    getRow(): Locator {
+        return this.rowLocator;
+    }
+
+    getSelectionCheckbox(): Locator {
+        return this.getRow().locator('td').nth(ItemColumnIndex.SelectionCheckbox).locator('input[type="checkbox"]');
+    }
+
+    getNameButton(): Locator {
+        return this.getRow().locator('td').nth(ItemColumnIndex.Name).locator('button');
+    }
+
+    getMoreActionsButton(): Locator {
+        return this.getRow().locator('td').nth(ItemColumnIndex.Actions).locator('button[title="More Actions"]');
     }
 }

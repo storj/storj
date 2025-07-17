@@ -44,9 +44,9 @@ test.describe('object browser + edge services', () => {
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
-        await objectBrowserPage.waitLoading();
+        await objectBrowserPage.waitForPage();
         await objectBrowserPage.uploadFile(fileName, 'text/plain');
-        await objectBrowserPage.openObjectPreview(fileName, 'Text');
+        await objectBrowserPage.clickItem(fileName);
 
         // Checks if the link-sharing buttons work
         await objectBrowserPage.verifyObjectMapIsVisible();
@@ -57,11 +57,63 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.closePreview();
 
         // Delete old file and upload new with the same file name
-        await objectBrowserPage.deleteObjectByName(fileName, 'Text');
+        await objectBrowserPage.deleteItemByName(fileName);
         await objectBrowserPage.uploadFile(fileName, 'text/csv');
-        await objectBrowserPage.openObjectPreview(fileName, 'Text');
+        await objectBrowserPage.clickItem(fileName);
         await objectBrowserPage.verifyObjectMapIsVisible();
         await objectBrowserPage.verifyShareObjectLink();
+    });
+
+    test('Bulk file deletion', async ({
+        objectBrowserPage,
+        bucketsPage,
+        navigationMenu,
+    }) => {
+        const bucketName = uuidv4();
+        const folderName = 'testdata';
+
+        await navigationMenu.clickOnBuckets();
+        await bucketsPage.createBucket(bucketName);
+        await bucketsPage.openBucket(bucketName);
+        await objectBrowserPage.waitForPage();
+
+        for (const fileName of ['a.txt', 'b.txt', 'c.txt', 'd.txt']) {
+            await objectBrowserPage.uploadFile(fileName, 'text/plain');
+        }
+
+        // Ensure that bulk deletion of individually-selected objects succeeds.
+        await objectBrowserPage.selectItem('a.txt');
+        await objectBrowserPage.selectItem('b.txt');
+        await objectBrowserPage.deleteSelectedItems();
+        await objectBrowserPage.expectItems(['c.txt', 'd.txt']);
+
+        // Ensure that bulk deletion succeeds when all objects are selected via the checkbox in the table header.
+        await objectBrowserPage.selectAllItems();
+        await objectBrowserPage.deleteSelectedItems();
+        await objectBrowserPage.expectItems([]);
+
+        for (const fileName of ['a.txt', 'b.txt']) {
+            await objectBrowserPage.uploadFile(fileName, 'text/plain');
+        }
+
+        await objectBrowserPage.createFolder(folderName);
+        await objectBrowserPage.clickItem(folderName);
+        await objectBrowserPage.waitForItems();
+
+        for (const fileName of ['a.txt', 'b.txt']) {
+            await objectBrowserPage.uploadFile(fileName, 'text/plain');
+        }
+
+        // Ensure that bulk deletion of individually-selected objects within a subfolder succeeds.
+        await objectBrowserPage.selectItem('a.txt');
+        await objectBrowserPage.selectItem('b.txt');
+        await objectBrowserPage.deleteSelectedItems();
+        await objectBrowserPage.expectItems([]);
+
+        // Ensure that no objects in the root directory were affected.
+        await objectBrowserPage.clickBreadcrumb(1);
+        await objectBrowserPage.waitForItems();
+        await objectBrowserPage.expectItems(['testdata', 'a.txt', 'b.txt']);
     });
 
     test('Folder creation and folder drag and drop upload', async ({
@@ -79,11 +131,11 @@ test.describe('object browser + edge services', () => {
 
         // Create empty folder using New Folder Button
         await objectBrowserPage.createFolder(folderName);
-        await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
+        await objectBrowserPage.deleteItemByName(folderName);
 
         // Folder creation with a file inside it
         await objectBrowserPage.uploadFolder(folderPath, folderName);
-        await objectBrowserPage.deleteObjectByName(folderName, 'Folder');
+        await objectBrowserPage.deleteItemByName(folderName);
     });
 
     test('Folder double-click disallowed', async ({
@@ -100,6 +152,6 @@ test.describe('object browser + edge services', () => {
 
         await objectBrowserPage.createFolder(folderName);
         await objectBrowserPage.doubleClickFolder(folderName);
-        await objectBrowserPage.checkSingleBreadcrumb('a', folderName);
+        await objectBrowserPage.checkSingleBreadcrumb(folderName);
     });
 });
