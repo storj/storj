@@ -1390,6 +1390,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
 
+# whether to include SKU in the invoice item description
+# payments.stripe-coin-payments.inv-item-sku-in-description: true
+
 # the maximum number of concurrent Stripe API calls in invoicing methods
 # payments.stripe-coin-payments.max-parallel-calls: 10
 
