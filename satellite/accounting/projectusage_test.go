@@ -868,6 +868,10 @@ func TestGetBucketTotals(t *testing.T) {
 		db := sat.DB
 		now := time.Now().UTC()
 
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
 		currentMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 		previousMonthStart := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.UTC)
 		twoMonthsAgoStart := time.Date(now.Year(), now.Month()-2, 1, 0, 0, 0, 0, time.UTC)
