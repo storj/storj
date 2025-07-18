@@ -76,7 +76,7 @@ func TestDeleteObjects(t *testing.T) {
 				)
 
 				// 3rd Uplink has a project with one empty bucket.
-				require.NoError(t, uplinks[2].CreateBucket(ctx, sat, "empty-bucket"))
+				require.NoError(t, uplinks[2].TestingCreateBucket(ctx, sat, "empty-bucket"))
 
 				// 4th Uplink has an empty project.
 				// 5th Uplink has project with some buckets and objects & a second project with a bucket with data.

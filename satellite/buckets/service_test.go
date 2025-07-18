@@ -29,7 +29,7 @@ func TestBucketPlacement_EmptyBucket(t *testing.T) {
 			projectID := uplink.Projects[0].ID
 
 			// create new bucket
-			err := uplink.CreateBucket(ctx, satellite, TestBucket)
+			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)
 			require.NoError(t, err)
 
 			// check that the placement is not set yet
@@ -82,7 +82,7 @@ func TestBucketPlacement_SetOnNonEmptyBucket(t *testing.T) {
 			projectID := uplink.Projects[0].ID
 
 			// create new bucket
-			err := uplink.CreateBucket(ctx, satellite, TestBucket)
+			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)
 			require.NoError(t, err)
 
 			// check that the placement is not set yet
@@ -133,7 +133,7 @@ func TestBucketPlacement_ChangeOnNonEmptyBucket(t *testing.T) {
 			projectID := uplink.Projects[0].ID
 
 			// create new bucket
-			err := uplink.CreateBucket(ctx, satellite, TestBucket)
+			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)
 			require.NoError(t, err)
 
 			// check that the placement is not set yet
@@ -204,7 +204,7 @@ func TestBucketPlacement_PendingObject(t *testing.T) {
 			projectID := uplink.Projects[0].ID
 
 			// create new bucket
-			err := uplink.CreateBucket(ctx, satellite, TestBucket)
+			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)
 			require.NoError(t, err)
 
 			// check that the placement is not set yet

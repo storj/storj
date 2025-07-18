@@ -3565,7 +3565,7 @@ func TestRepairRSOverride(t *testing.T) {
 
 		// setup bucket with placement overriding the default repair threshold
 		buckets := planet.Satellites[0].API.Buckets.Service
-		require.NoError(t, uplinkPeer.CreateBucket(ctx, planet.Satellites[0], "placement1"))
+		require.NoError(t, uplinkPeer.TestingCreateBucket(ctx, planet.Satellites[0], "placement1"))
 		bucket, err := buckets.GetBucket(ctx, []byte("placement1"), uplinkPeer.Projects[0].ID)
 		require.NoError(t, err)
 		bucket.Placement = 1

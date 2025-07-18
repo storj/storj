@@ -389,7 +389,7 @@ func TestAllInOne(t *testing.T) {
 
 		require.NoError(t, planet.Satellites[0].Metabase.DB.TestingBatchInsertSegments(ctx, segments))
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, satellite, "bf-bucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, satellite, "bf-bucket"))
 
 		config := rangedloop.Config{
 			Parallelism: 8,

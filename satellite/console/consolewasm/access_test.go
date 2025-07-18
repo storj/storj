@@ -105,7 +105,7 @@ func TestDefaultAccess(t *testing.T) {
 		uplinkPeer.Access[satellitePeer.ID()] = newAccess
 
 		// Confirm that we can create a bucket, upload/download/delete an object, and delete the bucket with the new access.
-		require.NoError(t, uplinkPeer.CreateBucket(ctx, satellitePeer, testbucket1))
+		require.NoError(t, uplinkPeer.TestingCreateBucket(ctx, satellitePeer, testbucket1))
 		err = uplinkPeer.Upload(ctx, satellitePeer, testbucket1, testfilename, testdata)
 		require.NoError(t, err)
 		data, err := uplinkPeer.Download(ctx, satellitePeer, testbucket1, testfilename)

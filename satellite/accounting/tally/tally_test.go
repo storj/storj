@@ -365,7 +365,7 @@ func TestTallyOnCopiedObject(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				planet.Satellites[0].Accounting.Tally.Loop.Pause()
 
-				err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], tc.name)
+				err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], tc.name)
 				require.NoError(t, err)
 
 				data := testrand.Bytes(tc.size)

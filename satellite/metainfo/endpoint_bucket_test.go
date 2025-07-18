@@ -68,10 +68,10 @@ func TestMaxOutBuckets(t *testing.T) {
 		limit := planet.Satellites[0].Config.Metainfo.ProjectLimits.MaxBuckets
 		for i := 1; i <= limit; i++ {
 			name := "test" + strconv.Itoa(i)
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], name)
+			err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], name)
 			require.NoError(t, err)
 		}
-		err := planet.Uplinks[0].FullCreateBucket(ctx, planet.Satellites[0], fmt.Sprintf("test%d", limit+1))
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], fmt.Sprintf("test%d", limit+1))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("number of allocated buckets (%d) exceeded", limit))
 	})
@@ -201,7 +201,7 @@ func TestDeleteBucket(t *testing.T) {
 		}
 
 		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
-			require.NoError(t, uplnk.FullCreateBucket(ctx, sat, bucketName.String()))
+			require.NoError(t, uplnk.CreateBucket(ctx, sat, bucketName.String()))
 			for name, bytes := range expectedObjects {
 				require.NoError(t, uplnk.Upload(ctx, sat, bucketName.String(), name, bytes))
 			}
@@ -777,7 +777,7 @@ func TestGetBucketLocation(t *testing.T) {
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 
-		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err = planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		// bucket without location

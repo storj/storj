@@ -895,7 +895,7 @@ func TestRetryBeginSegmentPieces_EndToEnd(t *testing.T) {
 
 		data := testrand.Bytes(512)
 
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test")
 		require.NoError(t, err)
 
 		beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{

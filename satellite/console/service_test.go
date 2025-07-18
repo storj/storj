@@ -203,7 +203,7 @@ func TestService(t *testing.T) {
 				require.Zero(t, projects[0].StorageUsed)
 
 				bucket := "testbucket1"
-				require.NoError(t, uplink3.CreateBucket(userCtx3, sat, bucket))
+				require.NoError(t, uplink3.TestingCreateBucket(userCtx3, sat, bucket))
 
 				settledAmount := int64(2000)
 				now := time.Now().UTC()
@@ -1015,7 +1015,7 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("GetProjectUsageLimits", func(t *testing.T) {
-				require.NoError(t, planet.Uplinks[1].CreateBucket(ctx, sat, "testbucket"))
+				require.NoError(t, planet.Uplinks[1].TestingCreateBucket(ctx, sat, "testbucket"))
 
 				bandwidthLimit := sat.Config.Console.UsageLimits.Bandwidth.Free
 				storageLimit := sat.Config.Console.UsageLimits.Storage.Free
@@ -1082,7 +1082,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, int64(updatedBucketsLimit), limits2.BucketsLimit)
 
 				bucket := "testbucket1"
-				err = planet.Uplinks[1].CreateBucket(ctx, sat, bucket)
+				err = planet.Uplinks[1].TestingCreateBucket(ctx, sat, bucket)
 				require.NoError(t, err)
 
 				now := time.Now().UTC()
@@ -1217,7 +1217,7 @@ func TestService(t *testing.T) {
 			t.Run("GetSingleBucketTotals", func(t *testing.T) {
 				bucketName := "test-single-bucket"
 
-				err = planet.Uplinks[1].FullCreateBucket(ctx, sat, bucketName)
+				err = planet.Uplinks[1].CreateBucket(ctx, sat, bucketName)
 				require.NoError(t, err)
 
 				storedBucket, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), up2Proj.ID)
@@ -5541,7 +5541,7 @@ func TestServiceGenMethods(t *testing.T) {
 			})
 
 			bucket := "testbucket"
-			require.NoError(t, tt.uplink.CreateBucket(tt.ctx, sat, bucket))
+			require.NoError(t, tt.uplink.TestingCreateBucket(tt.ctx, sat, bucket))
 			require.NoError(t, tt.uplink.Upload(tt.ctx, sat, bucket, "helloworld.txt", []byte("hello world")))
 			sat.Accounting.Tally.Loop.TriggerWait()
 

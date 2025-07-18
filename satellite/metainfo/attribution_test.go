@@ -329,7 +329,7 @@ func TestAttributionReport(t *testing.T) {
 		zenkoStr := "Zenko/1.0"
 		up.Config.UserAgent = zenkoStr
 
-		err := up.CreateBucket(ctx, planet.Satellites[0], bucketName)
+		err := up.TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 		require.NoError(t, err)
 
 		{ // upload and download as Zenko
@@ -416,7 +416,7 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
-		err := planet.Uplinks[0].CreateBucket(ctx, satellite, "attr-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, satellite, "attr-bucket")
 		require.NoError(t, err)
 
 		config := uplink.Config{
@@ -462,14 +462,14 @@ func TestAttributionDeletedBucketRecreated(t *testing.T) {
 
 		require.NoError(t, satellite.DB.Console().Projects().UpdateUserAgent(ctx, proj, ua1))
 
-		require.NoError(t, upl.FullCreateBucket(ctx, satellite, bucket))
+		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
 		b, err := satellite.DB.Buckets().GetBucket(ctx, []byte(bucket), proj)
 		require.NoError(t, err)
 		require.Equal(t, ua1, b.UserAgent)
 
 		// test recreate with same user agent
 		require.NoError(t, upl.DeleteBucket(ctx, satellite, bucket))
-		require.NoError(t, upl.FullCreateBucket(ctx, satellite, bucket))
+		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
 		b, err = satellite.DB.Buckets().GetBucket(ctx, []byte(bucket), proj)
 		require.NoError(t, err)
 		require.Equal(t, ua1, b.UserAgent)
@@ -478,7 +478,7 @@ func TestAttributionDeletedBucketRecreated(t *testing.T) {
 		// should still have original user agent
 		require.NoError(t, upl.DeleteBucket(ctx, satellite, bucket))
 		upl.Config.UserAgent = string(ua2)
-		require.NoError(t, upl.FullCreateBucket(ctx, satellite, bucket))
+		require.NoError(t, upl.CreateBucket(ctx, satellite, bucket))
 		require.NoError(t, err)
 		require.Equal(t, ua1, b.UserAgent)
 	})

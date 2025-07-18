@@ -37,13 +37,13 @@ func TestZombieDeletion(t *testing.T) {
 
 		zombieChore.Loop.Pause()
 
-		err := upl.CreateBucket(ctx, planet.Satellites[0], "testbucket1")
+		err := upl.TestingCreateBucket(ctx, planet.Satellites[0], "testbucket1")
 		require.NoError(t, err)
 
-		err = upl.CreateBucket(ctx, planet.Satellites[0], "testbucket2")
+		err = upl.TestingCreateBucket(ctx, planet.Satellites[0], "testbucket2")
 		require.NoError(t, err)
 
-		err = upl.CreateBucket(ctx, planet.Satellites[0], "testbucket3")
+		err = upl.TestingCreateBucket(ctx, planet.Satellites[0], "testbucket3")
 		require.NoError(t, err)
 
 		// upload regular object, will be NOT deleted
@@ -107,7 +107,7 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 
 		zombieChore.Loop.Pause()
 
-		err := upl.CreateBucket(ctx, planet.Satellites[0], "testbucket1")
+		err := upl.TestingCreateBucket(ctx, planet.Satellites[0], "testbucket1")
 		require.NoError(t, err)
 
 		now := time.Now()
