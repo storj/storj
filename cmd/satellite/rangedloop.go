@@ -62,14 +62,8 @@ func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry on satellite rangedloop", zap.Error(err))
 	}
 
-	if err := metabaseDB.CheckVersion(ctx); err != nil {
-		log.Error("Failed metabase database version check.", zap.Error(err))
-		return errs.New("failed metabase version check: %+v", err)
-	}
-
-	if err := db.CheckVersion(ctx); err != nil {
-		log.Error("Failed satellite database version check.", zap.Error(err))
-		return errs.New("Error checking version for satellitedb: %+v", err)
+	if err := checkDBVersions(ctx, log, runCfg, db, metabaseDB); err != nil {
+		return err
 	}
 
 	runError := peer.Run(ctx)
