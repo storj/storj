@@ -1762,6 +1762,9 @@ server.private-address: 127.0.0.1:7778
 # how frequent to sample traces
 # tracing.sample: 0
 
+# skip database (satellite/metabase) version check, use with caution
+# unsafe-skip-db-version-check: false
+
 # A comma delimited list of peers (IDs/addresses) allowed to use this endpoint.
 # userinfo.allowed-peers: ""
 

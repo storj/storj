@@ -65,6 +65,8 @@ type Satellite struct {
 	}
 
 	satellite.Config
+
+	UnsafeSkipDBVersionCheck bool `help:"skip database (satellite/metabase) version check, use with caution" default:"false" advanced:"true"`
 }
 
 // APIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config.
