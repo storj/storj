@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -120,10 +121,8 @@ func stageStr(stage *Stage, s string) string {
 
 // AddRequirement marks the argument type as dependency of this component.
 func (c *Component) AddRequirement(in reflect.Type) {
-	for _, req := range c.requirements {
-		if req == in {
-			return
-		}
+	if slices.Contains(c.requirements, in) {
+		return
 	}
 	c.requirements = append(c.requirements, in)
 }
