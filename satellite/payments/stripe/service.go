@@ -1589,8 +1589,8 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 		return nil, Error.New("stripe invoice couldn't be generated for customer %s", cusID)
 	}
 
-	if applyMinimumCharge && stripeInvoice.AmountDue < service.pricingConfig.MinimumChargeAmount {
-		shortfall := service.pricingConfig.MinimumChargeAmount - stripeInvoice.AmountDue
+	if applyMinimumCharge && stripeInvoice.Total < service.pricingConfig.MinimumChargeAmount {
+		shortfall := service.pricingConfig.MinimumChargeAmount - stripeInvoice.Total
 
 		_, err = service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
 			Params:      stripe.Params{Context: ctx},
@@ -1612,7 +1612,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	}
 
 	// auto advance the invoice if nothing is due from the customer.
-	if !stripeInvoice.AutoAdvance && stripeInvoice.AmountDue == 0 && !hasShortFall {
+	if !stripeInvoice.AutoAdvance && stripeInvoice.Total == 0 && !hasShortFall {
 		params := &stripe.InvoiceParams{
 			Params:      stripe.Params{Context: ctx},
 			AutoAdvance: stripe.Bool(true),
