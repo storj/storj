@@ -144,6 +144,7 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
 	}
 
 	if err = a.service.ValidateFreeFormFieldLengths(
@@ -185,6 +186,51 @@ func (a *Analytics) JoinCunoFSBeta(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// SendFeedback sends a user feedback form data event to segment.
+func (a *Analytics) SendFeedback(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var data struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = a.service.ValidateFreeFormFieldLengths(&data.Type); err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("feedback type is too long"))
+		return
+	}
+	if err = a.service.ValidateLongFormInputLengths(&data.Message); err != nil {
+		a.serveJSONError(ctx, w, http.StatusBadRequest, ErrAnalyticsAPI.New("message is too long"))
+		return
+	}
+
+	err = a.service.SendUserFeedback(ctx, data.Type, data.Message)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrBotUser.Has(err) || console.ErrForbidden.Has(err) {
+			a.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
+		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // JoinPlacementWaitlist sends a placement waitlist form event to hubspot.
 func (a *Analytics) JoinPlacementWaitlist(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -195,6 +241,7 @@ func (a *Analytics) JoinPlacementWaitlist(w http.ResponseWriter, r *http.Request
 	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
 	}
 
 	err = a.service.JoinPlacementWaitlist(ctx, data)

@@ -463,6 +463,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	analyticsRouter.HandleFunc("/join-cunofs-beta", analyticsController.JoinCunoFSBeta).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/object-mount-consultation", analyticsController.RequestObjectMountConsultation).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/join-placement-waitlist", analyticsController.JoinPlacementWaitlist).Methods(http.MethodPost, http.MethodOptions)
+	analyticsRouter.Handle("/send-feedback", server.userIDRateLimiter.Limit(http.HandlerFunc(analyticsController.SendFeedback))).Methods(http.MethodPost, http.MethodOptions)
 
 	oidc := oidc.NewEndpoint(
 		server.nodeURL, server.config.ExternalAddress,

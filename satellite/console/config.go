@@ -49,6 +49,7 @@ type Config struct {
 	ProductBasedInvoicing             bool                      `help:"whether to use product-based invoicing" default:"false" hidden:"true"`
 	PricingPackagesEnabled            bool                      `help:"whether to allow purchasing pricing packages" default:"true"`
 	SkuEnabled                        bool                      `help:"whether we should use SKUs for product usages" default:"false" hidden:"true"`
+	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`
 	ManagedEncryption                 SatelliteManagedEncryptionConfig
 	RestAPIKeys                       RestAPIKeysConfig
 	Placement                         PlacementsConfig

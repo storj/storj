@@ -640,6 +640,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
 
+# whether user feedback is enabled
+# console.user-feedback-enabled: false
+
 # url link to Valdi sign up page
 # console.valdi-sign-up-url: ""
 

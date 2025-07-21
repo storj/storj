@@ -3588,6 +3588,31 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 	return nil
 }
 
+// SendUserFeedback is a method for tracking user feedback submission.
+func (s *Service) SendUserFeedback(ctx context.Context, feedbackType, message string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.UserFeedbackEnabled {
+		return ErrForbidden.New("User feedback feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "send user feedback")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+	if user.Status == PendingBotVerification {
+		return ErrBotUser.New(contactSupportErrMsg)
+	}
+
+	data := map[string]string{
+		"feedback_type": feedbackType,
+		"message":       message,
+	}
+	s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, data, user.HubspotObjectID)
+
+	return nil
+}
+
 // JoinPlacementWaitlist is a method for adding user to a placement waitlist.
 func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.TrackJoinPlacementWaitlistFields) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -6985,7 +7010,7 @@ func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
 // exceeds the maximum length for long form fields.
 func (s *Service) ValidateLongFormInputLengths(values ...*string) error {
 	for _, value := range values {
-		if value != nil && len(*value) > s.config.MaxLongFormFieldCharacters {
+		if value != nil && utf8.RuneCountInString(*value) > s.config.MaxLongFormFieldCharacters {
 			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxLongFormFieldCharacters)
 		}
 	}
