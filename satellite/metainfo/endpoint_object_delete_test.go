@@ -606,11 +606,7 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 
 		createBucket := func(t *testing.T) string {
 			bucketName := testrand.BucketName()
-			_, err := endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
-				Header: apiKeyHeader,
-				Name:   []byte(bucketName),
-			})
-			require.NoError(t, err)
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucketName))
 			return bucketName
 		}
 

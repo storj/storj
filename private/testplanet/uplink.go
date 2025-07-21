@@ -423,8 +423,9 @@ func (client *Uplink) TestingCreateBucket(ctx context.Context, satellite *Satell
 	}
 
 	_, err = satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-		Name:      bucketName,
-		ProjectID: projectID,
+		Name:       bucketName,
+		ProjectID:  projectID,
+		Versioning: buckets.Unversioned,
 	})
 	return errs.Wrap(err)
 }
