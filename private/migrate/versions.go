@@ -162,6 +162,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 
 	initialSetup := false
 	latestVersionCache := map[tagsql.DB]int{}
+	versionsTableEnsured := map[tagsql.DB]bool{}
 
 	for i, step := range migration.Steps {
 		if step.CreateDB != nil {
@@ -178,9 +179,12 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			db = &spannerutil.MultiExecDBWrapper{DB: db}
 		}
 
-		err = migration.ensureVersionTable(ctx, log, db)
-		if err != nil {
-			return Error.New("creating version table failed: %w", err)
+		if !versionsTableEnsured[db] {
+			versionsTableEnsured[db] = true
+			err = migration.ensureVersionTable(ctx, log, db)
+			if err != nil {
+				return Error.New("creating version table failed: %w", err)
+			}
 		}
 
 		var version int
