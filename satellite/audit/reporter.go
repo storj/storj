@@ -5,7 +5,6 @@ package audit
 
 import (
 	"context"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -97,10 +96,11 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 			return
 		}
 		reporter.log.Error("failed to update reputation information with audit results",
-			zap.String("result type", resultType),
+			zap.String("result_type", resultType),
 			zap.Error(err),
-			zap.String("node IDs", strings.Join(nodes.Strings(), ", ")),
-			zap.Any("pending segment audits", pending))
+			zap.Stringers("node_ids", nodes),
+			zap.Int("nodes_num", len(nodes)),
+			zap.Any("pending_segment_audits", pending))
 	}
 
 	var err error
@@ -146,10 +146,10 @@ func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits
 
 	for _, pendingAudit := range pendingAudits {
 		logger := reporter.log.With(
-			zap.Stringer("Node ID", pendingAudit.Locator.NodeID),
-			zap.Stringer("Stream ID", pendingAudit.Locator.StreamID),
-			zap.Uint64("Position", pendingAudit.Locator.Position.Encode()),
-			zap.Int("Piece Num", pendingAudit.Locator.PieceNum))
+			zap.Stringer("node_id", pendingAudit.Locator.NodeID),
+			zap.Stringer("stream_id", pendingAudit.Locator.StreamID),
+			zap.Uint64("position", pendingAudit.Locator.Position.Encode()),
+			zap.Int("piece_num", pendingAudit.Locator.PieceNum))
 
 		if pendingAudit.ReverifyCount < int(reporter.maxReverifyCount) {
 			err := reporter.ReportReverificationNeeded(ctx, &pendingAudit.Locator)
