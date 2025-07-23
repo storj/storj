@@ -2732,6 +2732,143 @@ func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
 	})
 }
 
+func TestListObjects_Includes(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		data1 := metabasetest.RandEncryptedUserData()
+		data2 := metabasetest.RandEncryptedUserData()
+		data2.EncryptedETag = nil
+		data3 := metabasetest.RandEncryptedUserData()
+		data3.EncryptedMetadata = nil
+
+		var objects []metabase.RawObject
+		for i, data := range []metabase.EncryptedUserData{data1, data2, data3} {
+			objects = append(objects, metabase.RawObject{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  obj.ProjectID,
+					BucketName: metabase.BucketName("bucket"),
+					ObjectKey:  metabase.ObjectKey(fmt.Sprint(i)),
+					Version:    1,
+					StreamID:   uuid.UUID{byte(i + 1)},
+				},
+				EncryptedUserData: data,
+				Status:            metabase.CommittedVersioned,
+			})
+		}
+		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+
+		obj1 := objectEntryFromRaw(objects[0])
+		obj1.IsLatest = true
+		obj2 := objectEntryFromRaw(objects[1])
+		obj2.IsLatest = true
+		obj3 := objectEntryFromRaw(objects[2])
+		obj3.IsLatest = true
+
+		withZeroETag := func(entry metabase.ObjectEntry) metabase.ObjectEntry {
+			entry.EncryptedETag = nil
+			return entry
+		}
+		withZeroMetadata := func(entry metabase.ObjectEntry) metabase.ObjectEntry {
+			entry.EncryptedMetadata = nil
+			return entry
+		}
+
+		metabasetest.ListObjects{
+			Opts: metabase.ListObjects{
+				ProjectID:  obj.ProjectID,
+				BucketName: "bucket",
+				Limit:      100,
+
+				IncludeETag:           true,
+				IncludeCustomMetadata: true,
+			},
+			Result: metabase.ListObjectsResult{
+				Objects: []metabase.ObjectEntry{
+					obj1,
+					obj2,
+					obj3,
+				},
+				More: false,
+			},
+		}.Check(ctx, t, db)
+
+		metabasetest.ListObjects{
+			Opts: metabase.ListObjects{
+				ProjectID:  obj.ProjectID,
+				BucketName: "bucket",
+				Limit:      100,
+
+				IncludeETag:                 true,
+				IncludeCustomMetadata:       true,
+				IncludeETagOrCustomMetadata: true,
+			},
+			Result: metabase.ListObjectsResult{
+				Objects: []metabase.ObjectEntry{
+					obj1,
+					obj2,
+					obj3,
+				},
+				More: false,
+			},
+		}.Check(ctx, t, db)
+
+		metabasetest.ListObjects{
+			Opts: metabase.ListObjects{
+				ProjectID:  obj.ProjectID,
+				BucketName: "bucket",
+				Limit:      100,
+
+				IncludeETag: true,
+			},
+			Result: metabase.ListObjectsResult{
+				Objects: []metabase.ObjectEntry{
+					withZeroMetadata(obj1),
+					withZeroMetadata(obj2),
+					withZeroMetadata(obj3),
+				},
+				More: false,
+			},
+		}.Check(ctx, t, db)
+
+		metabasetest.ListObjects{
+			Opts: metabase.ListObjects{
+				ProjectID:  obj.ProjectID,
+				BucketName: "bucket",
+				Limit:      100,
+
+				IncludeCustomMetadata: true,
+			},
+			Result: metabase.ListObjectsResult{
+				Objects: []metabase.ObjectEntry{
+					withZeroETag(obj1),
+					withZeroETag(obj2),
+					withZeroETag(obj3),
+				},
+				More: false,
+			},
+		}.Check(ctx, t, db)
+
+		metabasetest.ListObjects{
+			Opts: metabase.ListObjects{
+				ProjectID:  obj.ProjectID,
+				BucketName: "bucket",
+				Limit:      100,
+
+				IncludeETagOrCustomMetadata: true,
+			},
+			Result: metabase.ListObjectsResult{
+				Objects: []metabase.ObjectEntry{
+					withZeroMetadata(obj1),
+					obj2,
+					obj3,
+				},
+				More: false,
+			},
+		}.Check(ctx, t, db)
+	})
+}
+
 func TestListObjects_Delimiter(t *testing.T) {
 	testListObjectsDelimiter(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB, testCase listObjectsDelimiterTestCase) ([]metabase.ObjectEntry, error) {
 		result, err := db.ListObjects(ctx, metabase.ListObjects{

@@ -95,9 +95,10 @@ type IterateObjectsWithStatus struct {
 	Cursor     IterateCursor
 	Pending    bool
 
-	IncludeCustomMetadata bool
-	IncludeSystemMetadata bool
-	IncludeETag           bool
+	IncludeCustomMetadata       bool
+	IncludeSystemMetadata       bool
+	IncludeETag                 bool
+	IncludeETagOrCustomMetadata bool
 }
 
 // IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.

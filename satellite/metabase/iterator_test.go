@@ -826,6 +826,59 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			}
 		})
 
+		t.Run("include etag or metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			data1 := metabasetest.RandEncryptedUserData()
+			data1.EncryptedETag = nil
+
+			obj1 := metabasetest.RandObjectStream()
+			obj1.ObjectKey = "1"
+			metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:              obj1,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         data1,
+				},
+			}.Run(ctx, t, db, obj1, 0)
+
+			data2 := metabasetest.RandEncryptedUserData()
+
+			obj2 := metabasetest.RandObjectStream()
+			obj2.ProjectID, obj2.BucketName = obj1.ProjectID, obj1.BucketName
+			obj2.ObjectKey = "2"
+			metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:              obj2,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         data2,
+				},
+			}.Run(ctx, t, db, obj2, 0)
+
+			var collector metabasetest.IterateCollector
+			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+				ProjectID:  obj1.ProjectID,
+				BucketName: obj1.BucketName,
+				Recursive:  true,
+				Pending:    false,
+
+				IncludeETagOrCustomMetadata: true,
+			}, collector.Add)
+			require.NoError(t, err)
+
+			require.NotNil(t, collector[0].EncryptedMetadataEncryptedKey)
+			require.NotNil(t, collector[0].EncryptedMetadataNonce)
+			require.NotNil(t, collector[1].EncryptedMetadataEncryptedKey)
+			require.NotNil(t, collector[1].EncryptedMetadataNonce)
+
+			require.NotNil(t, collector[0].EncryptedMetadata)
+			require.Nil(t, collector[0].EncryptedETag)
+			require.Nil(t, collector[1].EncryptedMetadata)
+			require.NotNil(t, collector[1].EncryptedETag)
+		})
+
 		t.Run("exclude system metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

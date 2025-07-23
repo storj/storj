@@ -538,7 +538,6 @@ type IterateCollector []metabase.ObjectEntry
 // Add adds object entries from iterator to the collection.
 func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterator) error {
 	var item metabase.ObjectEntry
-
 	for it.Next(ctx, &item) {
 		*coll = append(*coll, item)
 	}
@@ -551,7 +550,6 @@ type PendingObjectsCollector []metabase.PendingObjectEntry
 // Add adds object entries from iterator to the collection.
 func (coll *PendingObjectsCollector) Add(ctx context.Context, it metabase.PendingObjectsIterator) error {
 	var item metabase.PendingObjectEntry
-
 	for it.Next(ctx, &item) {
 		*coll = append(*coll, item)
 	}

@@ -5,13 +5,13 @@ package metabase_test
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
 	"storj.io/storj/satellite/metabase"
 )
@@ -174,18 +174,26 @@ func clearEntryMetadata(opts *metabase.ListObjects, entry *metabase.ObjectEntry)
 		entry.FixedSegmentSize = 0
 	}
 
-	if !opts.IncludeCustomMetadata && !opts.IncludeETag {
+	if !opts.IncludeCustomMetadata && !opts.IncludeETag && !opts.IncludeETagOrCustomMetadata {
 		entry.EncryptedMetadataNonce = nil
 		entry.EncryptedMetadataEncryptedKey = nil
 	}
 
-	if !opts.IncludeCustomMetadata {
-		entry.EncryptedMetadata = nil
+	if opts.IncludeETagOrCustomMetadata {
+		if len(entry.EncryptedETag) > 0 {
+			if !opts.IncludeCustomMetadata {
+				entry.EncryptedMetadata = nil
+			}
+		}
+	} else {
+		if !opts.IncludeCustomMetadata {
+			entry.EncryptedMetadata = nil
+		}
+		if !opts.IncludeETag {
+			entry.EncryptedETag = nil
+		}
 	}
 
-	if !opts.IncludeETag {
-		entry.EncryptedETag = nil
-	}
 }
 
 func TestNaiveObjectsDB_Basic(t *testing.T) {

@@ -1463,6 +1463,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	includeCustomMetadata := true
 	includeSystemMetadata := true
 	includeETag := true
+	includeETagOrCustomMetadata := false
 	if req.UseObjectIncludes {
 		includeCustomMetadata = req.ObjectIncludes.Metadata
 		// because multipart upload UploadID depends on some System metadata fields we need
@@ -1470,6 +1471,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		// This is used by libuplink ListUploads method.
 		includeSystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
 		includeETag = req.ObjectIncludes.IncludeEtag
+		includeETagOrCustomMetadata = req.ObjectIncludes.IncludeEtagOrCustomMetadata
 	}
 
 	resp = &pb.ObjectListResponse{}
@@ -1499,9 +1501,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Recursive:   req.Recursive,
 				Limit:       limit,
 
-				IncludeCustomMetadata: includeCustomMetadata,
-				IncludeSystemMetadata: includeSystemMetadata,
-				IncludeETag:           includeETag,
+				IncludeCustomMetadata:       includeCustomMetadata,
+				IncludeSystemMetadata:       includeSystemMetadata,
+				IncludeETag:                 includeETag,
+				IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
 
 				Unversioned: bucket.Versioning.IsUnversioned(),
 				Params:      metabase.ListObjectsParams(endpoint.config.ListObjects),
@@ -1536,9 +1539,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					BatchSize: limit + 1,
 					Pending:   true,
 
-					IncludeCustomMetadata: includeCustomMetadata,
-					IncludeSystemMetadata: includeSystemMetadata,
-					IncludeETag:           includeETag,
+					IncludeCustomMetadata:       includeCustomMetadata,
+					IncludeSystemMetadata:       includeSystemMetadata,
+					IncludeETag:                 includeETag,
+					IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for len(resp.Items) < limit && it.Next(ctx, &entry) {
@@ -1573,9 +1577,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						BatchSize: limit + 1,
 						Pending:   false,
 
-						IncludeCustomMetadata: includeCustomMetadata,
-						IncludeSystemMetadata: includeSystemMetadata,
-						IncludeETag:           includeETag,
+						IncludeCustomMetadata:       includeCustomMetadata,
+						IncludeSystemMetadata:       includeSystemMetadata,
+						IncludeETag:                 includeETag,
+						IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						entry := metabase.ObjectEntry{}
 						for len(resp.Items) < limit && it.Next(ctx, &entry) {
@@ -1609,9 +1614,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						Recursive:   req.Recursive,
 						Limit:       limit,
 
-						IncludeCustomMetadata: includeCustomMetadata,
-						IncludeSystemMetadata: includeSystemMetadata,
-						IncludeETag:           includeETag,
+						IncludeCustomMetadata:       includeCustomMetadata,
+						IncludeSystemMetadata:       includeSystemMetadata,
+						IncludeETag:                 includeETag,
+						IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
 					})
 				if err != nil {
 					return nil, endpoint.ConvertMetabaseErr(err)
@@ -1642,9 +1648,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					BatchSize: limit + 1,
 					Pending:   false,
 
-					IncludeCustomMetadata: includeCustomMetadata,
-					IncludeSystemMetadata: includeSystemMetadata,
-					IncludeETag:           includeETag,
+					IncludeCustomMetadata:       includeCustomMetadata,
+					IncludeSystemMetadata:       includeSystemMetadata,
+					IncludeETag:                 includeETag,
+					IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for len(resp.Items) < limit && it.Next(ctx, &entry) {
