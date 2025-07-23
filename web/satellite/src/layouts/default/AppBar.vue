@@ -119,11 +119,11 @@
                         </v-list-item-subtitle>
                     </v-list-item>
 
-                    <v-list-item v-if="billingEnabled" class="py-2">
+                    <v-list-item v-if="billingEnabled || user.isNFR" class="py-2">
                         <v-list-item-title class="text-body-2">
                             <v-chip
                                 class="font-weight-bold"
-                                :color="isPaidTier ? 'success' : 'info'"
+                                :color="isPaidTier ? 'success' : user.isNFR ? 'warning' : 'info'"
                                 variant="tonal"
                                 size="small"
                             >

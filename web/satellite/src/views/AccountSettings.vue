@@ -64,24 +64,26 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col v-if="billingEnabled" cols="12" sm="6" lg="4">
+            <v-col v-if="billingEnabled || user.isNFR" cols="12" sm="6" lg="4">
                 <v-card title="Account Type" class="pa-2">
                     <v-card-text>
                         <v-chip
                             class="font-weight-bold"
-                            :color="isPaidTier ? 'success' : 'info'"
+                            :color="isPaidTier ? 'success' : user.isNFR ? 'warning' : 'info'"
                             variant="tonal"
                             size="small"
                         >
-                            {{ isPaidTier ? 'Pro Account' : 'Free Trial' }}
+                            {{ user.kind.name }}
                         </v-chip>
-                        <v-divider class="my-4 border-0" />
-                        <v-btn v-if="isPaidTier" variant="outlined" color="default" :to="ROUTES.Billing.path" :append-icon="ArrowRight">
-                            View Billing
-                        </v-btn>
-                        <v-btn v-else color="primary" :append-icon="ArrowRight" @click="appStore.toggleUpgradeFlow(true)">
-                            Upgrade
-                        </v-btn>
+                        <template v-if="billingEnabled">
+                            <v-divider class="my-4 border-0" />
+                            <v-btn v-if="isPaidTier" variant="outlined" color="default" :to="ROUTES.Billing.path" :append-icon="ArrowRight">
+                                View Billing
+                            </v-btn>
+                            <v-btn v-else color="primary" :append-icon="ArrowRight" @click="appStore.toggleUpgradeFlow(true)">
+                                Upgrade
+                            </v-btn>
+                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>

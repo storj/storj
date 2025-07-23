@@ -273,7 +273,7 @@ func (k UserKind) String() string {
 	case PaidUser:
 		return "Pro Account"
 	case NFRUser:
-		return "Not For Resale"
+		return "Not-For-Resale"
 	default:
 		return ""
 	}
