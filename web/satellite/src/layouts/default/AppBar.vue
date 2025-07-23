@@ -172,6 +172,14 @@
                             Settings
                         </v-list-item-title>
                     </v-list-item>
+                    <v-list-item v-if="userFeedbackEnabled" link class="my-1" @click="toggleUserFeedback">
+                        <template #prepend>
+                            <component :is="MessageCircle" :size="18" />
+                        </template>
+                        <v-list-item-title class="text-body-2 ml-4">
+                            Give Feedback
+                        </v-list-item-title>
+                    </v-list-item>
                     <v-list-item link @click="onLogout">
                         <template #prepend>
                             <component :is="LogOut" :size="18" />
@@ -187,10 +195,11 @@
 
     <new-account-setup-dialog v-if="newAccountSetupFlow" />
     <account-setup-dialog v-else />
+    <user-feedback-dialog v-if="userFeedbackEnabled" v-model="userFeedbackDialogShown" />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useDisplay } from 'vuetify';
 import {
     VAppBar,
@@ -207,7 +216,7 @@ import {
     VProgressLinear,
     VTooltip,
 } from 'vuetify/components';
-import { CircleArrowUp, CreditCard, LogOut, Monitor, MoonStar, Settings2, Smartphone, Sun } from 'lucide-vue-next';
+import { CircleArrowUp, CreditCard, LogOut, Monitor, MoonStar, Settings2, Smartphone, Sun, MessageCircle } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/composables/useNotify';
@@ -222,6 +231,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
 import NewAccountSetupDialog from '@/components/dialogs/NewAccountSetupDialog.vue';
+import UserFeedbackDialog from '@/components/dialogs/UserFeedbackDialog.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -241,7 +251,10 @@ withDefaults(defineProps<{
     showNavDrawerButton: false,
 });
 
+const userFeedbackDialogShown = ref<boolean>(false);
+
 const newAccountSetupFlow = computed<boolean>(() => configStore.state.config.newAccountSetupEnabled);
+const userFeedbackEnabled = computed<boolean>(() => configStore.state.config.userFeedbackEnabled);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {
@@ -294,6 +307,11 @@ function closeSideNav(): void {
 function toggleUpgradeFlow(): void {
     closeSideNav();
     appStore.toggleUpgradeFlow(true);
+}
+
+function toggleUserFeedback(): void {
+    closeSideNav();
+    userFeedbackDialogShown.value = true;
 }
 
 /**

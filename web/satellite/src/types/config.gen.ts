@@ -93,6 +93,7 @@ export class FrontendConfig {
     productBasedInvoicingEnabled: boolean;
     newAccountSetupEnabled: boolean;
     upgradePayUpfrontAmount: number;
+    userFeedbackEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

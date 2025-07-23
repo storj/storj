@@ -58,6 +58,28 @@ export class AnalyticsHttpApi {
     }
 
     /**
+     * Used to send user feedback.
+     *
+     * @param type - feedback type
+     * @param message - feedback message
+     * @param csrfProtectionToken - CSRF token
+     */
+    public async sendUserFeedback(type: string, message: string, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/send-feedback`;
+
+        const response = await this.http.post(path, JSON.stringify({ type, message }), { csrfProtectionToken });
+        if (!response.ok) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.error,
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+    }
+
+    /**
      * Used to request a consultation for object mount.
      *
      * @param data - consultation request data
