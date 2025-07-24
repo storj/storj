@@ -65,6 +65,25 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * Creates a payment intent to add funds to the user's account.
+     *
+     * @throws Error
+     */
+    public async createIntent(amount: number, csrfProtectionToken: string): Promise<string> {
+        const path = `${this.ROOT_PATH}/create-intent`;
+        const response = await this.client.post(path, JSON.stringify({ amount }), { csrfProtectionToken });
+
+        const result = await response.json();
+        if (response.ok) return result.clientSecret;
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not create a payment intent',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Gets a setup intent secret to set up a card with stripe.
      *
      * @return string - the client secret for the stripe setup intent.

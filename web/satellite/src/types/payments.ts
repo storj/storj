@@ -62,7 +62,7 @@ export interface PaymentsApi {
     addCreditCard(token: string, csrfProtectionToken: string): Promise<void>;
 
     /**
-     * Add credit card
+     * Add funds from a credit card.
      * @param cardID - the ID of the credit card to charge
      * @param amount - the amount of funds to add, in cents
      * @param intent - the intent of the charge, either to add funds or upgrade account
@@ -70,6 +70,14 @@ export interface PaymentsApi {
      * @throws Error
      */
     addFunds(cardID: string, amount: number, intent: ChargeCardIntent, csrfProtectionToken: string): Promise<AddFundsResponse>;
+
+    /**
+     * Creates a payment intent to add funds to the account.
+     * @param amount - the amount of funds to add, in cents
+     * @param csrfProtectionToken - CSRF token
+     * @throws Error
+     */
+    createIntent(amount: number, csrfProtectionToken: string): Promise<string>;
 
     /**
      * Gets a setup intent secret to set up a card with stripe.

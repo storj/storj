@@ -156,6 +156,10 @@ export const useBillingStore = defineStore('billing', () => {
         return await api.addFunds(cardID, amount, intent, csrfToken.value);
     }
 
+    async function createIntent(amount: number): Promise<string> {
+        return await api.createIntent(amount, csrfToken.value);
+    }
+
     async function getCardSetupSecret(): Promise<string> {
         return await api.getCardSetupSecret();
     }
@@ -356,6 +360,7 @@ export const useBillingStore = defineStore('billing', () => {
         getCountryTaxes,
         addTaxID,
         addFunds,
+        createIntent,
         getCardSetupSecret,
         removeTaxID,
         getBillingInformation,
