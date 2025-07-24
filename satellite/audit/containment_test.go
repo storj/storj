@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
+	"storj.io/storj/storagenode"
 )
 
 func TestContainInsertAndGet(t *testing.T) {
@@ -149,6 +150,11 @@ func TestContainDelete(t *testing.T) {
 func TestContainUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Contact.Interval = -1 // disable contact chore
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 		cache := planet.Satellites[0].DB.OverlayCache()

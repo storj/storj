@@ -2904,6 +2904,10 @@ func TestNodeTagPlacement(t *testing.T) {
 			},
 		},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, sn := range planet.StorageNodes {
+				sn.Contact.Chore.TriggerWait(ctx)
+			}
+
 			satellite := planet.Satellites[0]
 			buckets := satellite.API.Buckets.Service
 			uplink := planet.Uplinks[0]

@@ -29,6 +29,10 @@ func TestRollupArchiveChore(t *testing.T) {
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			for _, sn := range planet.StorageNodes {
+				sn.Contact.Chore.TriggerWait(ctx)
+			}
+
 			// The purpose of this test is to ensure that the archive chore deletes
 			// entries in the storagenode_bandwidth_rollups and bucket_bandwidth_rollups tables
 			// and inserts those entries into new archive tables.

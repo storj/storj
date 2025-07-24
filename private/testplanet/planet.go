@@ -218,7 +218,47 @@ func (planet *Planet) createPeers(ctx context.Context, satelliteDatabases satell
 		return errs.Wrap(err)
 	}
 
+	for _, satellite := range planet.Satellites {
+		for _, node := range planet.StorageNodes {
+			if err := checkInManually(ctx, satellite, node); err != nil {
+				return errs.Wrap(err)
+			}
+		}
+	}
+
 	return nil
+}
+
+func checkInManually(ctx context.Context, satellite *Satellite, node *StorageNode) error {
+	err := satellite.DB.PeerIdentities().Set(ctx, node.ID(), node.Identity.PeerIdentity())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	_, _, lastNet, err := satellite.Overlay.Service.ResolveIPAndNetwork(ctx, node.Addr())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	availableSpace, err := node.Storage2.Monitor.AvailableSpace(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	self := node.Contact.Service.Local()
+	return satellite.DB.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+		NodeID:     node.ID(),
+		Address:    &pb.NodeAddress{Address: node.Addr()},
+		IsUp:       true,
+		Version:    &self.Version,
+		LastNet:    lastNet,
+		LastIPPort: node.Addr(),
+		Capacity: &pb.NodeCapacity{
+			FreeDisk: availableSpace,
+		},
+		Operator: &pb.NodeOperator{
+			Email:  node.Config.Operator.Email,
+			Wallet: node.Config.Operator.Wallet,
+		},
+	}, time.Now(), satellite.Config.Overlay.Node)
 }
 
 // Start starts all the nodes.
@@ -253,7 +293,6 @@ func (planet *Planet) Start(ctx context.Context) error {
 		pprof.Do(ctx, pprof.Labels("peer", peer.Label(), "startup", "contact"), func(ctx context.Context) {
 			group.Go(func() error {
 				peer.Storage2.Monitor.Loop.TriggerWait()
-				peer.Contact.Chore.TriggerWait(ctx)
 				return nil
 			})
 		})
