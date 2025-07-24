@@ -922,7 +922,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 Bucket: state.bucket,
                 Delete: {
                     Objects: files.map((file: _Object | BrowserObject) => ({
-                        Key: state.path + file.Key,
+                        // the file key may already be a full path
+                        // in that case we don't need to prepend the path.
+                        Key: file.Key?.includes('/') ? file.Key : state.path + file.Key,
                         VersionId: file['VersionId'] || undefined,
                     })),
                 },
