@@ -856,6 +856,34 @@ func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsPa
 	return response, nil
 }
 
+// CreateIntent creates a payment intent for adding funds to the user's account.
+func (payment Payments) CreateIntent(ctx context.Context, amount int) (clientSecret string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "create payment intent")
+	if err != nil {
+		return "", ErrUnauthorized.Wrap(err)
+	}
+
+	if amount < payment.service.config.MinAddFundsAmount {
+		return "", ErrValidation.New("amount is too low")
+	}
+	if amount > payment.service.config.MaxAddFundsAmount {
+		return "", ErrValidation.New("amount is too high")
+	}
+
+	clientSecret, err = payment.service.accounts.PaymentIntents().Create(ctx, payments.CreateIntentParams{
+		UserID:   user.ID,
+		Amount:   int64(amount),
+		Metadata: map[string]string{"user_id": user.ID.String(), payments.AddFundsIntent.String(): "1"},
+	})
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	return clientSecret, nil
+}
+
 // HandleWebhookEvent handles any event from payment provider.
 func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string, payload []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)

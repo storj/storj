@@ -881,6 +881,44 @@ func (p *Payments) AddFunds(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CreateIntent creates a payment intent for adding funds to the user's account.
+func (p *Payments) CreateIntent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var params struct {
+		Amount int `json:"amount"` // Amount in cents
+	}
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	clientSecret, err := p.service.Payments().CreateIntent(ctx, params.Amount)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrValidation.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(struct {
+		ClientSecret string `json:"clientSecret"`
+	}{clientSecret}); err != nil {
+		p.log.Error("failed to encode client secret response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // GetCardSetupSecret returns a secret to be used by the front end
 // to begin card authorization flow.
 func (p *Payments) GetCardSetupSecret(w http.ResponseWriter, r *http.Request) {

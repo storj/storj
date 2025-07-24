@@ -410,8 +410,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		}
 		if config.BillingAddFundsEnabled {
 			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddFunds)))).Methods(http.MethodPost, http.MethodOptions)
-			router.HandleFunc("/api/v0/payments/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
 		}
+		if config.BillingStripeCheckoutEnabled {
+			paymentsRouter.Handle("/create-intent", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.CreateIntent)))).Methods(http.MethodPost, http.MethodOptions)
+		}
+		router.HandleFunc("/api/v0/payments/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
 		if config.AddCardAuthorizationEnabled {
 			paymentsRouter.Handle("/card-setup-secret", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.GetCardSetupSecret))).Methods(http.MethodGet, http.MethodOptions)
 		}
