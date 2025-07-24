@@ -138,8 +138,6 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 	planetUplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 	for j, satellite := range planet.Satellites {
-		consoleAPI := satellite.API.Console
-
 		var config UplinkConfig
 		if planet.config.Reconfigure.Uplink != nil {
 			planet.config.Reconfigure.Uplink(log, index, &config)
@@ -164,11 +162,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 			return nil, errs.Wrap(err)
 		}
 
-		userCtx, err := satellite.UserContext(ctx, user.ID)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root", config.APIKeyVersion)
+		apiKey, err := satellite.CreateAPIKey(ctx, project.ID, project.OwnerID, config.APIKeyVersion)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}

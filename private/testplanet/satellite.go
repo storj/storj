@@ -20,8 +20,10 @@ import (
 	"storj.io/common/cfgstruct"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
+	"storj.io/common/macaroon"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/common/version"
 	"storj.io/storj/private/revocation"
@@ -260,28 +262,62 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 }
 
 // AddProject adds project to a satellite and makes specified user an owner.
+// This method only mimics the behavior of the console API. It's simplified to
+// be faster for tests.
 func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name string) (project *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ctx, err = system.UserContext(ctx, ownerID)
+	project, err = system.DB.Console().Projects().Insert(ctx, &console.Project{
+		ID:             testrand.UUID(),
+		PublicID:       testrand.UUID(),
+		Name:           name,
+		OwnerID:        ownerID,
+		StorageLimit:   &system.Config.Console.UsageLimits.Storage.Free,
+		BandwidthLimit: &system.Config.Console.UsageLimits.Bandwidth.Free,
+		SegmentLimit:   &system.Config.Console.UsageLimits.Segment.Free,
+	})
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	if system.Config.DisableConsoleFromSatelliteAPI && system.ConsoleAPI != nil {
-		project, err = system.ConsoleAPI.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
-			Name: name,
-		})
-	} else {
-		project, err = system.API.Console.Service.CreateProject(ctx, console.UpsertProjectInfo{
-			Name: name,
-		})
-	}
+	_, err = system.DB.Console().ProjectMembers().Insert(ctx, ownerID, project.ID, console.RoleAdmin)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
 	return project, nil
+}
+
+// CreateAPIKey creates an API key for the specified project and user with the given version.
+// This method only mimics the behavior of the console API. It's simplified to
+// be faster for tests.
+func (system *Satellite) CreateAPIKey(ctx context.Context, projectID uuid.UUID, userID uuid.UUID, version macaroon.APIKeyVersion) (_ *macaroon.APIKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	secret, err := macaroon.NewSecret()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	key, err := macaroon.NewAPIKey(secret)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	apikey := console.APIKeyInfo{
+		Name:      "root",
+		ProjectID: projectID,
+		CreatedBy: userID,
+		Secret:    secret,
+		Version:   version,
+	}
+
+	_, err = system.DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return key, nil
 }
 
 // UserContext creates context with user.
