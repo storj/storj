@@ -21,10 +21,12 @@ func TestPaymentIntents_ChargeCard(t *testing.T) {
 		userID := planet.Uplinks[0].Projects[0].Owner.ID
 
 		req := payments.ChargeCardRequest{
-			UserID:   userID,
-			Amount:   100,
-			CardID:   "card_123",
-			Metadata: map[string]string{"key": "value"},
+			CardID: "card_123",
+			CreateIntentParams: payments.CreateIntentParams{
+				UserID:   userID,
+				Amount:   100,
+				Metadata: map[string]string{"key": "value"},
+			},
 		}
 
 		resp, err := satellite.API.Payments.Accounts.PaymentIntents().ChargeCard(ctx, req)

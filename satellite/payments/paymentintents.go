@@ -15,6 +15,8 @@ import (
 type PaymentIntents interface {
 	// ChargeCard attempts to charge a credit card.
 	ChargeCard(ctx context.Context, req ChargeCardRequest) (*ChargeCardResponse, error)
+	// Create creates a new abstract payment intent.
+	Create(ctx context.Context, req CreateIntentParams) (string, error)
 }
 
 // AddFundsParams holds the parameters needed to add funds to an account balance.
@@ -24,12 +26,17 @@ type AddFundsParams struct {
 	Intent ChargeCardIntent `json:"intent"` // Intent of the charge, e.g., AddFundsIntent or UpgradeAccountIntent
 }
 
-// ChargeCardRequest is the request to charge a credit card.
-type ChargeCardRequest struct {
+// CreateIntentParams holds the parameters needed to create a payment intent.
+type CreateIntentParams struct {
 	UserID   uuid.UUID
-	CardID   string
 	Amount   int64
 	Metadata map[string]string
+}
+
+// ChargeCardRequest is the request to charge a credit card.
+type ChargeCardRequest struct {
+	CardID string
+	CreateIntentParams
 }
 
 // ChargeCardResponse is the response to a charge request.

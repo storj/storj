@@ -58,3 +58,34 @@ func (pi *paymentIntents) ChargeCard(ctx context.Context, request payments.Charg
 
 	return &payments.ChargeCardResponse{Success: true}, nil
 }
+
+// Create creates a new abstract payment intent.
+func (pi *paymentIntents) Create(ctx context.Context, request payments.CreateIntentParams) (string, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := pi.service.db.Customers().GetCustomerID(ctx, request.UserID)
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	intent, err := pi.service.stripeClient.PaymentIntents().New(&stripe.PaymentIntentParams{
+		Params:   stripe.Params{Context: ctx},
+		Amount:   stripe.Int64(request.Amount),
+		Customer: stripe.String(customerID),
+		Currency: stripe.String(string(stripe.CurrencyUSD)),
+		Metadata: request.Metadata,
+		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
+			Enabled: stripe.Bool(true),
+		},
+	})
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return "", Error.Wrap(err)
+	}
+
+	return intent.ClientSecret, nil
+}

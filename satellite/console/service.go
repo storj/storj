@@ -842,10 +842,12 @@ func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsPa
 	}
 
 	response, err = payment.service.accounts.PaymentIntents().ChargeCard(ctx, payments.ChargeCardRequest{
-		UserID:   user.ID,
-		CardID:   params.CardID,
-		Amount:   int64(params.Amount),
-		Metadata: map[string]string{"user_id": user.ID.String(), params.Intent.String(): "1"},
+		CardID: params.CardID,
+		CreateIntentParams: payments.CreateIntentParams{
+			UserID:   user.ID,
+			Amount:   int64(params.Amount),
+			Metadata: map[string]string{"user_id": user.ID.String(), params.Intent.String(): "1"},
+		},
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
