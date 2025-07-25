@@ -151,6 +151,7 @@ import { RequiredRule, ValidationRule } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 type SelectValue = {
     title: string;
@@ -166,6 +167,7 @@ enum Step {
 
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
+const userStore = useUsersStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -276,7 +278,10 @@ async function handlePaymentConfirmation(clientSecret: string) {
 watch(model, async newVal => {
     if (!newVal) {
         if (step.value === Step.Success) {
-            billingStore.getBalance().catch(() => {});
+            Promise.all([
+                billingStore.getBalance(),
+                userStore.getUser(),
+            ]).catch(() => {});
         }
 
         amount.value = 10;

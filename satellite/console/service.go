@@ -954,6 +954,25 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 		return Error.Wrap(err)
 	}
 
+	user, err := payment.service.store.Users().Get(ctx, userID)
+	if err != nil {
+		payment.service.log.Error("Failed to get user for payment intent succeeded event", zap.String("ID", userID.String()), zap.Error(err))
+	} else {
+		if user.IsFree() {
+			// If the user is on a free tier, we upgrade them to paid tier.
+			err = payment.upgradeToPaidTier(ctx, user)
+			if err != nil {
+				payment.service.log.Error("Failed to upgrade user", zap.String("ID", user.ID.String()), zap.Error(err))
+			} else {
+				payment.service.mailService.SendRenderedAsync(
+					ctx,
+					[]post.Address{{Address: user.Email}},
+					&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+				)
+			}
+		}
+	}
+
 	return nil
 }
 
