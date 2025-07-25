@@ -109,6 +109,7 @@ func TestListPendingObjects(t *testing.T) {
 					AllVersions:           true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 					Limit:                 limit,
 				},
 				Result: metabase.ListObjectsResult{
@@ -137,6 +138,7 @@ func TestListPendingObjects(t *testing.T) {
 					AllVersions:           true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -167,6 +169,7 @@ func TestListPendingObjects(t *testing.T) {
 					AllVersions:           true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -198,6 +201,7 @@ func TestListPendingObjects(t *testing.T) {
 					AllVersions:           true,
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
+					IncludeETag:           true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -1495,14 +1499,23 @@ func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.D
 		obj := metabasetest.RandObjectStream()
 		obj.ProjectID = projectID
 		obj.BucketName = bucketName
+		userData := metabasetest.RandEncryptedUserData()
 		now := time.Now()
-		object := metabasetest.CreatePendingObject(ctx, t, db, obj, 0)
+
+		object := metabasetest.BeginObjectExactVersion{
+			Opts: metabase.BeginObjectExactVersion{
+				ObjectStream:      obj,
+				Encryption:        metabasetest.DefaultEncryption,
+				EncryptedUserData: userData,
+			},
+		}.Check(ctx, t, db)
 
 		objects[i] = metabase.RawObject{
-			ObjectStream: obj,
-			CreatedAt:    now,
-			Status:       metabase.Pending,
-			Encryption:   metabasetest.DefaultEncryption,
+			ObjectStream:      obj,
+			CreatedAt:         now,
+			Status:            metabase.Pending,
+			Encryption:        metabasetest.DefaultEncryption,
+			EncryptedUserData: userData,
 
 			ZombieDeletionDeadline: object.ZombieDeletionDeadline,
 		}

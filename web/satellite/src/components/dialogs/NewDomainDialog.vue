@@ -6,7 +6,6 @@
         v-model="model"
         min-width="320px"
         max-width="400px"
-        activator="parent"
         transition="fade-transition"
         scrollable
         persistent

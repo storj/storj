@@ -743,7 +743,7 @@ func TestFreezeEffects(t *testing.T) {
 			require.Error(testT, err)
 
 			// Should not be able to create bucket because account is frozen.
-			err = uplink1.FullCreateBucket(ctx, sat, "anotherBucket")
+			err = uplink1.CreateBucket(ctx, sat, "anotherBucket")
 			require.Error(testT, err)
 		}
 

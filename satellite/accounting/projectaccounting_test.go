@@ -515,7 +515,7 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			now := time.Now()
 			before := now.Add(time.Hour * 10)
 
-			err := planet.Uplinks[0].FullCreateBucket(ctx, sat, bucketName)
+			err := planet.Uplinks[0].CreateBucket(ctx, sat, bucketName)
 			require.NoError(t, err)
 
 			client, err := planet.Uplinks[0].Projects[0].DialMetainfo(ctx)
@@ -616,7 +616,7 @@ func TestGetSingleBucketTotal(t *testing.T) {
 
 			bucketName1 := testrand.BucketName()
 
-			err = planet.Uplinks[0].FullCreateBucket(ctx, sat, bucketName1)
+			err = planet.Uplinks[0].CreateBucket(ctx, sat, bucketName1)
 			require.NoError(t, err)
 
 			err = client.SetBucketVersioning(ctx, metaclient.SetBucketVersioningParams{
@@ -925,11 +925,11 @@ func TestGetProjectSettledBandwidth(t *testing.T) {
 			require.Zero(t, egress)
 
 			bucket := "testbucket"
-			err = planet.Uplinks[0].CreateBucket(ctx, sat, bucket)
+			err = planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucket)
 			require.NoError(t, err)
 
 			bucket1 := "testbucket1"
-			err = planet.Uplinks[0].CreateBucket(ctx, sat, bucket1)
+			err = planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucket1)
 			require.NoError(t, err)
 
 			amount := int64(1000)
@@ -1038,7 +1038,7 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 
 		// Create a bucket and upload data
 		bucketName := testrand.BucketName()
-		err := uplink.CreateBucket(ctx, satellite, bucketName)
+		err := uplink.TestingCreateBucket(ctx, satellite, bucketName)
 		require.NoError(t, err)
 
 		data := testrand.Bytes(5 * memory.KiB)

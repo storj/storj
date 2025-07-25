@@ -23,12 +23,6 @@ CREATE TABLE accounting_timestamps (
 	name STRING(MAX) NOT NULL,
 	value TIMESTAMP NOT NULL
 ) PRIMARY KEY ( name ) ;
-CREATE TABLE api_key_tails (
-	tail BYTES(MAX) NOT NULL,
-	parent_tail BYTES(MAX) NOT NULL,
-	caveat BYTES(MAX) NOT NULL,
-	last_used TIMESTAMP NOT NULL
-) PRIMARY KEY ( tail ) ;
 CREATE TABLE billing_balances (
 	user_id BYTES(MAX) NOT NULL,
 	balance INT64 NOT NULL,
@@ -583,6 +577,14 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	created_at TIMESTAMP NOT NULL,
 	CONSTRAINT stripecoinpayments_apply_balance_intents_tx_id_fkey FOREIGN KEY (tx_id) REFERENCES coinpayments_transactions (id) ON DELETE CASCADE 
 ) PRIMARY KEY ( tx_id ) ;
+CREATE TABLE api_key_tails (
+	root_key_id BYTES(MAX),
+	tail BYTES(MAX) NOT NULL,
+	parent_tail BYTES(MAX) NOT NULL,
+	caveat BYTES(MAX) NOT NULL,
+	last_used TIMESTAMP NOT NULL,
+	CONSTRAINT api_key_tails_root_key_id_fkey FOREIGN KEY (root_key_id) REFERENCES api_keys (id) ON DELETE CASCADE 
+) PRIMARY KEY ( tail ) ;
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX billing_transactions_tx_timestamp_index ON billing_transactions ( tx_timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;

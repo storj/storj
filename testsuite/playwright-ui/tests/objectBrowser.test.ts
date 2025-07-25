@@ -116,6 +116,43 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.expectItems(['testdata', 'a.txt', 'b.txt']);
     });
 
+    test('Nested folder deletion', async ({
+        objectBrowserPage,
+        bucketsPage,
+        navigationMenu,
+    }) => {
+        const bucketName = uuidv4();
+        const folderName = 'testdata';
+        const folder2Name = 'testdata2';
+
+        await navigationMenu.clickOnBuckets();
+        await bucketsPage.createBucket(bucketName);
+        await bucketsPage.openBucket(bucketName);
+        await objectBrowserPage.waitForPage();
+
+        // Ensure deleting a folder in the root succeeds.
+        await objectBrowserPage.createFolder(folderName);
+        await objectBrowserPage.deleteItemByName(folderName);
+        await objectBrowserPage.expectItems([]);
+
+        await objectBrowserPage.createFolder(folderName);
+        await objectBrowserPage.clickItem(folderName);
+        await objectBrowserPage.waitForItems();
+
+        // Ensure deleting a folder in a subfolder succeeds.
+        await objectBrowserPage.createFolder(folder2Name);
+        await objectBrowserPage.deleteItemByName(folder2Name);
+        await objectBrowserPage.expectItems([]);
+
+        await objectBrowserPage.createFolder(folder2Name);
+        await objectBrowserPage.clickItem(folder2Name);
+        await objectBrowserPage.waitForItems();
+
+        await objectBrowserPage.createFolder(folderName);
+        await objectBrowserPage.deleteItemByName(folderName);
+        await objectBrowserPage.expectItems([]);
+    });
+
     test('Folder creation and folder drag and drop upload', async ({
         bucketsPage,
         objectBrowserPage,

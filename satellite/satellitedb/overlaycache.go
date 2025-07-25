@@ -381,30 +381,14 @@ func (cache *overlaycache) getOnlineNodesForAuditAndRepair(ctx context.Context, 
 func (cache *overlaycache) getAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
-			SELECT id, email, last_ip_port, address,
-				vetted_at, unknown_audit_suspended, offline_suspended
-			FROM nodes
-			WHERE disqualified IS NULL
-				AND exit_finished_at IS NULL
-				AND last_contact_success > $2
-		`), time.Now().Add(-onlineWindow))
-	case dbutil.Spanner:
-		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
-			SELECT id, email, last_ip_port, address,
-			vetted_at, unknown_audit_suspended, offline_suspended
-			FROM nodes
-			WHERE disqualified IS NULL
-				AND exit_finished_at IS NULL
-				AND last_contact_success > ?
-		`), time.Now().Add(-onlineWindow))
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
+	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
+		SELECT id, email, last_ip_port, address,
+		vetted_at, unknown_audit_suspended, offline_suspended
+		FROM nodes
+		WHERE disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success > ?
+	`), time.Now().Add(-onlineWindow))
 	if err != nil {
 		return nil, err
 	}

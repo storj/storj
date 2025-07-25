@@ -2403,8 +2403,8 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
-storj.io/common v0.0.0-20250714141838-91770d7c2a51 h1:8sFg5ZixspBoYHFOAtbW8MMjTMYxKmns2dsqmLm+5iU=
-storj.io/common v0.0.0-20250714141838-91770d7c2a51/go.mod h1:YNr7/ty6CmtpG5C9lEPtPXK3hOymZpueCb9QCNuPMUY=
+storj.io/common v0.0.0-20250723135802-9c8972adba11 h1:r26dTIDBd6UGganN1XiMPwqX/UjN549b7gG+2iGQffg=
+storj.io/common v0.0.0-20250723135802-9c8972adba11/go.mod h1:YNr7/ty6CmtpG5C9lEPtPXK3hOymZpueCb9QCNuPMUY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 h1:oqMwoF6vaOrCe92SKRyr8cc2WSjLYAd8fjpAHA7rNqY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 h1:8OE12DvUnB9lfZcHe7IDGsuhjrY9GBAr964PVHmhsro=

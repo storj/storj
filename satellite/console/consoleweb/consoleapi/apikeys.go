@@ -76,6 +76,9 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	if keys.service.GetObjectLockUIEnabled() {
 		apiKeyVersion = macaroon.APIKeyVersionObjectLock
 	}
+	if keys.service.ProjectSupportsAuditableAPIKeys(projectID) {
+		apiKeyVersion |= macaroon.APIKeyVersionAuditable
+	}
 
 	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, apiKeyVersion)
 	if err != nil {

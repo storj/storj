@@ -69,7 +69,7 @@ func TestBatch(t *testing.T) {
 		})
 
 		t.Run("create bucket, object, upload inline segments in batch, download inline segments in batch", func(t *testing.T) {
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "second-test-bucket"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "second-test-bucket"))
 
 			requests := make([]metaclient.BatchItem, 0)
 			requests = append(requests, &metaclient.BeginObjectParams{
@@ -144,7 +144,7 @@ func TestBatch(t *testing.T) {
 		})
 
 		t.Run("StreamID is not set automatically", func(t *testing.T) {
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "third-test-bucket"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "third-test-bucket"))
 
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
 				Bucket:             []byte("third-test-bucket"),
@@ -195,7 +195,7 @@ func TestBatch(t *testing.T) {
 
 		t.Run("retry segment pieces", func(t *testing.T) {
 			bucketName := testrand.BucketName()
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 
 			endpoint := planet.Satellites[0].Metainfo.Endpoint
 
@@ -242,7 +242,7 @@ func TestDeleteBatchWithoutPermission(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		apiKey, err = apiKey.Restrict(macaroon.WithNonce(macaroon.Caveat{

@@ -57,7 +57,7 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 		}
 
 		projectID := planet.Uplinks[0].Projects[0].ID
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -146,7 +146,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 		}
 
 		projectID := planet.Uplinks[0].Projects[0].ID
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -232,7 +232,7 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 		rangedLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 		repairQueue := satellite.Repair.Queue
 
-		err := uplink.CreateBucket(ctx, satellite, "test-bucket")
+		err := uplink.TestingCreateBucket(ctx, satellite, "test-bucket")
 		require.NoError(t, err)
 
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -324,7 +324,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		projectID := planet.Uplinks[0].Projects[0].ID
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -421,7 +421,7 @@ func TestRepairObserver(t *testing.T) {
 			ShareSize:      256,
 		}
 
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
@@ -658,7 +658,7 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 		repairQueue := planet.Satellites[0].Repair.Queue
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,

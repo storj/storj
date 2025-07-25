@@ -161,9 +161,10 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	}
 
 	initialSetup := false
-	for i, step := range migration.Steps {
-		step := step
+	latestVersionCache := map[tagsql.DB]int{}
+	versionsTableEnsured := map[tagsql.DB]bool{}
 
+	for i, step := range migration.Steps {
 		if step.CreateDB != nil {
 			if err := step.CreateDB(ctx, log); err != nil {
 				return Error.Wrap(err)
@@ -178,14 +179,23 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			db = &spannerutil.MultiExecDBWrapper{DB: db}
 		}
 
-		err = migration.ensureVersionTable(ctx, log, db)
-		if err != nil {
-			return Error.New("creating version table failed: %w", err)
+		if !versionsTableEnsured[db] {
+			versionsTableEnsured[db] = true
+			err = migration.ensureVersionTable(ctx, log, db)
+			if err != nil {
+				return Error.New("creating version table failed: %w", err)
+			}
 		}
 
-		version, err := migration.getLatestVersion(ctx, log, db)
-		if err != nil {
-			return Error.Wrap(err)
+		var version int
+		if v, ok := latestVersionCache[db]; ok {
+			version = v
+		} else {
+			version, err = migration.getLatestVersion(ctx, log, db)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			latestVersionCache[db] = version
 		}
 		if i == 0 && version < 0 {
 			initialSetup = true
@@ -220,6 +230,8 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 		if err != nil {
 			return Error.New("v%d: %w", step.Version, err)
 		}
+
+		latestVersionCache[db] = step.Version
 	}
 
 	if len(migration.Steps) > 0 {

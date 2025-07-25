@@ -27,6 +27,7 @@ func main() {
 
 	{
 		g := a.Group("AuthManagement", "auth")
+		g.UseCORS()
 		g.Middleware = append(g.Middleware, AuthMiddleware{})
 
 		g.Get("/account", &apigen.Endpoint{

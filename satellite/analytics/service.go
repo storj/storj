@@ -139,6 +139,9 @@ const (
 	eventJoinCunoFSBetaSubmitted          = "Join CunoFS Beta Form Submitted"
 	eventJoinPlacementWaitlistSubmitted   = "Join Placement Waitlist Form Submitted"
 	eventObjectMountConsultationSubmitted = "Object Mount Consultation Submitted"
+	// EventUserFeedbackSubmitted is an event for user feedback submission.
+	// Exported to be reused in other packages.
+	EventUserFeedbackSubmitted = "User Feedback Submitted"
 
 	// Generic account freeze event types.
 	eventAccountFreeze   = "Account Freeze"
@@ -246,7 +249,7 @@ func NewService(log *zap.Logger, config Config, satelliteName, satelliteExternal
 		eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventUseCaseSelected, eventOnboardingCompleted, eventOnboardingAbandoned,
 		eventPersonalSelected, eventBusinessSelected, eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource, eventApplicationsDocsClicked,
 		eventApplicationsSetupClicked, eventApplicationsSetupCompleted, eventCloudGPUNavigationClicked, eventCloudGPUSignupClicked,
-		eventJoinCunoFSBetaSubmitted, eventJoinPlacementWaitlistSubmitted, eventObjectMountConsultationSubmitted} {
+		eventJoinCunoFSBetaSubmitted, eventJoinPlacementWaitlistSubmitted, eventObjectMountConsultationSubmitted, EventUserFeedbackSubmitted} {
 		service.clientEvents[name] = true
 	}
 

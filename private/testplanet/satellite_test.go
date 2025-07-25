@@ -39,8 +39,13 @@ func TestSatellite_AddProject(t *testing.T) {
 
 		require.Equal(t, 4, len(projects))
 
+		userCtx, err := planet.Satellites[0].UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
 		// test if adding over limit will end with error
-		_, err = planet.Satellites[0].AddProject(ctx, user.ID, "test project over limit")
+		_, err = planet.Satellites[0].API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name: "test project over limit",
+		})
 		require.Error(t, err)
 	})
 }

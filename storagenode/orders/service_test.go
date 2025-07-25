@@ -37,7 +37,7 @@ func TestOrderDBSettle(t *testing.T) {
 		service.Cleanup.Pause()
 
 		bucketname := "testbucket"
-		err := planet.Uplinks[0].CreateBucket(ctx, satellite, bucketname)
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, satellite, bucketname)
 		require.NoError(t, err)
 
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
@@ -199,7 +199,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		tomorrow := time.Now().Add(24 * time.Hour)
 
 		bucketname := "testbucket"
-		err := uplinkPeer.CreateBucket(ctx, satellite, bucketname)
+		err := uplinkPeer.TestingCreateBucket(ctx, satellite, bucketname)
 		require.NoError(t, err)
 
 		// add orders to orders DB

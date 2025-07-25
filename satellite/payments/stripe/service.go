@@ -958,7 +958,10 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		storageItem := &stripe.InvoiceItemParams{}
 		storageDesc := prefix + storageInvoiceItemDesc
 		if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
-			storageDesc += " - " + info.StorageSKU
+			storageItem.AddMetadata("SKU", info.StorageSKU)
+			if service.stripeConfig.InvItemSKUInDescription {
+				storageDesc += " - " + info.StorageSKU
+			}
 		}
 		storageItem.Description = stripe.String(storageDesc)
 		storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
@@ -974,7 +977,10 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		egressItem := &stripe.InvoiceItemParams{}
 		egressDesc := prefix + egressInvoiceItemDesc
 		if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
-			egressDesc += " - " + info.EgressSKU
+			egressItem.AddMetadata("SKU", info.EgressSKU)
+			if service.stripeConfig.InvItemSKUInDescription {
+				egressDesc += " - " + info.EgressSKU
+			}
 		}
 		egressItem.Description = stripe.String(egressDesc)
 		egressItem.Quantity = stripe.Int64(egressMBDecimal(discountedUsage.Egress).IntPart())
@@ -990,7 +996,10 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		segmentItem := &stripe.InvoiceItemParams{}
 		segmentDesc := prefix + segmentInvoiceItemDesc
 		if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
-			segmentDesc += " - " + info.SegmentSKU
+			segmentItem.AddMetadata("SKU", info.SegmentSKU)
+			if service.stripeConfig.InvItemSKUInDescription {
+				segmentDesc += " - " + info.SegmentSKU
+			}
 		}
 		segmentItem.Description = stripe.String(segmentDesc)
 		segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
@@ -1589,8 +1598,8 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 		return nil, Error.New("stripe invoice couldn't be generated for customer %s", cusID)
 	}
 
-	if applyMinimumCharge && stripeInvoice.AmountDue < service.pricingConfig.MinimumChargeAmount {
-		shortfall := service.pricingConfig.MinimumChargeAmount - stripeInvoice.AmountDue
+	if applyMinimumCharge && stripeInvoice.Total < service.pricingConfig.MinimumChargeAmount {
+		shortfall := service.pricingConfig.MinimumChargeAmount - stripeInvoice.Total
 
 		_, err = service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
 			Params:      stripe.Params{Context: ctx},
@@ -1612,7 +1621,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	}
 
 	// auto advance the invoice if nothing is due from the customer.
-	if !stripeInvoice.AutoAdvance && stripeInvoice.AmountDue == 0 && !hasShortFall {
+	if !stripeInvoice.AutoAdvance && stripeInvoice.Total == 0 && !hasShortFall {
 		params := &stripe.InvoiceParams{
 			Params:      stripe.Params{Context: ctx},
 			AutoAdvance: stripe.Bool(true),

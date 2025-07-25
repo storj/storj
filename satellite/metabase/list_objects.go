@@ -38,9 +38,10 @@ type ListObjects struct {
 	Pending     bool
 	AllVersions bool
 
-	IncludeCustomMetadata bool
-	IncludeSystemMetadata bool
-	IncludeETag           bool
+	IncludeCustomMetadata       bool
+	IncludeSystemMetadata       bool
+	IncludeETag                 bool
+	IncludeETagOrCustomMetadata bool
 
 	Unversioned bool
 	Params      ListObjectsParams
@@ -642,7 +643,7 @@ func (opts *ListObjects) orderBy() string {
 }
 
 func (opts ListObjects) needsEncryptionKey() bool {
-	return opts.IncludeCustomMetadata || opts.IncludeETag
+	return opts.IncludeCustomMetadata || opts.IncludeETag || opts.IncludeETagOrCustomMetadata
 }
 
 // StartCursor returns the starting object cursor for this listing.
@@ -726,6 +727,11 @@ func (opts ListObjects) selectedFields() (selectedFields string) {
 		selectedFields += `
 		,encrypted_etag`
 	}
+	if opts.IncludeETagOrCustomMetadata {
+		selectedFields += `
+			, encrypted_etag IS NOT NULL AS is_encrypted_etag
+			, COALESCE(encrypted_etag, encrypted_metadata) AS etag_or_metadata`
+	}
 
 	return selectedFields
 }
@@ -767,8 +773,26 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 		)
 	}
 
+	var isEncryptedETag bool
+	var etagOrMetadata []byte
+
+	if opts.IncludeETagOrCustomMetadata {
+		fields = append(fields,
+			&isEncryptedETag,
+			&etagOrMetadata,
+		)
+	}
+
 	if err := rows.Scan(fields...); err != nil {
 		return item, err
+	}
+
+	if opts.IncludeETagOrCustomMetadata {
+		if isEncryptedETag {
+			item.EncryptedETag = etagOrMetadata
+		} else {
+			item.EncryptedMetadata = etagOrMetadata
+		}
 	}
 
 	if !opts.Recursive {
@@ -827,8 +851,26 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 		)
 	}
 
+	var isEncryptedETag bool
+	var etagOrMetadata []byte
+
+	if opts.IncludeETagOrCustomMetadata {
+		fields = append(fields,
+			&isEncryptedETag,
+			&etagOrMetadata,
+		)
+	}
+
 	if err := row.Columns(fields...); err != nil {
 		return item, err
+	}
+
+	if opts.IncludeETagOrCustomMetadata {
+		if isEncryptedETag {
+			item.EncryptedETag = etagOrMetadata
+		} else {
+			item.EncryptedMetadata = etagOrMetadata
+		}
 	}
 
 	if !opts.Recursive {

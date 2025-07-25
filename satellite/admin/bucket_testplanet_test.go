@@ -43,7 +43,7 @@ func TestAdminBucketPlacementAPI(t *testing.T) {
 		require.NoError(t, err)
 
 		filledBucket := "filled"
-		err = uplink.FullCreateBucket(ctx, sat, filledBucket)
+		err = uplink.CreateBucket(ctx, sat, filledBucket)
 		require.NoError(t, err)
 
 		_, err = bucketsDB.UpdateBucket(ctx, buckets.Bucket{
@@ -63,7 +63,7 @@ func TestAdminBucketPlacementAPI(t *testing.T) {
 		require.NoError(t, err)
 
 		emptyBucket := "empty"
-		err = uplink.FullCreateBucket(ctx, sat, emptyBucket)
+		err = uplink.CreateBucket(ctx, sat, emptyBucket)
 		require.NoError(t, err)
 
 		_, err = attributionDB.Insert(ctx, &attribution.Info{

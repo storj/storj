@@ -1005,6 +1005,15 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`UPDATE projects SET path_encryption = true WHERE path_encryption = false`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add root_key_id column to api_key_tails table",
+				Version:     297,
+				Action: migrate.SQL{
+					`ALTER TABLE api_key_tails ADD COLUMN root_key_id BYTES(MAX);`,
+					`ALTER TABLE api_key_tails ADD CONSTRAINT api_key_tails_root_key_id_fkey FOREIGN KEY (root_key_id) REFERENCES api_keys (id) ON DELETE CASCADE;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3850,6 +3859,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     296,
 				Action: migrate.SQL{
 					`UPDATE projects SET path_encryption = true WHERE path_encryption = false`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add root_key_id column to api_key_tails table",
+				Version:     297,
+				Action: migrate.SQL{
+					`ALTER TABLE api_key_tails ADD COLUMN root_key_id bytea REFERENCES api_keys( id ) ON DELETE CASCADE;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

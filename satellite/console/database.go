@@ -34,6 +34,8 @@ type DB interface {
 	WebappSessions() consoleauth.WebappSessions
 	// AccountFreezeEvents is a getter for AccountFreezeEvents repository.
 	AccountFreezeEvents() AccountFreezeEvents
+	// APIKeyTails is a getter for APIKeyTails repository.
+	APIKeyTails() APIKeyTails
 	// Domains is a getter for Domains repository.
 	Domains() Domains
 

@@ -170,7 +170,7 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 			uplink       = planet.Uplinks[0]
 			projectID    = uplink.Projects[0].ID
 		)
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 		require.NoError(t, err)
 
 		// stop any async flushes because we want to be sure when some values are

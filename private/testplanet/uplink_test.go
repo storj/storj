@@ -329,7 +329,7 @@ func TestUploadRSOveride(t *testing.T) {
 		{
 			buckets := planet.Satellites[0].API.Buckets.Service
 
-			err := client.CreateBucket(ctx, planet.Satellites[0], "placement1")
+			err := client.TestingCreateBucket(ctx, planet.Satellites[0], "placement1")
 			require.NoError(t, err)
 
 			bucket, err := buckets.GetBucket(ctx, []byte("placement1"), client.Projects[0].ID)

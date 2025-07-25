@@ -4,6 +4,7 @@
 package consoleapi_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -142,5 +143,58 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 		require.Equal(t, 2, len(output))
 		require.Equal(t, created.Name, output[0])
 		require.Equal(t, created1.Name, output[1])
+	})
+}
+
+func TestCreateAuditableAPIKey(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		keysDB := sat.DB.Console().APIKeys()
+		service := sat.API.Console.Service
+
+		newUser := console.CreateUser{
+			FullName: "test_name",
+			Email:    "apikeytest@example.test",
+		}
+
+		user, err := sat.AddUser(ctx, newUser, 1)
+		require.NoError(t, err)
+
+		project, err := sat.AddProject(ctx, user.ID, "test")
+		require.NoError(t, err)
+
+		endpoint := "api-keys/create/" + project.PublicID.String()
+		buf := bytes.NewBufferString("testName")
+
+		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		info, err := keysDB.GetByNameAndProjectID(ctx, "testName", project.ID)
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		// object lock is enabled by default.
+		require.Equal(t, macaroon.APIKeyVersionObjectLock, info.Version)
+		require.False(t, info.Version.SupportsAuditability())
+
+		service.TestSetAuditableAPIKeyProjects(map[string]struct{}{project.PublicID.String(): {}})
+		buf = bytes.NewBufferString("testName1")
+
+		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, status)
+
+		info, err = keysDB.GetByNameAndProjectID(ctx, "testName1", project.ID)
+		require.NoError(t, err)
+		require.NotNil(t, info)
+		require.Equal(t, macaroon.APIKeyVersionObjectLock|macaroon.APIKeyVersionAuditable, info.Version)
+		require.True(t, info.Version.SupportsAuditability())
 	})
 }

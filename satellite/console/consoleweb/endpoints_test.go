@@ -566,7 +566,7 @@ func TestBuckets(t *testing.T) {
 			require.Empty(t, page.BucketUsages)
 
 			const bucketName = "my-bucket"
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 
 			resp, body = test.request(http.MethodGet, "/buckets/usage-totals?"+params.Encode(), nil)
 			require.Equal(t, http.StatusOK, resp.StatusCode)

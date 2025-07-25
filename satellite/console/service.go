@@ -257,7 +257,8 @@ type Service struct {
 	maxProjectBuckets int
 	ssoEnabled        bool
 
-	varPartners map[string]struct{}
+	varPartners             map[string]struct{}
+	auditableAPIKeyProjects map[string]struct{}
 
 	paymentSourceChainIDs map[int64]string
 
@@ -338,6 +339,11 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	placementNameLookup := make(map[string]storj.PlacementConstraint, len(placements))
 	for _, placement := range placements {
 		placementNameLookup[placement.Name] = placement.ID
+	}
+
+	auditableAPIKeyProjects := make(map[string]struct{}, len(config.AuditableAPIKeyProjects))
+	for _, projectID := range config.AuditableAPIKeyProjects {
+		auditableAPIKeyProjects[projectID] = struct{}{}
 	}
 
 	return &Service{
@@ -3588,6 +3594,31 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 	return nil
 }
 
+// SendUserFeedback is a method for tracking user feedback submission.
+func (s *Service) SendUserFeedback(ctx context.Context, feedbackType, message string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.UserFeedbackEnabled {
+		return ErrForbidden.New("User feedback feature is disabled")
+	}
+
+	user, err := s.getUserAndAuditLog(ctx, "send user feedback")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+	if user.Status == PendingBotVerification {
+		return ErrBotUser.New(contactSupportErrMsg)
+	}
+
+	data := map[string]string{
+		"feedback_type": feedbackType,
+		"message":       message,
+	}
+	s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, data, user.HubspotObjectID)
+
+	return nil
+}
+
 // JoinPlacementWaitlist is a method for adding user to a placement waitlist.
 func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.TrackJoinPlacementWaitlistFields) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -4639,6 +4670,12 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	}
 
 	return info, key, nil
+}
+
+// ProjectSupportsAuditableAPIKeys checks if the project ID is in the list of projects that support auditable API keys.
+func (s *Service) ProjectSupportsAuditableAPIKeys(projectID uuid.UUID) (supports bool) {
+	_, supports = s.auditableAPIKeyProjects[projectID.String()]
+	return supports
 }
 
 // GenCreateAPIKey creates new api key for generated api.
@@ -6936,6 +6973,11 @@ func (s *Service) TestSetNow(now func() time.Time) {
 	s.nowFn = now
 }
 
+// TestSetAuditableAPIKeyProjects is used in tests to set the list of projects that can be audited via API keys.
+func (s *Service) TestSetAuditableAPIKeyProjects(list map[string]struct{}) {
+	s.auditableAPIKeyProjects = list
+}
+
 // TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.
 func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 	s.config.SatelliteManagedEncryptionEnabled = b
@@ -6985,7 +7027,7 @@ func (s *Service) ValidateFreeFormFieldLengths(values ...*string) error {
 // exceeds the maximum length for long form fields.
 func (s *Service) ValidateLongFormInputLengths(values ...*string) error {
 	for _, value := range values {
-		if value != nil && len(*value) > s.config.MaxLongFormFieldCharacters {
+		if value != nil && utf8.RuneCountInString(*value) > s.config.MaxLongFormFieldCharacters {
 			return ErrValidation.New("field length exceeds maximum length %d", s.config.MaxLongFormFieldCharacters)
 		}
 	}

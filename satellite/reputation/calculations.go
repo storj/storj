@@ -5,20 +5,6 @@ package reputation
 
 import "math"
 
-// UpdateReputation uses the Beta distribution model to determine a node's reputation.
-// lambda is the "forgetting factor" which determines how much past info is kept when determining current reputation score.
-// w is the normalization weight that affects how severely new updates affect the current reputation distribution.
-func UpdateReputation(isSuccess bool, alpha, beta, lambda, w float64) (newAlpha, newBeta float64) {
-	// v is a single feedback value that allows us to update both alpha and beta
-	var v float64 = -1
-	if isSuccess {
-		v = 1
-	}
-	newAlpha = lambda*alpha + w*(1+v)/2
-	newBeta = lambda*beta + w*(1-v)/2
-	return newAlpha, newBeta
-}
-
 // UpdateReputationMultiple works like UpdateReputation, but applies multiple
 // successive counts of an event type to the alpha and beta measures.
 //

@@ -51,7 +51,7 @@ func TestAuditCollector(t *testing.T) {
 		ul := planet.Uplinks[0]
 
 		// upload 5 remote files with 1 segment
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			testData := testrand.Bytes(8 * memory.KiB)
 			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
@@ -66,7 +66,8 @@ func TestAuditCollector(t *testing.T) {
 		observer := audit.NewObserver(zaptest.NewLogger(t), include, satellite.Audit.VerifyQueue, satellite.Config.Audit)
 
 		ranges := rangedloop.NewMetabaseRangeSplitter(zaptest.NewLogger(t), satellite.Metabase.DB, rangedloop.Config{
-			BatchSize: 100,
+			BatchSize:               100,
+			TestingSpannerQueryType: "read",
 		})
 		loop := rangedloop.NewService(zaptest.NewLogger(t), satellite.Config.RangedLoop, ranges, []rangedloop.Observer{observer})
 		_, err = loop.RunOnce(ctx)

@@ -40,8 +40,8 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		testbucket2 := "buckettest2"
 		testfilename := "file.txt"
 		testdata := []byte("fun data")
-		require.NoError(t, uplinkPeer.CreateBucket(ctx, satellitePeer, testbucket1))
-		require.NoError(t, uplinkPeer.CreateBucket(ctx, satellitePeer, testbucket2))
+		require.NoError(t, uplinkPeer.TestingCreateBucket(ctx, satellitePeer, testbucket1))
+		require.NoError(t, uplinkPeer.TestingCreateBucket(ctx, satellitePeer, testbucket2))
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket1, testfilename, testdata))
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket2, testfilename, testdata))
 		data, err := uplinkPeer.Download(ctx, satellitePeer, testbucket1, testfilename)
@@ -133,8 +133,8 @@ func TestSetPermission_Uplink(t *testing.T) {
 		testfilename1 := "file1.txt"
 		testfilename2 := "file2.txt"
 		testdata := []byte("fun data")
-		require.NoError(t, uplinkPeer.CreateBucket(ctx, satellitePeer, testbucket1))
-		require.NoError(t, uplinkPeer.CreateBucket(ctx, satellitePeer, testbucket2))
+		require.NoError(t, uplinkPeer.TestingCreateBucket(ctx, satellitePeer, testbucket1))
+		require.NoError(t, uplinkPeer.TestingCreateBucket(ctx, satellitePeer, testbucket2))
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket1, testfilename1, testdata))
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket2, testfilename1, testdata))
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket2, testfilename2, testdata))

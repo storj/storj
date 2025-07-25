@@ -221,7 +221,7 @@ func TestServer_Stats(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
-		require.NoError(t, planet.Uplinks[0].FullCreateBucket(ctx, sat, "test"))
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, sat, "test"))
 
 		count := 0
 		sat.API.Server.Stats(func(key monkit.SeriesKey, field string, val float64) {

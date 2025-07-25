@@ -506,7 +506,7 @@ func TestDisableRateLimit(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		satellite := planet.Satellites[0]
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test-bucket"))
 
 		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
 			State: tls.ConnectionState{
@@ -564,7 +564,7 @@ func TestRateLimit_Disabled(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i <= rateLimit; i++ {
 			group.Go(func() error {
-				return ul.CreateBucket(ctx, satellite, testrand.BucketName())
+				return ul.TestingCreateBucket(ctx, satellite, testrand.BucketName())
 			})
 		}
 		groupErrs := group.Wait()

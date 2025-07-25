@@ -266,7 +266,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		t.Run("validate metadata size", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
-			err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err = planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			params := metaclient.BeginObjectParams{
@@ -401,7 +401,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 
 			up := planet.Uplinks[0]
 
-			err := up.CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err := up.TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			data := testrand.Bytes(1 * memory.KiB)
@@ -474,7 +474,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		t.Run("stable upload id", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
-			err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err = planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			beginResp, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
@@ -539,7 +539,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		t.Run("validate encrypted object key length", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			params := metaclient.BeginObjectParams{
@@ -667,7 +667,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		t.Run("begin expired object", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 			require.NoError(t, err)
 
 			params := metaclient.BeginObjectParams{
@@ -886,7 +886,7 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, project)
 
-		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		err = planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 		require.NoError(t, err)
 
 		limit := 2 * memory.KB
@@ -1016,7 +1016,7 @@ func TestEndpoint_BeginObject_MaxObjectTTL(t *testing.T) {
 
 		bucketName := "testbucket"
 
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		err := planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
 		require.NoError(t, err)
 
 		t.Run("object upload with max object ttl", func(t *testing.T) {
@@ -1394,7 +1394,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		t.Run("get object IP", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 
 			access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
 			uplnk := planet.Uplinks[0]
@@ -1857,7 +1857,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 		t.Run("DownloadObject no lite request", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("bucket"))
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "bucket"))
 
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "lite-object", testrand.Bytes(11*memory.KiB))
 			require.NoError(t, err)
@@ -1895,7 +1895,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 		t.Run("DownloadObject lite request", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("bucket"))
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "bucket"))
 
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "lite-object", testrand.Bytes(11*memory.KiB))
 			require.NoError(t, err)
@@ -1944,7 +1944,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		t.Run("upload while RS changes", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("bucket"))
 
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "bucket"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "bucket"))
 
 			endpoint := planet.Satellites[0].Metainfo.Endpoint
 
@@ -2671,7 +2671,7 @@ func TestListObjectDuplicates(t *testing.T) {
 
 		const amount = 11
 
-		require.NoError(t, u.CreateBucket(ctx, s, "test"))
+		require.NoError(t, u.TestingCreateBucket(ctx, s, "test"))
 
 		prefixes := []string{"", "aprefix/"}
 
@@ -2836,7 +2836,7 @@ func TestListUploads(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
-		require.NoError(t, u.CreateBucket(ctx, s, "testbucket"))
+		require.NoError(t, u.TestingCreateBucket(ctx, s, "testbucket"))
 
 		for i := 0; i < 10; i++ {
 			_, err := project.BeginUpload(ctx, "testbucket", "object"+strconv.Itoa(i), nil)
@@ -2992,14 +2992,6 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
-		createBucket := func(name string) error {
-			_, err := satelliteSys.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
-				Header: &pb.RequestHeader{ApiKey: apiKey},
-				Name:   []byte(name),
-			})
-			return err
-		}
-
 		deleteBucket := func(name string) func() error {
 			return func() error {
 				_, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.DeleteBucketRequest{
@@ -3014,8 +3006,7 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		t.Run("object with 2 versions", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			require.NoError(t, createBucket(bucketName))
-
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
 
 			state, err := planet.Satellites[0].API.Buckets.Service.GetBucketVersioningState(ctx, []byte(bucketName), projectID)
@@ -3077,7 +3068,7 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		t.Run("listing objects, different versioning state", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 
 			err = planet.Uplinks[0].Upload(ctx, satelliteSys, bucketName, "objectA", testrand.Bytes(100))
 			require.NoError(t, err)
@@ -3115,7 +3106,8 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		t.Run("check UploadID for versioned bucket", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
+
 			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
 
 			response, err := satelliteSys.API.Metainfo.Endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
@@ -3151,7 +3143,8 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		t.Run("listing objects, all versions, version cursor handling", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
+
 			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
 
 			expectedVersions := [][]byte{}
@@ -3205,7 +3198,8 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		t.Run("get objects with delete marker", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
+
 			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
 
 			// upload first version of the item
@@ -3245,7 +3239,7 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 		t.Run("begin copy object from older version", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			require.NoError(t, createBucket(bucketName))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte(bucketName), projectID))
 
 			objectKeyA := "test-object-a"
@@ -3292,8 +3286,9 @@ func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 			defer ctx.Check(deleteBucket("unversioned"))
 			defer ctx.Check(deleteBucket("versioned"))
 
-			require.NoError(t, createBucket("unversioned"))
-			require.NoError(t, createBucket("versioned"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "unversioned"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "versioned"))
+
 			require.NoError(t, planet.Satellites[0].API.Buckets.Service.EnableBucketVersioning(ctx, []byte("versioned"), projectID))
 
 			_, err := planet.Uplinks[0].UploadWithOptions(ctx, satelliteSys, "unversioned", "object-key", testrand.Bytes(100), nil)
@@ -6673,13 +6668,9 @@ func TestListObjects_ArbitraryPrefix(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
 		bucketName := "test-bucket"
 
-		_, err := satellite.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
-			Header: &pb.RequestHeader{ApiKey: apiKey},
-			Name:   []byte(bucketName),
-		})
-		require.NoError(t, err)
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
 
-		err = planet.Uplinks[0].Upload(ctx, satellite, bucketName, "photos/2023/image1.jpg", testrand.Bytes(100))
+		err := planet.Uplinks[0].Upload(ctx, satellite, bucketName, "photos/2023/image1.jpg", testrand.Bytes(100))
 		require.NoError(t, err)
 		err = planet.Uplinks[0].Upload(ctx, satellite, bucketName, "photos/2023/image2.jpg", testrand.Bytes(100))
 		require.NoError(t, err)
@@ -6778,7 +6769,7 @@ func TestDownloadObject_DownloadSegment_ServerSideCopy(t *testing.T) {
 
 		now := time.Now()
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test"))
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test", "remote", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test", "inline", testrand.Bytes(500))
@@ -7075,7 +7066,7 @@ func TestDownloadObject_DownloadSegment_DesiredNodes(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
 		endpoint := planet.Satellites[0].API.Metainfo.Endpoint
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "test"))
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test", "remote", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 

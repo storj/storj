@@ -28,9 +28,10 @@ type objectsIterator struct {
 	batchSize   int
 	recursive   bool
 
-	includeCustomMetadata bool
-	includeSystemMetadata bool
-	includeETag           bool
+	includeCustomMetadata       bool
+	includeSystemMetadata       bool
+	includeETag                 bool
+	includeETagOrCustomMetadata bool
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -81,9 +82,10 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 		batchSize:   opts.BatchSize,
 		recursive:   opts.Recursive,
 
-		includeCustomMetadata: opts.IncludeCustomMetadata,
-		includeSystemMetadata: opts.IncludeSystemMetadata,
-		includeETag:           opts.IncludeETag,
+		includeCustomMetadata:       opts.IncludeCustomMetadata,
+		includeSystemMetadata:       opts.IncludeSystemMetadata,
+		includeETag:                 opts.IncludeETag,
+		includeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
 
 		curIndex: 0,
 		cursor:   cursor,
@@ -128,9 +130,10 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter,
 		batchSize:   opts.BatchSize,
 		recursive:   opts.Recursive,
 
-		includeCustomMetadata: opts.IncludeCustomMetadata,
-		includeSystemMetadata: opts.IncludeSystemMetadata,
-		includeETag:           opts.IncludeETag,
+		includeCustomMetadata:       opts.IncludeCustomMetadata,
+		includeSystemMetadata:       opts.IncludeSystemMetadata,
+		includeETag:                 opts.IncludeETag,
+		includeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
 
 		curIndex: 0,
 		cursor:   cursor,
@@ -162,9 +165,10 @@ func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts Itera
 		batchSize:   opts.BatchSize,
 		recursive:   true,
 
-		includeCustomMetadata: true,
-		includeSystemMetadata: true,
-		includeETag:           true,
+		includeCustomMetadata:       true,
+		includeSystemMetadata:       true,
+		includeETag:                 true,
+		includeETagOrCustomMetadata: false,
 
 		pending: true,
 
@@ -530,7 +534,7 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 			,fixed_segment_size`
 	}
 
-	if it.includeCustomMetadata || it.includeETag {
+	if it.includeCustomMetadata || it.includeETag || it.includeETagOrCustomMetadata {
 		querySelectFields += `
 			,encrypted_metadata_nonce
 			,encrypted_metadata_encrypted_key`
@@ -544,6 +548,12 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 	if it.includeETag {
 		querySelectFields += `
 			,encrypted_etag`
+	}
+
+	if it.includeETagOrCustomMetadata {
+		querySelectFields += `
+			, encrypted_etag IS NOT NULL AS is_encrypted_etag
+			, COALESCE(encrypted_etag, encrypted_metadata) AS etag_or_metadata`
 	}
 
 	return querySelectFields
@@ -564,7 +574,7 @@ func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag
+				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
@@ -589,7 +599,7 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag
+				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key)
@@ -632,7 +642,7 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 		)
 	}
 
-	if it.includeCustomMetadata || it.includeETag {
+	if it.includeCustomMetadata || it.includeETag || it.includeETagOrCustomMetadata {
 		fields = append(fields,
 			&item.EncryptedMetadataNonce,
 			&item.EncryptedMetadataEncryptedKey,
@@ -651,11 +661,35 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 		)
 	}
 
-	err = it.curRows.Scan(fields...)
+	var isEncryptedETag bool
+	var etagOrMetadata []byte
 
+	if it.includeETagOrCustomMetadata {
+		fields = append(fields,
+			&isEncryptedETag,
+			&etagOrMetadata,
+		)
+	}
+
+	err = it.curRows.Scan(fields...)
 	if err != nil {
 		return err
 	}
+
+	if it.includeETagOrCustomMetadata {
+		if isEncryptedETag {
+			item.EncryptedETag = etagOrMetadata
+			if !it.includeCustomMetadata {
+				item.EncryptedMetadata = nil
+			}
+		} else {
+			item.EncryptedMetadata = etagOrMetadata
+			if !it.includeETag {
+				item.EncryptedETag = nil
+			}
+		}
+	}
+
 	return nil
 }
 

@@ -138,8 +138,6 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 	planetUplink.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
 	for j, satellite := range planet.Satellites {
-		consoleAPI := satellite.API.Console
-
 		var config UplinkConfig
 		if planet.config.Reconfigure.Uplink != nil {
 			planet.config.Reconfigure.Uplink(log, index, &config)
@@ -164,11 +162,7 @@ func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger,
 			return nil, errs.Wrap(err)
 		}
 
-		userCtx, err := satellite.UserContext(ctx, user.ID)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root", config.APIKeyVersion)
+		apiKey, err := satellite.CreateAPIKey(ctx, project.ID, project.OwnerID, config.APIKeyVersion)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -286,7 +280,7 @@ func (client *Uplink) UploadWithOptions(ctx context.Context, satellite *Satellit
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	err = client.CreateBucket(ctx, satellite, bucketName)
+	err = client.TestingCreateBucket(ctx, satellite, bucketName)
 	if err != nil && !buckets.ErrBucketAlreadyExists.Has(err) {
 		return nil, errs.Wrap(err)
 	}
@@ -405,9 +399,9 @@ func (client *Uplink) CopyObject(ctx context.Context, satellite *Satellite, oldB
 	return err
 }
 
-// CreateBucket creates a new bucket. It's doing it using directly DB API
-// so it's faster than using uplink API.
-func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
+// TestingCreateBucket creates a new bucket for testing.
+// It's doing it using directly DB API so it avoids a lot of overhead from uplink and satellite.
+func (client *Uplink) TestingCreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var projectID uuid.UUID
@@ -423,16 +417,15 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bu
 	}
 
 	_, err = satellite.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-		Name:      bucketName,
-		ProjectID: projectID,
+		Name:       bucketName,
+		ProjectID:  projectID,
+		Versioning: buckets.Unversioned,
 	})
 	return errs.Wrap(err)
 }
 
-// FullCreateBucket creates a new bucket. It doing it using uplink API.
-// TODO we may consider later to rename it to CreateBucket and current
-// CreateBucket rename to CreateBucketFast or something like that.
-func (client *Uplink) FullCreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
+// CreateBucket creates a new bucket. It's doing it using uplink API.
+func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bucketName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	project, err := client.GetProject(ctx, satellite)

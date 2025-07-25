@@ -55,7 +55,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 			node.Contact.Chore.Pause(ctx)
 		}
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket"))
 		defaultLocation := location.Poland
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
@@ -180,7 +180,7 @@ func TestSegmentRepairInMemoryUpload(t *testing.T) {
 		},
 		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
 		expectedData := testrand.Bytes(5 * memory.KiB)
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", expectedData)
@@ -276,8 +276,8 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 		{
 			// create two buckets: one normal, one with placement=10
 
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "generic"))
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "selected"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "generic"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "selected"))
 
 			_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
@@ -378,7 +378,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 			node.Contact.Chore.Pause(ctx)
 		}
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
@@ -469,7 +469,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 			node.Contact.Chore.Pause(ctx)
 		}
 
-		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket"))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
@@ -625,7 +625,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 		require.NoError(t, err)
 
 		{
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket1"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket1"))
 			_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Name:      "testbucket1",
@@ -633,7 +633,7 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket2"))
+			require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket2"))
 			_, err = planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Name:      "testbucket2",

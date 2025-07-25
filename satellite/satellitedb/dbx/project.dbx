@@ -381,6 +381,8 @@ read one (
 model api_key_tail (
 	key tail
 
+	// root_key_id is the id of the root api_key that this tail is a child of.
+	field root_key_id  api_key.id cascade ( nullable )
 	// tail of the current macaroon.
 	field  tail        blob
 	// parent_tail is a tail of the parent macaroon.
@@ -388,11 +390,11 @@ model api_key_tail (
 	// caveat is restriction applied to a macaroon.
 	field  caveat      blob
 	// last_used indicates when the macaroon was last used.
-	field  last_used   timestamp (updatable)
+	field  last_used   timestamp ( updatable )
 )
 
-create api_key_tail ( )
-update api_key_tail (
+create api_key_tail ( replace )
+read one (
+	select api_key_tail
 	where api_key_tail.tail = ?
-	noreturn
 )

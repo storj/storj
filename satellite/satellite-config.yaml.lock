@@ -640,6 +640,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # amount of base units of US micro dollars needed to upgrade user's tier status
 # console.user-balance-for-upgrade: 10000000
 
+# whether user feedback is enabled
+# console.user-feedback-enabled: false
+
 # url link to Valdi sign up page
 # console.valdi-sign-up-url: ""
 
@@ -1389,6 +1392,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
+
+# whether to include SKU in the invoice item description
+# payments.stripe-coin-payments.inv-item-sku-in-description: true
 
 # the maximum number of concurrent Stripe API calls in invoicing methods
 # payments.stripe-coin-payments.max-parallel-calls: 10
