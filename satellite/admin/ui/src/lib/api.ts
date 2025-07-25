@@ -379,14 +379,15 @@ export class Admin {
 			},
 			{
 				name: 'update user kind',
-				desc: 'Set the kind of user to either 0 (Free User) or 1 (Paid User)',
+				desc: 'Set the kind of user to either 0 (Free User), 1 (Paid User) or 2 (NFR User)',
 				params: [
 					['email', new InputText('email', true)],
 					[
 						'kind',
 						new Select(false, true, [
 							{ text: 'Free User', value: 0 },
-							{ text: 'Paid User', value: 1 }
+							{ text: 'Paid User', value: 1 },
+							{ text: 'NFR User', value: 2 }
 						])
 					]
 				],

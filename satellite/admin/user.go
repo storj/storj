@@ -541,8 +541,8 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 		}
 
 		kind = console.UserKind(i)
-		if kind != console.FreeUser && kind != console.PaidUser {
-			sendJSONError(w, fmt.Sprintf("invalid user kind %d. Valid values are %d (FreeUser) and %d (PaidUser)", kind, console.FreeUser, console.PaidUser),
+		if kind > console.NFRUser || kind < console.FreeUser {
+			sendJSONError(w, fmt.Sprintf("invalid user kind %d. Valid values are %d (FreeUser), %d (PaidUser) and %d (NFRUser)", kind, console.FreeUser, console.PaidUser, console.NFRUser),
 				"", http.StatusBadRequest)
 			return
 		}

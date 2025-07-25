@@ -372,6 +372,22 @@ func TestUserKindUpdate(t *testing.T) {
 			require.NotEqual(t, user.Kind, updatedUser.Kind)
 			require.Equal(t, updatedUser.Kind, console.PaidUser)
 			require.NotNil(t, updatedUser.UpgradeTime)
+
+			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.NFRUser)
+			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, updatedUser.Kind, console.NFRUser)
+
+			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.FreeUser)
+			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, updatedUser.Kind, console.FreeUser)
 		})
 
 		t.Run("invalid value", func(t *testing.T) {
@@ -380,7 +396,7 @@ func TestUserKindUpdate(t *testing.T) {
 			require.Contains(t, string(responseBody), "invalid user kind. int required")
 		})
 
-		t.Run("invalid status", func(t *testing.T) {
+		t.Run("invalid kind", func(t *testing.T) {
 			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.UserKind(100))
 			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
 			require.Contains(t, string(responseBody), "invalid user kind 100")
