@@ -550,10 +550,27 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 
 	updateRequest := console.UpdateUserRequest{}
 	updateRequest.Kind = &kind
+	projectLimit := server.console.UsageLimits.Project.Free
+	storageLimit := server.console.UsageLimits.Storage.Free.Int64()
+	bandwidthLimit := server.console.UsageLimits.Bandwidth.Free.Int64()
+	segmentLimit := server.console.UsageLimits.Segment.Free
 	if kind == console.PaidUser {
 		now := server.nowFn()
 		updateRequest.UpgradeTime = &now
+		projectLimit = server.console.UsageLimits.Project.Paid
+		storageLimit = server.console.UsageLimits.Storage.Paid.Int64()
+		bandwidthLimit = server.console.UsageLimits.Bandwidth.Paid.Int64()
+		segmentLimit = server.console.UsageLimits.Segment.Paid
+	} else if kind == console.NFRUser {
+		projectLimit = server.console.UsageLimits.Project.Nfr
+		storageLimit = server.console.UsageLimits.Storage.Nfr.Int64()
+		bandwidthLimit = server.console.UsageLimits.Bandwidth.Nfr.Int64()
+		segmentLimit = server.console.UsageLimits.Segment.Nfr
 	}
+	updateRequest.ProjectLimit = &projectLimit
+	updateRequest.ProjectStorageLimit = &storageLimit
+	updateRequest.ProjectBandwidthLimit = &bandwidthLimit
+	updateRequest.ProjectSegmentLimit = &segmentLimit
 
 	code, errMsg, details := server.updateUserData(ctx, email, updateRequest)
 	if code != 0 {

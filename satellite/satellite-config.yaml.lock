@@ -613,11 +613,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 25.00 GB
 
+# the default NFR bandwidth usage limit
+# console.usage-limits.bandwidth.nfr: 15.00 TB
+
 # the default paid-tier bandwidth usage limit
 # console.usage-limits.bandwidth.paid: 150.00 TB
 
 # the default free-tier project limit
 # console.usage-limits.project.free: 1
+
+# the default NFR project limit
+# console.usage-limits.project.nfr: 1
 
 # the default paid-tier project limit
 # console.usage-limits.project.paid: 3
@@ -625,11 +631,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the default free-tier segment usage limit
 # console.usage-limits.segment.free: 10000
 
+# the default NFR segment usage limit
+# console.usage-limits.segment.nfr: 10000000
+
 # the default paid-tier segment usage limit
 # console.usage-limits.segment.paid: 100000000
 
 # the default free-tier storage usage limit
 # console.usage-limits.storage.free: 25.00 GB
+
+# the default NFR storage usage limit
+# console.usage-limits.storage.nfr: 10.00 TB
 
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 100.00 TB

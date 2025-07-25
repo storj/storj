@@ -358,6 +358,7 @@ func TestUserKindUpdate(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		consoleConfig := planet.Satellites[0].Config.Console
 		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 		require.Equal(t, console.FreeUser, user.Kind)
@@ -371,6 +372,10 @@ func TestUserKindUpdate(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, user.Kind, updatedUser.Kind)
 			require.Equal(t, updatedUser.Kind, console.PaidUser)
+			require.Equal(t, updatedUser.ProjectLimit, consoleConfig.UsageLimits.Project.Paid)
+			require.Equal(t, updatedUser.ProjectStorageLimit, consoleConfig.UsageLimits.Storage.Paid.Int64())
+			require.Equal(t, updatedUser.ProjectBandwidthLimit, consoleConfig.UsageLimits.Bandwidth.Paid.Int64())
+			require.Equal(t, updatedUser.ProjectSegmentLimit, consoleConfig.UsageLimits.Segment.Paid)
 			require.NotNil(t, updatedUser.UpgradeTime)
 
 			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.NFRUser)
@@ -380,6 +385,10 @@ func TestUserKindUpdate(t *testing.T) {
 			updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Equal(t, updatedUser.Kind, console.NFRUser)
+			require.Equal(t, updatedUser.ProjectLimit, consoleConfig.UsageLimits.Project.Nfr)
+			require.Equal(t, updatedUser.ProjectStorageLimit, consoleConfig.UsageLimits.Storage.Nfr.Int64())
+			require.Equal(t, updatedUser.ProjectBandwidthLimit, consoleConfig.UsageLimits.Bandwidth.Nfr.Int64())
+			require.Equal(t, updatedUser.ProjectSegmentLimit, consoleConfig.UsageLimits.Segment.Nfr)
 
 			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.FreeUser)
 			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
@@ -388,6 +397,10 @@ func TestUserKindUpdate(t *testing.T) {
 			updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Equal(t, updatedUser.Kind, console.FreeUser)
+			require.Equal(t, updatedUser.ProjectLimit, consoleConfig.UsageLimits.Project.Free)
+			require.Equal(t, updatedUser.ProjectStorageLimit, consoleConfig.UsageLimits.Storage.Free.Int64())
+			require.Equal(t, updatedUser.ProjectBandwidthLimit, consoleConfig.UsageLimits.Bandwidth.Free.Int64())
+			require.Equal(t, updatedUser.ProjectSegmentLimit, consoleConfig.UsageLimits.Segment.Free)
 		})
 
 		t.Run("invalid value", func(t *testing.T) {
