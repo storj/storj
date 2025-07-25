@@ -5,6 +5,7 @@ package mud
 
 import (
 	"context"
+	"slices"
 )
 
 // RegisterImplementation registers the implementation interface, without adding concrete implementation.
@@ -37,11 +38,6 @@ func Implementation[L ~[]T, Instance any, T any](ball *Ball) {
 func ImplementationOf[L ~[]T, T any](ball *Ball) ComponentSelector {
 	component := MustLookupComponent[L](ball)
 	return func(c *Component) bool {
-		for _, dep := range component.requirements {
-			if dep == c.target {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(component.requirements, c.target)
 	}
 }
