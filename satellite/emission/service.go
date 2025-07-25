@@ -72,7 +72,6 @@ type Row [modalityCount]Val
 type CalculationInput struct {
 	AmountOfDataInTB float64       // The amount of data in terabytes or terabyte-duration.
 	Duration         time.Duration // The Duration over which the data is measured.
-	IsTBDuration     bool          // true if AmountOfDataInTB is in terabytes-duration, false if in terabytes.
 }
 
 // CalculateImpact calculates emission impact coming from different sources e.g. Storj, hyperscaler or corporateDC.
@@ -358,11 +357,6 @@ func prepareEffectiveCarbonPerByteRow(carbonTotalPerByteRow, utilizationRow *Row
 
 func prepareTotalCarbonRow(input *CalculationInput, effectiveCarbonPerByteRow, expansionFactorRow, regionCountRow *Row, timeStored Val) *Row {
 	amountOfData := byteUnit.Value(input.AmountOfDataInTB / tbToBytesMultiplier)
-
-	// We don't include timeStored amount value if data type is already TB-duration.
-	if input.IsTBDuration {
-		timeStored = hour.Value(1)
-	}
 
 	row := new(Row)
 	for modality := 0; modality < modalityCount; modality++ {

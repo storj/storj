@@ -53,7 +53,7 @@ var (
 )
 
 const (
-	// hoursPerMonth is the number of months in a billing month. For the purpose of billing, the billing month is always 30 days.
+	// hoursPerMonth is the number of months in a billing month. For the purpose of billing, a byte*month's month is always 30 days.
 	hoursPerMonth = 24 * 30
 
 	storageInvoiceItemDesc = " - Storage (MB-Month)"
@@ -1545,10 +1545,38 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			}
 		}
 
+		// Okay, this is a bit confusing. For the purposes of billing, the unit we
+		// bill in is MB*months, where the month is a standard 30 day unit.
+		// However, for the purposes of carbon impact, we actually care about the
+		// real time line, and the average amount of bytes stored during that time.
+		//
+		// think about it this way - let's say a person has 1TB of data just sitting
+		// in their account. in April, the person will use 1 TB*month, but in March,
+		// that person will use 31/30 TB*month, and in February on a leap year, that
+		// person will use 29/30 TB*month. (where again, above, the term "month"
+		// means 30 days).
+		//
+		// for the carbon impact, in February, March, and April, we want to say the
+		// person stored 1 TB. Not a varying amount of TB. And we want to say how
+		// long the person stored the TB for (either 29 days, 30, or 31). So, we
+		// need to care about the real month length, and the average amount of bytes
+		// stored during that real month length.
+		//
+		// we'll start with the real month length:
+		realTimeElapsed := end.Sub(start)
+		// To make things "simpler", let's convert totalStorage from
+		// MB*30days to MB*hours.
+		totalStorageMBHours := float64(totalStorage) * hoursPerMonth
+		// now, to figure out the average amount of MB used for a given time range,
+		// we will divide the totalStorageMBHours by the real number of hours.
+		realTimeElapsedHours := realTimeElapsed.Seconds() / (60 * 60)
+		averageMB := totalStorageMBHours / realTimeElapsedHours
+
+		// okay now we can calculate in a way that will be correct for february,
+		// march, and april.
 		impact, err := service.emission.CalculateImpact(&emission.CalculationInput{
-			AmountOfDataInTB: float64(totalStorage * hoursPerMonth / 1000000), // convert MB-month to TB-hour.
-			Duration:         time.Hour * hoursPerMonth,
-			IsTBDuration:     true,
+			AmountOfDataInTB: averageMB / 1000 / 1000,
+			Duration:         realTimeElapsed,
 		})
 		if err != nil {
 			return nil, err

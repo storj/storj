@@ -3370,7 +3370,6 @@ func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*
 	impact, err := s.emission.CalculateImpact(&emission.CalculationInput{
 		AmountOfDataInTB: dataInTB,
 		Duration:         period,
-		IsTBDuration:     false,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
