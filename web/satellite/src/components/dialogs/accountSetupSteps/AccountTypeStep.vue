@@ -100,14 +100,22 @@
 
                             <p class="text-body-2 my-2">
                                 <v-icon :icon="Check" size="14" class="mr-2" />
-                                Storage as low as {{ storagePrice }}
+                                Storage as low as {{ storageLabel }}
                             </p>
 
                             <v-divider />
 
                             <p class="text-body-2 my-2">
                                 <v-icon :icon="Check" size="14" class="mr-2" />
-                                Download bandwidth as low as {{ egressPrice }}
+                                {{ downloadLabel }}
+                                <v-tooltip v-if="downloadInfo" top max-width="300px">
+                                    <template #activator="{ props }">
+                                        <span v-bind="props" class="ml-1">
+                                            <v-icon :icon="Info" size="14" />
+                                        </span>
+                                    </template>
+                                    <span>{{ downloadInfo }}</span>
+                                </v-tooltip>
                             </p>
 
                             <v-divider />
@@ -152,17 +160,19 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/components';
-import { ArrowRight, Check, ChevronLeft } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { VBtn, VCard, VCol, VContainer, VDivider, VIcon, VRow, VTooltip } from 'vuetify/components';
+import { ArrowRight, Check, ChevronLeft, Info } from 'lucide-vue-next';
+import { computed, onBeforeMount, ref } from 'vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const billingStore = useBillingStore();
 const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 const emit = defineEmits<{
     freeClick: [];
@@ -180,5 +190,31 @@ const minimumCharge = computed(() => configStore.minimumCharge);
 
 const isAfterStartDate = computed(() => {
     return minimumCharge.value.startDate && new Date() >= minimumCharge.value.startDate;
+});
+
+const storageLabel = ref<string>(storagePrice.value);
+const downloadLabel = ref<string>(`Download bandwidth as low as ${egressPrice.value}`);
+const downloadInfo = ref<string>('');
+
+onBeforeMount(async () => {
+    try {
+        const partner = usersStore.state.user.partner;
+        const config = (await import('@/configs/upgradeConfig.json')).default;
+        if (partner && config[partner]) {
+            if (config[partner].storagePriceInfo) {
+                storageLabel.value = config[partner].storagePriceInfo;
+            }
+
+            if (config[partner].downloadInfo) {
+                downloadLabel.value = config[partner].downloadInfo;
+            }
+
+            if (config[partner].downloadMoreInfo) {
+                downloadInfo.value = config[partner].downloadMoreInfo;
+            }
+        }
+    } catch {
+        // ignore error.
+    }
 });
 </script>
