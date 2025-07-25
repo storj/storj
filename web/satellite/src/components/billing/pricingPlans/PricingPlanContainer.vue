@@ -24,6 +24,8 @@
                     <p class="font-weight-bold">{{ plan.title }}</p>
                     <!-- eslint-disable-next-line vue/no-v-html -->
                     <p v-html="plan.containerSubtitle" />
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <p v-if="isPartner" v-html="partnerPackageMinimumChargeSubtitle" />
                 </div>
 
                 <div class="py-3 text-center">
@@ -56,6 +58,9 @@ import { VBadge, VBtn, VCard, VIcon } from 'vuetify/components';
 import { ArrowRight, Gift, Sprout, Star } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
+import { useBillingStore } from '@/store/modules/billingStore';
+
+const billingStore = useBillingStore();
 
 const props = defineProps<{
     plan: PricingPlanInfo;
@@ -64,6 +69,8 @@ const props = defineProps<{
 const emit = defineEmits<{
     select: [PricingPlanInfo];
 }>();
+
+const partnerPackageMinimumChargeSubtitle = computed<string>(() => `One-year package${billingStore.minimumChargeMsg}`);
 
 /**
  * Sets the selected pricing plan and displays the pricing plan modal.
