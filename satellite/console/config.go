@@ -66,7 +66,7 @@ type Config struct {
 
 // SatelliteManagedEncryptionConfig contains configurations for Satellite Managed Encryption.
 type SatelliteManagedEncryptionConfig struct {
-	PathEncryptionEnabled bool `help:"indicates whether projects with managed encryption should have path encryption enabled" default:"true"`
+	PathEncryptionEnabled bool `help:"indicates whether projects with managed encryption should have path encryption enabled" default:"false"`
 }
 
 // RestAPIKeysConfig contains configurations for REST API keys.
