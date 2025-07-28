@@ -195,9 +195,6 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		config.Server.DisableQUIC = true
 	}
 
-	// enable the lazy filewalker
-	config.Pieces.EnableLazyFilewalker = true
-
 	if planet.config.Reconfigure.StorageNode != nil {
 		planet.config.Reconfigure.StorageNode(index, &config)
 	}
