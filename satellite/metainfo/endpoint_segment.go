@@ -247,15 +247,13 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// the current list of order limits.
 	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
 	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
-	successTracker := endpoint.successTrackers.GetTracker(peer.ID)
+	dedicatedSuccessTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
+	globalSuccessTracker := endpoint.successTrackers.GetGlobalTracker()
 	isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
 		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
-			successTracker.Increment(orderLimit.Limit.StorageNodeId, false)
-			if isTrusted {
-				endpoint.failureTracker.Increment(orderLimit.Limit.StorageNodeId, false)
-			}
+			endpoint.updateTrackers(ctx, dedicatedSuccessTracker, globalSuccessTracker, isTrusted, orderLimit.Limit.StorageNodeId, false)
 		}
 	}
 
@@ -293,6 +291,20 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		SegmentId:       amendedSegmentID,
 		AddressedLimits: addressedLimits,
 	}, nil
+}
+
+func (endpoint *Endpoint) updateTrackers(ctx context.Context, dedicatedSuccessTracker, globalSuccessTracker SuccessTracker, isTrusted bool, nodeID storj.NodeID, success bool) {
+	if dedicatedSuccessTracker != nil {
+		dedicatedSuccessTracker.Increment(nodeID, success)
+	}
+
+	if endpoint.config.AlwaysUpdateGlobalTracker || dedicatedSuccessTracker == nil {
+		globalSuccessTracker.Increment(nodeID, success)
+	}
+
+	if isTrusted {
+		endpoint.failureTracker.Increment(nodeID, success)
+	}
 }
 
 // CommitSegment commits segment after uploading.
@@ -483,22 +495,17 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	// increment our counters in the success tracker appropriate to the committing uplink
 	{
-		tracker := endpoint.successTrackers.GetTracker(peer.ID)
+		dedicatedTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
+		globalTracker := endpoint.successTrackers.GetGlobalTracker()
 		isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
-			tracker.Increment(piece.NodeId, true)
-			if isTrusted {
-				endpoint.failureTracker.Increment(piece.NodeId, true)
-			}
+			endpoint.updateTrackers(ctx, dedicatedTracker, globalTracker, isTrusted, piece.NodeId, true)
 			validPieceSet[piece.NodeId] = struct{}{}
 		}
 		for _, limit := range originalLimits {
 			if _, ok := validPieceSet[limit.StorageNodeId]; !ok {
-				tracker.Increment(limit.StorageNodeId, false)
-				if isTrusted {
-					endpoint.failureTracker.Increment(limit.StorageNodeId, false)
-				}
+				endpoint.updateTrackers(ctx, dedicatedTracker, globalTracker, isTrusted, limit.StorageNodeId, false)
 			}
 		}
 	}

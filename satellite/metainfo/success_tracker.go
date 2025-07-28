@@ -119,6 +119,20 @@ func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
 	return t.global
 }
 
+// GetDedicatedTracker returns the tracker for the specific uplink. Returns nil
+// if the uplink is not whitelisted.
+func (t *SuccessTrackers) GetDedicatedTracker(uplink storj.NodeID) SuccessTracker {
+	if tracker, ok := t.trackers[uplink]; ok {
+		return tracker
+	}
+	return nil
+}
+
+// GetGlobalTracker returns the global tracker.
+func (t *SuccessTrackers) GetGlobalTracker() SuccessTracker {
+	return t.global
+}
+
 // Get returns a function that can be used to get an estimate of how good a node
 // is for a given uplink.
 func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {

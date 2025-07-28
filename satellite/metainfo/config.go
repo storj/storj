@@ -205,6 +205,7 @@ type Config struct {
 	SuccessTrackerUplinks        []string              `help:"list of uplinks for success tracker"`
 	FailureTrackerChanceToSkip   float64               `help:"the chance to skip a failure tracker generation bump" default:".6"`
 	TrustedUplinks               []string              `help:"list of trusted uplinks"`
+	AlwaysUpdateGlobalTracker    bool                  `help:"if true, always update the global tracker with info, even if the uplink is registered" default:"false"`
 
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`

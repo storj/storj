@@ -1048,6 +1048,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
+# if true, always update the global tracker with info, even if the uplink is registered
+# metainfo.always-update-global-tracker: false
+
 # enable the use of the bucket tagging endpoints
 # metainfo.bucket-tagging-enabled: false
 
