@@ -81,26 +81,35 @@ export const useBillingStore = defineStore('billing', () => {
 
     const segmentPrice = computed(() => formatPrice(decimalShift(configStore.state.config.segmentMonthCents, 2)));
 
-    const proPlanInfo = computed(() => {
+    const minimumChargeLink = '<a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly usage fee</a>';
+
+    const minimumChargeMsg = computed<string>(() => {
         const minimumCharge = configStore.minimumCharge;
-        const minimumChargeAmt = minimumCharge.amount;
-        const minimumChargeLink = '<a href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">minimum monthly usage fee</a>';
-        const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumChargeAmt}.`;
+        const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumCharge.amount}.`;
         // even if startDate is null, priorNoticeEnabled and noticeEnabled will be false
         const isAfterStartDate = new Date() >= (minimumCharge.startDate ?? new Date());
 
-        let subtitle = `Pay-as-you-go`;
+        let subtitle = '';
         if (minimumCharge.priorNoticeEnabled) {
-            subtitle += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
+            subtitle += `. A ${minimumChargeLink} of ${minimumCharge.amount} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
         } else if (minimumCharge.isEnabled) {
             subtitle += `, ${minimumChargeTxt}`;
         } else {
             subtitle += ', no minimum';
         }
 
+        return subtitle;
+    });
+
+    const proPlanInfo = computed(() => {
+        const minimumCharge = configStore.minimumCharge;
+        const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumCharge.amount}.`;
+        // even if startDate is null, priorNoticeEnabled and noticeEnabled will be false
+        const isAfterStartDate = new Date() >= (minimumCharge.startDate ?? new Date());
+
         let activationDesc = 'Add a credit card to activate your account. Only pay for what you use';
         if (minimumCharge.priorNoticeEnabled) {
-            activationDesc += `. A ${minimumChargeLink} of ${minimumChargeAmt} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
+            activationDesc += `. A ${minimumChargeLink} of ${minimumCharge.amount} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.shortStartDateStr}.`;
         } else if (minimumCharge.isEnabled) {
             activationDesc += `, ${minimumChargeTxt}`;
         } else {
@@ -111,8 +120,8 @@ export const useBillingStore = defineStore('billing', () => {
 
         return new PricingPlanInfo(
             PricingPlanType.PRO,
-            'Activated Account',
-            subtitle,
+            'Activate Account',
+            `Pay-as-you-go${minimumChargeMsg.value}`,
             `Pay for what you need. As low as ${storagePrice.value} storage, as low as ${egressPrice.value} for download bandwidth.`,
             `Additional per-segment fee of ${segmentPrice.value} applies.`,
             upgradePayUpfrontAmount.value > 0 ? `Activate account - ${payUpfrontDollars}` : null,
@@ -337,6 +346,7 @@ export const useBillingStore = defineStore('billing', () => {
         state,
         defaultCard,
         proPlanInfo,
+        minimumChargeMsg,
         storagePrice,
         egressPrice,
         segmentPrice,
