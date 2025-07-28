@@ -69,9 +69,9 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @throws Error
      */
-    public async createIntent(amount: number, csrfProtectionToken: string): Promise<string> {
+    public async createIntent(amount: number, withCustomCard: boolean, csrfProtectionToken: string): Promise<string> {
         const path = `${this.ROOT_PATH}/create-intent`;
-        const response = await this.client.post(path, JSON.stringify({ amount }), { csrfProtectionToken });
+        const response = await this.client.post(path, JSON.stringify({ amount, withCustomCard }), { csrfProtectionToken });
 
         const result = await response.json();
         if (response.ok) return result.clientSecret;

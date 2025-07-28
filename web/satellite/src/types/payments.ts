@@ -74,10 +74,11 @@ export interface PaymentsApi {
     /**
      * Creates a payment intent to add funds to the account.
      * @param amount - the amount of funds to add, in cents
+     * @param withCustomCard - indicates if new intent should support a custom card
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    createIntent(amount: number, csrfProtectionToken: string): Promise<string>;
+    createIntent(amount: number, withCustomCard: boolean, csrfProtectionToken: string): Promise<string>;
 
     /**
      * Gets a setup intent secret to set up a card with stripe.

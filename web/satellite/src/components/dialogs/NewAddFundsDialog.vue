@@ -61,7 +61,7 @@
                         <p class="mb-7">Select your payment method:</p>
 
                         <v-select
-                            v-if="creditCards.length > 0"
+                            v-if="creditCards.length > 0 && !customCardForm"
                             v-model="selectedPaymentMethod"
                             label="Payment method"
                             :items="selectValues"
@@ -83,7 +83,10 @@
                         <div id="express-checkout-element">
                             <!-- A Stripe Express Checkout Element will be inserted here. -->
                         </div>
-                        <div id="payment-element">
+                        <v-btn v-if="!customCardForm" variant="outlined" color="default" class="mt-2" block @click="activateCustomCardForm">
+                            Use Another Card
+                        </v-btn>
+                        <div id="payment-element" class="mt-2">
                             <!-- A Stripe Payment Element will be inserted here. -->
                         </div>
                     </v-window-item>
@@ -107,7 +110,7 @@
                     </v-col>
                     <v-col>
                         <v-btn color="primary" variant="flat" block :loading="isLoading" :disabled="!formValid" @click="proceed">
-                            {{ step === Step.Success ? 'Done' : 'Continue' }}
+                            {{ nextButtonLabel }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -140,7 +143,7 @@ import {
 } from 'vuetify/components';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import { Stripe, StripeElementsOptionsMode } from '@stripe/stripe-js';
+import { Stripe, StripeElements, StripeElementsOptionsMode } from '@stripe/stripe-js';
 import { CircleCheckBig } from 'lucide-vue-next';
 import { useTheme } from 'vuetify';
 
@@ -181,6 +184,8 @@ const selectedPaymentMethod = ref<string>();
 const amount = ref<number>(10);
 const isDefaultSelected = ref<boolean>(true);
 const stripe = ref<Stripe | null>(null);
+const customCardForm = ref<boolean>(false);
+const customCardFormElements = ref<StripeElements>();
 
 const amountRules = computed<ValidationRule<string>[]>(() => {
     return [
@@ -205,6 +210,12 @@ const selectValues = computed<SelectValue[]>(() => creditCards.value.map(card =>
     return { title: `${card.brand} **** ${card.last4}`, value: card.id, isDefault: card.isDefault };
 }));
 
+const nextButtonLabel = computed<string>(() => {
+    if (step.value === Step.Success) return 'Done';
+    if (step.value === Step.ConfirmPayment && customCardForm.value) return `Pay $${amount.value}`;
+    return 'Continue';
+});
+
 function onUpdateAmount(value: string): void {
     if (!value) {
         amount.value = 1;
@@ -228,19 +239,27 @@ function proceed(): void {
         return;
     }
 
-    // Regular attached card charge flow.
     withLoading(async () => {
-        if (!selectedPaymentMethod.value) return;
-
         try {
-            const resp = await billingStore.addFunds(selectedPaymentMethod.value, amount.value * 100, ChargeCardIntent.AddFunds);
-            if (resp.success) {
-                notify.success('Payment confirmed! Your account balance will be updated shortly.');
-                step.value = Step.Success;
-            } else if (resp.paymentIntentID && resp.clientSecret) {
-                await handlePaymentConfirmation(resp.clientSecret);
+            if (customCardForm.value) {
+                // Custom card flow.
+                await handleCustomCardPaymentConfirmation();
             } else {
-                notify.error('Failed to add funds', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+                // Regular existing card flow.
+                if (!selectedPaymentMethod.value) {
+                    notify.error('Payment method must be selected', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+                    return;
+                }
+
+                const resp = await billingStore.addFunds(selectedPaymentMethod.value, amount.value * 100, ChargeCardIntent.AddFunds);
+                if (resp.success) {
+                    notify.success('Payment confirmed! Your account balance will be updated shortly.');
+                    step.value = Step.Success;
+                } else if (resp.paymentIntentID && resp.clientSecret) {
+                    await handlePaymentConfirmation(resp.clientSecret);
+                } else {
+                    notify.error('Failed to add funds', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+                }
             }
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
@@ -248,31 +267,103 @@ function proceed(): void {
     });
 }
 
-async function handlePaymentConfirmation(clientSecret: string) {
-    try {
-        if (!stripe.value) {
-            notify.error('Stripe failed to initialize.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
-            return;
-        }
-
-        const { error, paymentIntent } = await stripe.value.confirmCardPayment(
-            clientSecret,
-            { payment_method: selectedPaymentMethod.value },
-        );
-
-        if (error) {
-            notify.error(error.message ?? 'Payment confirmation failed.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
-            return;
-        }
-        if (paymentIntent?.status !== 'succeeded') {
-            notify.warning('Payment confirmation failed.');
-        } else {
-            notify.success('Payment confirmed! Your account balance will be updated shortly.');
-            step.value = Step.Success;
-        }
-    } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+async function handlePaymentConfirmation(clientSecret: string): Promise<void> {
+    if (!stripe.value) {
+        notify.error('Stripe failed to initialize.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+        return;
     }
+
+    const { error, paymentIntent } = await stripe.value.confirmCardPayment(
+        clientSecret,
+        { payment_method: selectedPaymentMethod.value },
+    );
+
+    if (error) {
+        notify.error(error.message ?? 'Payment confirmation failed.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+        return;
+    }
+    if (paymentIntent?.status !== 'succeeded') {
+        notify.warning('Payment confirmation failed.');
+    } else {
+        notify.success('Payment confirmed! Your account balance will be updated shortly.');
+        step.value = Step.Success;
+    }
+}
+
+async function handleCustomCardPaymentConfirmation(): Promise<void> {
+    if (!customCardFormElements.value) {
+        notify.error('Form elements failed to render', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+        return;
+    }
+
+    const { error } = await customCardFormElements.value.submit();
+    if (error) {
+        notify.error(error.message ?? 'Payment confirmation failed.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+        return;
+    }
+
+    await confirmPayment(customCardFormElements.value, true);
+}
+
+async function confirmPayment(elements: StripeElements, withCustomCard: boolean): Promise<void> {
+    if (!stripe.value) {
+        notify.error('Stripe failed to initialize.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+        return;
+    }
+
+    const clientSecret = await billingStore.createIntent(amount.value * 100, withCustomCard);
+
+    const { error: confirmErr, paymentIntent } = await stripe.value.confirmPayment({
+        elements,
+        clientSecret,
+        confirmParams: { return_url: `${window.location.origin}/account/billing` },
+        redirect: 'if_required',
+    });
+    if (confirmErr) {
+        notify.error(confirmErr.message ?? 'Payment confirmation failed.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+        return;
+    }
+    if (paymentIntent?.status !== 'succeeded') {
+        notify.warning('Payment confirmation failed.');
+    } else {
+        notify.success('Payment confirmed! Your account balance will be updated shortly.');
+        step.value = Step.Success;
+    }
+}
+
+// Activates the custom card form and initializes Stripe Elements.
+function activateCustomCardForm(): void {
+    withLoading(async () => {
+        try {
+            if (!stripe.value) {
+                notify.error('Stripe failed to initialize.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+                return;
+            }
+
+            customCardForm.value = true;
+
+            const options: StripeElementsOptionsMode = {
+                appearance: {
+                    theme: theme.global.current.value.dark ? 'night' : 'stripe',
+                    labels: 'floating',
+                },
+                payment_method_types: ['card'],
+                mode: 'payment',
+                amount: amount.value * 100,
+                currency: 'usd',
+            };
+            customCardFormElements.value = stripe.value.elements(options);
+            const paymentElement = customCardFormElements.value.create('payment', {
+                wallets: {
+                    applePay: 'never',
+                    googlePay: 'never',
+                },
+            });
+            paymentElement.mount('#payment-element');
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
+        }
+    });
 }
 
 watch(model, async newVal => {
@@ -287,6 +378,7 @@ watch(model, async newVal => {
         amount.value = 10;
         formValid.value = false;
         step.value = Step.EnterAmount;
+        customCardForm.value = false;
     }
 
     selectedPaymentMethod.value = creditCards.value.find(card => card.isDefault)?.id;
@@ -326,25 +418,8 @@ watch(step, newStep => {
     });
     expressCheckout.on('confirm', () => {
         withLoading(async () => {
-            if (!stripe.value) {
-                notify.error('Stripe failed to initialize.', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
-                return;
-            }
-
             try {
-                const clientSecret = await billingStore.createIntent(amount.value * 100);
-                const { error } = await stripe.value.confirmPayment({
-                    elements,
-                    clientSecret,
-                    confirmParams: { return_url: `${window.location.origin}/account/billing` },
-                    redirect: 'if_required',
-                });
-                if (error) {
-                    notify.error(error.message ?? 'Payment confirmation failed', AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
-                } else {
-                    notify.success('Payment confirmed! Your account balance will be updated shortly.');
-                    step.value = Step.Success;
-                }
+                await confirmPayment(elements, false);
             } catch (error) {
                 notify.notifyError(error, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
             }
