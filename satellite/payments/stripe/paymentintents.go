@@ -69,16 +69,20 @@ func (pi *paymentIntents) Create(ctx context.Context, request payments.CreateInt
 		return "", Error.Wrap(err)
 	}
 
-	intent, err := pi.service.stripeClient.PaymentIntents().New(&stripe.PaymentIntentParams{
+	params := &stripe.PaymentIntentParams{
 		Params:   stripe.Params{Context: ctx},
 		Amount:   stripe.Int64(request.Amount),
 		Customer: stripe.String(customerID),
 		Currency: stripe.String(string(stripe.CurrencyUSD)),
 		Metadata: request.Metadata,
-		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
-			Enabled: stripe.Bool(true),
-		},
-	})
+	}
+	if request.WithCustomCard {
+		params.PaymentMethodTypes = []*string{stripe.String("card")}
+	} else {
+		params.AutomaticPaymentMethods = &stripe.PaymentIntentAutomaticPaymentMethodsParams{Enabled: stripe.Bool(true)}
+	}
+
+	intent, err := pi.service.stripeClient.PaymentIntents().New(params)
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {

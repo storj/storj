@@ -890,14 +890,15 @@ func (p *Payments) CreateIntent(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var params struct {
-		Amount int `json:"amount"` // Amount in cents
+		Amount         int  `json:"amount"` // Amount in cents
+		WithCustomCard bool `json:"withCustomCard"`
 	}
 	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
-	clientSecret, err := p.service.Payments().CreateIntent(ctx, params.Amount)
+	clientSecret, err := p.service.Payments().CreateIntent(ctx, params.Amount, params.WithCustomCard)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

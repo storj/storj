@@ -857,7 +857,7 @@ func (payment Payments) AddFunds(ctx context.Context, params payments.AddFundsPa
 }
 
 // CreateIntent creates a payment intent for adding funds to the user's account.
-func (payment Payments) CreateIntent(ctx context.Context, amount int) (clientSecret string, err error) {
+func (payment Payments) CreateIntent(ctx context.Context, amount int, withCustomCard bool) (clientSecret string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "create payment intent")
@@ -873,9 +873,10 @@ func (payment Payments) CreateIntent(ctx context.Context, amount int) (clientSec
 	}
 
 	clientSecret, err = payment.service.accounts.PaymentIntents().Create(ctx, payments.CreateIntentParams{
-		UserID:   user.ID,
-		Amount:   int64(amount),
-		Metadata: map[string]string{"user_id": user.ID.String(), payments.AddFundsIntent.String(): "1"},
+		UserID:         user.ID,
+		Amount:         int64(amount),
+		Metadata:       map[string]string{"user_id": user.ID.String(), payments.AddFundsIntent.String(): "1"},
+		WithCustomCard: withCustomCard,
 	})
 	if err != nil {
 		return "", Error.Wrap(err)

@@ -28,9 +28,10 @@ type AddFundsParams struct {
 
 // CreateIntentParams holds the parameters needed to create a payment intent.
 type CreateIntentParams struct {
-	UserID   uuid.UUID
-	Amount   int64
-	Metadata map[string]string
+	UserID         uuid.UUID
+	Amount         int64
+	Metadata       map[string]string
+	WithCustomCard bool // Indicates if the intent should be created for processing a custom card.
 }
 
 // ChargeCardRequest is the request to charge a credit card.
