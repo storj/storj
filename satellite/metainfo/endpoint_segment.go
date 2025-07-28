@@ -6,8 +6,10 @@ package metainfo
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
+	monkit "github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -504,6 +506,13 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	// note: we collect transfer stats in CommitSegment instead because in BeginSegment
 	// they would always be MaxSegmentSize (64MiB)
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
+
+	// Track piece-level telemetry for garbage discrepancy analysis
+	placement := storj.PlacementConstraint(streamID.Placement)
+	placementTag := monkit.NewSeriesTag("placement", strconv.FormatInt(int64(placement), 10))
+	mon.IntVal("segment_commit_pieces_successful", placementTag).Observe(int64(len(pieces)))
+	mon.IntVal("segment_commit_pieces_received", placementTag).Observe(int64(len(req.UploadResult)))
+	mon.IntVal("segment_commit_pieces_invalid", placementTag).Observe(int64(len(invalidPieces)))
 
 	mon.Meter("req_commit_segment").Mark(1)
 
