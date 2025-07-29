@@ -925,11 +925,18 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 
 	csrfToken := ""
 	if server.config.CSRFProtectionEnabled {
-		token, err := server.csrfService.SetCookie(w)
-		if err != nil {
-			server.log.Error("Failed to set CSRF cookie", zap.Error(err))
+		existing := server.csrfService.GetCookie(r)
+		if existing != "" {
+			// If the CSRF cookie already exists, use it.
+			// This is to prevent setting a new CSRF token on every request and resolve multi-tab issue.
+			csrfToken = existing
 		} else {
-			csrfToken = token
+			token, err := server.csrfService.SetCookie(w)
+			if err != nil {
+				server.log.Error("Failed to set CSRF cookie", zap.Error(err))
+			} else {
+				csrfToken = token
+			}
 		}
 	}
 

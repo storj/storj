@@ -58,6 +58,7 @@ func (s *Service) SetCookie(w http.ResponseWriter) (token string, err error) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400, // 1 day.
 	}
 
 	if err = cookie.Valid(); err != nil {
@@ -68,6 +69,16 @@ func (s *Service) SetCookie(w http.ResponseWriter) (token string, err error) {
 	http.SetCookie(w, cookie)
 
 	return token, nil
+}
+
+// GetCookie gets parametrized CSRF cookie that is not accessible from js.
+func (s *Service) GetCookie(r *http.Request) string {
+	cookie, err := r.Cookie(CookieName)
+	if err != nil {
+		return ""
+	}
+
+	return cookie.Value
 }
 
 func onError(w http.ResponseWriter) {
