@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
-const maxReservoirSize = 3
+const maxReservoirSize = 10
 
 // Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
