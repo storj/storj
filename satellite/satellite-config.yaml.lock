@@ -295,6 +295,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if billing information tab should be enabled
 # console.billing-information-tab-enabled: false
 
+# whether billing stripe checkout feature is enabled
+# console.billing-stripe-checkout-enabled: false
+
 # url of the transaction block explorer
 # console.block-explorer-url: https://etherscan.io/
 

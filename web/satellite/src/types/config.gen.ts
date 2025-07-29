@@ -76,6 +76,7 @@ export class FrontendConfig {
     objectMountConsultationEnabled: boolean;
     csrfToken: string;
     billingAddFundsEnabled: boolean;
+    billingStripeCheckoutEnabled: boolean;
     addCardAuthorizationEnabled: boolean;
     maxAddFundsAmount: number;
     minAddFundsAmount: number;

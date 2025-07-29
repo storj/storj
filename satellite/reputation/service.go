@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
@@ -151,11 +152,11 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 		}
 		err = service.overlay.UpdateReputation(ctx, nodeID, reputation.Email, *reputationUpdate, repChanges)
 		if err != nil {
-			return err
+			return errs.New("'nodes' table reputation updated failed: %+v. %w", reputationUpdate, err)
 		}
 	}
 
-	return err
+	return nil
 }
 
 // Get returns a node's reputation info from DB.

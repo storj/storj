@@ -196,7 +196,7 @@ type Config struct {
 	FileStatCache        string      `help:"optional type of file stat cache. Might be useful for slow disk and limited memory. Available options: badger (EXPERIMENTAL)"`
 	WritePreallocSize    memory.Size `help:"deprecated" default:"4MiB"`
 	DeleteToTrash        bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
-	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true"`
+	EnableLazyFilewalker bool        `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" default:"true" testDefault:"false"`
 
 	EnableFlatExpirationStore        bool          `help:"use flat files for the piece expiration store instead of a sqlite database" default:"true"`
 	FlatExpirationStoreFileHandles   int           `help:"number of concurrent file handles to use for the flat expiration store" default:"1000"`
@@ -204,7 +204,7 @@ type Config struct {
 	FlatExpirationStoreMaxBufferTime time.Duration `help:"maximum time to buffer writes to the flat expiration store before flushing" default:"5m"`
 	FlatExpirationIncludeSQLite      bool          `help:"use and remove piece expirations from the sqlite database _also_ when the flat expiration store is enabled" default:"true"`
 
-	TrashChoreInterval time.Duration `help:"how often to empty check the trash, and delete old files" default:"24h"`
+	TrashChoreInterval time.Duration `help:"how often to empty check the trash, and delete old files" default:"24h" testDefault:"-1s"`
 }
 
 // DefaultConfig is the default value for the Config.

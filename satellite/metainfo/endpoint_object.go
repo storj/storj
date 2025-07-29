@@ -1460,18 +1460,21 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursorVersion = sv.Version()
 	}
 
-	includeCustomMetadata := true
-	includeSystemMetadata := true
-	includeETag := true
-	includeETagOrCustomMetadata := false
+	var include = includeForObjectEntry{
+		SystemMetadata:       true,
+		CustomMetadata:       true,
+		ETag:                 true,
+		ETagOrCustomMetadata: false,
+	}
+
 	if req.UseObjectIncludes {
-		includeCustomMetadata = req.ObjectIncludes.Metadata
+		include.CustomMetadata = req.ObjectIncludes.Metadata
 		// because multipart upload UploadID depends on some System metadata fields we need
 		// to force reading it for listing pending object when its not included in options.
 		// This is used by libuplink ListUploads method.
-		includeSystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
-		includeETag = req.ObjectIncludes.IncludeEtag
-		includeETagOrCustomMetadata = req.ObjectIncludes.IncludeEtagOrCustomMetadata
+		include.SystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
+		include.ETag = req.ObjectIncludes.IncludeEtag
+		include.ETagOrCustomMetadata = req.ObjectIncludes.IncludeEtagOrCustomMetadata
 	}
 
 	resp = &pb.ObjectListResponse{}
@@ -1501,10 +1504,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Recursive:   req.Recursive,
 				Limit:       limit,
 
-				IncludeCustomMetadata:       includeCustomMetadata,
-				IncludeSystemMetadata:       includeSystemMetadata,
-				IncludeETag:                 includeETag,
-				IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
+				IncludeCustomMetadata:       include.CustomMetadata,
+				IncludeSystemMetadata:       include.SystemMetadata,
+				IncludeETag:                 include.ETag,
+				IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
 
 				Unversioned: bucket.Versioning.IsUnversioned(),
 				Params:      metabase.ListObjectsParams(endpoint.config.ListObjects),
@@ -1514,7 +1517,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 
 		for _, entry := range result.Objects {
-			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, include, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
 			if err != nil {
 				return nil, endpoint.ConvertMetabaseErr(err)
 			}
@@ -1539,14 +1542,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					BatchSize: limit + 1,
 					Pending:   true,
 
-					IncludeCustomMetadata:       includeCustomMetadata,
-					IncludeSystemMetadata:       includeSystemMetadata,
-					IncludeETag:                 includeETag,
-					IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
+					IncludeCustomMetadata:       include.CustomMetadata,
+					IncludeSystemMetadata:       include.SystemMetadata,
+					IncludeETag:                 include.ETag,
+					IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for len(resp.Items) < limit && it.Next(ctx, &entry) {
-						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, include, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
 						if err != nil {
 							return err
 						}
@@ -1577,14 +1580,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						BatchSize: limit + 1,
 						Pending:   false,
 
-						IncludeCustomMetadata:       includeCustomMetadata,
-						IncludeSystemMetadata:       includeSystemMetadata,
-						IncludeETag:                 includeETag,
-						IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
+						IncludeCustomMetadata:       include.CustomMetadata,
+						IncludeSystemMetadata:       include.SystemMetadata,
+						IncludeETag:                 include.ETag,
+						IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						entry := metabase.ObjectEntry{}
 						for len(resp.Items) < limit && it.Next(ctx, &entry) {
-							item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+							item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, include, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
 							if err != nil {
 								return err
 							}
@@ -1614,17 +1617,17 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						Recursive:   req.Recursive,
 						Limit:       limit,
 
-						IncludeCustomMetadata:       includeCustomMetadata,
-						IncludeSystemMetadata:       includeSystemMetadata,
-						IncludeETag:                 includeETag,
-						IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
+						IncludeCustomMetadata:       include.CustomMetadata,
+						IncludeSystemMetadata:       include.SystemMetadata,
+						IncludeETag:                 include.ETag,
+						IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
 					})
 				if err != nil {
 					return nil, endpoint.ConvertMetabaseErr(err)
 				}
 
 				for _, entry := range result.Objects {
-					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, include, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
 					if err != nil {
 						return nil, endpoint.ConvertMetabaseErr(err)
 					}
@@ -1648,14 +1651,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					BatchSize: limit + 1,
 					Pending:   false,
 
-					IncludeCustomMetadata:       includeCustomMetadata,
-					IncludeSystemMetadata:       includeSystemMetadata,
-					IncludeETag:                 includeETag,
-					IncludeETagOrCustomMetadata: includeETagOrCustomMetadata,
+					IncludeCustomMetadata:       include.CustomMetadata,
+					IncludeSystemMetadata:       include.SystemMetadata,
+					IncludeETag:                 include.ETag,
+					IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for len(resp.Items) < limit && it.Next(ctx, &entry) {
-						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+						item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, include, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
 						if err != nil {
 							return err
 						}
@@ -1740,7 +1743,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		options, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true, true, bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", includeAllForObjectEntry(), bucket.Placement, bucket.Versioning == buckets.VersioningEnabled)
 				if err != nil {
 					return err
 				}
@@ -2353,9 +2356,39 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	return result, nil
 }
 
+type includeForObjectEntry struct {
+	SystemMetadata       bool
+	CustomMetadata       bool
+	ETag                 bool
+	ETagOrCustomMetadata bool
+}
+
+func includeAllForObjectEntry() includeForObjectEntry {
+	return includeForObjectEntry{
+		SystemMetadata:       true,
+		CustomMetadata:       true,
+		ETag:                 true,
+		ETagOrCustomMetadata: false, // implied by CustomMetadata and ETag
+	}
+}
+
+func (include *includeForObjectEntry) keyAndNonce(entry *metabase.ObjectEntry) bool {
+	return include.customMetadata(entry) || include.etag(entry)
+}
+
+func (include *includeForObjectEntry) customMetadata(entry *metabase.ObjectEntry) bool {
+	return include.CustomMetadata || (include.ETagOrCustomMetadata && len(entry.EncryptedMetadata) > 0)
+}
+
+func (include *includeForObjectEntry) etag(entry *metabase.ObjectEntry) bool {
+	// we should only include etag when it has been requested and it exists.
+	// this affects when we should also include key and nonce.
+	return (include.ETag || include.ETagOrCustomMetadata) && len(entry.EncryptedETag) > 0
+}
+
 func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte,
 	entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey,
-	includeSystem, includeMetadata bool, placement storj.PlacementConstraint, versioned bool) (item *pb.ObjectListItem, err error) {
+	include includeForObjectEntry, placement storj.PlacementConstraint, versioned bool) (item *pb.ObjectListItem, err error) {
 
 	item = &pb.ObjectListItem{
 		EncryptedObjectKey: []byte(entry.ObjectKey),
@@ -2369,13 +2402,13 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		expiresAt = *entry.ExpiresAt
 	}
 
-	if includeSystem {
+	if include.SystemMetadata {
 		item.ExpiresAt = expiresAt
 		item.CreatedAt = entry.CreatedAt
 		item.PlainSize = entry.TotalPlainSize
 	}
 
-	if includeMetadata {
+	if include.keyAndNonce(&entry) {
 		var nonce storj.Nonce
 		if len(entry.EncryptedMetadataNonce) > 0 {
 			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
@@ -2383,7 +2416,11 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 				return nil, err
 			}
 		}
+		item.EncryptedMetadataNonce = nonce
+		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
+	}
 
+	if include.customMetadata(&entry) {
 		streamMeta := &pb.StreamMeta{}
 		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
 		if err != nil {
@@ -2412,8 +2449,9 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		}
 
 		item.EncryptedMetadata = metadataBytes
-		item.EncryptedMetadataNonce = nonce
-		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
+	}
+
+	if include.etag(&entry) {
 		item.EncryptedEtag = entry.EncryptedETag
 	}
 

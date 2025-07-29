@@ -71,7 +71,7 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 		}
 	}
 
-	mon.IntVal("compressed_batch_response_sizes", monkit.NewSeriesTag("rpc", rpc)).Observe(int64(pb.Size(resp)))
+	mon.IntVal("compressed_batch_response_sizes", monkit.NewSeriesTag("rpc", rpc)).Observe(int64(len(resp.Data)))
 
 	return resp, nil
 }
