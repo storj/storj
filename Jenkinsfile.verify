@@ -45,17 +45,6 @@ pipeline {
                 }
             }
         }
-        stage('Build') {
-            parallel {
-                stage('db') {
-                    steps {
-                        dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                        }
-                    }
-                }
-            }
-        }
 
         stage('Build Web') {
             // The build code depends on the following assets being loaded.
@@ -186,6 +175,10 @@ pipeline {
             }
 
             steps {
+                dir('.build') {
+                    sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:0 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                }
+
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
                 sh 'make test-satellite-ui'
             }
