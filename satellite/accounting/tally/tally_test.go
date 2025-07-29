@@ -194,17 +194,16 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	})
 }
 
-func TestIgnoresExpiredPointers(t *testing.T) {
+func TestIgnoresExpiredSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
 		const bucketName = "bucket"
 
 		now := time.Now()
-		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "bucket", "path", []byte{1}, now.Add(12*time.Hour))
-		require.NoError(t, err)
+		require.NoError(t, planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "bucket", "path", []byte{1}, now.Add(12*time.Hour)))
 
 		collector := tally.NewBucketTallyCollector(
 			satellite.Log.Named("bucket tally"),
@@ -214,8 +213,7 @@ func TestIgnoresExpiredPointers(t *testing.T) {
 			planet.Satellites[0].DB.ProjectAccounting(),
 			planet.Satellites[0].Config.Tally,
 		)
-		err = collector.Run(ctx)
-		require.NoError(t, err)
+		require.NoError(t, collector.Run(ctx))
 
 		// there should be a single empty tally (or no tally) because all of the
 		// objects are expired
@@ -227,7 +225,7 @@ func TestIgnoresExpiredPointers(t *testing.T) {
 		case 0:
 		// great
 		case 1:
-			require.Equal(t, collector.Bucket[loc].ObjectCount, 0)
+			require.EqualValues(t, collector.Bucket[loc].ObjectCount, 0)
 		default:
 			require.Fail(t, "an unexpected amount of buckets", len(collector.Bucket))
 		}
