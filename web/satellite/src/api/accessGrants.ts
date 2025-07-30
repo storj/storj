@@ -198,6 +198,7 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
             key.name,
             new Date(key.createdAt),
             '',
+            key.creatorEmail,
         ));
 
         accessGrantsPage.search = page.search;

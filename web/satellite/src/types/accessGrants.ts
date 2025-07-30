@@ -63,6 +63,7 @@ export interface AccessGrantsApi {
 export enum AccessGrantsOrderBy {
     name = 1,
     createdAt = 2,
+    creatorEmail = 3,
 }
 
 /**
@@ -105,6 +106,7 @@ export class AccessGrant {
         public name: string = '',
         public createdAt: Date = new Date(),
         public secret: string = '',
+        public creatorEmail: string = '',
     ) {
         this.isSelected = false;
     }

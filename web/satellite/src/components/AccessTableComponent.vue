@@ -37,6 +37,11 @@
                 {{ item.name }}
             </span>
         </template>
+        <template #item.creatorEmail="{ item }">
+            <span class="font-weight-medium">
+                {{ item.creatorEmail }}
+            </span>
+        </template>
         <template #item.createdAt="{ item }">
             <span class="text-no-wrap">
                 {{ Time.formattedDate(item.createdAt) }}
@@ -146,15 +151,26 @@ const isDeleteAccessDialogShown = ref<boolean>(false);
 const accessToDelete = ref<AccessGrant | undefined>();
 const selected = ref<AccessGrant[]>([]);
 
-const headers: DataTableHeader[] = [
-    {
+const headers = computed<DataTableHeader[]>(() => {
+    const hdrs: DataTableHeader[] = [{
         title: 'Access Name',
         align: 'start',
         key: 'name',
-    },
-    { title: 'Date Created', key: 'createdAt' },
-    { title: '', key: 'actions', sortable: false, width: 0 },
-];
+    }];
+
+    if (hasOtherMembers.value) {
+        hdrs.push({ title: 'Creator', key: 'creatorEmail' });
+    }
+
+    hdrs.push(
+        { title: 'Date Created', key: 'createdAt' },
+        { title: '', key: 'actions', sortable: false, width: 0 },
+    );
+
+    return hdrs;
+});
+
+const hasOtherMembers = computed<boolean>(() => projectsStore.state.selectedProjectConfig.membersCount > 1);
 
 /**
  * Returns access grants cursor from store.
