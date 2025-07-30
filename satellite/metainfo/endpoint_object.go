@@ -2386,11 +2386,16 @@ func (include *includeForObjectEntry) keyAndNonce(entry *metabase.ObjectEntry) b
 }
 
 func (include *includeForObjectEntry) customMetadata(entry *metabase.ObjectEntry) bool {
+	// We ignore length of EncryptedMetadata for customMetadata, because some of the information is synthesized and
+	// bundled together with custom metadata. For example encryption type, block size, number of segments.
+	// So, we need to return both for backwards compatibility.
+	//
+	// This is the reason why the implementation is different from etag.
 	return include.CustomMetadata || (include.ETagOrCustomMetadata && len(entry.EncryptedMetadata) > 0)
 }
 
 func (include *includeForObjectEntry) etag(entry *metabase.ObjectEntry) bool {
-	// we should only include etag when it has been requested and it exists.
+	// We should only include etag when it has been requested and it exists.
 	// this affects when we should also include key and nonce.
 	return (include.ETag || include.ETagOrCustomMetadata) && len(entry.EncryptedETag) > 0
 }
