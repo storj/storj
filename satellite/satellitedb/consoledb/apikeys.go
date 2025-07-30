@@ -33,10 +33,11 @@ type apikeys struct {
 	impl dbutil.Implementation
 }
 
+// GetPagedByProjectID retrieves API keys for a given projectID and cursor.
 func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.APIKeyCursor, ignoredNamePrefix string) (page *console.APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	search := "%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%"
+	search := strings.ToLower("%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%")
 
 	if cursor.Limit == 0 {
 		return nil, console.ErrAPIKeyRequest.New("limit cannot be 0")
@@ -54,29 +55,38 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		OrderDirection: cursor.OrderDirection,
 	}
 
+	// This expression hides emails of ex‐members.
+	emailExpr := "CASE WHEN pm.member_id IS NOT NULL THEN u.email ELSE '' END"
+
+	whereClause := `
+      WHERE ak.project_id = ?
+        AND (
+          LOWER(ak.name) LIKE ?
+          OR LOWER(` + emailExpr + `) LIKE ?
+        )
+    `
+	if ignoredNamePrefix != "" {
+		whereClause += " AND ak.name NOT LIKE '" + ignoredNamePrefix + "%' "
+	}
+
 	countQuery := keys.db.Rebind(`
 		SELECT COUNT(*)
 		FROM api_keys ak
-		WHERE ak.project_id = ?
-		AND lower(ak.name) LIKE ?
-	`)
+		LEFT JOIN users u
+			ON u.id = ak.created_by
+		LEFT JOIN project_members pm
+			ON pm.project_id = ak.project_id
+		AND pm.member_id = ak.created_by
+    ` + whereClause)
 
-	ignorePrefixClause := ""
-	if ignoredNamePrefix != "" {
-		ignorePrefixClause = "AND ak.name NOT LIKE '" + ignoredNamePrefix + "%' "
-		countQuery += ignorePrefixClause
-	}
-
-	countRow := keys.db.QueryRowContext(ctx,
+	err = keys.db.QueryRowContext(ctx,
 		countQuery,
-		projectID[:],
-		strings.ToLower(search),
-	)
-
-	err = countRow.Scan(&page.TotalCount)
+		projectID[:], search, search,
+	).Scan(&page.TotalCount)
 	if err != nil {
 		return nil, err
 	}
+
 	if page.TotalCount == 0 {
 		return page, nil
 	}
@@ -85,51 +95,59 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.user_agent, ak.created_at, ak.version, p.public_id
-		FROM api_keys ak, projects p
-		WHERE ak.project_id = ?
-		AND ak.project_id = p.id
-		AND lower(ak.name) LIKE ?
-		` + ignorePrefixClause + apikeySortClause(cursor.Order, page.OrderDirection) + `
-		LIMIT ? OFFSET ?`)
+		SELECT
+			ak.id,
+			ak.project_id,
+			ak.name,
+			ak.user_agent,
+			ak.created_at,
+			ak.version,
+			p.public_id AS project_public_id,
+			` + emailExpr + ` AS creator_email
+		FROM api_keys ak
+		JOIN projects p
+			ON p.id = ak.project_id
+		LEFT JOIN users u
+			ON u.id = ak.created_by
+		LEFT JOIN project_members pm
+			ON pm.project_id = ak.project_id
+			AND pm.member_id = ak.created_by
+    	` + whereClause + apikeySortClause(cursor.Order, cursor.OrderDirection) + ` LIMIT ? OFFSET ?`,
+	)
 
-	rows, err := keys.db.QueryContext(ctx,
+	rows, err := keys.db.QueryContext(
+		ctx,
 		repoundQuery,
 		projectID[:],
-		strings.ToLower(search),
+		search,
+		search,
 		page.Limit,
-		page.Offset)
-
+		page.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var apiKeys []console.APIKeyInfo
 	for rows.Next() {
 		ak := console.APIKeyInfo{}
 
-		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt, &ak.Version, &ak.ProjectPublicID)
+		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt, &ak.Version, &ak.ProjectPublicID, &ak.CreatorEmail)
 		if err != nil {
 			return nil, err
 		}
 
-		apiKeys = append(apiKeys, ak)
+		page.APIKeys = append(page.APIKeys, ak)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
-	page.APIKeys = apiKeys
 	page.Order = cursor.Order
-
+	page.CurrentPage = cursor.Page
 	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
 	if page.TotalCount%uint64(cursor.Limit) != 0 {
 		page.PageCount++
-	}
-
-	page.CurrentPage = cursor.Page
-
-	err = rows.Err()
-	if err != nil {
-		return nil, err
 	}
 
 	return page, err
@@ -483,8 +501,14 @@ func apikeySortClause(order console.APIKeyOrder, direction console.OrderDirectio
 		dirStr = "DESC"
 	}
 
-	if order == console.CreationDate {
-		return "ORDER BY ak.created_at " + dirStr + ", ak.name, ak.project_id"
+	switch order {
+	case console.CreationDate:
+		return " ORDER BY ak.created_at " + dirStr + ", ak.name, ak.project_id "
+	case console.KeyCreatorEmail:
+		// we COALESCE to '' so NULL emails sort consistently,
+		// and LOWER() so sorting is case‑insensitive.
+		return " ORDER BY LOWER(COALESCE(u.email, '')) " + dirStr + ", ak.name, ak.project_id "
+	default:
+		return " ORDER BY LOWER(ak.name) " + dirStr + ", ak.name, ak.project_id "
 	}
-	return "ORDER BY LOWER(ak.name) " + dirStr + ", ak.name, ak.project_id"
 }

@@ -9,6 +9,7 @@ export class APIKeyInfo {
     projectId: UUID;
     projectPublicId: UUID;
     createdBy: UUID;
+    creatorEmail: string;
     userAgent: string | null;
     name: string;
     createdAt: Time;

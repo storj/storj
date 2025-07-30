@@ -57,6 +57,7 @@ type APIKeyInfo struct {
 	ProjectID       uuid.UUID              `json:"projectId"`
 	ProjectPublicID uuid.UUID              `json:"projectPublicId"`
 	CreatedBy       uuid.UUID              `json:"createdBy"`
+	CreatorEmail    string                 `json:"creatorEmail"`
 	UserAgent       []byte                 `json:"userAgent"`
 	Name            string                 `json:"name"`
 	Head            []byte                 `json:"-"`
@@ -115,4 +116,6 @@ const (
 	KeyName APIKeyOrder = 1
 	// CreationDate indicates that we should order by creation date.
 	CreationDate APIKeyOrder = 2
+	// KeyCreatorEmail indicates that we should order by key creator email.
+	KeyCreatorEmail APIKeyOrder = 3
 )

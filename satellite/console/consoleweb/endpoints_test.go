@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -666,12 +667,34 @@ func TestAPIKeys(t *testing.T) {
 		test.login(user.email, user.password)
 
 		{ // Get_ProjectAPIKeys
-			var projects console.APIKeyPage
-			path := "/api-keys/list-paged?projectID=" + test.defaultProjectID() + "&search=''&limit=6&page=1&order=1&orderDirection=1"
+			pr, err := planet.Satellites[0].AddProject(ctx, planet.Uplinks[0].Projects[0].Owner.ID, "test project")
+			require.NoError(t, err)
+			secret, err := macaroon.NewSecret()
+			require.NoError(t, err)
+			key, err := macaroon.NewAPIKey(secret)
+			require.NoError(t, err)
+			apikey := console.APIKeyInfo{
+				Name:      "testKey",
+				ProjectID: pr.ID,
+				CreatedBy: pr.OwnerID,
+				Secret:    secret,
+				Version:   macaroon.APIKeyVersionMin,
+			}
+			info, err := planet.Satellites[0].DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
+			require.NoError(t, err)
+			require.NotNil(t, info)
+
+			var keysPage console.APIKeyPage
+			path := "/api-keys/list-paged?projectID=" + test.defaultProjectID() + "&search=&limit=6&page=1&order=1&orderDirection=1"
 			resp, body := test.request(http.MethodGet, path, nil)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
-			require.NoError(t, json.Unmarshal([]byte(body), &projects))
+			require.NoError(t, json.Unmarshal([]byte(body), &keysPage))
 			require.Contains(t, body, "apiKeys")
+			require.NotNil(t, keysPage.APIKeys)
+			require.Len(t, keysPage.APIKeys, 1)
+			for _, key := range keysPage.APIKeys {
+				require.Equal(t, user.email, key.CreatorEmail)
+			}
 		}
 
 		{ // Post_Create_APIKey
