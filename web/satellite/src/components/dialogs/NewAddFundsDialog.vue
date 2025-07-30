@@ -40,7 +40,22 @@
                 <v-window v-model="step">
                     <v-window-item :value="Step.EnterAmount">
                         <v-form v-model="formValid">
-                            <p class="mb-7">Choose the amount you wish to deposit:</p>
+                            <p class="mb-4">Choose the amount you wish to deposit:</p>
+
+                            <v-col class="mb-5">
+                                <v-row class="ga-2">
+                                    <v-chip
+                                        v-for="value in [10, 25, 50, 100]"
+                                        :key="value"
+                                        :value="value"
+                                        color="primary"
+                                        variant="tonal"
+                                        @click="amount = value"
+                                    >
+                                        ${{ value }}
+                                    </v-chip>
+                                </v-row>
+                            </v-col>
 
                             <v-text-field
                                 v-model="amount"
@@ -55,6 +70,12 @@
                                 class="mb-2"
                                 @update:model-value="onUpdateAmount"
                             />
+
+                            <v-alert v-if="isFreeTier" border class="mt-4" variant="outlined" title="Unlock Pro Features" color="info">
+                                <p class="text-body-2">
+                                    Adding at least $10 will automatically upgrade your account to Pro.
+                                </p>
+                            </v-alert>
                         </v-form>
                     </v-window-item>
                     <v-window-item :value="Step.ConfirmPayment">
@@ -121,6 +142,7 @@
 
 <script setup lang="ts">
 import {
+    VAlert,
     VBtn,
     VCard,
     VCardActions,
@@ -186,6 +208,8 @@ const isDefaultSelected = ref<boolean>(true);
 const stripe = ref<Stripe | null>(null);
 const customCardForm = ref<boolean>(false);
 const customCardFormElements = ref<StripeElements>();
+
+const isFreeTier = computed<boolean>(() => userStore.state.user.isFree);
 
 const amountRules = computed<ValidationRule<string>[]>(() => {
     return [
