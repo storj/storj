@@ -1014,6 +1014,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE api_key_tails ADD CONSTRAINT api_key_tails_root_key_id_fkey FOREIGN KEY (root_key_id) REFERENCES api_keys (id) ON DELETE CASCADE;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop paid_tier column from users table",
+				Version:     298,
+				Action: migrate.SQL{
+					`ALTER TABLE users DROP COLUMN paid_tier;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3867,6 +3875,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     297,
 				Action: migrate.SQL{
 					`ALTER TABLE api_key_tails ADD COLUMN root_key_id bytea REFERENCES api_keys( id ) ON DELETE CASCADE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop paid_tier column from users table",
+				Version:     298,
+				Action: migrate.SQL{
+					`ALTER TABLE users DROP COLUMN paid_tier;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

@@ -473,7 +473,6 @@ CREATE TABLE users (
 	project_bandwidth_limit bigint NOT NULL DEFAULT 0,
 	project_storage_limit bigint NOT NULL DEFAULT 0,
 	project_segment_limit bigint NOT NULL DEFAULT 0,
-	paid_tier boolean NOT NULL DEFAULT false,
 	kind integer NOT NULL DEFAULT 0,
 	position text,
 	company_name text,

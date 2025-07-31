@@ -372,9 +372,6 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
 		Kind:            dbx.User_Kind(int(user.Kind)),
 	}
-	if user.IsPaid() {
-		optional.PaidTier = dbx.User_PaidTier(true)
-	}
 	if user.ExternalID != nil {
 		optional.ExternalId = dbx.User_ExternalId(*user.ExternalID)
 	}
@@ -554,7 +551,6 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 	}
 	updateFields := dbx.User_Update_Fields{
 		Kind:                  dbx.User_Kind(int(userType)),
-		PaidTier:              dbx.User_PaidTier(paidTier),
 		ProjectLimit:          dbx.User_ProjectLimit(projectLimit),
 		ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(projectBandwidthLimit.Int64()),
 		ProjectStorageLimit:   dbx.User_ProjectStorageLimit(projectStorageLimit.Int64()),
@@ -906,9 +902,6 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	}
 	if request.Kind != nil {
 		update.Kind = dbx.User_Kind(int(*request.Kind))
-	}
-	if request.Kind != nil && *request.Kind == console.PaidUser {
-		update.PaidTier = dbx.User_PaidTier(true)
 	}
 	if request.MFAEnabled != nil {
 		update.MfaEnabled = dbx.User_MfaEnabled(*request.MFAEnabled)
