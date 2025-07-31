@@ -893,6 +893,9 @@ func (payment Payments) HandleWebhookEvent(ctx context.Context, signature string
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	if event == nil {
+		return nil
+	}
 
 	switch event.Type {
 	case payments.EventTypePaymentIntentSucceeded:
