@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -671,67 +670,4 @@ func deleteAllObjectsUncoordinated(
 		MaxStaleness:   10 * time.Second,
 		MaxCommitDelay: &maxCommitDelay,
 	})
-}
-
-func cmdSetUserKindWithPaidTier(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
-	log := zap.L()
-
-	batchSize := 1000 // Default batch size.
-	if len(args) > 0 {
-		parsedBatchSize, err := strconv.Atoi(args[0])
-		if err != nil {
-			return errs.New("invalid batch size '%s': %v", args[0], err)
-		}
-		if parsedBatchSize <= 0 {
-			return errs.New("batch size must be a positive number")
-		}
-		batchSize = parsedBatchSize
-	}
-
-	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
-		ApplicationName:      "satellite-users",
-		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
-		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
-	})
-	if err != nil {
-		return errs.New("error connecting to satellite database: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, satDB.Close())
-	}()
-
-	log.Info("Starting to update user kind for paid tier users", zap.Int("batchSize", batchSize))
-
-	var totalRowsProcessed int64
-	var batchCount int
-
-	for {
-		rowsProcessed, hasMore, err := satDB.Console().Users().SetUserKindWithPaidTier(ctx, batchSize)
-		if err != nil {
-			return errs.New("error updating user kind values: %v", err)
-		}
-
-		totalRowsProcessed += rowsProcessed
-		batchCount++
-
-		if rowsProcessed > 0 {
-			log.Info("Batch completed",
-				zap.Int64("rowsUpdated", rowsProcessed),
-				zap.Int("batchNumber", batchCount),
-				zap.Int64("totalRowsUpdated", totalRowsProcessed))
-		}
-
-		// If no more rows to process or the last batch was empty, we're done.
-		if !hasMore {
-			break
-		}
-	}
-
-	log.Info("User kind update completed",
-		zap.Int64("totalRowsUpdated", totalRowsProcessed),
-		zap.Int("batchesRun", batchCount),
-	)
-
-	return nil
 }

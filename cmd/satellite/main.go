@@ -433,15 +433,6 @@ var (
 		RunE: cmdSetAccountsStatusPendingDeletion,
 	}
 
-	setUserKindCmd = &cobra.Command{
-		Use:   "set-kind",
-		Short: "Update the kind of user to PaidUser for paid users",
-		Long: "Update the kind of user to PaidUser(1) for paid users whose current kind is FreeUser(0)." +
-			"\nOptional batch-size parameter controls how many rows to process at once (default: 1000).",
-		Args: cobra.MaximumNArgs(1),
-		RunE: cmdSetUserKindWithPaidTier,
-	}
-
 	runCfg   Satellite
 	setupCfg Satellite
 
@@ -551,7 +542,6 @@ func init() {
 	deleteAllObjectsUncoordinatedCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
 	deleteAllObjectsUncoordinatedCmd.Flags().BoolVar(&executeDeleteAllObjectsUncoordinated, "really-run-this-dangerous-command-without-any-confirmation", false, "This disables bucket reconfirmation.")
 	usersCmd.AddCommand(setAccountsStatusPendingDeletionCmd)
-	usersCmd.AddCommand(setUserKindCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -597,7 +587,6 @@ func init() {
 	process.Bind(deleteAllObjectsUncoordinatedCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(setUserKindCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(valueAttributionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
