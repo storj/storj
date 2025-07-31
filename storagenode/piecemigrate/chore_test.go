@@ -6,6 +6,7 @@ package piecemigrate
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,6 +33,97 @@ import (
 	"storj.io/storj/storagenode/satstore"
 )
 
+func TestHashMismatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
+
+	dir, err := filestore.NewDir(log, t.TempDir())
+	require.NoError(t, err)
+
+	blobs := filestore.New(log, dir, filestore.DefaultConfig)
+	defer ctx.Check(blobs.Close)
+
+	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
+
+	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
+	require.NoError(t, err)
+
+	rtm := retain.NewRestoreTimeManager(t.TempDir())
+
+	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
+	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), "", bfm, rtm, log)
+	require.NoError(t, err)
+	defer ctx.Check(new.Close)
+
+	config := Config{
+		BufferSize:     1,
+		Jitter:         true,
+		Interval:       10 * time.Minute,
+		MigrateExpired: true,
+		DeleteExpired:  true,
+	}
+
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil)
+	defer ctx.Check(chore.Close)
+
+	sat := testrand.NodeID()
+	pie := &pieceToCheck{
+		sat:      sat,
+		id:       testrand.PieceID(),
+		content:  testrand.Bytes(memory.Size(testrand.Intn(10)) * memory.KB),
+		hashAlgo: pb.PieceHashAlgorithm_SHA256,
+	}
+
+	writeToStore(ctx, t, old, sat, pie, time.Time{})
+
+	t.Run("algo mismatch", func(t *testing.T) {
+		src, err := old.Reader(ctx, sat, pie.id)
+		require.NoError(t, err)
+		defer ctx.Check(src.Close)
+
+		hdr, err := src.GetPieceHeader()
+		require.NoError(t, err)
+
+		hdr.HashAlgorithm = pb.PieceHashAlgorithm_BLAKE3
+
+		_, err = chore.copyPiece(ctx, src, sat, pie.id, hdr)
+		t.Log(err)
+		require.Error(t, err)
+	})
+	t.Run("hash mismatch", func(t *testing.T) {
+		src, err := old.Reader(ctx, sat, pie.id)
+		require.NoError(t, err)
+		defer ctx.Check(src.Close)
+
+		hdr, err := src.GetPieceHeader()
+		require.NoError(t, err)
+
+		h := sha256.New()
+		h.Write([]byte("oops"))
+		hdr.Hash = h.Sum(nil)
+
+		_, err = chore.copyPiece(ctx, src, sat, pie.id, hdr)
+		t.Log(err)
+		require.Error(t, err)
+	})
+	t.Run("match", func(t *testing.T) {
+		src, err := old.Reader(ctx, sat, pie.id)
+		require.NoError(t, err)
+		defer ctx.Check(src.Close)
+
+		hdr, err := src.GetPieceHeader()
+		require.NoError(t, err)
+
+		_, err = chore.copyPiece(ctx, src, sat, pie.id, hdr)
+		require.NoError(t, err)
+	})
+}
+
 func TestExpiredPiecesRemoval(t *testing.T) {
 	t.Parallel()
 
@@ -57,6 +149,7 @@ func TestExpiredPiecesRemoval(t *testing.T) {
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
 	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), "", bfm, rtm, log)
 	require.NoError(t, err)
+	defer ctx.Check(new.Close)
 
 	config := Config{
 		Interval:      100 * time.Millisecond,
@@ -125,6 +218,7 @@ func TestDuplicates(t *testing.T) {
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
 	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), "", bfm, rtm, log)
 	require.NoError(t, err)
+	defer ctx.Check(new.Close)
 
 	config := Config{
 		Interval: 100 * time.Millisecond,
@@ -181,6 +275,7 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
 	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), filepath.Join(t.TempDir(), "foo"), bfm, rtm, log)
 	require.NoError(t, err)
+	defer ctx.Check(new.Close)
 
 	satellites1 := randomSatsPieces(2, 100)
 	writeSatsPieces(ctx, t, old, satellites1)
@@ -293,6 +388,7 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
 	new, err := piecestore.NewHashStoreBackend(ctx, t.TempDir(), t.TempDir(), bfm, rtm, log)
 	require.NoError(t, err)
+	defer ctx.Check(new.Close)
 
 	migratedSatellites := randomSatsPieces(3, 1000)
 	migratedSatellitesMu := sync.Mutex{}
