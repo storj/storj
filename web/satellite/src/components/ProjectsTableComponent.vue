@@ -51,6 +51,18 @@
             </v-chip>
         </template>
 
+        <template #item.storageUsed="{ item }">
+            <span class="text-no-wrap">
+                {{ formattedValue(new Size(item.storageUsed, 2)) }}
+            </span>
+        </template>
+
+        <template #item.bandwidthUsed="{ item }">
+            <span class="text-no-wrap">
+                {{ formattedValue(new Size(item.bandwidthUsed, 2)) }}
+            </span>
+        </template>
+
         <template #item.createdAt="{ item }">
             <span class="text-no-wrap">
                 {{ Time.formattedDate(item.createdAt) }}
@@ -195,6 +207,7 @@ import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { DataTableHeader, SortItem } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { Dimensions, Size } from '@/utils/bytesSize';
 
 defineProps<{
     items: ProjectItemModel[],
@@ -230,6 +243,18 @@ const headers: DataTableHeader[] = [
 ];
 
 const hasPaidPrivileges = computed(() => userStore.state.user.hasPaidPrivileges);
+
+/**
+ * Formats value to needed form and returns it.
+ */
+function formattedValue(value: Size): string {
+    switch (value.label) {
+    case Dimensions.Bytes:
+        return '0';
+    default:
+        return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
+    }
+}
 
 /**
  * Selects the project and navigates to the project dashboard.

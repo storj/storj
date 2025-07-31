@@ -134,7 +134,6 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { ROUTES } from '@/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { Dimensions, Size } from '@/utils/bytesSize';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { AccountBalance, CreditCard } from '@/types/payments';
 import { useNotify } from '@/composables/useNotify';
@@ -214,8 +213,8 @@ const items = computed((): ProjectItemModel[] => {
         project.ownerId === usersStore.state.user.id ? ProjectRole.Owner : ProjectRole.Member,
         project.memberCount,
         new Date(project.createdAt),
-        formattedValue(new Size(project.storageUsed, 2)),
-        formattedValue(new Size(project.bandwidthUsed, 2)),
+        project.storageUsed,
+        project.bandwidthUsed,
     )).sort((projA, projB) => {
         if (projA.role === ProjectRole.Owner && projB.role === ProjectRole.Member) return -1;
         if (projA.role === ProjectRole.Member && projB.role === ProjectRole.Owner) return 1;
@@ -272,18 +271,6 @@ async function updateLimitsClick(item: ProjectItemModel, limit: LimitToChange): 
     } catch (error) {
         projectsStore.deselectProject();
         notify.notifyError(error, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
-    }
-}
-
-/**
- * Formats value to needed form and returns it.
- */
-function formattedValue(value: Size): string {
-    switch (value.label) {
-    case Dimensions.Bytes:
-        return '0';
-    default:
-        return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
     }
 }
 
