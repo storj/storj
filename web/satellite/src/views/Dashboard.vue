@@ -520,10 +520,6 @@ const segmentUsedPercent = computed((): number => {
 });
 
 /**
- * Returns whether this project is owned by a paid tier user.
- */
-const isProjectOwnerPaidTier = computed(() => projectsStore.selectedProjectConfig.isOwnerPaidTier);
-/**
  * Returns whether the owner of this project has paid privileges
  */
 const ownerHasPaidPrivileges = computed(() => projectsStore.selectedProjectConfig.hasPaidPrivileges);
@@ -671,7 +667,7 @@ const selectedProject = computed((): Project => {
  * Returns current team size from store.
  */
 const teamSize = computed((): number => {
-    return pmStore.state.page.totalCount;
+    return projectsStore.state.selectedProjectConfig.membersCount;
 });
 
 /**
@@ -927,7 +923,6 @@ onMounted(async (): Promise<void> => {
 
     const promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
         projectsStore.getDailyProjectData({ since: chartDateRange.value[0], before: chartDateRange.value[chartDateRange.value.length - 1] }),
-        pmStore.getProjectMembers(FIRST_PAGE, projectID),
         agStore.getAccessGrants(FIRST_PAGE, projectID),
         bucketsStore.getBuckets(FIRST_PAGE, projectID),
     ];

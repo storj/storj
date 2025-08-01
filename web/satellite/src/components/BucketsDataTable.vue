@@ -49,6 +49,11 @@
                 </template>
             </v-btn>
         </template>
+        <template #item.creatorEmail="{ item }">
+            <span class="text-no-wrap">
+                {{ item.creatorEmail }}
+            </span>
+        </template>
         <template #item.storage="{ item }">
             <span>
                 {{ Size.toBase10String(item.storage * Memory.GB) }}
@@ -330,6 +335,8 @@ const displayedItems = computed<Bucket[]>(() => {
 
 const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
+const hasOtherMembers = computed<boolean>(() => projectsStore.state.selectedProjectConfig.membersCount > 1);
+
 const showRegionTag = computed<boolean>(() => {
     return configStore.state.config.enableRegionTag;
 });
@@ -356,11 +363,18 @@ const headers = computed<DataTableHeader[]>(() => {
             key: 'name',
             sortable: isTableSortable.value,
         },
+    ];
+
+    if (hasOtherMembers.value) {
+        hdrs.push({ title: 'Creator', key: 'creatorEmail', sortable: isTableSortable.value });
+    }
+
+    hdrs.push(
         { title: 'Objects', key: 'objectCount', sortable: isTableSortable.value },
         { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
         { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
         { title: 'Download', key: 'egress', sortable: isTableSortable.value },
-    ];
+    );
 
     if (showRegionTag.value) {
         hdrs.push({ title: 'Location', key: 'location', sortable: isTableSortable.value });
@@ -473,6 +487,9 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
         break;
     case 'since':
         items.sort((a, b) => option.order === 'asc' ? a.since.getTime() - b.since.getTime() : b.since.getTime() - a.since.getTime());
+        break;
+    case 'creatorEmail':
+        items.sort((a, b) => option.order === 'asc' ? a.location.localeCompare(b.creatorEmail) : b.location.localeCompare(a.creatorEmail));
         break;
     default:
         items.sort((a, b) => option.order === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));

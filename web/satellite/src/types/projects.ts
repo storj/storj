@@ -186,6 +186,7 @@ export class ProjectConfig {
         public hasPaidPrivileges: boolean = false,
         public _role: number = 1,
         public salt: string = '',
+        public membersCount: number = 0,
     ) {}
 
     public get role(): ProjectItemRole {

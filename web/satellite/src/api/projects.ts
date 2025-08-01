@@ -155,6 +155,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.hasPaidPrivileges,
                 result.role,
                 result.salt,
+                result.membersCount,
             );
         }
 

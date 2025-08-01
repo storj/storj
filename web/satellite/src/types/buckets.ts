@@ -74,6 +74,7 @@ export class Bucket {
         public defaultRetentionDays: number | null = null,
         public defaultRetentionYears: number | null = null,
         public createdAt: Date = new Date(),
+        public creatorEmail: string = '',
     ) {
         if (this._defaultRetentionMode) {
             this.defaultRetentionMode = this._defaultRetentionMode === 1 ? COMPLIANCE_LOCK : GOVERNANCE_LOCK;
