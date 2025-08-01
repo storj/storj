@@ -15,12 +15,10 @@ import (
 	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
-const maxReservoirSize = 10
-
 // Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
-	segments [maxReservoirSize]rangedloop.Segment
-	keys     [maxReservoirSize]float64
+	segments []rangedloop.Segment
+	keys     []float64
 	size     int8
 	index    int8
 }
@@ -29,12 +27,12 @@ type Reservoir struct {
 func NewReservoir(size int) *Reservoir {
 	if size < 1 {
 		size = 1
-	} else if size > maxReservoirSize {
-		size = maxReservoirSize
 	}
 	return &Reservoir{
-		size:  int8(size),
-		index: 0,
+		size:     int8(size),
+		index:    0,
+		segments: make([]rangedloop.Segment, size),
+		keys:     make([]float64, size),
 	}
 }
 

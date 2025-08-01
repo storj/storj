@@ -23,10 +23,10 @@ import (
 func TestReservoir(t *testing.T) {
 	rng := rand.New(rand.NewSource(time.Now().Unix()))
 
-	for size := 0; size < maxReservoirSize; size++ {
+	for size := range 4 {
 		t.Run(fmt.Sprintf("size %d", size), func(t *testing.T) {
 			samples := []rangedloop.Segment{}
-			for i := 0; i < size; i++ {
+			for i := range size {
 				samples = append(samples, makeSegment(i))
 			}
 
