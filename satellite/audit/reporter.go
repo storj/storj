@@ -133,6 +133,7 @@ func (reporter *DBReporter) recordAuditStatus(ctx context.Context, nodeIDs storj
 		err = reporter.reputations.ApplyAudit(ctx, nodeID, nodesReputation[nodeID], auditOutcome)
 		if err != nil {
 			failed = append(failed, nodeID)
+			mon.Counter("audit_apply_to_db_failure").Inc(1)
 			errors.Add(Error.New("failed to record audit status %s in overlay for node %s: %w", auditOutcome.String(), nodeID, err))
 		}
 	}
