@@ -17,7 +17,7 @@ import (
 
 // Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
-	segments []rangedloop.Segment
+	segments []Segment
 	keys     []float64
 	size     int8
 	index    int8
@@ -31,13 +31,13 @@ func NewReservoir(size int) *Reservoir {
 	return &Reservoir{
 		size:     int8(size),
 		index:    0,
-		segments: make([]rangedloop.Segment, size),
+		segments: make([]Segment, size),
 		keys:     make([]float64, size),
 	}
 }
 
 // Segments returns the segments picked by the reservoir.
-func (reservoir *Reservoir) Segments() []rangedloop.Segment {
+func (reservoir *Reservoir) Segments() []Segment {
 	return reservoir.segments[:reservoir.index]
 }
 
@@ -59,6 +59,25 @@ func (reservoir *Reservoir) Sample(r *rand.Rand, segment rangedloop.Segment) {
 }
 
 func (reservoir *Reservoir) sample(k float64, segment rangedloop.Segment) {
+	if reservoir.index < reservoir.size {
+		reservoir.segments[reservoir.index] = NewSegment(segment)
+		reservoir.keys[reservoir.index] = k
+		reservoir.index++
+	} else {
+		max := int8(0)
+		for i := int8(1); i < reservoir.size; i++ {
+			if reservoir.keys[i] > reservoir.keys[max] {
+				max = i
+			}
+		}
+		if k < reservoir.keys[max] {
+			reservoir.segments[max] = NewSegment(segment)
+			reservoir.keys[max] = k
+		}
+	}
+}
+
+func (reservoir *Reservoir) sampleForMerge(k float64, segment Segment) {
 	if reservoir.index < reservoir.size {
 		reservoir.segments[reservoir.index] = segment
 		reservoir.keys[reservoir.index] = k
@@ -83,7 +102,7 @@ func (reservoir *Reservoir) Merge(operand *Reservoir) error {
 		return errs.New("cannot merge: mismatched size: expected %d but got %d", reservoir.size, operand.size)
 	}
 	for i := int8(0); i < operand.index; i++ {
-		reservoir.sample(operand.keys[i], operand.segments[i])
+		reservoir.sampleForMerge(operand.keys[i], operand.segments[i])
 	}
 	return nil
 }
