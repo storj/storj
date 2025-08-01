@@ -60,7 +60,7 @@
                 <v-icon :icon="Ellipsis" />
                 <v-menu activator="parent">
                     <v-list class="pa-1">
-                        <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteClick(item)">
+                        <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteSingleClick(item)">
                             <template #prepend>
                                 <component :is="Trash2" :size="18" />
                             </template>
@@ -73,6 +73,11 @@
             </v-btn>
         </template>
     </v-data-table-server>
+
+    <cannot-delete-dialog
+        v-model="isCannotDeleteDialogShown"
+        :access="accessToDelete"
+    />
 
     <delete-access-dialog
         v-model="isDeleteAccessDialogShown"
@@ -98,7 +103,7 @@
                         color="error"
                         density="comfortable"
                         variant="outlined"
-                        @click="isDeleteAccessDialogShown = true"
+                        @click="onDeleteMultipleClick"
                     >
                         <template #prepend>
                             <component :is="Trash2" :size="18" />
@@ -136,9 +141,13 @@ import { useNotify } from '@/composables/useNotify';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
+import { ProjectRole } from '@/types/projectMembers';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import DeleteAccessDialog from '@/components/dialogs/DeleteAccessDialog.vue';
+import CannotDeleteDialog from '@/components/dialogs/CannotDeleteDialog.vue';
 
+const userStore = useUsersStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
@@ -148,6 +157,7 @@ const areGrantsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
 const isDeleteAccessDialogShown = ref<boolean>(false);
+const isCannotDeleteDialogShown = ref<boolean>(false);
 const accessToDelete = ref<AccessGrant | undefined>();
 const selected = ref<AccessGrant[]>([]);
 
@@ -171,6 +181,10 @@ const headers = computed<DataTableHeader[]>(() => {
 });
 
 const hasOtherMembers = computed<boolean>(() => projectsStore.state.selectedProjectConfig.membersCount > 1);
+
+const userEmail = computed<string>(() => userStore.state.user.email);
+
+const projectRole = computed<ProjectRole>(() => projectsStore.state.selectedProjectConfig.role);
 
 /**
  * Returns access grants cursor from store.
@@ -239,8 +253,26 @@ function onUpdateSortBy(sortBy: { key: keyof AccessGrantsOrderBy, order: keyof S
 /**
  * Displays the Delete Access dialog.
  */
-function onDeleteClick(access: AccessGrant): void {
+function onDeleteSingleClick(access: AccessGrant): void {
     accessToDelete.value = access;
+
+    if (projectRole.value === ProjectRole.Member && access.creatorEmail !== userEmail.value) {
+        isCannotDeleteDialogShown.value = true;
+        return;
+    }
+    isDeleteAccessDialogShown.value = true;
+}
+
+function onDeleteMultipleClick(): void {
+    if (projectRole.value === ProjectRole.Member) {
+        const restricted = accessesToDelete.value.find(a => a.creatorEmail !== userEmail.value);
+        if (restricted) {
+            accessToDelete.value = restricted;
+            isCannotDeleteDialogShown.value = true;
+            return;
+        }
+    }
+
     isDeleteAccessDialogShown.value = true;
 }
 
@@ -256,8 +288,8 @@ watch(() => search.value, () => {
     }, 500); // 500ms delay for every new call.
 });
 
-watch(isDeleteAccessDialogShown, (value) => {
-    if (!value) accessToDelete.value = undefined;
+watch([isDeleteAccessDialogShown, isCannotDeleteDialogShown], ([value0, value1]) => {
+    if (!value0 && !value1) accessToDelete.value = undefined;
 });
 
 onMounted(() => {

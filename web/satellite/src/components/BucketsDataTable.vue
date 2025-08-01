@@ -205,7 +205,7 @@
                         </v-list-item-title>
                     </v-list-item>
                     <v-divider class="my-1" />
-                    <v-list-item class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item.name)">
+                    <v-list-item class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item)">
                         <template #prepend>
                             <component :is="Trash2" :size="18" />
                         </template>
@@ -217,7 +217,8 @@
             </v-menu>
         </template>
     </v-data-table-server>
-    <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete" />
+    <cannot-delete-dialog v-model="isCannotDeleteDialogShown" :bucket="bucketToDelete" />
+    <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete.name" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="passphraseDialogCallback" />
     <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
@@ -281,6 +282,8 @@ import { Time } from '@/utils/time';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { capitalizedMode, NO_MODE_SET } from '@/types/objectLock';
 import { DownloadPrefixType } from '@/types/browser';
+import { ProjectRole } from '@/types/projectMembers';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import DeleteBucketDialog from '@/components/dialogs/DeleteBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
@@ -289,7 +292,9 @@ import BucketDetailsDialog from '@/components/dialogs/BucketDetailsDialog.vue';
 import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.vue';
 import SetBucketObjectLockConfigDialog from '@/components/dialogs/SetBucketObjectLockConfigDialog.vue';
 import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
+import CannotDeleteDialog from '@/components/dialogs/CannotDeleteDialog.vue';
 
+const userStore = useUsersStore();
 const bucketsStore = useBucketsStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
@@ -306,8 +311,9 @@ const searchTimer = ref<NodeJS.Timeout>();
 const bucketDetailsName = ref<string>('');
 const bucketObjectLockName = ref<string>('');
 const shareBucketName = ref<string>('');
+const isCannotDeleteDialogShown = ref<boolean>(false);
 const isDeleteBucketDialogShown = ref<boolean>(false);
-const bucketToDelete = ref<string>('');
+const bucketToDelete = ref<Bucket>(new Bucket());
 const isBucketPassphraseDialogOpen = ref(false);
 const isShareBucketDialogShown = ref<boolean>(false);
 const isSetBucketObjectLockDialogShown = ref<boolean>(false);
@@ -324,6 +330,10 @@ type SortItem = {
     key: keyof Bucket;
     order: boolean | 'asc' | 'desc';
 };
+
+const userEmail = computed<string>(() => userStore.state.user.email);
+
+const projectRole = computed<ProjectRole>(() => projectsStore.state.selectedProjectConfig.role);
 
 const displayedItems = computed<Bucket[]>(() => {
     const items = page.value.buckets;
@@ -667,8 +677,14 @@ function showBucketDetailsModal(bucketName: string): void {
 /**
  * Displays the Delete Bucket dialog.
  */
-function showDeleteBucketDialog(bucketName: string): void {
-    bucketToDelete.value = bucketName;
+function showDeleteBucketDialog(bucket: Bucket): void {
+    bucketToDelete.value = bucket;
+
+    if (projectRole.value === ProjectRole.Member && bucket.creatorEmail !== userEmail.value) {
+        isCannotDeleteDialogShown.value = true;
+        return;
+    }
+
     isDeleteBucketDialogShown.value = true;
 }
 
