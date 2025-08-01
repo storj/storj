@@ -35,7 +35,7 @@ func TestReservoir(t *testing.T) {
 			for _, sample := range samples {
 				r.Sample(rng, sample)
 			}
-			require.Equal(t, samples, r.Segments())
+			require.Equal(t, toAuditSegments(samples...), r.Segments())
 			require.Len(t, r.Keys(), len(samples))
 		})
 	}
@@ -65,11 +65,11 @@ func TestReservoirMerge(t *testing.T) {
 		// Segments should contain a cross section from r1 and r2. If the rng
 		// changes, this result will likely change too since that will affect
 		// the keys. and therefore how they are merged.
-		require.Equal(t, []rangedloop.Segment{
+		require.Equal(t, toAuditSegments(
 			segments[5],
 			segments[1],
 			segments[2],
-		}, r1.Segments())
+		), r1.Segments())
 	})
 
 	t.Run("mismatched size", func(t *testing.T) {
@@ -203,4 +203,12 @@ func makeSegment(n int) rangedloop.Segment {
 		StreamID:      uuid.UUID{0: byte(n)},
 		EncryptedSize: int32(n * 1000),
 	}
+}
+
+func toAuditSegments(segments ...rangedloop.Segment) []Segment {
+	auditSegments := make([]Segment, len(segments))
+	for i, segment := range segments {
+		auditSegments[i] = NewSegment(segment)
+	}
+	return auditSegments
 }

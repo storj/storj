@@ -97,8 +97,7 @@ func TestAuditCollector(t *testing.T) {
 			require.True(t, len(observer.Reservoirs[nodeID].Segments()) <= 3)
 
 			repeats := make(map[audit.Segment]bool)
-			for _, loopSegment := range observer.Reservoirs[nodeID].Segments() {
-				segment := audit.NewSegment(loopSegment)
+			for _, segment := range observer.Reservoirs[nodeID].Segments() {
 				assert.False(t, repeats[segment], "expected every item in reservoir to be unique")
 				repeats[segment] = true
 			}
