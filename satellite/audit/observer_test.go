@@ -14,10 +14,12 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/storagenode"
@@ -105,41 +107,44 @@ func TestAuditCollector(t *testing.T) {
 }
 
 func BenchmarkRemoteSegment(b *testing.B) {
-	testplanet.Bench(b, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(b *testing.B, ctx *testcontext.Context, planet *testplanet.Planet) {
+	ctx := testcontext.New(b)
 
-		for i := 0; i < 10; i++ {
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object"+strconv.Itoa(i), testrand.Bytes(10*memory.KiB))
-			require.NoError(b, err)
-		}
-
-		observer := audit.NewObserver(zap.NewNop(), nil, nil, planet.Satellites[0].Config.Audit)
-
-		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(b, err)
-
-		loopSegments := []rangedloop.Segment{}
-
-		for _, segment := range segments {
-			loopSegments = append(loopSegments, rangedloop.Segment{
-				StreamID:   segment.StreamID,
-				Position:   segment.Position,
-				CreatedAt:  segment.CreatedAt,
-				ExpiresAt:  segment.ExpiresAt,
-				Redundancy: segment.Redundancy,
-				Pieces:     segment.Pieces,
-			})
-		}
-
-		fork, err := observer.Fork(ctx)
-		require.NoError(b, err)
-
-		b.Run("multiple segments", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_ = fork.Process(ctx, loopSegments)
-			}
-		})
+	observer := audit.NewObserver(zap.NewNop(), nil, nil, audit.Config{
+		Slots: 3,
 	})
 
+	loopSegments := make([]rangedloop.Segment, 10000)
+	for i := range loopSegments {
+		loopSegments[i] = rangedloop.Segment{
+			StreamID: testrand.UUID(),
+			Redundancy: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				RequiredShares: 1,
+				TotalShares:    1,
+			},
+			RootPieceID: testrand.PieceID(),
+		}
+
+		for j := range 10 {
+			loopSegments[i].AliasPieces = append(loopSegments[i].AliasPieces, metabase.AliasPiece{
+				Number: uint16(j),
+				Alias:  metabase.NodeAlias(i + j),
+			})
+		}
+	}
+
+	fork, err := observer.Fork(ctx)
+	require.NoError(b, err)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for b.Loop() {
+		benchSegments := loopSegments
+		for len(benchSegments) > 0 {
+			batch := benchSegments[:1000]
+			err := fork.Process(ctx, batch)
+			require.NoError(b, err)
+			benchSegments = benchSegments[1000:]
+		}
+	}
 }
