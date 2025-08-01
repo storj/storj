@@ -123,7 +123,7 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 				Position: segment.Position.Encode(),
 			}
 			if _, ok := queueSegments[segmentKey]; !ok {
-				newQueue = append(newQueue, NewSegment(segment))
+				newQueue = append(newQueue, segment)
 				queueSegments[segmentKey] = struct{}{}
 			}
 		}
