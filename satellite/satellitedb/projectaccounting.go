@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/civil"
@@ -1375,7 +1376,6 @@ func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectI
 // GetBucketTotals retrieves bucket usage totals for period of time.
 func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	bucketPrefix := []byte(cursor.Search)
 
 	if cursor.Limit > maxLimit {
 		cursor.Limit = maxLimit
@@ -1384,31 +1384,46 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page can not be 0")
 	}
 
+	bucketPrefix := []byte(cursor.Search)
+
+	bucketNameRange, incrPrefix, err := db.prefixMatch("name", bucketPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	emailSearch := "%" + strings.ToLower(cursor.Search) + "%"
+	emailExpr := "CASE WHEN pm.member_id IS NOT NULL THEN u.email ELSE '' END"
+	whereClause := `
+		WHERE bm.project_id = ?
+		AND (
+			` + bucketNameRange + `
+          	OR LOWER(` + emailExpr + `) LIKE ?
+        )
+    `
+
+	countQuery := db.db.Rebind(`
+		SELECT COUNT(*) 
+		FROM bucket_metainfos bm
+		LEFT JOIN users u
+			ON u.id = bm.created_by
+		LEFT JOIN project_members pm
+			ON pm.project_id = bm.project_id
+			AND pm.member_id = bm.created_by
+    ` + whereClause)
+
+	countArgs := []interface{}{projectID[:], bucketPrefix}
+	if incrPrefix != nil {
+		countArgs = append(countArgs, incrPrefix)
+	}
+	countArgs = append(countArgs, emailSearch)
+
 	page := &accounting.BucketUsagePage{
 		Search: cursor.Search,
 		Limit:  cursor.Limit,
 		Offset: uint64((cursor.Page - 1) * cursor.Limit),
 	}
 
-	bucketNameRange, incrPrefix, err := db.prefixMatch("name", bucketPrefix)
-	if err != nil {
-		return nil, err
-	}
-	countQuery := db.db.Rebind(`SELECT COUNT(name) FROM bucket_metainfos
-	WHERE project_id = ? AND ` + bucketNameRange)
-
-	args := []interface{}{
-		projectID[:],
-		bucketPrefix,
-	}
-	if incrPrefix != nil {
-		args = append(args, incrPrefix)
-	}
-
-	countRow := db.db.QueryRowContext(ctx, countQuery, args...)
-
-	err = countRow.Scan(&page.TotalCount)
-	if err != nil {
+	if err = db.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&page.TotalCount); err != nil {
 		return nil, err
 	}
 
@@ -1420,28 +1435,41 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	}
 
 	bucketsQuery := db.db.Rebind(`
-		SELECT name, versioning, placement, object_lock_enabled, default_retention_mode, default_retention_days, default_retention_years, created_at
-		FROM bucket_metainfos
-		WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`,
-	)
+		SELECT
+			bm.name,
+			bm.versioning,
+			bm.placement,
+			bm.object_lock_enabled,
+			bm.default_retention_mode,
+			bm.default_retention_days,
+			bm.default_retention_years,
+			bm.created_at,
+			` + emailExpr + ` AS creator_email
+		FROM bucket_metainfos bm
+		LEFT JOIN users u
+			ON u.id = bm.created_by
+		LEFT JOIN project_members pm
+			ON pm.project_id = bm.project_id
+			AND pm.member_id = bm.created_by
+    	` + whereClause + `
+  		ORDER BY bm.name ASC
+		LIMIT ? OFFSET ?
+    `)
 
-	args = []interface{}{
-		projectID[:],
-		bucketPrefix,
-	}
+	pageArgs := []interface{}{projectID[:], bucketPrefix}
 	if incrPrefix != nil {
-		args = append(args, incrPrefix)
+		pageArgs = append(pageArgs, incrPrefix)
 	}
-	args = append(args, page.Limit, page.Offset)
+	pageArgs = append(pageArgs, emailSearch, page.Limit, page.Offset)
 
-	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, args...)
+	rows, err := db.db.QueryContext(ctx, bucketsQuery, pageArgs...)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var usages []accounting.BucketUsage
-	for bucketRows.Next() {
+	for rows.Next() {
 		var (
 			bucket                string
 			versioning            satbuckets.Versioning
@@ -1451,8 +1479,9 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			defaultRetentionDays  *int
 			defaultRetentionYears *int
 			createdAt             time.Time
+			creatorEmail          string
 		)
-		err = bucketRows.Scan(
+		err = rows.Scan(
 			&bucket,
 			&versioning,
 			&placement,
@@ -1461,6 +1490,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			&defaultRetentionDays,
 			&defaultRetentionYears,
 			&createdAt,
+			&creatorEmail,
 		)
 		if err != nil {
 			return nil, err
@@ -1477,6 +1507,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			Since:                 since,
 			Before:                before,
 			CreatedAt:             createdAt,
+			CreatorEmail:          creatorEmail,
 		}
 		if defaultRetentionMode != nil {
 			usage.DefaultRetentionMode = *defaultRetentionMode
@@ -1484,7 +1515,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 		usages = append(usages, usage)
 	}
-	if err := bucketRows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 

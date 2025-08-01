@@ -161,6 +161,8 @@ type BucketUsage struct {
 	ObjectCount  int64   `json:"objectCount"`
 	SegmentCount int64   `json:"segmentCount"`
 
+	CreatorEmail string `json:"creatorEmail"`
+
 	Since     time.Time `json:"since"`
 	Before    time.Time `json:"before"`
 	CreatedAt time.Time `json:"createdAt"`

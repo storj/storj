@@ -1069,6 +1069,52 @@ func TestGetBucketTotals(t *testing.T) {
 			require.NoError(t, err)
 			require.Less(t, totals.Limit, uint(1000000))
 		})
+
+		t.Run("CreatorEmail visibility and search", func(t *testing.T) {
+			memberUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Member User",
+				Email:    "member@example.com",
+			}, 1)
+			require.NoError(t, err)
+
+			member, err := db.Console().ProjectMembers().Insert(ctx, memberUser.ID, projectID, console.RoleMember)
+			require.NoError(t, err)
+
+			bucketName := "member-bucket"
+
+			_, err = db.Buckets().CreateBucket(ctx, satbuckets.Bucket{
+				Name:       bucketName,
+				ProjectID:  projectID,
+				Versioning: satbuckets.Unversioned,
+				CreatedBy:  memberUser.ID,
+			})
+			require.NoError(t, err)
+
+			cursor := accounting.BucketUsageCursor{Limit: 10, Page: 1, Search: memberUser.Email}
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			require.NoError(t, err)
+			require.NotNil(t, totals)
+			require.NotNil(t, totals.BucketUsages)
+			require.Len(t, totals.BucketUsages, 1)
+			require.Equal(t, bucketName, totals.BucketUsages[0].BucketName)
+			require.Equal(t, memberUser.Email, totals.BucketUsages[0].CreatorEmail)
+
+			err = db.Console().ProjectMembers().Delete(ctx, member.MemberID, projectID)
+			require.NoError(t, err)
+
+			cursor.Search = ""
+			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			require.NoError(t, err)
+
+			var found bool
+			for _, u := range totals.BucketUsages {
+				if u.BucketName == bucketName {
+					found = true
+					require.Equal(t, "", u.CreatorEmail, "ex-member's email must be hidden")
+				}
+			}
+			require.True(t, found)
+		})
 	})
 }
 
