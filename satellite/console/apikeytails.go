@@ -16,6 +16,8 @@ import (
 type APIKeyTails interface {
 	// Upsert is a method for inserting or updating APIKeyTail in the database.
 	Upsert(ctx context.Context, tail *APIKeyTail) (*APIKeyTail, error)
+	// UpsertBatch is a method for inserting or updating a batch of APIKeyTails in the database.
+	UpsertBatch(ctx context.Context, batch []APIKeyTail) error
 	// GetByTail retrieves APIKeyTail for given key tail.
 	GetByTail(ctx context.Context, tail []byte) (*APIKeyTail, error)
 }

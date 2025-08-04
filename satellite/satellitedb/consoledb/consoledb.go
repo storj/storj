@@ -97,7 +97,7 @@ func (db *ConsoleDB) AccountFreezeEvents() console.AccountFreezeEvents {
 
 // APIKeyTails is a getter for APIKeyTails repository.
 func (db *ConsoleDB) APIKeyTails() console.APIKeyTails {
-	return &apiKeyTails{db: db.Methods}
+	return &apiKeyTails{db: db.DB.DB, dbMethods: db.Methods, impl: db.Impl}
 }
 
 // Domains is a getter for Domains repository.
