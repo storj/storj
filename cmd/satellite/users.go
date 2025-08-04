@@ -83,6 +83,7 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 		return errs.New("invalid public project id %q: %+v", args[0], err)
 	}
 	bucketName := args[1]
+	expectedOwnerEmail := args[2]
 
 	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		ApplicationName:      "satellite-users",
@@ -121,6 +122,12 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 		zap.String("company name", owner.CompanyName),
 		zap.Stringer("user status", &owner.Status),
 	)
+
+	if !strings.EqualFold(owner.Email, expectedOwnerEmail) {
+		return errs.New("project owner email %q does not match expected email %q", owner.Email, expectedOwnerEmail)
+	}
+
+	log.Info("verified project ownership", zap.String("owner email", owner.Email))
 
 	bucket, err := satDB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 	if err != nil {

@@ -387,12 +387,13 @@ var (
 
 	executeDeleteAllObjectsUncoordinated = false
 	deleteAllObjectsUncoordinatedCmd     = &cobra.Command{
-		Use:   "delete-all-objects-uncoordinated <public-project-id> <bucket-name>",
+		Use:   "delete-all-objects-uncoordinated <public-project-id> <bucket-name> <owner-email>",
 		Short: "Delete all the objects in a bucket",
 		Long: "Deletes the objects in a given bucket, but does not guarantee consistency, while the " +
 			"delete is in progress. There must be no uploads, downloads or deletes happening while this is being run." +
-			"On failure, the system should check whether there are any undeleted streams or objects in the system.",
-		Args: cobra.ExactArgs(2),
+			"On failure, the system should check whether there are any undeleted streams or objects in the system. " +
+			"The owner-email argument is used to verify that the provided project and bucket are owned by the user with this email address.",
+		Args: cobra.ExactArgs(3),
 		RunE: cmdDeleteAllObjectsUncoordinated,
 	}
 
