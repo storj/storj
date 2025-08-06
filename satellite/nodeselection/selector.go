@@ -1003,12 +1003,13 @@ func AtLeast(attribute NodeAttribute, min interface{}) NeedMore {
 
 // Reduce is a NodeSelectorInit, which will reduce the number of nodes selected by the delegate.
 func Reduce(delegate NodeSelectorInit, sortOrder CompareNodes, needMoreChecks ...NeedMore) NodeSelectorInit {
-	var checks []func(node *SelectedNode) bool
-	for _, inv := range needMoreChecks {
-		checks = append(checks, inv())
-	}
-
 	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		var checks []func(node *SelectedNode) bool
+		for _, inv := range needMoreChecks {
+			// some checks may use current time (like daily), we should evaluate during each init (called during cache refresh)
+			checks = append(checks, inv())
+		}
+
 		if sortOrder != nil {
 			slices.SortFunc(nodes, sortOrder(storj.NodeID{}))
 		}
