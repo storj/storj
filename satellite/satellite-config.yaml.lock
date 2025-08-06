@@ -250,6 +250,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether card authorization is enabled when adding a card
 # console.add-card-authorization-enabled: false
 
+# number of add card events before the limit kicks in
+# console.add-card-rate-limiter.burst: 3
+
+# the rate at which add card requests are refilled
+# console.add-card-rate-limiter.duration: 2h24m0s
+
+# number of clients whose rate limits we store
+# console.add-card-rate-limiter.num-limits: 1000
+
 # server address of the http api gateway and frontend app
 # console.address: :10100
 

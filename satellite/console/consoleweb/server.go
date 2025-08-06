@@ -146,6 +146,9 @@ type Config struct {
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
+	// AddCardRateLimiter defines the configuration for the AddCard rate limiter.
+	AddCardRateLimiter AddCardRateLimiterConfig
+
 	ABTesting abtesting.Config
 
 	SsoEnabled bool `help:"whether SSO is enabled" default:"false" hidden:"true"`
@@ -167,13 +170,14 @@ type Server struct {
 	abTesting      *abtesting.Service
 	csrfService    *csrf.Service
 
-	listener          net.Listener
-	server            http.Server
-	router            *mux.Router
-	cookieAuth        *consolewebauth.CookieAuth
-	ipRateLimiter     *web.RateLimiter
-	userIDRateLimiter *web.RateLimiter
-	nodeURL           storj.NodeURL
+	listener           net.Listener
+	server             http.Server
+	router             *mux.Router
+	cookieAuth         *consolewebauth.CookieAuth
+	ipRateLimiter      *web.RateLimiter
+	userIDRateLimiter  *web.RateLimiter
+	addCardRateLimiter *web.RateLimiter
+	nodeURL            storj.NodeURL
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
@@ -212,6 +216,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		productBasedInvoicingEnabled:    productBasedInvoicingEnabled,
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
+		addCardRateLimiter:              NewAddCardRateLimiter(config.AddCardRateLimiter, logger),
 		nodeURL:                         nodeURL,
 		AnalyticsConfig:                 analyticsConfig,
 		minimumChargeConfig:             minimumChargeConfig,
@@ -377,8 +382,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		paymentsRouter.Use(varBlocker.withVarBlocker)
 
 		paymentsRouter.Handle("/attempt-payments", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.TriggerAttemptPayment)))).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.Handle("/payment-methods", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID)))).Methods(http.MethodPost, http.MethodOptions)
-		paymentsRouter.Handle("/cards", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/payment-methods", server.withCSRFProtection(server.addCardRateLimiter.Limit(http.HandlerFunc(paymentController.AddCardByPaymentMethodID)))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/cards", server.withCSRFProtection(server.addCardRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard)))).Methods(http.MethodPost, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.withCSRFProtection(http.HandlerFunc(paymentController.UpdateCreditCard))).Methods(http.MethodPut, http.MethodOptions)
 		paymentsRouter.Handle("/cards", server.withCSRFProtection(http.HandlerFunc(paymentController.MakeCreditCardDefault))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet, http.MethodOptions)
@@ -404,7 +409,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		paymentsRouter.HandleFunc("/placement-pricing", paymentController.GetPartnerPlacementPriceModel).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
-		paymentsRouter.Handle("/purchase", server.withCSRFProtection(http.HandlerFunc(paymentController.Purchase))).Methods(http.MethodPost, http.MethodOptions)
+		paymentsRouter.Handle("/purchase", server.withCSRFProtection(server.addCardRateLimiter.Limit(http.HandlerFunc(paymentController.Purchase)))).Methods(http.MethodPost, http.MethodOptions)
 		if config.PricingPackagesEnabled {
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}
@@ -543,6 +548,14 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		server.ipRateLimiter.Run(ctx)
+		return nil
+	})
+	group.Go(func() error {
+		server.userIDRateLimiter.Run(ctx)
+		return nil
+	})
+	group.Go(func() error {
+		server.addCardRateLimiter.Run(ctx)
 		return nil
 	})
 	group.Go(func() error {
@@ -1316,13 +1329,15 @@ func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
 func NewUserIDRateLimiter(config web.RateLimiterConfig, log *zap.Logger) *web.RateLimiter {
-	return web.NewRateLimiter(config, log, func(r *http.Request) (string, error) {
-		user, err := console.GetUser(r.Context())
-		if err != nil {
-			return "", err
-		}
-		return user.ID.String(), nil
-	})
+	return web.NewRateLimiter(config, log, getUserIDFromContext)
+}
+
+func getUserIDFromContext(r *http.Request) (string, error) {
+	user, err := console.GetUser(r.Context())
+	if err != nil {
+		return "", err
+	}
+	return user.ID.String(), nil
 }
 
 // responseWriterStatusCode is a wrapper of an http.ResponseWriter to track the
