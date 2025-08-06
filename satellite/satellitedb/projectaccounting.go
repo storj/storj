@@ -653,11 +653,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 				})
 			}
 
-			if err := storageRows.Err(); err != nil {
-				return err
-			}
-
-			if err := storageRows.Close(); err != nil {
+			if err := errs.Combine(storageRows.Err(), storageRows.Close()); err != nil {
 				return err
 			}
 
@@ -670,9 +666,9 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 				CASE WHEN interval_day < ?
 				THEN egress_settled
 				ELSE egress_allocated-egress_dead
-            	END AS allocated
-        	FROM project_bandwidth_daily_rollups
-        	WHERE project_id = ? AND (interval_day >= ? AND interval_day <= ?)`
+					END AS allocated
+			FROM project_bandwidth_daily_rollups
+			WHERE project_id = ? AND (interval_day >= ? AND interval_day <= ?)`
 
 			bandwidthRows, err := tx.QueryContext(ctx, bandwidthQuery, civilExpiredSince, projectID, civilFromBeginningOfDay, civilToEndOfDay)
 			if err != nil {
@@ -700,13 +696,10 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 				})
 			}
 
-			if err := bandwidthRows.Err(); err != nil {
+			if err := errs.Combine(bandwidthRows.Err(), bandwidthRows.Close()); err != nil {
 				return err
 			}
 
-			if err := bandwidthRows.Close(); err != nil {
-				return err
-			}
 			return nil
 		})
 		if err != nil {
