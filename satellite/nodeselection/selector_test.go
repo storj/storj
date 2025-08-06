@@ -1285,13 +1285,13 @@ func TestReduce(t *testing.T) {
 	})
 
 	t.Run("single constraint - functional test", func(t *testing.T) {
-		// Create nodes all with same subnet
+		// Create nodes with different subnets to test AtLeast constraint
 		nodes := []*nodeselection.SelectedNode{
 			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
-			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
-			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
-			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
-			{ID: testrand.NodeID(), LastNet: "192.168.1.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.2.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.3.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.4.0/24"},
+			{ID: testrand.NodeID(), LastNet: "192.168.5.0/24"},
 		}
 
 		attr, err := nodeselection.CreateNodeAttribute("last_net")
@@ -1300,13 +1300,13 @@ func TestReduce(t *testing.T) {
 		selectorInit := nodeselection.Reduce(
 			nodeselection.RandomSelector(),
 			nil,
-			nodeselection.AtLeast(attr, 2), // Include nodes while count <= 2
+			nodeselection.AtLeast(attr, 2), // Include nodes until we have 2 different groups
 		)
 		selector := selectorInit(ctx, nodes, nil)
 
 		selected, err := selector(ctx, storj.NodeID{}, 5, nil, nil)
 		require.NoError(t, err)
-		require.Len(t, selected, 2, "Should include exactly 2 nodes (when count reaches 3, needMore becomes false)")
+		require.Len(t, selected, 2, "Should include exactly 2 nodes (when we have 2 different groups, needMore becomes false)")
 	})
 
 	t.Run("multiple constraints", func(t *testing.T) {
@@ -1448,17 +1448,17 @@ func TestReduceConfigExpression(t *testing.T) {
 		selectorInit := nodeselection.Reduce(
 			nodeselection.RandomSelector(),
 			nil,
-			nodeselection.AtLeast(attr, 3), // Include until we have 3 of each server
+			nodeselection.AtLeast(attr, 3), // Include until we have 3 different server groups
 		)
 		selector := selectorInit(ctx, nodes, nil)
 
-		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		selected, err := selector(ctx, storj.NodeID{}, 15, nil, nil)
 		require.NoError(t, err)
 
-		// Should include nodes from first server until we have 3, then stop
-		require.Len(t, selected, 3, "Should include 3 nodes from first server then stop")
+		// Should include nodes until we have 3 different servers (at least 11 nodes: 5 serverA + 5 serverB + 1 serverC)
+		require.GreaterOrEqual(t, len(selected), 11, "Should include nodes until we have 3 different server groups")
 
-		// Verify all selected nodes are from the same server
+		// Verify we have nodes from 3 different servers
 		serverCounts := make(map[string]int)
 		for _, node := range selected {
 			serverName := ""
@@ -1473,10 +1473,10 @@ func TestReduceConfigExpression(t *testing.T) {
 			}
 		}
 
-		require.Len(t, serverCounts, 1, "All nodes should be from same server")
-		for _, count := range serverCounts {
-			require.Equal(t, 3, count, "Should have exactly 3 nodes from the server")
-		}
+		require.Len(t, serverCounts, 3, "Should have nodes from 3 different servers")
+		require.Contains(t, serverCounts, "serverA", "Should include serverA")
+		require.Contains(t, serverCounts, "serverB", "Should include serverB")
+		require.Contains(t, serverCounts, "serverC", "Should include serverC")
 	})
 }
 
@@ -1485,14 +1485,14 @@ func TestReduceSortOrder(t *testing.T) {
 	defer ctx.Cleanup()
 
 	t.Run("sort order with node_value free_disk", func(t *testing.T) {
-		// Create nodes with different free disk values, all with same subnet
+		// Create nodes with different free disk values and different subnets
 		// This will test that the sort order determines which nodes are processed first
 		nodes := []*nodeselection.SelectedNode{
 			{ID: testrand.NodeID(), FreeDisk: 1000000, LastNet: "192.168.1.0/24"}, // 1MB
-			{ID: testrand.NodeID(), FreeDisk: 5000000, LastNet: "192.168.1.0/24"}, // 5MB
-			{ID: testrand.NodeID(), FreeDisk: 2000000, LastNet: "192.168.1.0/24"}, // 2MB
-			{ID: testrand.NodeID(), FreeDisk: 8000000, LastNet: "192.168.1.0/24"}, // 8MB
-			{ID: testrand.NodeID(), FreeDisk: 3000000, LastNet: "192.168.1.0/24"}, // 3MB
+			{ID: testrand.NodeID(), FreeDisk: 5000000, LastNet: "192.168.2.0/24"}, // 5MB
+			{ID: testrand.NodeID(), FreeDisk: 2000000, LastNet: "192.168.3.0/24"}, // 2MB
+			{ID: testrand.NodeID(), FreeDisk: 8000000, LastNet: "192.168.4.0/24"}, // 8MB
+			{ID: testrand.NodeID(), FreeDisk: 3000000, LastNet: "192.168.5.0/24"}, // 3MB
 		}
 
 		// Create a sort order based on free_disk (descending - higher free disk first)
@@ -1507,11 +1507,11 @@ func TestReduceSortOrder(t *testing.T) {
 		require.NoError(t, err)
 
 		// Use Reduce with the sort order - should process nodes in descending order of free disk
-		// Since all nodes have the same subnet, only the first 3 nodes (highest free disk) should be selected
+		// Since nodes have different subnets, AtLeast(3) will select until 3 different subnets are found
 		selectorInit := nodeselection.Reduce(
 			nodeselection.RandomSelector(),
 			sortOrder,
-			nodeselection.AtLeast(subnetAttr, 3), // Include 3 nodes from the same subnet
+			nodeselection.AtLeast(subnetAttr, 3), // Include until 3 different subnets
 		)
 		selector := selectorInit(ctx, nodes, nil)
 
