@@ -1439,6 +1439,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether to include SKU in the invoice item description
 # payments.stripe-coin-payments.inv-item-sku-in-description: true
 
+# maximum number of credit cards per customer
+# payments.stripe-coin-payments.max-credit-card-count: 8
+
 # the maximum number of concurrent Stripe API calls in invoicing methods
 # payments.stripe-coin-payments.max-parallel-calls: 10
 

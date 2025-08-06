@@ -19,5 +19,6 @@ type Config struct {
 	SkuEnabled              bool   `help:"whether we should use SKUs for product usages" default:"false"`
 	SkipNoCustomer          bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
 	InvItemSKUInDescription bool   `help:"whether to include SKU in the invoice item description" default:"true"`
+	MaxCreditCardCount      int    `help:"maximum number of credit cards per customer" default:"8"`
 	Retries                 RetryConfig
 }

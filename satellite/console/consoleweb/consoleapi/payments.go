@@ -293,6 +293,10 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
 			return
 		}
+		if payments.ErrMaxCreditCards.Has(err) {
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusForbidden, err, rootError(err).Error())
+			return
+		}
 
 		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 		return
@@ -344,9 +348,12 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
 			return
 		}
-
 		if payments.ErrDuplicateCard.Has(err) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusBadRequest, err, rootError(err).Error())
+			return
+		}
+		if payments.ErrMaxCreditCards.Has(err) {
+			web.ServeCustomJSONError(ctx, p.log, w, http.StatusForbidden, err, rootError(err).Error())
 			return
 		}
 
@@ -792,7 +799,7 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
-		if console.ErrForbidden.Has(err) {
+		if console.ErrForbidden.Has(err) || payments.ErrMaxCreditCards.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusForbidden, err)
 			return
 		}

@@ -18,6 +18,8 @@ var (
 	ErrDefaultCard = errs.Class("default card")
 	// ErrDuplicateCard is returned when a user tries to add duplicate card.
 	ErrDuplicateCard = errs.Class("duplicate card")
+	// ErrMaxCreditCards is returned when a user tries to add more than the allowed number of credit cards.
+	ErrMaxCreditCards = errs.Class("credit cards count")
 )
 
 // CreditCards exposes all needed functionality to manage account credit cards.
