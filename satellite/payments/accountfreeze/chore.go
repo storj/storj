@@ -654,6 +654,43 @@ func (chore *Chore) attemptEscalateTrialExpirationFreeze(ctx context.Context) {
 				continue
 			}
 
+			user, err := chore.usersDB.Get(ctx, event.UserID)
+			if err != nil {
+				chore.log.Error("Could not get user for escalation",
+					zap.String("process", "trial expiration freeze escalation"),
+					zap.Any("userID", event.UserID),
+					zap.Error(Error.Wrap(err)),
+				)
+				continue
+			}
+
+			if user.Kind != console.FreeUser {
+				// This accounts for users that were moved from console.FreeUser
+				// to console.PaidUser or console.NFRUser after they'd been TrailExpiration frozen
+				// and the freeze was not cleared.
+				chore.log.Info("Skipping user; user is not in free trial",
+					zap.String("process", "trial expiration freeze escalation"),
+					zap.Any("userID", event.UserID),
+				)
+				totalSkipped++
+
+				// clear the freeze event if it exists
+				err = chore.freezeService.TrialExpirationUnfreezeUser(ctx, event.UserID)
+				if err != nil {
+					chore.log.Error("Could not trial expiration unfreeze non-trial user",
+						zap.String("process", "trial expiration freeze escalation"),
+						zap.Any("userID", event.UserID),
+						zap.Error(Error.Wrap(err)),
+					)
+				} else {
+					chore.log.Info("Non-trial user unfrozen",
+						zap.String("process", "trial expiration freeze escalation"),
+						zap.Any("userID", event.UserID),
+					)
+				}
+				continue
+			}
+
 			err = chore.freezeService.EscalateFreezeEvent(ctx, event.UserID, event)
 			if err != nil {
 				chore.log.Error("Could not escalate trial expiration freeze",
@@ -664,24 +701,16 @@ func (chore *Chore) attemptEscalateTrialExpirationFreeze(ctx context.Context) {
 				totalSkipped++
 				continue
 			}
-			user, err := chore.usersDB.Get(ctx, event.UserID)
-			if err == nil {
-				eErr := chore.sendEmail(ctx, user, &event)
-				if eErr != nil {
-					chore.log.Error("Could not send user email",
-						zap.String("process", "trial expiration freeze escalation"),
-						zap.Any("userID", event.UserID),
-						zap.Error(Error.Wrap(eErr)),
-					)
-				}
-				totalMarkedForDeletion++
-				continue
+
+			eErr := chore.sendEmail(ctx, user, &event)
+			if eErr != nil {
+				chore.log.Error("Could not send user email",
+					zap.String("process", "trial expiration freeze escalation"),
+					zap.Any("userID", event.UserID),
+					zap.Error(Error.Wrap(eErr)),
+				)
 			}
-			chore.log.Error("Could not get user for email",
-				zap.String("process", "trial expiration freeze escalation"),
-				zap.Any("userID", event.UserID),
-				zap.Error(Error.Wrap(err)),
-			)
+			totalMarkedForDeletion++
 		}
 
 		hasNext = cursor != nil

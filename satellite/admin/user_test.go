@@ -379,8 +379,7 @@ func TestUserKindUpdate(t *testing.T) {
 			require.NotNil(t, updatedUser.UpgradeTime)
 
 			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.NFRUser)
-			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
-			require.Len(t, responseBody, 0)
+			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 
 			updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
 			require.NoError(t, err)
@@ -401,6 +400,39 @@ func TestUserKindUpdate(t *testing.T) {
 			require.Equal(t, updatedUser.ProjectStorageLimit, consoleConfig.UsageLimits.Storage.Free.Int64())
 			require.Equal(t, updatedUser.ProjectBandwidthLimit, consoleConfig.UsageLimits.Bandwidth.Free.Int64())
 			require.Equal(t, updatedUser.ProjectSegmentLimit, consoleConfig.UsageLimits.Segment.Free)
+
+			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", user.Email)
+			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+
+			// updating to console.PaidUser should remove the trial freeze event.
+			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.PaidUser)
+			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+
+			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+			require.ErrorIs(t, err, sql.ErrNoRows)
+
+			// reset to console.FreeUser.
+			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.FreeUser)
+			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+
+			// freeze again.
+			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", user.Email)
+			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+
+			// updating to console.NFRUser should remove the trial freeze event.
+			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.NFRUser)
+			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+
+			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+			require.ErrorIs(t, err, sql.ErrNoRows)
 		})
 
 		t.Run("invalid value", func(t *testing.T) {

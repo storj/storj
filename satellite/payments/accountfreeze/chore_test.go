@@ -4,6 +4,7 @@
 package accountfreeze_test
 
 import (
+	"database/sql"
 	"testing"
 	"time"
 
@@ -913,6 +914,46 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			// no email after the fourth email
 			require.Equal(t, 4, freeze.NotificationsCount)
+		})
+
+		t.Run("No trial expiration excalation for paid and NFR users", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			// reset chore clock
+			chore.TestSetNow(time.Now)
+
+			paidUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Paid User",
+				Email:    "paid@test.test",
+				Kind:     console.PaidUser,
+			}, 1)
+			require.NoError(t, err)
+
+			nfrUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "NFR User",
+				Email:    "nfr@test.test",
+				Kind:     console.NFRUser,
+			}, 1)
+			require.NoError(t, err)
+
+			err = service.TrialExpirationFreezeUser(ctx, paidUser.ID)
+			require.NoError(t, err)
+			err = service.TrialExpirationFreezeUser(ctx, nfrUser.ID)
+			require.NoError(t, err)
+
+			// forward date to after the grace period
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod).Add(24 * time.Hour)
+			})
+
+			// run the chore
+			chore.Loop.TriggerWait()
+
+			// verify freeze events are removed for both users
+			_, err = accFreezeDB.Get(ctx, paidUser.ID, console.TrialExpirationFreeze)
+			require.ErrorIs(t, err, sql.ErrNoRows)
+
+			_, err = accFreezeDB.Get(ctx, nfrUser.ID, console.TrialExpirationFreeze)
+			require.ErrorIs(t, err, sql.ErrNoRows)
 		})
 	})
 }
