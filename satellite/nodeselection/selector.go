@@ -979,7 +979,7 @@ func WeightedSelector(weightFunc NodeValue, initFilter NodeFilter) NodeSelectorI
 // NeedMore is a stateful function, which returns true, if more nodes are needed.
 type NeedMore func() func(node *SelectedNode) bool
 
-// AtLeast is a needMore function, which will return true, if the number of nodes with the given attribute is less than the minimum value.
+// AtLeast is a needMore function, which will return true, if the number groups (specified by the given attribute) is less than the minimum value.
 func AtLeast(attribute NodeAttribute, min interface{}) NeedMore {
 	var minv int64
 	switch m := min.(type) {
@@ -996,7 +996,7 @@ func AtLeast(attribute NodeAttribute, min interface{}) NeedMore {
 		current := map[string]int64{}
 		return func(node *SelectedNode) bool {
 			current[attribute(*node)]++
-			return current[attribute(*node)] < minv
+			return int64(len(current)) < minv
 		}
 	}
 }
