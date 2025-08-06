@@ -1628,7 +1628,7 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 
 		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
 			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-				return withRows(db.db.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
+				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					var toDelete []rollupToDelete
 					for rows.Next() {
 						var rollup rollupToDelete
@@ -1639,7 +1639,7 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 						toDelete = append(toDelete, rollup)
 					}
 
-					res, err := db.db.ExecContext(ctx, `
+					res, err := tx.ExecContext(ctx, `
 						DELETE FROM bucket_bandwidth_rollups
 							WHERE STRUCT<ProjectID BYTES, BucketName BYTES, IntervalStart TIMESTAMP, Action INT64>(project_id, bucket_name, interval_start, action) IN UNNEST(?)`,
 						toDelete)

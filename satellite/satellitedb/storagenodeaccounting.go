@@ -763,7 +763,7 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 
 		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
 			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-				return withRows(db.db.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
+				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					var storagenodesToDelete []storagenodeToDelete
 					for rows.Next() {
 						var s storagenodeToDelete
@@ -774,7 +774,7 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 						storagenodesToDelete = append(storagenodesToDelete, s)
 					}
 
-					res, err := db.db.ExecContext(ctx,
+					res, err := tx.ExecContext(ctx,
 						`DELETE FROM storagenode_bandwidth_rollups
 							WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
 						storagenodesToDelete)
