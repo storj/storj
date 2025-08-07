@@ -2381,17 +2381,19 @@ func includeAllForObjectEntry() includeForObjectEntry {
 	}
 }
 
+// keyAndNonce returns whether we should include information related to encryption key
+// and cipher format (e.g. encryption type, block size, number of segments).
 func (include *includeForObjectEntry) keyAndNonce(entry *metabase.ObjectEntry) bool {
-	return include.customMetadata(entry) || include.etag(entry)
+	// When there's an explicit request for CustomMetadata it's not quite clear whether the client
+	// wants the stream metadata, so we'll ensure it's always included in that scenario.
+	return include.CustomMetadata || include.customMetadata(entry) || include.etag(entry)
 }
 
+// customMetadata checks whether we should include user defined custom metadata.
 func (include *includeForObjectEntry) customMetadata(entry *metabase.ObjectEntry) bool {
-	// We ignore length of EncryptedMetadata for customMetadata, because some of the information is synthesized and
-	// bundled together with custom metadata. For example encryption type, block size, number of segments.
-	// So, we need to return both for backwards compatibility.
-	//
-	// This is the reason why the implementation is different from etag.
-	return include.CustomMetadata || (include.ETagOrCustomMetadata && len(entry.EncryptedMetadata) > 0)
+	// We should only include custom metadata when it has been requested and it exists.
+	// this affects when we should also include key and nonce.
+	return (include.CustomMetadata || include.ETagOrCustomMetadata) && len(entry.EncryptedMetadata) > 0
 }
 
 func (include *includeForObjectEntry) etag(entry *metabase.ObjectEntry) bool {
@@ -2432,13 +2434,14 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		}
 		item.EncryptedMetadataNonce = nonce
 		item.EncryptedMetadataEncryptedKey = entry.EncryptedMetadataEncryptedKey
-	}
 
-	if include.customMetadata(&entry) {
 		streamMeta := &pb.StreamMeta{}
-		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
-		if err != nil {
-			return nil, err
+
+		if include.customMetadata(&entry) {
+			err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if entry.Encryption != (storj.EncryptionParameters{}) {
@@ -2461,7 +2464,6 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 		if err != nil {
 			return nil, err
 		}
-
 		item.EncryptedMetadata = metadataBytes
 	}
 
