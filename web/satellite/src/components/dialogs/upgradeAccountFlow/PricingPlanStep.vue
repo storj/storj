@@ -110,6 +110,7 @@ import StripeCardElement from '@/components/StripeCardElement.vue';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
+    initStripe(): Promise<string>;
 }
 
 const billingStore = useBillingStore();
@@ -144,6 +145,8 @@ const loading = defineModel<boolean>('loading');
  */
 const isFree = computed<boolean>(() => props.plan?.type === PricingPlanType.FREE);
 
+const cardAuthorizationEnabled = computed(() => configStore.state.config.addCardAuthorizationEnabled);
+
 const upgradePayUpfrontAmount = computed(() => configStore.state.config.upgradePayUpfrontAmount);
 
 function onBack(): void {
@@ -169,6 +172,10 @@ async function onActivateClick() {
         const response = await stripeCardInput.value.onSubmit();
         await onCardAdded(response);
     } catch (error) {
+        if (cardAuthorizationEnabled.value) {
+            // initStripe will get a new card setup secret if there's an error.
+            stripeCardInput.value?.initStripe();
+        }
         notify.notifyError(error);
     }
     loading.value = false;
