@@ -68,6 +68,7 @@ import StripeCardElement from '@/components/StripeCardElement.vue';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
+    initStripe(): Promise<string>;
 }
 
 const analyticsStore = useAnalyticsStore();
@@ -78,6 +79,8 @@ const configStore = useConfigStore();
 
 const notify = useNotify();
 const route = useRoute();
+
+const cardAuthorizationEnabled = computed(() => configStore.state.config.addCardAuthorizationEnabled);
 
 const plan = computed(() => billingStore.proPlanInfo);
 
@@ -104,6 +107,10 @@ async function onSaveCardClick(): Promise<void> {
         const response = await stripeCardInput.value.onSubmit();
         await addCardToDB(response);
     } catch (error) {
+        if (cardAuthorizationEnabled.value) {
+            // initStripe will get a new card setup secret if there's an error.
+            stripeCardInput.value?.initStripe();
+        }
         notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
     loading.value = false;

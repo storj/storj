@@ -5,6 +5,7 @@ package stripe
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/stripe/stripe-go/v81"
@@ -65,6 +66,10 @@ func (invoices *invoices) Pay(ctx context.Context, invoiceID, paymentMethodID st
 		PaymentMethod: stripe.String(paymentMethodID),
 	})
 	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
 		return nil, Error.Wrap(err)
 	}
 	return &payments.Invoice{
