@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -116,9 +117,7 @@ func (ex *external) GetAccessInfo(required bool) (string, map[string]string, err
 
 	// return a copy to avoid mutations messing things up
 	accesses := make(map[string]string)
-	for name, accessData := range ex.access.accesses {
-		accesses[name] = accessData
-	}
+	maps.Copy(accesses, ex.access.accesses)
 
 	return ex.access.defaultName, accesses, nil
 }
