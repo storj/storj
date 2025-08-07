@@ -17,7 +17,7 @@
                         height="40"
                         rounded="lg"
                     >
-                        <component :is="Share" :size="18" />
+                        <component :is="Share2" :size="18" />
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
@@ -204,7 +204,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Check, Copy, Code2, Download, Eye, Link, Share, Share2 } from 'lucide-vue-next';
+import { Check, Copy, Code2, Download, Eye, Link, Share2 } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

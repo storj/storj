@@ -44,7 +44,7 @@
                         </v-tooltip>
                     </v-btn>
                     <v-btn v-if="!showingVersions" id="Share" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Share' : undefined" @click="isShareDialogShown = true">
-                        <component :is="Share" :size="19" />
+                        <component :is="Share2" :size="19" />
                         <v-tooltip
                             activator="parent"
                             location="bottom"
@@ -190,7 +190,7 @@ import {
     VToolbarTitle,
     VTooltip,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight, Share, Trash2, Download, X, EllipsisVertical } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Share2, Trash2, Download, X, EllipsisVertical } from 'lucide-vue-next';
 
 import { BrowserObject, FullBrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
