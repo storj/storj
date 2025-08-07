@@ -1685,6 +1685,7 @@ func TestService(t *testing.T) {
 				// member is not paid tier, but project owner is.
 				require.True(t, config.IsOwnerPaidTier)
 				require.True(t, config.HasPaidPrivileges)
+				require.EqualValues(t, 2, config.MembersCount)
 
 				kind := console.NFRUser
 				err = sat.DB.Console().Users().Update(ctx, up1Proj.OwnerID, console.UpdateUserRequest{Kind: &kind})
@@ -1696,6 +1697,7 @@ func TestService(t *testing.T) {
 				require.False(t, config.IsOwnerPaidTier)
 				// nfr user has paid privileges
 				require.True(t, config.HasPaidPrivileges)
+				require.EqualValues(t, 2, config.MembersCount)
 
 				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))

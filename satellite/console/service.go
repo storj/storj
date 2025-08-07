@@ -3469,6 +3469,11 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		return nil, Error.Wrap(err)
 	}
 
+	membersCount, err := s.store.ProjectMembers().GetTotalCountByProjectID(ctx, project.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	var passphrase []byte
 	var hasManagedPassphrase bool
 	if project.PassphraseEnc != nil {
@@ -3502,6 +3507,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser,
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
+		MembersCount:         membersCount,
 	}, nil
 }
 
