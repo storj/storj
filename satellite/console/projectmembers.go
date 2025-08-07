@@ -20,6 +20,8 @@ type ProjectMembers interface {
 	GetByMemberIDAndProjectID(ctx context.Context, memberID, projectID uuid.UUID) (*ProjectMember, error)
 	// GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID and cursor.
 	GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (*ProjectMembersPage, error)
+	// GetTotalCountByProjectID is a method for getting total count of project members by projectID.
+	GetTotalCountByProjectID(ctx context.Context, projectID uuid.UUID) (uint64, error)
 	// UpdateRole is a method for updating project member role in the database.
 	UpdateRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (*ProjectMember, error)
 	// Insert is a method for inserting project member into the database.

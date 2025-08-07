@@ -71,6 +71,24 @@ func (pm *projectMembers) UpdateRole(ctx context.Context, memberID, projectID uu
 	return projectMemberFromDBX(ctx, projectMember)
 }
 
+// GetTotalCountByProjectID is a method for getting total count of project members by projectID.
+func (pm *projectMembers) GetTotalCountByProjectID(ctx context.Context, projectID uuid.UUID) (count uint64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	countQuery := pm.db.Rebind(`
+		SELECT COUNT(*)
+		FROM project_members
+		WHERE project_id = ?
+	`)
+
+	err = pm.db.QueryRowContext(ctx, countQuery, projectID[:]).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 // GetPagedWithInvitationsByProjectID is a method for querying project members and invitations from the database by projectID, offset and limit.
 func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (_ *console.ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)

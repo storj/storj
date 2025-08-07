@@ -135,6 +135,10 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 				require.EqualValues(t, 1, count)
 			}
 
+			totalCount, err := db.Console().ProjectMembers().GetTotalCountByProjectID(ctx, projectID)
+			require.NoError(t, err)
+			require.EqualValues(t, 3, totalCount)
+
 			for _, tt := range []struct {
 				order     console.ProjectMemberOrder
 				memberIDs []uuid.UUID
