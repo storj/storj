@@ -172,6 +172,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		singleObjectUploadLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
 			Expiration: config.UploadLimiter.SingleObjectLimit,
 			Capacity:   config.UploadLimiter.CacheCapacity,
+			Name:       "metainfo-single-object-upload-limit",
 		}),
 		singleObjectDownloadLimitCache: bloomrate.NewBloomRate(
 			config.DownloadLimiter.SizeExponent,
