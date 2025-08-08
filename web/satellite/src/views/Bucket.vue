@@ -143,7 +143,7 @@
                             @click="isShareBucketDialogShown = true"
                         >
                             <template #prepend>
-                                <component :is="Share" :size="18" />
+                                <component :is="Share2" :size="18" />
                             </template>
                             <v-list-item-title
                                 class="ml-3 text-body-2 font-weight-medium"
@@ -314,7 +314,7 @@ import {
     ChevronDown,
     Settings,
     Upload,
-    Share,
+    Share2,
     ReceiptText,
     Trash2,
     History,

@@ -177,7 +177,7 @@
                     </v-list-item>
                     <v-list-item link @click="() => showShareBucketDialog(item.name)">
                         <template #prepend>
-                            <component :is="Share" :size="18" />
+                            <component :is="Share2" :size="18" />
                         </template>
                         <v-list-item-title class="ml-3">
                             Share Bucket
@@ -255,7 +255,7 @@ import {
     LockKeyholeOpen,
     ReceiptText,
     Search,
-    Share,
+    Share2,
     Trash2,
 } from 'lucide-vue-next';
 
