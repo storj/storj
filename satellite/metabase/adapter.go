@@ -110,6 +110,8 @@ type Adapter interface {
 
 	// TestMigrateToLatest creates a database and applies all the migration for test purposes.
 	TestMigrateToLatest(ctx context.Context) error
+
+	copyObjectAdapter
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.
