@@ -335,6 +335,7 @@ export class UserSettings {
             cunoFSBetaJoined: false,
             objectMountConsultationRequested: false,
             placementWaitlistsJoined: [],
+            announcements: null,
         },
     ) { }
 
@@ -343,6 +344,10 @@ export class UserSettings {
             return new Duration(this._sessionDuration);
         }
         return null;
+    }
+
+    public getAnnouncementStatus(announcement: string): boolean | undefined {
+        return this.noticeDismissal.announcements?.[announcement];
     }
 }
 
@@ -403,6 +408,7 @@ export interface NoticeDismissal {
     uploadOverwriteWarning?: boolean;
     versioningBetaBanner?: boolean;
     placementWaitlistsJoined: number[];
+    announcements: Record<string, boolean> | null;
 }
 
 export interface SetUserSettingsData {

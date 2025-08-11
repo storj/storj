@@ -130,6 +130,7 @@ export enum AnalyticsErrorEventSource {
     ADD_FUNDS_DIALOG = 'Add Funds Dialog',
     DOWNLOAD_PREFIX_DIALOG = 'Download Prefix Dialog',
     APPLICATION_BAR = 'Application bar',
+    ANNOUNCEMENT_BANNER = 'Announcement Banner',
 }
 
 export enum PageVisitSource {

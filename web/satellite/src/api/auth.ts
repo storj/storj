@@ -469,9 +469,9 @@ export class AuthHttpApi implements UsersApi {
     public async updateSettings(data: SetUserSettingsData, csrfProtectionToken: string): Promise<UserSettings> {
         const path = `${this.ROOT_PATH}/account/settings`;
         const response = await this.http.patch(path, JSON.stringify(data), { csrfProtectionToken });
-        if (response.ok) {
-            const responseData = await response.json();
+        const responseData = await response.json();
 
+        if (response.ok) {
             return new UserSettings(
                 responseData.sessionDuration,
                 responseData.onboardingStart,
@@ -484,7 +484,7 @@ export class AuthHttpApi implements UsersApi {
 
         throw new APIError({
             status: response.status,
-            message: 'Can not update user settings',
+            message: responseData.error || 'Can not update user settings',
             requestID: response.headers.get('x-request-id'),
         });
     }

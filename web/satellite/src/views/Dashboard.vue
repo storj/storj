@@ -3,6 +3,8 @@
 
 <template>
     <v-container class="pb-15">
+        <announcement-banner />
+
         <minimum-charge-banner v-if="billingEnabled" />
 
         <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
@@ -354,6 +356,7 @@ import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
 import MinimumChargeBanner from '@/components/MinimumChargeBanner.vue';
+import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
 
 type ValueUnit = {
     value: number
