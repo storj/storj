@@ -548,28 +548,30 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	usageLimitsConfig := server.console.UsageLimits
 	updateRequest := console.UpdateUserRequest{}
 	updateRequest.Kind = &kind
-	projectLimit := server.console.UsageLimits.Project.Free
-	storageLimit := server.console.UsageLimits.Storage.Free.Int64()
-	bandwidthLimit := server.console.UsageLimits.Bandwidth.Free.Int64()
-	segmentLimit := server.console.UsageLimits.Segment.Free
+	projectLimit := usageLimitsConfig.Project.Free
+	storageLimit := usageLimitsConfig.Storage.Free
+	bandwidthLimit := usageLimitsConfig.Bandwidth.Free
+	segmentLimit := usageLimitsConfig.Segment.Free
 	if kind == console.PaidUser {
 		now := server.nowFn()
 		updateRequest.UpgradeTime = &now
-		projectLimit = server.console.UsageLimits.Project.Paid
-		storageLimit = server.console.UsageLimits.Storage.Paid.Int64()
-		bandwidthLimit = server.console.UsageLimits.Bandwidth.Paid.Int64()
-		segmentLimit = server.console.UsageLimits.Segment.Paid
+		projectLimit = usageLimitsConfig.Project.Paid
+		storageLimit = usageLimitsConfig.Storage.Paid
+		bandwidthLimit = usageLimitsConfig.Bandwidth.Paid
+		segmentLimit = usageLimitsConfig.Segment.Paid
 	} else if kind == console.NFRUser {
-		projectLimit = server.console.UsageLimits.Project.Nfr
-		storageLimit = server.console.UsageLimits.Storage.Nfr.Int64()
-		bandwidthLimit = server.console.UsageLimits.Bandwidth.Nfr.Int64()
-		segmentLimit = server.console.UsageLimits.Segment.Nfr
+		projectLimit = usageLimitsConfig.Project.Nfr
+		storageLimit = usageLimitsConfig.Storage.Nfr
+		bandwidthLimit = usageLimitsConfig.Bandwidth.Nfr
+		segmentLimit = usageLimitsConfig.Segment.Nfr
 	}
+	ptrInt := func(i int64) *int64 { return &i }
 	updateRequest.ProjectLimit = &projectLimit
-	updateRequest.ProjectStorageLimit = &storageLimit
-	updateRequest.ProjectBandwidthLimit = &bandwidthLimit
+	updateRequest.ProjectStorageLimit = ptrInt(storageLimit.Int64())
+	updateRequest.ProjectBandwidthLimit = ptrInt(bandwidthLimit.Int64())
 	updateRequest.ProjectSegmentLimit = &segmentLimit
 
 	code, errMsg, details, userID := server.updateUserData(ctx, email, updateRequest)
@@ -578,15 +580,22 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the new kind is console.PaidUser or console.NFRUser,
-	// we need check if the user has been frozen and unfreeze it.
-	if kind == console.PaidUser || kind == console.NFRUser {
-		err := server.freezeAccounts.AdminTrialExpirationUnfreezeUser(ctx, userID)
+	// update projects limits
+	projects, err := server.db.Console().Projects().GetOwn(ctx, userID)
+	if err != nil {
+		sendJSONError(w, "failed to get user's projects",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, p := range projects {
+		err = server.db.Console().Projects().UpdateUsageLimits(ctx, p.ID, console.UsageLimits{
+			Storage:   storageLimit.Int64(),
+			Bandwidth: bandwidthLimit.Int64(),
+			Segment:   segmentLimit,
+		})
 		if err != nil {
-			if !errs.Is(err, console.ErrNoFreezeStatus) {
-				sendJSONError(w, "failed to unfreeze user",
-					err.Error(), http.StatusInternalServerError)
-			}
+			sendJSONError(w, "failed to update project limits",
+				err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -1385,6 +1394,17 @@ func (server *Server) updateUserData(
 	if userUpdate.Kind != nil && user.UpgradeTime != nil {
 		// do not overwrite UpgradeTime if it is already set
 		userUpdate.UpgradeTime = nil
+	}
+
+	// If the new kind is console.PaidUser or console.NFRUser,
+	// we need check if the user has been frozen and unfreeze it.
+	if userUpdate.Kind != nil && (*userUpdate.Kind == console.NFRUser || *userUpdate.Kind == console.PaidUser) {
+		err := server.freezeAccounts.AdminTrialExpirationUnfreezeUser(ctx, user.ID)
+		if err != nil {
+			if !errs.Is(err, console.ErrNoFreezeStatus) && !errs.Is(err, sql.ErrNoRows) {
+				return http.StatusInternalServerError, "failed to unfreeze user", err.Error(), uuid.UUID{}
+			}
+		}
 	}
 
 	err = server.db.Console().Users().Update(ctx, user.ID, userUpdate)
