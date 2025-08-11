@@ -6254,32 +6254,35 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		return Error.Wrap(err)
 	}
 
-	// check for any previously created unpaid invoice with the same description.
-	// If draft, delete it and create new and pay. If open, pay it and don't create new.
-	// If paid, skip.
+	var invoiceToPay *payments.Invoice
+
 	for _, inv := range invoices {
-		if inv.Description == params.Description {
-			if inv.Status == payments.InvoiceStatusPaid {
-				return nil
-			}
-			if inv.Status == payments.InvoiceStatusDraft {
-				_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-			} else if inv.Status == payments.InvoiceStatusOpen {
-				_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, params.PaymentMethodID)
+		if inv.Description != params.Description {
+			continue
+		}
+
+		if inv.Status == payments.InvoiceStatusPaid {
+			return nil
+		}
+
+		if inv.Status == payments.InvoiceStatusDraft {
+			_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
+			if err != nil {
 				return Error.Wrap(err)
 			}
+		} else if inv.Status == payments.InvoiceStatusOpen {
+			invoiceToPay = &inv
 		}
 	}
 
-	inv, err := payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
-	if err != nil {
-		return Error.Wrap(err)
+	if invoiceToPay == nil {
+		invoiceToPay, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
-	_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, params.PaymentMethodID)
+	_, err = payment.service.accounts.Invoices().Pay(ctx, invoiceToPay.ID, params.PaymentMethodID)
 	if err != nil {
 		return Error.Wrap(err)
 	}

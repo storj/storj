@@ -801,7 +801,7 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
 	}
 }
 
