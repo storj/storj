@@ -357,79 +357,102 @@ func TestUserKindUpdate(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		consoleConfig := planet.Satellites[0].Config.Console
-		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		sat := planet.Satellites[0]
+		address := sat.Admin.Admin.Listener.Addr()
+		usageLimitsConfig := sat.Config.Console.UsageLimits
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 		require.Equal(t, console.FreeUser, user.Kind)
 
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		checkProjectLimits := func(kind console.UserKind) {
+			var (
+				storage   memory.Size
+				bandwidth memory.Size
+				segment   int64
+			)
+			switch kind {
+			case console.PaidUser:
+				storage, bandwidth, segment = usageLimitsConfig.Storage.Paid, usageLimitsConfig.Bandwidth.Paid, usageLimitsConfig.Segment.Paid
+			case console.NFRUser:
+				storage, bandwidth, segment = usageLimitsConfig.Storage.Nfr, usageLimitsConfig.Bandwidth.Nfr, usageLimitsConfig.Segment.Nfr
+			case console.FreeUser:
+				storage, bandwidth, segment = usageLimitsConfig.Storage.Free, usageLimitsConfig.Bandwidth.Free, usageLimitsConfig.Segment.Free
+			}
+			project, err := sat.DB.Console().Projects().Get(ctx, projectID)
+			require.NoError(t, err)
+			require.Equal(t, storage, *project.StorageLimit)
+			require.Equal(t, bandwidth, *project.BandwidthLimit)
+			require.Equal(t, segment, *project.SegmentLimit)
+		}
+
+		checkProjectLimits(console.FreeUser)
+
 		t.Run("OK", func(t *testing.T) {
-			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.PaidUser)
-			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
-			require.Len(t, responseBody, 0)
+			updateKind := func(kind console.UserKind) {
+				link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, kind)
+				_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 
-			updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
-			require.NoError(t, err)
-			require.NotEqual(t, user.Kind, updatedUser.Kind)
-			require.Equal(t, updatedUser.Kind, console.PaidUser)
-			require.Equal(t, updatedUser.ProjectLimit, consoleConfig.UsageLimits.Project.Paid)
-			require.Equal(t, updatedUser.ProjectStorageLimit, consoleConfig.UsageLimits.Storage.Paid.Int64())
-			require.Equal(t, updatedUser.ProjectBandwidthLimit, consoleConfig.UsageLimits.Bandwidth.Paid.Int64())
-			require.Equal(t, updatedUser.ProjectSegmentLimit, consoleConfig.UsageLimits.Segment.Paid)
-			require.NotNil(t, updatedUser.UpgradeTime)
+				var (
+					storage, bandwidth memory.Size
+					segment            int64
+					projectLimit       int
+				)
+				switch kind {
+				case console.PaidUser:
+					storage, bandwidth, segment, projectLimit = usageLimitsConfig.Storage.Paid, usageLimitsConfig.Bandwidth.Paid,
+						usageLimitsConfig.Segment.Paid, usageLimitsConfig.Project.Paid
+				case console.NFRUser:
+					storage, bandwidth, segment, projectLimit = usageLimitsConfig.Storage.Nfr, usageLimitsConfig.Bandwidth.Nfr,
+						usageLimitsConfig.Segment.Nfr, usageLimitsConfig.Project.Nfr
+				case console.FreeUser:
+					storage, bandwidth, segment, projectLimit = usageLimitsConfig.Storage.Free, usageLimitsConfig.Bandwidth.Free,
+						usageLimitsConfig.Segment.Free, usageLimitsConfig.Project.Free
+				}
 
-			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.NFRUser)
-			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+				updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+				require.NoError(t, err)
+				require.Equal(t, updatedUser.Kind, kind)
+				require.Equal(t, projectLimit, updatedUser.ProjectLimit)
+				require.Equal(t, storage.Int64(), updatedUser.ProjectStorageLimit)
+				require.Equal(t, bandwidth.Int64(), updatedUser.ProjectBandwidthLimit)
+				require.Equal(t, segment, updatedUser.ProjectSegmentLimit)
+				if kind == console.PaidUser {
+					require.NotNil(t, updatedUser.UpgradeTime)
+				}
 
-			updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
-			require.NoError(t, err)
-			require.Equal(t, updatedUser.Kind, console.NFRUser)
-			require.Equal(t, updatedUser.ProjectLimit, consoleConfig.UsageLimits.Project.Nfr)
-			require.Equal(t, updatedUser.ProjectStorageLimit, consoleConfig.UsageLimits.Storage.Nfr.Int64())
-			require.Equal(t, updatedUser.ProjectBandwidthLimit, consoleConfig.UsageLimits.Bandwidth.Nfr.Int64())
-			require.Equal(t, updatedUser.ProjectSegmentLimit, consoleConfig.UsageLimits.Segment.Nfr)
+				checkProjectLimits(kind)
+			}
 
-			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.FreeUser)
-			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
-			require.Len(t, responseBody, 0)
+			for _, kind := range []console.UserKind{console.PaidUser, console.NFRUser, console.FreeUser} {
+				updateKind(kind)
+			}
 
-			updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
-			require.NoError(t, err)
-			require.Equal(t, updatedUser.Kind, console.FreeUser)
-			require.Equal(t, updatedUser.ProjectLimit, consoleConfig.UsageLimits.Project.Free)
-			require.Equal(t, updatedUser.ProjectStorageLimit, consoleConfig.UsageLimits.Storage.Free.Int64())
-			require.Equal(t, updatedUser.ProjectBandwidthLimit, consoleConfig.UsageLimits.Bandwidth.Free.Int64())
-			require.Equal(t, updatedUser.ProjectSegmentLimit, consoleConfig.UsageLimits.Segment.Free)
+			freezeUser := func() {
+				link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", user.Email)
+				_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
 
-			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", user.Email)
-			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
-			require.Len(t, responseBody, 0)
+				_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+				require.NoError(t, err)
+			}
 
-			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
-			require.NoError(t, err)
+			freezeUser()
 
 			// updating to console.PaidUser should remove the trial freeze event.
-			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.PaidUser)
-			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			updateKind(console.PaidUser)
 
 			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
 			require.ErrorIs(t, err, sql.ErrNoRows)
 
 			// reset to console.FreeUser.
-			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.FreeUser)
-			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			updateKind(console.FreeUser)
 
 			// freeze again.
-			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", user.Email)
-			responseBody = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
-			require.Len(t, responseBody, 0)
-
-			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
-			require.NoError(t, err)
+			freezeUser()
 
 			// updating to console.NFRUser should remove the trial freeze event.
-			link = fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.NFRUser)
-			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			updateKind(console.NFRUser)
 
 			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
 			require.ErrorIs(t, err, sql.ErrNoRows)
