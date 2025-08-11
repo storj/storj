@@ -5,6 +5,7 @@ package root
 
 import (
 	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/logger"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode"
@@ -15,4 +16,6 @@ func Module(ball *mud.Ball) {
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)
+	mud.Provide[*Setup](ball, NewSetup)
+	cli.RegisterSubcommand[*Setup](ball, "setup", "setup storagenode configuration")
 }

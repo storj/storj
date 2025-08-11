@@ -16,6 +16,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// ConfigDir is a view of the ConfigSupport.configDir.
+type ConfigDir struct {
+	Dir string
+}
+
 // ConfigSupport is a clingy helper, which loads the configuration.
 type ConfigSupport struct {
 	configDir   string

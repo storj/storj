@@ -46,6 +46,12 @@ func Run(module func(ball *mud.Ball)) {
 	})
 
 	cfg := &ConfigSupport{}
+	mud.Supply[*ConfigSupport](ball, cfg)
+	mud.View[*ConfigSupport, ConfigDir](ball, func(support *ConfigSupport) ConfigDir {
+		return ConfigDir{
+			Dir: support.configDir,
+		}
+	})
 	ok, err := clingy.Environment{
 		Dynamic: cfg.GetValue,
 	}.Run(ctx, clingyRunner(cfg, ball))
