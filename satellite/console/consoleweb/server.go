@@ -315,7 +315,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords, badPasswordsEncoded)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -1030,6 +1030,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,
 		UserFeedbackEnabled:               server.config.UserFeedbackEnabled,
 		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,
+		Announcement:                      server.config.Announcement,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

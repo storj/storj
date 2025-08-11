@@ -533,6 +533,7 @@ type NoticeDismissal struct {
 	CunoFSBetaJoined                 bool                        `json:"cunoFSBetaJoined"`
 	ObjectMountConsultationRequested bool                        `json:"objectMountConsultationRequested"`
 	PlacementWaitlistsJoined         []storj.PlacementConstraint `json:"placementWaitlistsJoined"`
+	Announcements                    map[string]bool             `json:"announcements"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

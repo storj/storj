@@ -262,6 +262,18 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of objects triggering simplified native S3 pagination
 # console.alt-obj-browser-paging-threshold: 10000
 
+# body of the announcement
+# console.announcement.body: ""
+
+# indicates whether announcement should be shown in the UI
+# console.announcement.enabled: false
+
+# name of the announcement
+# console.announcement.name: ""
+
+# title of the announcement
+# console.announcement.title: ""
+
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
 
@@ -660,6 +672,10 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to Valdi sign up page
 # console.valdi-sign-up-url: ""
+
+# list of valid announcement names that can be used in the UI
+# console.valid-announcement-names:
+# - '[]'
 
 # list of partners whose users will not see billing UI.
 # console.var-partners: []

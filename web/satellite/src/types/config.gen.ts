@@ -3,6 +3,13 @@
 
 import { MemorySize, Time } from '@/types/common';
 
+export class AnnouncementConfig {
+    enabled: boolean;
+    name: string;
+    title: string;
+    body: string;
+}
+
 export class CaptchaConfig {
     login: MultiCaptchaConfig;
     registration: MultiCaptchaConfig;
@@ -95,6 +102,7 @@ export class FrontendConfig {
     upgradePayUpfrontAmount: number;
     userFeedbackEnabled: boolean;
     useGeneratedPrivateAPI: boolean;
+    announcement: AnnouncementConfig;
 }
 
 export class MinimumChargeConfig {

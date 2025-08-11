@@ -55,6 +55,7 @@ type Config struct {
 	SkuEnabled                        bool                      `help:"whether we should use SKUs for product usages" default:"false" hidden:"true"`
 	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`
 	AuditableAPIKeyProjects           []string                  `help:"list of public project IDs for which auditable API keys are enabled" default:"[]" hidden:"true"`
+	ValidAnnouncementNames            []string                  `help:"list of valid announcement names that can be used in the UI" default:"[]"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig
@@ -63,9 +64,18 @@ type Config struct {
 	Captcha           CaptchaConfig
 	Session           SessionConfig
 	AccountFreeze     AccountFreezeConfig
+	Announcement      AnnouncementConfig
 
 	SupportURL string `help:"url link to general request page" hidden:"true"`
 	LoginURL   string `help:"url link to the satellite UI login" hidden:"true"`
+}
+
+// AnnouncementConfig contains configurations for announcements shown in the UI.
+type AnnouncementConfig struct {
+	Enabled bool   `help:"indicates whether announcement should be shown in the UI" default:"false" json:"enabled"`
+	Name    string `help:"name of the announcement" default:"" json:"name"`
+	Title   string `help:"title of the announcement" default:"" json:"title"`
+	Body    string `help:"body of the announcement" default:"" json:"body"`
 }
 
 // SatelliteManagedEncryptionConfig contains configurations for Satellite Managed Encryption.

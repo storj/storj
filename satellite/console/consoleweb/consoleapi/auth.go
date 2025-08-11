@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/uuid"
@@ -58,6 +59,7 @@ type Auth struct {
 	SatelliteName             string
 	badPasswords              map[string]struct{}
 	badPasswordsEncoded       string
+	validAnnouncementNames    []string
 	service                   *console.Service
 	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
@@ -68,7 +70,7 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -90,6 +92,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		badPasswordsEncoded:       badPasswordsEncoded,
 		ssoService:                ssoService,
 		csrfService:               csrfService,
+		validAnnouncementNames:    validAnnouncementNames,
 	}
 }
 
@@ -1666,6 +1669,24 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
+	}
+
+	if updateInfo.NoticeDismissal != nil && len(updateInfo.NoticeDismissal.Announcements) > 0 {
+		filteredAnnouncements := make(map[string]bool)
+		for announcement, dismissed := range updateInfo.NoticeDismissal.Announcements {
+			if announcement == "" {
+				// Skip storing dismissal for empty string announcements (not permanently dismissible).
+				continue
+			}
+			if !slices.Contains(a.validAnnouncementNames, announcement) {
+				a.log.Error("invalid announcement name in notice dismissal", zap.String("name", announcement))
+				continue
+			}
+
+			filteredAnnouncements[announcement] = dismissed
+		}
+
+		updateInfo.NoticeDismissal.Announcements = filteredAnnouncements
 	}
 
 	var newDuration **time.Duration

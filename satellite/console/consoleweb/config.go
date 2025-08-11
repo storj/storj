@@ -99,6 +99,7 @@ type FrontendConfig struct {
 	UpgradePayUpfrontAmount           int                         `json:"upgradePayUpfrontAmount"`
 	UserFeedbackEnabled               bool                        `json:"userFeedbackEnabled"`
 	UseGeneratedPrivateAPI            bool                        `json:"useGeneratedPrivateAPI"`
+	Announcement                      console.AnnouncementConfig  `json:"announcement"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
