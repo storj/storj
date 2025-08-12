@@ -851,3 +851,67 @@ func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, pla
 	})
 	return Error.Wrap(err)
 }
+
+var rawObjectColumns = []string{
+	"project_id",
+	"bucket_name",
+	"object_key",
+	"version",
+	"stream_id",
+
+	"created_at",
+	"expires_at",
+
+	"status",
+	"segment_count",
+
+	"encrypted_metadata_nonce",
+	"encrypted_metadata",
+	"encrypted_metadata_encrypted_key",
+	"encrypted_etag",
+
+	"total_plain_size",
+	"total_encrypted_size",
+	"fixed_segment_size",
+
+	"encryption",
+	"zombie_deletion_deadline",
+
+	"retention_mode",
+	"retain_until",
+}
+
+// spannerInsertObject creates a spanner mutation for inserting the object.
+func spannerInsertObject(obj RawObject) *spanner.Mutation {
+	return spanner.Insert("objects", rawObjectColumns, []any{
+		obj.ProjectID.Bytes(),
+		obj.BucketName,
+		[]byte(obj.ObjectKey),
+		obj.Version,
+		obj.StreamID.Bytes(),
+
+		obj.CreatedAt,
+		obj.ExpiresAt,
+
+		obj.Status,
+		int64(obj.SegmentCount),
+
+		obj.EncryptedMetadataNonce,
+		obj.EncryptedMetadata,
+		obj.EncryptedMetadataEncryptedKey,
+		obj.EncryptedETag,
+
+		obj.TotalPlainSize,
+		obj.TotalEncryptedSize,
+		int64(obj.FixedSegmentSize),
+
+		encryptionParameters{&obj.Encryption},
+		obj.ZombieDeletionDeadline,
+
+		lockModeWrapper{
+			retentionMode: &obj.Retention.Mode,
+			legalHold:     &obj.LegalHold,
+		},
+		obj.Retention.RetainUntil,
+	})
+}
