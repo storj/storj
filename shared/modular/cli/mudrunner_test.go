@@ -55,6 +55,7 @@ func TestRun(t *testing.T) {
 		ball := mud.NewBall()
 		mud.Provide[*Task](ball, NewTask)
 		mud.Tag[*Task, modular.Service](ball, modular.Service{})
+		mud.Provide[*ConfigList](ball, NewConfigList)
 
 		cfg := &ConfigSupport{}
 		ok, err := clingy.Environment{
@@ -72,6 +73,7 @@ func TestRun(t *testing.T) {
 	t.Run("run configured components", func(t *testing.T) {
 		ball := mud.NewBall()
 		mud.Provide[*Task](ball, NewTask)
+		mud.Provide[*ConfigList](ball, NewConfigList)
 
 		cfg := &ConfigSupport{}
 		ok, err := clingy.Environment{
@@ -89,6 +91,7 @@ func TestRun(t *testing.T) {
 	t.Run("run dynamic subcommand with config", func(t *testing.T) {
 		ball := mud.NewBall()
 		mud.Provide[*Task](ball, NewTask)
+		mud.Provide[*ConfigList](ball, NewConfigList)
 		mud.Provide[*CustomSubcommand](ball, NewCustomSubcommand)
 		config.RegisterConfig[CustomSubcommandConfig](ball, "cs")
 		RegisterSubcommand[*CustomSubcommand](ball, "custom", "Run a custom subcommand")

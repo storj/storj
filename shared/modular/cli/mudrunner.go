@@ -38,6 +38,8 @@ func Run(module func(ball *mud.Ball)) {
 		mud.Provide[*ComponentGraph](ball, NewComponentGraph)
 		RegisterSubcommand[*ComponentGraph](ball, "components-graph", "generate SVG graph of all components. (requires dot binary of graphviz)")
 		config.RegisterConfig[ComponentGraphConfig](ball, "")
+
+		mud.Provide[*ConfigList](ball, NewConfigList)
 	}
 
 	module(ball)
@@ -73,6 +75,12 @@ func clingyRunner(cfg *ConfigSupport, ball *mud.Ball) func(cmds clingy.Commands)
 		cmds.New("exec", "run services (or just the selected components)", &MudCommand{
 			ball: ball,
 			cfg:  cfg,
+		})
+
+		cmds.New("config-list", "List available config options and actual values", &MudCommand{
+			ball:        ball,
+			runSelector: mud.Select[*ConfigList](ball),
+			cfg:         cfg,
 		})
 
 		// add all registered subcommands

@@ -22,9 +22,10 @@ import (
 
 // MudCommand is a command that initializes and runs modular components.
 type MudCommand struct {
-	ball     *mud.Ball
-	selector mud.ComponentSelector
-	cfg      *ConfigSupport
+	ball        *mud.Ball
+	selector    mud.ComponentSelector // selector for components to initialize and run
+	runSelector mud.ComponentSelector // optional selector for components to run. Used for config list, where everything is used to initialize, but only the subcommand is executed.
+	cfg         *ConfigSupport
 }
 
 // Setup implements clingy setup phase.
@@ -61,7 +62,10 @@ func (m *MudCommand) Setup(params clingy.Parameters) {
 
 // Execute is the clingy entry point.
 func (m *MudCommand) Execute(ctx context.Context) error {
-	err := mud.ForEachDependency(m.ball, m.selector, func(component *mud.Component) error {
+	if m.runSelector == nil {
+		m.runSelector = m.selector
+	}
+	err := mud.ForEachDependency(m.ball, m.runSelector, func(component *mud.Component) error {
 		return component.Init(ctx)
 	}, mud.All)
 	if err != nil {
@@ -70,7 +74,7 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 	defer func() {
 		closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
-		err = mud.ForEachDependencyReverse(m.ball, m.selector, func(component *mud.Component) error {
+		err = mud.ForEachDependencyReverse(m.ball, m.runSelector, func(component *mud.Component) error {
 			return component.Close(closeCtx)
 		}, mud.All)
 		if err != nil {
@@ -79,7 +83,7 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 	}()
 
 	eg := &errgroup.Group{}
-	err = mud.ForEachDependency(m.ball, m.selector, func(component *mud.Component) error {
+	err = mud.ForEachDependency(m.ball, m.runSelector, func(component *mud.Component) error {
 		return component.Run(pprof.WithLabels(ctx, pprof.Labels("component", component.Name())), eg)
 	}, mud.All)
 	if err != nil {
