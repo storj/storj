@@ -95,13 +95,12 @@ func (c *ConfigSupport) GetValue(name string) (vals []string, err error) {
 	if c.settings == nil {
 		vip := viper.New()
 
-		prefix := os.Getenv("STORJ_ENV_PREFIX")
-		if prefix == "" {
-			prefix = "STORJ"
-		}
-
-		vip.SetEnvPrefix(prefix)
-		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+		// We couldn't use vip.AutomaticEnv() here, as the configuration key may not be available here.
+		// clingy handles the parameters in an independent way, pflag doesn't include the flags, therefore
+		// viper doesn't know about the key
+		// viper doesn't scan all the STORJ_ environment variables, only checks the values for known keys
+		// instead of using vip.AutomaticEnv(), we check the environment key in the Setup phase of clingy
+		// see getFlagValue in binder.go
 		cfgPath := filepath.Join(c.configDir, "config.yaml")
 
 		if _, err := os.Stat(cfgPath); err == nil {
@@ -110,10 +109,9 @@ func (c *ConfigSupport) GetValue(name string) (vals []string, err error) {
 				return []string{}, err
 			}
 		}
-		vip.AutomaticEnv()
-
 		c.settings = vip.AllSettings()
 	}
+
 	val := getRecursive(c.settings, strings.Split(name, "."))
 	if val != nil {
 		return []string{fmt.Sprintf("%v", val)}, nil

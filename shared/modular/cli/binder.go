@@ -5,6 +5,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -84,7 +85,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 		// if it's a pflag.Value implementation, let's the interface handle it
 		fieldaddr := fieldref.Interface()
 		if pfv, ok := fieldaddr.(pflag.Value); ok {
-			val := params.Flag(flagname, help, def())
+			val := getFlagValue(params, flagname, help, def())
 			if val == nil {
 				continue
 			}
@@ -132,7 +133,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 		// here is the binding, where we got the real value.
 		// Now we can assume it's a simple value, and let's clingy just get the actual value.
 		// Time to set it back to the config reference (flag.Value may already be handled earlier).
-		val := params.Flag(flagname, help, def())
+		val := getFlagValue(params, flagname, help, def())
 		if val == nil {
 			continue
 		}
@@ -232,6 +233,24 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 		}
 
 	}
+}
+
+// replace defined the naming convention to get environment variable names.
+var replacer = strings.NewReplacer(".", "_", "-", "_")
+
+func getFlagValue(params clingy.Parameters, flagname string, help string, def interface{}) interface{} {
+	result := params.Flag(flagname, help, def)
+	// at this point we have registered flag + we have available value
+	// but environment variable may override it
+	prefix := "STORJ"
+	if os.Getenv("STORJ_ENV_PREFIX") != "" {
+		prefix = os.Getenv("STORJ_ENV_PREFIX")
+	}
+	envName := prefix + "_" + replacer.Replace(strings.ToUpper(flagname))
+	if os.Getenv(envName) != "" {
+		return os.Getenv(envName)
+	}
+	return result
 }
 
 func snakeToHyphenatedCase(val string) string {
