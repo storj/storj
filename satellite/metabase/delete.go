@@ -475,40 +475,41 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 // DeletePendingObject deletes a pending object with specified version and streamID.
 func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.Location(),
-			tx.QueryWithOptions(ctx, spanner.Statement{
-				SQL: `
-					DELETE FROM objects
-					WHERE
-						(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
-						status = ` + statusPending + `
-					THEN RETURN` + collectDeletedObjectsSpannerFields,
-				Params: map[string]interface{}{
-					"project_id":  opts.ProjectID,
-					"bucket_name": opts.BucketName,
-					"object_key":  opts.ObjectKey,
-					"version":     opts.Version,
-					"stream_id":   opts.StreamID,
-				},
-			}, spanner.QueryOptions{RequestTag: "delete-pending-object"}))
+		iterator := tx.QueryWithOptions(ctx, spanner.Statement{
+			SQL: `
+				DELETE FROM objects
+				WHERE
+					(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
+					status = ` + statusPending,
+			Params: map[string]interface{}{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+				"version":     opts.Version,
+				"stream_id":   opts.StreamID,
+			},
+		}, spanner.QueryOptions{RequestTag: "delete-pending-object"})
+		if err := iterator.Do(func(r *spanner.Row) error { return nil }); err != nil {
+			return err
+		}
 
-		stmts := make([]spanner.Statement, len(result.Removed))
-		for ix, object := range result.Removed {
-			stmts[ix] = spanner.Statement{
-				SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
-				Params: map[string]interface{}{
-					"stream_id": object.StreamID.Bytes(),
-				},
-			}
+		if iterator.RowCount == 0 {
+			return nil
 		}
-		if len(stmts) > 0 {
-			var counts []int64
-			counts, err = tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "delete-pending-object-segments"})
-			for _, count := range counts {
-				result.DeletedSegmentCount += int(count)
-			}
-		}
-		return errs.Wrap(err)
+
+		// because delete is using full primary key we are sure only one object will be removed
+		result.Removed = append(result.Removed, Object{
+			ObjectStream: opts.ObjectStream,
+			Status:       Pending,
+		})
+
+		return tx.BufferWrite([]*spanner.Mutation{
+			spanner.Delete("segments", spanner.KeyRange{
+				Start: spanner.Key{opts.StreamID},
+				End:   spanner.Key{opts.StreamID},
+				Kind:  spanner.ClosedClosed,
+			}),
+		})
 	}, spanner.TransactionOptions{
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,

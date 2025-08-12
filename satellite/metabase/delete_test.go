@@ -161,8 +161,6 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("without segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -172,9 +170,7 @@ func TestDeletePendingObject(t *testing.T) {
 
 			object := metabase.RawObject{
 				ObjectStream: obj,
-				CreatedAt:    now,
 				Status:       metabase.Pending,
-				Encryption:   metabasetest.DefaultEncryption,
 			}
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
@@ -191,8 +187,6 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("with segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-
 			metabasetest.CreatePendingObject(ctx, t, db, obj, 2)
 
 			metabasetest.DeletePendingObject{
@@ -203,12 +197,9 @@ func TestDeletePendingObject(t *testing.T) {
 					Removed: []metabase.Object{
 						{
 							ObjectStream: obj,
-							CreatedAt:    now,
 							Status:       metabase.Pending,
-							Encryption:   metabasetest.DefaultEncryption,
 						},
 					},
-					DeletedSegmentCount: 2,
 				},
 			}.Check(ctx, t, db)
 
@@ -217,8 +208,6 @@ func TestDeletePendingObject(t *testing.T) {
 
 		t.Run("with inline segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now := time.Now()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -250,12 +239,9 @@ func TestDeletePendingObject(t *testing.T) {
 					Removed: []metabase.Object{
 						{
 							ObjectStream: obj,
-							CreatedAt:    now,
 							Status:       metabase.Pending,
-							Encryption:   metabasetest.DefaultEncryption,
 						},
 					},
-					DeletedSegmentCount: 1,
 				},
 			}.Check(ctx, t, db)
 
