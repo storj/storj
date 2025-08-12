@@ -981,18 +981,18 @@ type NeedMore func() func(node *SelectedNode) bool
 
 // AtLeast is a needMore function, which will return true, if the number groups (specified by the given attribute) is less than the minimum value.
 func AtLeast(attribute NodeAttribute, min interface{}) NeedMore {
-	var minv int64
-	switch m := min.(type) {
-	case int64:
-		minv = m
-	case int:
-		minv = int64(m)
-	case func() int64:
-		minv = m()
-	default:
-		panic("min value for atleast must be int64, int or func()int64")
-	}
 	return func() func(node *SelectedNode) bool {
+		var minv int64
+		switch m := min.(type) {
+		case int64:
+			minv = m
+		case int:
+			minv = int64(m)
+		case func() int64:
+			minv = m()
+		default:
+			panic("min value for atleast must be int64, int or func()int64")
+		}
 		current := map[string]int64{}
 		return func(node *SelectedNode) bool {
 			current[attribute(*node)]++

@@ -18,10 +18,14 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-type copyObjectTransactionAdapter interface {
+type copyObjectAdapter interface {
 	getSegmentsForCopy(ctx context.Context, object Object) (segments transposedSegmentList, err error)
-	finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, encryptedUserData EncryptedUserData, newSegments transposedSegmentList) (newObject Object, err error)
 	getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error)
+	finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error)
+}
+
+type copyObjectTransactionAdapter interface {
+	finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error)
 }
 
 // BeginCopyObjectResult holds data needed to begin copy object.
@@ -173,75 +177,82 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	newObject := Object{}
 	var finalEncryptedUserData EncryptedUserData
 
+	adapter := db.ChooseAdapter(opts.ProjectID)
+
+	sourceObject, err := adapter.getObjectNonPendingExactVersion(ctx, opts)
+	if err != nil {
+		if ErrObjectNotFound.Has(err) {
+			return Object{}, ErrObjectNotFound.New("source object not found")
+		}
+		return Object{}, err
+	}
+	if sourceObject.StreamID != opts.StreamID {
+		return Object{}, ErrObjectNotFound.New("object was changed during copy")
+	}
+	if sourceObject.Status.IsDeleteMarker() {
+		return Object{}, ErrMethodNotAllowed.New("copying delete marker is not allowed")
+	}
+
+	if opts.VerifyLimits != nil {
+		err := opts.VerifyLimits(sourceObject.TotalEncryptedSize, int64(sourceObject.SegmentCount))
+		if err != nil {
+			return Object{}, err
+		}
+	}
+
+	if int(sourceObject.SegmentCount) != len(opts.NewSegmentKeys) {
+		return Object{}, ErrInvalidRequest.New("wrong number of segments keys received (received %d, need %d)", len(opts.NewSegmentKeys), sourceObject.SegmentCount)
+	}
+
+	newSegments, err := adapter.getSegmentsForCopy(ctx, sourceObject)
+	if err != nil {
+		return Object{}, Error.New("unable to copy object: %w", err)
+	}
+
+	if err = checkExpiresAtWithObjectLock(sourceObject, newSegments, opts.Retention, opts.LegalHold); err != nil {
+		return Object{}, err
+	}
+
+	newSegments.EncryptedKeys = make([][]byte, len(opts.NewSegmentKeys))
+	newSegments.EncryptedKeyNonces = make([][]byte, len(opts.NewSegmentKeys))
+	for index, u := range opts.NewSegmentKeys {
+		if int64(u.Position.Encode()) != newSegments.Positions[index] {
+			return Object{}, Error.New("missing new segment keys for segment %d", newSegments.Positions[index])
+		}
+		newSegments.EncryptedKeys[index] = u.EncryptedKey
+		newSegments.EncryptedKeyNonces[index] = u.EncryptedKeyNonce
+	}
+
+	if opts.OverrideMetadata {
+		finalEncryptedUserData = opts.NewEncryptedUserData
+	} else {
+		finalEncryptedUserData = opts.NewEncryptedUserData
+		finalEncryptedUserData.EncryptedETag = sourceObject.EncryptedETag
+		finalEncryptedUserData.EncryptedMetadata = sourceObject.EncryptedMetadata
+	}
+
+	if err := adapter.finalizeSegmentsCopy(ctx, opts, newSegments); err != nil {
+		return Object{}, err
+	}
+
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-copy-object",
-	}, func(ctx context.Context, adapter TransactionAdapter) error {
-		sourceObject, err := adapter.getObjectNonPendingExactVersion(ctx, opts)
-		if err != nil {
-			if ErrObjectNotFound.Has(err) {
-				return ErrObjectNotFound.New("source object not found")
-			}
-			return err
-		}
-		if sourceObject.StreamID != opts.StreamID {
-			return ErrObjectNotFound.New("object was changed during copy")
-		}
-		if sourceObject.Status.IsDeleteMarker() {
-			return ErrMethodNotAllowed.New("copying delete marker is not allowed")
-		}
-
-		if opts.VerifyLimits != nil {
-			err := opts.VerifyLimits(sourceObject.TotalEncryptedSize, int64(sourceObject.SegmentCount))
-			if err != nil {
-				return err
-			}
-		}
-
-		if int(sourceObject.SegmentCount) != len(opts.NewSegmentKeys) {
-			return ErrInvalidRequest.New("wrong number of segments keys received (received %d, need %d)", len(opts.NewSegmentKeys), sourceObject.SegmentCount)
-		}
-
-		newSegments, err := adapter.getSegmentsForCopy(ctx, sourceObject)
-		if err != nil {
-			return Error.New("unable to copy object: %w", err)
-		}
-
-		if err = checkExpiresAtWithObjectLock(sourceObject, newSegments, opts.Retention, opts.LegalHold); err != nil {
-			return err
-		}
-
-		newSegments.EncryptedKeys = make([][]byte, len(opts.NewSegmentKeys))
-		newSegments.EncryptedKeyNonces = make([][]byte, len(opts.NewSegmentKeys))
-		for index, u := range opts.NewSegmentKeys {
-			if int64(u.Position.Encode()) != newSegments.Positions[index] {
-				return Error.New("missing new segment keys for segment %d", newSegments.Positions[index])
-			}
-			newSegments.EncryptedKeys[index] = u.EncryptedKey
-			newSegments.EncryptedKeyNonces[index] = u.EncryptedKeyNonce
-		}
-
-		if opts.OverrideMetadata {
-			finalEncryptedUserData = opts.NewEncryptedUserData
-		} else {
-			finalEncryptedUserData = opts.NewEncryptedUserData
-			finalEncryptedUserData.EncryptedETag = sourceObject.EncryptedETag
-			finalEncryptedUserData.EncryptedMetadata = sourceObject.EncryptedMetadata
-		}
+	}, func(ctx context.Context, txadapter TransactionAdapter) error {
 
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.NewLocation(),
 			Versioned:      opts.NewVersioned,
 			DisallowDelete: opts.NewDisallowDelete,
 			CheckExistence: opts.IfNoneMatch.All(),
-		}, adapter)
+		}, txadapter)
 		if err != nil {
 			return err
 		}
 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
 
-		newObject, err = adapter.finalizeObjectCopy(ctx, opts, precommit.HighestVersion+1, newStatus, sourceObject, finalEncryptedUserData, newSegments)
+		newObject, err = txadapter.finalizeObjectCopy(ctx, opts, precommit.HighestVersion+1, newStatus, sourceObject, finalEncryptedUserData)
 		return err
 	})
 
@@ -262,7 +273,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	return newObject, nil
 }
 
-func (ptx *postgresTransactionAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
+func (p *PostgresAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
 	segments.Positions = make([]int64, sourceObject.SegmentCount)
 
 	segments.RootPieceIDs = make([][]byte, sourceObject.SegmentCount)
@@ -277,7 +288,7 @@ func (ptx *postgresTransactionAdapter) getSegmentsForCopy(ctx context.Context, s
 
 	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
 
-	err = withRows(ptx.tx.QueryContext(ctx, `
+	err = withRows(p.db.QueryContext(ctx, `
 				SELECT
 					position,
 					expires_at,
@@ -323,7 +334,7 @@ func (ptx *postgresTransactionAdapter) getSegmentsForCopy(ctx context.Context, s
 	return segments, err
 }
 
-func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
+func (s *SpannerAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
 	segments.Positions = make([]int64, sourceObject.SegmentCount)
 
 	segments.RootPieceIDs = make([][]byte, sourceObject.SegmentCount)
@@ -339,7 +350,7 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
 
 	index := 0
-	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
+	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				position,
@@ -355,7 +366,7 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 			ORDER BY position ASC
 			LIMIT @segment_count
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"stream_id":     sourceObject.StreamID,
 			"segment_count": int64(sourceObject.SegmentCount),
 		},
@@ -388,7 +399,39 @@ func (stx *spannerTransactionAdapter) getSegmentsForCopy(ctx context.Context, so
 	return segments, err
 }
 
-func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, encryptedUserData EncryptedUserData, newSegments transposedSegmentList) (newObject Object, err error) {
+func (p *PostgresAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
+	_, err = p.db.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				encrypted_key_nonce, encrypted_key,
+				root_piece_id,
+				redundancy,
+				encrypted_size, plain_offset, plain_size,
+				remote_alias_pieces, placement,
+				inline_data
+			) SELECT
+				$1, UNNEST($2::INT8[]), UNNEST($3::timestamptz[]),
+				UNNEST($4::BYTEA[]), UNNEST($5::BYTEA[]),
+				UNNEST($6::BYTEA[]),
+				UNNEST($7::INT8[]),
+				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
+				UNNEST($11::BYTEA[]), UNNEST($12::INT2[]),
+				UNNEST($13::BYTEA[])
+		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), pgutil.NullTimestampTZArray(newSegments.ExpiresAts),
+		pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
+		pgutil.ByteaArray(newSegments.RootPieceIDs),
+		pgutil.Int8Array(newSegments.RedundancySchemes),
+		pgutil.Int4Array(newSegments.EncryptedSizes), pgutil.Int8Array(newSegments.PlainOffsets), pgutil.Int4Array(newSegments.PlainSizes),
+		pgutil.ByteaArray(newSegments.PiecesLists), pgutil.PlacementConstraintArray(newSegments.Placements),
+		pgutil.ByteaArray(newSegments.InlineDatas),
+	)
+	if err != nil {
+		return Error.New("unable to copy segments: %w", err)
+	}
+	return nil
+}
+
+func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 	row := ptx.tx.QueryRowContext(ctx, `
 			INSERT INTO objects (
@@ -428,39 +471,53 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCopy(ctx context.Context, o
 		return Object{}, Error.New("unable to copy object: %w", err)
 	}
 
-	_, err = ptx.tx.ExecContext(ctx, `
-			INSERT INTO segments (
-				stream_id, position, expires_at,
-				encrypted_key_nonce, encrypted_key,
-				root_piece_id,
-				redundancy,
-				encrypted_size, plain_offset, plain_size,
-				remote_alias_pieces, placement,
-				inline_data
-			) SELECT
-				$1, UNNEST($2::INT8[]), UNNEST($3::timestamptz[]),
-				UNNEST($4::BYTEA[]), UNNEST($5::BYTEA[]),
-				UNNEST($6::BYTEA[]),
-				UNNEST($7::INT8[]),
-				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
-				UNNEST($11::BYTEA[]), UNNEST($12::INT2[]),
-				UNNEST($13::BYTEA[])
-		`, opts.NewStreamID, pgutil.Int8Array(newSegments.Positions), pgutil.NullTimestampTZArray(newSegments.ExpiresAts),
-		pgutil.ByteaArray(newSegments.EncryptedKeyNonces), pgutil.ByteaArray(newSegments.EncryptedKeys),
-		pgutil.ByteaArray(newSegments.RootPieceIDs),
-		pgutil.Int8Array(newSegments.RedundancySchemes),
-		pgutil.Int4Array(newSegments.EncryptedSizes), pgutil.Int8Array(newSegments.PlainOffsets), pgutil.Int4Array(newSegments.PlainSizes),
-		pgutil.ByteaArray(newSegments.PiecesLists), pgutil.PlacementConstraintArray(newSegments.Placements),
-		pgutil.ByteaArray(newSegments.InlineDatas),
-	)
-	if err != nil {
-		return Object{}, Error.New("unable to copy segments: %w", err)
-	}
-
 	return newObject, nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, encryptedUserData EncryptedUserData, newSegments transposedSegmentList) (newObject Object, err error) {
+func (s *SpannerAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
+	// we need to batch inserts to avoid Spanner maximum mutation number limit
+	const batchSize = 1000 // TODO make batchSize configurable
+	inserts := make([]*spanner.Mutation, 0, batchSize)
+
+	for i := range newSegments.Positions {
+		inserts = append(inserts, spanner.Insert("segments",
+			[]string{
+				"stream_id", "position", "expires_at",
+				"encrypted_key_nonce", "encrypted_key",
+				"root_piece_id",
+				"redundancy",
+				"encrypted_size", "plain_offset", "plain_size",
+				"remote_alias_pieces", "placement",
+				"inline_data",
+			}, []any{
+				opts.NewStreamID, newSegments.Positions[i], newSegments.ExpiresAts[i],
+				newSegments.EncryptedKeyNonces[i], newSegments.EncryptedKeys[i],
+				newSegments.RootPieceIDs[i],
+				newSegments.RedundancySchemes[i],
+				int64(newSegments.EncryptedSizes[i]), newSegments.PlainOffsets[i], int64(newSegments.PlainSizes[i]),
+				newSegments.PiecesLists[i], int64(newSegments.Placements[i]),
+				newSegments.InlineDatas[i],
+			},
+		))
+
+		if len(inserts) >= batchSize {
+			if _, err := s.client.Apply(ctx, inserts); err != nil {
+				return Error.New("unable to copy segments: %w", err)
+			}
+			inserts = inserts[:0]
+		}
+	}
+
+	if len(inserts) > 0 {
+		if _, err := s.client.Apply(ctx, inserts); err != nil {
+			return Error.New("unable to copy segments: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, opts FinishCopyObject, nextVersion Version, newStatus ObjectStatus, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 
 	newObject = sourceObject
@@ -521,47 +578,17 @@ func (stx *spannerTransactionAdapter) finalizeObjectCopy(ctx context.Context, op
 	newObject.Version = nextVersion
 	newObject.Status = newStatus
 
-	// Warning: these mutations will not be visible inside the transaction! Mutations only take
-	// effect when the transaction is closed. As the code is now, this is not a problem, but in
-	// case things are rearranged this may become an issue.
-	inserts := make([]*spanner.Mutation, len(newSegments.Positions))
-	for i := range newSegments.Positions {
-		inserts[i] = spanner.Insert("segments",
-			[]string{
-				"stream_id", "position", "expires_at",
-				"encrypted_key_nonce", "encrypted_key",
-				"root_piece_id",
-				"redundancy",
-				"encrypted_size", "plain_offset", "plain_size",
-				"remote_alias_pieces", "placement",
-				"inline_data",
-			}, []any{
-				opts.NewStreamID, newSegments.Positions[i], newSegments.ExpiresAts[i],
-				newSegments.EncryptedKeyNonces[i], newSegments.EncryptedKeys[i],
-				newSegments.RootPieceIDs[i],
-				newSegments.RedundancySchemes[i],
-				int64(newSegments.EncryptedSizes[i]), newSegments.PlainOffsets[i], int64(newSegments.PlainSizes[i]),
-				newSegments.PiecesLists[i], int64(newSegments.Placements[i]),
-				newSegments.InlineDatas[i],
-			},
-		)
-	}
-	err = stx.tx.BufferWrite(inserts)
-	if err != nil {
-		return Object{}, Error.New("unable to copy segments: %w", err)
-	}
-
 	return newObject, nil
 }
 
 // getObjectNonPendingExactVersion returns object information for exact version.
 //
 // Note: this returns both committed objects and delete markers.
-func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
+func (p *PostgresAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	object := Object{}
-	err = ptx.tx.QueryRowContext(ctx, `
+	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, status,
 			created_at, expires_at,
@@ -598,12 +625,12 @@ func (ptx *postgresTransactionAdapter) getObjectNonPendingExactVersion(ctx conte
 	return object, nil
 }
 
-func (stx *spannerTransactionAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
+func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	found := false
 	object := Object{}
-	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
+	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
 				stream_id, status,
