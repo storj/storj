@@ -587,6 +587,8 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	var updateErrs errs.Group
 	for _, p := range projects {
 		err = server.db.Console().Projects().UpdateUsageLimits(ctx, p.ID, console.UsageLimits{
 			Storage:   storageLimit.Int64(),
@@ -594,10 +596,13 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 			Segment:   segmentLimit,
 		})
 		if err != nil {
-			sendJSONError(w, "failed to update project limits",
-				err.Error(), http.StatusInternalServerError)
-			return
+			updateErrs.Add(errs.New("project %s: %w", p.ID, err))
 		}
+	}
+	if updateErrs.Err() != nil {
+		sendJSONError(w, "failed to update projects limits",
+			updateErrs.Err().Error(), http.StatusInternalServerError)
+		return
 	}
 }
 

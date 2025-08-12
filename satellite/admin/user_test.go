@@ -354,6 +354,16 @@ func TestUserKindUpdate(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
+				config.Console.UsageLimits.Storage = console.StorageLimitConfig{
+					Free: 25 * memory.GB,
+					Paid: 50 * memory.GB,
+					Nfr:  30 * memory.GB,
+				}
+				config.Console.UsageLimits.Bandwidth = console.BandwidthLimitConfig{
+					Free: 25 * memory.GB,
+					Paid: 50 * memory.GB,
+					Nfr:  30 * memory.GB,
+				}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
