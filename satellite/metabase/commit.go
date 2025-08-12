@@ -26,7 +26,10 @@ import (
 // ValidatePlainSize determines whether we disable PlainSize validation for old uplinks.
 const ValidatePlainSize = false
 
-const defaultZombieDeletionPeriod = 24 * time.Hour
+const (
+	defaultZombieDeletionPeriod           = 24 * time.Hour
+	defaultZombieDeletionCopyObjectPeriod = 1 * time.Hour
+)
 
 var (
 	// ErrObjectNotFound is used to indicate that the object does not exist.
