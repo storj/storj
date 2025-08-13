@@ -475,7 +475,7 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 // DeletePendingObject deletes a pending object with specified version and streamID.
 func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		iterator := tx.QueryWithOptions(ctx, spanner.Statement{
+		count, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects
 				WHERE
@@ -489,11 +489,11 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 				"stream_id":   opts.StreamID,
 			},
 		}, spanner.QueryOptions{RequestTag: "delete-pending-object"})
-		if err := iterator.Do(func(r *spanner.Row) error { return nil }); err != nil {
+		if err != nil {
 			return err
 		}
 
-		if iterator.RowCount == 0 {
+		if count == 0 {
 			return nil
 		}
 
