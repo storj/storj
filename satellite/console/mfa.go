@@ -218,6 +218,10 @@ func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error)
 		return "", Error.Wrap(err)
 	}
 
+	if user.MFAEnabled {
+		return "", ErrMFAEnabled.New("")
+	}
+
 	key, err = NewMFASecretKey()
 	if err != nil {
 		return "", Error.Wrap(err)
