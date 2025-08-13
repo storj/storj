@@ -504,7 +504,7 @@ func (db *DB) preflight(ctx context.Context, dbName string, dbContainer DBContai
 	if err != nil {
 		return ErrPreflight.New("database: %q: failed selecting test value: %w", dbName, err)
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
+	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
 	if !rows.Next() {
 		return ErrPreflight.New("database %q: no rows in test_table", dbName)
 	}

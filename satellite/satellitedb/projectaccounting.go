@@ -1798,7 +1798,7 @@ func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, proje
 
 		err = rows.Scan(&bucket)
 		if err != nil {
-			return nil, err
+			return nil, errs.Combine(err, rows.Err(), rows.Close())
 		}
 		buckets = append(buckets, accounting.BucketInfo{Name: bucket})
 	}

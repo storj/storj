@@ -187,7 +187,7 @@ func dropTables(ctx context.Context, db tagsql.DB, tablesToKeep ...string) (err 
 			var tableName string
 			err = rows.Scan(&tableName)
 			if err != nil {
-				return errs.Combine(err, rows.Close())
+				return errs.Combine(err, rows.Err(), rows.Close())
 			}
 
 			if !tableToKeep(tableName, tablesToKeep) {
