@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/status"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -821,52 +823,72 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opt
 
 func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO(ver): do we need to pretend here that `expires_at` matters?
-	// TODO(ver): should this report an error when the object doesn't exist?
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		// TODO(spanner): is there a better way to combine these deletes from different tables?
-		result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
-			tx.QueryWithOptions(ctx, spanner.Statement{
-				SQL: `
-					DELETE FROM objects
-						WHERE
-							(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
-							status = ` + statusCommittedUnversioned + ` AND
-							(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-						THEN RETURN` + collectDeletedObjectsSpannerFields,
-				Params: map[string]interface{}{
-					"project_id":  opts.ProjectID,
-					"bucket_name": opts.BucketName,
-					"object_key":  opts.ObjectKey,
-				},
-			}, spanner.QueryOptions{RequestTag: "delete-object-last-committed-plain"}))
-		if err != nil {
-			return errs.Wrap(err)
-		}
 
-		stmts := make([]spanner.Statement, len(result.Removed))
-		for ix, object := range result.Removed {
-			stmts[ix] = spanner.Statement{
-				SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
-				Params: map[string]interface{}{
-					"stream_id": object.StreamID.Bytes(),
-				},
-			}
-		}
-		if len(stmts) > 0 {
-			var counts []int64
-			counts, err = tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "delete-object-last-committed-plain-segments"})
-			for _, count := range counts {
-				result.DeletedSegmentCount += int(count)
-			}
-		}
-		return errs.Wrap(err)
-	}, spanner.TransactionOptions{
+	// TODO(ver): do we need to pretend here that `expires_at` matters?
+	result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
+		s.client.Single().QueryWithOptions(ctx, spanner.Statement{
+			SQL: `
+				SELECT ` + collectDeletedObjectsSpannerFields + ` FROM objects
+					WHERE
+						(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
+						status = ` + statusCommittedUnversioned + ` AND
+						(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+				`,
+			Params: map[string]any{
+				"project_id":  opts.ProjectID,
+				"bucket_name": opts.BucketName,
+				"object_key":  opts.ObjectKey,
+			},
+		}, spanner.QueryOptions{
+			RequestTag: "delete-object-last-committed-plain-get-metadata",
+		}))
+	if err != nil {
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+
+	// TODO(ver): should this report an error when the object doesn't exist?
+	if len(result.Removed) == 0 {
+		return DeleteObjectResult{}, nil
+	} else if len(result.Removed) > 1 {
+		// this should not delete more than one object
+		return DeleteObjectResult{}, errs.New("unexpected number of objects for deletion: %v", len(result.Removed))
+	}
+
+	// TODO consider using partitioned DML for objects with large amount of segments
+
+	object := result.Removed[0]
+	iterator := s.client.BatchWriteWithOptions(ctx, []*spanner.MutationGroup{
+		{
+			Mutations: []*spanner.Mutation{
+				spanner.Delete("objects", spanner.Key{
+					object.ProjectID,
+					object.BucketName,
+					object.ObjectKey,
+					int64(object.Version),
+				}),
+				spanner.Delete("segments", spanner.KeyRange{
+					Start: spanner.Key{object.StreamID},
+					End:   spanner.Key{object.StreamID},
+					Kind:  spanner.ClosedClosed,
+				}),
+			},
+		},
+	}, spanner.BatchWriteOptions{
+		Priority:       spannerpb.RequestOptions_PRIORITY_MEDIUM,
 		TransactionTag: "delete-object-last-committed-plain",
+	})
+	err = iterator.Do(func(r *spannerpb.BatchWriteResponse) error {
+		if err = status.ErrorProto(r.GetStatus()); err != nil {
+			return errs.New("failed to delete object: %v", r.Status)
+		}
+		return nil
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
+
+	result.DeletedSegmentCount = int(object.SegmentCount)
+
 	return result, nil
 }
 
