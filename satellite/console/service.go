@@ -5284,15 +5284,13 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					UserAgent:       r.UserAgent,
 				}
 
-				if !s.config.NewDetailedUsageReportEnabled {
-					reportUsages = append(reportUsages, item)
-					continue
+				if s.config.NewDetailedUsageReportEnabled {
+					item, err = s.transformProjectReportItem(item, param.IncludeCost, payments.ProductUsagePriceModel{})
+					if err != nil {
+						return nil, Error.Wrap(err)
+					}
 				}
 
-				item, err = s.transformProjectReportItem(item, param.IncludeCost, payments.ProductUsagePriceModel{})
-				if err != nil {
-					return nil, Error.Wrap(err)
-				}
 				reportUsages = append(reportUsages, item)
 			}
 		} else {
@@ -5305,10 +5303,6 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				usage.Storage = memory.Size(usage.Storage).GB()
 				usage.Egress = int64(memory.Size(usage.Egress).GB())
 
-				var priceModel payments.ProductUsagePriceModel
-				if s.config.ProductBasedInvoicing {
-					_, priceModel = s.accounts.ProductIdAndPriceForUsageKey(key)
-				}
 				item := accounting.ProjectReportItem{
 					ProjectName:     p.Name,
 					ProjectPublicID: p.PublicID,
@@ -5319,6 +5313,29 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					ObjectCount:     usage.ObjectCount,
 					UserAgent:       p.UserAgent,
 				}
+
+				var priceModel payments.ProductUsagePriceModel
+				if s.config.ProductBasedInvoicing {
+					_, priceModel = s.accounts.ProductIdAndPriceForUsageKey(key)
+
+					partner := ""
+					placement := int(storj.DefaultPlacement)
+
+					// Split the key to extract partner and placement.
+					parts := strings.Split(key, "|")
+					if len(parts) >= 1 {
+						partner = parts[0]
+					}
+					if len(parts) >= 2 {
+						placement64, err := strconv.ParseInt(parts[1], 10, 32)
+						if err == nil {
+							placement = int(placement64)
+						}
+					}
+					item.Placement = storj.PlacementConstraint(placement)
+					item.UserAgent = []byte(partner)
+				}
+
 				item, err = s.transformProjectReportItem(item, param.IncludeCost, priceModel)
 				if err != nil {
 					return nil, Error.Wrap(err)
