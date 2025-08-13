@@ -897,7 +897,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time, aggregate bool) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-	buckets, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before, false)
+	buckets, err := db.GetBucketsSinceAndBefore(ctx, projectID, since, before, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1092,7 +1092,7 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 	since = timeTruncateDown(since.UTC())
 	before = before.UTC()
 
-	buckets, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before, withInfo)
+	buckets, err := db.GetBucketsSinceAndBefore(ctx, projectID, since, before, withInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -1735,9 +1735,10 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 	}
 }
 
-// getBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.
+// GetBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.
 // If withInfo is true, it also retrieves bucket information such as placement and user agent.
-func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time, withInfo bool) (buckets []accounting.BucketInfo, err error) {
+// Exposed to be tested.
+func (db *ProjectAccounting) GetBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time, withInfo bool) (buckets []accounting.BucketInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT DISTINCT bucket_name
@@ -1761,6 +1762,7 @@ func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, proje
 			SELECT bst.bucket_name, va.placement, va.user_agent
 				FROM bucket_storage_tallies bst
 			JOIN value_attributions va ON va.bucket_name = bst.bucket_name
+			   AND va.project_id = bst.project_id
 			WHERE bst.project_id = ?
 				AND bst.interval_start >= ?
 				AND bst.interval_start < ?
@@ -1768,6 +1770,7 @@ func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, proje
 			SELECT bbr.bucket_name, va.placement, va.user_agent
 				FROM bucket_bandwidth_rollups bbr
 			JOIN value_attributions va ON va.bucket_name = bbr.bucket_name
+				AND va.project_id = bbr.project_id
 			WHERE bbr.project_id = ?
 				AND bbr.interval_start >= ?
 				AND bbr.interval_start < ?

@@ -542,9 +542,13 @@ func TestUsageRollups(t *testing.T) {
 		project2 := planet.Uplinks[1].Projects[0].ID
 		project3 := planet.Uplinks[2].Projects[0].ID
 
-		p1base := binary.BigEndian.Uint64(project1[:8]) >> 48
-		p2base := binary.BigEndian.Uint64(project2[:8]) >> 48
-		p3base := binary.BigEndian.Uint64(project3[:8]) >> 48
+		base := func(projectID uuid.UUID) uint64 {
+			return binary.BigEndian.Uint64(projectID[:8]) >> 48
+		}
+
+		p1base := base(project1)
+		p2base := base(project2)
+		p3base := base(project3)
 
 		getValue := func(i, j int, base uint64) int64 {
 			a := uint64((i+1)*(j+1)) ^ base
@@ -561,11 +565,19 @@ func TestUsageRollups(t *testing.T) {
 		var rollups []orders.BucketBandwidthRollup
 
 		var buckets []string
+		placement := func(projectID uuid.UUID) *storj.PlacementConstraint {
+			p := storj.PlacementConstraint(base(projectID))
+			return &p
+		}
+		userAgent := func(projectID uuid.UUID) []byte {
+			return []byte(fmt.Sprintf("partner-%s", projectID.String()))
+		}
 		for i := 0; i < numBuckets; i++ {
 			bucketName := fmt.Sprintf("bucket-%d", i)
 
-			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
-			require.NoError(t, err)
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, db.Attribution().UpdateUserAgent(ctx, project1, bucketName, userAgent(project1)))
+			require.NoError(t, db.Attribution().UpdatePlacement(ctx, project1, bucketName, placement(project1)))
 
 			// project 1
 			for _, action := range actions {
@@ -581,8 +593,9 @@ func TestUsageRollups(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = planet.Uplinks[1].CreateBucket(ctx, planet.Satellites[0], bucketName)
-			require.NoError(t, err)
+			require.NoError(t, planet.Uplinks[1].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, db.Attribution().UpdateUserAgent(ctx, project2, bucketName, userAgent(project2)))
+			require.NoError(t, db.Attribution().UpdatePlacement(ctx, project2, bucketName, placement(project2)))
 
 			// project 2
 			for _, action := range actions {
@@ -598,8 +611,9 @@ func TestUsageRollups(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = planet.Uplinks[2].CreateBucket(ctx, planet.Satellites[0], bucketName)
-			require.NoError(t, err)
+			require.NoError(t, planet.Uplinks[2].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, db.Attribution().UpdateUserAgent(ctx, project3, bucketName, userAgent(project3)))
+			require.NoError(t, db.Attribution().UpdatePlacement(ctx, project3, bucketName, placement(project3)))
 
 			// project 3
 			for _, action := range actions {
@@ -687,6 +701,31 @@ func TestUsageRollups(t *testing.T) {
 		}
 
 		usageRollups := db.ProjectAccounting()
+
+		t.Run("buckets since and before", func(t *testing.T) {
+			for _, projectID := range []uuid.UUID{project1, project2, project3} {
+				bucketInfos, err := usageRollups.GetBucketsSinceAndBefore(ctx, projectID, start, now, false)
+				require.NoError(t, err)
+				require.Len(t, bucketInfos, 5)
+				for _, info := range bucketInfos {
+					require.Nil(t, info.Placement)
+					require.Nil(t, info.UserAgent)
+				}
+			}
+
+			for _, projectID := range []uuid.UUID{project1, project2, project3} {
+				bucketInfos, err := usageRollups.GetBucketsSinceAndBefore(ctx, projectID, start, now /*withInfo*/, true)
+				require.NoError(t, err)
+				require.Len(t, bucketInfos, 5)
+				for _, info := range bucketInfos {
+					require.NotNil(t, info.Placement)
+					require.NotNil(t, info.UserAgent)
+
+					require.Equal(t, placement(projectID), info.Placement)
+					require.Equal(t, userAgent(projectID), info.UserAgent)
+				}
+			}
+		})
 
 		t.Run("project total", func(t *testing.T) {
 			projTotal1, err := usageRollups.GetProjectTotal(ctx, project1, start, now)

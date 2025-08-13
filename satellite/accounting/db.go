@@ -332,6 +332,10 @@ type ProjectAccounting interface {
 	GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time, aggregate bool) (usages map[string]ProjectUsage, err error)
 	// GetProjectObjectsSegments returns project objects and segments number.
 	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (ProjectObjectsSegments, error)
+	// GetBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.
+	// If withInfo is true, it also retrieves bucket information such as placement and user agent.
+	// Exposed to be tested.
+	GetBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time, withInfo bool) (buckets []BucketInfo, err error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	// If withInfo is true, it includes the placement and user agent of the bucket.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time, withInfo bool) ([]BucketUsageRollup, error)
