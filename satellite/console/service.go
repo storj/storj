@@ -6979,6 +6979,10 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", ErrUnauthorized.Wrap(err)
 	}
 
+	if isMember.membership.Role != RoleAdmin {
+		return "", ErrForbidden.New("only project Owner or Admin can get an invite link")
+	}
+
 	invite, err := s.store.ProjectInvitations().Get(ctx, isMember.project.ID, email)
 	if err != nil {
 		if !errs.Is(err, sql.ErrNoRows) {

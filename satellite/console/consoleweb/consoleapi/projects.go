@@ -878,6 +878,7 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
@@ -896,6 +897,15 @@ func (p *Projects) GetInviteLink(w http.ResponseWriter, r *http.Request) {
 
 	link, err := p.service.GetInviteLink(ctx, id, email)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrForbidden.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 	}
 
