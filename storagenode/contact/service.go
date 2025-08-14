@@ -104,6 +104,8 @@ type NodeInfo struct {
 	NoiseKeyAttestation *pb.NoiseKeyAttestation
 	DebounceLimit       int
 	FastOpen            bool
+	HashstoreWriteToNew bool
+	HashstoreMemtbl     bool
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -200,6 +202,12 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID, 
 	var features uint64
 	if self.FastOpen {
 		features |= uint64(pb.NodeAddress_TCP_FASTOPEN_ENABLED)
+	}
+	if self.HashstoreWriteToNew {
+		features |= uint64(pb.CheckInRequest_HASHSTORE_FOR_NEW)
+	}
+	if self.HashstoreMemtbl {
+		features |= uint64(pb.CheckInRequest_HASHSTORE_MEMTBL)
 	}
 
 	mon.IntVal("reported_capacity").Observe(self.Capacity.FreeDisk)

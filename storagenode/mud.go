@@ -5,6 +5,7 @@ package storagenode
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -202,7 +203,7 @@ func Module(ball *mud.Ball) {
 	}
 
 	{ // setup contact service
-		mud.Provide[contact.NodeInfo](ball, func(ctx context.Context, id storj.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server) (contact.NodeInfo, error) {
+		mud.Provide[contact.NodeInfo](ball, func(ctx context.Context, log *zap.Logger, id storj.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server, state *satstore.SatelliteStore) (contact.NodeInfo, error) {
 			externalAddress := contactConfig.ExternalAddress
 			if externalAddress == "" {
 				externalAddress = server.Addr().String()
@@ -218,7 +219,7 @@ func Module(ball *mud.Ball) {
 				return contact.NodeInfo{}, err
 			}
 
-			return contact.NodeInfo{
+			nodeInfo := contact.NodeInfo{
 				ID:      id,
 				Address: externalAddress,
 				Operator: pb.NodeOperator{
@@ -230,7 +231,25 @@ func Module(ball *mud.Ball) {
 				NoiseKeyAttestation: noiseKeyAttestation,
 				DebounceLimit:       server.DebounceLimit(),
 				FastOpen:            server.FastOpen(),
-			}, nil
+				HashstoreMemtbl:     hashstore.IsMemTbl(),
+			}
+
+			err = state.Range(func(id storj.NodeID, bytes []byte) error {
+				var ms piecestore.MigrationState
+				err := json.Unmarshal(bytes, &ms)
+				if err != nil {
+					log.Warn("failed to unmarshal migration state", zap.Error(err), zap.Stringer("satellite", id))
+				}
+				if ms.WriteToNew {
+					nodeInfo.HashstoreWriteToNew = true
+				}
+				return nil
+			})
+			if err != nil {
+				return nodeInfo, err
+			}
+
+			return nodeInfo, nil
 		})
 
 		mud.Provide[*contact.PingStats](ball, func() *contact.PingStats {

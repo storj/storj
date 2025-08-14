@@ -30,6 +30,11 @@ func (t TableKind) String() string {
 	}
 }
 
+// IsMemTbl checks if the default table kind is a memory table.
+func IsMemTbl() bool {
+	return table_DefaultKind == TableKind_MemTbl
+}
+
 // ParseTableKind returns a TableKind for the given string.
 func ParseTableKind(s string) (TableKind, error) {
 	switch strings.ToLower(s) {

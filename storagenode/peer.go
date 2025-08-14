@@ -5,6 +5,7 @@ package storagenode
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -475,6 +476,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Preflight.LocalTime = preflight.NewLocalTime(process.NamedLog(peer.Log, "preflight:localtime"), config.Preflight, peer.Storage2.Trust, peer.Dialer)
 	}
 
+	logsPath, tablePath := config.Hashstore.Directories(config.Storage.Path)
+	metaDir := filepath.Join(logsPath, "meta")
+
+	peer.Storage2.MigrationState = satstore.NewSatelliteStore(metaDir, "migrate")
+
 	{ // setup contact service
 		c := config.Contact
 		if c.ExternalAddress == "" {
@@ -501,7 +507,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			NoiseKeyAttestation: noiseKeyAttestation,
 			DebounceLimit:       peer.Server.DebounceLimit(),
 			FastOpen:            peer.Server.FastOpen(),
+			HashstoreMemtbl:     hashstore.IsMemTbl(),
 		}
+
+		err = peer.Storage2.MigrationState.Range(func(id storj.NodeID, bytes []byte) error {
+			var ms piecestore.MigrationState
+			err := json.Unmarshal(bytes, &ms)
+			if err != nil {
+				log.Warn("failed to unmarshal migration state", zap.Error(err), zap.Stringer("satellite", id))
+			}
+			if ms.WriteToNew {
+				self.HashstoreWriteToNew = true
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
 
@@ -583,10 +606,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			Close: peer.StorageOld.TrashChore.Close,
 		})
 
-		logsPath, tablePath := config.Hashstore.Directories(config.Storage.Path)
-		metaDir := filepath.Join(logsPath, "meta")
-
-		peer.Storage2.MigrationState = satstore.NewSatelliteStore(metaDir, "migrate")
 		peer.Storage2.RestoreTimeManager = retain.NewRestoreTimeManager(metaDir)
 		peer.Storage2.BloomFilterManager, err = retain.NewBloomFilterManager(
 			metaDir,
