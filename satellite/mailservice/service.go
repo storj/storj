@@ -114,10 +114,12 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 
 		if err != nil {
 			service.log.Error("fail sending email",
+				zap.String("subject", msg.Subject()),
 				zap.Strings("recipients", recipients),
 				zap.Error(err))
 		} else {
 			service.log.Info("email sent successfully",
+				zap.String("subject", msg.Subject()),
 				zap.Strings("recipients", recipients))
 		}
 	}()
