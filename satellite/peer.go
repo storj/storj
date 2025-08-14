@@ -53,6 +53,7 @@ import (
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
@@ -215,7 +216,8 @@ type Config struct {
 	LiveAccounting   live.Config
 	ProjectBWCleanup projectbwcleanup.Config
 
-	Mail mailservice.Config
+	Mail         mailservice.Config
+	HubspotMails hubspotmails.Config
 
 	Payments paymentsconfig.Config
 

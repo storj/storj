@@ -986,6 +986,18 @@ contact.external-address: ""
 # Whether the health check server is enabled
 # health-check.enabled: false
 
+# the default timeout for the hubspot http client
+# hubspot-mails.default-timeout: 10s
+
+# a map of email kinds to their corresponding IDs in a format kind:id;kind1:id1
+# hubspot-mails.email-kind-id-map: ""
+
+# indicates whether the hubspot email service is enabled
+# hubspot-mails.enabled: false
+
+# hubspot send email API endpoint
+# hubspot-mails.send-email-api: https://api.hubapi.com/marketing/v3/transactional/single-email/send
+
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
