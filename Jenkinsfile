@@ -12,9 +12,20 @@ node('node') {
     }
 
     stage('CRDB Run Rolling Upgrade Test') {
+        // Check if changes exist in satellite/satellitedb or satellite/metabase
+        def dbChanges = sh(
+            script: 'git diff --name-only HEAD^ HEAD | grep -E "^satellite/(satellitedb|metabase)/" || echo "no-changes"',
+            returnStdout: true
+        ).trim()
+
+        if (dbChanges == "no-changes") {
+            echo "Skipping CRDB Rolling Upgrade test (no changes in satellite/satellitedb or satellite/metabase)"
+            return
+        }
+
         lastStage = env.STAGE_NAME
         try {
-          echo "Running CRDB Rolling Upgrade test"
+          echo "Running CRDB Rolling Upgrade test (database changes detected)"
 
           env.STORJ_SIM_POSTGRES='cockroach://root@cockroach:26257/master?sslmode=disable'
           env.STORJ_SIM_REDIS='redis:6379'
