@@ -4,7 +4,6 @@
 package retain
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 )
 
 func TestRestoreTimeManager(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	dir := t.TempDir()
 
 	rtm := NewRestoreTimeManager(dir)

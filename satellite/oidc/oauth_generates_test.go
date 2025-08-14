@@ -52,7 +52,7 @@ func (m *mockGenerateService) CreateAPIKey(ctx context.Context, id uuid.UUID, na
 var _ oidc.GenerateService = &mockGenerateService{}
 
 func TestUUIDGenerate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	generate := oidc.UUIDAuthorizeGenerate{}
 	uuid, err := generate.Token(ctx, nil)
@@ -118,7 +118,7 @@ func TestMacaroonGenerate(t *testing.T) {
 		{"existing secret - access and refresh", fullScope, getSuccess, nil, true, ""},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	mock := &mockGenerateService{
 		GetUserFunc: func(ctx context.Context, uuid uuid.UUID) (*console.User, error) {
 			return &console.User{

@@ -176,7 +176,7 @@ func TestNodeAliasCache_DB(t *testing.T) {
 }
 
 func BenchmarkNodeAliasCache_ConvertAliasesToPieces(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 
 	aliasDB := &NodeAliasDB{}
 	cache := metabase.NewNodeAliasCache(aliasDB, false)

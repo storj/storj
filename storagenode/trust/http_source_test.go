@@ -4,7 +4,6 @@
 package trust_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -136,7 +135,7 @@ func TestHTTPSourceFetchEntries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			source, err := trust.NewHTTPSource(tt.httpURL)
 			require.NoError(t, err)
-			entries, err := source.FetchEntries(context.Background())
+			entries, err := source.FetchEntries(t.Context())
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)
 				return

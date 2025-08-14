@@ -18,7 +18,7 @@ func TestTable_BasicOperation(t *testing.T) {
 	forAllTables(t, testTable_BasicOperation)
 }
 func testTable_BasicOperation(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	tbl := newTestTbl(t, tbl_minLogSlots)
 	defer tbl.Close()
 
@@ -80,7 +80,7 @@ func TestTable_OverwriteRecords(t *testing.T) {
 	forAllTables(t, testTable_OverwriteMergeRecords)
 }
 func testTable_OverwriteMergeRecords(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	tbl := newTestTbl(t, tbl_minLogSlots)
 	defer tbl.Close()
 
@@ -134,7 +134,7 @@ func TestTable_RangeExitEarly(t *testing.T) {
 	forAllTables(t, testTable_RangeExitEarly)
 }
 func testTable_RangeExitEarly(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
@@ -155,7 +155,7 @@ func TestTable_Full(t *testing.T) {
 	forAllTables(t, testTable_Full)
 }
 func testTable_Full(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	tbl := newTestTbl(t, tbl_minLogSlots)
 	defer tbl.Close()
 
@@ -180,7 +180,7 @@ func TestTable_Load(t *testing.T) {
 	forAllTables(t, testTable_Load)
 }
 func testTable_Load(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Create a new memtbl with the specified size
 	tbl := newTestTbl(t, tbl_minLogSlots)
@@ -241,7 +241,7 @@ func TestTable_LRecBounds(t *testing.T) {
 	forAllTables(t, testTable_LRecBounds)
 }
 func testTable_LRecBounds(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	_, err := CreateTable(ctx, nil, tbl_maxLogSlots+1, 0, table_DefaultKind)
 	assert.Error(t, err)
@@ -254,7 +254,7 @@ func TestTable_ConstructorAPIAfterClose(t *testing.T) {
 	forAllTables(t, testTable_ConstructorAPIAfterClose)
 }
 func testTable_ConstructorAPIAfterClose(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
@@ -284,7 +284,7 @@ func TestTable_ConstructorAPIAfterDone(t *testing.T) {
 	forAllTables(t, testTable_ConstructorAPIAfterDone)
 }
 func testTable_ConstructorAPIAfterDone(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
@@ -336,7 +336,7 @@ func TestTable_InvalidHeaders(t *testing.T) {
 }
 
 func TestTable_OpenIncorrectKind(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
@@ -404,7 +404,7 @@ func benchmarkTable(b *testing.B) {
 	benchmarkLRecs(b, "Compact", func(b *testing.B, lrec uint64) {
 		inserts := 1 << lrec / 2
 
-		ctx := context.Background()
+		ctx := b.Context()
 		tbl := newTestTbl(b, lrec)
 		defer tbl.Close()
 

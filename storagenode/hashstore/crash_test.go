@@ -100,7 +100,7 @@ func runCrashServer(ctx context.Context) error {
 }
 
 func TestCorrectDuringCrashes(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// re-exec the process with the STORJ_HASHSTORE_CRASH_TEST env var set
 	cmd := exec.Command(os.Args[0], os.Args[1:]...)

@@ -51,7 +51,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			log := NewLogger(t)
 
-			testmonkit.Run(context.Background(), t, func(parent context.Context) {
+			testmonkit.Run(t.Context(), t, func(parent context.Context) {
 				defer pprof.SetGoroutineLabels(parent)
 				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
 
@@ -111,7 +111,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			log := NewLogger(t)
 
-			testmonkit.Run(context.Background(), t, func(parent context.Context) {
+			testmonkit.Run(t.Context(), t, func(parent context.Context) {
 				pprof.Do(parent, pprof.Labels("test", t.Name()), func(parent context.Context) {
 					jobqtest.WithServer(t, &jobqtest.ServerOptions{
 						Host: planetConfig.Host,
@@ -175,7 +175,7 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 				planetConfig.Name = b.Name()
 			}
 
-			testmonkit.Run(context.Background(), b, func(parent context.Context) {
+			testmonkit.Run(b.Context(), b, func(parent context.Context) {
 				defer pprof.SetGoroutineLabels(parent)
 				parent = pprof.WithLabels(parent, pprof.Labels("test", b.Name()))
 

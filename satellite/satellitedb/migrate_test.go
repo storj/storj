@@ -374,7 +374,7 @@ func BenchmarkSetup_Cockroach(b *testing.B) {
 func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 	for i := 0; i < b.N; i++ {
 		func() {
-			ctx := context.Background()
+			ctx := b.Context()
 			log := zap.NewNop()
 
 			// create tempDB

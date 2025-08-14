@@ -4,7 +4,6 @@
 package repaircsv
 
 import (
-	"context"
 	"encoding/csv"
 	"os"
 	"path/filepath"
@@ -80,7 +79,7 @@ func TestCsv_Select(t *testing.T) {
 	defer csvQueue.Close()
 
 	// Test selecting with limit
-	segments, err := csvQueue.Select(context.Background(), 3, nil, nil)
+	segments, err := csvQueue.Select(t.Context(), 3, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, segments, 3)
 
@@ -101,14 +100,14 @@ func TestCsv_Select(t *testing.T) {
 	}
 
 	// Test selecting remaining segments
-	segments, err = csvQueue.Select(context.Background(), 10, nil, nil)
+	segments, err = csvQueue.Select(t.Context(), 10, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, segments, 1) // Only one valid segment left (invalid ones are skipped)
 	require.Equal(t, "55555555-5555-5555-5555-555555555555", segments[0].StreamID.String())
 	require.Equal(t, uint64(5), segments[0].Position.Encode())
 
 	// Test EOF - no more segments
-	segments, err = csvQueue.Select(context.Background(), 10, nil, nil)
+	segments, err = csvQueue.Select(t.Context(), 10, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, segments, 0)
 }
@@ -128,7 +127,7 @@ func TestCsv_Select_NoHeader(t *testing.T) {
 	require.NoError(t, err)
 	defer csvQueue.Close()
 
-	segments, err := csvQueue.Select(context.Background(), 10, nil, nil)
+	segments, err := csvQueue.Select(t.Context(), 10, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, segments, 2)
 
@@ -148,7 +147,7 @@ func TestCsv_Select_EmptyFile(t *testing.T) {
 	require.NoError(t, err)
 	defer csvQueue.Close()
 
-	segments, err := csvQueue.Select(context.Background(), 10, nil, nil)
+	segments, err := csvQueue.Select(t.Context(), 10, nil, nil)
 	require.NoError(t, err)
 	require.Len(t, segments, 0)
 }
@@ -182,11 +181,11 @@ func TestCsv_Release(t *testing.T) {
 	}
 
 	// Test successful repair
-	err = csvQueue.Release(context.Background(), segment1, true)
+	err = csvQueue.Release(t.Context(), segment1, true)
 	require.NoError(t, err)
 
 	// Test failed repair
-	err = csvQueue.Release(context.Background(), segment2, false)
+	err = csvQueue.Release(t.Context(), segment2, false)
 	require.NoError(t, err)
 
 	// Close to flush writes

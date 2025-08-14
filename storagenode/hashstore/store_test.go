@@ -27,7 +27,7 @@ func TestStore_BasicOperation(t *testing.T) {
 	})
 }
 func testStore_BasicOperation(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -106,7 +106,7 @@ func testStore_FileLocking(t *testing.T) {
 		t.Skip("flock not supported on this platform")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -131,7 +131,7 @@ func testStore_CreateSameKeyErrors(t *testing.T) {
 	key := s.AssertCreate()
 
 	// attempting to make the same entry fails on the Close call.
-	wr, err := s.Create(context.Background(), key, time.Time{})
+	wr, err := s.Create(t.Context(), key, time.Time{})
 	assert.NoError(t, err)
 	assert.Error(t, wr.Close())
 }
@@ -140,7 +140,7 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 	forAllTables(t, testStore_ReadFromCompactedFile)
 }
 func testStore_ReadFromCompactedFile(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -158,7 +158,7 @@ func testStore_ReadFromCompactedFile(t *testing.T) {
 	assert.True(t, ok)
 
 	// grab a reader for the key and hold on to it through compaction.
-	r, err := s.Read(context.Background(), key)
+	r, err := s.Read(t.Context(), key)
 	assert.NoError(t, err)
 	assert.NotNil(t, r)
 	defer r.Release()
@@ -281,7 +281,7 @@ func TestReader_ReviveOnNonTrash(t *testing.T) {
 	forAllTables(t, testReader_ReviveOnNonTrash)
 }
 func testReader_ReviveOnNonTrash(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -375,7 +375,7 @@ func TestStore_CompactLogFile(t *testing.T) {
 	})
 }
 func testStore_CompactLogFile(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -430,7 +430,7 @@ func TestStore_ClumpObjectsByTTL(t *testing.T) {
 	forAllTables(t, testStore_ClumpObjectsByTTL)
 }
 func testStore_ClumpObjectsByTTL(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -475,7 +475,7 @@ func testStore_WriteCancel(t *testing.T) {
 		key := newKey()
 		keys = append(keys, key)
 
-		wr, err := s.Create(context.Background(), key, time.Time{})
+		wr, err := s.Create(t.Context(), key, time.Time{})
 		assert.NoError(t, err)
 
 		_, err = wr.Write(make([]byte, 1024))
@@ -533,7 +533,7 @@ func testStore_ReadRevivesTrash(t *testing.T) {
 
 	// ensure the Trash flag is set.
 	s.AssertCompact(alwaysTrash, time.Time{})
-	r, err := s.Read(context.Background(), key)
+	r, err := s.Read(t.Context(), key)
 	defer r.Release()
 	assert.NoError(t, err)
 	assert.True(t, r.Trash())
@@ -582,7 +582,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 		t.SkipNow()
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -636,7 +636,7 @@ func TestStore_ReviveDuringCompaction(t *testing.T) {
 }
 func testStore_ReviveDuringCompaction(t *testing.T) {
 	run := func(t *testing.T, future uint32) {
-		ctx := context.Background()
+		ctx := t.Context()
 		s := newTestStore(t)
 		defer s.Close()
 
@@ -702,7 +702,7 @@ func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
 	forAllTables(t, testStore_MultipleReviveDuringCompaction)
 }
 func testStore_MultipleReviveDuringCompaction(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -781,7 +781,7 @@ func testStore_CloseCancelsCompaction(t *testing.T) {
 	errCh := make(chan error)
 
 	go func() {
-		errCh <- s.Compact(context.Background(),
+		errCh <- s.Compact(t.Context(),
 			func(ctx context.Context, key Key, created time.Time) bool {
 				for !<-activity { // wait until we are sent true to continue.
 				}
@@ -805,7 +805,7 @@ func testStore_CloseCancelsCompaction(t *testing.T) {
 	}()
 
 	// try to create a key and ensure it fails on Close.
-	w, err := s.Create(context.Background(), newKey(), time.Time{})
+	w, err := s.Create(t.Context(), newKey(), time.Time{})
 	assert.NoError(t, err)
 	assert.Error(t, w.Close())
 
@@ -829,7 +829,7 @@ func testStore_ContextCancelsClose(t *testing.T) {
 	errCh := make(chan error)
 
 	go func() {
-		errCh <- s.Compact(context.Background(),
+		errCh <- s.Compact(t.Context(),
 			func(ctx context.Context, key Key, created time.Time) bool {
 				for !<-activity { // wait until we are sent true to continue.
 				}
@@ -841,7 +841,7 @@ func testStore_ContextCancelsClose(t *testing.T) {
 	// context being canceled.
 	activity <- false
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// launch a goroutine that confirms that this test has a Close call blocked in Close then
@@ -872,7 +872,7 @@ func TestStore_LogContainsDataToReconstruct(t *testing.T) {
 func testStore_LogContainsDataToReconstruct(t *testing.T) {
 	const parallelism = 4
 
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -989,7 +989,7 @@ func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
 	forAllTables(t, testStore_FailedUpdateDoesntIncreaseLogLength)
 }
 func testStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -1104,7 +1104,7 @@ func TestStore_TableFull(t *testing.T) {
 	forAllTables(t, testStore_TableFull)
 }
 func testStore_TableFull(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -1134,7 +1134,7 @@ func testStore_StatsWhileCompacting(t *testing.T) {
 	errCh := make(chan error)
 
 	go func() {
-		errCh <- s.Compact(context.Background(),
+		errCh <- s.Compact(t.Context(),
 			func(ctx context.Context, key Key, created time.Time) bool {
 				for range activity { // wait until we are closed to continue.
 				}
@@ -1202,7 +1202,7 @@ func TestStore_FlushSemaphore(t *testing.T) {
 	// Set the flush semaphore to 1 for testing
 	defer temporarily(&store_FlushSemaphore, 1)()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -1288,7 +1288,7 @@ func TestStore_WriteRandomSizes(t *testing.T) {
 	forAllTables(t, testStore_WriteRandomSizes)
 }
 func testStore_WriteRandomSizes(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	s := newTestStore(t)
 	defer s.Close()
 
@@ -1364,7 +1364,7 @@ func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
 	activity := make(chan struct{})
 	errCh := make(chan error)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go func() {
@@ -1456,7 +1456,7 @@ func BenchmarkStore(b *testing.B) {
 	forAllTables(b, benchmarkStore)
 }
 func benchmarkStore(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 
 	benchmarkSizes(b, "Create", func(b *testing.B, size uint64) {
 		buf := make([]byte, size)

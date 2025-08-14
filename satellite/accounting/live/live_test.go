@@ -311,7 +311,7 @@ func populateCache(ctx context.Context, cache accounting.Cache) ([]populateCache
 
 	// send lots of space used updates for all of these projects to the live
 	// accounting store.
-	errg, ctx := errgroup.WithContext(context.Background())
+	errg, ctx := errgroup.WithContext(ctx)
 	for i, pdata := range populatedData {
 		var (
 			i      = i

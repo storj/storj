@@ -4,7 +4,6 @@
 package consoledb_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +13,7 @@ import (
 )
 
 func TestProjectFromDbx(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
 		project, err := consoledb.ProjectFromDBX(ctx, nil)

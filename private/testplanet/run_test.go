@@ -62,7 +62,7 @@ func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
 
 					log := zap.NewNop()
 
-					testmonkit.Run(context.Background(), b, func(parent context.Context) {
+					testmonkit.Run(b.Context(), b, func(parent context.Context) {
 						defer pprof.SetGoroutineLabels(parent)
 						parent = pprof.WithLabels(parent, pprof.Labels("test", b.Name()))
 

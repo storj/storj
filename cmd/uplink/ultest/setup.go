@@ -67,7 +67,7 @@ func (st State) Run(t *testing.T, args ...string) Result {
 	var stdin bytes.Buffer
 	var ran bool
 
-	ctx := context.Background()
+	ctx := t.Context()
 	lfs := ulfs.NewLocal(ulfs.NewLocalBackendMem())
 	rfs := newRemoteFilesystem()
 	fs := ulfs.NewMixed(lfs, rfs)

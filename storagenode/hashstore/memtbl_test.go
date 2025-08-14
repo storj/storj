@@ -57,7 +57,7 @@ func TestMemTbl_ConstructorSometimesFlushes(t *testing.T) {
 	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_ConstructorSometimesFlushes)
 }
 func testMemTbl_ConstructorSometimesFlushes(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	newTestMemTbl(t, tbl_minLogSlots, WithConstructor(func(tc TblConstructor) {
 		// make two keys that collide on short but are not equal.
 		k0, k1 := newShortCollidingKeys()
@@ -110,7 +110,7 @@ func TestMemTbl_UpdateCollisions(t *testing.T) {
 	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_UpdateCollisions)
 }
 func testMemTbl_UpdateCollisions(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	m := newTestMemTbl(t, tbl_minLogSlots)
 	defer m.Close()
 
@@ -175,7 +175,7 @@ func testMemTbl_UpdateCollisions(t *testing.T) {
 func TestMemTbl_MMAPWithUnalignedEntries(t *testing.T) {
 	defer temporarily(&memtbl_MMAP, true)()
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	var keys []Key
 	m := newTestMemTbl(t, tbl_minLogSlots, withEntries(t, 1, &keys))
@@ -230,7 +230,7 @@ func TestMemTbl_ConstructorFull(t *testing.T) {
 	forEachBool(t, "mmap", &memtbl_MMAP, testMemTbl_ConstructorFull)
 }
 func testMemTbl_ConstructorFull(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	var keys []Key
 	m := newTestMemTbl(t, tbl_minLogSlots, withFilledTable(t, &keys))
@@ -298,6 +298,6 @@ func TestMemTbl_ReopenWithTooManyEntries(t *testing.T) {
 	_, err := m.fh.Write(buf[:])
 	assert.NoError(t, err)
 
-	_, err = OpenMemTbl(context.Background(), m.fh)
+	_, err = OpenMemTbl(t.Context(), m.fh)
 	assert.Error(t, err)
 }

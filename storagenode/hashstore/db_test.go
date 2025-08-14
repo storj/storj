@@ -21,7 +21,7 @@ func TestDB_BasicOperation(t *testing.T) {
 	forAllTables(t, testDB_BasicOperation)
 }
 func testDB_BasicOperation(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	db := newTestDB(t, nil, nil)
 	defer db.Close()
 
@@ -197,7 +197,7 @@ func TestDB_CompactionOnOpen(t *testing.T) {
 	forAllTables(t, testDB_CompactionOnOpen)
 }
 func testDB_CompactionOnOpen(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	db := newTestDB(t, nil, nil)
 	defer db.Close()
 
@@ -276,7 +276,7 @@ func testDB_CloseCancelsCompaction(t *testing.T) {
 	}()
 
 	for {
-		w, err := db.Create(context.Background(), newKey(), time.Time{})
+		w, err := db.Create(t.Context(), newKey(), time.Time{})
 		if err == nil {
 			assert.NoError(t, w.Close())
 		} else {
@@ -295,7 +295,7 @@ func testDB_ContextCancelsCreate(t *testing.T) {
 	db := newTestDB(t, blockOnContext, nil)
 	defer db.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
@@ -401,7 +401,7 @@ func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
 		close(throttle)
 	}()
 
-	assert.NoError(t, db.Compact(context.Background()))
+	assert.NoError(t, db.Compact(t.Context()))
 }
 
 //
@@ -412,7 +412,7 @@ func BenchmarkDB(b *testing.B) {
 	forAllTables(b, benchmarkDB)
 }
 func benchmarkDB(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 
 	benchmarkSizes(b, "Create", func(b *testing.B, size uint64) {
 		buf := make([]byte, size)

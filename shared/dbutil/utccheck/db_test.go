@@ -16,7 +16,7 @@ import (
 )
 
 func TestUTCDB(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	notUTC := time.FixedZone("not utc", -1)
 	db := sql.OpenDB(utccheck.WrapConnector(emptyConnector{}))

@@ -4,7 +4,6 @@
 package piecestore
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -76,11 +75,11 @@ func BenchmarkPieceStore(b *testing.B) {
 			var piece storj.PieceID
 			_, _ = mwc.Rand().Read(piece[:])
 
-			wr, err := backend.Writer(context.Background(), satellite, piece, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+			wr, err := backend.Writer(b.Context(), satellite, piece, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
 			require.NoError(b, err)
 			_, err = wr.Write(buf)
 			require.NoError(b, err)
-			require.NoError(b, wr.Commit(context.Background(), &pb.PieceHeader{
+			require.NoError(b, wr.Commit(b.Context(), &pb.PieceHeader{
 				Hash: wr.Hash(),
 			}))
 		}
@@ -92,7 +91,7 @@ func BenchmarkPieceStore(b *testing.B) {
 		run(b, func(b *testing.B) PieceBackend {
 			bfm, _ := retain.NewBloomFilterManager(b.TempDir(), 0)
 			rtm := retain.NewRestoreTimeManager(b.TempDir())
-			backend, err := NewHashStoreBackend(context.Background(), b.TempDir(), "", bfm, rtm, nil)
+			backend, err := NewHashStoreBackend(b.Context(), b.TempDir(), "", bfm, rtm, nil)
 			require.NoError(b, err)
 			return backend
 		}, 64*1024)

@@ -73,7 +73,7 @@ func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Co
 		options = &ServerOptions{}
 	}
 	if options.Identity == nil {
-		ident, err := identity.NewFullIdentity(context.Background(), identity.NewCAOptions{})
+		ident, err := identity.NewFullIdentity(t.Context(), identity.NewCAOptions{})
 		require.NoError(t, err)
 		options.Identity = ident
 	}
@@ -119,7 +119,7 @@ func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Co
 	}
 
 	var group errgroup.Group
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	group.Go(func() error {
 		err := testSrv.Run(ctx)

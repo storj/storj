@@ -10,7 +10,7 @@ import (
 )
 
 func TestCacheSleep32bitBug(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond)
 	defer cancel()
 
 	// Ensure that a large maxSleep doesn't roll over to negative values on 32 bit systems.

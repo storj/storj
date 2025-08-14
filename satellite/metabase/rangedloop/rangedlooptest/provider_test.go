@@ -4,7 +4,6 @@
 package rangedlooptest
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -131,7 +130,7 @@ func TestSplitter(t *testing.T) {
 			var actualRanges [][]rangedloop.Segment
 			for _, provider := range providers {
 				rangeSegments := []rangedloop.Segment{}
-				err := provider.Iterate(context.Background(), func(segments []rangedloop.Segment) error {
+				err := provider.Iterate(t.Context(), func(segments []rangedloop.Segment) error {
 					if len(segments) > batchSize {
 						return fmt.Errorf("iterated segments (%d) larger than batch size (%d)", len(segments), batchSize)
 					}

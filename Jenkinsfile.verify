@@ -79,35 +79,19 @@ pipeline {
 
         stage('Lint') {
             parallel {
-                stage('Storj Checks') {
+                stage('Lint') {
                     steps {
-                        sh 'check-mod-tidy'
-                        sh 'check-copyright'
-                        sh 'check-imports -race ./...'
-                        sh 'check-peer-constraints -race'
-                        sh 'check-atomic-align ./...'
-                        sh 'check-monkit ./...'
-                        sh 'check-errs ./...'
-                        sh 'check-downgrades'
-                        sh 'make check-monitoring'
-                        sh 'make test-wasm-size'
+                        sh 'make llint'
+                    }
+                }
+                stage('Additional checks') {
+                    steps {
                         sh './scripts/check-package-lock.sh'
-                    }
-                }
-                stage('Staticcheck') {
-                    steps {
-                         sh 'staticcheck ./...'
-                    }
-                }
-                stage('Other') {
-                    steps {
-                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 --timeout=5m run --show-stats --verbose'
-                        sh 'protolock status'
-                        sh 'go vet ./...'
                         dir("testsuite/storjscan") {
                             sh 'go vet ./...'
                         }
                     }
+
                 }
             }
         }

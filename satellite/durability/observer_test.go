@@ -159,7 +159,7 @@ func TestDurability(t *testing.T) {
 }
 
 func BenchmarkDurabilityProcess(b *testing.B) {
-	ctx := context.TODO()
+	ctx := b.Context()
 
 	rng := rand.New(rand.NewSource(0))
 

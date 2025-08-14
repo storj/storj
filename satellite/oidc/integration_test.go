@@ -5,7 +5,6 @@ package oidc_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -44,7 +43,7 @@ func send(t *testing.T, body io.Reader, response interface{}, status int, parts 
 		method = http.MethodGet
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), method, parts[0], body)
+	req, err := http.NewRequestWithContext(t.Context(), method, parts[0], body)
 	require.NoError(t, err)
 
 	auth := parts[2]

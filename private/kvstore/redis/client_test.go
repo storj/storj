@@ -4,7 +4,6 @@
 package redis
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -33,14 +32,14 @@ func TestSuite(t *testing.T) {
 }
 
 func TestInvalidConnection(t *testing.T) {
-	_, err := OpenClient(context.Background(), "", "", 1)
+	_, err := OpenClient(t.Context(), "", "", 1)
 	if err == nil {
 		t.Fatal("expected connection error")
 	}
 }
 
 func BenchmarkSuite(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 
 	redis, err := testredis.Start(ctx)
 	if err != nil {

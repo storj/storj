@@ -4,7 +4,6 @@
 package trust_test
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -85,7 +84,7 @@ func TestFileSourceFetchEntries(t *testing.T) {
 		tt := tt // quiet linting
 		t.Run(tt.name, func(t *testing.T) {
 			source := trust.NewFileSource(tt.path)
-			entries, err := source.FetchEntries(context.Background())
+			entries, err := source.FetchEntries(t.Context())
 			if len(tt.errs) > 0 {
 				require.Error(t, err)
 				require.Contains(t, tt.errs, err.Error())

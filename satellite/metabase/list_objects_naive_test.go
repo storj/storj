@@ -200,7 +200,7 @@ func TestNaiveObjectsDB_Basic(t *testing.T) {
 	check := func(entries []metabase.ObjectEntry, opts metabase.ListObjects, expected []metabase.ObjectEntry) {
 		t.Helper()
 		naive := NewNaiveObjectsDB(entries)
-		result, err := naive.ListObjects(context.Background(), opts)
+		result, err := naive.ListObjects(t.Context(), opts)
 		require.NoError(t, err)
 		require.Equal(t, expected, result.Objects)
 	}

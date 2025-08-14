@@ -4,7 +4,6 @@
 package trust_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -50,7 +49,7 @@ func TestStaticURLSource(t *testing.T) {
 			require.True(t, source.Static(), "static source is not static")
 			require.Equal(t, tt.url, source.String(), "static source string should match url")
 
-			entries, err := source.FetchEntries(context.Background())
+			entries, err := source.FetchEntries(t.Context())
 			require.NoError(t, err)
 			assert.Equal(t, tt.entries, entries)
 		})

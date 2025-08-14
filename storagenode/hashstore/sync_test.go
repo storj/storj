@@ -19,7 +19,7 @@ import (
 func TestMutex(t *testing.T) {
 	mu := newMutex()
 	closed := new(drpcsignal.Signal)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	var state int
 	var wg sync.WaitGroup
@@ -64,7 +64,7 @@ func TestMutex_LockBlocksUntilCanceled(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mu := newMutex()
 			sig := new(drpcsignal.Signal)
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			// Acquire the lock first
@@ -104,7 +104,7 @@ func TestRWMutex(t *testing.T) {
 
 		mu := newRWMutex(0)
 		closed := new(drpcsignal.Signal)
-		ctx := context.Background()
+		ctx := t.Context()
 
 		var state int
 		var wg sync.WaitGroup
@@ -172,7 +172,7 @@ func TestRWMutex_LockBlocksUntilCanceled(t *testing.T) {
 
 				mu := newRWMutex(0)
 				sig := new(drpcsignal.Signal)
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 
 				// Acquire write lock first (blocks both read and write locks)
@@ -227,7 +227,7 @@ func TestRWMutex_LockBlocksUntilCanceled(t *testing.T) {
 func TestRWMutex_Semaphore_Failure(t *testing.T) {
 	mu := newRWMutex(1)
 	closed := new(drpcsignal.Signal)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// acquire one mutex
@@ -252,7 +252,7 @@ func TestRWMutex_Semaphore_Failure(t *testing.T) {
 func TestRWMutex_Semaphore_Success(t *testing.T) {
 	mu := newRWMutex(1)
 	closed := new(drpcsignal.Signal)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// acquire one mutex
 	assert.NoError(t, mu.RLock(ctx, closed))
@@ -279,7 +279,7 @@ func TestRWMutex_ReleaseCancelRace(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		func() {
 			// Create new context for each iteration
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			// Acquire write lock
@@ -318,7 +318,7 @@ func TestRWMutex_PendingWriteDoesntPreventMultipleReads(t *testing.T) {
 
 	mu := newRWMutex(0)
 	closed := new(drpcsignal.Signal)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// define a helper to wait until some state has been reached
@@ -391,7 +391,7 @@ func BenchmarkRWMutex(b *testing.B) {
 	b.Run("Read", func(b *testing.B) {
 		mu := newRWMutex(0)
 		closed := new(drpcsignal.Signal)
-		ctx := context.Background()
+		ctx := b.Context()
 
 		b.ReportAllocs()
 
@@ -404,7 +404,7 @@ func BenchmarkRWMutex(b *testing.B) {
 	b.Run("Write", func(b *testing.B) {
 		mu := newRWMutex(0)
 		closed := new(drpcsignal.Signal)
-		ctx := context.Background()
+		ctx := b.Context()
 
 		b.ReportAllocs()
 

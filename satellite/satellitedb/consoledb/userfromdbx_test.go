@@ -4,7 +4,6 @@
 package consoledb_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -15,7 +14,7 @@ import (
 )
 
 func TestUserFromDbx(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
 		user, err := consoledb.UserFromDBX(ctx, nil)

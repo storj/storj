@@ -28,7 +28,7 @@ func TestHashTbl_TrashStats(t *testing.T) {
 }
 
 func TestHashTbl_Full(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
@@ -52,7 +52,7 @@ func TestHashTbl_Full(t *testing.T) {
 func TestHashTbl_LostPage(t *testing.T) {
 	const lrec = 14 // 16k records (256 pages)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	h := newTestHashTbl(t, lrec)
 	defer h.Close()
 
@@ -86,7 +86,7 @@ func TestHashTbl_LostPage(t *testing.T) {
 }
 
 func TestHashTbl_SmallFileSizes(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	fh, err := os.Create(filepath.Join(t.TempDir(), "tmp"))
 	assert.NoError(t, err)
@@ -105,7 +105,7 @@ func TestHashTbl_SmallFileSizes(t *testing.T) {
 }
 
 func TestHashTbl_LRecBounds(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	_, err := CreateHashTbl(ctx, nil, tbl_maxLogSlots+1, 0)
 	assert.Error(t, err)
@@ -148,7 +148,7 @@ func TestHashTbl_Wraparound(t *testing.T) {
 }
 
 func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	h0 := newTestHashTbl(t, tbl_minLogSlots)
 	defer h0.Close()
 
@@ -242,7 +242,7 @@ func TestMMAPCache(t *testing.T) {
 }
 
 func TestHashTbl_IncorrectLogSlots(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	h := newTestHashTbl(t, tbl_minLogSlots)
 	defer h.Close()
 
@@ -258,7 +258,7 @@ func TestHashTbl_IncorrectLogSlots(t *testing.T) {
 
 func BenchmarkHashTbl(b *testing.B) {
 	benchmarkLRecs(b, "ComputeEstimates", func(b *testing.B, lrec uint64) {
-		ctx := context.Background()
+		ctx := b.Context()
 		h := newTestHashTbl(b, lrec)
 		defer h.Close()
 

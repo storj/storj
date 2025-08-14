@@ -166,7 +166,7 @@ func TestListAgainstSpec(t *testing.T) {
 	list, err := trust.NewList(log, sources, rules, cache)
 	require.NoError(t, err)
 
-	urls, err := list.FetchURLs(context.Background())
+	urls, err := list.FetchURLs(t.Context())
 	require.NoError(t, err)
 
 	t.Logf("0@ = %s", makeTestID('0'))
@@ -307,7 +307,7 @@ func TestListCacheInteraction(t *testing.T) {
 				require.NoError(t, os.Remove(cache.Path()))
 			}
 
-			urls, err := list.FetchURLs(context.Background())
+			urls, err := list.FetchURLs(t.Context())
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)
 				return

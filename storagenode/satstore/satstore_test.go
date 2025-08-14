@@ -4,7 +4,6 @@
 package satstore
 
 import (
-	"context"
 	"testing"
 
 	"github.com/zeebo/assert"
@@ -14,7 +13,7 @@ import (
 )
 
 func TestSatStore(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	dir := t.TempDir()
 	s1 := NewSatelliteStore(dir, "ext1")

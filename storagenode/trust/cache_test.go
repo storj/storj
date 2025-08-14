@@ -4,7 +4,6 @@
 package trust_test
 
 import (
-	"context"
 	"errors"
 	"io/fs"
 	"os"
@@ -150,7 +149,7 @@ func TestCachePersistence(t *testing.T) {
 			}
 
 			if tt.save {
-				require.NoError(t, cache.Save(context.Background()))
+				require.NoError(t, cache.Save(t.Context()))
 			}
 
 			cacheAfter, err := trust.LoadCacheData(cachePath)

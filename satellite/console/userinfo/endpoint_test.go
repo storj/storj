@@ -4,7 +4,6 @@
 package userinfo_test
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"testing"
@@ -27,7 +26,7 @@ import (
 func TestEndpointGet(t *testing.T) {
 
 	// trusted identity
-	ident, err := testidentity.NewTestIdentity(context.TODO())
+	ident, err := testidentity.NewTestIdentity(t.Context())
 	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{

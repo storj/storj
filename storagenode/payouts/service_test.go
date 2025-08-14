@@ -64,7 +64,7 @@ func TestServiceHeldAmountHistory(t *testing.T) {
 				},
 			},
 		}
-		require.NoError(t, pool.Refresh(context.Background()))
+		require.NoError(t, pool.Refresh(t.Context()))
 
 		// add paystubs
 		paystubs := []payouts.PayStub{

@@ -356,7 +356,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 			t.Run("HeldbackHistory", func(t *testing.T) {
 				date := time.Now().UTC().AddDate(0, -2, 0).Round(time.Minute)
-				err = reputationDB.Store(context.Background(), reputation.Stats{
+				err = reputationDB.Store(t.Context(), reputation.Stats{
 					SatelliteID: satellite.ID(),
 					JoinedAt:    date,
 				})
