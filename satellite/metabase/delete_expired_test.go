@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
@@ -172,10 +174,32 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			now := time.Now()
 			pastTime := now.Add(-1 * time.Hour)
 
-			for _, batchSize := range []int{0, 1, 2, 3, 8, 100} {
-				for i := 0; i < 13; i++ {
-					_ = metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, pastTime)
-				}
+			// make objects/segments snapshot to use it later in a loop
+			for range 13 {
+				_ = metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, pastTime)
+			}
+
+			objects, err := db.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			segments, err := db.TestingAllSegments(ctx)
+			require.NoError(t, err)
+
+			metabasetest.DeleteExpiredObjects{
+				Opts: metabase.DeleteExpiredObjects{
+					ExpiredBefore:     time.Now(),
+					DeleteConcurrency: 0,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+
+			for _, batchSize := range []int{1, 2, 3, 8, 100} {
+				err = db.TestingBatchInsertObjects(ctx, metabasetest.ObjectsToRaw(objects...))
+				require.NoError(t, err)
+
+				err = db.TestingBatchInsertSegments(ctx, metabasetest.SegmentsToRaw(segments))
+				require.NoError(t, err)
 
 				metabasetest.DeleteExpiredObjects{
 					Opts: metabase.DeleteExpiredObjects{
