@@ -6,6 +6,7 @@ package consoledb
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -33,11 +34,18 @@ type ConsoleDB struct {
 
 	ApikeysOnce  *sync.Once
 	apikeysCache *lrucache.ExpiringLRUOf[*projectApiKeyRow]
+
+	// UsersOnce and usersDB ensure Users() returns the same instance.
+	UsersOnce *sync.Once
+	usersDB   console.Users
 }
 
 // Users is getter a for Users repository.
 func (db *ConsoleDB) Users() console.Users {
-	return &users{db: db.Methods, impl: db.Impl}
+	db.UsersOnce.Do(func() {
+		db.usersDB = &users{db: db.Methods, impl: db.Impl, nowFn: time.Now}
+	})
+	return db.usersDB
 }
 
 // Projects is a getter for Projects repository.
@@ -123,6 +131,9 @@ func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, consol
 
 				ApikeysOnce:  db.ApikeysOnce,
 				apikeysCache: db.apikeysCache,
+
+				UsersOnce: db.UsersOnce,
+				usersDB:   &users{db: tx, impl: db.Impl, nowFn: time.Now},
 			},
 		}
 		return fn(ctx, dbTx)

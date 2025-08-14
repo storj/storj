@@ -2931,12 +2931,10 @@ func TestDeleteAccount(t *testing.T) {
 			year, month, day := time.Now().UTC().Date()
 			timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
 
-			service.TestSetNow(func() time.Time {
-				return timestamp
-			})
-			sat.API.Payments.StripeService.SetNow(func() time.Time {
-				return timestamp
-			})
+			newNow := func() time.Time { return timestamp }
+			service.TestSetNow(newNow)
+			sat.DB.Console().Users().TestSetNow(newNow)
+			sat.API.Payments.StripeService.SetNow(newNow)
 			interval := timestamp.Add(-2 * time.Hour)
 
 			// check for unbilled storage

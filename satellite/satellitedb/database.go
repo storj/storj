@@ -263,6 +263,7 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 			Methods: db,
 
 			ApikeysOnce: new(sync.Once),
+			UsersOnce:   new(sync.Once),
 		}
 	})
 
