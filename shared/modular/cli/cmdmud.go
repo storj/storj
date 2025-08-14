@@ -7,8 +7,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"runtime/pprof"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -72,13 +75,47 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 		return errors.WithStack(err)
 	}
 	defer func() {
-		closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		shutdownTimeout := 15 * time.Second
+		if timeoutStr := os.Getenv("STORJ_SHUTDOWN_TIMEOUT"); timeoutStr != "" {
+			if timeoutSecs, parseErr := strconv.Atoi(timeoutStr); parseErr == nil && timeoutSecs > 0 {
+				shutdownTimeout = time.Duration(timeoutSecs) * time.Second
+			}
+		}
+
+		closeCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		err = mud.ForEachDependencyReverse(m.ball, m.runSelector, func(component *mud.Component) error {
-			return component.Close(closeCtx)
-		}, mud.All)
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+
+		done := make(chan error, 1)
+		go func() {
+			done <- mud.ForEachDependencyReverse(m.ball, m.runSelector, func(component *mud.Component) error {
+				return component.Close(closeCtx)
+			}, mud.All)
+		}()
+
+		select {
+		case err = <-done:
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+			}
+		case <-time.After(shutdownTimeout):
+			if debugPath := os.Getenv("STORJ_SHUTDOWN_DEBUG_PATH"); debugPath != "" {
+				pid := os.Getpid()
+				timestamp := time.Now().Unix()
+				filename := fmt.Sprintf("%d-%d.goroutines", pid, timestamp)
+				fullPath := filepath.Join(debugPath, filename)
+
+				buf := make([]byte, 1<<20) // 1MB buffer
+				stackSize := runtime.Stack(buf, true)
+				err := os.WriteFile(fullPath, buf[:stackSize], 0644)
+				if err != nil {
+					_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+				}
+			}
+			cancel()
+			err = <-done
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "%v\n", err)
+			}
 		}
 	}()
 
