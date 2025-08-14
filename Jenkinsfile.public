@@ -80,7 +80,7 @@ pipeline {
                         dir('.build') {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 1024MiB --max-sql-memory 1024MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 1024MiB --max-sql-memory 1024MiB --background'                        }
+                        }
                     }
                 }
             }
