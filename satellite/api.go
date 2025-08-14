@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeselection"
@@ -134,7 +135,8 @@ type API struct {
 	}
 
 	Mail struct {
-		Service *mailservice.Service
+		Service        *mailservice.Service
+		HubspotService *hubspotmails.Service
 	}
 
 	Payments struct {
@@ -613,18 +615,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	if !config.DisableConsoleFromSatelliteAPI {
-		{ // setup mailservice
-			peer.Mail.Service, err = setupMailService(peer.Log, *config)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Services.Add(lifecycle.Item{
-				Name:  "mail:service",
-				Close: peer.Mail.Service.Close,
-			})
-		}
-
 		{ // setup oidc
 			peer.OIDC.Service = oidc.NewService(db.OIDC())
 		}
@@ -636,6 +626,25 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				Name:  "analytics:service",
 				Run:   peer.Analytics.Service.Run,
 				Close: peer.Analytics.Service.Close,
+			})
+		}
+
+		{ // setup legacy and hubspot mail services
+			peer.Mail.Service, err = setupMailService(peer.Log, *config)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "mail:service",
+				Close: peer.Mail.Service.Close,
+			})
+
+			peer.Mail.HubspotService = hubspotmails.NewService(peer.Log.Named("mail:hubspotservice"), peer.Analytics.Service, config.HubspotMails)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "hubspotmails:service",
+				Close: peer.Mail.HubspotService.Close,
 			})
 		}
 
@@ -845,6 +854,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.Analytics.Service,
 				peer.Console.AuthTokens,
 				peer.Mail.Service,
+				peer.Mail.HubspotService,
 				accountFreezeService,
 				emissionService,
 				peer.KeyManagement.Service,
@@ -896,6 +906,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.Console.ConsoleService,
 				peer.OIDC.Service,
 				peer.Mail.Service,
+				peer.Mail.HubspotService,
 				peer.Analytics.Service,
 				peer.ABTesting.Service,
 				accountFreezeService,

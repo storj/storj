@@ -55,6 +55,7 @@ import (
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -244,6 +245,7 @@ type Service struct {
 	analytics                  *analytics.Service
 	tokens                     *consoleauth.Service
 	mailService                *mailservice.Service
+	hubspotMailService         *hubspotmails.Service
 	accountFreezeService       *AccountFreezeService
 	emission                   *emission.Service
 	kmsService                 *kms.Service
@@ -292,7 +294,7 @@ type Payments struct {
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting,
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
-	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service,
+	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
@@ -366,6 +368,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		analytics:                     analytics,
 		tokens:                        tokens,
 		mailService:                   mailService,
+		hubspotMailService:            hubspotMailService,
 		accountFreezeService:          accountFreezeService,
 		emission:                      emission,
 		kmsService:                    kmsService,

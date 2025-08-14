@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -79,6 +80,7 @@ type Core struct {
 
 	Mail struct {
 		Service        *mailservice.Service
+		HubspotService *hubspotmails.Service
 		EmailReminders *emailreminders.Chore
 	}
 
@@ -219,7 +221,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
-	{ // setup mailservice
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Run:   peer.Analytics.Service.Run,
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
+	{ // setup legacy and hubspot mail services
 		peer.Mail.Service, err = setupMailService(peer.Log, *config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -228,6 +240,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.Services.Add(lifecycle.Item{
 			Name:  "mail:service",
 			Close: peer.Mail.Service.Close,
+		})
+
+		peer.Mail.HubspotService = hubspotmails.NewService(peer.Log.Named("mail:hubspotservice"), peer.Analytics.Service, config.HubspotMails)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "hubspotmails:service",
+			Close: peer.Mail.HubspotService.Close,
 		})
 	}
 
@@ -438,16 +457,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		} else {
 			peer.Log.Named("rolluparchive").Info("disabled")
 		}
-	}
-
-	{ // setup analytics service
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName, config.Console.ExternalAddress)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "analytics:service",
-			Run:   peer.Analytics.Service.Run,
-			Close: peer.Analytics.Service.Close,
-		})
 	}
 
 	// TODO: remove in future, should be in API

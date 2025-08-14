@@ -1209,6 +1209,15 @@ func (service *Service) ValidateAccountObjectCreatedRequestSignature(
 	return nil
 }
 
+// GetAccessToken retrieves the access token from HubSpot.
+func (service *Service) GetAccessToken(ctx context.Context) (token string, err error) {
+	if !service.config.Enabled {
+		return "", Error.New("analytics service is not enabled")
+	}
+
+	return service.hubspot.getAccessToken(ctx)
+}
+
 // TestSetSatelliteExternalAddress sets the satellite external address for testing purposes.
 func (service *Service) TestSetSatelliteExternalAddress(address string) {
 	service.satelliteExternalAddress = address

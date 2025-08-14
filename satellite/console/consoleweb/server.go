@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/privateapi"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -162,13 +163,14 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config         Config
-	service        *console.Service
-	consoleService *consoleservice.Service // this is a duplicate of service, but should replace it in the future.
-	mailService    *mailservice.Service
-	analytics      *analytics.Service
-	abTesting      *abtesting.Service
-	csrfService    *csrf.Service
+	config             Config
+	service            *console.Service
+	consoleService     *consoleservice.Service // this is a duplicate of service, but should replace it in the future.
+	mailService        *mailservice.Service
+	hubspotMailService *hubspotmails.Service
+	analytics          *analytics.Service
+	abTesting          *abtesting.Service
+	csrfService        *csrf.Service
 
 	listener           net.Listener
 	server             http.Server
@@ -194,9 +196,10 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, consoleService *consoleservice.Service, oidcService *oidc.Service, mailService *mailservice.Service,
-	analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, ssoService *sso.Service,
-	csrfService *csrf.Service, listener net.Listener, stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
+func NewServer(logger *zap.Logger, config Config, service *console.Service, consoleService *consoleservice.Service, oidcService *oidc.Service,
+	mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, analytics *analytics.Service, abTesting *abtesting.Service,
+	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
+	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, productBasedInvoicingEnabled bool) *Server {
 	initAdditionalMimeTypes()
@@ -208,6 +211,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		service:                         service,
 		consoleService:                  consoleService,
 		mailService:                     mailService,
+		hubspotMailService:              hubspotMailService,
 		analytics:                       analytics,
 		abTesting:                       abTesting,
 		csrfService:                     csrfService,
