@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -291,8 +290,6 @@ type spannerLoopSegmentIterator struct {
 	asOfSystemInterval time.Duration
 	readTimestamp      time.Time
 
-	doNextQueryFunc func(ctx context.Context) (_ *spanner.RowIterator)
-
 	curIndex int
 	curRows  *spanner.RowIterator
 	curRow   *spanner.Row
@@ -320,7 +317,7 @@ func (it *spannerLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmen
 			return false
 		}
 
-		rows := it.doNextQueryFunc(ctx)
+		rows := it.doNextReadQuery(ctx)
 
 		it.curRows.Stop()
 
@@ -346,45 +343,6 @@ func (it *spannerLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmen
 	it.cursor.StartStreamID = item.StreamID
 	it.cursor.StartPosition = item.Position
 	return true
-}
-
-func (it *spannerLoopSegmentIterator) doNextSQLQuery(ctx context.Context) (_ *spanner.RowIterator) {
-	defer mon.Task()(&ctx)(nil)
-
-	stmt := spanner.Statement{
-		SQL: `@{SCAN_METHOD=BATCH}
-			SELECT
-				stream_id, position,
-				created_at, expires_at, repaired_at,
-				root_piece_id,
-				encrypted_size,
-				plain_offset, plain_size,
-				redundancy,
-				remote_alias_pieces,
-				placement
-			FROM segments
-			WHERE
-				(stream_id > @streamid OR (stream_id = @streamid AND position > @position)) AND stream_id <= @endstreamid
-			ORDER BY stream_id ASC, position ASC
-			LIMIT @batchsize
-		`,
-		Params: map[string]interface{}{
-			"streamid":    it.cursor.StartStreamID.Bytes(),
-			"position":    int64(it.cursor.StartPosition.Encode()),
-			"endstreamid": it.cursor.EndStreamID.Bytes(),
-			"batchsize":   it.batchSize,
-		}}
-
-	opts := spanner.QueryOptions{
-		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-	}
-	readOnlyTx := it.db.client.Single()
-	if !it.readTimestamp.IsZero() {
-		readOnlyTx = readOnlyTx.WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp))
-	} else {
-		readOnlyTx = readOnlyTx.WithTimestampBound(spannerutil.MaxStalenessFromAOSI(it.asOfSystemInterval))
-	}
-	return readOnlyTx.QueryWithOptions(ctx, stmt, opts)
 }
 
 func (it *spannerLoopSegmentIterator) doNextReadQuery(ctx context.Context) (_ *spanner.RowIterator) {
@@ -462,16 +420,7 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 
 	it.scanSpannerItemArguments.init()
 
-	opts.SpannerQueryType = strings.ToLower(opts.SpannerQueryType)
-	switch {
-	case opts.SpannerQueryType == "sql" || opts.SpannerQueryType == "":
-		it.doNextQueryFunc = it.doNextSQLQuery
-	case opts.SpannerQueryType == "read":
-		it.doNextQueryFunc = it.doNextReadQuery
-	default:
-		return ErrInvalidRequest.New("invalid SpannerQueryType: %q", opts.SpannerQueryType)
-	}
-	it.curRows = it.doNextQueryFunc(ctx)
+	it.curRows = it.doNextReadQuery(ctx)
 
 	defer func() {
 		it.curRows.Stop()
