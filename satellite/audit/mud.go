@@ -21,7 +21,9 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Verifier](ball, func(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, cfg Config) *Verifier {
 		return NewVerifier(log, metabase, dialer, overlay, containment, orders, id, cfg.MinBytesPerSecond, cfg.MinDownloadTimeout)
 	})
-
+	mud.Provide[*Worker](ball, NewWorker)
+	mud.Provide[*ReverifyWorker](ball, NewReverifyWorker)
+	mud.Provide[*Reverifier](ball, NewReverifier)
 	// TODO: we need real containment for running service.
 	mud.Provide[Containment](ball, func() Containment {
 		return &noContainment{}

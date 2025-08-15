@@ -8,6 +8,7 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 	trustmud "storj.io/storj/satellite/trust/mud"
 	"storj.io/storj/shared/modular"
+	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/logger"
 	"storj.io/storj/shared/mud"
 )
@@ -20,4 +21,9 @@ func Module(ball *mud.Ball) {
 	satellite.Module(ball)
 	trustmud.Module(ball)
 	mud.Provide[*modular.MonkitReport](ball, modular.NewMonkitReport)
+
+	mud.Provide[*Auditor](ball, func() *Auditor {
+		return &Auditor{}
+	})
+	cli.RegisterSubcommand[*Auditor](ball, "auditor", "run the auditor service")
 }

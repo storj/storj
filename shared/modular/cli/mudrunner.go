@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
 
 	"github.com/zeebo/clingy"
 
@@ -92,6 +93,18 @@ func clingyRunner(cfg *ConfigSupport, ball *mud.Ball) func(cmds clingy.Commands)
 			cmdSelector := func(c *mud.Component) bool {
 				return c == component
 			}
+
+			// A specific case when the component implements SelectorOverride interface.
+			// In this case we call it for the real components to run, instead of just using the Run (what we usually do for tool subcommands).
+			selectorOverrideType := reflect.TypeOf((*SelectorOverride)(nil)).Elem()
+			if component.GetTarget().Implements(selectorOverrideType) {
+				err := component.Init(context.Background())
+				if err != nil {
+					panic(err)
+				}
+				cmdSelector = component.Instance().(SelectorOverride).GetSelector(ball)
+			}
+
 			cmds.New(sc.Name, sc.Description, &MudCommand{
 				ball:     ball,
 				selector: cmdSelector,
@@ -103,4 +116,9 @@ func clingyRunner(cfg *ConfigSupport, ball *mud.Ball) func(cmds clingy.Commands)
 			panic(err)
 		}
 	}
+}
+
+// SelectorOverride is an interface for components that can override the selector used in the command (instead of executing Run).
+type SelectorOverride interface {
+	GetSelector(ball *mud.Ball) mud.ComponentSelector
 }

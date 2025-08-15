@@ -129,6 +129,8 @@ func Module(ball *mud.Ball) {
 	})
 	mud.Tag[audit.Reporter, mud.Nullable](ball, mud.Nullable{})
 	mud.Tag[audit.Reporter, mud.Optional](ball, mud.Optional{})
+	mud.View[DB, audit.ReverifyQueue](ball, DB.ReverifyQueue)
+	mud.View[DB, audit.VerifyQueue](ball, DB.VerifyQueue)
 
 	mud.View[*identity.FullIdentity, signing.Signee](ball, func(fullIdentity *identity.FullIdentity) signing.Signee {
 		return signing.SigneeFromPeerIdentity(fullIdentity.PeerIdentity())
