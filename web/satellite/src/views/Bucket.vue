@@ -12,201 +12,213 @@
         <browser-breadcrumbs-component />
         <v-col>
             <v-row align="center" class="mt-1 mb-2">
-                <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
-                    <template #activator="{ props }">
-                        <v-btn
-                            color="primary"
-                            :disabled="!isInitialized"
-                            v-bind="props"
-                            min-width="120"
-                            :prepend-icon="Upload"
-                        >
-                            Upload
-                        </v-btn>
-                    </template>
-                    <v-list class="pa-1">
-                        <v-list-item :disabled="!isInitialized" @click.stop="buttonFileUpload">
-                            <template #prepend>
-                                <component :is="FileUp" :size="18" />
-                            </template>
-                            <v-list-item-title class="text-body-2 ml-3">
-                                Upload Files
-                            </v-list-item-title>
-                        </v-list-item>
+                <div class="d-flex ga-2 flex-wrap">
+                    <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
+                        <template #activator="{ props }">
+                            <v-btn
+                                color="primary"
+                                :disabled="!isInitialized"
+                                v-bind="props"
+                                min-width="120"
+                                :prepend-icon="Upload"
+                            >
+                                Upload
+                            </v-btn>
+                        </template>
+                        <v-list class="pa-1">
+                            <v-list-item :disabled="!isInitialized" @click.stop="buttonFileUpload">
+                                <template #prepend>
+                                    <component :is="FileUp" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Upload Files
+                                </v-list-item-title>
+                            </v-list-item>
 
-                        <v-divider class="my-1" />
+                            <v-divider class="my-1" />
 
-                        <v-list-item class="mt-1" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
-                            <template #prepend>
-                                <component :is="FolderUp" :size="18" />
-                            </template>
-                            <v-list-item-title class="text-body-2 ml-3">
-                                Upload Folders
-                            </v-list-item-title>
-                        </v-list-item>
-                    </v-list>
-                </v-menu>
+                            <v-list-item class="mt-1" :disabled="!isInitialized" @click.stop="buttonFolderUpload">
+                                <template #prepend>
+                                    <component :is="FolderUp" :size="18" />
+                                </template>
+                                <v-list-item-title class="text-body-2 ml-3">
+                                    Upload Folders
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
 
-                <input
-                    id="File Input"
-                    ref="fileInput"
-                    type="file"
-                    aria-roledescription="file-upload"
-                    hidden
-                    multiple
-                    @change="onUpload"
-                >
-                <input
-                    id="Folder Input"
-                    ref="folderInput"
-                    type="file"
-                    aria-roledescription="folder-upload"
-                    hidden
-                    multiple
-                    webkitdirectory
-                    mozdirectory
-                    @change="onUpload"
-                >
-                <v-btn
-                    variant="outlined"
-                    color="default"
-                    class="ml-2 ml-sm-4"
-                    :disabled="!isInitialized"
-                    @click="onNewFolderClick"
-                >
-                    <icon-folder class="mr-2" bold />
-                    New Folder
-                </v-btn>
+                    <input
+                        id="File Input"
+                        ref="fileInput"
+                        type="file"
+                        aria-roledescription="file-upload"
+                        hidden
+                        multiple
+                        @change="onUpload"
+                    >
+                    <input
+                        id="Folder Input"
+                        ref="folderInput"
+                        type="file"
+                        aria-roledescription="folder-upload"
+                        hidden
+                        multiple
+                        webkitdirectory
+                        mozdirectory
+                        @change="onUpload"
+                    >
+                    <v-btn
+                        variant="outlined"
+                        color="default"
+                        :disabled="!isInitialized"
+                        @click="onNewFolderClick"
+                    >
+                        <icon-folder class="mr-2" bold />
+                        New Folder
+                    </v-btn>
 
-                <v-menu v-model="settingsMenu" location="bottom" transition="scale-transition" offset="5">
-                    <template #activator="{ props }">
-                        <v-btn
-                            variant="outlined"
-                            color="default"
-                            class="mx-2 mx-sm-4"
-                            v-bind="props"
-                            :prepend-icon="Settings"
-                            :append-icon="ChevronDown"
-                            aria-label="Bucket Options"
+                    <v-btn
+                        variant="outlined"
+                        color="default"
+                        :disabled="!isInitialized || isLoading"
+                        @click="refreshFiles"
+                    >
+                        <v-tooltip text="Refresh" location="top" activator="parent" />
+                        <component
+                            :is="RefreshCcw"
+                            :class="{ 'rotate-animation': isLoading }" :size="18"
                         />
-                    </template>
-                    <v-list class="pa-1">
-                        <div>
+                    </v-btn>
+
+                    <v-menu v-model="settingsMenu" location="bottom" transition="scale-transition" offset="5">
+                        <template #activator="{ props }">
+                            <v-btn
+                                variant="outlined"
+                                color="default"
+                                v-bind="props"
+                                :prepend-icon="Settings"
+                                :append-icon="ChevronDown"
+                                aria-label="Bucket Options"
+                            />
+                        </template>
+                        <v-list class="pa-1">
+                            <div>
+                                <v-list-item
+                                    v-if="versioningUIEnabled"
+                                    density="comfortable"
+                                    link
+                                    :disabled="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                    @click="onToggleVersioning"
+                                >
+                                    <template #prepend>
+                                        <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
+                                        <component :is="CirclePause" v-else :size="18" />
+                                    </template>
+                                    <v-list-item-title
+                                        class="ml-3 text-body-2 font-weight-medium"
+                                    >
+                                        {{
+                                            bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
+                                        }}
+                                    </v-list-item-title>
+                                </v-list-item>
+                                <v-tooltip
+                                    v-if="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
+                                    activator="parent"
+                                    location="left"
+                                    max-width="300"
+                                >
+                                    Versioning cannot be suspended on a bucket with object lock enabled
+                                </v-tooltip>
+                            </div>
+
                             <v-list-item
                                 v-if="versioningUIEnabled"
                                 density="comfortable"
                                 link
-                                :disabled="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
-                                @click="onToggleVersioning"
+                                @click="obStore.toggleShowObjectVersions()"
                             >
                                 <template #prepend>
-                                    <component :is="History" v-if="bucket?.versioning !== Versioning.Enabled" :size="18" />
-                                    <component :is="CirclePause" v-else :size="18" />
+                                    <component :is="showObjectVersions ? EyeOff : Eye" :size="18" />
                                 </template>
                                 <v-list-item-title
                                     class="ml-3 text-body-2 font-weight-medium"
                                 >
-                                    {{
-                                        bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
-                                    }}
+                                    {{ showObjectVersions ? "Hide" : "Show" }} Versions
                                 </v-list-item-title>
                             </v-list-item>
-                            <v-tooltip
-                                v-if="bucket?.versioning === Versioning.Enabled && bucket?.objectLockEnabled"
-                                activator="parent"
-                                location="left"
-                                max-width="300"
-                            >
-                                Versioning cannot be suspended on a bucket with object lock enabled
-                            </v-tooltip>
-                        </div>
 
-                        <v-list-item
-                            v-if="versioningUIEnabled"
-                            density="comfortable"
-                            link
-                            @click="obStore.toggleShowObjectVersions()"
-                        >
-                            <template #prepend>
-                                <component :is="showObjectVersions ? EyeOff : Eye" :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
+                            <v-list-item
+                                density="comfortable"
+                                link
+                                @click="isShareBucketDialogShown = true"
                             >
-                                {{ showObjectVersions ? "Hide" : "Show" }} Versions
-                            </v-list-item-title>
-                        </v-list-item>
-
-                        <v-list-item
-                            density="comfortable"
-                            link
-                            @click="isShareBucketDialogShown = true"
-                        >
-                            <template #prepend>
-                                <component :is="Share2" :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
+                                <template #prepend>
+                                    <component :is="Share2" :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    Share Bucket
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item
+                                v-if="downloadPrefixEnabled"
+                                density="comfortable"
+                                link
+                                @click="onDownloadBucket"
                             >
-                                Share Bucket
-                            </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item
-                            v-if="downloadPrefixEnabled"
-                            density="comfortable"
-                            link
-                            @click="onDownloadBucket"
-                        >
-                            <template #prepend>
-                                <component :is="DownloadIcon" :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
+                                <template #prepend>
+                                    <component :is="DownloadIcon" :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    Download Bucket
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item
+                                density="comfortable"
+                                link
+                                @click="isBucketDetailsDialogShown = true"
                             >
-                                Download Bucket
-                            </v-list-item-title>
-                        </v-list-item>
-                        <v-list-item
-                            density="comfortable"
-                            link
-                            @click="isBucketDetailsDialogShown = true"
-                        >
-                            <template #prepend>
-                                <component :is="ReceiptText" :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
+                                <template #prepend>
+                                    <component :is="ReceiptText" :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    Bucket Details
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-divider class="my-1" />
+                            <v-list-item
+                                density="comfortable"
+                                link
+                                base-color="error"
+                                @click="isDeleteBucketDialogShown = true"
                             >
-                                Bucket Details
-                            </v-list-item-title>
-                        </v-list-item>
-                        <v-divider class="my-1" />
-                        <v-list-item
-                            density="comfortable"
-                            link
-                            base-color="error"
-                            @click="isDeleteBucketDialogShown = true"
-                        >
-                            <template #prepend>
-                                <component :is="Trash2" :size="18" />
-                            </template>
-                            <v-list-item-title
-                                class="ml-3 text-body-2 font-weight-medium"
-                            >
-                                Delete Bucket
-                            </v-list-item-title>
-                        </v-list-item>
-                    </v-list>
-                </v-menu>
+                                <template #prepend>
+                                    <component :is="Trash2" :size="18" />
+                                </template>
+                                <v-list-item-title
+                                    class="ml-3 text-body-2 font-weight-medium"
+                                >
+                                    Delete Bucket
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
+                </div>
 
                 <v-spacer v-if="smAndUp" />
 
-                <v-col class="pa-0 pt-5 pa-sm-0 text-sm-right" cols="12" sm="4">
+                <div class="d-flex ga-2 flex-wrap pa-0 pt-5 pa-sm-0 justify-sm-end text-sm-right">
                     <v-btn
                         v-if="versioningUIEnabled"
                         variant="outlined"
                         color="default"
-                        class="mr-2 mr-md-2 mb-sm-1 mb-md-0"
                         @click="obStore.toggleShowObjectVersions()"
                     >
                         <template #prepend>
@@ -256,7 +268,7 @@
                             Table
                         </v-btn>
                     </v-btn-toggle>
-                </v-col>
+                </div>
             </v-row>
         </v-col>
 
@@ -266,9 +278,9 @@
             </v-card-item>
         </v-card>
         <template v-else>
-            <browser-versions-table-component v-if="showObjectVersions" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-            <browser-card-view-component v-else-if="isCardView" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
-            <browser-table-component v-else :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-versions-table-component v-if="showObjectVersions" ref="filesListRef" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-card-view-component v-else-if="isCardView" ref="filesListRef" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
+            <browser-table-component v-else ref="filesListRef" :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
         </template>
     </v-container>
 
@@ -317,6 +329,7 @@ import {
     Share2,
     ReceiptText,
     Trash2,
+    RefreshCcw,
     History,
     CirclePause,
     List,
@@ -341,6 +354,7 @@ import { usePreCheck } from '@/composables/usePreCheck';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DownloadPrefixType } from '@/types/browser';
+import { useLoading } from '@/composables/useLoading';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import BrowserBreadcrumbsComponent from '@/components/BrowserBreadcrumbsComponent.vue';
@@ -371,6 +385,9 @@ const route = useRoute();
 const notify = useNotify();
 const { smAndUp } = useDisplay();
 const { withTrialCheck } = usePreCheck();
+const { isLoading, withLoading } = useLoading();
+
+const filesListRef = ref<{ refresh: () => Promise<void> } | null>(null);
 
 const folderInput = ref<HTMLInputElement>();
 const fileInput = ref<HTMLInputElement>();
@@ -598,6 +615,10 @@ function onBucketDeleted() {
     });
 }
 
+function refreshFiles() {
+    withLoading(async () => await filesListRef.value?.refresh());
+}
+
 watch(isBucketPassphraseDialogOpen, isOpen => {
     if (isOpen || !isPromptForPassphrase.value) return;
     router.push({
@@ -696,5 +717,14 @@ onMounted(async () => {
 <style scoped lang="scss">
 .bucket-view {
     height: 100%;
+}
+
+.rotate-animation {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 </style>

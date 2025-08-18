@@ -748,4 +748,10 @@ watch(allFiles, async (value, oldValue) => {
 onBeforeMount(() => {
     obStore.setCursor({ page: 1, limit: pageSizes[0].value });
 });
+
+defineExpose({
+    refresh: async () => {
+        await fetchFiles(cursor.value.page);
+    },
+});
 </script>

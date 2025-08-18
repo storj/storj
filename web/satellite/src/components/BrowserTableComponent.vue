@@ -682,6 +682,12 @@ watch(filePath, () => {
     fetchFiles();
 }, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
+
+defineExpose({
+    refresh: async () => {
+        await fetchFiles(cursor.value.page);
+    },
+});
 </script>
 
 <style scoped lang="scss">
