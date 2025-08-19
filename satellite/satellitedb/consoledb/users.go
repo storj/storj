@@ -29,6 +29,8 @@ var _ console.Users = (*users)(nil)
 type users struct {
 	db   dbx.DriverMethods
 	impl dbutil.Implementation
+
+	nowFn func() time.Time
 }
 
 // UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
@@ -417,10 +419,6 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.TrialExpiration = dbx.User_TrialExpiration(*user.TrialExpiration)
 	}
 
-	if user.StatusUpdatedAt != nil {
-		optional.StatusUpdatedAt = dbx.User_StatusUpdatedAt(*user.StatusUpdatedAt)
-	}
-
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
 		dbx.User_Email(user.Email),
@@ -527,7 +525,7 @@ func (users *users) DeleteUnverifiedBefore(
 func (users *users) Update(ctx context.Context, userID uuid.UUID, updateRequest console.UpdateUserRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateFields, err := toUpdateUser(updateRequest)
+	updateFields, err := users.toUpdateUser(updateRequest)
 	if err != nil {
 		return err
 	}
@@ -851,8 +849,13 @@ func (users *users) SetStatusPendingDeletion(
 	return nil
 }
 
+// TestSetNow is a method to set the now function for testing purposes.
+func (users *users) TestSetNow(nowFn func() time.Time) {
+	users.nowFn = nowFn
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
-func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, error) {
+func (users *users) toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{}
 	if request.FullName != nil {
 		update.FullName = dbx.User_FullName(*request.FullName)
@@ -875,15 +878,13 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 	}
 	if request.Status != nil {
 		update.Status = dbx.User_Status(int(*request.Status))
+		update.StatusUpdatedAt = dbx.User_StatusUpdatedAt(users.nowFn())
 	}
 	if request.UserAgent != nil {
 		update.UserAgent = dbx.User_UserAgent(request.UserAgent)
 	}
 	if request.SignupPromoCode != nil {
 		update.SignupPromoCode = dbx.User_SignupPromoCode(*request.SignupPromoCode)
-	}
-	if request.StatusUpdatedAt != nil {
-		update.StatusUpdatedAt = dbx.User_StatusUpdatedAt(*request.StatusUpdatedAt)
 	}
 	if request.FinalInvoiceGenerated != nil {
 		update.FinalInvoiceGenerated = dbx.User_FinalInvoiceGenerated(*request.FinalInvoiceGenerated)

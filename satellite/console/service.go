@@ -2889,14 +2889,11 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
 	status := Deleted
 
-	now := s.nowFn()
-
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
-		FullName:        new(string),
-		ShortName:       new(*string),
-		Email:           &deactivatedEmail,
-		Status:          &status,
-		StatusUpdatedAt: &now,
+		FullName:  new(string),
+		ShortName: new(*string),
+		Email:     &deactivatedEmail,
+		Status:    &status,
 		// Self-serve account deletion isn't allowed for SSO users, but we keep this here as a precaution.
 		ExternalID:                  new(*string),
 		EmailChangeVerificationStep: new(int),

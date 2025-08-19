@@ -111,10 +111,14 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	currentYear := int64(now.Year())
 	currentMonth := int64(now.Month())
 
-	var expiredCards []*stripe.PaymentMethod
+	var (
+		count        int
+		expiredCards []*stripe.PaymentMethod
+	)
 
 	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(listParams)
 	for paymentMethodsIterator.Next() {
+		count++
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
 		if stripeCard.Card.Fingerprint == card.Card.Fingerprint &&
@@ -127,9 +131,12 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 			expiredCards = append(expiredCards, stripeCard)
 		}
 	}
-
 	if err = paymentMethodsIterator.Err(); err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	if count >= creditCards.service.stripeConfig.MaxCreditCardCount {
+		return payments.CreditCard{}, payments.ErrMaxCreditCards.New("you have reached the maximum number of credit cards for your account.")
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -259,10 +266,14 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 	currentYear := int64(now.Year())
 	currentMonth := int64(now.Month())
 
-	var expiredCards []*stripe.PaymentMethod
+	var (
+		count        int
+		expiredCards []*stripe.PaymentMethod
+	)
 
 	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(listParams)
 	for paymentMethodsIterator.Next() {
+		count++
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
 		if stripeCard.Card.Fingerprint == card.Card.Fingerprint &&
@@ -276,9 +287,12 @@ func (creditCards *creditCards) AddByPaymentMethodID(ctx context.Context, userID
 			expiredCards = append(expiredCards, stripeCard)
 		}
 	}
-
 	if err = paymentMethodsIterator.Err(); err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	if count >= creditCards.service.stripeConfig.MaxCreditCardCount {
+		return payments.CreditCard{}, payments.ErrMaxCreditCards.New("you have reached the maximum number of credit cards for your account.")
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{

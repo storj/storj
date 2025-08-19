@@ -194,7 +194,6 @@ func TestUserUpdatePaidTier(t *testing.T) {
 }
 
 func testUsers(ctx context.Context, t *testing.T, repository console.Users, user *console.User) {
-
 	t.Run("User insertion success", func(t *testing.T) {
 
 		insertedUser, err := repository.Insert(ctx, user)
@@ -286,6 +285,10 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		shortNamePtr := &newUserInfo.ShortName
 		secretKeyPtr := &newUserInfo.MFASecretKey
 
+		year, month, day := time.Now().UTC().Date()
+		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
+		repository.TestSetNow(func() time.Time { return timestamp })
+
 		err = repository.Update(ctx, newUserInfo.ID, console.UpdateUserRequest{
 			FullName:         &newUserInfo.FullName,
 			ShortName:        &shortNamePtr,
@@ -311,6 +314,8 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, mfaSecretKey, newUser.MFASecretKey)
 		assert.Equal(t, newUserInfo.MFARecoveryCodes, newUser.MFARecoveryCodes)
 		assert.Equal(t, oldUser.CreatedAt, newUser.CreatedAt)
+		assert.NotNil(t, newUser.StatusUpdatedAt)
+		assert.WithinDuration(t, timestamp, *newUser.StatusUpdatedAt, time.Minute)
 	})
 
 	t.Run("Delete user success", func(t *testing.T) {
@@ -440,12 +445,11 @@ func TestGetEmailsForDeletion(t *testing.T) {
 		require.Len(t, emails, 0)
 
 		freeTrialUser := console.User{
-			ID:              testrand.UUID(),
-			FullName:        "Free Trial User",
-			Email:           email + "1",
-			Status:          console.UserRequestedDeletion,
-			PasswordHash:    []byte("password"),
-			StatusUpdatedAt: &now,
+			ID:           testrand.UUID(),
+			FullName:     "Free Trial User",
+			Email:        email + "1",
+			Status:       console.UserRequestedDeletion,
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &freeTrialUser)
@@ -466,13 +470,12 @@ func TestGetEmailsForDeletion(t *testing.T) {
 		require.Len(t, emails, 1)
 
 		proUserWithoutLastInvoice := console.User{
-			ID:              testrand.UUID(),
-			FullName:        "Pro User",
-			Email:           email + "2",
-			Status:          console.UserRequestedDeletion,
-			Kind:            console.PaidUser,
-			PasswordHash:    []byte("password"),
-			StatusUpdatedAt: &now,
+			ID:           testrand.UUID(),
+			FullName:     "Pro User",
+			Email:        email + "2",
+			Status:       console.UserRequestedDeletion,
+			Kind:         console.PaidUser,
+			PasswordHash: []byte("password"),
 		}
 
 		_, err = usersRepo.Insert(ctx, &proUserWithoutLastInvoice)

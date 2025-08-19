@@ -293,10 +293,12 @@ func TestService(t *testing.T) {
 				user, userCtx1 := getOwnerAndCtx(ctx, up1Proj)
 				require.Equal(t, console.FreeUser, user.Kind)
 
-				// add a credit card to put the user in the paid tier
-				card, err := service.Payments().AddCreditCard(userCtx1, "test-cc-token")
-				require.NoError(t, err)
-				require.NotEmpty(t, card)
+				for i := 0; i < sat.Config.Payments.StripeCoinPayments.MaxCreditCardCount; i++ {
+					card, err := service.Payments().AddCreditCard(userCtx1, "test-cc-token"+strconv.Itoa(i))
+					require.NoError(t, err)
+					require.NotEmpty(t, card)
+				}
+
 				// user should be in paid tier
 				user, err = service.GetUser(ctx, up1Proj.OwnerID)
 				require.NoError(t, err)
@@ -304,7 +306,10 @@ func TestService(t *testing.T) {
 
 				cards, err := service.Payments().ListCreditCards(userCtx1)
 				require.NoError(t, err)
-				require.Len(t, cards, 1)
+				require.Len(t, cards, sat.Config.Payments.StripeCoinPayments.MaxCreditCardCount)
+
+				_, err = service.Payments().AddCreditCard(userCtx1, "test-cc-token")
+				require.True(t, payments.ErrMaxCreditCards.Has(err))
 			})
 
 			t.Run("EnsureUserHasCustomer", func(t *testing.T) {
@@ -337,6 +342,29 @@ func TestService(t *testing.T) {
 				user, userCtx3 := getOwnerAndCtx(ctx, up3Proj)
 				require.Equal(t, console.FreeUser, user.Kind)
 
+				for i := 0; i < sat.Config.Payments.StripeCoinPayments.MaxCreditCardCount; i++ {
+					pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+						Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+						Card: &stripeLib.PaymentMethodCardParams{
+							Token: stripeLib.String("test" + strconv.Itoa(i)),
+						},
+					})
+					require.NoError(t, err)
+
+					card, err := service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID, false)
+					require.NoError(t, err)
+					require.NotEmpty(t, card)
+				}
+
+				// user should be in paid tier
+				user, err = service.GetUser(ctx, up3Proj.OwnerID)
+				require.NoError(t, err)
+				require.Equal(t, console.PaidUser, user.Kind)
+
+				cards, err := service.Payments().ListCreditCards(userCtx3)
+				require.NoError(t, err)
+				require.Len(t, cards, sat.Config.Payments.StripeCoinPayments.MaxCreditCardCount)
+
 				pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
 					Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
 					Card: &stripeLib.PaymentMethodCardParams{
@@ -345,18 +373,8 @@ func TestService(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// add a credit card to put the user in the paid tier
-				card, err := service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID, false)
-				require.NoError(t, err)
-				require.NotEmpty(t, card)
-				// user should be in paid tier
-				user, err = service.GetUser(ctx, up3Proj.OwnerID)
-				require.NoError(t, err)
-				require.Equal(t, console.PaidUser, user.Kind)
-
-				cards, err := service.Payments().ListCreditCards(userCtx3)
-				require.NoError(t, err)
-				require.Len(t, cards, 1)
+				_, err = service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID, false)
+				require.True(t, payments.ErrMaxCreditCards.Has(err))
 			})
 
 			t.Run("Exit trial expiration freeze", func(t *testing.T) {
@@ -2931,12 +2949,10 @@ func TestDeleteAccount(t *testing.T) {
 			year, month, day := time.Now().UTC().Date()
 			timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
 
-			service.TestSetNow(func() time.Time {
-				return timestamp
-			})
-			sat.API.Payments.StripeService.SetNow(func() time.Time {
-				return timestamp
-			})
+			newNow := func() time.Time { return timestamp }
+			service.TestSetNow(newNow)
+			sat.DB.Console().Users().TestSetNow(newNow)
+			sat.API.Payments.StripeService.SetNow(newNow)
 			interval := timestamp.Add(-2 * time.Hour)
 
 			// check for unbilled storage

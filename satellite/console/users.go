@@ -89,6 +89,8 @@ type Users interface {
 	// The function return an error on system failure and an sql.ErrNoRows if the account doesn't exist
 	// or doesn't fulfill the requirements.
 	SetStatusPendingDeletion(ctx context.Context, userID uuid.UUID, defaultDaysTillEscalation uint) error
+	// TestSetNow is used to set the current time for testing purposes.
+	TestSetNow(func() time.Time)
 }
 
 // UserCursor holds info for user info cursor pagination.
@@ -463,8 +465,7 @@ type UpdateUserRequest struct {
 	Email        *string
 	PasswordHash []byte
 
-	Status          *UserStatus
-	StatusUpdatedAt *time.Time
+	Status *UserStatus
 
 	ProjectLimit          *int
 	ProjectStorageLimit   *int64
