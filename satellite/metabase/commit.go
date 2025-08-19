@@ -247,6 +247,9 @@ type BeginObjectExactVersion struct {
 	// validation of this struct's fields. This is useful for inserting intentionally
 	// malformed or unexpected data into the database and testing that we handle it properly.
 	TestingBypassVerify bool
+
+	// supported only by Spanner.
+	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies get object reqest fields.
@@ -280,8 +283,8 @@ func (opts *BeginObjectExactVersion) Verify() error {
 	return nil
 }
 
-// TestingBeginObjectExactVersion adds a pending object to the database, with specific version.
-func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
+// BeginObjectExactVersion adds a pending object to the database, with specific version.
+func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !opts.TestingBypassVerify {
@@ -310,7 +313,7 @@ func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObje
 		LegalHold:              opts.LegalHold,
 	}
 
-	err = db.ChooseAdapter(opts.ProjectID).TestingBeginObjectExactVersion(ctx, opts, &object)
+	err = db.ChooseAdapter(opts.ProjectID).BeginObjectExactVersion(ctx, opts, &object)
 	if err != nil {
 		if ErrObjectAlreadyExists.Has(err) {
 			return Object{}, err
@@ -323,8 +326,8 @@ func (db *DB) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObje
 	return object, nil
 }
 
-// TestingBeginObjectExactVersion implements Adapter.
-func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
+// BeginObjectExactVersion implements Adapter.
+func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
 	err := p.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
@@ -359,8 +362,8 @@ func (p *PostgresAdapter) TestingBeginObjectExactVersion(ctx context.Context, op
 	return err
 }
 
-// TestingBeginObjectExactVersion implements Adapter.
-func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
+// BeginObjectExactVersion implements Adapter.
+func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
 	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		err := txn.Query(ctx, spanner.Statement{
 			SQL: `INSERT INTO objects (
@@ -408,7 +411,10 @@ func (s *SpannerAdapter) TestingBeginObjectExactVersion(ctx context.Context, opt
 
 		return nil
 	}, spanner.TransactionOptions{
-		TransactionTag: "testing-begin-object-exact-version",
+		CommitOptions: spanner.CommitOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+		},
+		TransactionTag: "begin-object-exact-version",
 	})
 	return err
 }

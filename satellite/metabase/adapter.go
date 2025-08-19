@@ -39,7 +39,7 @@ type Adapter interface {
 	PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error)
 	CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) error
 	CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error
-	TestingBeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
+	BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
 	GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error)
 	GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error)
