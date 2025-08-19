@@ -137,7 +137,7 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 					StreamID:   testrand.UUID(),
 				}
 				s.objectStream = append(s.objectStream, objectStream)
-				_, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 					ObjectStream: objectStream,
 					Encryption: storj.EncryptionParameters{
 						CipherSuite: storj.EncAESGCM,

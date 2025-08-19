@@ -4210,7 +4210,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 
 		t.Run("Pending object", func(t *testing.T) {
 			objStream := randObjectStream(project.ID, lockBucketName)
-			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			pending, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: objStream,
 				Encryption:   metabasetest.DefaultEncryption,
 				LegalHold:    true,
@@ -4238,7 +4238,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 
 			pendingObjStream := objStream
 			pendingObjStream.Version++
-			_, err = db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			_, err = db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: pendingObjStream,
 				Encryption:   metabasetest.DefaultEncryption,
 				LegalHold:    false,
@@ -4463,7 +4463,7 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 
 		t.Run("Pending object", func(t *testing.T) {
 			objStream := randObjectStream(project.ID, lockBucketName)
-			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			pending, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: objStream,
 				Encryption:   metabasetest.DefaultEncryption,
 			})
@@ -4491,7 +4491,7 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 
 			pendingObjStream := objStream
 			pendingObjStream.Version++
-			pending, err = db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			pending, err = db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: pendingObjStream,
 				Encryption:   metabasetest.DefaultEncryption,
 			})
@@ -4775,7 +4775,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 		t.Run("Pending object", func(t *testing.T) {
 			objStream := randObjectStream(project.ID, lockBucketName)
 			retention := randRetention(storj.ComplianceMode)
-			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			pending, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: objStream,
 				Encryption:   metabasetest.DefaultEncryption,
 				Retention:    retention,
@@ -4803,7 +4803,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 
 			pendingObjStream := objStream
 			pendingObjStream.Version++
-			_, err = db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			_, err = db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: pendingObjStream,
 				Encryption:   metabasetest.DefaultEncryption,
 				Retention:    randRetention(storj.ComplianceMode),
@@ -5242,7 +5242,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 		t.Run("Pending object", func(t *testing.T) {
 			objStream := randObjectStream(project.ID, lockBucketName)
-			pending, err := db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			pending, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: objStream,
 				Encryption:   metabasetest.DefaultEncryption,
 			})
@@ -5271,7 +5271,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 
 			pendingObjStream := objStream
 			pendingObjStream.Version++
-			pending, err = db.TestingBeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			pending, err = db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 				ObjectStream: pendingObjStream,
 				Encryption:   metabasetest.DefaultEncryption,
 			})

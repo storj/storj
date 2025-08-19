@@ -303,7 +303,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		boeOpts = *co.BeginObjectExactVersion
 	}
 
-	object, err := db.TestingBeginObjectExactVersion(ctx, boeOpts)
+	object, err := db.BeginObjectExactVersion(ctx, boeOpts)
 	require.NoError(t, err)
 
 	createdSegments := []metabase.Segment{}
