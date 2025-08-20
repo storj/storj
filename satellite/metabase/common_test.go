@@ -740,21 +740,26 @@ func TestStreamVersionID(t *testing.T) {
 	require.Equal(t, expectedVersion, streamVersionID.Version())
 	require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 
-	expectedVersion = metabase.Version(testrand.Int63n(math.MaxInt64))
-	expectedStreamID = testrand.UUID()
+	for expectedValue := range []int64{
+		testrand.Int63n(math.MaxInt64),
+		-1 * testrand.Int63n(math.MaxInt64), // negative version
+	} {
+		expectedVersion = metabase.Version(expectedValue)
+		expectedStreamID = testrand.UUID()
 
-	object = metabase.Object{
-		ObjectStream: metabase.ObjectStream{
-			Version:  expectedVersion,
-			StreamID: expectedStreamID,
-		},
+		object = metabase.Object{
+			ObjectStream: metabase.ObjectStream{
+				Version:  expectedVersion,
+				StreamID: expectedStreamID,
+			},
+		}
+		encodedVersion = object.StreamVersionID().Bytes()
+
+		streamVersionID, err = metabase.StreamVersionIDFromBytes(encodedVersion)
+		require.NoError(t, err)
+		require.Equal(t, expectedVersion, streamVersionID.Version())
+		require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 	}
-	encodedVersion = object.StreamVersionID().Bytes()
-
-	streamVersionID, err = metabase.StreamVersionIDFromBytes(encodedVersion)
-	require.NoError(t, err)
-	require.Equal(t, expectedVersion, streamVersionID.Version())
-	require.EqualValues(t, expectedStreamID[8:], streamVersionID.StreamIDSuffix())
 }
 
 func TestIfNoneMatchVerify(t *testing.T) {

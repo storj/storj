@@ -870,7 +870,7 @@ func (endpoint *Endpoint) validateDeleteObjectsRequestSimple(req *pb.DeleteObjec
 		if versionLen := len(item.ObjectVersion); versionLen > 0 {
 			invalid := versionLen != len(metabase.StreamVersionID{})
 			if !invalid {
-				invalid = metabase.StreamVersionID(item.ObjectVersion).Version() <= 0
+				invalid = metabase.StreamVersionID(item.ObjectVersion).Version() == 0
 			}
 			if invalid {
 				return rpcstatus.Error(rpcstatus.ObjectVersionInvalid, "A provided object version is invalid")

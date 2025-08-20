@@ -1167,7 +1167,13 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		nextVersion := opts.Version
+		if nextVersion < 0 {
+			nextVersion = 1
+		}
 		if nextVersion < precommit.HighestVersion {
+			if precommit.HighestVersion < 0 {
+				precommit.HighestVersion = 0
+			}
 			nextVersion = precommit.HighestVersion + 1
 		}
 

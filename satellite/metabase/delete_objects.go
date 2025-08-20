@@ -54,7 +54,7 @@ func (opts DeleteObjects) Verify() error {
 			return ErrInvalidRequest.New("Items[%d].ObjectKey missing", i)
 		}
 		version := item.StreamVersionID.Version()
-		if !item.StreamVersionID.IsZero() && version <= 0 {
+		if !item.StreamVersionID.IsZero() && version == 0 {
 			return ErrInvalidRequest.New("Items[%d].StreamVersionID invalid: version is %v", i, version)
 		}
 	}
