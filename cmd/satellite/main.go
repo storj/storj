@@ -319,6 +319,13 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
+	generateListOfReusedCardFingerprints = &cobra.Command{
+		Use:   "list-reused-card-fingerprints [min-customers] [csv-path]",
+		Short: "List reused card fingerprints",
+		Long:  "List reused card fingerprints for all the customers.",
+		Args:  cobra.ExactArgs(2),
+		RunE:  cmdGenerateListOfReusedCardFingerprints,
+	}
 	consistencyCmd = &cobra.Command{
 		Use:   "consistency",
 		Short: "Readdress DB consistency issues",
@@ -534,6 +541,7 @@ func init() {
 	billingCmd.AddCommand(failPendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(completePendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
+	billingCmd.AddCommand(generateListOfReusedCardFingerprints)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
@@ -582,6 +590,7 @@ func init() {
 	process.Bind(failPendingInvoiceTokenPaymentCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(completePendingInvoiceTokenPaymentCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(generateListOfReusedCardFingerprints, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -1094,6 +1103,17 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
+}
+
+func cmdGenerateListOfReusedCardFingerprints(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+
+	minCustomers, err := strconv.Atoi(args[0])
+	if err != nil {
+		return errs.New("invalid numeric argument for minimum customers: %v", err)
+	}
+
+	return getListOfReusedCardFingerprints(ctx, minCustomers, args[1])
 }
 
 func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {

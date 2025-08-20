@@ -5,6 +5,12 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
+	"io"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -137,6 +143,82 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 		zap.L().Info("Ensured Stripe-Customer", zap.Int("created", len(users)))
 
 		return err
+	})
+}
+
+type fingerprintCSVItem struct {
+	Fingerprint     string
+	UniqueCustomers int
+	CustomerIDs     []string
+}
+
+func getListOfReusedCardFingerprints(ctx context.Context, minCustomers int, csvPath string) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, db satellite.DB) (err error) {
+		var (
+			f *os.File
+			w io.Writer
+		)
+
+		// If the CSV path is "-" use standard output instead of a file.
+		if csvPath == "-" {
+			w = os.Stdout
+		} else {
+			// We create file early to ensure that the path is valid and writable.
+			f, err = os.Create(csvPath)
+			if err != nil {
+				return err
+			}
+			defer func() { err = errs.Combine(err, f.Close()) }()
+			w = f
+		}
+
+		list, err := payments.ListReusedCardFingerprints(ctx)
+		if err != nil {
+			return errs.New("error listing reused card fingerprints: %v", err)
+		}
+
+		data := make([]fingerprintCSVItem, 0, len(list))
+		for fp, custSet := range list {
+			if len(custSet) < minCustomers {
+				continue
+			}
+
+			ids := make([]string, 0, len(custSet))
+			for id := range custSet {
+				ids = append(ids, id)
+			}
+			sort.Strings(ids)
+
+			data = append(data, fingerprintCSVItem{
+				Fingerprint:     fp,
+				UniqueCustomers: len(custSet),
+				CustomerIDs:     ids,
+			})
+		}
+
+		sort.Slice(data, func(i, j int) bool {
+			if data[i].UniqueCustomers == data[j].UniqueCustomers {
+				return data[i].Fingerprint < data[j].Fingerprint
+			}
+			return data[i].UniqueCustomers > data[j].UniqueCustomers
+		})
+
+		cw := csv.NewWriter(w)
+		if err = cw.Write([]string{"fingerprint", "unique_customers", "customer_ids"}); err != nil {
+			return err
+		}
+		for _, r := range data {
+			if err = cw.Write([]string{
+				r.Fingerprint,
+				strconv.Itoa(r.UniqueCustomers),
+				strings.Join(r.CustomerIDs, ";"),
+			}); err != nil {
+				return err
+			}
+		}
+		cw.Flush()
+
+		return cw.Error()
 	})
 }
 
