@@ -729,14 +729,11 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 			streamVersionID, err := metabase.StreamVersionIDFromBytes(obj.version)
 			require.NoError(t, err)
 
-			listResp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
-				Header:          apiKeyHeader,
-				Bucket:          []byte(bucketName),
-				EncryptedCursor: obj.key,
-				VersionCursor:   metabase.NewStreamVersionID(streamVersionID.Version()-1, uuid.UUID{}).Bytes(),
-				Status:          pb.Object_UPLOADING,
-				Recursive:       true,
-				Limit:           1,
+			listResp, err := endpoint.ListPendingObjectStreams(ctx, &pb.ListPendingObjectStreamsRequest{
+				Header:             apiKeyHeader,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: obj.key,
+				Limit:              1,
 			})
 			require.NoError(t, err)
 
@@ -748,6 +745,9 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 			case !slices.Equal(listResp.Items[0].ObjectVersion, obj.version):
 				return false
 			}
+
+			require.Len(t, listResp.Items, 1)
+			require.Equal(t, listResp.Items[0].ObjectVersion, streamVersionID.Bytes())
 			return true
 		}
 
@@ -1875,7 +1875,6 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				}{
 					{name: "Too short", version: randStreamVersionID()[1:]},
 					{name: "Zero internal version ID", version: metabase.NewStreamVersionID(0, testrand.UUID()).Bytes()},
-					{name: "Negative internal version ID", version: metabase.NewStreamVersionID(-1, testrand.UUID()).Bytes()},
 				} {
 					_, err := endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
 						Header: apiKeyHeader,

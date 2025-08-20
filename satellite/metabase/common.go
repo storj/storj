@@ -389,8 +389,6 @@ func (obj *ObjectStream) Verify() error {
 		return ErrInvalidRequest.New("BucketName missing")
 	case len(obj.ObjectKey) == 0:
 		return ErrInvalidRequest.New("ObjectKey missing")
-	case obj.Version < 0:
-		return ErrInvalidRequest.New("Version invalid: %v", obj.Version)
 	case obj.StreamID.IsZero():
 		return ErrInvalidRequest.New("StreamID missing")
 	}

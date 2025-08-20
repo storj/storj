@@ -1723,15 +1723,14 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", testrand.Bytes(10*memory.MiB))
 			require.NoError(t, err)
 
-			// override object to have it with version 2
+			// override object
 			expectedData := testrand.Bytes(11 * memory.KiB)
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", expectedData)
 			require.NoError(t, err)
 
-			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			afterObjects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
-			require.Len(t, objects, 1)
-			require.EqualValues(t, 2, objects[0].Version)
+			require.Len(t, afterObjects, 1)
 
 			// add some pending uploads, each will have version higher then 2
 			uploadIDs := []string{}
@@ -2469,7 +2468,7 @@ func TestEndpoint_Object_CopyObject(t *testing.T) {
 		require.Len(t, objects, 3)
 
 		for _, object := range objects {
-			require.Greater(t, int64(object.Version), int64(1))
+			require.Greater(t, int64(object.Version), int64(0))
 		}
 
 		_, err = project.CopyObject(ctx, "multipleversions", "objectInline", "multipleversions", "objectInlineCopy", nil)
