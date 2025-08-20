@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -34,10 +35,12 @@ import (
 	"storj.io/common/http/requestid"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/csrf"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleservice"
@@ -131,6 +134,7 @@ type Config struct {
 	ZipDownloadLimit                int           `help:"maximum number of objects allowed for a zip format download" default:"1000"`
 	LiveCheckBadPasswords           bool          `help:"whether to check if provided password is in bad passwords list" default:"false"`
 	UseGeneratedPrivateAPI          bool          `help:"whether to use generated private API" default:"false"`
+	GhostSessionCheckEnabled        bool          `help:"whether to enable ghost session detection and notification" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -193,6 +197,11 @@ type Server struct {
 	usagePrices         payments.ProjectUsagePriceModel
 
 	errorTemplate *template.Template
+
+	// ghostSessionEmailSent tracks when ghost session emails were last sent to users.
+	// Key: userID, Value: timestamp of last email sent
+	ghostSessionEmailSent  map[uuid.UUID]time.Time
+	ghostSessionEmailMutex sync.Mutex
 }
 
 // NewServer creates new instance of console server.
@@ -226,6 +235,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		minimumChargeConfig:             minimumChargeConfig,
 		usagePrices:                     usagePrices,
 		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
+		ghostSessionEmailSent:           make(map[uuid.UUID]time.Time),
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -562,6 +572,10 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return nil
 	})
 	group.Go(func() error {
+		server.runGhostSessionCacheCleanup(ctx)
+		return nil
+	})
+	group.Go(func() error {
 		defer cancel()
 		err := server.server.Serve(server.listener)
 		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
@@ -879,14 +893,81 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 			return
 		}
 
-		newCtx, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+		newCtx, session, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		if err != nil {
 			return
 		}
 		ctx = newCtx
 
+		if server.config.GhostSessionCheckEnabled {
+			if gsErr := server.checkGhostSession(ctx, r, session); gsErr != nil {
+				server.log.Error("failed to check ghost session", zap.Error(gsErr))
+			}
+		}
+
 		handler.ServeHTTP(w, r.Clone(ctx))
 	})
+}
+
+func (server *Server) checkGhostSession(ctx context.Context, r *http.Request, session *consoleauth.WebappSession) error {
+	if session == nil {
+		return nil
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		return err
+	}
+	userAgent := r.UserAgent()
+
+	if session.UserAgent != userAgent || session.Address != ip {
+		user, err := console.GetUser(ctx)
+		if err != nil {
+			return err
+		}
+
+		// Atomic check-and-send operation to prevent race conditions.
+		server.ghostSessionEmailMutex.Lock()
+		defer server.ghostSessionEmailMutex.Unlock()
+
+		lastSent, exists := server.ghostSessionEmailSent[user.ID]
+		if exists && time.Since(lastSent) < 2*time.Hour {
+			return nil // Email sent recently, skip.
+		}
+
+		server.ghostSessionEmailSent[user.ID] = time.Now()
+		server.hubspotMailService.SendAsync(ctx, &hubspotmails.SendEmailRequest{
+			Kind: hubspotmails.GhostSessionWarning,
+			To:   user.Email,
+		})
+	}
+
+	return nil
+}
+
+// runGhostSessionCacheCleanup periodically cleans up old ghost session email timestamps to prevent memory leaks.
+func (server *Server) runGhostSessionCacheCleanup(ctx context.Context) {
+	ticker := time.NewTicker(24 * time.Hour) // Clean up daily.
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Remove timestamps older than 24 hours.
+			cutoff := time.Now().Add(-24 * time.Hour)
+			server.ghostSessionEmailMutex.Lock()
+			for userID, timestamp := range server.ghostSessionEmailSent {
+				if timestamp.Before(cutoff) {
+					delete(server.ghostSessionEmailSent, userID)
+				}
+			}
+			server.ghostSessionEmailMutex.Unlock()
+
+			server.log.Info("Cleaned up old ghost session email timestamps")
+		}
+	}
 }
 
 // withRequest ensures the http request itself is reachable from the context.
@@ -1493,7 +1574,8 @@ func (a *apiAuth) cookieAuth(ctx context.Context, r *http.Request) (context.Cont
 		return nil, err
 	}
 
-	return a.server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+	newCtx, _, err := a.server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+	return newCtx, err
 }
 
 // cookieAuth returns an authenticated context by api key.

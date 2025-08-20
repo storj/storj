@@ -4755,7 +4755,7 @@ func TestSessionExpiration(t *testing.T) {
 		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
-		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+		_, _, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
 
 		sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
@@ -4765,7 +4765,7 @@ func TestSessionExpiration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Session should be removed from DB after it has expired
-		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now().Add(2*time.Hour))
+		_, _, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now().Add(2*time.Hour))
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
@@ -4835,7 +4835,7 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
-		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+		_, _, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
 
 		sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
@@ -4848,7 +4848,7 @@ func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
 		tokenInfo2, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
-		_, err = service.TokenAuth(ctx, tokenInfo2.Token, time.Now())
+		_, _, err = service.TokenAuth(ctx, tokenInfo2.Token, time.Now())
 		require.NoError(t, err)
 
 		sessionID2, err := uuid.FromBytes(tokenInfo2.Token.Payload)

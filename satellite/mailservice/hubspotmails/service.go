@@ -29,6 +29,11 @@ var (
 // MailKind represents the type of the email.
 type MailKind string
 
+var (
+	// GhostSessionWarning is sent when a ghost session is detected.
+	GhostSessionWarning MailKind = "ghostSessionWarning"
+)
+
 // SendEmailRequest is a request to send an email via HubSpot.
 type SendEmailRequest struct {
 	Kind    MailKind

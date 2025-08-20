@@ -5724,37 +5724,37 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 }
 
 // TokenAuth returns an authenticated context by session token.
-func (s *Service) TokenAuth(ctx context.Context, token consoleauth.Token, authTime time.Time) (_ context.Context, err error) {
+func (s *Service) TokenAuth(ctx context.Context, token consoleauth.Token, authTime time.Time) (_ context.Context, _ *consoleauth.WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	valid, err := s.tokens.ValidateToken(token)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 	if !valid {
-		return nil, Error.New("incorrect signature")
+		return nil, nil, Error.New("incorrect signature")
 	}
 
 	sessionID, err := uuid.FromBytes(token.Payload)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
 	ctx, err = s.authorize(ctx, session.UserID, session.ExpiresAt, authTime)
 	if err != nil {
 		err := errs.Combine(err, s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, nil, Error.Wrap(err)
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
-	return ctx, nil
+	return ctx, &session, nil
 }
 
 // KeyAuth returns an authenticated context by api key.
