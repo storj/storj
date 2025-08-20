@@ -1613,10 +1613,10 @@ func TestDeleteObjects(t *testing.T) {
 						BucketName: bucketName,
 						Items: []metabase.DeleteObjectsItem{{
 							ObjectKey:       validItem.ObjectKey,
-							StreamVersionID: metabase.NewStreamVersionID(-1, testrand.UUID()),
+							StreamVersionID: metabase.NewStreamVersionID(0, testrand.UUID()),
 						}},
 					},
-					errMsg: "Items[0].StreamVersionID invalid: version is -1",
+					errMsg: "Items[0].StreamVersionID invalid: version is 0",
 				},
 			} {
 				t.Run(tt.name, func(t *testing.T) {

@@ -53,16 +53,6 @@ func InvalidObjectStreams(base metabase.ObjectStream) []InvalidObjectStream {
 	}
 	{
 		stream := base
-		stream.Version = -1
-		tests = append(tests, InvalidObjectStream{
-			Name:         "Version invalid",
-			ObjectStream: stream,
-			ErrClass:     &metabase.ErrInvalidRequest,
-			ErrText:      "Version invalid: -1",
-		})
-	}
-	{
-		stream := base
 		stream.StreamID = uuid.UUID{}
 		tests = append(tests, InvalidObjectStream{
 			Name:         "StreamID missing",

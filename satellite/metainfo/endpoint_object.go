@@ -8,12 +8,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
@@ -197,35 +197,73 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
 	}
 
-	opts := metabase.BeginObjectNextVersion{
-		ObjectStream: metabase.ObjectStream{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: metabase.BucketName(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-			StreamID:   streamID,
-			Version:    metabase.NextVersion,
-		},
-		Encryption: encryptionParameters,
-
-		EncryptedUserData: metabase.EncryptedUserData{
-			EncryptedMetadata:             req.EncryptedMetadata,
-			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
-			EncryptedETag:                 req.EncryptedEtag,
-		},
-
-		Retention: retention,
-		LegalHold: req.LegalHold,
-
-		MaxCommitDelay: maxCommitDelay,
-	}
-	if !expiresAt.IsZero() {
-		opts.ExpiresAt = &expiresAt
+	objectStream := metabase.ObjectStream{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: metabase.BucketName(req.Bucket),
+		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+		StreamID:   streamID,
+		Version:    metabase.NextVersion,
 	}
 
-	object, err := endpoint.metabase.BeginObjectNextVersion(ctx, opts)
-	if err != nil {
-		return nil, endpoint.ConvertMetabaseErr(err)
+	encryptedUserData := metabase.EncryptedUserData{
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
+		EncryptedETag:                 req.EncryptedEtag,
+	}
+
+	var object metabase.Object
+	if _, ok := endpoint.config.TestingAlternativeBeginObjectProjects[keyInfo.ProjectID]; ok || endpoint.config.TestingAlternativeBeginObject {
+		opts := metabase.BeginObjectExactVersion{
+			ObjectStream: objectStream,
+			Encryption:   encryptionParameters,
+
+			EncryptedUserData: encryptedUserData,
+
+			Retention: retention,
+			LegalHold: req.LegalHold,
+
+			MaxCommitDelay: maxCommitDelay,
+		}
+		if !expiresAt.IsZero() {
+			opts.ExpiresAt = &expiresAt
+		}
+
+		const maxRetries = 5
+
+		for i := range maxRetries {
+			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+			opts.Version = metabase.Version(-1 * rng.Int63())
+
+			object, err = endpoint.metabase.BeginObjectExactVersion(ctx, opts)
+			if err != nil {
+				if metabase.ErrObjectAlreadyExists.Has(err) && i < maxRetries-1 {
+					continue
+				}
+				return nil, endpoint.ConvertMetabaseErr(err)
+			}
+			break
+		}
+	} else {
+		opts := metabase.BeginObjectNextVersion{
+			ObjectStream: objectStream,
+			Encryption:   encryptionParameters,
+
+			EncryptedUserData: encryptedUserData,
+
+			Retention: retention,
+			LegalHold: req.LegalHold,
+
+			MaxCommitDelay: maxCommitDelay,
+		}
+		if !expiresAt.IsZero() {
+			opts.ExpiresAt = &expiresAt
+		}
+
+		object, err = endpoint.metabase.BeginObjectNextVersion(ctx, opts)
+		if err != nil {
+			return nil, endpoint.ConvertMetabaseErr(err)
+		}
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
@@ -2322,10 +2360,6 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	metadataBytes, err := pb.Marshal(streamMeta)
 	if err != nil {
 		return nil, err
-	}
-
-	if metabase.Version(int32(object.Version)) != object.Version {
-		return nil, errs.New("unable to convert version for protobuf object")
 	}
 
 	var retention *pb.Retention
