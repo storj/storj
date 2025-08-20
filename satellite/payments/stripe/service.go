@@ -2113,6 +2113,62 @@ func (service *Service) CompletePendingInvoiceTokenPayments(ctx context.Context,
 	return service.billingDB.CompletePendingInvoiceTokenPayments(ctx, txIDs...)
 }
 
+// ListReusedCardFingerprints lists all reused credit card fingerprints across customers.
+func (service *Service) ListReusedCardFingerprints(ctx context.Context) (list map[string]map[string]struct{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	list = make(map[string]map[string]struct{})
+
+	params := &stripe.CustomerListParams{
+		ListParams: stripe.ListParams{
+			Context: ctx,
+			Limit:   stripe.Int64(100),
+		},
+	}
+
+	itr := service.stripeClient.Customers().List(params)
+	for itr.Next() {
+		cus := itr.Customer()
+
+		userID, err := service.db.Customers().GetUserID(ctx, cus.ID)
+		if err != nil {
+			continue
+		}
+
+		if _, skip, err := service.mustSkipUser(ctx, userID); err != nil || skip {
+			continue
+		}
+
+		cardParams := &stripe.PaymentMethodListParams{
+			ListParams: stripe.ListParams{Context: ctx},
+			Customer:   &cus.ID,
+			Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
+		}
+
+		pmItr := service.stripeClient.PaymentMethods().List(cardParams)
+		for pmItr.Next() {
+			stripeCard := pmItr.PaymentMethod()
+
+			if stripeCard == nil || stripeCard.Card == nil || stripeCard.Card.Fingerprint == "" {
+				continue
+			}
+
+			if _, ok := list[stripeCard.Card.Fingerprint]; !ok {
+				list[stripeCard.Card.Fingerprint] = make(map[string]struct{})
+			}
+			list[stripeCard.Card.Fingerprint][cus.ID] = struct{}{}
+		}
+		if err = pmItr.Err(); err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+	if err = itr.Err(); err != nil {
+		return nil, err
+	}
+
+	return list, nil
+}
+
 // payInvoicesWithTokenBalance attempts to transition the users open invoices to "paid" by charging the customer
 // token balance.
 func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID string, wallet storjscan.Wallet, invoices []stripe.Invoice) (err error) {

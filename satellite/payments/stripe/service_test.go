@@ -2420,3 +2420,85 @@ func TestService_CreateInvoice(t *testing.T) {
 		})
 	})
 }
+
+func TestService_ListReusedCardFingerprints(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		payments := sat.API.Payments
+		paidKind := console.PaidUser
+
+		u1, err := sat.AddUser(ctx, console.CreateUser{FullName: "superuser1", Email: "u1@example.com"}, 1)
+		require.NoError(t, err)
+		err = sat.DB.Console().Users().Update(ctx, u1.ID, console.UpdateUserRequest{Kind: &paidKind})
+		require.NoError(t, err)
+		u2, err := sat.AddUser(ctx, console.CreateUser{FullName: "superuser2", Email: "u2@example.com"}, 1)
+		require.NoError(t, err)
+		err = sat.DB.Console().Users().Update(ctx, u2.ID, console.UpdateUserRequest{Kind: &paidKind})
+		require.NoError(t, err)
+		u3, err := sat.AddUser(ctx, console.CreateUser{FullName: "superuser3", Email: "u3@example.com"}, 1)
+		require.NoError(t, err)
+		err = sat.DB.Console().Users().Update(ctx, u3.ID, console.UpdateUserRequest{Kind: &paidKind})
+		require.NoError(t, err)
+
+		c1, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, u1.ID)
+		require.NoError(t, err)
+		c2, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, u2.ID)
+		require.NoError(t, err)
+		c3, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, u3.ID)
+		require.NoError(t, err)
+
+		pmVisa1 := attachCardPM(t, ctx, sat, c1, "tok_visa")
+		require.NotEmpty(t, pmVisa1.Card)
+		require.NotEmpty(t, pmVisa1.Card.Fingerprint)
+
+		pmVisa2 := attachCardPM(t, ctx, sat, c2, "tok_visa")
+		require.NotEmpty(t, pmVisa2.Card)
+
+		pmMC := attachCardPM(t, ctx, sat, c3, "tok_mastercard")
+		require.NotEmpty(t, pmMC.Card)
+
+		require.Equal(t, pmVisa1.Card.Fingerprint, pmVisa2.Card.Fingerprint)
+		require.NotEqual(t, pmVisa1.Card.Fingerprint, pmMC.Card.Fingerprint)
+
+		got, err := payments.StripeService.ListReusedCardFingerprints(ctx)
+		require.NoError(t, err)
+
+		fpVisa := pmVisa1.Card.Fingerprint
+		setVisa, ok := got[fpVisa]
+		require.True(t, ok, "expected map to contain visa fingerprint")
+
+		_, ok1 := setVisa[c1]
+		_, ok2 := setVisa[c2]
+		require.True(t, ok1 && ok2, "expected both customers for visa fingerprint")
+		require.Equal(t, 2, len(setVisa))
+
+		fpMC := pmMC.Card.Fingerprint
+		setMC, ok := got[fpMC]
+		require.True(t, ok, "expected map to contain mastercard fingerprint")
+		require.Equal(t, 1, len(setMC))
+
+		_, ok3 := setMC[c3]
+		require.True(t, ok3)
+	})
+}
+
+func attachCardPM(t *testing.T, ctx *testcontext.Context, sat *testplanet.Satellite, customerID, token string) *stripe.PaymentMethod {
+	payments := sat.API.Payments
+
+	pm, err := payments.StripeClient.PaymentMethods().New(&stripe.PaymentMethodParams{
+		Params: stripe.Params{Context: ctx},
+		Type:   stripe.String(string(stripe.PaymentMethodTypeCard)),
+		Card:   &stripe.PaymentMethodCardParams{Token: stripe.String(token)},
+	})
+	require.NoError(t, err)
+
+	_, err = payments.StripeClient.PaymentMethods().Attach(pm.ID, &stripe.PaymentMethodAttachParams{
+		Params:   stripe.Params{Context: ctx},
+		Customer: stripe.String(customerID),
+	})
+	require.NoError(t, err)
+
+	return pm
+}
