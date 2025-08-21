@@ -15,6 +15,7 @@ import (
 	"storj.io/common/cfgstruct"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -38,18 +39,21 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
-			tctx := testcontext.New(t)
-			defer tctx.Cleanup()
+			testmonkit.Run(t.Context(), t, func(ctx context.Context) {
+				tctx := testcontext.NewWithContext(ctx, t)
+				defer tctx.Cleanup()
 
-			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
-			require.NoError(t, err)
-			defer tctx.Check(db.Close)
+				db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
+				require.NoError(t, err)
+				defer tctx.Check(db.Close)
 
-			if err := migration(tctx, db); err != nil {
-				t.Fatal(err)
-			}
+				if err := migration(tctx, db); err != nil {
+					t.Fatal(err)
+				}
 
-			fn(tctx, t, db)
+				fn(tctx, t, db)
+			})
+
 		})
 	}
 }

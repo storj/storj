@@ -122,9 +122,12 @@ func TestCountSegments(t *testing.T) {
 			t.Skip("implemented only for spanner")
 		}
 
-		metabasetest.CreateTestObject{}.Run(ctx, t, db, metabasetest.RandObjectStream(), 4)
+		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 4)
 
-		result, err := db.CountSegments(ctx, time.Now())
+		now, err := db.Now(ctx)
+		require.NoError(t, err)
+
+		result, err := db.CountSegments(ctx, now)
 		require.NoError(t, err)
 		require.EqualValues(t, 4, result.SegmentCount)
 		require.EqualValues(t, []int64{4}, result.PerAdapterSegmentCount)

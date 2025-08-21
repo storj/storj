@@ -114,7 +114,7 @@ func CreateExpiredObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 // CreateSegments creates multiple segments for the specified object.
 func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) []metabase.Segment {
 	segments := make([]metabase.Segment, 0, numberOfSegments)
-	for i := byte(0); i < numberOfSegments; i++ {
+	for i := range numberOfSegments {
 		BeginSegment{
 			Opts: metabase.BeginSegment{
 				ObjectStream: obj,
@@ -124,6 +124,7 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 					Number:      1,
 					StorageNode: testrand.NodeID(),
 				}},
+				ObjectExistsChecked: true,
 			},
 		}.Check(ctx, t, db)
 
@@ -306,7 +307,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	require.NoError(t, err)
 
 	createdSegments := []metabase.Segment{}
-	for i := byte(0); i < numberOfSegments; i++ {
+	for i := range numberOfSegments {
 		if co.CreateSegment != nil {
 			segment := co.CreateSegment(object, int(i))
 			createdSegments = append(createdSegments, segment)
@@ -320,6 +321,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 						Number:      1,
 						StorageNode: testrand.NodeID(),
 					}},
+					ObjectExistsChecked: true,
 				},
 			}.Check(ctx, t, db)
 
@@ -344,17 +346,11 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				Opts: commitSegmentOpts,
 			}.Check(ctx, t, db)
 
-			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-				StreamID: commitSegmentOpts.StreamID,
-				Position: commitSegmentOpts.Position,
-			})
-			require.NoError(t, err)
-
 			createdSegments = append(createdSegments, metabase.Segment{
 				StreamID: obj.StreamID,
 				Position: commitSegmentOpts.Position,
 
-				CreatedAt:  segment.CreatedAt,
+				CreatedAt:  time.Now(),
 				RepairedAt: nil,
 				ExpiresAt:  nil,
 
@@ -372,7 +368,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				InlineData: nil,
 				Pieces:     commitSegmentOpts.Pieces,
 
-				Placement: segment.Placement,
+				Placement: commitSegmentOpts.Placement,
 			})
 		}
 	}
