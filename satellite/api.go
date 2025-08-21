@@ -213,6 +213,7 @@ type API struct {
 	SuccessTrackers *metainfo.SuccessTrackers
 	FailureTracker  metainfo.SuccessTracker
 	TrustedUplinks  *trust.TrustedPeersList
+	TrackerMonitor  *metainfo.SuccessTrackerMonitor
 }
 
 // NewAPI creates a new satellite API process.
@@ -258,31 +259,32 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		trustedUplinkSlice = append(trustedUplinkSlice, successTrackerTrustedUplinks...)
 		successTrackerUplinks = append(successTrackerUplinks, successTrackerTrustedUplinks...)
 
+		peer.TrackerMonitor, err = metainfo.NewSuccessTrackerMonitor(log, db.OverlayCache(), config.Metainfo)
+		if err != nil {
+			return nil, err
+		}
 		newTracker, ok := metainfo.GetNewSuccessTracker(config.Metainfo.SuccessTrackerKind)
 		if !ok {
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
 		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, func(uplink storj.NodeID) metainfo.SuccessTracker {
 			tracker := newTracker()
-			mon.Chain(monkit.StatSourceFunc(func(cb func(key monkit.SeriesKey, field string, val float64)) {
-				tracker.Range(func(id storj.NodeID, f float64) {
-					cb(monkit.NewSeriesKey("success_tracker").WithTag("node_id", id.String()).WithTag("uplink", uplink.String()), "recent", f)
-				})
-			}))
+			peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
 			return tracker
 		})
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
 
 		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
-		mon.Chain(monkit.StatSourceFunc(func(cb func(key monkit.SeriesKey, field string, val float64)) {
-			peer.FailureTracker.Range(func(id storj.NodeID, f float64) {
-				cb(monkit.NewSeriesKey("failure_tracker").WithTag("node_id", id.String()), "recent", f)
-			})
-		}))
+		peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("failure_tracker"), peer.FailureTracker)
 
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
 
 		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "tracker_monitor",
+			Run:  peer.TrackerMonitor.Run,
+		})
 
 	}
 
