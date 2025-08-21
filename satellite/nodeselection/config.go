@@ -266,7 +266,11 @@ var supportedFilters = map[any]any{
 	},
 	"nodelist": AllowedNodesFromFile,
 	"select":   NewAttributeFilter,
-
+	"none": func() NodeFilter {
+		return NodeFilterFunc(func(node *SelectedNode) bool {
+			return false
+		})
+	},
 	"successfulAtLeastPercent": func(tracker UploadFailureTracker, percent float64) (NodeFilter, error) {
 		return NodeFilterFunc(func(node *SelectedNode) bool {
 			current := tracker.Get(node)

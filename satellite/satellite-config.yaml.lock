@@ -1208,6 +1208,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # success tracker kind, bitshift or percent
 # metainfo.success-tracker-kind: percent
 
+# enable monkit monitoring of success tracker
+# metainfo.success-tracker-monitor-enabled: false
+
+# filter for nodes that should be monitored by success tracker monitor
+# metainfo.success-tracker-monitor-filter: none()
+
 # how often to bump the generation in the node success tracker
 # metainfo.success-tracker-tick-duration: 10m0s
 

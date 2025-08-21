@@ -26,7 +26,8 @@ func Module(ball *mud.Ball) {
 	})
 	mud.Provide[*Endpoint](ball, NewEndpoint)
 
-	mud.Provide[*SuccessTrackers](ball, func(log *zap.Logger, cfg Config) (*SuccessTrackers, error) {
+	mud.Provide[*SuccessTrackerMonitor](ball, NewSuccessTrackerMonitor)
+	mud.Provide[*SuccessTrackers](ball, func(log *zap.Logger, monitor *SuccessTrackerMonitor, cfg Config) (*SuccessTrackers, error) {
 		var trustedUplinks []storj.NodeID
 		for _, uplinkIDString := range cfg.SuccessTrackerTrustedUplinks {
 			uplinkID, err := storj.NodeIDFromString(uplinkIDString)
@@ -40,15 +41,18 @@ func Module(ball *mud.Ball) {
 			return nil, errs.New("Unknown success tracker kind %q", cfg.SuccessTrackerKind)
 		}
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(newTracker())
-		return NewSuccessTrackers(trustedUplinks, func(id storj.NodeID) SuccessTracker {
-			return newTracker()
+		return NewSuccessTrackers(trustedUplinks, func(uplink storj.NodeID) SuccessTracker {
+			tracker := newTracker()
+			monitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
+			return tracker
 		}), nil
 
 	})
 
-	mud.Provide[SuccessTracker](ball, func(log *zap.Logger, cfg Config) SuccessTracker {
+	mud.Provide[SuccessTracker](ball, func(log *zap.Logger, monitor *SuccessTrackerMonitor, cfg Config) SuccessTracker {
 		tracker := NewPercentSuccessTracker()
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(tracker)
+		monitor.RegisterTracker(monkit.NewSeriesKey("failure_tracker"), tracker)
 		return tracker
 	})
 

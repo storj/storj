@@ -203,6 +203,8 @@ type Config struct {
 	FailureTrackerTickDuration   time.Duration         `default:"5s" help:"how often to bump the generation in the node failure tracker"`
 	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually."`
 	SuccessTrackerUplinks        []string              `help:"list of uplinks for success tracker"`
+	SuccessTrackerMonitorEnabled bool                  `help:"enable monkit monitoring of success tracker" default:"false"`
+	SuccessTrackerMonitorFilter  string                `help:"filter for nodes that should be monitored by success tracker monitor" default:"none()"`
 	FailureTrackerChanceToSkip   float64               `help:"the chance to skip a failure tracker generation bump" default:".6"`
 	TrustedUplinks               []string              `help:"list of trusted uplinks"`
 	AlwaysUpdateGlobalTracker    bool                  `help:"if true, always update the global tracker with info, even if the uplink is registered" default:"false"`
