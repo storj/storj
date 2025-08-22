@@ -1521,7 +1521,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # project-bw-cleanup.interval: 24h0m0s
 
 # number of months of project bandwidth rollups to retain, not including the current month
-# project-bw-cleanup.retain-months: 2
+# project-bw-cleanup.retain-months: 11
 
 # Node attributes to use for matching nodes with metrics
 # prometheus-tracker.attributes: []

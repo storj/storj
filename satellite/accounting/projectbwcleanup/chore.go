@@ -20,7 +20,7 @@ var mon = monkit.Package()
 // Config is a configuration struct for the Chore.
 type Config struct {
 	Interval     time.Duration `help:"how often to remove unused project bandwidth rollups" default:"24h" testDefault:"$TESTINTERVAL"`
-	RetainMonths int           `help:"number of months of project bandwidth rollups to retain, not including the current month" default:"2"`
+	RetainMonths int           `help:"number of months of project bandwidth rollups to retain, not including the current month" default:"11"`
 }
 
 // Chore to remove unused project bandwidth rollups.
