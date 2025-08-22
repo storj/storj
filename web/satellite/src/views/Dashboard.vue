@@ -186,9 +186,10 @@
             <v-col cols="auto" class="pt-0 mt-2 mt-md-0 pt-md-7">
                 <v-date-input
                     v-model="chartDateRange"
-                    :allowed-dates="allowDate"
+                    :min="minDatePickerDate"
+                    :max="maxDatePickerDate"
                     label="Select Date Range"
-                    min-width="260px"
+                    min-width="265px"
                     multiple="range"
                     prepend-icon=""
                     density="comfortable"
@@ -320,7 +321,6 @@ import { Info, CirclePlus, CircleArrowUp, Cloud, CloudDownload } from 'lucide-vu
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
@@ -366,7 +366,6 @@ type ValueUnit = {
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
-const pmStore = useProjectMembersStore();
 const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
 const bucketsStore = useBucketsStore();
@@ -762,17 +761,16 @@ const emission = computed<Emission>(()  => {
     return projectsStore.state.emission;
 });
 
-function allowDate(date: unknown): boolean {
-    if (!date) return false;
-    const d = new Date(date as string);
-    if (isNaN(d.getTime())) return false;
+const minDatePickerDate = computed<string>(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 1);
+    return d.toISOString().split('T')[0];
+});
 
-    d.setHours(0, 0, 0, 0);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return d <= today;
-}
+const maxDatePickerDate = computed<string>(() => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+});
 
 /**
  * Returns adjusted value and unit.
