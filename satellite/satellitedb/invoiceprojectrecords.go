@@ -30,8 +30,6 @@ const (
 	invoiceProjectRecordStateUnapplied invoiceProjectRecordState = 0
 	// invoice project record has been used during creating customer invoice.
 	invoiceProjectRecordStateConsumed invoiceProjectRecordState = 1
-	// invoice project record is not yet applied to customer invoice and has to be aggregated with other items.
-	invoiceProjectRecordStateToBeAggregated invoiceProjectRecordState = 2
 )
 
 // Int returns intent state as int.
@@ -51,13 +49,6 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripe.Cr
 	defer mon.Task()(&ctx)(&err)
 
 	return db.createWithState(ctx, records, invoiceProjectRecordStateUnapplied, start, end)
-}
-
-// CreateToBeAggregated creates new to be aggregated invoice project record in the DB.
-func (db *invoiceProjectRecords) CreateToBeAggregated(ctx context.Context, records []stripe.CreateProjectRecord, start, end time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return db.createWithState(ctx, records, invoiceProjectRecordStateToBeAggregated, start, end)
 }
 
 func (db *invoiceProjectRecords) createWithState(ctx context.Context, records []stripe.CreateProjectRecord, state invoiceProjectRecordState, start, end time.Time) error {
@@ -193,14 +184,6 @@ func (db *invoiceProjectRecords) Consume(ctx context.Context, id uuid.UUID) (err
 	)
 
 	return err
-}
-
-// ListToBeAggregated returns to be aggregated project records page with unapplied project records.
-// Cursor is not included into listing results.
-func (db *invoiceProjectRecords) ListToBeAggregated(ctx context.Context, cursor uuid.UUID, limit int, start, end time.Time) (page stripe.ProjectRecordsPage, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return db.list(ctx, cursor, limit, invoiceProjectRecordStateToBeAggregated.Int(), start, end)
 }
 
 // ListUnapplied returns project records page with unapplied project records.

@@ -7,10 +7,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"math"
 	"sort"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -812,226 +810,6 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 	})
 }
 
-func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
-	const (
-		projectName           = "my-project"
-		partnerName           = "partner"
-		noOverridePartnerName = "no-override"
-
-		hoursPerMonth       = 24 * 30
-		bytesPerMegabyte    = int64(memory.MB / memory.B)
-		byteHoursPerMBMonth = hoursPerMonth * bytesPerMegabyte
-	)
-
-	var (
-		defaultPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB: "1",
-			EgressTB:  "2",
-			Segment:   "3",
-		}
-		partnerPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB:           "4",
-			EgressTB:            "5",
-			Segment:             "6",
-			EgressDiscountRatio: 0.5,
-		}
-	)
-	defaultModel, err := defaultPrice.ToModel()
-	require.NoError(t, err)
-	partnerModel, err := partnerPrice.ToModel()
-	require.NoError(t, err)
-
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Payments.UsagePrice = defaultPrice
-				config.Payments.UsagePriceOverrides.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
-					partnerName: partnerPrice,
-				})
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		usage := map[string]accounting.ProjectUsage{
-			"|0": {
-				Storage:      10000000000,             // Byte-hours
-				Egress:       123 * memory.GB.Int64(), // Bytes
-				SegmentCount: 200000,                  // Segment-Hours
-			},
-			partnerName + "|0": {
-				Storage:      20000000000,
-				Egress:       456 * memory.GB.Int64(),
-				SegmentCount: 400000,
-			},
-			noOverridePartnerName + "|0": {
-				Storage:      30000000000,
-				Egress:       789 * memory.GB.Int64(),
-				SegmentCount: 600000,
-			},
-		}
-
-		items, err := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
-		require.NoError(t, err)
-		require.Len(t, items, len(usage)*3)
-
-		for i, tt := range []struct {
-			name       string
-			partner    string
-			placement  string
-			priceModel payments.ProjectUsagePriceModel
-		}{
-			{"default pricing - no partner", "", "0", defaultModel},
-			{"default pricing - no override for partner", noOverridePartnerName, "0", defaultModel},
-			{"partner pricing", partnerName, "0", partnerModel},
-		} {
-			t.Run(tt.name, func(t *testing.T) {
-				prefix := "Project " + projectName
-				if tt.partner != "" {
-					prefix += " (" + tt.partner + ")"
-				}
-
-				usage := usage[tt.partner+"|"+tt.placement]
-				usage.Egress -= int64(math.Round(usage.Storage / hoursPerMonth * tt.priceModel.EgressDiscountRatio))
-				if usage.Egress < 0 {
-					usage.Egress = 0
-				}
-
-				expectedStorageQuantity := int64(math.Round(usage.Storage / float64(byteHoursPerMBMonth)))
-				expectedEgressQuantity := int64(math.Round(float64(usage.Egress) / float64(bytesPerMegabyte)))
-				expectedSegmentQuantity := int64(math.Round(usage.SegmentCount / hoursPerMonth))
-
-				items := items[i*3 : (i*3)+3]
-				for _, item := range items {
-					require.NotNil(t, item)
-				}
-
-				require.Equal(t, prefix+" - Storage (MB-Month)", *items[0].Description)
-				require.Equal(t, expectedStorageQuantity, *items[0].Quantity)
-				storage, _ := tt.priceModel.StorageMBMonthCents.Float64()
-				require.Equal(t, storage, *items[0].UnitAmountDecimal)
-
-				require.Equal(t, prefix+" - Egress Bandwidth (MB)", *items[1].Description)
-				require.Equal(t, expectedEgressQuantity, *items[1].Quantity)
-				egress, _ := tt.priceModel.EgressMBCents.Float64()
-				require.Equal(t, egress, *items[1].UnitAmountDecimal)
-
-				require.Equal(t, prefix+" - Segment Fee (Segment-Month)", *items[2].Description)
-				require.Equal(t, expectedSegmentQuantity, *items[2].Quantity)
-				segment, _ := tt.priceModel.SegmentMonthCents.Float64()
-				require.Equal(t, segment, *items[2].UnitAmountDecimal)
-			})
-		}
-	})
-}
-
-func TestService_InvoiceItemsFromProjectUsage_PartnerAggregation(t *testing.T) {
-	const (
-		projectName      = "my-project"
-		partnerName      = "partner"
-		hoursPerMonth    = 24 * 30
-		bytesPerMegabyte = int64(memory.MB / memory.B)
-	)
-
-	var (
-		defaultPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB: "1",
-			EgressTB:  "2",
-			Segment:   "3",
-		}
-		partnerPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB:           "4",
-			EgressTB:            "5",
-			Segment:             "6",
-			EgressDiscountRatio: 0.5,
-		}
-	)
-	partnerModel, err := partnerPrice.ToModel()
-	require.NoError(t, err)
-
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Payments.UsagePrice = defaultPrice
-				config.Payments.UsagePriceOverrides.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
-					partnerName: partnerPrice,
-				})
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		t.Run("aggregates usage by partner across placements", func(t *testing.T) {
-			// Test data with partner|placement format keys
-			usage := map[string]accounting.ProjectUsage{
-				// Same partner with different placements should be aggregated
-				"partner|0": {
-					Storage:      10000000000,             // Byte-hours
-					Egress:       100 * memory.GB.Int64(), // Bytes
-					SegmentCount: 200000,                  // Segment-Hours
-				},
-				"partner|3": {
-					Storage:      20000000000,             // Byte-hours
-					Egress:       200 * memory.GB.Int64(), // Bytes
-					SegmentCount: 300000,                  // Segment-Hours
-				},
-				// Different partner should remain separate
-				"other|0": {
-					Storage:      5000000000,             // Byte-hours
-					Egress:       50 * memory.GB.Int64(), // Bytes
-					SegmentCount: 100000,                 // Segment-Hours
-				},
-			}
-
-			items, err := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage, false)
-			require.NoError(t, err)
-			// Should have 6 items total: 3 for "partner" (aggregated), 3 for "other"
-			require.Len(t, items, 6)
-
-			// Verify aggregated usage for "partner"
-			expectedPartnerUsage := accounting.ProjectUsage{
-				Storage:      30000000000,             // 10B + 20B
-				Egress:       300 * memory.GB.Int64(), // 100GB + 200GB
-				SegmentCount: 500000,                  // 200k + 300k
-			}
-			// Apply egress discount
-			expectedPartnerUsage.Egress -= int64(math.Round(expectedPartnerUsage.Storage / hoursPerMonth * partnerModel.EgressDiscountRatio))
-			if expectedPartnerUsage.Egress < 0 {
-				expectedPartnerUsage.Egress = 0
-			}
-
-			expectedPartnerStorageQuantity := int64(math.Round(expectedPartnerUsage.Storage / float64(hoursPerMonth*bytesPerMegabyte)))
-			expectedPartnerEgressQuantity := int64(math.Round(float64(expectedPartnerUsage.Egress) / float64(bytesPerMegabyte)))
-			expectedPartnerSegmentQuantity := int64(math.Round(expectedPartnerUsage.SegmentCount / hoursPerMonth))
-
-			// Find items for "partner" (should be sorted alphabetically, so "other" comes first)
-			var partnerItems []*stripe.InvoiceItemParams
-			for _, item := range items {
-				if strings.Contains(*item.Description, "(partner)") {
-					partnerItems = append(partnerItems, item)
-				}
-			}
-			require.Len(t, partnerItems, 3)
-
-			// Verify storage item
-			require.Equal(t, "Project my-project (partner) - Storage (MB-Month)", *partnerItems[0].Description)
-			require.Equal(t, expectedPartnerStorageQuantity, *partnerItems[0].Quantity)
-			storagePrice, _ := partnerModel.StorageMBMonthCents.Float64()
-			require.Equal(t, storagePrice, *partnerItems[0].UnitAmountDecimal)
-
-			// Verify egress item
-			require.Equal(t, "Project my-project (partner) - Egress Bandwidth (MB)", *partnerItems[1].Description)
-			require.Equal(t, expectedPartnerEgressQuantity, *partnerItems[1].Quantity)
-			egressPrice, _ := partnerModel.EgressMBCents.Float64()
-			require.Equal(t, egressPrice, *partnerItems[1].UnitAmountDecimal)
-
-			// Verify segment item
-			require.Equal(t, "Project my-project (partner) - Segment Fee (Segment-Month)", *partnerItems[2].Description)
-			require.Equal(t, expectedPartnerSegmentQuantity, *partnerItems[2].Quantity)
-			segmentPrice, _ := partnerModel.SegmentMonthCents.Float64()
-			require.Equal(t, segmentPrice, *partnerItems[2].UnitAmountDecimal)
-		})
-	})
-}
-
 func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -1454,34 +1232,39 @@ func TestFailPendingInvoicePayment(t *testing.T) {
 
 func TestService_GenerateInvoice(t *testing.T) {
 	for _, testCase := range []struct {
-		desc              string
-		skipEmptyInvoices bool
-		addProjectUsage   bool
-		expectInvoice     bool
+		desc               string
+		skipEmptyInvoices  bool
+		addProjectUsage    bool
+		expectInvoice      bool
+		expectInvoiceItems bool
 	}{
 		{
-			desc:              "invoice with non-empty usage created if not configured to skip",
-			skipEmptyInvoices: false,
-			addProjectUsage:   true,
-			expectInvoice:     true,
+			desc:               "invoice with non-empty usage created if not configured to skip",
+			skipEmptyInvoices:  false,
+			addProjectUsage:    true,
+			expectInvoice:      true,
+			expectInvoiceItems: true,
 		},
 		{
-			desc:              "invoice with non-empty usage created if configured to skip",
-			skipEmptyInvoices: true,
-			addProjectUsage:   true,
-			expectInvoice:     true,
+			desc:               "invoice with non-empty usage created if configured to skip",
+			skipEmptyInvoices:  true,
+			addProjectUsage:    true,
+			expectInvoice:      true,
+			expectInvoiceItems: true,
 		},
 		{
-			desc:              "invoice with empty usage created if not configured to skip",
-			skipEmptyInvoices: false,
-			addProjectUsage:   false,
-			expectInvoice:     true,
+			desc:               "invoice with empty usage created if not configured to skip",
+			skipEmptyInvoices:  false,
+			addProjectUsage:    false,
+			expectInvoice:      true,
+			expectInvoiceItems: false,
 		},
 		{
-			desc:              "invoice with empty usage not created if configured to skip",
-			skipEmptyInvoices: true,
-			addProjectUsage:   false,
-			expectInvoice:     false,
+			desc:               "invoice with empty usage not created if configured to skip",
+			skipEmptyInvoices:  true,
+			addProjectUsage:    false,
+			expectInvoice:      false,
+			expectInvoiceItems: false,
 		},
 	} {
 		t.Run(testCase.desc, func(t *testing.T) {
@@ -1557,12 +1340,13 @@ func TestService_GenerateInvoice(t *testing.T) {
 				// associated with the newly created invoice.
 				require.True(t, hasInvoice, "expected invoice but did not get one")
 				require.NotNil(t, invoice, "expected invoice but did not get one")
-				require.NotZero(t, len(invoiceItems), "expecting one or more invoice items")
-				for _, item := range invoiceItems {
-					require.Contains(t, item.Metadata, "projectID")
-					require.Equal(t, item.Metadata["projectID"], proj.ID.String())
-					require.NotNil(t, item.Invoice)
-					require.Equal(t, invoice.ID, item.Invoice.ID)
+
+				if testCase.expectInvoiceItems {
+					require.NotZero(t, len(invoiceItems), "expecting one or more invoice items")
+					for _, item := range invoiceItems {
+						require.NotNil(t, item.Invoice)
+						require.Equal(t, invoice.ID, item.Invoice.ID)
+					}
 				}
 			})
 		})
@@ -2038,93 +1822,6 @@ func TestRemoveExpiredPackageCredit(t *testing.T) {
 			removeExpiredCredit(u2, true, &expiredPurchase)
 			checkCreditAndPackage(u2, credit+additional, false)
 		})
-	})
-}
-
-func TestService_PayInvoiceBillingID(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		payments := satellite.API.Payments
-
-		// pick a specific date so that it doesn't fail if it's the last day of the month
-		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
-
-		payments.StripeService.SetNow(func() time.Time {
-			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-		})
-		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-
-		storageHours := 24
-
-		user, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: "testuser",
-			Email:    "user@test",
-			Kind:     console.PaidUser,
-		}, 1)
-		require.NoError(t, err)
-
-		// create billing customer ID
-		billingUser, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: "billinguser",
-			Email:    "billing@test",
-		}, 1)
-		require.NoError(t, err)
-		billingCustomer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, billingUser.ID)
-		require.NoError(t, err)
-
-		// set billing customer ID
-		_, err = satellite.DB.StripeCoinPayments().Customers().UpdateBillingCustomerID(ctx, user.ID, &billingCustomer)
-		require.NoError(t, err)
-
-		project, err := satellite.AddProject(ctx, user.ID, "testproject")
-		require.NoError(t, err)
-
-		projectsEgress := int64(10) * memory.GiB.Int64()
-		projectsStorage := int64(1) * memory.TiB.Int64()
-		totalSegments := int64(1)
-		generateProjectStorage(ctx, t, satellite.DB,
-			project.ID,
-			period,
-			period.Add(time.Duration(storageHours)*time.Hour),
-			projectsEgress,
-			projectsStorage,
-			totalSegments)
-		// verify that the project doesn't have records yet
-		projectRecord, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, project.ID, start, end)
-		require.NoError(t, err)
-		require.Nil(t, projectRecord)
-
-		err = payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
-		require.NoError(t, err)
-
-		projectRecord, err = satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, project.ID, start, end)
-		require.NoError(t, err)
-		require.NotNil(t, projectRecord)
-		require.Equal(t, project.ID, projectRecord.ProjectID)
-		require.Equal(t, projectsEgress, projectRecord.Egress)
-
-		expectedStorage := float64(projectsStorage * int64(storageHours))
-		require.Equal(t, expectedStorage, projectRecord.Storage)
-
-		expectedSegmentsCount := float64((1) * storageHours)
-		require.Equal(t, expectedSegmentsCount, projectRecord.Segments)
-
-		// run all parts of invoice generation to see if there are no unexpected errors
-		err = payments.StripeService.InvoiceApplyProjectRecordsGrouped(ctx, period)
-		require.NoError(t, err)
-
-		err = payments.StripeService.CreateInvoices(ctx, period)
-		require.NoError(t, err)
-
-		itr := payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{})
-		require.True(t, itr.Next())
-		// invoice should go to the billing customer not the customer with the usage
-		require.Equal(t, billingCustomer, itr.Invoice().Customer.ID)
-		require.NoError(t, itr.Err())
 	})
 }
 

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -22,7 +21,6 @@ import (
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/currency"
@@ -59,8 +57,6 @@ const (
 	storageInvoiceItemDesc = " - Storage (MB-Month)"
 	egressInvoiceItemDesc  = " - Egress Bandwidth (MB)"
 	segmentInvoiceItemDesc = " - Segment Fee (Segment-Month)"
-
-	partnerMetadataKey = "partner"
 )
 
 // ServiceDependencies consolidates all database and service dependencies for stripe.NewService.
@@ -218,8 +214,8 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 }
 
 func (service *Service) processCustomers(ctx context.Context, customers []Customer, start, end time.Time) (int, error) {
-	var regularRecords []CreateProjectRecord
-	var recordsToAggregate []CreateProjectRecord
+	var recordsToCreate []CreateProjectRecord
+
 	for _, customer := range customers {
 		ignore := service.ignoreNoStripeCustomer(ctx, customer.ID)
 		if ignore {
@@ -243,34 +239,18 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 			return 0, Error.New("unable to create project records: %w", err)
 		}
 
-		// We can support only 83 projects in a single invoice (249 invoice items).
-		// We don't use legacy aggregation for product-based invoicing.
-		if !service.stripeConfig.ProductBasedInvoicing && len(projects) > 83 {
-			recordsToAggregate = append(recordsToAggregate, records...)
-		} else {
-			regularRecords = append(regularRecords, records...)
-		}
+		recordsToCreate = append(recordsToCreate, records...)
 	}
 
-	var recordsCount int
-
-	if len(regularRecords) > 0 {
-		err := service.db.ProjectRecords().Create(ctx, regularRecords, start, end)
+	count := len(recordsToCreate)
+	if count > 0 {
+		err := service.db.ProjectRecords().Create(ctx, recordsToCreate, start, end)
 		if err != nil {
 			return 0, Error.New("failed to create regular project records: %w", err)
 		}
-		recordsCount += len(regularRecords)
 	}
 
-	if len(recordsToAggregate) > 0 {
-		err := service.db.ProjectRecords().CreateToBeAggregated(ctx, recordsToAggregate, start, end)
-		if err != nil {
-			return 0, Error.New("failed to create aggregated project records: %w", err)
-		}
-		recordsCount += len(recordsToAggregate)
-	}
-
-	return recordsCount, nil
+	return count, nil
 }
 
 // If the customer does not exist in stripe, we skip it.
@@ -410,75 +390,60 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 					return
 				}
 
-				if service.stripeConfig.ProductBasedInvoicing {
-					// Create structures to aggregate all usage by product ID.
-					// Those maps are mutated per record.
-					productUsages := make(map[int32]accounting.ProjectUsage)
-					productInfos := make(map[int32]payments.ProductUsagePriceModel)
+				// Create structures to aggregate all usage by product ID.
+				// Those maps are mutated per record.
+				productUsages := make(map[int32]accounting.ProjectUsage)
+				productInfos := make(map[int32]payments.ProductUsagePriceModel)
 
-					from, to, err := service.getFromToDates(ctx, c.UserID, start, end)
+				from, to, err := service.getFromToDates(ctx, c.UserID, start, end)
+				if err != nil {
+					addErr(&mu, err)
+					return
+				}
+
+				for _, r := range records {
+					totalRecords.Add(1)
+
+					skipped, err := service.ProcessRecord(ctx, r, productUsages, productInfos, from, to)
 					if err != nil {
 						addErr(&mu, err)
 						return
 					}
+					if skipped {
+						totalSkipped.Add(1)
+					}
+				}
 
-					for _, r := range records {
-						totalRecords.Add(1)
+				items := service.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+				// Stripe allows 250 items per invoice.
+				// We should not have more than 248 new items.
+				// 1 is reserved for the unpaid usage from previous billing cycle.
+				// 1 is reserved for minimum charge item.
+				if len(items) > 248 {
+					addErr(&mu, Error.New("too many invoice items for customer %s", c.ID))
+					return
+				}
 
-						skipped, err := service.ProcessRecord(ctx, r, productUsages, productInfos, from, to)
-						if err != nil {
-							addErr(&mu, err)
-							return
-						}
-						if skipped {
-							totalSkipped.Add(1)
-						}
+				for _, item := range items {
+					item.Params = stripe.Params{Context: ctx}
+					item.Currency = stripe.String(string(stripe.CurrencyUSD))
+					item.Customer = stripe.String(c.ID)
+					item.Period = &stripe.InvoiceItemPeriodParams{
+						End:   stripe.Int64(to.Unix()),
+						Start: stripe.Int64(from.Unix()),
 					}
 
-					items := service.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
-					// Stripe allows 250 items per invoice.
-					// We should not have more than 248 new items.
-					// 1 is reserved for the unpaid usage from previous billing cycle.
-					// 1 is reserved for minimum charge item.
-					if len(items) > 248 {
-						addErr(&mu, Error.New("too many invoice items for customer %s", c.ID))
+					_, err := service.stripeClient.InvoiceItems().New(item)
+					if err != nil {
+						addErr(&mu, err)
 						return
 					}
+				}
 
-					for _, item := range items {
-						item.Params = stripe.Params{Context: ctx}
-						item.Currency = stripe.String(string(stripe.CurrencyUSD))
-						item.Customer = stripe.String(c.ID)
-						item.Period = &stripe.InvoiceItemPeriodParams{
-							End:   stripe.Int64(to.Unix()),
-							Start: stripe.Int64(from.Unix()),
-						}
-
-						_, err := service.stripeClient.InvoiceItems().New(item)
-						if err != nil {
-							addErr(&mu, err)
-							return
-						}
-					}
-
-					for _, r := range records {
-						if err = service.db.ProjectRecords().Consume(ctx, r.ID); err != nil {
-							addErr(&mu, err)
-							return
-						}
-					}
-				} else {
-					for _, r := range records {
-						totalRecords.Add(1)
-
-						skipped, err := service.processInvoiceItems(ctx, c.BillingID, c.ID, projectNameMap[r.ProjectID], r, c.UserID, period, false)
-						if err != nil {
-							addErr(&mu, err)
-							return
-						}
-						if skipped {
-							totalSkipped.Add(1)
-						}
+				for _, r := range records {
+					if err = service.db.ProjectRecords().Consume(ctx, r.ID); err != nil {
+						addErr(&mu, err)
+						return
 					}
 				}
 			})
@@ -491,53 +456,6 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		zap.Int64("Total", totalRecords.Load()),
 		zap.Int64("Skipped", totalSkipped.Load()))
 	return errGrp.Err()
-}
-
-// InvoiceApplyToBeAggregatedProjectRecords iterates through to be aggregated invoice project records and creates invoice line items
-// for stripe customer.
-func (service *Service) InvoiceApplyToBeAggregatedProjectRecords(ctx context.Context, period time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	now := service.nowFn().UTC()
-	utc := period.UTC()
-
-	start := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-
-	if end.After(now) {
-		return Error.New("allowed for past periods only")
-	}
-
-	var totalRecords int
-	var totalSkipped int
-
-	for {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		// we are always starting from offset 0 because applyProjectRecords is changing project record state to applied
-		recordsPage, err := service.db.ProjectRecords().ListToBeAggregated(ctx, uuid.UUID{}, service.stripeConfig.ListingLimit, start, end)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		totalRecords += len(recordsPage.Records)
-
-		skipped, err := service.applyToBeAggregatedProjectRecords(ctx, recordsPage.Records, period)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		totalSkipped += skipped
-
-		if !recordsPage.Next {
-			break
-		}
-	}
-
-	service.log.Info("Processed aggregated project records.",
-		zap.Int("Total", totalRecords),
-		zap.Int("Skipped", totalSkipped))
-	return nil
 }
 
 // InvoiceApplyTokenBalance iterates through customer storjscan wallets and creates invoice credit notes
@@ -681,143 +599,6 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 		return 0, Error.Wrap(err)
 	}
 	return txIDs[0], nil
-}
-
-// applyToBeAggregatedProjectRecords applies to be aggregated invoice intents as invoice line items to stripe customer.
-func (service *Service) applyToBeAggregatedProjectRecords(ctx context.Context, records []ProjectRecord, period time.Time) (skipCount int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for _, record := range records {
-		if err = ctx.Err(); err != nil {
-			return 0, errs.Wrap(err)
-		}
-
-		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
-		if err != nil {
-			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
-			return 0, errs.Wrap(err)
-		}
-
-		if _, skip, err := service.mustSkipUser(ctx, proj.OwnerID); err != nil {
-			return 0, errs.Wrap(err)
-		} else if skip {
-			skipCount++
-			continue
-		}
-
-		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
-		if err != nil {
-			if errors.Is(err, ErrNoCustomer) {
-				service.log.Warn("Stripe customer does not exist for project owner.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", proj.ID))
-				continue
-			}
-
-			return 0, errs.Wrap(err)
-		}
-
-		record := record
-		skipped, err := service.processInvoiceItems(ctx, nil, cusID, proj.Name, record, proj.OwnerID, period, true)
-		if err != nil {
-			return 0, errs.Wrap(err)
-		}
-		if skipped {
-			skipCount++
-		}
-	}
-
-	return skipCount, nil
-}
-
-type usage int
-
-const (
-	storage usage = 0
-	egress  usage = 1
-	segment usage = 2
-)
-
-// processInvoiceItems creates or updates invoice line items for stripe customer.
-// It is only used if product-based invoicing is disabled.
-func (service *Service) processInvoiceItems(
-	ctx context.Context,
-	billingID *string,
-	cusID, projName string,
-	record ProjectRecord,
-	userID uuid.UUID,
-	period time.Time,
-	updateExisting bool,
-) (skipped bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if !service.stripeConfig.UseIdempotency {
-		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-			return false, err
-		}
-	}
-
-	if service.stripeConfig.SkipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
-		if service.stripeConfig.UseIdempotency {
-			if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-				return false, err
-			}
-		}
-
-		return true, nil
-	}
-
-	from, to, err := service.getFromToDates(ctx, userID, record.PeriodStart, record.PeriodEnd)
-	if err != nil {
-		return false, err
-	}
-
-	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, record.ProjectID, service.partnerNames, from, to, false)
-	if err != nil {
-		return false, err
-	}
-
-	items, err := service.InvoiceItemsFromProjectUsage(projName, usages, updateExisting)
-	if err != nil {
-		return false, err
-	}
-
-	if updateExisting {
-		existingItems, err := service.getExistingInvoiceItems(ctx, cusID)
-		if err != nil {
-			return false, err
-		}
-
-		if existingItems[segment] == nil || existingItems[storage] == nil || existingItems[egress] == nil {
-			err = service.createNewInvoiceItems(ctx, items, cusID, nil, record.ProjectID, to, from, period)
-		} else {
-			err = service.updateExistingInvoiceItems(ctx, existingItems, items, record.ProjectID, period)
-		}
-		if err != nil {
-			return false, err
-		}
-	} else {
-		var invoiceID *string
-		if billingID == nil {
-			billingID = &cusID
-		} else {
-			invoiceID, err = service.createParentInvoice(ctx, *billingID, cusID, projName, period)
-			if err != nil {
-				return false, err
-			}
-		}
-
-		err = service.createNewInvoiceItems(ctx, items, *billingID, invoiceID, record.ProjectID, to, from, period)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	if service.stripeConfig.UseIdempotency {
-		if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-			return false, err
-		}
-	}
-
-	return false, nil
 }
 
 // ProcessRecord processes record and mutates overall customer usages.
@@ -1029,199 +810,6 @@ func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (produ
 func getPerProductIdempotencyKey(productID, identifier string, period time.Time) string {
 	key := fmt.Sprintf("%s-%s-%s", productID, identifier, period.Format("2006-01"))
 	return strings.ToLower(strings.ReplaceAll(key, " ", "-"))
-}
-
-// createNewInvoiceItems helper method to create new invoice items.
-func (service *Service) createNewInvoiceItems(ctx context.Context, items []*stripe.InvoiceItemParams, customerID string, invoiceID *string, projectID uuid.UUID, to, from, period time.Time) error {
-	for _, item := range items {
-		item.Params = stripe.Params{Context: ctx}
-		item.Currency = stripe.String(string(stripe.CurrencyUSD))
-		item.Customer = stripe.String(customerID)
-		item.Period = &stripe.InvoiceItemPeriodParams{
-			End:   stripe.Int64(to.Unix()),
-			Start: stripe.Int64(from.Unix()),
-		}
-		if invoiceID != nil {
-			item.Invoice = invoiceID
-		}
-		// TODO: do not expose regular project ID.
-		item.AddMetadata("projectID", projectID.String())
-
-		if service.stripeConfig.UseIdempotency {
-			item.SetIdempotencyKey(getIdempotencyKey(projectID, item.Metadata[partnerMetadataKey], *item.Description, period))
-		}
-
-		_, err := service.stripeClient.InvoiceItems().New(item)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// getIdempotencyKey creates new unique idempotency key for given invoice item.
-func getIdempotencyKey(projectID uuid.UUID, partner, itemDesc string, period time.Time) string {
-	// We can't just use item.Description because it includes project name.
-	// There is a chance project name can be updated by the user during invoicing process.
-	itemIdentifier := itemDesc
-	if strings.Contains(itemDesc, storageInvoiceItemDesc) {
-		itemIdentifier = "storage"
-	} else if strings.Contains(itemDesc, egressInvoiceItemDesc) {
-		itemIdentifier = "egress"
-	} else if strings.Contains(itemDesc, segmentInvoiceItemDesc) {
-		itemIdentifier = "segment"
-	}
-
-	key := fmt.Sprintf("%s-%s-%s-%s", projectID, partner, itemIdentifier, period.Format("2006-01"))
-	key = strings.ToLower(strings.ReplaceAll(key, " ", "-"))
-
-	return key
-}
-
-// getExistingInvoiceItems lists 3 existing pending invoice line items for stripe customer.
-func (service *Service) getExistingInvoiceItems(ctx context.Context, cusID string) (map[usage]*stripe.InvoiceItem, error) {
-	existingItemsIter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
-		Customer: &cusID,
-		Pending:  stripe.Bool(true),
-		ListParams: stripe.ListParams{
-			Context: ctx,
-			Limit:   stripe.Int64(3),
-		},
-	})
-
-	items := map[usage]*stripe.InvoiceItem{
-		storage: nil,
-		egress:  nil,
-		segment: nil,
-	}
-
-	for existingItemsIter.Next() {
-		item := existingItemsIter.InvoiceItem()
-		if strings.Contains(item.Description, storageInvoiceItemDesc) {
-			items[storage] = item
-		} else if strings.Contains(item.Description, egressInvoiceItemDesc) {
-			items[egress] = item
-		} else if strings.Contains(item.Description, segmentInvoiceItemDesc) {
-			items[segment] = item
-		}
-	}
-
-	return items, existingItemsIter.Err()
-}
-
-// updateExistingInvoiceItems updates 3 existing pending invoice line items for stripe customer.
-func (service *Service) updateExistingInvoiceItems(ctx context.Context, existingItems map[usage]*stripe.InvoiceItem, newItems []*stripe.InvoiceItemParams, projectID uuid.UUID, period time.Time) (err error) {
-	for _, item := range newItems {
-		if strings.Contains(*item.Description, storageInvoiceItemDesc) {
-			existingItems[storage].Quantity += *item.Quantity
-		} else if strings.Contains(*item.Description, egressInvoiceItemDesc) {
-			existingItems[egress].Quantity += *item.Quantity
-		} else if strings.Contains(*item.Description, segmentInvoiceItemDesc) {
-			existingItems[segment].Quantity += *item.Quantity
-		}
-	}
-
-	for _, item := range existingItems {
-		params := &stripe.InvoiceItemParams{
-			Params:   stripe.Params{Context: ctx},
-			Quantity: stripe.Int64(item.Quantity),
-		}
-
-		if service.stripeConfig.UseIdempotency {
-			params.SetIdempotencyKey(getIdempotencyKey(projectID, item.Metadata[partnerMetadataKey], item.Description, period))
-		}
-
-		_, err = service.stripeClient.InvoiceItems().Update(item.ID, params)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// InvoiceItemsFromProjectUsage calculates Stripe invoice item from project usage.
-// It is only used if product-based invoicing is disabled.
-func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsages map[string]accounting.ProjectUsage, aggregated bool) (result []*stripe.InvoiceItemParams, _ error) {
-	// Aggregate usage by partner (discard placement)
-	aggregatedUsages := make(map[string]accounting.ProjectUsage)
-
-	if len(partnerUsages) == 0 {
-		aggregatedUsages[""] = accounting.ProjectUsage{}
-	} else {
-		for key, usage := range partnerUsages {
-			if key == "" {
-				return nil, errs.New("invalid usage key format")
-			}
-
-			// Split the key to extract partner and placement
-			parts := strings.Split(key, "|")
-			partner := parts[0]
-
-			// Aggregate usage by partner
-			if existingUsage, exists := aggregatedUsages[partner]; exists {
-				existingUsage.Storage += usage.Storage
-				existingUsage.Egress += usage.Egress
-				existingUsage.SegmentCount += usage.SegmentCount
-				aggregatedUsages[partner] = existingUsage
-			} else {
-				aggregatedUsages[partner] = usage
-			}
-		}
-	}
-
-	// Create sorted list of partners for consistent output
-	partners := maps.Keys(aggregatedUsages)
-	sort.Strings(partners)
-
-	for _, partner := range partners {
-		// Use the partner-only price model as before to maintain compatibility with tests
-		priceModel := service.Accounts().GetProjectUsagePriceModel(partner)
-
-		usage := aggregatedUsages[partner]
-		usage.Egress = applyEgressDiscount(usage, priceModel)
-
-		prefix := "Project " + projName
-		if partner != "" {
-			prefix += " (" + partner + ")"
-		}
-
-		if aggregated {
-			prefix = "All projects"
-		}
-
-		projectItem := &stripe.InvoiceItemParams{}
-		projectItem.Description = stripe.String(prefix + storageInvoiceItemDesc)
-		projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(usage.Storage).IntPart())
-		storagePrice, _ := priceModel.StorageMBMonthCents.Float64()
-		projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
-		projectItem.AddMetadata(partnerMetadataKey, partner)
-
-		result = append(result, projectItem)
-
-		projectItem = &stripe.InvoiceItemParams{}
-		projectItem.Description = stripe.String(prefix + egressInvoiceItemDesc)
-		projectItem.Quantity = stripe.Int64(egressMBDecimal(usage.Egress).IntPart())
-		egressPrice, _ := priceModel.EgressMBCents.Float64()
-		projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-		projectItem.AddMetadata(partnerMetadataKey, partner)
-
-		result = append(result, projectItem)
-
-		projectItem = &stripe.InvoiceItemParams{}
-		projectItem.Description = stripe.String(prefix + segmentInvoiceItemDesc)
-		projectItem.Quantity = stripe.Int64(segmentMonthDecimal(usage.SegmentCount).IntPart())
-		segmentPrice, _ := priceModel.SegmentMonthCents.Float64()
-		projectItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-		projectItem.AddMetadata(partnerMetadataKey, partner)
-
-		result = append(result, projectItem)
-	}
-
-	service.log.Info("invoice items", zap.Any("result", result))
-
-	return result, nil
 }
 
 // RemoveExpiredPackageCredit removes a user's package plan credit, or sends an analytics event, if it has expired.
@@ -1714,27 +1302,6 @@ func (service *Service) createInvoices(ctx context.Context, customers []Customer
 	return scheduled, draft, errGrp.Err()
 }
 
-// createParentInvoice creates a parent invoice for the customer.
-func (service *Service) createParentInvoice(ctx context.Context, billingID, cusID, projName string, period time.Time) (invoiceID *string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	description := fmt.Sprintf("Storj Cloud Storage for child project %s and period %s %d", projName, period.UTC().Month(), period.UTC().Year())
-	stripeInvoice, err := service.stripeClient.Invoices().New(
-		&stripe.InvoiceParams{
-			Params:                      stripe.Params{Context: ctx},
-			Customer:                    stripe.String(billingID),
-			AutoAdvance:                 stripe.Bool(false),
-			Description:                 stripe.String(description),
-			PendingInvoiceItemsBehavior: stripe.String("exclude"),
-			Metadata:                    map[string]string{"Child Account": cusID},
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &stripeInvoice.ID, nil
-}
-
 // SetInvoiceStatus will set all open invoices within the specified date range to the requested status.
 func (service *Service) SetInvoiceStatus(ctx context.Context, startPeriod, endPeriod time.Time, status string, dryRun bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1905,12 +1472,6 @@ func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) 
 
 	service.log.Info("Applying invoice project records")
 	err = service.InvoiceApplyProjectRecordsGrouped(ctx, period)
-	if err != nil {
-		return err
-	}
-
-	service.log.Info("Applying to be aggregated invoice project records")
-	err = service.InvoiceApplyToBeAggregatedProjectRecords(ctx, period)
 	if err != nil {
 		return err
 	}

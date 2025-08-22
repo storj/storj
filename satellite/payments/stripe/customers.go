@@ -29,10 +29,6 @@ type CustomersDB interface {
 	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (*Customer, error)
 	// GetPackageInfo returns the package plan and time of purchase for a user.
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
-	// GetStripeIDs returns stripe customer and billing ids.
-	GetStripeIDs(ctx context.Context, userID uuid.UUID) (billingID *string, customerID string, err error)
-	// UpdateBillingCustomerID updates the customer's billing id.
-	UpdateBillingCustomerID(ctx context.Context, userID uuid.UUID, billingID *string) (*Customer, error)
 
 	// ListMissingCustomers lists users that have a missing stripe entry.
 	ListMissingCustomers(ctx context.Context) (_ []MissingCustomer, err error)
