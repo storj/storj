@@ -497,7 +497,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.managed-encryption.path-encryption-enabled: false
 
 # maximum amount (in cents) allowed to be added to an account balance.
-# console.max-add-funds-amount: 10000
+# console.max-add-funds-amount: 250000
 
 # defines the maximum number of characters allowed for long form fields, e.g. comment type fields
 # console.max-long-form-field-characters: 500
