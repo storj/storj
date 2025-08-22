@@ -11,8 +11,6 @@ import {
     ProjectFields,
     ProjectLimits,
     ProjectsApi,
-    ProjectsCursor,
-    ProjectsPage,
     ProjectsStorageBandwidthDaily,
     ProjectUsageDateRange,
     ProjectInvitation,
@@ -22,7 +20,6 @@ import {
     ProjectDeletionData,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
-import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { hexToBase64 } from '@/utils/strings';
 import { Duration, Time } from '@/utils/time';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -41,8 +38,6 @@ export class ProjectsState {
     public selectedProjectConfig: ProjectConfig = new ProjectConfig();
     public currentLimits: Readonly<ProjectLimits> = DEFAULT_PROJECT_LIMITS;
     public totalLimits: Readonly<ProjectLimits> = DEFAULT_PROJECT_LIMITS;
-    public cursor: ProjectsCursor = new ProjectsCursor();
-    public page: ProjectsPage = new ProjectsPage();
     public settledBandwidthChartData: DataStamp[] = [];
     public storageChartData: DataStamp[] = [];
     public chartDataSince: Date = new Date();
@@ -158,13 +153,6 @@ export const useProjectsStore = defineStore('projects', () => {
         }
 
         state.selectedProject = DEFAULT_PROJECT;
-    }
-
-    async function getOwnedProjects(pageNumber: number, limit = DEFAULT_PAGE_LIMIT): Promise<void> {
-        state.cursor.page = pageNumber;
-        state.cursor.limit = limit;
-
-        state.page = await api.getOwnedProjects(state.cursor);
     }
 
     async function getDailyProjectData(payload: ProjectUsageDateRange): Promise<void> {
@@ -329,7 +317,6 @@ export const useProjectsStore = defineStore('projects', () => {
         usersFirstProject,
         getProjects,
         deleteProject,
-        getOwnedProjects,
         getDailyProjectData,
         createProject,
         createDefaultProject,

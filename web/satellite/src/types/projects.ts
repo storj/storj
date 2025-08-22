@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { ProjectRole } from '@/types/projectMembers';
 import { Versioning } from '@/types/versioning';
 import { DeleteProjectStep } from '@/types/accountActions';
@@ -119,14 +118,6 @@ export interface ProjectsApi {
      * @throws Error
      */
     getDailyUsage(projectID: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily>;
-
-    /**
-     * Fetch owned projects.
-     *
-     * @returns ProjectsPage
-     * @throws Error
-     */
-    getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage>;
 
     /**
      * Returns a user's pending project member invitations.
@@ -248,30 +239,6 @@ export interface UpdateProjectFields {
 export interface UpdateProjectLimitsFields {
     storageLimit?: string;
     bandwidthLimit?: string;
-}
-
-/**
- * ProjectsPage class, used to describe paged projects list.
- */
-export class ProjectsPage {
-    public constructor(
-        public projects: Project[] = [],
-        public limit: number = 0,
-        public offset: number = 0,
-        public pageCount: number = 0,
-        public currentPage: number = 0,
-        public totalCount: number = 0,
-    ) {}
-}
-
-/**
- * ProjectsPage class, used to describe paged projects list.
- */
-export class ProjectsCursor {
-    public constructor(
-        public limit: number = DEFAULT_PAGE_LIMIT,
-        public page: number = 1,
-    ) {}
 }
 
 /**

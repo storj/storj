@@ -9,8 +9,6 @@ import {
     ProjectInvitation,
     ProjectLimits,
     ProjectsApi,
-    ProjectsCursor,
-    ProjectsPage,
     ProjectDeletionData,
     ProjectsStorageBandwidthDaily,
     ProjectInvitationResponse,
@@ -389,41 +387,6 @@ export class ProjectsHttpApi implements ProjectsApi {
 
         const json = await response.json();
         return json ? new Emission(json.storjImpact, json.hyperscalerImpact, json.savedTrees) : new Emission();
-    }
-
-    /**
-     * Fetch owned projects.
-     *
-     * @returns ProjectsPage
-     * @throws Error
-     */
-    public async getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage> {
-        const response = await this.http.get(`${this.ROOT_PATH}/paged?limit=${cursor.limit}&page=${cursor.page}`);
-
-        if (!response.ok) {
-            throw new APIError({
-                status: response.status,
-                message: 'Can not get projects',
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
-
-        const page = await response.json();
-
-        const projects: Project[] = page.projects.map(p =>
-            new Project(
-                p.id,
-                p.name,
-                p.description,
-                p.createdAt,
-                p.ownerId,
-                p.memberCount,
-                p.edgeURLOverrides,
-                getVersioning(p.versioning),
-                p.placement,
-            ));
-
-        return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
     }
 
     /**
