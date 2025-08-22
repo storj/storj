@@ -261,19 +261,6 @@ type ProjectsPage struct {
 	TotalCount  int64
 }
 
-// ProjectInfoPage is similar to ProjectsPage
-// except the Projects field is ProjectInfo and is sent over HTTP API.
-type ProjectInfoPage struct {
-	Projects []ProjectInfo `json:"projects"`
-
-	Limit  int   `json:"limit"`
-	Offset int64 `json:"offset"`
-
-	PageCount   int   `json:"pageCount"`
-	CurrentPage int   `json:"currentPage"`
-	TotalCount  int64 `json:"totalCount"`
-}
-
 // LimitRequestInfo holds data needed to request limit increase.
 type LimitRequestInfo struct {
 	LimitType    string      `json:"limitType"`

@@ -3584,26 +3584,6 @@ func (s *Service) GenGetUsersProjects(ctx context.Context) (ps []Project, httpEr
 	return
 }
 
-// GetUsersOwnedProjectsPage is a method for querying paged projects.
-func (s *Service) GetUsersOwnedProjectsPage(ctx context.Context, cursor ProjectsCursor) (_ ProjectsPage, err error) {
-	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "get user's owned projects page")
-	if err != nil {
-		return ProjectsPage{}, Error.Wrap(err)
-	}
-
-	if cursor.Limit > maxLimit {
-		cursor.Limit = maxLimit
-	}
-
-	page, err := s.store.Projects().ListActiveByOwnerID(ctx, user.ID, cursor)
-	if err != nil {
-		return ProjectsPage{}, Error.Wrap(err)
-	}
-
-	return page, nil
-}
-
 // JoinCunoFSBeta is a method for tracking user joined cunoFS beta.
 func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCunoFSBetaFields) (err error) {
 	defer mon.Task()(&ctx)(&err)
