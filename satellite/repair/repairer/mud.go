@@ -28,5 +28,6 @@ func Module(ball *mud.Ball) {
 		return NewSegmentRepairer(log, metabase, orders, overlay, reporter, ecRepairer, placements, checkerConfig.RepairThresholdOverrides, checkerConfig.RepairTargetOverrides, config)
 	})
 	config.RegisterConfig[Config](ball, "repairer")
+	mud.Provide[*Service](ball, NewService)
 
 }

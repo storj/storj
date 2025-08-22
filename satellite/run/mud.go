@@ -26,4 +26,8 @@ func Module(ball *mud.Ball) {
 		return &Auditor{}
 	})
 	cli.RegisterSubcommand[*Auditor](ball, "auditor", "run the auditor service")
+	mud.Provide[*Repair](ball, func() *Repair {
+		return &Repair{}
+	})
+	cli.RegisterSubcommand[*Repair](ball, "repair", "run the repair worker service")
 }

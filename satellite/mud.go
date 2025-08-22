@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/piecelist"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repaircsv"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/repair/repairer/manual"
@@ -140,6 +141,7 @@ func Module(ball *mud.Ball) {
 	manual.Module(ball)
 	repaircsv.Module(ball)
 	jobq.Module(ball)
+	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
