@@ -99,9 +99,11 @@ func TestGetProjectsByUserID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		passphraseEnc := testrand.Bytes(2 * memory.B)
 		proj, err := projectsRepo.Insert(ctx, &console.Project{
-			Name:    "Project",
-			OwnerID: user1.ID,
+			Name:          "Project",
+			OwnerID:       user1.ID,
+			PassphraseEnc: passphraseEnc,
 		})
 		require.NoError(t, err)
 
@@ -112,6 +114,8 @@ func TestGetProjectsByUserID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, projects, 1)
 		require.Equal(t, 1, projects[0].MemberCount)
+		require.NotNil(t, projects[0].PassphraseEnc)
+		require.EqualValues(t, passphraseEnc, projects[0].PassphraseEnc)
 
 		_, err = projectMembers.Insert(ctx, user2.ID, proj.ID, console.RoleAdmin)
 		require.NoError(t, err)

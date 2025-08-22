@@ -3541,16 +3541,17 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 // GetMinimalProject returns a ProjectInfo copy of a project.
 func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 	info := ProjectInfo{
-		ID:            project.PublicID,
-		Name:          project.Name,
-		OwnerID:       project.OwnerID,
-		Description:   project.Description,
-		MemberCount:   project.MemberCount,
-		CreatedAt:     project.CreatedAt,
-		StorageUsed:   project.StorageUsed,
-		BandwidthUsed: project.BandwidthUsed,
-		Versioning:    project.DefaultVersioning,
-		Placement:     project.DefaultPlacement,
+		ID:                   project.PublicID,
+		Name:                 project.Name,
+		OwnerID:              project.OwnerID,
+		Description:          project.Description,
+		MemberCount:          project.MemberCount,
+		CreatedAt:            project.CreatedAt,
+		StorageUsed:          project.StorageUsed,
+		BandwidthUsed:        project.BandwidthUsed,
+		Versioning:           project.DefaultVersioning,
+		Placement:            project.DefaultPlacement,
+		HasManagedPassphrase: project.PassphraseEnc != nil,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {

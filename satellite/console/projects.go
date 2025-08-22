@@ -212,17 +212,18 @@ type UpdateLimitsInfo struct {
 
 // ProjectInfo holds data sent via user facing http endpoints.
 type ProjectInfo struct {
-	ID               uuid.UUID                 `json:"id"`
-	Name             string                    `json:"name"`
-	OwnerID          uuid.UUID                 `json:"ownerId"`
-	Description      string                    `json:"description"`
-	MemberCount      int                       `json:"memberCount"`
-	CreatedAt        time.Time                 `json:"createdAt"`
-	EdgeURLOverrides *EdgeURLOverrides         `json:"edgeURLOverrides,omitempty"`
-	StorageUsed      int64                     `json:"storageUsed"`
-	BandwidthUsed    int64                     `json:"bandwidthUsed"`
-	Versioning       DefaultVersioning         `json:"versioning"`
-	Placement        storj.PlacementConstraint `json:"placement"`
+	ID                   uuid.UUID                 `json:"id"`
+	Name                 string                    `json:"name"`
+	OwnerID              uuid.UUID                 `json:"ownerId"`
+	Description          string                    `json:"description"`
+	MemberCount          int                       `json:"memberCount"`
+	CreatedAt            time.Time                 `json:"createdAt"`
+	EdgeURLOverrides     *EdgeURLOverrides         `json:"edgeURLOverrides,omitempty"`
+	StorageUsed          int64                     `json:"storageUsed"`
+	BandwidthUsed        int64                     `json:"bandwidthUsed"`
+	Versioning           DefaultVersioning         `json:"versioning"`
+	Placement            storj.PlacementConstraint `json:"placement"`
+	HasManagedPassphrase bool                      `json:"hasManagedPassphrase"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.

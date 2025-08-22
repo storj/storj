@@ -178,6 +178,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, up1Proj.DefaultVersioning, minProject.Versioning)
 				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
 				require.Equal(t, up1Proj.MemberCount, minProject.MemberCount)
+				require.False(t, minProject.HasManagedPassphrase)
 
 				// Getting someone else project details should not work
 				project, err = service.GetProject(userCtx1, up2Proj.ID)
@@ -186,6 +187,17 @@ func TestService(t *testing.T) {
 
 				_, err = service.GetProject(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))
+
+				passphraseEnc := testrand.Bytes(2 * memory.B)
+				managedProject, err := sat.API.DB.Console().Projects().Insert(ctx, &console.Project{
+					Name:          "test passphrase enc",
+					OwnerID:       up1Proj.OwnerID,
+					PassphraseEnc: passphraseEnc,
+				})
+				require.NoError(t, err)
+
+				minProject = service.GetMinimalProject(managedProject)
+				require.True(t, minProject.HasManagedPassphrase)
 			})
 
 			t.Run("GetUsersProjects", func(t *testing.T) {
@@ -201,6 +213,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, up3Proj.ID, projects[0].ID)
 				require.Zero(t, projects[0].BandwidthUsed)
 				require.Zero(t, projects[0].StorageUsed)
+				require.Nil(t, projects[0].PassphraseEnc)
 
 				bucket := "testbucket1"
 				require.NoError(t, uplink3.TestingCreateBucket(userCtx3, sat, bucket))
