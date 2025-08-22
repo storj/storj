@@ -3,17 +3,18 @@
 
 import {
     DataStamp,
+    Emission,
     LimitRequestInfo,
     Project,
+    ProjectConfig,
+    ProjectDeletionData,
+    ProjectEncryption,
     ProjectFields,
     ProjectInvitation,
+    ProjectInvitationResponse,
     ProjectLimits,
     ProjectsApi,
-    ProjectDeletionData,
     ProjectsStorageBandwidthDaily,
-    ProjectInvitationResponse,
-    Emission,
-    ProjectConfig,
     UpdateProjectFields,
     UpdateProjectLimitsFields,
 } from '@/types/projects';
@@ -94,6 +95,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.placement,
             p.storageUsed,
             p.bandwidthUsed,
+            p.hasManagedPassphrase ? ProjectEncryption.Automatic : ProjectEncryption.Manual,
         ));
     }
 

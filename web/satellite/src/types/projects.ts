@@ -144,6 +144,11 @@ export const MAX_NAME_LENGTH = 20;
  */
 export const MAX_DESCRIPTION_LENGTH = 100;
 
+export enum ProjectEncryption {
+    Automatic = 'Automatic',
+    Manual = 'Manual',
+}
+
 /**
  * Project is a type, used for creating new project in backend.
  */
@@ -162,6 +167,7 @@ export class Project {
         public placement: number = 0,
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
+        public encryption: ProjectEncryption = ProjectEncryption.Manual,
     ) {}
 }
 
@@ -372,6 +378,7 @@ export class ProjectItemModel {
         public createdAt: Date,
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
+        public encryption: ProjectEncryption | undefined = undefined,
     ) {}
 }
 

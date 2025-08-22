@@ -43,7 +43,7 @@
                 <v-card title="Project Encryption" class="pa-2">
                     <v-card-text>
                         <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold" :prepend-icon="Check">
-                            {{ hasManagedPassphrase ? 'Automatic' : 'Manual' }}
+                            {{ hasManagedPassphrase ? ProjectEncryption.Automatic : ProjectEncryption.Manual }}
                         </v-chip>
                         <v-divider class="my-4 border-0" />
                         <v-btn variant="outlined" color="default" :prepend-icon="View">
@@ -216,7 +216,7 @@ import {
 import { ArrowRight, Check, Pencil, View, Infinity as InfinityIcon, ExternalLink } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { FieldToChange, LimitToChange, Project } from '@/types/projects';
+import { FieldToChange, LimitToChange, Project, ProjectEncryption } from '@/types/projects';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Memory, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';

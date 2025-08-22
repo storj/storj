@@ -63,6 +63,12 @@
             </span>
         </template>
 
+        <template #item.encryption="{ item }">
+            <v-chip v-if="item.encryption" color="primary" variant="tonal" class="font-weight-bold" size="small">
+                {{ item.encryption }}
+            </v-chip>
+        </template>
+
         <template #item.createdAt="{ item }">
             <span class="text-no-wrap">
                 {{ Time.formattedDate(item.createdAt) }}
@@ -188,7 +194,17 @@ import {
     VDataTable,
     VDivider,
 } from 'vuetify/components';
-import { Ellipsis, Search, UserPlus, Settings, Trash2, Cloud, DownloadCloud, Pencil, NotebookPen } from 'lucide-vue-next';
+import {
+    Ellipsis,
+    Search,
+    UserPlus,
+    Settings,
+    Trash2,
+    Cloud,
+    DownloadCloud,
+    Pencil,
+    NotebookPen,
+} from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import {
@@ -208,6 +224,7 @@ import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { DataTableHeader, SortItem } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
+import { useConfigStore } from '@/store/modules/configStore';
 
 defineProps<{
     items: ProjectItemModel[],
@@ -227,22 +244,35 @@ const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 const notify = useNotify();
 
 const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
-const headers: DataTableHeader[] = [
-    { title: 'Project', key: 'name', align: 'start' },
-    { title: 'Role', key: 'role' },
-    { title: 'Members', key: 'memberCount' },
-    { title: 'Storage', key: 'storageUsed' },
-    { title: 'Download', key: 'bandwidthUsed' },
-    { title: 'Date Added', key: 'createdAt' },
-    { title: '', key: 'actions', sortable: false, width: '0' },
-];
 
 const hasPaidPrivileges = computed(() => userStore.state.user.hasPaidPrivileges);
+
+const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
+
+const headers = computed<DataTableHeader[]>(() => {
+    const hdrs: DataTableHeader[] = [
+        { title: 'Project', key: 'name', align: 'start' },
+        { title: 'Role', key: 'role' },
+        { title: 'Members', key: 'memberCount' },
+        { title: 'Storage', key: 'storageUsed' },
+        { title: 'Download', key: 'bandwidthUsed' },
+    ];
+    if (satelliteManagedEncryptionEnabled.value) {
+        hdrs.push({ title: 'Encryption', key: 'encryption', sortable: false });
+    }
+    hdrs.push(
+        { title: 'Date Added', key: 'createdAt' },
+        { title: '', key: 'actions', sortable: false, width: '0' },
+    );
+
+    return hdrs;
+});
 
 /**
  * Formats value to needed form and returns it.
