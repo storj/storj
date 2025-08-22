@@ -776,18 +776,6 @@ func (payment Payments) ProductCharges(ctx context.Context, since, before time.T
 	return payment.service.accounts.ProductCharges(ctx, user.ID, since, before)
 }
 
-// ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.Time) (_ payments.ProjectChargesResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := payment.service.getUserAndAuditLog(ctx, "project charges")
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return payment.service.accounts.ProjectCharges(ctx, user.ID, since, before)
-}
-
 // ShouldApplyMinimumCharge checks if the minimum charge should be applied to the user.
 func (payment Payments) ShouldApplyMinimumCharge(ctx context.Context) (bool, error) {
 	var err error
@@ -5295,27 +5283,24 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					UserAgent:       p.UserAgent,
 				}
 
-				var priceModel payments.ProductUsagePriceModel
-				if s.config.ProductBasedInvoicing {
-					_, priceModel = s.accounts.ProductIdAndPriceForUsageKey(key)
+				_, priceModel := s.accounts.ProductIdAndPriceForUsageKey(key)
 
-					partner := ""
-					placement := int(storj.DefaultPlacement)
+				partner := ""
+				placement := int(storj.DefaultPlacement)
 
-					// Split the key to extract partner and placement.
-					parts := strings.Split(key, "|")
-					if len(parts) >= 1 {
-						partner = parts[0]
-					}
-					if len(parts) >= 2 {
-						placement64, err := strconv.ParseInt(parts[1], 10, 32)
-						if err == nil {
-							placement = int(placement64)
-						}
-					}
-					item.Placement = storj.PlacementConstraint(placement)
-					item.UserAgent = []byte(partner)
+				// Split the key to extract partner and placement.
+				parts := strings.Split(key, "|")
+				if len(parts) >= 1 {
+					partner = parts[0]
 				}
+				if len(parts) >= 2 {
+					placement64, err := strconv.ParseInt(parts[1], 10, 32)
+					if err == nil {
+						placement = int(placement64)
+					}
+				}
+				item.Placement = storj.PlacementConstraint(placement)
+				item.UserAgent = []byte(partner)
 
 				item, err = s.transformProjectReportItem(item, param.IncludeCost, priceModel)
 				if err != nil {
@@ -5351,7 +5336,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	if !param.GroupByProject {
 		row = append(row, reportItem.BucketName)
 	}
-	if s.config.ProductBasedInvoicing && s.config.SkuEnabled {
+	if s.config.SkuEnabled {
 		row = append(row, reportItem.StorageSKU)
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.Storage))
@@ -5359,7 +5344,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	if param.IncludeCost {
 		row = append(row, fmt.Sprintf("%f", reportItem.StorageCost))
 	}
-	if s.config.ProductBasedInvoicing && s.config.SkuEnabled {
+	if s.config.SkuEnabled {
 		row = append(row, reportItem.EgressSKU)
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.Egress))
@@ -5368,7 +5353,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 		row = append(row, fmt.Sprintf("%f", reportItem.EgressCost))
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.ObjectCount))
-	if s.config.ProductBasedInvoicing && s.config.SkuEnabled {
+	if s.config.SkuEnabled {
 		row = append(row, reportItem.SegmentSKU)
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCount))
@@ -5399,7 +5384,7 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 		"Segment Price (Estimated)", "Estimated Total Amount", "Since", "Before",
 	}
 
-	if !s.config.ProductBasedInvoicing || !s.config.SkuEnabled {
+	if !s.config.SkuEnabled {
 		updateHeaders := make([]string, 0, len(headers)-4)
 		for _, header := range headers {
 			if strings.Contains(header, "SKU") {
@@ -5438,15 +5423,9 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
 	if priceModel == (payments.ProductUsagePriceModel{}) {
-		if s.config.ProductBasedInvoicing {
-			_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(item.UserAgent), item.Placement)
-			if err != nil {
-				return accounting.ProjectReportItem{}, err
-			}
-		} else {
-			priceModel = payments.ProductUsagePriceModel{
-				ProjectUsagePriceModel: s.accounts.GetProjectUsagePriceModel(string(item.UserAgent)),
-			}
+		_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(item.UserAgent), item.Placement)
+		if err != nil {
+			return accounting.ProjectReportItem{}, err
 		}
 	}
 	item.ProductName = priceModel.ProductName

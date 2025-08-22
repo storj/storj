@@ -336,8 +336,6 @@ func TestProductCharges(t *testing.T) {
 					12: 2,
 				})
 				config.Payments.PlacementPriceOverrides = placementProductMap
-
-				config.Payments.StripeCoinPayments.ProductBasedInvoicing = true
 				config.Payments.Products = productOverrides
 			},
 		},

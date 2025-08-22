@@ -50,7 +50,6 @@ type Config struct {
 	UseNewRestKeysTable               bool                      `help:"whether to use the new rest keys table" default:"false"`
 	NewDetailedUsageReportEnabled     bool                      `help:"whether to use the new detailed usage report" default:"false"`
 	NewAccountSetupEnabled            bool                      `help:"whether to use new account setup flow" default:"false"`
-	ProductBasedInvoicing             bool                      `help:"whether to use product-based invoicing" default:"false" hidden:"true"`
 	PricingPackagesEnabled            bool                      `help:"whether to allow purchasing pricing packages" default:"true"`
 	SkuEnabled                        bool                      `help:"whether we should use SKUs for product usages" default:"false" hidden:"true"`
 	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`

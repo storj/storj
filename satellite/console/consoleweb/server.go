@@ -187,7 +187,6 @@ type Server struct {
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
-	productBasedInvoicingEnabled    bool
 
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig
 
@@ -210,7 +209,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config,
-	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, productBasedInvoicingEnabled bool) *Server {
+	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -226,7 +225,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		csrfService:                     csrfService,
 		stripePublicKey:                 stripePublicKey,
 		neededTokenPaymentConfirmations: neededTokenPaymentConfirmations,
-		productBasedInvoicingEnabled:    productBasedInvoicingEnabled,
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
 		addCardRateLimiter:              NewAddCardRateLimiter(config.AddCardRateLimiter, logger),
@@ -385,7 +383,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	}
 
 	if config.BillingFeaturesEnabled {
-		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, productBasedInvoicingEnabled)
+		paymentController := consoleapi.NewPayments(logger, service, accountFreezeService)
 		paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 		paymentsRouter.Use(server.withCORS)
 		paymentsRouter.Use(server.withAuth)
@@ -401,7 +399,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		paymentsRouter.Handle("/cards", server.withCSRFProtection(http.HandlerFunc(paymentController.MakeCreditCardDefault))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.Handle("/cards/{cardId}", server.withCSRFProtection(http.HandlerFunc(paymentController.RemoveCreditCard))).Methods(http.MethodDelete, http.MethodOptions)
-		paymentsRouter.HandleFunc("/account/charges", paymentController.ProjectsCharges).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/product-charges", paymentController.ProductCharges).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/balance", paymentController.AccountBalance).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/account/billing-information", paymentController.GetBillingInformation).Methods(http.MethodGet, http.MethodOptions)
@@ -1122,7 +1119,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
-		ProductBasedInvoicingEnabled:      server.productBasedInvoicingEnabled,
 		NewAccountSetupEnabled:            server.config.NewAccountSetupEnabled,
 		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,
 		UserFeedbackEnabled:               server.config.UserFeedbackEnabled,

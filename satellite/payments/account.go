@@ -79,9 +79,6 @@ type Accounts interface {
 	// Balances exposes functionality to manage account balances.
 	Balances() Balances
 
-	// ProjectCharges returns how much money current user will be charged for each project.
-	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProjectChargesResponse, error)
-
 	// ProductCharges returns how much money current user will be charged for each project split by product.
 	ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProductChargesResponse, error)
 

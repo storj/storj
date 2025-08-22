@@ -34,20 +34,17 @@ var (
 
 // Payments is an api controller that exposes all payment related functionality.
 type Payments struct {
-	log                          *zap.Logger
-	service                      *console.Service
-	accountFreezeService         *console.AccountFreezeService
-	productBasedInvoicingEnabled bool
+	log                  *zap.Logger
+	service              *console.Service
+	accountFreezeService *console.AccountFreezeService
 }
 
 // NewPayments is a constructor for api payments controller.
-func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService,
-	productBasedInvoicingEnabled bool) *Payments {
+func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService) *Payments {
 	return &Payments{
-		log:                          log,
-		service:                      service,
-		accountFreezeService:         accountFreezeService,
-		productBasedInvoicingEnabled: productBasedInvoicingEnabled,
+		log:                  log,
+		service:              service,
+		accountFreezeService: accountFreezeService,
 	}
 }
 
@@ -108,11 +105,6 @@ func (p *Payments) ProductCharges(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if !p.productBasedInvoicingEnabled {
-		p.serveJSONError(ctx, w, http.StatusNotImplemented, errs.New("product based invoicing is not enabled"))
-		return
-	}
-
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
@@ -150,67 +142,6 @@ func (p *Payments) ProductCharges(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
 		p.log.Error("failed to write json product usage and charges response", zap.Error(ErrPaymentsAPI.Wrap(err)))
-	}
-}
-
-// ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
-		return
-	}
-	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("to"), 10, 64)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
-		return
-	}
-
-	since := time.Unix(sinceStamp, 0).UTC()
-	before := time.Unix(beforeStamp, 0).UTC()
-
-	charges, err := p.service.Payments().ProjectsCharges(ctx, since, before)
-	if err != nil {
-		p.handleServiceError(ctx, w, err)
-		return
-	}
-
-	shouldApplyMinimumCharge, err := p.service.Payments().ShouldApplyMinimumCharge(ctx)
-	if err != nil {
-		p.handleServiceError(ctx, w, err)
-		return
-	}
-
-	var response struct {
-		PriceModels        map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
-		Charges            payments.ProjectChargesResponse            `json:"charges"`
-		ApplyMinimumCharge bool                                       `json:"applyMinimumCharge"`
-	}
-
-	response.Charges = charges
-	response.PriceModels = make(map[string]payments.ProjectUsagePriceModel)
-	response.ApplyMinimumCharge = shouldApplyMinimumCharge
-
-	seen := make(map[string]struct{})
-	for _, partnerCharges := range charges {
-		for partner := range partnerCharges {
-			if _, ok := seen[partner]; ok {
-				continue
-			}
-			response.PriceModels[partner] = *p.service.Payments().GetProjectUsagePriceModel(partner)
-			seen[partner] = struct{}{}
-		}
-	}
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		p.log.Error("failed to write json project usage and charges response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

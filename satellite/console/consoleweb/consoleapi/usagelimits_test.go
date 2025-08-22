@@ -19,6 +19,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -26,6 +27,8 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 func TestTotalUsageLimits(t *testing.T) {
@@ -174,12 +177,27 @@ func TestDailyUsage(t *testing.T) {
 }
 
 func TestTotalUsageReport(t *testing.T) {
+	var (
+		productID    = int32(1)
+		productPrice = paymentsconfig.ProductUsagePrice{
+			Name: "product1",
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "200000",
+				EgressTB:  "200000",
+				Segment:   "2",
+			},
+		}
+	)
+
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
 				config.Console.RateLimit.Burst = 10
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location", "defaultPlacement")`}
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{productID: productPrice})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(storj.DefaultPlacement): productID})
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

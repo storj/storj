@@ -7,7 +7,6 @@ import {
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
-    ProjectCharges,
     UsagePriceModel,
     TokenAmount,
     NativePaymentHistoryItem,
@@ -151,26 +150,6 @@ export class PaymentsHttpApi implements PaymentsApi {
             message: 'Can not setup account',
             requestID: response.headers.get('x-request-id'),
         });
-    }
-
-    /**
-     * projectsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns.
-     */
-    public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectCharges> {
-        const since = Time.toUnixTimestamp(start).toString();
-        const before = Time.toUnixTimestamp(end).toString();
-        const path = `${this.ROOT_PATH}/account/charges?from=${since}&to=${before}`;
-        const response = await this.client.get(path);
-
-        if (!response.ok) {
-            throw new APIError({
-                status: response.status,
-                message: 'Can not get projects charges',
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
-
-        return ProjectCharges.fromJSON(await response.json());
     }
 
     /**

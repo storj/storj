@@ -353,7 +353,6 @@ const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.con
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
 const addFundsEnabled = computed<boolean>(() => configStore.state.config.billingAddFundsEnabled);
 const checkoutEnabled = computed<boolean>(() => configStore.state.config.billingStripeCheckoutEnabled);
-const productBasedInvoicingEnabled = computed<boolean>(() => configStore.state.config.productBasedInvoicingEnabled);
 const minimumChargeCfg = computed<MinimumCharge>(() => configStore.minimumCharge);
 
 /**
@@ -361,13 +360,7 @@ const minimumChargeCfg = computed<MinimumCharge>(() => configStore.minimumCharge
  */
 const projectIDs = computed((): string[] => {
     return projectsStore.state.projects
-        .filter(proj => {
-            if (productBasedInvoicingEnabled.value) {
-                return productCharges.value.hasProject(proj.id);
-            }
-
-            return projectCharges.value.hasProject(proj.id);
-        })
+        .filter(proj => productCharges.value.hasProject(proj.id))
         .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
         .map(proj => proj.id);
 });
@@ -377,13 +370,9 @@ const userPaidTier = computed<boolean>(() => usersStore.state.user.isPaid);
 const willMinimumChargeBeApplied = computed(() => {
     const { isEnabled, _amount } = minimumChargeCfg.value;
 
-    const applyMinimumFromCharges = productBasedInvoicingEnabled.value
-        ? productCharges.value.applyMinimumCharge
-        : projectCharges.value.applyMinimumCharge;
-
     return isEnabled &&
         userPaidTier.value &&
-        applyMinimumFromCharges &&
+        productCharges.value.applyMinimumCharge &&
         priceSummary.value > 0 &&
         priceSummary.value < _amount;
 });
@@ -419,11 +408,6 @@ const estimatedChargesTooltipMsg = computed<string>(() => {
 });
 
 /**
- * Returns the project charges from the billing store.
- */
-const projectCharges = computed(() => billingStore.state.projectCharges);
-
-/**
  * Returns the product charges from the billing store.
  */
 const productCharges = computed(() => billingStore.state.productCharges);
@@ -431,13 +415,7 @@ const productCharges = computed(() => billingStore.state.productCharges);
 /**
  * Returns price summary of all project usages.
  */
-const priceSummary = computed((): number => {
-    if (productBasedInvoicingEnabled.value) {
-        return productCharges.value.getPrice();
-    }
-
-    return projectCharges.value.getPrice();
-});
+const priceSummary = computed((): number => productCharges.value.getPrice());
 
 /**
  * Returns account balance (sum storjscan and stripe credit) from store.
@@ -540,11 +518,7 @@ onMounted(async () => {
     });
 
     try {
-        if (productBasedInvoicingEnabled.value) {
-            await billingStore.getProductUsageAndChargesCurrentRollup();
-        } else {
-            await billingStore.getProjectUsageAndChargesCurrentRollup();
-        }
+        await billingStore.getProductUsageAndChargesCurrentRollup();
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_AREA);
     } finally {

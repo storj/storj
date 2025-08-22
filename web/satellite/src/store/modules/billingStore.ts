@@ -21,7 +21,6 @@ import {
     PaymentWithConfirmations,
     PriceModelForPlacementRequest,
     ProductCharges,
-    ProjectCharges,
     PurchaseIntent,
     Tax,
     TaxCountry,
@@ -41,7 +40,6 @@ export class PaymentsState {
     public paymentsHistory: PaymentHistoryPage = new PaymentHistoryPage([]);
     public pendingPaymentsWithConfirmations: PaymentWithConfirmations[] = [];
     public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
-    public projectCharges: ProjectCharges = new ProjectCharges();
     public usagePriceModel: UsagePriceModel = new UsagePriceModel();
     public productCharges: ProductCharges = new ProductCharges();
     public startDate: Date = new Date();
@@ -269,18 +267,6 @@ export const useBillingStore = defineStore('billing', () => {
         });
     }
 
-    async function getProjectUsageAndChargesCurrentRollup(): Promise<void> {
-        const now = new Date();
-        const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
-        const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
-
-        state.projectCharges = await api.projectsUsageAndCharges(startUTC, endUTC);
-
-        const dateRange = new DateRange(startUTC, endUTC);
-        state.startDate = dateRange.startDate;
-        state.endDate = dateRange.endDate;
-    }
-
     async function getProductUsageAndChargesCurrentRollup(): Promise<void> {
         const now = new Date();
         const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
@@ -333,7 +319,6 @@ export const useBillingStore = defineStore('billing', () => {
         state.creditCards = [];
         state.paymentsHistory = new PaymentHistoryPage([]);
         state.nativePaymentsHistory = [];
-        state.projectCharges = new ProjectCharges();
         state.usagePriceModel = new UsagePriceModel();
         state.productCharges = new ProductCharges();
         state.pendingPaymentsWithConfirmations = [];
@@ -376,7 +361,6 @@ export const useBillingStore = defineStore('billing', () => {
         removeCreditCard,
         getPaymentsHistory,
         getNativePaymentsHistory,
-        getProjectUsageAndChargesCurrentRollup,
         getProductUsageAndChargesCurrentRollup,
         startPaymentsPolling,
         stopPaymentsPolling,

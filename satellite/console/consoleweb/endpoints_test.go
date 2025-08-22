@@ -377,7 +377,7 @@ func TestPayments(t *testing.T) {
 				"/payments/account/balance",
 				"/payments/billing-history",
 				"/payments/invoice-history",
-				"/payments/account/charges?from=1619827200&to=1620844320",
+				"/payments/account/product-charges?from=1619827200&to=1620844320",
 			} {
 				resp, body := test.request(http.MethodGet, path, nil)
 				require.Contains(t, body, "unauthorized", path)
@@ -412,7 +412,7 @@ func TestPayments(t *testing.T) {
 		}
 
 		{ // Get_AccountChargesByDateRange
-			resp, body := test.request(http.MethodGet, "/payments/account/charges?from=1619827200&to=1620844320", nil)
+			resp, body := test.request(http.MethodGet, "/payments/account/product-charges?from=1619827200&to=1620844320", nil)
 			require.Contains(t, body, "egress")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}

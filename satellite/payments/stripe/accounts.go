@@ -623,60 +623,6 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 	return charges, nil
 }
 
-// ProjectCharges returns how much money current user will be charged for each project.
-func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProjectChargesResponse, err error) {
-	defer mon.Task()(&ctx, userID, since, before)(&err)
-
-	charges = make(payments.ProjectChargesResponse)
-
-	projects, err := accounts.service.projectsDB.GetOwnActive(ctx, userID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, project := range projects {
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, project.ID, accounts.service.partnerNames, since, before, false)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		partnerCharges := make(map[string]payments.ProjectCharge)
-
-		for key, usage := range usages {
-			if key == "" {
-				return nil, Error.New("invalid usage key format")
-			}
-
-			// Split the key to extract partner and placement
-			parts := strings.Split(key, "|")
-			partner := parts[0]
-
-			priceModel := accounts.GetProjectUsagePriceModel(partner)
-			usage.Egress = applyEgressDiscount(usage, priceModel)
-			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)
-
-			partnerCharges[key] = payments.ProjectCharge{
-				ProjectUsage: usage,
-
-				EgressMBCents:       price.Egress.IntPart(),
-				SegmentMonthCents:   price.Segments.IntPart(),
-				StorageMBMonthCents: price.Storage.IntPart(),
-			}
-		}
-
-		// to return unpartnered empty charge if there's no usage
-		if len(partnerCharges) == 0 {
-			partnerCharges[""] = payments.ProjectCharge{
-				ProjectUsage: accounting.ProjectUsage{Since: since, Before: before},
-			}
-		}
-
-		charges[project.PublicID] = partnerCharges
-	}
-
-	return charges, nil
-}
-
 // GetProjectUsagePriceModel returns the project usage price model for a partner name.
 func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.ProjectUsagePriceModel {
 	if override, ok := accounts.service.pricingConfig.UsagePriceOverrides[partner]; ok {

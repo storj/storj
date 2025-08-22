@@ -122,8 +122,6 @@ func TestInvoiceByProduct(t *testing.T) {
 				var partnerPlacementProductMap paymentsconfig.PartnersPlacementProductMap
 				partnerPlacementProductMap.SetMap(partnersMap)
 				config.Payments.PartnersPlacementPriceOverrides = partnerPlacementProductMap
-
-				config.Payments.StripeCoinPayments.ProductBasedInvoicing = true
 				config.Payments.Products = productOverrides
 			},
 		},

@@ -556,7 +556,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		consoleConfig.ProductBasedInvoicing = config.Payments.StripeCoinPayments.ProductBasedInvoicing
 		consoleConfig.SkuEnabled = config.Payments.StripeCoinPayments.SkuEnabled
 
 		peer.Console.Service, err = console.NewService(
@@ -640,7 +639,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Analytics,
 			config.Payments.MinimumCharge,
 			prices,
-			config.Payments.StripeCoinPayments.ProductBasedInvoicing,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

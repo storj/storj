@@ -94,7 +94,6 @@ type FrontendConfig struct {
 	StorageMBMonthCents               string                      `json:"storageMBMonthCents"`
 	EgressMBCents                     string                      `json:"egressMBCents"`
 	SegmentMonthCents                 string                      `json:"segmentMonthCents"`
-	ProductBasedInvoicingEnabled      bool                        `json:"productBasedInvoicingEnabled"`
 	NewAccountSetupEnabled            bool                        `json:"newAccountSetupEnabled"`
 	UpgradePayUpfrontAmount           int                         `json:"upgradePayUpfrontAmount"`
 	UserFeedbackEnabled               bool                        `json:"userFeedbackEnabled"`

@@ -15,7 +15,6 @@ type Config struct {
 	MaxParallelCalls        int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
 	RemoveExpiredCredit     bool   `help:"whether to remove expired package credit or not" default:"true"`
 	UseIdempotency          bool   `help:"whether to use idempotency for create/update requests" default:"true"`
-	ProductBasedInvoicing   bool   `help:"whether to use product-based invoicing" default:"false"`
 	SkuEnabled              bool   `help:"whether we should use SKUs for product usages" default:"false"`
 	SkipNoCustomer          bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
 	InvItemSKUInDescription bool   `help:"whether to include SKU in the invoice item description" default:"true"`
