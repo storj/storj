@@ -124,6 +124,18 @@ func newLogCollection() *logCollection {
 	}
 }
 
+func (l *logCollection) Empty() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for _, lfh := range l.lfs {
+		if lfh.Len() > 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (l *logCollection) Clear() {
 	l.mu.Lock()
 	defer l.mu.Unlock()

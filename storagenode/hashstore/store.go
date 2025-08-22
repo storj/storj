@@ -54,7 +54,7 @@ var (
 	store_FlushSemaphore = int(envInt("STORJ_HASHSTORE_STORE_FLUSH_SEMAPHORE", 0))
 
 	// controls if we collect records and sort them and rewrite them before the hashtbl.
-	compaction_OrderedRewrite = envBool("STORJ_HASHSTORE_COMPACTION_ORDERED_REWRITE", false)
+	compaction_OrderedRewrite = envBool("STORJ_HASHSTORE_COMPACTION_ORDERED_REWRITE", true)
 
 	// if set, writes to the log file and table are fsync'd to disk.
 	store_SyncWrites = envBool("STORJ_HASHSTORE_STORE_SYNC_WRITES", false)
@@ -242,7 +242,11 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 		// try to open the hashtbl file and create it if it doesn't exist.
 		fh, err := os.OpenFile(maxPath, os.O_RDWR, 0)
 		if os.IsNotExist(err) {
-			// file did not exist, so try to create it with an initial hashtbl.
+			// file did not exist, so try to create it with an initial hashtbl but only if we have
+			// no log files which is a good indicator that the store is actually empty.
+			if !s.lfc.Empty() {
+				return nil, Error.New("missing hashtbl when log files exist")
+			}
 			err = func() error {
 				af, err := newAtomicFile(maxPath)
 				if err != nil {

@@ -1448,6 +1448,23 @@ func TestStore_CompactionMakesProgressEvenIfSmallRewriteMultiple(t *testing.T) {
 	assert.NotEqual(t, aliveLog, s.LogFile(alive))
 }
 
+func TestStore_OpenFailsWithLogFilesButNoTable(t *testing.T) {
+	forAllTables(t, testStore_OpenFailsWithLogFilesButNoTable)
+}
+func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T) {
+	ctx := context.Background()
+	s := newTestStore(t)
+	defer s.Close()
+
+	s.AssertCreate()
+	s.Close()
+
+	assert.NoError(t, os.Remove(filepath.Join(s.tablePath, "hashtbl")))
+
+	_, err := NewStore(ctx, s.logsPath, s.tablePath, s.log)
+	assert.Error(t, err)
+}
+
 //
 // benchmarks
 //
