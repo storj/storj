@@ -24,10 +24,18 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Worker](ball, NewWorker)
 	mud.Provide[*ReverifyWorker](ball, NewReverifyWorker)
 	mud.Provide[*Reverifier](ball, NewReverifier)
-	// TODO: we need real containment for running service.
-	mud.Provide[Containment](ball, func() Containment {
-		return &noContainment{}
+
+	mud.Provide[*DBReporter](ball, NewReporter)
+	mud.Provide[NoReport](ball, func() NoReport {
+		return NoReport{}
 	})
+	mud.RegisterInterfaceImplementation[Reporter, *DBReporter](ball)
+
+	mud.Provide[*NoContainment](ball, func() *NoContainment {
+		return &NoContainment{}
+	})
+	mud.RegisterInterfaceImplementation[Containment, WrappedContainment](ball)
+
 	mud.Provide[*RunOnce](ball, NewRunOnce)
 	config.RegisterConfig[Config](ball, "audit")
 	config.RegisterConfig[RunOnceConfig](ball, "audit")

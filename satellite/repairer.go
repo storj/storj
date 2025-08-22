@@ -207,8 +207,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Overlay,
 			metabaseDB,
 			containmentDB,
-			config.Audit.MaxRetriesStatDB,
-			int32(config.Audit.MaxReverifyCount))
+			config.Audit)
 	}
 
 	{ // setup repairer

@@ -15,10 +15,10 @@ import (
 	"storj.io/storj/satellite/reputation"
 )
 
-// reporter records audit reports in overlay and implements the Reporter interface.
+// DBReporter records audit reports in overlay and implements the Reporter interface.
 //
 // architecture: Service
-type reporter struct {
+type DBReporter struct {
 	log              *zap.Logger
 	reputations      *reputation.Service
 	overlay          *overlay.Service
@@ -51,23 +51,23 @@ type Report struct {
 	NodesReputation map[storj.NodeID]overlay.ReputationStatus
 }
 
-// NewReporter instantiates a reporter.
-func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, metabase *metabase.DB, containment Containment, maxRetries int, maxReverifyCount int32) Reporter {
-	return &reporter{
+// NewReporter instantiates a DBReporter.
+func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, metabase *metabase.DB, containment Containment, cfg Config) *DBReporter {
+	return &DBReporter{
 		log:              log,
 		reputations:      reputations,
 		overlay:          overlay,
 		metabase:         metabase,
 		containment:      containment,
-		maxRetries:       maxRetries,
-		maxReverifyCount: maxReverifyCount,
+		maxRetries:       cfg.MaxRetriesStatDB,
+		maxReverifyCount: int32(cfg.MaxReverifyCount),
 	}
 }
 
 // RecordAudits saves audit results, applying reputation changes as appropriate.
 // If some records can not be updated after a number of attempts, the failures
 // are logged at level ERROR, but are otherwise thrown away.
-func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
+func (reporter *DBReporter) RecordAudits(ctx context.Context, req Report) {
 	defer mon.Task()(&ctx)(nil)
 
 	successes := req.Successes
@@ -122,7 +122,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 	}
 }
 
-func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.NodeIDList, nodesReputation map[storj.NodeID]overlay.ReputationStatus, auditOutcome reputation.AuditType) (failed storj.NodeIDList, err error) {
+func (reporter *DBReporter) recordAuditStatus(ctx context.Context, nodeIDs storj.NodeIDList, nodesReputation map[storj.NodeID]overlay.ReputationStatus, auditOutcome reputation.AuditType) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -140,7 +140,7 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 }
 
 // recordPendingAudits updates the containment status of nodes with pending piece audits.
-func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
+func (reporter *DBReporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 
@@ -197,7 +197,7 @@ const maxPiecesToRemoveAtOnce = 6
 // mean the piece is gone. Remove the pieces from the relevant pointers so that the segment can be
 // repaired if appropriate, and so that we don't continually dock reputation for the same missing
 // piece(s).
-func (reporter *reporter) recordFailedAudits(
+func (reporter *DBReporter) recordFailedAudits(
 	ctx context.Context, segment *metabase.SegmentForAudit, failures []metabase.Piece, nodesReputation map[storj.NodeID]overlay.ReputationStatus,
 ) (failedToRecord []metabase.Piece, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -237,7 +237,8 @@ func (reporter *reporter) recordFailedAudits(
 	return failedToRecord, errors.Err()
 }
 
-func (reporter *reporter) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
+// ReportReverificationNeeded implements the Reporter interface.
+func (reporter *DBReporter) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = reporter.containment.Insert(ctx, piece)
@@ -252,7 +253,8 @@ func (reporter *reporter) ReportReverificationNeeded(ctx context.Context, piece 
 	return nil
 }
 
-func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error) {
+// RecordReverificationResult implements the Reporter interface.
+func (reporter *DBReporter) RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	keepInQueue := true
@@ -320,3 +322,23 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 	}
 	return errList.Err()
 }
+
+// NoReport disables reporting of audits.
+type NoReport struct{}
+
+// RecordAudits implements the Reporter interface.
+func (n NoReport) RecordAudits(ctx context.Context, req Report) {
+
+}
+
+// ReportReverificationNeeded implements the Reporter interface.
+func (n NoReport) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
+	return nil
+}
+
+// RecordReverificationResult implements the Reporter interface.
+func (n NoReport) RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error) {
+	return nil
+}
+
+var _ Reporter = &NoReport{}

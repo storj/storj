@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/repair/repaircsv"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/repair/repairer/manual"
+	"storj.io/storj/satellite/reputation"
 	srevocation "storj.io/storj/satellite/revocation"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
@@ -129,14 +130,14 @@ func Module(ball *mud.Ball) {
 		return &EndpointRegistration{}, nil
 	})
 
-	// TODO: we need normal reporter for full audit, but nil for manual repair.
-	mud.Provide[audit.Reporter](ball, func() audit.Reporter {
-		return nil
-	})
-	mud.Tag[audit.Reporter, mud.Nullable](ball, mud.Nullable{})
-	mud.Tag[audit.Reporter, mud.Optional](ball, mud.Optional{})
 	mud.View[DB, audit.ReverifyQueue](ball, DB.ReverifyQueue)
 	mud.View[DB, audit.VerifyQueue](ball, DB.VerifyQueue)
+	mud.View[DB, audit.WrappedContainment](ball, func(db DB) audit.WrappedContainment {
+		return audit.WrappedContainment{
+			Containment: db.Containment(),
+		}
+	})
+	mud.View[DB, reputation.DB](ball, DB.Reputation)
 
 	mud.View[*identity.FullIdentity, signing.Signee](ball, func(fullIdentity *identity.FullIdentity) signing.Signee {
 		return signing.SigneeFromPeerIdentity(fullIdentity.PeerIdentity())
@@ -145,6 +146,7 @@ func Module(ball *mud.Ball) {
 	repairer.Module(ball)
 	manual.Module(ball)
 	repaircsv.Module(ball)
+	reputation.Module(ball)
 	jobq.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
 }

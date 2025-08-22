@@ -232,8 +232,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 			peer.Overlay,
 			metabaseDB,
 			containmentDB,
-			config.Audit.MaxRetriesStatDB,
-			int32(config.Audit.MaxReverifyCount))
+			config.Audit)
 
 		peer.Audit.Worker = audit.NewWorker(log.Named("audit:verify-worker"),
 			verifyQueue,

@@ -32,23 +32,33 @@ type Containment interface {
 	GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error)
 }
 
-type noContainment struct {
+// WrappedContainment is a typed Containment, helping mud to manage implementations.
+type WrappedContainment struct {
+	Containment
 }
 
-func (n noContainment) Get(ctx context.Context, nodeID pb.NodeID) (*ReverificationJob, error) {
+// NoContainment is a Containment implementation that does nothing.
+type NoContainment struct {
+}
+
+// Get implements Containment.
+func (n NoContainment) Get(ctx context.Context, nodeID pb.NodeID) (*ReverificationJob, error) {
 	return nil, nil
 }
 
-func (n noContainment) Insert(ctx context.Context, job *PieceLocator) error {
+// Insert implements Containment.
+func (n NoContainment) Insert(ctx context.Context, job *PieceLocator) error {
 	return nil
 }
 
-func (n noContainment) Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error) {
+// Delete implements Containment.
+func (n NoContainment) Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error) {
 	return false, false, nil
 }
 
-func (n noContainment) GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error) {
+// GetAllContainedNodes implements Containment.
+func (n NoContainment) GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error) {
 	return []pb.NodeID{}, nil
 }
 
-var _ Containment = &noContainment{}
+var _ Containment = &NoContainment{}
