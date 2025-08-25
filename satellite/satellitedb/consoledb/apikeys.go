@@ -246,7 +246,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		optional.CreatedBy = dbx.ApiKey_CreatedBy(info.CreatedBy[:])
 	}
 
-	_, err = keys.db.Create_ApiKey(
+	apiKey, err := keys.db.Create_ApiKey(
 		ctx,
 		dbx.ApiKey_Id(id[:]),
 		dbx.ApiKey_ProjectId(info.ProjectID[:]),
@@ -260,7 +260,7 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		return nil, err
 	}
 
-	return keys.Get(ctx, id)
+	return apiKeyToAPIKeyInfo(ctx, apiKey)
 }
 
 // Update implements satellite.APIKeys.
