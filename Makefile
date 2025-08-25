@@ -121,6 +121,7 @@ llint:
 		-monitoring \
 		-wasm-size \
 		-protolock \
+		-check-tx \
 		$(LINT_TARGET)
 
 .PHONY: lint

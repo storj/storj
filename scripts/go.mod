@@ -20,6 +20,7 @@ tool (
 	github.com/storj/ci/check-monitoring
 	github.com/storj/ci/check-monkit
 	github.com/storj/ci/check-peer-constraints
+	github.com/storj/ci/check-tx
 	honnef.co/go/tools/cmd/staticcheck
 )
 
