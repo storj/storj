@@ -695,7 +695,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		return rpcstatus.NamedWrap("open-failed", rpcstatus.Internal, err)
 	}
 	defer func() {
-		err := pieceReader.Close() // similarly how transcation Rollback works
+		err := pieceReader.Close() // similarly how transaction Rollback works
 		if err != nil {
 			if errs2.IsCanceled(err) {
 				return
