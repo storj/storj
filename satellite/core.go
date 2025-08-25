@@ -652,6 +652,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.ConsoleDBCleanup.PendingDeleteChore = pendingdelete.NewChore(
 				peer.Log.Named("console.dbcleanup.pendingdelete:chore"),
 				config.PendingDeleteCleanup,
+				peer.Payments.Accounts,
+				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
 				peer.DB.Buckets(),
 				peer.DB.Console(),
 				peer.Metainfo.Metabase,
