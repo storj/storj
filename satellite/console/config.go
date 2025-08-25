@@ -263,18 +263,6 @@ func (pd *PlacementDetails) Set(s string) error {
 		if err != nil {
 			return errs.New("failed to parse placement config YAML file: %v", err)
 		}
-	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
-		// JSON string
-		// This is how this config is defined in production.
-		var jsonForm map[storj.PlacementConstraint]PlacementDetail
-		err := json.Unmarshal(strBytes, &jsonForm)
-		if err != nil {
-			return errs.New("failed to parse placement config JSON: %v", err)
-		}
-		for id, detail := range jsonForm {
-			detail.ID = int(id)
-			details = append(details, detail)
-		}
 	default:
 		// YAML string
 		err := yaml.Unmarshal(strBytes, &details)

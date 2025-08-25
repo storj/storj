@@ -432,12 +432,6 @@ func TestProductPriceOverrides(t *testing.T) {
 	_, err = tmpFile.WriteString(validYaml)
 	require.NoError(t, err)
 
-	bytes, err = json.Marshal(map[int32]paymentsconfig.ProductUsagePriceYaml{
-		price.ID: price,
-	})
-	require.NoError(t, err)
-	jsonStr := string(bytes)
-
 	tests := []struct {
 		id     string
 		config string
@@ -457,11 +451,6 @@ func TestProductPriceOverrides(t *testing.T) {
 		{
 			id:        "YAML file",
 			config:    tmpFile.Name(),
-			expectStr: validYaml,
-		},
-		{
-			id:        "JSON",
-			config:    jsonStr,
 			expectStr: validYaml,
 		},
 		{

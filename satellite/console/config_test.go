@@ -4,14 +4,12 @@
 package console_test
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"storj.io/common/storj"
 	"storj.io/storj/satellite/console"
 )
 
@@ -29,14 +27,6 @@ func TestPlacementDetailsConfig(t *testing.T) {
 	bytes, err := yaml.Marshal(details)
 	require.NoError(t, err)
 	validYaml := string(bytes)
-
-	// This is how this config is defined in production.
-	detailMap := map[storj.PlacementConstraint]console.PlacementDetail{
-		storj.PlacementConstraint(placementDetail.ID): placementDetail,
-	}
-	bytes, err = json.Marshal(detailMap)
-	require.NoError(t, err)
-	jsonStr := string(bytes)
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "mapping_*.yaml")
 	require.NoError(t, err)
@@ -69,11 +59,6 @@ func TestPlacementDetailsConfig(t *testing.T) {
 		{
 			id:        "YAML file",
 			config:    tmpFile.Name(),
-			expectStr: validYaml,
-		},
-		{
-			id:        "valid JSON",
-			config:    jsonStr,
 			expectStr: validYaml,
 		},
 		{

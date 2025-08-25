@@ -222,7 +222,7 @@ type ProductPriceOverrides []ProductUsagePrice
 func (ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPriceOverrides" }
 
 // ProductUsagePriceYaml represents the YAML representation of a product usage price.
-// exported for testing purposes.s
+// Exported for testing purposes.
 type ProductUsagePriceYaml struct {
 	ID                  int32  `yaml:"id" json:"id"`
 	Name                string `yaml:"name" json:"name"`
@@ -283,19 +283,6 @@ func (p *ProductPriceOverrides) Set(s string) error {
 		err = yaml.Unmarshal(data, &pricesConv)
 		if err != nil {
 			return errs.New("failed to parse product config YAML file: %v", err)
-		}
-	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
-		// JSON string
-		var jsonConv map[int32]ProductUsagePriceYaml
-		err := json.Unmarshal(strBytes, &jsonConv)
-		if err != nil {
-			return errs.New("failed to parse product config JSON: %v", err)
-		}
-
-		pricesConv = make([]ProductUsagePriceYaml, 0)
-		for i, price := range jsonConv {
-			price.ID = i
-			pricesConv = append(pricesConv, price)
 		}
 	default:
 		// YAML string

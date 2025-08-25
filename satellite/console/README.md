@@ -17,8 +17,8 @@ STORJ_CONSOLE_PLACEMENT_SELF_SERVE_DETAILS: |
 ```
 
 ### STORJ_CONSOLE_PLACEMENT_SELF_SERVE_DETAILS
-This is a list of placement definitions that can be used in Self-Serve placement selection.  This can be configured via YAML or JSON
-string, or a YAML file. JSON is supported for backwards compatibility, but YAML is preferred.
+This is a list of placement definitions that can be used in Self-Serve placement selection.
+This can be configured via YAML string or a YAML file.
 
 ```yaml
 STORJ_CONSOLE_PLACEMENT_SELF_SERVE_DETAILS: |
@@ -28,21 +28,6 @@ STORJ_CONSOLE_PLACEMENT_SELF_SERVE_DETAILS: |
     title: "Globally Distributed"
     description: "The data is globally distributed."
     wait-list-url: "url-to-wait-list"
-```
-**OR**
-
-```yaml
-STORJ_CONSOLE_PLACEMENT_SELF_SERVE_DETAILS: |
-    [
-        {
-        "id": 0,
-        "id-name": "global",
-        "name": "Global",
-        "title": "Globally Distributed",
-        "description": "The data is globally distributed.",
-        "wait-list-url": "url-to-wait-list"
-        }
-    ]
 ```
 
 ### Fields

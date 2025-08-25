@@ -4,10 +4,9 @@ This document describes the configuration of product pricing and possible overri
 
 ## Products
 
-This configures the pricing structures for different products in the Storj network. It is a JSON/YAML formatted string that defines various products with their respective pricing details.
+This configures the pricing structures for different products in the Storj network.
+It is a YAML formatted string that defines various products with their respective pricing details.
 It can also be a YAML file path.
-
-**NB:** JSON support is only for backwards compatibility with current config in production. New configurations should use YAML format.
 
 ### Configuration Format
 
@@ -22,21 +21,6 @@ STORJ_PAYMENTS_PRODUCTS: |
     segment: "price_per_segment_per_month"
     segment-sku: "segment_sku_value"
     egress-discount-ratio: ratio_value
-```
-**OR**
-```json
-{
-    "productID": {
-        "name": "Product Name",
-        "storage": "price_per_TB_per_month",
-        "storage_sku": "storage_sku_value",
-        "egress": "price_per_TB",
-        "egress_sku": "egress_sku_value",
-        "segment": "price_per_segment_per_month",
-        "segment_sku": "segment_sku_value",
-        "egress_discount_ratio": "ratio_value"
-    }
-}
 ```
 
 ### Fields
