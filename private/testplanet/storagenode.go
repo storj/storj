@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/cmd/storagenode/internalcmd"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/operator"
@@ -40,8 +39,6 @@ type StorageNode struct {
 	Name   string
 	Config storagenode.Config
 	*storagenode.Peer
-
-	apiKey apikeys.APIKey
 }
 
 // Label returns name for debugger.
@@ -53,11 +50,6 @@ func (system *StorageNode) URL() string { return system.NodeURL().String() }
 // NodeURL returns the storj.NodeURL.
 func (system *StorageNode) NodeURL() storj.NodeURL {
 	return storj.NodeURL{ID: system.Peer.ID(), Address: system.Peer.Addr()}
-}
-
-// APIKey returns the API key of the node.
-func (system *StorageNode) APIKey() string {
-	return system.apiKey.Secret.String()
 }
 
 // newStorageNodes initializes storage nodes.
@@ -284,13 +276,6 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 	}
 	planet.databases = append(planet.databases, db)
 
-	service := apikeys.NewService(db.APIKeys())
-
-	apiKey, err := service.Issue(ctx)
-	if err != nil {
-		return nil, errs.New("error while trying to issue new api key: %v", err)
-	}
-
 	if config.Pieces.EnableLazyFilewalker {
 		{
 			// set up the used space lazyfilewalker filewalker
@@ -319,6 +304,5 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		Name:   prefix,
 		Config: config,
 		Peer:   peer,
-		apiKey: apiKey,
 	}, nil
 }
