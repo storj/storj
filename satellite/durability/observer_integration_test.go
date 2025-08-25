@@ -9,12 +9,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/shared/location"
 	"storj.io/storj/storagenode"
@@ -26,7 +28,11 @@ func TestDurabilityIntegration(t *testing.T) {
 		StorageNodeCount: 6,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(3, 5, 6, 6),
+			Satellite: testplanet.Combine(testplanet.ReconfigureRS(3, 5, 6, 6),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.DurabilityReport.Enabled = true
+					config.Durability.Classes = []string{"last_net", "last_ip", "wallet", "email"}
+				}),
 			StorageNode: func(index int, config *storagenode.Config) {
 				if index > 2 {
 					config.Operator.Email = "test@storj.io"

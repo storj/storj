@@ -7,7 +7,7 @@ import "storj.io/storj/satellite/nodeselection"
 
 // Config contains configuration for the durability ranged loop observer.
 type Config struct {
-	Classes []string `help:"Node attributes used by the durability segment loop to classify risks" default:"last_net,last_ip,wallet,email"`
+	Classes []string `help:"Node attributes used by the durability segment loop to classify risks" default:"last_net,last_ip,wallet,email" testDefault:""`
 }
 
 // CreateNodeClassifiers creates a list of node classifiers based on the configuration.

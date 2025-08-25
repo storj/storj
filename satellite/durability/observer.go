@@ -182,7 +182,7 @@ type NodeClassifier func(node *nodeselection.SelectedNode) string
 
 // ReportConfig configures durability report.
 type ReportConfig struct {
-	Enabled bool `help:"whether to enable durability report (rangedloop observer)" default:"true"`
+	Enabled bool `help:"whether to enable durability report (rangedloop observer)" default:"true" testDefault:"false"`
 }
 
 // Report  is a calculator (rangloop.Observer) which checks the availability of pieces without certain nodes.
