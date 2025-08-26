@@ -119,8 +119,9 @@ func (s *SpannerAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, o
 		segmentsDeleted = deletedCounts[1]
 		return nil
 	}, spanner.TransactionOptions{
-		CommitPriority: spannerpb.RequestOptions_PRIORITY_LOW,
-		TransactionTag: "delete-objects-no-verify",
+		CommitPriority:              spannerpb.RequestOptions_PRIORITY_LOW,
+		TransactionTag:              "delete-objects-no-verify",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
 		return 0, 0, Error.New("unable to delete expired objects: %w", err)
@@ -247,8 +248,9 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 		segmentsDeleted += numSegments
 		return nil
 	}, spanner.TransactionOptions{
-		CommitPriority: spannerpb.RequestOptions_PRIORITY_LOW,
-		TransactionTag: "delete-inactive-objects",
+		CommitPriority:              spannerpb.RequestOptions_PRIORITY_LOW,
+		TransactionTag:              "delete-inactive-objects",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
 		return objectsDeleted, segmentsDeleted, Error.New("unable to delete zombie objects: %w", err)

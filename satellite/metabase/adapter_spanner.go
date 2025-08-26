@@ -70,10 +70,8 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 			DisableRouteToLeader: false,
 			UserAgent:            cfg.ApplicationName,
 
+			// disable everything except transactions
 			QueryOptions: spanner.QueryOptions{
-				ExcludeTxnFromChangeStreams: true,
-			},
-			TransactionOptions: spanner.TransactionOptions{
 				ExcludeTxnFromChangeStreams: true,
 			},
 			BatchWriteOptions: spanner.BatchWriteOptions{

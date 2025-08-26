@@ -89,7 +89,8 @@ func (s *SpannerAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeA
 			})
 			return Error.Wrap(err)
 		}, spanner.TransactionOptions{
-			TransactionTag: "ensure-node-aliases",
+			TransactionTag:              "ensure-node-aliases",
+			ExcludeTxnFromChangeStreams: true,
 		})
 		if spanner.ErrCode(err) == codes.AlreadyExists {
 			continue

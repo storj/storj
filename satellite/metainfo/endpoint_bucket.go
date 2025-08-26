@@ -526,7 +526,8 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 				return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 			}
 
-			_, deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket)
+			transmitEvent := endpoint.bucketEventing.Enabled(bucket.ProjectID, bucket.Name)
+			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket, transmitEvent)
 			if err != nil {
 				return nil, err
 			}
@@ -583,39 +584,33 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 
 // deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
 // On success, it returns only the number of deleted objects.
-func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket buckets.Bucket) ([]byte, int64, error) {
-	nameBytes := []byte(bucket.Name)
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	deletedCount, err := endpoint.deleteAllBucketObjects(ctx, bucket.ProjectID, nameBytes)
+	deletedCount, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+		Bucket: metabase.BucketLocation{
+			ProjectID:  bucket.ProjectID,
+			BucketName: metabase.BucketName(bucket.Name),
+		},
+		BatchSize:     endpoint.config.TestingDeleteBucketBatchSize,
+		TransmitEvent: transmitEvent,
+	})
 	if err != nil {
-		return nil, 0, endpoint.ConvertKnownErrWithMessage(err, "internal error")
+		return 0, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
 	err = endpoint.deleteBucket(ctx, bucket)
 	if err != nil {
 		if ErrBucketNotEmpty.Has(err) {
-			return nil, deletedCount, rpcstatus.Error(rpcstatus.FailedPrecondition, "cannot delete the bucket because it's being used by another process")
+			return deletedCount, rpcstatus.Error(rpcstatus.FailedPrecondition, "cannot delete the bucket because it's being used by another process")
 		}
 		if buckets.ErrBucketNotFound.Has(err) {
-			return nameBytes, 0, nil
+			return 0, nil
 		}
-		return nil, deletedCount, endpoint.ConvertKnownErrWithMessage(err, "internal error")
+		return deletedCount, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
-	return nameBytes, deletedCount, nil
-}
-
-// deleteAllBucketObjects deletes all objects in a bucket.
-func (endpoint *Endpoint) deleteAllBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucketName)}
-	deletedObjects, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
-		Bucket:    bucketLocation,
-		BatchSize: endpoint.config.TestingDeleteBucketBatchSize,
-	})
-
-	return deletedObjects, Error.Wrap(err)
+	return deletedCount, nil
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.

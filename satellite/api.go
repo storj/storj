@@ -524,6 +524,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Console,
 			config.Orders,
 			nodeSelectionStats,
+			config.BucketEventing.Buckets,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

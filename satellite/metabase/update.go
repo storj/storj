@@ -215,7 +215,8 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 
 		return nil
 	}, spanner.TransactionOptions{
-		TransactionTag: "update-segment-pieces",
+		TransactionTag:              "update-segment-pieces",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -353,7 +354,8 @@ func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opt
 
 		return errs.Wrap(s.setObjectExactVersionLegalHold(ctx, tx, opts, result.Retention.Mode))
 	}, spanner.TransactionOptions{
-		TransactionTag: "set-object-exact-version-legal-hold",
+		TransactionTag:              "set-object-exact-version-legal-hold",
+		ExcludeTxnFromChangeStreams: true,
 	})
 
 	if err != nil {
@@ -507,7 +509,8 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 			Enabled:        opts.Enabled,
 		}, result.Retention.Mode))
 	}, spanner.TransactionOptions{
-		TransactionTag: "set-object-last-committed-legal-hold",
+		TransactionTag:              "set-object-last-committed-legal-hold",
+		ExcludeTxnFromChangeStreams: true,
 	})
 
 	if err != nil {
@@ -703,7 +706,8 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 
 		return errs.Wrap(s.setObjectExactVersionRetention(ctx, tx, opts))
 	}, spanner.TransactionOptions{
-		TransactionTag: "set-object-exact-version-retention",
+		TransactionTag:              "set-object-exact-version-retention",
+		ExcludeTxnFromChangeStreams: true,
 	})
 
 	if err != nil {
@@ -922,7 +926,8 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 			Retention:      opts.Retention,
 		}))
 	}, spanner.TransactionOptions{
-		TransactionTag: "set-object-last-committed-retention",
+		TransactionTag:              "set-object-last-committed-retention",
+		ExcludeTxnFromChangeStreams: true,
 	})
 
 	if err != nil {

@@ -205,7 +205,8 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 			}
 			return nil
 		}, spanner.TransactionOptions{
-			TransactionTag: "update-object-last-committed-metadata-2",
+			TransactionTag:              "update-object-last-committed-metadata-2",
+			ExcludeTxnFromChangeStreams: true,
 		})
 
 		if err != nil {
@@ -247,7 +248,8 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 			}
 			return nil
 		}, spanner.TransactionOptions{
-			TransactionTag: "update-object-last-committed-metadata",
+			TransactionTag:              "update-object-last-committed-metadata",
+			ExcludeTxnFromChangeStreams: true,
 		})
 
 		if err != nil {

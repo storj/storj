@@ -52,6 +52,9 @@ type DeleteObjectExactVersion struct {
 	ObjectLocation
 
 	ObjectLock ObjectLockDeleteOptions
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
 // Verify delete object fields.
@@ -335,7 +338,8 @@ func (s *SpannerAdapter) deleteObjectExactVersion(ctx context.Context, opts Dele
 		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, opts)
 		return err
 	}, spanner.TransactionOptions{
-		TransactionTag: "delete-object-exact-version",
+		TransactionTag:              "delete-object-exact-version",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
@@ -397,7 +401,8 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, opts)
 		return errs.Wrap(err)
 	}, spanner.TransactionOptions{
-		TransactionTag: "delete-object-exact-version-using-object-lock",
+		TransactionTag:              "delete-object-exact-version-using-object-lock",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
 	})
 	if err != nil {
 		if ErrObjectLock.Has(err) {
@@ -516,7 +521,8 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "delete-pending-object",
+		TransactionTag:              "delete-pending-object",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
@@ -609,6 +615,9 @@ type DeleteObjectLastCommitted struct {
 	Suspended bool
 
 	ObjectLock ObjectLockDeleteOptions
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
 // Verify delete object last committed fields.
@@ -953,7 +962,8 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 		})
 		return errs.Wrap(err)
 	}, spanner.TransactionOptions{
-		TransactionTag: "delete-object-last-committed-plain-using-object-lock",
+		TransactionTag:              "delete-object-last-committed-plain-using-object-lock",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
 	})
 	if err != nil {
 		if ErrObjectLock.Has(err) {
@@ -1213,7 +1223,8 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context,
 
 		return nil
 	}, spanner.TransactionOptions{
-		TransactionTag: "delete-object-last-committed-versioned",
+		TransactionTag:              "delete-object-last-committed-versioned",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
 	})
 	if err != nil {
 		if ErrObjectNotFound.Has(err) {

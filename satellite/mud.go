@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -77,6 +78,7 @@ func Module(ball *mud.Ball) {
 	rangedloop.Module(ball)
 	metainfo.Module(ball)
 	metabase.Module(ball)
+	eventing.Module(ball)
 
 	{
 		orders.Module(ball)
@@ -116,6 +118,9 @@ func Module(ball *mud.Ball) {
 	}
 
 	mud.Provide[*metainfo.MigrationModeFlagExtension](ball, metainfo.NewMigrationModeFlagExtension)
+	mud.Provide[eventing.BucketLocationTopicIDMap](ball, func(config eventing.Config) eventing.BucketLocationTopicIDMap {
+		return config.Buckets
+	})
 	mud.Provide[*EndpointRegistration](ball, func(srv *server.Server, metainfoEndpoint *metainfo.Endpoint) (*EndpointRegistration, error) {
 		err := pb.DRPCRegisterMetainfo(srv.DRPC(), metainfoEndpoint)
 		if err != nil {

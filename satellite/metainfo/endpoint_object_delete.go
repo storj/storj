@@ -212,6 +212,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 				Enabled:          bucketData.ObjectLock.Enabled,
 				BypassGovernance: opts.BypassGovernance,
 			},
+
+			TransmitEvent: endpoint.bucketEventing.Enabled(opts.ProjectID, opts.BucketName.String()),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -230,6 +232,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 				Enabled:          bucketData.ObjectLock.Enabled,
 				BypassGovernance: opts.BypassGovernance,
 			},
+
+			TransmitEvent: endpoint.bucketEventing.Enabled(opts.ProjectID, opts.BucketName.String()),
 		})
 	}
 	if err != nil {

@@ -225,7 +225,8 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "begin-object-next-version",
+		TransactionTag:              "begin-object-next-version",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	return err
 }
@@ -414,7 +415,8 @@ func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts Begin
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "begin-object-exact-version",
+		TransactionTag:              "begin-object-exact-version",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	return err
 }
@@ -753,7 +755,8 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "commit-pending-object-segment",
+		TransactionTag:              "commit-pending-object-segment",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
 		if spanner.ErrCode(err) == codes.FailedPrecondition {
@@ -826,7 +829,8 @@ func (s *SpannerAdapter) commitPendingObjectSegmentWithMutations(ctx context.Con
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "commit-pending-object-segment-mutations",
+		TransactionTag:              "commit-pending-object-segment-mutations",
+		ExcludeTxnFromChangeStreams: true,
 	})
 
 	return Error.Wrap(err)
@@ -1024,7 +1028,8 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: "commit-inline-segment",
+		TransactionTag:              "commit-inline-segment",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
 		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
@@ -1054,6 +1059,7 @@ type CommitObject struct {
 
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
+	TransmitEvent  bool
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
@@ -1118,6 +1124,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		MaxCommitDelay: opts.MaxCommitDelay,
 		TransactionTag: "commit-object",
+		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		segments, err := adapter.fetchSegmentsForCommit(ctx, opts.StreamID)
 		if err != nil {
@@ -1447,6 +1454,9 @@ type CommitInlineObject struct {
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
 // Verify verifies reqest fields.
@@ -1496,6 +1506,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		TransactionTag: "commit-inline-object",
+		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.Location(),

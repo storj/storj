@@ -601,7 +601,8 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 			return nil
 		})
 	}, spanner.TransactionOptions{
-		TransactionTag: "object-copy-insert-pending",
+		TransactionTag:              "object-copy-insert-pending",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
 		return Object{}, Error.New("unable to copy object: %w", err)

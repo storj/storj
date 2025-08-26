@@ -420,6 +420,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		MaxCommitDelay: maxCommitDelay,
 
 		IfNoneMatch: req.IfNoneMatch,
+
+		TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(streamID.Bucket)),
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -709,6 +711,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		Versioned: bucket.Versioning == buckets.VersioningEnabled,
 
 		IfNoneMatch: commitObjectReq.IfNoneMatch,
+
+		TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(beginObjectReq.Bucket)),
 	})
 	if err != nil {
 		return nil, nil, nil, endpoint.ConvertMetabaseErr(err)

@@ -27,6 +27,9 @@ type DeleteAllBucketObjects struct {
 
 	MaxStaleness   time.Duration
 	MaxCommitDelay *time.Duration
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
 // DeleteAllBucketObjects deletes all objects in the specified bucket.
@@ -211,7 +214,8 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 			CommitOptions: spanner.CommitOptions{
 				MaxCommitDelay: &maxCommitDelay,
 			},
-			TransactionTag: "delete-all-bucket-objects",
+			TransactionTag:              "delete-all-bucket-objects",
+			ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
 		})
 		if err != nil {
 			return lastDeletedObject, 0, 0, Error.Wrap(err)
