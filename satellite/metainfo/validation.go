@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -20,7 +21,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
-	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -706,7 +706,8 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 
 func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *console.APIKeyInfo) error {
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfoToLimits(keyInfo)); err != nil {
-		if errs2.IsCanceled(err) {
+		// don't log errors if it was user cancellation
+		if errors.Is(ctx.Err(), context.Canceled) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 
@@ -764,7 +765,8 @@ func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, keyInfo 
 
 func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, size, segmentCount int64) error {
 	if err := endpoint.projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, keyInfoToLimits(keyInfo), size, segmentCount); err != nil {
-		if errs2.IsCanceled(err) {
+		// don't log errors if it was user cancellation
+		if errors.Is(ctx.Err(), context.Canceled) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 
@@ -792,7 +794,8 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 			return rpcstatus.Error(rpcstatus.ResourceExhausted, err.Error())
 		}
 
-		if errs2.IsCanceled(err) {
+		// don't log errors if it was user cancellation
+		if errors.Is(ctx.Err(), context.Canceled) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 

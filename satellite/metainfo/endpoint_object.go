@@ -6,6 +6,7 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/encryption"
-	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -1021,7 +1021,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		// Update the current bandwidth cache value incrementing the SegmentSize.
 		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfoToLimits(keyInfo), downloadSizes.encryptedSize)
 		if err != nil {
-			if errs2.IsCanceled(err) {
+			// don't log errors if it was user cancellation
+			if errors.Is(ctx.Err(), context.Canceled) {
 				return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
 			}
 
