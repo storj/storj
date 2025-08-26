@@ -69,6 +69,17 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 			Compression:          cfg.Compression,
 			DisableRouteToLeader: false,
 			UserAgent:            cfg.ApplicationName,
+
+			QueryOptions: spanner.QueryOptions{
+				ExcludeTxnFromChangeStreams: true,
+			},
+			TransactionOptions: spanner.TransactionOptions{
+				ExcludeTxnFromChangeStreams: true,
+			},
+			BatchWriteOptions: spanner.BatchWriteOptions{
+				ExcludeTxnFromChangeStreams: true,
+			},
+			ApplyOptions: []spanner.ApplyOption{spanner.ExcludeTxnFromChangeStreams()},
 		}, opts...)
 	if err != nil {
 		return nil, errs.Wrap(err)
