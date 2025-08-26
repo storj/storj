@@ -38,6 +38,11 @@ type AccountFreezeEvents interface {
 	// GetTrialExpirationFreezesToEscalate is a method that gets free trial expiration freezes that correspond to users
 	// that are not pending deletion (have not been escalated).
 	GetTrialExpirationFreezesToEscalate(ctx context.Context, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
+	// GetEscalatedEventsBefore is used to get a list of freeze events of some types that were escalated
+	// before the given time (corresponding users have status=PendingDeletion and status_updated_at before olderThan).
+	// NB: This method is specifically used to list events for deletion, so a specific event that is not deleted
+	// will continue to be returned.
+	GetEscalatedEventsBefore(ctx context.Context, params GetEscalatedEventsBeforeParams) (_ []EventWithUser, err error)
 	// GetAll is a method for querying all account freeze events from the database by user ID.
 	GetAll(ctx context.Context, userID uuid.UUID) (freezes *UserFreezeEvents, err error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
@@ -56,6 +61,28 @@ type AccountFreezeEvent struct {
 	DaysTillEscalation *int
 	NotificationsCount int
 	CreatedAt          time.Time
+}
+
+// EventWithUser contains a freeze event type and the corresponding user ID.
+// Returned by GetEscalatedEventsBefore method.
+type EventWithUser struct {
+	Type   AccountFreezeEventType
+	UserID uuid.UUID
+}
+
+// GetEscalatedEventsBeforeParams contains parameters for the
+// GetEscalatedEventsBefore method.
+type GetEscalatedEventsBeforeParams struct {
+	Limit      int
+	EventTypes []EventTypeAndTime
+}
+
+// EventTypeAndTime contains an event type and a time.
+// Used to specify which events to query that were created
+// before a certain time.
+type EventTypeAndTime struct {
+	EventType AccountFreezeEventType
+	OlderThan time.Time
 }
 
 // AccountFreezeEventLimits represents the usage limits for a user's account and projects before they were frozen.
@@ -1177,6 +1204,21 @@ func (s *AccountFreezeService) ShouldEscalateFreezeEvent(ctx context.Context, ev
 	}
 
 	return shouldEscalate, nil
+}
+
+// GetEscalatedEventsBefore is used to get a list of freeze events of some types that were escalated
+// before the given time.
+// NB: This method is specifically used to list events for deletion, so a specific event that is not deleted
+// will continue to be returned.
+func (s *AccountFreezeService) GetEscalatedEventsBefore(ctx context.Context, params GetEscalatedEventsBeforeParams) (_ []EventWithUser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	events, err := s.freezeEventsDB.GetEscalatedEventsBefore(ctx, params)
+	if err != nil {
+		return nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return events, nil
 }
 
 // TestChangeFreezeTracker changes the freeze tracker service for tests.

@@ -6,6 +6,7 @@ package consoledb
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -175,6 +176,93 @@ func (events *accountFreezeEvents) GetTrialExpirationFreezesToEscalate(ctx conte
 		eventsToReturn = append(eventsToReturn, *event)
 	}
 	return eventsToReturn, next, nil
+}
+
+// GetEscalatedEventsBefore is used to get a list of freeze events of some types that were escalated
+// before the given time.
+// NB: This method is specifically used to list events for deletion, so a specific event that is not deleted
+// will continue to be returned.
+func (events *accountFreezeEvents) GetEscalatedEventsBefore(ctx context.Context, params console.GetEscalatedEventsBeforeParams) (_ []console.EventWithUser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	baseQuery := `
+			SELECT afe.event as event, u.id AS user_id
+				FROM account_freeze_events AS afe
+			JOIN users AS u 
+				ON u.id = afe.user_id
+			WHERE u.status = ?
+				AND u.status_updated_at < ?
+				AND afe.event = ?
+			ORDER BY u.status_updated_at ASC`
+
+	query := fmt.Sprintf("%s\nLIMIT ?", baseQuery)
+
+	queryParams := make([]interface{}, 0)
+	if len(params.EventTypes) > 1 {
+		/*
+			craft a query like this:
+			SELECT event, user_id, project_id FROM (
+				(SELECT ...
+					JOIN ...
+					WHERE u.status = ?
+						AND u.status_updated_at < ?
+						AND afe.event = ?
+					ORDER BY u.status_updated_at ASC)
+			UNION ALL
+				(SELECT ...
+						JOIN ...
+						WHERE u.status = ?
+							AND u.status_updated_at < ?
+							AND afe.event = ?
+						ORDER BY u.status_updated_at ASC)
+			) AS combined_results LIMIT ?
+		*/
+		query = ``
+		for i, eventType := range params.EventTypes {
+			queryParams = append(queryParams, console.PendingDeletion, eventType.OlderThan, eventType.EventType)
+			if i == 0 {
+				query = fmt.Sprintf(`SELECT event, user_id FROM ((%s)`, baseQuery)
+				continue
+			}
+			query += fmt.Sprintf("\n UNION ALL (%s)", baseQuery)
+
+			if i == len(params.EventTypes)-1 {
+				query += "\n) AS combined_results LIMIT ?"
+			}
+		}
+		queryParams = append(queryParams, params.Limit)
+	} else {
+		queryParams = append(queryParams, console.PendingDeletion, params.EventTypes[0].OlderThan, params.EventTypes[0].EventType, params.Limit)
+	}
+
+	rows, err := events.db.QueryContext(ctx, events.db.Rebind(query), queryParams...)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	evs := make([]console.EventWithUser, 0, params.Limit)
+	for rows.Next() {
+		var eventType int
+		var userIDBytes []byte
+
+		err = rows.Scan(&eventType, &userIDBytes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		userID, err := uuid.FromBytes(userIDBytes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		evs = append(evs, console.EventWithUser{
+			UserID: userID,
+			Type:   console.AccountFreezeEventType(eventType),
+		})
+	}
+
+	return evs, rows.Err()
 }
 
 // GetAll is a method for querying all account freeze events from the database by user ID.
