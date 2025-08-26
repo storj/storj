@@ -65,4 +65,6 @@ placements:
         fixed(50, filter(country("US"),random())),
         fixed(50, filter(country("EU"),random()))
       )
-
+  - id: 18
+    name: cohort_test
+    cohort-requirements: min(49) && withhold(attr("tag:$SIGNER_ZERO/dc"), 1, withhold(attr("tag:$SIGNER_ZERO/dc") + "-" + attr("tag:$SIGNER_ZERO/rack"), 3, min(29)))

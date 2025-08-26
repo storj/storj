@@ -44,14 +44,15 @@ type placementConfig struct {
 }
 
 type placementDefinition struct {
-	ID               storj.PlacementConstraint
-	Name             string
-	Filter           string
-	UploadFilter     string `yaml:"upload-filter"`
-	Invariant        string
-	Selector         string
-	DownloadSelector string
-	EC               ECParameters
+	ID                 storj.PlacementConstraint
+	Name               string
+	Filter             string
+	UploadFilter       string `yaml:"upload-filter"`
+	Invariant          string
+	Selector           string
+	DownloadSelector   string
+	CohortRequirements string `yaml:"cohort-requirements"`
+	EC                 ECParameters
 }
 
 // UploadSuccessTracker can give hints about the frequency of the long-tail cancellation per node.
@@ -166,31 +167,37 @@ func LoadConfigFromString(config string, environment PlacementConfigEnvironment)
 		filter := resolveTemplates(def.Filter)
 		p.NodeFilter, err = FilterFromString(filter, environment)
 		if err != nil {
-			return placements, errs.New("Filter definition '%s' of placement %d is invalid: %v", filter, def.ID, err)
+			return placements, errs.New("Filter definition %q of placement %d is invalid: %v", filter, def.ID, err)
 		}
 
 		uploadFilter := resolveTemplates(def.UploadFilter)
 		p.UploadFilter, err = FilterFromString(uploadFilter, environment)
 		if err != nil {
-			return placements, errs.New("Upload filter definition '%s' of placement %d is invalid: %v", filter, def.ID, err)
+			return placements, errs.New("Upload filter definition %q of placement %d is invalid: %v", filter, def.ID, err)
 		}
 
 		invariant := resolveTemplates(def.Invariant)
 		p.Invariant, err = InvariantFromString(invariant)
 		if err != nil {
-			return placements, errs.New("Invariant definition '%s' of placement %d is invalid: %v", invariant, def.ID, err)
+			return placements, errs.New("Invariant definition %q of placement %d is invalid: %v", invariant, def.ID, err)
 		}
 
 		selector := resolveTemplates(def.Selector)
 		p.Selector, err = SelectorFromString(selector, environment)
 		if err != nil {
-			return placements, errs.New("Selector definition '%s' of placement %d is invalid: %v", selector, def.ID, err)
+			return placements, errs.New("Selector definition %q of placement %d is invalid: %v", selector, def.ID, err)
 		}
 
 		downloadSelector := resolveTemplates(def.DownloadSelector)
 		p.DownloadSelector, err = DownloadSelectorFromString(downloadSelector, environment)
 		if err != nil {
-			return placements, errs.New("DownloadSelector definition '%s' of placement %d is invalid: %v", downloadSelector, def.ID, err)
+			return placements, errs.New("DownloadSelector definition %q of placement %d is invalid: %v", downloadSelector, def.ID, err)
+		}
+
+		cohortRequirements := resolveTemplates(def.CohortRequirements)
+		p.CohortRequirements, p.CohortNames, err = CohortRequirementsFromString(cohortRequirements)
+		if err != nil {
+			return placements, errs.New("CohortRequirements definition %q of placement %d is invalid: %v", cohortRequirements, def.ID, err)
 		}
 
 		placements[def.ID] = p

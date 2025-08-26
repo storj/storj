@@ -7,6 +7,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/jtolio/mito"
 	"github.com/stretchr/testify/require"
 
@@ -22,9 +23,12 @@ func TestParsedConfig(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	zeroSigner, err := storj.NodeIDFromString("1111111111111111111111111111111VyS547o")
+	require.NoError(t, err)
+
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 18)
+	require.Len(t, config, 19)
 
 	{
 		// checking filters
@@ -132,6 +136,29 @@ func TestParsedConfig(t *testing.T) {
 		require.Len(t, selected, 1)
 		require.NoError(t, err)
 	}
+
+	{
+		// brief test that cohort requirement parsing worked.
+		p := config[18]
+		require.Equal(t, len(p.CohortNames), 2)
+		node := SelectedNode{
+			Tags: []NodeTag{
+				{
+					Name:   "dc",
+					Value:  []byte("ewr0"),
+					Signer: zeroSigner,
+				},
+				{
+					Name:   "rack",
+					Value:  []byte("1"),
+					Signer: zeroSigner,
+				},
+			},
+		}
+		require.Equal(t, p.CohortNames["1"](node), []byte("ewr0"))
+		require.Equal(t, p.CohortNames["0"](node), []byte("ewr0-1"))
+		require.Equal(t, proto.CompactTextString(p.CohortRequirements.ToProto()), `and:<requirements:<literal:<value:49 > > requirements:<withhold:<tag_key:"1" amount:1 child:<withhold:<tag_key:"0" amount:3 child:<literal:<value:29 > > > > > > > `)
+	}
 }
 
 func TestParsedConfigWithoutTracker(t *testing.T) {
@@ -141,7 +168,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 18)
+	require.Len(t, config, 19)
 
 	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(ctx,

@@ -37,6 +37,13 @@ type Placement struct {
 	// choice of 2).
 	DownloadSelector DownloadSelector
 
+	// CohortRequirements, if set, specify how the uplink will determine if
+	// enough pieces with the right rules have been uploaded.
+	CohortRequirements *CohortRequirements
+	// CohortNames, if set, specifies how to calculate cohort names from a given
+	// SelectedNode, for return in the AddressedOrderLimits.
+	CohortNames map[string]CohortName
+
 	// EC defines erasure coding parameter overrides.
 	EC ECParameters `yaml:"ec"`
 }

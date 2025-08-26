@@ -140,6 +140,12 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 			Number:      uint16(i),
 			StorageNode: limit.Limit.StorageNodeId,
 		})
+		if placement.CohortNames != nil {
+			addressedLimits[i].Tags = make(map[string][]byte, len(placement.CohortNames))
+			for name, val := range placement.CohortNames {
+				addressedLimits[i].Tags[name] = val(*nodes[i])
+			}
+		}
 	}
 	err = endpoint.metabase.BeginSegment(ctx, metabase.BeginSegment{
 		ObjectStream: metabase.ObjectStream{
@@ -179,11 +185,17 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	endpoint.log.Debug("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
 	mon.Meter("req_put_remote").Mark(1)
 
+	var cohortRequirements *pb.CohortRequirements
+	if placement.CohortRequirements != nil {
+		cohortRequirements = placement.CohortRequirements.ToProto()
+	}
+
 	return &pb.SegmentBeginResponse{
-		SegmentId:        segmentID,
-		AddressedLimits:  addressedLimits,
-		PrivateKey:       piecePrivateKey,
-		RedundancyScheme: redundancyScheme,
+		SegmentId:          segmentID,
+		AddressedLimits:    addressedLimits,
+		PrivateKey:         piecePrivateKey,
+		RedundancyScheme:   redundancyScheme,
+		CohortRequirements: cohortRequirements,
 	}, nil
 }
 
@@ -276,6 +288,16 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	addressedLimits, err := endpoint.orders.ReplacePutOrderLimits(ctx, segmentID.RootPieceId, segmentID.OriginalOrderLimits, nodes, req.RetryPieceNumbers)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
+	}
+
+	placement := endpoint.placement[storj.PlacementConstraint(segmentID.StreamId.Placement)]
+	if placement.CohortNames != nil {
+		for i, piecenum := range req.RetryPieceNumbers {
+			addressedLimits[piecenum].Tags = make(map[string][]byte, len(placement.CohortNames))
+			for name, val := range placement.CohortNames {
+				addressedLimits[piecenum].Tags[name] = val(*nodes[i])
+			}
+		}
 	}
 
 	segmentID.OriginalOrderLimits = addressedLimits
