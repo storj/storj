@@ -39,7 +39,7 @@ target "storagenode-ui" {
     {
       type = "registry",
       mode = "min",
-      ref  = "ghcr.io/storj/satellite-ui-cache:main"
+      ref  = "ghcr.io/storj/storagenode-ui-cache:main"
     }
   ]
   output = [

@@ -90,10 +90,21 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    def imageBuildType = ''
+    if (env.BRANCH_NAME == 'main') {
+        imageBuildType = ' -f docker-bake-main.hcl '
+    }
+
     stage('Publish Modular Satellite Images') {
           lastStage = env.STAGE_NAME
           env.MODULE="SATELLITE"
-          sh './scripts/bake.sh -f docker-bake-main.hcl -f docker-bake.hcl satellite-modular --push'
+          sh './scripts/bake.sh -f docker-bake.hcl ' + imageBuildType + ' satellite-modular --push'
+    }
+
+    stage('Publish Modular Storagenode Images') {
+          lastStage = env.STAGE_NAME
+          env.MODULE="SATELLITE"
+          sh './scripts/bake.sh -f docker-bake.hcl ' + imageBuildType + ' storagenode-modular --push'
     }
 
     stage('Build Windows Installer') {

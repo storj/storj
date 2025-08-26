@@ -4,7 +4,7 @@
 # if nothing has been changed.
 # You can defined the subset of directories with MODULE=storagenode ./bake.sh ....
 SATELLITE_DIRS="./satellite ./shared ./private ./go.mod ./go.sum"
-STORAGENODE_DIRS="./storagenode ./shared ./private ./go.mod ./go.sum"
+STORAGENODE_DIRS="./storagenode ./shared ./private ./go.mod ./go.sum ./web/storagenode"
 
 # Set DIRS based on MODULE
 if [ -z "$MODULE" ]; then

@@ -300,7 +300,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: segment-verify-image jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image modular-storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
+images: segment-verify-image jobq-image multinode-image satellite-image uplink-image versioncontrol-image storagenode-image ## Build jobq, multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: segment-verify-image
@@ -363,14 +363,6 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/versioncontrol/Dockerfile .
-
-.PHONY: modular-storagenode-image
-modular-storagenode-image: ## Build modular storagenode Docker image
-	./storagenode/storagenode/docker.sh build --arch amd64,arm64v8
-
-.PHONY: push-modular-storagenode-image
-push-modular-storagenode-image: ## Push modular storagenode Docker image
-	./storagenode/storagenode/docker.sh push --repo $(REPO) --unified-tag --arch amd64,arm64v8
 
 .PHONY: darwin-binaries
 darwin-binaries:
@@ -542,10 +534,8 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
-	
+
 	docker push img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}-amd64
-	REPO=storjlabs/storagenode-modular $(MAKE) push-modular-storagenode-image
-	REPO=ghcr.io/storj/storagenode-modular $(MAKE) push-modular-storagenode-image
 
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
