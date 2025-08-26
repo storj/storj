@@ -145,6 +145,9 @@
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
+# defines which buckets are monitored for events (comma separated list of "project_id:bucket_name:topic_id")
+# bucket-eventing.buckets: ""
+
 # Treat pieces on the same network as in need of repair
 # checker.do-declumping: true
 
