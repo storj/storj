@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -12,7 +13,6 @@ import (
 	monkit "github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
@@ -782,7 +782,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	// Update the current bandwidth cache value incrementing the SegmentSize.
 	err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfoToLimits(keyInfo), int64(segment.EncryptedSize))
 	if err != nil {
-		if errs2.IsCanceled(err) {
+		// don't log errors if it was user cancellation
+		if errors.Is(ctx.Err(), context.Canceled) {
 			return nil, rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
 
