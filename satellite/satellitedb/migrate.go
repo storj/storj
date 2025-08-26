@@ -1022,6 +1022,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE users DROP COLUMN paid_tier;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index to users table on status and status_updated_at",
+				Version:     299,
+				Action: migrate.SQL{
+					`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3883,6 +3891,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     298,
 				Action: migrate.SQL{
 					`ALTER TABLE users DROP COLUMN paid_tier;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index to users table on status and status_updated_at",
+				Version:     299,
+				Action: migrate.SQL{
+					`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) WHERE users.status_updated_at is not NULL;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

@@ -1094,6 +1094,8 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX users_external_id_index ON users ( external_id ) WHERE users.external_id is not NULL`,
 
+		`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) WHERE users.status_updated_at is not NULL`,
+
 		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
 
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
@@ -2051,6 +2053,8 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX users_external_id_index ON users ( external_id ) WHERE users.external_id is not NULL`,
 
+		`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) WHERE users.status_updated_at is not NULL`,
+
 		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
 
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
@@ -2981,6 +2985,8 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX users_external_id_index ON users ( external_id )`,
 
+		`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at )`,
+
 		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
 
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
@@ -3103,6 +3109,8 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS trial_expiration_index`,
 
 		`DROP INDEX IF EXISTS users_external_id_index`,
+
+		`DROP INDEX IF EXISTS users_status_status_updated_at_index`,
 
 		`DROP INDEX IF EXISTS webapp_sessions_user_id_index`,
 

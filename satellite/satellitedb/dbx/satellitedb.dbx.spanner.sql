@@ -617,6 +617,7 @@ CREATE INDEX stripecoinpayments_invoice_project_records_unbilled_project_id_inde
 CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
 CREATE INDEX users_external_id_index ON users ( external_id ) ;
+CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;

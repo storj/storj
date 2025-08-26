@@ -20,6 +20,12 @@ model user (
 		where user.external_id != null
 	)
 
+	index (
+		name users_status_status_updated_at_index
+		fields status status_updated_at
+		where user.status_updated_at != null
+	)
+
 	// id is an uuid for the user.
 	field id                 blob
 	// external_id is a user id provided by an external source, such as a single-sign-on identity provider.
