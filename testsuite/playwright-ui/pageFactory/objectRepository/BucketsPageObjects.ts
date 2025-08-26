@@ -20,4 +20,7 @@ export class BucketsPageObjects {
     static CONFIRM_BUTTON_DELETE_BUCKET_FLOW_XPATH = `//button[span[text()=' Delete ']]`;
     static CLOSE_DETAILS_MODAL_BUTTON_XPATH = `//button[@id='close-bucket-details']`;
     static CONFIRM_DELETE_INPUT_FIELD_XPATH = `//input[@id='confirm-delete']`;
+    static SELF_SERVE_PLACEMENT_TITLE_CREATE_BUCKET_FLOW_XPATH = `//p[text()='Choose Data Location']`;
+    static NEW_BUCKET_GLOBAL_PLACEMENT_BUTTON_XPATH = `//span[div[text()='Global']]`;
+    static NEW_BUCKET_SELECT_PLACEMENT_BUTTON_XPATH = `//span[div[text()='Storj Select']]`;
 }

@@ -3,6 +3,7 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
+import { BucketsPageObjects } from '@objects/BucketsPageObjects';
 
 test.describe('buckets', () => {
     test.beforeEach(async ({
@@ -102,5 +103,27 @@ test.describe('buckets', () => {
         // Check Bucket Share, see if copy button changed to copied
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyShareBucket();
+    });
+
+    test('Create bucket with placement', async ({
+        navigationMenu,
+        bucketsPage,
+    }) => {
+        const bucketName0 = 'test-placement-0';
+        const bucketName1 = 'test-placement-1';
+
+        await navigationMenu.clickOnBuckets();
+        await bucketsPage.createBucketWithPlacement(bucketName0, BucketsPageObjects.NEW_BUCKET_GLOBAL_PLACEMENT_BUTTON_XPATH, 'Global');
+        await bucketsPage.openBucketSettings();
+        await bucketsPage.openBucketDetails();
+        await bucketsPage.verifyLocation('global');
+        await bucketsPage.closeBucketDetails();
+        await bucketsPage.openBucketSettings();
+        await bucketsPage.verifyDeleteBucket(bucketName0);
+        await bucketsPage.createBucketWithPlacement(bucketName1, BucketsPageObjects.NEW_BUCKET_SELECT_PLACEMENT_BUTTON_XPATH, 'Storj Select');
+        await bucketsPage.openBucketSettings();
+        await bucketsPage.openBucketDetails();
+        await bucketsPage.verifyLocation('us-select-1');
+        await bucketsPage.closeBucketDetails();
     });
 });

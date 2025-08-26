@@ -11,6 +11,7 @@ export class BucketsPage {
 
     async createBucket(name: string): Promise<void> {
         await this.createBucketNameStep(name);
+        await this.createBucketPlacementStep(BucketsPageObjects.NEW_BUCKET_GLOBAL_PLACEMENT_BUTTON_XPATH);
         await this.page.locator(BucketsPageObjects.OBJECT_LOCK_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
         await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
         await this.page.locator(BucketsPageObjects.VERSIONING_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
@@ -22,6 +23,7 @@ export class BucketsPage {
 
     async createBucketWithVersioning(name: string): Promise<void> {
         await this.createBucketNameStep(name);
+        await this.createBucketPlacementStep(BucketsPageObjects.NEW_BUCKET_GLOBAL_PLACEMENT_BUTTON_XPATH);
         await this.page.locator(BucketsPageObjects.OBJECT_LOCK_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
         await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
         await this.page.locator(BucketsPageObjects.VERSIONING_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
@@ -35,6 +37,7 @@ export class BucketsPage {
 
     async createBucketWithObjectLock(name: string): Promise<void> {
         await this.createBucketNameStep(name);
+        await this.createBucketPlacementStep(BucketsPageObjects.NEW_BUCKET_GLOBAL_PLACEMENT_BUTTON_XPATH);
         await this.page.locator(BucketsPageObjects.OBJECT_LOCK_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
         await this.page.locator(BucketsPageObjects.YES_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
         await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
@@ -46,10 +49,35 @@ export class BucketsPage {
         await this.page.locator(BucketsPageObjects.CLOSE_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
     }
 
+    async createBucketWithPlacement(name: string, placementButton: string, expectedPlacement: string): Promise<void> {
+        await this.createBucketNameStep(name);
+        await this.createBucketPlacementStep(placementButton);
+        await this.page.locator(BucketsPageObjects.OBJECT_LOCK_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
+        await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
+        await this.page.locator(BucketsPageObjects.VERSIONING_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
+        await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
+        await this.page.locator(BucketsPageObjects.CONFIRM_SUBTITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
+        await this.verifyLocation(expectedPlacement);
+        await this.page.locator(BucketsPageObjects.CONFIRM_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
+        await this.page.locator(BucketsPageObjects.CLOSE_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
+    }
+
     async createBucketNameStep(name: string): Promise<void> {
         await this.page.locator(BucketsPageObjects.NEW_BUCKET_BUTTON_XPATH).click();
         await this.page.locator(BucketsPageObjects.BUCKET_NAME_INPUT_FIELD_XPATH).fill(name);
         await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
+    }
+
+    async createBucketPlacementStep(placementButton: string): Promise<void> {
+        await this.page.locator(BucketsPageObjects.SELF_SERVE_PLACEMENT_TITLE_CREATE_BUCKET_FLOW_XPATH).isVisible();
+        await this.page.locator(placementButton).click();
+        await this.page.locator(BucketsPageObjects.NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH).click();
+    }
+
+    async verifyLocation(expected: string): Promise<void> {
+        const elems = await this.page.locator(`//div[text()='${expected}']`).all();
+        // 2 is expected here because the location appears twice in the DOM tree.
+        expect(elems).toHaveLength(2);
     }
 
     async openBucket(name: string): Promise<void> {
