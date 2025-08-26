@@ -1535,8 +1535,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for storage per month in dollars/TB
 # payments.usage-price.storage-tb: "4"
 
-# how long after the project was marked for deletion should we wait before deleting data
-# pending-delete-cleanup.buffer-time: 720h0m0s
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.billing-freeze.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.billing-freeze.enabled: false
 
 # how many delete workers to run at a time
 # pending-delete-cleanup.delete-concurrency: 1
@@ -1549,6 +1552,24 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how many events to query in a batch
 # pending-delete-cleanup.list-limit: 100
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.project.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.project.enabled: false
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.trial-freeze.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.trial-freeze.enabled: false
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.violation-freeze.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.violation-freeze.enabled: false
 
 # batch size for updating nodes with number of pieces
 # piece-tracker.update-batch-size: 1000

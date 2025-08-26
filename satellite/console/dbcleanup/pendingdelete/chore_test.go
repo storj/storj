@@ -28,7 +28,8 @@ func TestProjectPendingDeleteChore(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.PendingDeleteCleanup.Enabled = true
-				config.PendingDeleteCleanup.BufferTime = time.Hour
+				config.PendingDeleteCleanup.Project.Enabled = true
+				config.PendingDeleteCleanup.Project.BufferTime = time.Hour
 				config.PendingDeleteCleanup.ListLimit = 2 // small limit to test batching
 			},
 		},
@@ -137,7 +138,7 @@ func TestProjectPendingDeleteChore(t *testing.T) {
 
 		chore.TestSetNowFn(func() time.Time {
 			// set the chore time to some time beyond the buffer time
-			return now.Add(sat.Config.PendingDeleteCleanup.BufferTime + (24 * time.Hour))
+			return now.Add(sat.Config.PendingDeleteCleanup.Project.BufferTime + (24 * time.Hour))
 		})
 		chore.Loop.TriggerWait()
 

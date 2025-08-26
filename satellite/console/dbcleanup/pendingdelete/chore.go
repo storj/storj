@@ -34,7 +34,17 @@ type Config struct {
 	Interval          time.Duration `help:"how often to run this chore" default:"24h"`
 	ListLimit         int           `help:"how many events to query in a batch" default:"100"`
 	DeleteConcurrency int           `help:"how many delete workers to run at a time" default:"1"`
-	BufferTime        time.Duration `help:"how long after the project was marked for deletion should we wait before deleting data" default:"720h"`
+
+	Project         DeleteTypeConfig
+	ViolationFreeze DeleteTypeConfig
+	BillingFreeze   DeleteTypeConfig
+	TrialFreeze     DeleteTypeConfig
+}
+
+// DeleteTypeConfig holds configuration for a specific type of pending deletion data to delete.
+type DeleteTypeConfig struct {
+	Enabled    bool          `help:"whether data of this type of pending deletion resource should be deleted or not" default:"false"`
+	BufferTime time.Duration `help:"how long after the resource is marked for deletion should we wait before deleting data" default:"720h"`
 }
 
 // Chore completes deletion of data for projects
@@ -80,7 +90,11 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Debug("deleting pending deletion projects")
+
+	if !chore.config.Project.Enabled {
+		chore.log.Debug("skipping deleting pending deletion projects because it is disabled in config")
+		return nil
+	}
 
 	mu := new(sync.Mutex)
 	var errGrp errs.Group
@@ -98,7 +112,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 			ctx,
 			0, // always on offset 0 because updating project status removes it from the list
 			chore.config.ListLimit,
-			chore.nowFn().Add(-chore.config.BufferTime),
+			chore.nowFn().Add(-chore.config.Project.BufferTime),
 		)
 		if err != nil {
 			chore.log.Error("failed to get projects for deletion", zap.Error(err))
