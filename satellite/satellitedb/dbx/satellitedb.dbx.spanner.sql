@@ -237,6 +237,7 @@ CREATE TABLE projects (
 	owner_id BYTES(MAX) NOT NULL,
 	salt BYTES(MAX),
 	status INT64 DEFAULT (1),
+	status_updated_at TIMESTAMP,
 	created_at TIMESTAMP NOT NULL,
 	default_placement INT64,
 	default_versioning INT64 NOT NULL DEFAULT (1),
@@ -601,6 +602,7 @@ CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
+CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;

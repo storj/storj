@@ -1030,6 +1030,22 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column indexed status_updated_at to projects with status",
+				Version:     300,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status_updated_at TIMESTAMP;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index to projects table on status and status_updated_at",
+				Version:     301,
+				Action: migrate.SQL{
+					`CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3899,6 +3915,22 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     299,
 				Action: migrate.SQL{
 					`CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) WHERE users.status_updated_at is not NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column indexed status_updated_at to projects with status",
+				Version:     300,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN status_updated_at TIMESTAMP WITH TIME ZONE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index to projects table on status and status_updated_at",
+				Version:     301,
+				Action: migrate.SQL{
+					`CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) WHERE projects.status_updated_at is not NULL ;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

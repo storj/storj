@@ -12,6 +12,12 @@ model project (
 		fields owner_id
 	)
 
+	index (
+		name projects_status_status_updated_at_index
+		fields status status_updated_at
+		where project.status_updated_at != null
+	)
+
 	// id is a UUID used for identifying the project.
 	field id                                blob
 	// public_id is a UUID that's used in web requests.
@@ -77,6 +83,8 @@ model project (
 	// 0 - disabled or deleted by the user
 	// 1 - active
 	field status                            int       ( nullable, updatable, default 1 )
+	// status_updated_at indicates the time at which the status last changed
+	field status_updated_at timestamp ( updatable, nullable )
 
 	// created_at indicates when the project was created.
 	field created_at                        timestamp ( autoinsert )
