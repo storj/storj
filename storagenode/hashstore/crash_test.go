@@ -42,7 +42,7 @@ func runCrashServer(ctx context.Context) error {
 	}
 	fmt.Println(tmpDir)
 
-	db, err := New(ctx, tmpDir, "", nil, nil, nil)
+	db, err := New(ctx, CreateDefaultConfig(TableKind_HashTbl, false), tmpDir, "", nil, nil, nil)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -185,7 +185,7 @@ func TestCorrectDuringCrashes(t *testing.T) {
 	assert.That(t, len(keys) > 0)
 
 	// open the database and ensure every key that was printed is readable.
-	db, err := New(ctx, dir, "", nil, nil, nil)
+	db, err := New(ctx, CreateDefaultConfig(TableKind_HashTbl, false), dir, "", nil, nil, nil)
 	assert.NoError(t, err)
 	defer db.Close()
 

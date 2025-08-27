@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
@@ -166,7 +167,8 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	bfm := try.E1(retain.NewBloomFilterManager("bfm", cfg.Retain.MaxTimeSkew))
 
 	rtm := retain.NewRestoreTimeManager("rtm")
-	hsb := try.E1(piecestore.NewHashStoreBackend(ctx, "hashstore", "", bfm, rtm, log))
+	// TODO: use injected configuration
+	hsb := try.E1(piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), "hashstore", "", bfm, rtm, log))
 	mon.Chain(hsb)
 
 	var spaceReport monitor.SpaceReport

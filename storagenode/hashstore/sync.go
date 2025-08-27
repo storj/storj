@@ -10,11 +10,6 @@ import (
 	"storj.io/drpc/drpcsignal"
 )
 
-var (
-	// controls if waiters are processed in LIFO or FIFO order. default is FIFO.
-	sync_RWMutexLIFO = envBool("STORJ_HASHSTORE_SYNC_LIFO", false)
-)
-
 //
 // context/signal aware mutex
 //
@@ -115,12 +110,13 @@ type rwMutex struct {
 	activeReadLimit int
 	pendingWrites   int
 	writeHeld       bool
+	syncLifo        bool
 }
 
-// newRWMutex allocates an rwMutex with the given active read limit. If the active read limit is
-// zero, then there is no limit to the number of active reads.
-func newRWMutex(activeReadLimit int) *rwMutex {
-	return &rwMutex{activeReadLimit: activeReadLimit}
+// newRWMutex allocates an rwMutex with the given active read limit and sync lifo setting.
+// If the active read limit is zero, then there is no limit to the number of active reads.
+func newRWMutex(activeReadLimit int, syncLifo bool) *rwMutex {
+	return &rwMutex{activeReadLimit: activeReadLimit, syncLifo: syncLifo}
 }
 
 // Unlock unlocks the rwMutex.
@@ -235,7 +231,7 @@ func (rwm *rwMutex) unlockLocked(read bool) {
 // special handling for when there is a pending writer.
 func (rwm *rwMutex) processLocked() {
 	slot := &rwm.waiters.oldest
-	if sync_RWMutexLIFO {
+	if rwm.syncLifo {
 		slot = &rwm.waiters.newest
 	}
 
@@ -262,7 +258,7 @@ func (rwm *rwMutex) processLocked() {
 
 		// if we have pending writes, we can't allow new reads unless we have no readers.
 		// we only need to do this check if we are in LIFO mode and we aren't batching reads.
-		if sync_RWMutexLIFO && !batchReads && waiter.read && rwm.pendingWrites > 0 && rwm.activeReads > 0 {
+		if rwm.syncLifo && !batchReads && waiter.read && rwm.pendingWrites > 0 && rwm.activeReads > 0 {
 			return
 		}
 

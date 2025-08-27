@@ -114,12 +114,14 @@ func (h *logHeap) Pop() any {
 //
 
 type logCollection struct {
+	cfg Config
 	mu  sync.Mutex
 	lfs map[uint32]*logHeap
 }
 
-func newLogCollection() *logCollection {
+func newLogCollection(cfg Config) *logCollection {
 	return &logCollection{
+		cfg: cfg,
 		lfs: make(map[uint32]*logHeap),
 	}
 }
@@ -150,7 +152,7 @@ func (l *logCollection) Include(lf *logFile) {
 	defer l.mu.Unlock()
 
 	// if the log is over the max log size, don't include it.
-	if lf.size.Load() >= compaction_MaxLogSize {
+	if lf.size.Load() >= l.cfg.Compaction.MaxLogSize {
 		return
 	}
 
@@ -343,7 +345,7 @@ func (h *Writer) Close() (err error) {
 
 	// sync the log file and tbl if we're syncing every write. we don't seek back if the sync
 	// fails because it's unclear what state anything is in anyway.
-	if store_SyncWrites {
+	if h.store.cfg.Store.SyncWrites {
 		err := errs.Combine(
 			Error.Wrap(lf.fh.Sync()),
 			h.store.tbl.Sync(ctx),

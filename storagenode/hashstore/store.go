@@ -30,38 +30,8 @@ import (
 )
 
 var (
-	// max size of a log file.
-	compaction_MaxLogSize = uint64(envInt("STORJ_HASHSTORE_COMPACTION_MAX_LOG_SIZE", 1<<30))
-
-	// number of days to keep trash records around.
-	compaction_ExpiresDays = uint32(envInt("STORJ_HASHSTORE_COMPACTION_EXPIRES_DAYS", 7))
-
-	// if the log file is not this alive, compact it.
-	compaction_AliveFraction     = envFloat("STORJ_HASHSTORE_COMPACTION_ALIVE_FRAC", 0.25)
-	compaction_ProbabilityFactor = compaction_AliveFraction / (1 - compaction_AliveFraction)
-
-	// power to rase the rewrite probability to. >1 means must be closer to the alive fraction
-	// to be compacted, <1 means the opposite.
-	compaction_ProbabilityPower = envFloat("STORJ_HASHSTORE_COMPACTION_PROBABILITY_POWER", 2.0)
-
-	// multiple of the hashtbl to rewrite in a single compaction.
-	compaction_RewriteMultiple = envFloat("STORJ_HASHSTORE_COMPACTION_REWRITE_MULTIPLE", 10)
-
-	// if set, deletes all trash immediately instead of after the ttl.
-	compaction_DeleteTrashImmediately = envBool("STORJ_HASHSTORE_COMPACTION_DELETE_TRASH_IMMEDIATELY", false)
-
-	// controls the number of concurrent flushes to log files.
-	store_FlushSemaphore = int(envInt("STORJ_HASHSTORE_STORE_FLUSH_SEMAPHORE", 0))
-
-	// controls if we collect records and sort them and rewrite them before the hashtbl.
-	compaction_OrderedRewrite = envBool("STORJ_HASHSTORE_COMPACTION_ORDERED_REWRITE", true)
-
-	// if set, writes to the log file and table are fsync'd to disk.
-	store_SyncWrites = envBool("STORJ_HASHSTORE_STORE_SYNC_WRITES", false)
-
 	// if set to true, the store pretends to not find values in the rewritten index during compaction.
 	store_TestIgnoreRewrittenIndex = false
-
 	// if set to true, the store does extra checks to ensure log file sizes match their seek offset.
 	store_TestLogSizeAndOffset = false
 )
@@ -69,6 +39,7 @@ var (
 // Store is a hash table based key-value store with compaction.
 type Store struct {
 	// immutable data
+	cfg       Config         // configuration for the store
 	logsPath  string         // directory containing log files
 	tablePath string         // directory containing meta files (lock + hashtbl)
 	log       *zap.Logger    // logger for unhandleable errors
@@ -106,8 +77,14 @@ type Store struct {
 	tbl Tbl                         // hash table of records
 }
 
+// compactionProbabilityFactor returns the probability factor for compaction decisions.
+func (s *Store) compactionProbabilityFactor() float64 {
+	aliveFraction := s.cfg.Compaction.AliveFraction
+	return aliveFraction / (1 - aliveFraction)
+}
+
 // NewStore creates or opens a store in the given directory.
-func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.Logger) (_ *Store, err error) {
+func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string, log *zap.Logger) (_ *Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if log == nil {
@@ -119,13 +96,14 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 	}
 
 	s := &Store{
+		cfg:       cfg,
 		logsPath:  logsPath,
 		tablePath: tablePath,
 		log:       log,
 		today:     func() uint32 { return TimeToDateDown(time.Now()) },
-		lfc:       newLogCollection(),
+		lfc:       newLogCollection(cfg),
 
-		flushMu:   newRWMutex(store_FlushSemaphore),
+		flushMu:   newRWMutex(cfg.Store.FlushSemaphore, cfg.SyncLifo),
 		compactMu: newMutex(),
 		reviveMu:  newMutex(),
 	}
@@ -254,7 +232,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 				}
 				defer af.Cancel()
 
-				cons, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), table_DefaultKind)
+				cons, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), s.cfg.TableDefaultKind.Kind, s.cfg)
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -277,7 +255,7 @@ func NewStore(ctx context.Context, logsPath string, tablePath string, log *zap.L
 			return nil, Error.Wrap(err)
 		}
 
-		ntbl, err := OpenTable(ctx, fh)
+		ntbl, err := OpenTable(ctx, fh, s.cfg)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -670,7 +648,7 @@ func (s *Store) Compact(
 
 	restored := func(e Expiration) bool {
 		// if the expiration is trash and it is before the restore time, it is restored.
-		return e.Trash() && e.Time() <= restore+compaction_ExpiresDays
+		return e.Trash() && e.Time() <= restore+uint32(s.cfg.Compaction.ExpiresDays)
 	}
 
 	expired := func(e Expiration) bool {
@@ -679,7 +657,7 @@ func (s *Store) Compact(
 			return false
 		}
 		// if we delete trash immediately and it is trash, it is expired.
-		if compaction_DeleteTrashImmediately && e.Trash() {
+		if s.cfg.Compaction.DeleteTrashImmediately && e.Trash() {
 			return true
 		}
 		// if it is not currently after the expiration time, it is not expired.
@@ -813,8 +791,8 @@ func (s *Store) compactOnce(
 				return true
 			}
 			// compute the probability and include it that frequently.
-			prob := compaction_ProbabilityFactor * (1 - alive) / alive
-			return mwc.Float64() < math.Pow(prob, compaction_ProbabilityPower)
+			prob := s.compactionProbabilityFactor() * (1 - alive) / alive
+			return mwc.Float64() < math.Pow(prob, s.cfg.Compaction.ProbabilityPower)
 		}() {
 			rewriteCandidates[id] = true
 		}
@@ -859,7 +837,7 @@ func (s *Store) compactOnce(
 	// the amount of a size of the new hashtbl times the multiple. this bounds the extra space
 	// necessary to compact.
 	rewrite := make(map[uint64]bool)
-	target := uint64(float64(hashtblSize(logSlots)) * compaction_RewriteMultiple)
+	target := uint64(float64(hashtblSize(logSlots)) * s.cfg.Compaction.RewriteMultiple)
 	for _, id := range rewriteCandidatesByDead {
 		if alive[id] <= target {
 			rewrite[id] = true
@@ -870,7 +848,7 @@ func (s *Store) compactOnce(
 	// special case: if we have some values in rewriteCandidates but we have no files in rewrite we
 	// need to include one to ensure progress, unless the RewriteMultiple is 0 so we don't want to
 	// do any rewriting.
-	if len(rewriteCandidates) > 0 && len(rewrite) == 0 && compaction_RewriteMultiple > 0 {
+	if len(rewriteCandidates) > 0 && len(rewrite) == 0 && s.cfg.Compaction.RewriteMultiple > 0 {
 		for id := range rewriteCandidates {
 			rewrite[id] = true
 			break
@@ -903,7 +881,7 @@ func (s *Store) compactOnce(
 	if !modifications &&
 		len(rewriteCandidates) == 0 &&
 		logSlots == s.tbl.LogSlots() &&
-		s.tbl.Header().Kind == table_DefaultKind {
+		s.tbl.Header().Kind == s.cfg.TableDefaultKind.Kind {
 		return true, nil
 	}
 
@@ -918,7 +896,7 @@ func (s *Store) compactOnce(
 	}
 	defer af.Cancel()
 
-	cons, err := CreateTable(ctx, af.File, logSlots, today, table_DefaultKind)
+	cons, err := CreateTable(ctx, af.File, logSlots, today, s.cfg.TableDefaultKind.Kind, s.cfg)
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
@@ -943,7 +921,7 @@ func (s *Store) compactOnce(
 
 	// if we have any rewrite logs, then all of the records we will be rewriting when we create the
 	// next hashtbl so we can sort them and rewrite them early.
-	if len(rewrite) > 0 && compaction_OrderedRewrite {
+	if len(rewrite) > 0 && s.cfg.Compaction.OrderedRewrite {
 		rewriteStart := time.Now()
 
 		if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
@@ -1033,7 +1011,7 @@ func (s *Store) compactOnce(
 		// already flagged as trashed and keep the minimum time for the record to live. we do this
 		// after compaction so that we don't mistakenly count it as a "revive".
 		if shouldTrash != nil && !rec.Expires.Trash() && shouldTrash(ctx, rec.Key, DateToTime(rec.Created)) {
-			expiresTime := today + compaction_ExpiresDays
+			expiresTime := today + uint32(s.cfg.Compaction.ExpiresDays)
 			// if we have an existing ttl time and it's smaller, use that instead.
 			if existingTime := rec.Expires.Time(); existingTime > 0 && existingTime < expiresTime {
 				expiresTime = existingTime
@@ -1192,7 +1170,7 @@ func (s *Store) compactOnce(
 	// if we rewrote every log file that we could potentially rewrite, then we're done. len is
 	// sufficient here because rewrite is a subset of rewriteCandidates. also if our rewrite
 	// multiple is 0, then we're done because we unlinked all the fully dead log files already.
-	return len(rewriteCandidates) == len(rewrite) || compaction_RewriteMultiple == 0, nil
+	return len(rewriteCandidates) == len(rewrite) || s.cfg.Compaction.RewriteMultiple == 0, nil
 }
 
 func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates map[uint64]bool) (_ Record, err error) {

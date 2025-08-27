@@ -17,9 +17,9 @@ import (
 func TestTable_BasicOperation(t *testing.T) {
 	forAllTables(t, testTable_BasicOperation)
 }
-func testTable_BasicOperation(t *testing.T) {
+func testTable_BasicOperation(t *testing.T, cfg Config) {
 	ctx := t.Context()
-	tbl := newTestTbl(t, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
 	var keys []Key
@@ -79,9 +79,9 @@ func testTable_BasicOperation(t *testing.T) {
 func TestTable_OverwriteRecords(t *testing.T) {
 	forAllTables(t, testTable_OverwriteMergeRecords)
 }
-func testTable_OverwriteMergeRecords(t *testing.T) {
+func testTable_OverwriteMergeRecords(t *testing.T, cfg Config) {
 	ctx := t.Context()
-	tbl := newTestTbl(t, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
 	// create a new record with a non-zero expiration.
@@ -133,9 +133,9 @@ func testTable_OverwriteMergeRecords(t *testing.T) {
 func TestTable_RangeExitEarly(t *testing.T) {
 	forAllTables(t, testTable_RangeExitEarly)
 }
-func testTable_RangeExitEarly(t *testing.T) {
+func testTable_RangeExitEarly(t *testing.T, cfg Config) {
 	ctx := t.Context()
-	h := newTestHashTbl(t, tbl_minLogSlots)
+	h := newTestHashTbl(t, DefaultMmapConfig, tbl_minLogSlots)
 	defer h.Close()
 
 	// insert some records to range over.
@@ -154,9 +154,9 @@ func testTable_RangeExitEarly(t *testing.T) {
 func TestTable_Full(t *testing.T) {
 	forAllTables(t, testTable_Full)
 }
-func testTable_Full(t *testing.T) {
+func testTable_Full(t *testing.T, cfg Config) {
 	ctx := t.Context()
-	tbl := newTestTbl(t, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
 	// fill the table completely.
@@ -179,11 +179,11 @@ func testTable_Full(t *testing.T) {
 func TestTable_Load(t *testing.T) {
 	forAllTables(t, testTable_Load)
 }
-func testTable_Load(t *testing.T) {
+func testTable_Load(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
 	// Create a new memtbl with the specified size
-	tbl := newTestTbl(t, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
 	check := func(expectedLoad float64, deep bool) {
@@ -223,8 +223,8 @@ func testTable_Load(t *testing.T) {
 func TestTable_TrashStats(t *testing.T) {
 	forAllTables(t, testTable_TrashStats)
 }
-func testTable_TrashStats(t *testing.T) {
-	tbl := newTestTbl(t, tbl_minLogSlots)
+func testTable_TrashStats(t *testing.T, cfg Config) {
+	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
 	rec := newRecord(newKey())
@@ -240,27 +240,27 @@ func testTable_TrashStats(t *testing.T) {
 func TestTable_LRecBounds(t *testing.T) {
 	forAllTables(t, testTable_LRecBounds)
 }
-func testTable_LRecBounds(t *testing.T) {
+func testTable_LRecBounds(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	_, err := CreateTable(ctx, nil, tbl_maxLogSlots+1, 0, table_DefaultKind)
+	_, err := CreateTable(ctx, nil, tbl_maxLogSlots+1, 0, TableKind_HashTbl, cfg)
 	assert.Error(t, err)
 
-	_, err = CreateTable(ctx, nil, tbl_minLogSlots-1, 0, table_DefaultKind)
+	_, err = CreateTable(ctx, nil, tbl_minLogSlots-1, 0, TableKind_HashTbl, cfg)
 	assert.Error(t, err)
 }
 
 func TestTable_ConstructorAPIAfterClose(t *testing.T) {
 	forAllTables(t, testTable_ConstructorAPIAfterClose)
 }
-func testTable_ConstructorAPIAfterClose(t *testing.T) {
+func testTable_ConstructorAPIAfterClose(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, table_DefaultKind)
+	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, TableKind_HashTbl, cfg)
 	assert.NoError(t, err)
 	defer cons.Close()
 
@@ -283,14 +283,14 @@ func testTable_ConstructorAPIAfterClose(t *testing.T) {
 func TestTable_ConstructorAPIAfterDone(t *testing.T) {
 	forAllTables(t, testTable_ConstructorAPIAfterDone)
 }
-func testTable_ConstructorAPIAfterDone(t *testing.T) {
+func testTable_ConstructorAPIAfterDone(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, table_DefaultKind)
+	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, TableKind_HashTbl, cfg)
 	assert.NoError(t, err)
 	defer cons.Close()
 
@@ -338,16 +338,16 @@ func TestTable_InvalidHeaders(t *testing.T) {
 func TestTable_OpenIncorrectKind(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, tbl_minLogSlots)
+	h := newTestHashTbl(t, DefaultMmapConfig, tbl_minLogSlots)
 	defer h.Close()
 
-	m := newTestMemTbl(t, tbl_minLogSlots)
+	m := newTestMemTbl(t, DefaultMmapConfig, tbl_minLogSlots)
 	defer m.Close()
 
-	_, err := OpenMemTbl(ctx, h.fh)
+	_, err := OpenMemTbl(ctx, h.fh, DefaultMmapConfig)
 	assert.Error(t, err)
 
-	_, err = OpenHashTbl(ctx, m.fh)
+	_, err = OpenHashTbl(ctx, m.fh, DefaultMmapConfig)
 	assert.Error(t, err)
 }
 
@@ -358,9 +358,9 @@ func TestTable_OpenIncorrectKind(t *testing.T) {
 func BenchmarkTable(b *testing.B) {
 	forAllTables(b, benchmarkTable)
 }
-func benchmarkTable(b *testing.B) {
+func benchmarkTable(b *testing.B, cfg Config) {
 	benchmarkLRecs(b, "Lookup", func(b *testing.B, lrec uint64) {
-		tbl := newTestTbl(b, lrec)
+		tbl := newTestTbl(b, cfg, lrec)
 		defer tbl.Close()
 
 		var keys []Key
@@ -389,7 +389,7 @@ func benchmarkTable(b *testing.B) {
 
 		for i := 0; i < b.N; i++ {
 			func() {
-				tbl := newTestTbl(b, lrec)
+				tbl := newTestTbl(b, cfg, lrec)
 				defer tbl.Close()
 				for i := 0; i < inserts; i++ {
 					tbl.AssertInsert()
@@ -405,7 +405,7 @@ func benchmarkTable(b *testing.B) {
 		inserts := 1 << lrec / 2
 
 		ctx := b.Context()
-		tbl := newTestTbl(b, lrec)
+		tbl := newTestTbl(b, cfg, lrec)
 		defer tbl.Close()
 
 		for i := 0; i < inserts; i++ {
@@ -417,7 +417,7 @@ func benchmarkTable(b *testing.B) {
 		now := time.Now()
 
 		for i := 0; i < b.N; i++ {
-			newTestTbl(b, lrec+1, WithConstructor(func(tc TblConstructor) {
+			newTestTbl(b, cfg, lrec+1, WithConstructor(func(tc TblConstructor) {
 				assert.NoError(b, tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
 					ok, err := tc.Append(ctx, rec)
 					assert.NoError(b, err)

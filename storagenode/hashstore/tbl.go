@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/zeebo/xxh3"
 
@@ -30,23 +29,6 @@ func (t TableKind) String() string {
 	}
 }
 
-// IsMemTbl checks if the default table kind is a memory table.
-func IsMemTbl() bool {
-	return table_DefaultKind == TableKind_MemTbl
-}
-
-// ParseTableKind returns a TableKind for the given string.
-func ParseTableKind(s string) (TableKind, error) {
-	switch strings.ToLower(s) {
-	case "", "hashtbl", "hash":
-		return TableKind_HashTbl, nil
-	case "memtbl", "mem":
-		return TableKind_MemTbl, nil
-	default:
-		return 0, fmt.Errorf("unknown table kind: %q", s)
-	}
-}
-
 const (
 	// TableKind_HashTbl is the TableKind for a hashtbl.
 	TableKind_HashTbl TableKind = 0
@@ -61,17 +43,6 @@ const (
 
 	_ int64  = tbl_headerSize + 1<<tbl_maxLogSlots*RecordSize // compiler error if overflows int64
 	_ uint64 = 1<<tbl_minLogSlots*RecordSize - bigPageSize    // compiler error if negative
-)
-
-var (
-	// the default kind of table we create new tables with.
-	table_DefaultKind = func() TableKind {
-		kind, err := ParseTableKind(os.Getenv("STORJ_HASHSTORE_TABLE_DEFAULT_KIND"))
-		if err != nil {
-			panic(err)
-		}
-		return kind
-	}()
 )
 
 // Tbl describes a hash table for a store.
@@ -136,28 +107,28 @@ func writeBool(x *byte, v bool) {
 }
 
 // OpenTable reads the header and opens the appropriate table type.
-func OpenTable(ctx context.Context, fh *os.File) (_ Tbl, err error) {
+func OpenTable(ctx context.Context, fh *os.File, cfg Config) (_ Tbl, err error) {
 	header, err := ReadTblHeader(fh)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	switch header.Kind {
 	case TableKind_HashTbl:
-		return OpenHashTbl(ctx, fh)
+		return OpenHashTbl(ctx, fh, cfg.Hashtbl)
 	case TableKind_MemTbl:
-		return OpenMemTbl(ctx, fh)
+		return OpenMemTbl(ctx, fh, cfg.Memtbl)
 	default:
 		return nil, Error.New("unknown table kind: %d", header.Kind)
 	}
 }
 
 // CreateTable creates a new table of the given kind.
-func CreateTable(ctx context.Context, fh *os.File, logSlots uint64, created uint32, kind TableKind) (_ TblConstructor, err error) {
+func CreateTable(ctx context.Context, fh *os.File, logSlots uint64, created uint32, kind TableKind, cfg Config) (_ TblConstructor, err error) {
 	switch kind {
 	case TableKind_HashTbl:
-		return CreateHashTbl(ctx, fh, logSlots, created)
+		return CreateHashTbl(ctx, fh, logSlots, created, cfg.Hashtbl)
 	case TableKind_MemTbl:
-		return CreateMemTbl(ctx, fh, logSlots, created)
+		return CreateMemTbl(ctx, fh, logSlots, created, cfg.Memtbl)
 	default:
 		return nil, Error.New("unknown table kind: %d", kind)
 	}

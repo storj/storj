@@ -203,7 +203,7 @@ func Module(ball *mud.Ball) {
 	}
 
 	{ // setup contact service
-		mud.Provide[contact.NodeInfo](ball, func(ctx context.Context, log *zap.Logger, id storj.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server, state *satstore.SatelliteStore) (contact.NodeInfo, error) {
+		mud.Provide[contact.NodeInfo](ball, func(ctx context.Context, log *zap.Logger, id storj.NodeID, contactConfig contact.Config, operator operator.Config, versionInfo version.Info, server *server.Server, state *satstore.SatelliteStore, hashstoreConfig hashstore.Config) (contact.NodeInfo, error) {
 			externalAddress := contactConfig.ExternalAddress
 			if externalAddress == "" {
 				externalAddress = server.Addr().String()
@@ -231,7 +231,7 @@ func Module(ball *mud.Ball) {
 				NoiseKeyAttestation: noiseKeyAttestation,
 				DebounceLimit:       server.DebounceLimit(),
 				FastOpen:            server.FastOpen(),
-				HashstoreMemtbl:     hashstore.IsMemTbl(),
+				HashstoreMemtbl:     hashstoreConfig.TableDefaultKind.Kind == hashstore.TableKind_MemTbl,
 			}
 
 			err = state.Range(func(id storj.NodeID, bytes []byte) error {
@@ -359,7 +359,7 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
 		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg hashstore.Config, old piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) (*piecestore.HashStoreBackend, error) {
 			logsPath, tablePath := cfg.Directories(old.Path)
-			backend, err := piecestore.NewHashStoreBackend(ctx, logsPath, tablePath, bfm, rtm, log)
+			backend, err := piecestore.NewHashStoreBackend(ctx, cfg, logsPath, tablePath, bfm, rtm, log)
 			if err != nil {
 				return nil, err
 			}

@@ -20,9 +20,9 @@ import (
 func TestDB_BasicOperation(t *testing.T) {
 	forAllTables(t, testDB_BasicOperation)
 }
-func testDB_BasicOperation(t *testing.T) {
+func testDB_BasicOperation(t *testing.T, cfg Config) {
 	ctx := t.Context()
-	db := newTestDB(t, nil, nil)
+	db := newTestDB(t, cfg, nil, nil)
 	defer db.Close()
 
 	var keys []Key
@@ -74,8 +74,8 @@ func testDB_BasicOperation(t *testing.T) {
 func TestDB_TrashStats(t *testing.T) {
 	forAllTables(t, testDB_TrashStats)
 }
-func testDB_TrashStats(t *testing.T) {
-	db := newTestDB(t, alwaysTrash, nil)
+func testDB_TrashStats(t *testing.T, cfg Config) {
+	db := newTestDB(t, cfg, alwaysTrash, nil)
 	defer db.Close()
 
 	// add keys until we are compacting, and then wait until we are not compacting.
@@ -103,7 +103,7 @@ func testDB_TrashStats(t *testing.T) {
 func TestDB_ReadAllPossibleStates(t *testing.T) {
 	forAllTables(t, testDB_ReadAllPossibleStates)
 }
-func testDB_ReadAllPossibleStates(t *testing.T) {
+func testDB_ReadAllPossibleStates(t *testing.T, cfg Config) {
 	const (
 		createActive = iota
 		createPassive
@@ -127,7 +127,7 @@ func testDB_ReadAllPossibleStates(t *testing.T) {
 	}
 
 	runCase := func(t *testing.T, setup []int) {
-		db := newTestDB(t, alwaysTrash, nil)
+		db := newTestDB(t, cfg, alwaysTrash, nil)
 		defer db.Close()
 		key := newKey()
 
@@ -172,8 +172,8 @@ func testDB_ReadAllPossibleStates(t *testing.T) {
 func TestDB_TTLStats(t *testing.T) {
 	forAllTables(t, testDB_TTLStats)
 }
-func testDB_TTLStats(t *testing.T) {
-	db := newTestDB(t, nil, nil)
+func testDB_TTLStats(t *testing.T, cfg Config) {
+	db := newTestDB(t, cfg, nil, nil)
 	defer db.Close()
 
 	// create an entry with a ttl.
@@ -196,9 +196,9 @@ func testDB_TTLStats(t *testing.T) {
 func TestDB_CompactionOnOpen(t *testing.T) {
 	forAllTables(t, testDB_CompactionOnOpen)
 }
-func testDB_CompactionOnOpen(t *testing.T) {
+func testDB_CompactionOnOpen(t *testing.T, cfg Config) {
 	ctx := t.Context()
-	db := newTestDB(t, nil, nil)
+	db := newTestDB(t, cfg, nil, nil)
 	defer db.Close()
 
 	// load up both the active and passive stores to somewhere between compact and max load.
@@ -224,11 +224,11 @@ func testDB_CompactionOnOpen(t *testing.T) {
 func TestDB_SlowCompactionCreatesBackpressure(t *testing.T) {
 	forAllTables(t, testDB_SlowCompactionCreatesBackpressure)
 }
-func testDB_SlowCompactionCreatesBackpressure(t *testing.T) {
+func testDB_SlowCompactionCreatesBackpressure(t *testing.T, cfg Config) {
 	var done atomic.Bool
 	throttle := make(chan struct{})
 
-	db := newTestDB(t, func(ctx context.Context, key Key, created time.Time) bool {
+	db := newTestDB(t, cfg, func(ctx context.Context, key Key, created time.Time) bool {
 		<-throttle
 		return false
 	}, nil)
@@ -255,10 +255,10 @@ func testDB_SlowCompactionCreatesBackpressure(t *testing.T) {
 func TestDB_CloseCancelsCompaction(t *testing.T) {
 	forAllTables(t, testDB_CloseCancelsCompaction)
 }
-func testDB_CloseCancelsCompaction(t *testing.T) {
+func testDB_CloseCancelsCompaction(t *testing.T, cfg Config) {
 	var done atomic.Bool
 
-	db := newTestDB(t, blockOnContext, nil)
+	db := newTestDB(t, cfg, blockOnContext, nil)
 	defer db.Close()
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
@@ -289,10 +289,10 @@ func testDB_CloseCancelsCompaction(t *testing.T) {
 func TestDB_ContextCancelsCreate(t *testing.T) {
 	forAllTables(t, testDB_ContextCancelsCreate)
 }
-func testDB_ContextCancelsCreate(t *testing.T) {
+func testDB_ContextCancelsCreate(t *testing.T, cfg Config) {
 	var done atomic.Bool
 
-	db := newTestDB(t, blockOnContext, nil)
+	db := newTestDB(t, cfg, blockOnContext, nil)
 	defer db.Close()
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -327,9 +327,9 @@ func testDB_ContextCancelsCreate(t *testing.T) {
 func TestDB_BackgroundCompaction(t *testing.T) {
 	forAllTables(t, testDB_BackgroundCompaction)
 }
-func testDB_BackgroundCompaction(t *testing.T) {
+func testDB_BackgroundCompaction(t *testing.T, cfg Config) {
 	run := func(t *testing.T, getStore func(db *testDB) *Store) {
-		db := newTestDB(t, nil, nil)
+		db := newTestDB(t, cfg, nil, nil)
 		defer db.Close()
 
 		// while holding the db mutex so that no compactions can start, wait for the store to be in
@@ -374,11 +374,11 @@ func testDB_BackgroundCompaction(t *testing.T) {
 func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
 	forAllTables(t, testDB_CompactCallWaitsForCurrentCompaction)
 }
-func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
+func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T, cfg Config) {
 	var done atomic.Bool
 	throttle := make(chan struct{})
 
-	db := newTestDB(t, func(ctx context.Context, key Key, created time.Time) bool {
+	db := newTestDB(t, cfg, func(ctx context.Context, key Key, created time.Time) bool {
 		done.Store(true)
 		for range throttle {
 		}
@@ -411,14 +411,14 @@ func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
 func BenchmarkDB(b *testing.B) {
 	forAllTables(b, benchmarkDB)
 }
-func benchmarkDB(b *testing.B) {
+func benchmarkDB(b *testing.B, cfg Config) {
 	ctx := b.Context()
 
 	benchmarkSizes(b, "Create", func(b *testing.B, size uint64) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(ctx, b.TempDir(), "", nil, nil, nil)
+		db, err := New(ctx, cfg, b.TempDir(), "", nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 
@@ -444,7 +444,7 @@ func benchmarkDB(b *testing.B) {
 		buf := make([]byte, size)
 		_, _ = mwc.Rand().Read(buf)
 
-		db, err := New(ctx, b.TempDir(), "", nil, nil, nil)
+		db, err := New(ctx, cfg, b.TempDir(), "", nil, nil, nil)
 		assert.NoError(b, err)
 		defer db.Close()
 

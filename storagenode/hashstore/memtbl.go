@@ -18,14 +18,6 @@ import (
 	"storj.io/storj/storagenode/hashstore/platform"
 )
 
-var (
-	// if set, uses mmap to do reads to the memtbl
-	memtbl_MMAP = envBool("STORJ_HASHSTORE_MEMTBL_MMAP", false) && platform.MmapSupported
-
-	// if set, call mlock on any mmap/mremap'd data
-	memtbl_Mlock = envBool("STORJ_HASHSTORE_MEMTBL_MLOCK", true) && platform.MmapSupported
-)
-
 type memtblIdx uint32 // index of a record in the memtbl (^0 means promoted)
 
 const memtbl_Promoted = ^memtblIdx(0)
@@ -43,6 +35,7 @@ func valueToMemTblIdx(b [4]byte) (idx memtblIdx) {
 type MemTbl struct {
 	fh     *os.File
 	header TblHeader
+	cfg    MmapCfg
 
 	opMu  rwMutex   // protects operations
 	idx   memtblIdx // insert index. always needs to match file length
@@ -65,7 +58,7 @@ type MemTbl struct {
 
 // CreateMemTbl allocates a new mem table with the given log base 2 number of records and created
 // timestamp.
-func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *MemTblConstructor, err error) {
+func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32, cfg MmapCfg) (_ *MemTblConstructor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if logSlots > tbl_maxLogSlots {
@@ -92,7 +85,7 @@ func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
 	// but it reduces code paths and is not that expensive overall.
-	m, err := OpenMemTbl(ctx, fh)
+	m, err := OpenMemTbl(ctx, fh, cfg)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -100,7 +93,7 @@ func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 }
 
 // OpenMemTbl opens an existing hash table stored in the given file handle.
-func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
+func OpenMemTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *MemTbl, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ensure the file is appropriately aligned and seek it to the end for writes.
@@ -126,6 +119,7 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 	m := &MemTbl{
 		fh:     fh,
 		header: header,
+		cfg:    cfg,
 
 		idx:   memtblIdx((size - tbl_headerSize) / RecordSize),
 		align: size%RecordSize != 0,
@@ -143,14 +137,14 @@ func OpenMemTbl(ctx context.Context, fh *os.File) (_ *MemTbl, err error) {
 		return nil, err
 	}
 
-	if memtbl_MMAP {
+	if cfg.Mmap && platform.MmapSupported {
 		data, err := platform.Mmap(fh, int(size-size%platform.PageSize))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 		m.mmap, m.remap = data, true
 
-		if memtbl_Mlock {
+		if cfg.Mlock && platform.MmapSupported {
 			_ = platform.Mlock(data)
 		}
 
@@ -580,7 +574,7 @@ func (m *MemTbl) remapIfNeededSlow(size int64) {
 	if err == nil {
 		m.mmap = data
 
-		if memtbl_Mlock {
+		if m.cfg.Mlock && platform.MmapSupported {
 			_ = platform.Mlock(data)
 		}
 	}

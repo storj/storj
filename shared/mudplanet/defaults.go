@@ -84,6 +84,10 @@ func injectDefault(t *testing.T, val reflect.Value, workDir string) {
 				iv, err := strconv.Atoi(defaultValue)
 				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
 				field.Set(reflect.ValueOf(iv))
+			case reflect.Int32:
+				iv, err := strconv.Atoi(defaultValue)
+				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
+				field.Set(reflect.ValueOf(int32(iv)))
 			case reflect.Int64:
 				if field.Type() == reflect.TypeOf(time.Duration(0)) {
 					duration, err := time.ParseDuration(defaultValue)
@@ -94,6 +98,19 @@ func injectDefault(t *testing.T, val reflect.Value, workDir string) {
 					require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
 					field.Set(reflect.ValueOf(int64(iv)))
 				}
+			case reflect.Uint:
+				iv, err := strconv.Atoi(defaultValue)
+				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
+				field.Set(reflect.ValueOf(uint(iv)))
+			case reflect.Uint32:
+				iv, err := strconv.Atoi(defaultValue)
+				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
+				field.Set(reflect.ValueOf(uint32(iv)))
+			case reflect.Uint64:
+				iv, err := strconv.Atoi(defaultValue)
+				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
+				field.Set(reflect.ValueOf(uint64(iv)))
+
 			case reflect.Bool:
 				if strings.ToLower(defaultValue) == "true" {
 					field.SetBool(true)

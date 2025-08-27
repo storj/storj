@@ -507,7 +507,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			NoiseKeyAttestation: noiseKeyAttestation,
 			DebounceLimit:       peer.Server.DebounceLimit(),
 			FastOpen:            peer.Server.FastOpen(),
-			HashstoreMemtbl:     hashstore.IsMemTbl(),
+			HashstoreMemtbl:     config.Hashstore.TableDefaultKind.Kind == hashstore.TableKind_MemTbl,
 		}
 
 		err = peer.Storage2.MigrationState.Range(func(id storj.NodeID, bytes []byte) error {
@@ -617,6 +617,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.HashStoreBackend, err = piecestore.NewHashStoreBackend(
 			context.Background(),
+			config.Hashstore,
 			logsPath,
 			tablePath,
 			peer.Storage2.BloomFilterManager,

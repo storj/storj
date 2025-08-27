@@ -18,14 +18,6 @@ import (
 	"storj.io/storj/storagenode/hashstore/platform"
 )
 
-var (
-	// if set, uses mmap to do reads and writes to the hashtbl.
-	hashtbl_MMAP = envBool("STORJ_HASHSTORE_HASHTBL_MMAP", false) && platform.MmapSupported
-
-	// if set, call mlock on any mmap'd data
-	hashtbl_Mlock = envBool("STORJ_HASHSTORE_HASHTBL_MLOCK", true) && platform.MmapSupported
-)
-
 const hashtbl_invalidPage = 1<<64 - 1
 
 // HashTbl is an on disk hash table of records.
@@ -72,7 +64,7 @@ func (p bigPageIdxT) Offset() int64 { return tbl_headerSize + int64(p*bigPageSiz
 
 // CreateHashTbl allocates a new hash table with the given log base 2 number of records and created
 // timestamp. The file is truncated and allocated to the correct size.
-func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32) (_ *HashTblConstructor, err error) {
+func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32, cfg MmapCfg) (_ *HashTblConstructor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if logSlots > tbl_maxLogSlots {
@@ -104,7 +96,7 @@ func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
 	// and compute estimates, but it reduces code paths and is not that expensive overall.
-	h, err := OpenHashTbl(ctx, fh)
+	h, err := OpenHashTbl(ctx, fh, cfg)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -112,7 +104,7 @@ func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 }
 
 // OpenHashTbl opens an existing hash table stored in the given file handle.
-func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
+func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// compute the number of records from the file size of the hash table.
@@ -157,14 +149,14 @@ func OpenHashTbl(ctx context.Context, fh *os.File) (_ *HashTbl, err error) {
 		header:   header,
 	}
 
-	if hashtbl_MMAP {
+	if cfg.Mmap && platform.MmapSupported {
 		data, err := platform.Mmap(fh, int(size))
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 		h.mmap = newMMAPCache(data)
 
-		if hashtbl_Mlock {
+		if cfg.Mlock && platform.MmapSupported {
 			_ = platform.Mlock(data)
 		}
 

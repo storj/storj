@@ -62,6 +62,7 @@ type PieceReader interface {
 type HashStoreBackend struct {
 	logsPath  string
 	tablePath string
+	cfg       hashstore.Config
 
 	bfm *retain.BloomFilterManager
 	rtm *retain.RestoreTimeManager
@@ -75,6 +76,7 @@ type HashStoreBackend struct {
 // directory are allowed to be the same.
 func NewHashStoreBackend(
 	ctx context.Context,
+	cfg hashstore.Config,
 	logsPath string,
 	tablePath string,
 	bfm *retain.BloomFilterManager,
@@ -89,6 +91,7 @@ func NewHashStoreBackend(
 	hsb := &HashStoreBackend{
 		logsPath:  logsPath,
 		tablePath: tablePath,
+		cfg:       cfg,
 		bfm:       bfm,
 		rtm:       rtm,
 		log:       log,
@@ -247,6 +250,7 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 
 	db, err := hashstore.New(
 		ctx,
+		hsb.cfg,
 		filepath.Join(hsb.logsPath, satellite.String()),
 		filepath.Join(hsb.tablePath, satellite.String()),
 		log,

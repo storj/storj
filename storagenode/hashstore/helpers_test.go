@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"testing/iotest"
 	"time"
@@ -161,46 +160,15 @@ func TestRewrittenIndex(t *testing.T) {
 //
 
 var (
-	// since temporarily is used primarily to set global variables during tests, it might be called
-	// for the same variable multiple times. this is probably a bug, and so we keep track of which
-	// variables are already set and panic if they overlap.
-	temporarilyMutex    sync.Mutex
-	temporarilyAcquired = make(map[any]bool)
+	compaction_ExpiresDays = uint32(7)
 )
 
-func init() {
-	// enable ordered rewrite for all tests.
-	compaction_OrderedRewrite = true
-
-	// enable checking log file size and offset
-	store_TestLogSizeAndOffset = true
-}
-
-func temporarily[T any](loc *T, val T) func() {
-	temporarilyMutex.Lock()
-	defer temporarilyMutex.Unlock()
-
-	if temporarilyAcquired[loc] {
-		panic("overlapped temporarily calls")
-	}
-	temporarilyAcquired[loc] = true
-
-	old := *loc
-	*loc = val
-	return func() { *loc = old; delete(temporarilyAcquired, loc) }
-}
-
-func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
-	mmaps := map[TableKind]*bool{
-		TableKind_HashTbl: &hashtbl_MMAP,
-		TableKind_MemTbl:  &memtbl_MMAP,
-	}
-
+func forAllTables[T interface {
+	Run(string, func(T)) bool
+}](t T, fn func(T, Config)) {
 	run := func(t T, kind TableKind, mmap bool) {
 		t.Run(fmt.Sprintf("tbl=%s/mmap=%v", kind, mmap), func(t T) {
-			defer temporarily(&table_DefaultKind, kind)()
-			defer temporarily(mmaps[kind], mmap)()
-			fn(t)
+			fn(t, CreateDefaultConfig(kind, mmap))
 		})
 	}
 
@@ -210,11 +178,6 @@ func forAllTables[T interface{ Run(string, func(T)) bool }](t T, fn func(T)) {
 		run(t, TableKind_HashTbl, true)
 		run(t, TableKind_MemTbl, true)
 	}
-}
-
-func forEachBool[T interface{ Run(string, func(T)) bool }](t T, name string, ptr *bool, fn func(T)) {
-	t.Run(name+"=false", func(t T) { defer temporarily(ptr, false)(); fn(t) })
-	t.Run(name+"=true", func(t T) { defer temporarily(ptr, true)(); fn(t) })
 }
 
 func ifFailed(t testing.TB, fn func()) {
@@ -269,21 +232,22 @@ func newMemoryLogger() *zap.Logger {
 type testTbl struct {
 	t testing.TB
 	Tbl
+	cfg Config
 }
 
-func newTestTbl(t testing.TB, lrec uint64, opts ...any) *testTbl {
+func newTestTbl(t testing.TB, cfg Config, lrec uint64, opts ...any) *testTbl {
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
 	defer ifFailed(t, func() { _ = fh.Close() })
 
-	cons, err := CreateTable(t.Context(), fh, lrec, 0, table_DefaultKind)
+	cons, err := CreateTable(t.Context(), fh, lrec, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.NoError(t, err)
 	defer cons.Close()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	tbl, err := cons.Done(t.Context())
 	assert.NoError(t, err)
 
-	return &testTbl{t: t, Tbl: tbl}
+	return &testTbl{t: t, Tbl: tbl, cfg: cfg}
 }
 
 func (tbl *testTbl) Close() { tbl.Tbl.Close() }
@@ -294,7 +258,7 @@ func (tbl *testTbl) AssertReopen() {
 	fh, err := os.OpenFile(tbl.Handle().Name(), os.O_RDWR, 0)
 	assert.NoError(tbl.t, err)
 
-	h, err := OpenTable(tbl.t.Context(), fh)
+	h, err := OpenTable(tbl.t.Context(), fh, tbl.cfg)
 	assert.NoError(tbl.t, err)
 
 	tbl.Tbl = h
@@ -337,21 +301,22 @@ func (tbl *testTbl) AssertLookupMiss(k Key) {
 type testHashTbl struct {
 	t testing.TB
 	*HashTbl
+	cfg MmapCfg
 }
 
-func newTestHashTbl(t testing.TB, lrec uint64, opts ...any) *testHashTbl {
+func newTestHashTbl(t testing.TB, cfg MmapCfg, lrec uint64, opts ...any) *testHashTbl {
 	fh, err := os.CreateTemp(t.TempDir(), "hashtbl")
 	assert.NoError(t, err)
 	defer ifFailed(t, func() { _ = fh.Close() })
 
-	cons, err := CreateHashTbl(t.Context(), fh, lrec, 0)
+	cons, err := CreateHashTbl(t.Context(), fh, lrec, 0, cfg)
 	assert.NoError(t, err)
 	defer cons.Close()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	h, err := cons.Done(t.Context())
 	assert.NoError(t, err)
 
-	return &testHashTbl{t: t, HashTbl: h.(*HashTbl)}
+	return &testHashTbl{t: t, HashTbl: h.(*HashTbl), cfg: cfg}
 }
 
 func (th *testHashTbl) Close() { th.HashTbl.Close() }
@@ -362,7 +327,7 @@ func (th *testHashTbl) AssertReopen() {
 	fh, err := os.OpenFile(th.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(th.t, err)
 
-	h, err := OpenHashTbl(th.t.Context(), fh)
+	h, err := OpenHashTbl(th.t.Context(), fh, th.cfg)
 	assert.NoError(th.t, err)
 
 	th.HashTbl = h
@@ -405,21 +370,22 @@ func (th *testHashTbl) AssertLookupMiss(k Key) {
 type testMemTbl struct {
 	t testing.TB
 	*MemTbl
+	cfg MmapCfg
 }
 
-func newTestMemTbl(t testing.TB, lrec uint64, opts ...any) *testMemTbl {
+func newTestMemTbl(t testing.TB, cfg MmapCfg, lrec uint64, opts ...any) *testMemTbl {
 	fh, err := os.CreateTemp(t.TempDir(), "memtbl")
 	assert.NoError(t, err)
 	defer ifFailed(t, func() { _ = fh.Close() })
 
-	cons, err := CreateMemTbl(t.Context(), fh, lrec, 0)
+	cons, err := CreateMemTbl(t.Context(), fh, lrec, 0, cfg)
 	assert.NoError(t, err)
 	defer cons.Close()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	m, err := cons.Done(t.Context())
 	assert.NoError(t, err)
 
-	return &testMemTbl{t: t, MemTbl: m.(*MemTbl)}
+	return &testMemTbl{t: t, MemTbl: m.(*MemTbl), cfg: cfg}
 }
 
 func (tm *testMemTbl) Close() { tm.MemTbl.Close() }
@@ -430,7 +396,7 @@ func (tm *testMemTbl) AssertReopen() {
 	fh, err := os.OpenFile(tm.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(tm.t, err)
 
-	m, err := OpenMemTbl(tm.t.Context(), fh)
+	m, err := OpenMemTbl(tm.t.Context(), fh, tm.cfg)
 	assert.NoError(tm.t, err)
 
 	tm.MemTbl = m
@@ -474,13 +440,14 @@ type testStore struct {
 	t testing.TB
 	*Store
 	today uint32
+	cfg   *Config
 }
 
-func newTestStore(t testing.TB) *testStore {
-	s, err := NewStore(t.Context(), t.TempDir(), "", newMemoryLogger())
+func newTestStore(t testing.TB, cfg Config) *testStore {
+	s, err := NewStore(t.Context(), cfg, t.TempDir(), "", newMemoryLogger())
 	assert.NoError(t, err)
 
-	ts := &testStore{t: t, Store: s, today: s.today()}
+	ts := &testStore{t: t, Store: s, today: s.today(), cfg: &cfg}
 
 	s.today = func() uint32 { return ts.today }
 
@@ -492,7 +459,7 @@ func (ts *testStore) Close() { ts.Store.Close() }
 func (ts *testStore) AssertReopen() {
 	ts.Store.Close()
 
-	s, err := NewStore(ts.t.Context(), ts.logsPath, ts.tablePath, ts.log)
+	s, err := NewStore(ts.t.Context(), *ts.cfg, ts.logsPath, ts.tablePath, ts.log)
 	assert.NoError(ts.t, err)
 
 	s.today = func() uint32 { return ts.today }
@@ -582,18 +549,21 @@ func (ts *testStore) LogFile(key Key) uint64 {
 //
 
 type testDB struct {
-	t testing.TB
+	t   testing.TB
+	cfg Config
 	*DB
 }
 
-func newTestDB(t testing.TB,
+func newTestDB(
+	t testing.TB,
+	cfg Config,
 	dead func(context.Context, Key, time.Time) bool,
 	restore func(context.Context) time.Time,
 ) *testDB {
-	db, err := New(t.Context(), t.TempDir(), "", newMemoryLogger(), dead, restore)
+	db, err := New(t.Context(), cfg, t.TempDir(), "", newMemoryLogger(), dead, restore)
 	assert.NoError(t, err)
 
-	td := &testDB{t: t, DB: db}
+	td := &testDB{t: t, DB: db, cfg: cfg}
 
 	return td
 }
@@ -603,7 +573,7 @@ func (td *testDB) Close() { td.DB.Close() }
 func (td *testDB) AssertReopen() {
 	td.DB.Close()
 
-	db, err := New(td.t.Context(), td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
+	db, err := New(td.t.Context(), td.cfg, td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
 	assert.NoError(td.t, err)
 
 	td.DB = db

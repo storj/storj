@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -125,31 +124,6 @@ func (f flag) get() bool { return bool(f) }
 func (f *flag) set() (old bool) {
 	old, *f = f.get(), true
 	return old
-}
-
-//
-// helpers to get config values from the environment
-//
-
-func envFloat(name string, def float64) float64 {
-	if val, err := strconv.ParseFloat(os.Getenv(name), 64); err == nil {
-		return val
-	}
-	return def
-}
-
-func envInt(name string, def int64) int64 {
-	if val, err := strconv.ParseInt(os.Getenv(name), 10, 64); err == nil {
-		return val
-	}
-	return def
-}
-
-func envBool(name string, def bool) bool {
-	if val, err := strconv.ParseBool(os.Getenv(name)); err == nil {
-		return val
-	}
-	return def
 }
 
 //

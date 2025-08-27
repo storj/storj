@@ -38,7 +38,7 @@ func main() {
 type cmdRoot struct {
 	fast  bool
 	slots *uint64
-	kind  hashstore.TableKind
+	kind  hashstore.TableKindCfg
 
 	dir string
 
@@ -59,10 +59,9 @@ func (c *cmdRoot) Setup(params clingy.Parameters) {
 		}),
 		clingy.Optional,
 	).(*uint64)
-	c.kind = params.Flag("kind", "Kind of table to write", hashstore.TableKind_HashTbl,
+	c.kind = params.Flag("kind", "Kind of table to write", hashstore.TableKindCfg{Kind: hashstore.TableKind_HashTbl},
 		clingy.Short('k'),
-		clingy.Transform(hashstore.ParseTableKind),
-	).(hashstore.TableKind)
+	).(hashstore.TableKindCfg)
 
 	c.dir = params.Arg("dir", "Directory containing log files to process").(string)
 }
@@ -98,7 +97,8 @@ func (c *cmdRoot) Execute(ctx context.Context) (err error) {
 	}
 	defer func() { _ = fh.Close() }()
 
-	tcons, err := hashstore.CreateTable(ctx, fh, *c.slots, 0, c.kind)
+	// TODO: use injected configuration
+	tcons, err := hashstore.CreateTable(ctx, fh, *c.slots, 0, c.kind.Kind, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false))
 	if err != nil {
 		return errs.Wrap(err)
 	}

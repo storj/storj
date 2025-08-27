@@ -173,7 +173,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 			default:
 				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
 			}
-		case reflect.TypeOf(uint(0)):
+		case reflect.TypeOf(uint(0)), reflect.TypeOf(uint64(0)), reflect.TypeOf(uint32(0)):
 			switch v := val.(type) {
 			case string:
 				if v == "" {
@@ -185,10 +185,8 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				}
 				fieldval.SetUint(uint64(nv))
 			default:
-				fieldval.SetUint(uint64(val.(uint)))
+				fieldval.SetUint(reflect.ValueOf(val).Uint())
 			}
-		case reflect.TypeOf(uint64(0)):
-			fieldval.SetUint(val.(uint64))
 		case reflect.TypeOf(time.Duration(0)):
 			val, err := time.ParseDuration(val.(string))
 			if err != nil {

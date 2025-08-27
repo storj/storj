@@ -14,6 +14,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/bloomfilter"
+	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/retain"
 )
 
@@ -23,7 +24,7 @@ func TestHashstoreBackendTrash(t *testing.T) {
 	// allocate a hash backend
 	bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
-	backend, err := NewHashStoreBackend(ctx, t.TempDir(), "", bfm, rtm, nil)
+	backend, err := NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", bfm, rtm, nil)
 	require.NoError(t, err)
 	defer ctx.Check(backend.Close)
 
@@ -91,7 +92,7 @@ func BenchmarkPieceStore(b *testing.B) {
 		run(b, func(b *testing.B) PieceBackend {
 			bfm, _ := retain.NewBloomFilterManager(b.TempDir(), 0)
 			rtm := retain.NewRestoreTimeManager(b.TempDir())
-			backend, err := NewHashStoreBackend(b.Context(), b.TempDir(), "", bfm, rtm, nil)
+			backend, err := NewHashStoreBackend(b.Context(), hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), b.TempDir(), "", bfm, rtm, nil)
 			require.NoError(b, err)
 			return backend
 		}, 64*1024)

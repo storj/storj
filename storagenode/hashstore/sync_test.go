@@ -100,9 +100,7 @@ func TestMutex_LockBlocksUntilCanceled(t *testing.T) {
 
 func TestRWMutex(t *testing.T) {
 	run := func(t *testing.T, lifo bool) {
-		defer temporarily(&sync_RWMutexLIFO, lifo)()
-
-		mu := newRWMutex(0)
+		mu := newRWMutex(0, lifo)
 		closed := new(drpcsignal.Signal)
 		ctx := t.Context()
 
@@ -168,9 +166,7 @@ func TestRWMutex_LockBlocksUntilCanceled(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			run := func(t *testing.T, lifo bool) {
-				defer temporarily(&sync_RWMutexLIFO, lifo)()
-
-				mu := newRWMutex(0)
+				mu := newRWMutex(0, lifo)
 				sig := new(drpcsignal.Signal)
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
@@ -225,7 +221,7 @@ func TestRWMutex_LockBlocksUntilCanceled(t *testing.T) {
 }
 
 func TestRWMutex_Semaphore_Failure(t *testing.T) {
-	mu := newRWMutex(1)
+	mu := newRWMutex(1, false)
 	closed := new(drpcsignal.Signal)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -250,7 +246,7 @@ func TestRWMutex_Semaphore_Failure(t *testing.T) {
 }
 
 func TestRWMutex_Semaphore_Success(t *testing.T) {
-	mu := newRWMutex(1)
+	mu := newRWMutex(1, false)
 	closed := new(drpcsignal.Signal)
 	ctx := t.Context()
 
@@ -273,7 +269,7 @@ func TestRWMutex_Semaphore_Success(t *testing.T) {
 }
 
 func TestRWMutex_ReleaseCancelRace(t *testing.T) {
-	mu := newRWMutex(0)
+	mu := newRWMutex(0, false)
 	sig := new(drpcsignal.Signal)
 
 	for i := 0; i < 100; i++ {
@@ -314,9 +310,7 @@ func TestRWMutex_ReleaseCancelRace(t *testing.T) {
 }
 
 func TestRWMutex_PendingWriteDoesntPreventMultipleReads(t *testing.T) {
-	defer temporarily(&sync_RWMutexLIFO, true)()
-
-	mu := newRWMutex(0)
+	mu := newRWMutex(0, true)
 	closed := new(drpcsignal.Signal)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -389,7 +383,7 @@ func TestRWMutex_PendingWriteDoesntPreventMultipleReads(t *testing.T) {
 
 func BenchmarkRWMutex(b *testing.B) {
 	b.Run("Read", func(b *testing.B) {
-		mu := newRWMutex(0)
+		mu := newRWMutex(0, false)
 		closed := new(drpcsignal.Signal)
 		ctx := b.Context()
 
@@ -402,7 +396,7 @@ func BenchmarkRWMutex(b *testing.B) {
 	})
 
 	b.Run("Write", func(b *testing.B) {
-		mu := newRWMutex(0)
+		mu := newRWMutex(0, false)
 		closed := new(drpcsignal.Signal)
 		ctx := b.Context()
 
