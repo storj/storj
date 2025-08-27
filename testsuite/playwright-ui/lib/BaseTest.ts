@@ -9,6 +9,7 @@ import { SignupPage } from '@pages/SignupPage';
 import { AllProjectsPage } from '@pages/AllProjectsPage';
 import { ObjectBrowserPage } from '@pages/ObjectBrowserPage';
 import { AccountSettingsPage } from '@pages/AccountSettingsPage';
+import { ProjectDashboardPage } from '@pages/ProjectDashboardPage';
 
 const test = baseTest.extend<{
     loginPage: LoginPage;
@@ -18,6 +19,7 @@ const test = baseTest.extend<{
     signupPage: SignupPage;
     allProjectsPage: AllProjectsPage;
     accountSettingsPage: AccountSettingsPage;
+    projectDashboardPage: ProjectDashboardPage;
 }>({
     loginPage: async ({ page }, use) => {
         await use(new LoginPage(page));
@@ -39,6 +41,9 @@ const test = baseTest.extend<{
     },
     accountSettingsPage: async ({ page }, use) => {
         await use(new AccountSettingsPage(page));
+    },
+    projectDashboardPage: async ({ page }, use) => {
+        await use(new ProjectDashboardPage(page));
     },
 });
 

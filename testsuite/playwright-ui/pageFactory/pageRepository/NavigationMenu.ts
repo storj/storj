@@ -27,4 +27,9 @@ export class NavigationMenu {
         await this.openAccountSettings();
         await this.page.locator(NavigationMenuObject.ACCOUNT_SETTINGS_MENU_ITEM_XPATH).click();
     }
+
+    async logout(): Promise<void> {
+        await this.openAccountSettings();
+        await this.page.locator(NavigationMenuObject.SIGN_OUT_MENU_ITEM_XPATH).click();
+    }
 }
