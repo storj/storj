@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/shared/dbutil/dbschema"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 func TestMigration(t *testing.T) {
@@ -47,6 +48,10 @@ func TestMigration(t *testing.T) {
 	}
 }
 
+type tagSqlDB interface {
+	UnderlyingDB() tagsql.DB
+}
+
 func schemaFromMigration(t *testing.T, ctx *testcontext.Context, dbinfo satellitedbtest.Database, migration func(ctx context.Context, db *metabase.DB) error) (scheme *dbschema.Snapshot) {
 	db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo, metabase.Config{
 		ApplicationName: "migration",
@@ -59,8 +64,7 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, dbinfo satellit
 	require.NoError(t, err)
 
 	adapter := db.ChooseAdapter(uuid.UUID{})
-
-	pgAdapter, ok := adapter.(*metabase.PostgresAdapter)
+	pgAdapter, ok := adapter.(tagSqlDB)
 	require.True(t, ok, "Spanner not supported yet for testing snapshots and querying schema")
 
 	scheme, err = pgutil.QuerySnapshot(ctx, pgAdapter.UnderlyingDB())
