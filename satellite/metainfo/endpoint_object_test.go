@@ -861,6 +861,7 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 	// Spanner could be quite slow sometimes, 1 second seems quite enough for the last test failures
 	// that we got due to not hitting the limit.
 	const uploadLimitSingleObject = 1 * time.Second
+	const uploadLimitSingleObjectBurst = 3
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
@@ -911,19 +912,15 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 			now := time.Now()
 			ctx, machine := time2.WithNewMachine(ctx, time2.WithTimeAt(now))
 
-			// upload to the same location one by one should fail
-			_, err := endpoint.BeginObject(ctx, request)
-			require.NoError(t, err)
+			// upload to the burst limit
+			for i := 0; i < uploadLimitSingleObjectBurst; i++ {
+				_, err := endpoint.BeginObject(ctx, request)
+				require.NoError(t, err)
+			}
 
 			_, err = endpoint.BeginObject(ctx, request)
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
-
-			// Set the context clock enough in the future to ensure that the rate limit is reset.
-			machine.Advance(uploadLimitSingleObject + time.Millisecond)
-
-			_, err = endpoint.BeginObject(ctx, request)
-			require.NoError(t, err)
 
 			// upload to different locations one by one should NOT fail
 			request.EncryptedObjectKey = []byte("single-objectA")
@@ -931,6 +928,13 @@ func TestEndpoint_Object_Limit(t *testing.T) {
 			require.NoError(t, err)
 
 			request.EncryptedObjectKey = []byte("single-objectB")
+			_, err = endpoint.BeginObject(ctx, request)
+			require.NoError(t, err)
+
+			// Set the context clock enough in the future to ensure that the rate limit allows another request through.
+			machine.Advance(uploadLimitSingleObject + time.Millisecond)
+			request.EncryptedObjectKey = []byte("single-object")
+
 			_, err = endpoint.BeginObject(ctx, request)
 			require.NoError(t, err)
 		})

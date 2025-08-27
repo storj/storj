@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -26,6 +25,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/common/time2"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
@@ -829,21 +829,13 @@ func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, publicID uu
 		return nil
 	}
 
-	limited := true
-	// if object location is in cache it means that we won't allow to upload yet here,
-	// if it's not or internally key expired we are good to go
-	key := strings.Join([]string{string(publicID[:]), string(bucketName), string(objectKey)}, "/")
-	_, _ = endpoint.singleObjectUploadLimitCache.Get(ctx, key, func() (struct{}, error) {
-		limited = false
-		return struct{}{}, nil
-	})
-	if limited {
+	if !endpoint.singleObjectUploadLimitCache.Allow(time2.Now(ctx),
+		bytes.Join([][]byte{publicID[:], bucketName, objectKey}, []byte{'/'})) {
 		ek.Event("single-object-upload-limit",
 			eventkit.String("project-public-id", publicID.String()),
 			eventkit.String("bucket", string(bucketName)),
 			eventkit.Bytes("object-key", objectKey),
 		)
-
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 	}
 
