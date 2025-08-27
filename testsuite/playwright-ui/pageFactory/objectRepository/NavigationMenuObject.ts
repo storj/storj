@@ -8,4 +8,6 @@ export class NavigationMenuObject {
     static SWITCH_PASSPHRASE_ACTION_XPATH = `//div/div/div/p[contains(text(),'Switch active passphrase')]`;
     static PASSPHRASE_INPUT_XPATH = `//input[@id='Encryption Passphrase']`;
     static CONFIRM_SWITCH_PASSPHRASE_BUTTON_XPATH = `//button[span[text()=' Continue ']]`;
+    static MY_ACCOUNT_BUTTON_XPATH = `//button[span[text()=' My Account ']]`;
+    static ACCOUNT_SETTINGS_MENU_ITEM_XPATH = `//div[text()=' Settings ']`;
 }
