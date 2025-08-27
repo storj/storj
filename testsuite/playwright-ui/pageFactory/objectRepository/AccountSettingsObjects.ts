@@ -11,4 +11,6 @@ export class AccountSettingsObjects {
     static CHANGE_PASSWORD_CURRENT_INPUT_XPATH = `//input[@placeholder='Enter your current password']`;
     static CHANGE_PASSWORD_NEW_INPUT_XPATH = `//input[@placeholder='Enter a new password']`;
     static CHANGE_PASSWORD_CONFIRM_INPUT_XPATH = `//input[@placeholder='Enter the new password again']`;
+    static CHANGE_SESSION_TIMEOUT_BUTTON_XPATH = `//button[span[text()=' Change Timeout ']]`;
+    static CHANGE_SESSION_TIMEOUT_DIALOG_TITLE_XPATH = `//div[text()='Session Timeout']`;
 }
