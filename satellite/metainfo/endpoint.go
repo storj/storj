@@ -88,7 +88,7 @@ type Endpoint struct {
 	apiKeys                        APIKeys
 	satellite                      signing.Signer
 	limiterCache                   *lrucache.ExpiringLRUOf[*rate.Limiter]
-	singleObjectUploadLimitCache   *lrucache.ExpiringLRUOf[struct{}]
+	singleObjectUploadLimitCache   *bloomrate.BloomRate
 	singleObjectDownloadLimitCache *bloomrate.BloomRate
 	userInfoCache                  *lrucache.ExpiringLRUOf[*console.UserInfo]
 	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
@@ -172,11 +172,11 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 			Expiration: config.RateLimiter.CacheExpiration,
 			Name:       "metainfo-ratelimit",
 		}),
-		singleObjectUploadLimitCache: lrucache.NewOf[struct{}](lrucache.Options{
-			Expiration: config.UploadLimiter.SingleObjectLimit,
-			Capacity:   config.UploadLimiter.CacheCapacity,
-			Name:       "metainfo-single-object-upload-limit",
-		}),
+		singleObjectUploadLimitCache: bloomrate.NewBloomRate(
+			config.UploadLimiter.SizeExponent,
+			config.UploadLimiter.HashCount,
+			rate.Every(config.UploadLimiter.SingleObjectLimit),
+			config.UploadLimiter.BurstLimit),
 		singleObjectDownloadLimitCache: bloomrate.NewBloomRate(
 			config.DownloadLimiter.SizeExponent,
 			config.DownloadLimiter.HashCount,

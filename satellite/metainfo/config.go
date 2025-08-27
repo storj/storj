@@ -155,7 +155,11 @@ type UploadLimiterConfig struct {
 	Enabled           bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
 	SingleObjectLimit time.Duration `help:"how often we can upload to the single object (the same location) per API instance" default:"1s" devDefault:"1ms"`
 
-	CacheCapacity int `help:"number of object locations to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
+	CacheCapacity int `help:"DEPRECATED. number of object locations to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
+
+	BurstLimit   int `help:"the number of requests to allow bursts beyond the rate limit" default:"3"`
+	HashCount    int `help:"the number of hash indexes to make into the rate limit map" default:"3"`
+	SizeExponent int `help:"two to this power is the amount of rate limits to store in ram. higher has less collisions." releaseDefault:"21" devDefault:"17" testDefault:"16"`
 }
 
 // DownloadLimiterConfig is a configuration struct for endpoint download limiting.
