@@ -824,7 +824,7 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.Encrypted
 	return nil
 }
 
-func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID uuid.UUID, bucketName []byte, objectKey []byte) error {
+func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, publicID uuid.UUID, bucketName []byte, objectKey []byte) error {
 	if !endpoint.config.UploadLimiter.Enabled {
 		return nil
 	}
@@ -832,12 +832,18 @@ func (endpoint *Endpoint) checkObjectUploadRate(ctx context.Context, projectID u
 	limited := true
 	// if object location is in cache it means that we won't allow to upload yet here,
 	// if it's not or internally key expired we are good to go
-	key := strings.Join([]string{string(projectID[:]), string(bucketName), string(objectKey)}, "/")
+	key := strings.Join([]string{string(publicID[:]), string(bucketName), string(objectKey)}, "/")
 	_, _ = endpoint.singleObjectUploadLimitCache.Get(ctx, key, func() (struct{}, error) {
 		limited = false
 		return struct{}{}, nil
 	})
 	if limited {
+		ek.Event("single-object-upload-limit",
+			eventkit.String("project-public-id", publicID.String()),
+			eventkit.String("bucket", string(bucketName)),
+			eventkit.Bytes("object-key", objectKey),
+		)
+
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 	}
 
