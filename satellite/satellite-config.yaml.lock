@@ -1235,14 +1235,23 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # list of trusted uplinks
 # metainfo.trusted-uplinks: []
 
-# number of object locations to cache.
+# the number of requests to allow bursts beyond the rate limit
+# metainfo.upload-limiter.burst-limit: 3
+
+# DEPRECATED. number of object locations to cache.
 # metainfo.upload-limiter.cache-capacity: 10000
 
 # whether rate limiting is enabled.
 # metainfo.upload-limiter.enabled: true
 
+# the number of hash indexes to make into the rate limit map
+# metainfo.upload-limiter.hash-count: 3
+
 # how often we can upload to the single object (the same location) per API instance
 # metainfo.upload-limiter.single-object-limit: 1s
+
+# two to this power is the amount of rate limits to store in ram. higher has less collisions.
+# metainfo.upload-limiter.size-exponent: 21
 
 # enable the use of bucket level object versioning
 # metainfo.use-bucket-level-object-versioning: true
