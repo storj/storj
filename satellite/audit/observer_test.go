@@ -26,7 +26,7 @@ import (
 )
 
 // TestAuditCollector does the following:
-// - start testplanet with 5 nodes and a reservoir size of 3
+// - start testplanet with 6 nodes and a reservoir size of 3
 // - upload 5 files
 // - iterate over all the segments in satellite.Metainfo and store them in allPieces map
 // - create a audit observer and call metaloop.Join(auditObs)
@@ -39,7 +39,7 @@ func TestAuditCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(3, 4, 5, 5),
+			Satellite: testplanet.ReconfigureRS(3, 4, 6, 6),
 			StorageNode: func(index int, config *storagenode.Config) {
 				if index == 5 {
 					config.Contact.SelfSignedTags = []string{"ignore=true"}
@@ -52,12 +52,10 @@ func TestAuditCollector(t *testing.T) {
 
 		ul := planet.Uplinks[0]
 
-		// upload 5 remote files with 1 segment
 		for i := range 5 {
 			testData := testrand.Bytes(8 * memory.KiB)
 			path := "/some/remote/path/" + strconv.Itoa(i)
-			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
-			require.NoError(t, err)
+			require.NoError(t, ul.Upload(ctx, satellite, "testbucket", path, testData))
 		}
 
 		filter, err := nodeselection.FilterFromString(fmt.Sprintf(`exclude(tag("%s","ignore","true"))`, planet.StorageNodes[5].ID()), nil)
