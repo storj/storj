@@ -455,28 +455,43 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 
 // DeletePendingObject deletes a pending object with specified version and streamID.
 func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
+	// because delete is using full primary key we are sure only one object will be removed
+	var totalDeletedObjects int
 	err = withRows(p.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
 					(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
 					status = `+statusPending+`
-				RETURNING
-					version, stream_id, created_at, expires_at, status, segment_count,
-					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-					total_plain_size, total_encrypted_size, fixed_segment_size, encryption,
-					retention_mode, retain_until
+				RETURNING stream_id
 			), deleted_segments AS (
 				DELETE FROM segments
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-				RETURNING segments.stream_id
 			)
-			SELECT *, (SELECT COUNT(*) FROM deleted_segments) FROM deleted_objects
+			SELECT (SELECT COUNT(*) FROM deleted_objects)
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
-		result.Removed, result.DeletedSegmentCount, err = scanObjectDeletionPostgres(ctx, opts.Location(), rows)
-		return err
+		var deletedObjects int
+		for rows.Next() {
+			if err := rows.Scan(&deletedObjects); err != nil {
+				return err
+			}
+		}
+		totalDeletedObjects += deletedObjects
+		return nil
 	})
-	return result, Error.Wrap(err)
+	if err != nil {
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+
+	if totalDeletedObjects == 0 {
+		return result, nil
+	}
+
+	result.Removed = append(result.Removed, Object{
+		ObjectStream: opts.ObjectStream,
+		Status:       Pending,
+	})
+	return result, nil
 }
 
 // DeletePendingObject deletes a pending object with specified version and streamID.
