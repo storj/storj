@@ -46,6 +46,7 @@ type Config struct {
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
+	AbbreviatedDeleteProjectEnabled   bool                      `help:"whether the abbreviated delete project flow is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
 	UseNewRestKeysTable               bool                      `help:"whether to use the new rest keys table" default:"false"`
 	NewDetailedUsageReportEnabled     bool                      `help:"whether to use the new detailed usage report" default:"false"`

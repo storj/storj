@@ -2792,6 +2792,30 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
+	if s.config.AbbreviatedDeleteProjectEnabled {
+		err = s.store.Projects().UpdateStatus(ctx, projectID, ProjectPendingDeletion)
+		if err != nil {
+			return err
+		}
+
+		currentPriceStr := "0"
+		if deleteProjectInfo != nil {
+			currentPriceStr = deleteProjectInfo.CurrentMonthPrice.String()
+		}
+
+		s.log.Info("project marked for deletion successfully by user",
+			zap.String("project_id", publicProjectID.String()),
+			zap.String("user_id", user.ID.String()),
+			zap.String("user_email", user.Email),
+			zap.String("current_usage_price", currentPriceStr),
+		)
+		s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID)
+
+		// We need to reset the step value to prevent the possibility of bypassing steps
+		// in subsequent delete project requests.
+		return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{EmailChangeVerificationStep: new(int)})
+	}
+
 	err = s.store.Domains().DeleteAllByProjectID(ctx, projectID)
 	if err != nil {
 		s.log.Error("failed to delete all domains for project",
@@ -5760,29 +5784,31 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, projectID uuid.UUID) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	buckets, err := s.buckets.CountBuckets(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	if buckets > 0 {
-		return &DeleteProjectInfo{Buckets: buckets}, ErrUsage.New("some buckets still exist")
-	}
-
-	// ignore object browser api key because we hide it from the user, so they can't delete it.
-	// project row deletion cascades to api keys, so it's okay.
-	keys, err := s.store.APIKeys().GetAllNamesByProjectID(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	var keyCount int
-	for _, k := range keys {
-		if !strings.HasPrefix(k, s.config.ObjectBrowserKeyNamePrefix) {
-			keyCount++
+	if !s.config.AbbreviatedDeleteProjectEnabled {
+		buckets, err := s.buckets.CountBuckets(ctx, projectID)
+		if err != nil {
+			return nil, err
 		}
-	}
-	if keyCount > 0 {
-		return &DeleteProjectInfo{APIKeys: keyCount}, ErrUsage.New("some api keys still exist")
+		if buckets > 0 {
+			return &DeleteProjectInfo{Buckets: buckets}, ErrUsage.New("some buckets still exist")
+		}
+
+		// ignore object browser api key because we hide it from the user, so they can't delete it.
+		// project row deletion cascades to api keys, so it's okay.
+		keys, err := s.store.APIKeys().GetAllNamesByProjectID(ctx, projectID)
+		if err != nil {
+			return nil, err
+		}
+
+		var keyCount int
+		for _, k := range keys {
+			if !strings.HasPrefix(k, s.config.ObjectBrowserKeyNamePrefix) {
+				keyCount++
+			}
+		}
+		if keyCount > 0 {
+			return &DeleteProjectInfo{APIKeys: keyCount}, ErrUsage.New("some api keys still exist")
+		}
 	}
 
 	currentPrice := decimal.Zero

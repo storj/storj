@@ -69,6 +69,7 @@ export class FrontendConfig {
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
     deleteProjectEnabled: boolean;
+    abbreviatedDeleteProjectEnabled: boolean;
     noLimitsUiEnabled: boolean;
     altObjBrowserPagingEnabled: boolean;
     altObjBrowserPagingThreshold: number;
