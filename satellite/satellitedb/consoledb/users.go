@@ -854,6 +854,11 @@ func (users *users) TestSetNow(nowFn func() time.Time) {
 	users.nowFn = nowFn
 }
 
+// GetNowFn returns the current time function.
+func (users *users) GetNowFn() func() time.Time {
+	return users.nowFn
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
 func (users *users) toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{}

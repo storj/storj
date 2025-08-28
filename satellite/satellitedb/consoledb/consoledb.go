@@ -35,22 +35,27 @@ type ConsoleDB struct {
 	ApikeysOnce  *sync.Once
 	apikeysCache *lrucache.ExpiringLRUOf[*projectApiKeyRow]
 
-	// UsersOnce and usersDB ensure Users() returns the same instance.
-	UsersOnce *sync.Once
-	usersDB   console.Users
+	// ensure Users() returns the same instance.
+	usersDB console.Users
+
+	// ensure Projects() returns the same instance.
+	projectsDB console.Projects
 }
 
 // Users is getter a for Users repository.
 func (db *ConsoleDB) Users() console.Users {
-	db.UsersOnce.Do(func() {
+	if db.usersDB == nil {
 		db.usersDB = &users{db: db.Methods, impl: db.Impl, nowFn: time.Now}
-	})
+	}
 	return db.usersDB
 }
 
 // Projects is a getter for Projects repository.
 func (db *ConsoleDB) Projects() console.Projects {
-	return &projects{db: db.Methods, impl: db.Impl}
+	if db.projectsDB == nil {
+		db.projectsDB = &projects{db: db.Methods, impl: db.Impl, nowFn: time.Now}
+	}
+	return db.projectsDB
 }
 
 // ProjectMembers is a getter for ProjectMembers repository.
@@ -120,6 +125,14 @@ func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, consol
 	}
 
 	return db.DB.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		usersDb := &users{db: tx, impl: db.Impl, nowFn: time.Now}
+		if db.usersDB != nil {
+			usersDb.nowFn = db.usersDB.GetNowFn()
+		}
+		projectsDb := &projects{db: tx, impl: db.Impl, nowFn: time.Now}
+		if db.projectsDB != nil {
+			projectsDb.nowFn = db.projectsDB.GetNowFn()
+		}
 		dbTx := &DBTx{
 			ConsoleDB: &ConsoleDB{
 				ApikeysLRUOptions: db.ApikeysLRUOptions,
@@ -132,8 +145,8 @@ func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, consol
 				ApikeysOnce:  db.ApikeysOnce,
 				apikeysCache: db.apikeysCache,
 
-				UsersOnce: db.UsersOnce,
-				usersDB:   &users{db: tx, impl: db.Impl, nowFn: time.Now},
+				usersDB:    usersDb,
+				projectsDB: projectsDb,
 			},
 		}
 		return fn(ctx, dbTx)

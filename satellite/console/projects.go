@@ -87,6 +87,10 @@ type Projects interface {
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
+	// GetNowFn returns the current time function.
+	GetNowFn() func() time.Time
+	// TestSetNowFn is used to set the current time for testing purposes.
+	TestSetNowFn(func() time.Time)
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
@@ -130,14 +134,15 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	UserAgent   []byte         `json:"userAgent"`
-	OwnerID     uuid.UUID      `json:"ownerId"`
-	MaxBuckets  *int           `json:"maxBuckets"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	MemberCount int            `json:"memberCount"`
-	Status      *ProjectStatus `json:"status"`
+	Name            string         `json:"name"`
+	Description     string         `json:"description"`
+	UserAgent       []byte         `json:"userAgent"`
+	OwnerID         uuid.UUID      `json:"ownerId"`
+	MaxBuckets      *int           `json:"maxBuckets"`
+	CreatedAt       time.Time      `json:"createdAt"`
+	MemberCount     int            `json:"memberCount"`
+	Status          *ProjectStatus `json:"status"`
+	StatusUpdatedAt *time.Time     `json:"-"`
 
 	StorageLimit                *memory.Size `json:"storageLimit"`
 	StorageUsed                 int64        `json:"-"`
@@ -175,6 +180,9 @@ const (
 	ProjectDisabled ProjectStatus = 0
 	// ProjectActive is a status that project receives after creation.
 	ProjectActive ProjectStatus = 1
+	// ProjectPendingDeletion is a status that project receives after user initiates deletion
+	// in the abbreviated flow, but before the project is fully deleted.
+	ProjectPendingDeletion ProjectStatus = 2
 )
 
 // String returns the string name.

@@ -4,6 +4,7 @@
 package console_test
 
 import (
+	"context"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -270,6 +271,11 @@ func TestUpdateStatus(t *testing.T) {
 
 		projectsDB := db.Console().Projects()
 
+		timestamp := time.Now().Add(10 * time.Hour)
+		projectsDB.TestSetNowFn(func() time.Time {
+			return timestamp
+		})
+
 		proj, err := projectsDB.Insert(ctx,
 			&console.Project{
 				Name:        "example",
@@ -286,6 +292,43 @@ func TestUpdateStatus(t *testing.T) {
 		proj, err = projectsDB.Get(ctx, proj.ID)
 		require.NoError(t, err)
 		require.Equal(t, console.ProjectDisabled, *proj.Status)
+		require.NotNil(t, proj.StatusUpdatedAt)
+		assert.WithinDuration(t, timestamp, *proj.StatusUpdatedAt, time.Minute)
+
+		// get db again to be sure got the same instance
+		projectsDB = db.Console().Projects()
+
+		active := console.ProjectActive
+		proj.Status = &active
+		err = projectsDB.Update(ctx, proj)
+		require.NoError(t, err)
+
+		proj, err = projectsDB.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectActive, *proj.Status)
+		require.NotNil(t, proj.StatusUpdatedAt)
+		require.WithinDuration(t, timestamp, *proj.StatusUpdatedAt, time.Minute)
+
+		// test that status_updated_at is set correctly when updating status in transaction
+		newTimestamp := timestamp.Add(24 * time.Hour)
+		projectsDB.TestSetNowFn(func() time.Time { return newTimestamp })
+		err = db.Console().WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+			err := tx.Projects().UpdateStatus(ctx, proj.ID, console.ProjectPendingDeletion)
+			if err != nil {
+				return err
+			}
+
+			proj, err = tx.Projects().Get(ctx, proj.ID)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectPendingDeletion, *proj.Status)
+		require.NotNil(t, proj.StatusUpdatedAt)
+		require.WithinDuration(t, newTimestamp, *proj.StatusUpdatedAt, time.Minute)
 	})
 }
 

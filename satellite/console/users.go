@@ -89,6 +89,8 @@ type Users interface {
 	// The function return an error on system failure and an sql.ErrNoRows if the account doesn't exist
 	// or doesn't fulfill the requirements.
 	SetStatusPendingDeletion(ctx context.Context, userID uuid.UUID, defaultDaysTillEscalation uint) error
+	// GetNowFn returns the current time function.
+	GetNowFn() func() time.Time
 	// TestSetNow is used to set the current time for testing purposes.
 	TestSetNow(func() time.Time)
 }

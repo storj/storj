@@ -31,6 +31,8 @@ var ek = eventkit.Package()
 type projects struct {
 	db   dbx.DriverMethods
 	impl dbutil.Implementation
+
+	nowFn func() time.Time
 }
 
 // GetAll is a method for querying all projects from the database.
@@ -354,6 +356,7 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	}
 	if project.Status != nil {
 		updateFields.Status = dbx.Project_Status(int(*project.Status))
+		updateFields.StatusUpdatedAt = dbx.Project_StatusUpdatedAt(projects.nowFn())
 	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
@@ -543,7 +546,8 @@ func (projects *projects) UpdateStatus(ctx context.Context, id uuid.UUID, status
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(id[:]),
 		dbx.Project_Update_Fields{
-			Status: dbx.Project_Status(int(status)),
+			Status:          dbx.Project_Status(int(status)),
+			StatusUpdatedAt: dbx.Project_StatusUpdatedAt(projects.nowFn()),
 		})
 
 	return err
@@ -814,6 +818,7 @@ func ProjectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		ID:                          id,
 		PublicID:                    publicID,
 		Status:                      (*console.ProjectStatus)(project.Status),
+		StatusUpdatedAt:             project.StatusUpdatedAt,
 		Name:                        project.Name,
 		Description:                 project.Description,
 		UserAgent:                   userAgent,
@@ -898,4 +903,14 @@ func (projects *projects) UpdateUsageLimits(ctx context.Context, id uuid.UUID, l
 		},
 	)
 	return err
+}
+
+// GetNowFn returns the current time function.
+func (projects *projects) GetNowFn() func() time.Time {
+	return projects.nowFn
+}
+
+// TestSetNowFn is a method to set the now function for testing purposes.
+func (projects *projects) TestSetNowFn(nowFn func() time.Time) {
+	projects.nowFn = nowFn
 }

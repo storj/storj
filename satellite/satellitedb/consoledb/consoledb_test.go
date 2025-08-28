@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -23,13 +24,24 @@ func TestConsoleTx(t *testing.T) {
 		t.Run("WithTx with success", func(t *testing.T) {
 			name := "Sleve McDichael"
 			var projInfo *console.Project
+			var user *console.User
 
 			err := dbConsole.WithTx(ctx, func(ctx context.Context, tx console.DBTx) (err error) {
 				projectDB := tx.Projects()
+				usersDB := tx.Users()
+
 				projInfo, err = projectDB.Insert(ctx, &console.Project{Name: name})
 				require.NoError(t, err)
 				require.NotZero(t, projInfo.ID)
 				require.Equal(t, name, projInfo.Name)
+
+				userID, err := uuid.New()
+				require.NoError(t, err)
+
+				user, err = usersDB.Insert(ctx, &console.User{ID: userID, FullName: name, PasswordHash: make([]byte, 0)})
+				require.NoError(t, err)
+				require.NotZero(t, user.ID)
+				require.Equal(t, name, user.FullName)
 				return err
 			})
 			require.NoError(t, err)
@@ -41,6 +53,14 @@ func TestConsoleTx(t *testing.T) {
 			require.Equal(t, projInfo.ID, gotProjectInfo.ID)
 			require.Equal(t, projInfo.Name, gotProjectInfo.Name)
 			require.Equal(t, projInfo.CreatedAt, gotProjectInfo.CreatedAt)
+
+			usersDB := dbConsole.Users()
+			gotUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+
+			require.Equal(t, user.ID, gotUser.ID)
+			require.Equal(t, user.FullName, gotUser.FullName)
+			require.Equal(t, user.CreatedAt, gotUser.CreatedAt)
 		})
 
 		t.Run("WithTx with failure", func(t *testing.T) {
