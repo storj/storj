@@ -97,6 +97,13 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 ) ;
+CREATE TABLE entitlements (
+	scope bytea NOT NULL,
+	features jsonb NOT NULL DEFAULT '{}',
+	updated_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( scope )
+) ;
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,

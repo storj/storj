@@ -1046,6 +1046,19 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add entitlements table",
+				Version:     302,
+				Action: migrate.SQL{
+					`CREATE TABLE entitlements (
+						scope BYTES(MAX) NOT NULL,
+						features JSON NOT NULL DEFAULT (JSON "{}"),
+						updated_at TIMESTAMP NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( scope )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3931,6 +3944,20 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     301,
 				Action: migrate.SQL{
 					`CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) WHERE projects.status_updated_at is not NULL ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add entitlements table",
+				Version:     302,
+				Action: migrate.SQL{
+					`CREATE TABLE entitlements (
+						scope bytea NOT NULL,
+						features jsonb NOT NULL DEFAULT '{}',
+						updated_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( scope )
+					)`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

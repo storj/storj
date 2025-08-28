@@ -23,9 +23,10 @@ import (
 	"cloud.google.com/go/spanner"
 	"encoding/base64"
 	"encoding/json"
-	_ "github.com/googleapis/go-sql-spanner"
+	sqlspanner "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
 	"storj.io/storj/shared/tagsql"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
 )
 
@@ -461,6 +462,14 @@ func (obj *pgxDB) Schema() []string {
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+)`,
+
+		`CREATE TABLE entitlements (
+	scope bytea NOT NULL,
+	features jsonb NOT NULL DEFAULT '{}',
+	updated_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( scope )
 )`,
 
 		`CREATE TABLE graceful_exit_progress (
@@ -1200,6 +1209,8 @@ func (obj *pgxDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS graceful_exit_progress`,
 
+		`DROP TABLE IF EXISTS entitlements`,
+
 		`DROP TABLE IF EXISTS coinpayments_transactions`,
 
 		`DROP TABLE IF EXISTS bucket_storage_tallies`,
@@ -1423,6 +1434,14 @@ func (obj *pgxcockroachDB) Schema() []string {
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+)`,
+
+		`CREATE TABLE entitlements (
+	scope bytea NOT NULL,
+	features jsonb NOT NULL DEFAULT '{}',
+	updated_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( scope )
 )`,
 
 		`CREATE TABLE graceful_exit_progress (
@@ -2162,6 +2181,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 
 		`DROP TABLE IF EXISTS graceful_exit_progress`,
 
+		`DROP TABLE IF EXISTS entitlements`,
+
 		`DROP TABLE IF EXISTS coinpayments_transactions`,
 
 		`DROP TABLE IF EXISTS bucket_storage_tallies`,
@@ -2379,6 +2400,13 @@ func (obj *spannerDB) Schema() []string {
 	timeout INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE entitlements (
+	scope BYTES(MAX) NOT NULL,
+	features JSON NOT NULL DEFAULT (JSON "{}"),
+	updated_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( scope )`,
 
 		`CREATE TABLE graceful_exit_progress (
 	node_id BYTES(MAX) NOT NULL,
@@ -3482,6 +3510,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS graceful_exit_progress_node_id`,
 
 		`DROP TABLE IF EXISTS graceful_exit_progress`,
+
+		`ALTER TABLE  entitlements ALTER scope SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS entitlements_scope`,
+
+		`DROP TABLE IF EXISTS entitlements`,
 
 		`ALTER TABLE  coinpayments_transactions ALTER id SET DEFAULT (null)`,
 
@@ -5095,6 +5129,92 @@ func CoinpaymentsTransaction_CreatedAt(v time.Time) CoinpaymentsTransaction_Crea
 }
 
 func (f CoinpaymentsTransaction_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Entitlement struct {
+	Scope     []byte
+	Features  []byte
+	UpdatedAt time.Time
+	CreatedAt time.Time
+}
+
+func (Entitlement) _Table() string { return "entitlements" }
+
+type Entitlement_Create_Fields struct {
+	Features Entitlement_Features_Field
+}
+
+type Entitlement_Update_Fields struct {
+	Features  Entitlement_Features_Field
+	UpdatedAt Entitlement_UpdatedAt_Field
+}
+
+type Entitlement_Scope_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Entitlement_Scope(v []byte) Entitlement_Scope_Field {
+	return Entitlement_Scope_Field{_set: true, _value: v}
+}
+
+func (f Entitlement_Scope_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Entitlement_Features_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Entitlement_Features(v []byte) Entitlement_Features_Field {
+	return Entitlement_Features_Field{_set: true, _value: v}
+}
+
+func (f Entitlement_Features_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Entitlement_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Entitlement_UpdatedAt(v time.Time) Entitlement_UpdatedAt_Field {
+	return Entitlement_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Entitlement_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type Entitlement_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Entitlement_CreatedAt(v time.Time) Entitlement_CreatedAt_Field {
+	return Entitlement_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Entitlement_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -15510,6 +15630,59 @@ func (obj *pgxImpl) Create_Domain(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Replace_Entitlement(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field,
+	entitlement_updated_at Entitlement_UpdatedAt_Field,
+	optional Entitlement_Create_Fields) (
+	entitlement *Entitlement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__scope_val := entitlement_scope.value()
+	__updated_at_val := entitlement_updated_at.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("scope, updated_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO entitlements "), __clause, __sqlbundle_Literal(" ON CONFLICT ( scope ) DO UPDATE SET scope = EXCLUDED.scope, updated_at = EXCLUDED.updated_at, created_at = EXCLUDED.created_at, features = EXCLUDED.features RETURNING entitlements.scope, entitlements.features, entitlements.updated_at, entitlements.created_at")}}
+
+	var __values []any
+	__values = append(__values, __scope_val, __updated_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Features._set {
+		__values = append(__values, optional.Features.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	entitlement = &Entitlement{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&entitlement.Scope, &entitlement.Features, &entitlement.UpdatedAt, &entitlement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return entitlement, nil
+
+}
+
 func (obj *pgxImpl) CreateNoReturn_PeerIdentity(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	peer_identity_leaf_serial_number PeerIdentity_LeafSerialNumber_Field,
@@ -18181,6 +18354,31 @@ func (obj *pgxImpl) All_Domain_Subdomain_By_ProjectId(ctx context.Context,
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxImpl) Get_Entitlement_By_Scope(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field) (
+	entitlement *Entitlement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT entitlements.scope, entitlements.features, entitlements.updated_at, entitlements.created_at FROM entitlements WHERE entitlements.scope = ?")
+
+	var __values []any
+	__values = append(__values, entitlement_scope.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	entitlement = &Entitlement{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&entitlement.Scope, &entitlement.Features, &entitlement.UpdatedAt, &entitlement.CreatedAt)
+	if err != nil {
+		return (*Entitlement)(nil), obj.makeErr(err)
+	}
+	return entitlement, nil
 
 }
 
@@ -24137,6 +24335,36 @@ func (obj *pgxImpl) Delete_Domain_By_ProjectId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_Entitlement_By_Scope(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM entitlements WHERE entitlements.scope = ?")
+
+	var __values []any
+	__values = append(__values, entitlement_scope.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -25212,6 +25440,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM entitlements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -25811,6 +26049,59 @@ func (obj *pgxcockroachImpl) Create_Domain(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return domain, nil
+
+}
+
+func (obj *pgxcockroachImpl) Replace_Entitlement(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field,
+	entitlement_updated_at Entitlement_UpdatedAt_Field,
+	optional Entitlement_Create_Fields) (
+	entitlement *Entitlement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__scope_val := entitlement_scope.value()
+	__updated_at_val := entitlement_updated_at.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("scope, updated_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPSERT INTO entitlements "), __clause, __sqlbundle_Literal(" RETURNING entitlements.scope, entitlements.features, entitlements.updated_at, entitlements.created_at")}}
+
+	var __values []any
+	__values = append(__values, __scope_val, __updated_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Features._set {
+		__values = append(__values, optional.Features.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	entitlement = &Entitlement{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&entitlement.Scope, &entitlement.Features, &entitlement.UpdatedAt, &entitlement.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return entitlement, nil
 
 }
 
@@ -28485,6 +28776,31 @@ func (obj *pgxcockroachImpl) All_Domain_Subdomain_By_ProjectId(ctx context.Conte
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_Entitlement_By_Scope(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field) (
+	entitlement *Entitlement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT entitlements.scope, entitlements.features, entitlements.updated_at, entitlements.created_at FROM entitlements WHERE entitlements.scope = ?")
+
+	var __values []any
+	__values = append(__values, entitlement_scope.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	entitlement = &Entitlement{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&entitlement.Scope, &entitlement.Features, &entitlement.UpdatedAt, &entitlement.CreatedAt)
+	if err != nil {
+		return (*Entitlement)(nil), obj.makeErr(err)
+	}
+	return entitlement, nil
 
 }
 
@@ -34441,6 +34757,36 @@ func (obj *pgxcockroachImpl) Delete_Domain_By_ProjectId(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_Entitlement_By_Scope(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM entitlements WHERE entitlements.scope = ?")
+
+	var __values []any
+	__values = append(__values, entitlement_scope.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -35516,6 +35862,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM entitlements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -36178,6 +36534,69 @@ func (obj *spannerImpl) Create_Domain(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return domain, nil
+
+}
+
+func (obj *spannerImpl) Replace_Entitlement(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field,
+	entitlement_updated_at Entitlement_UpdatedAt_Field,
+	optional Entitlement_Create_Fields) (
+	entitlement *Entitlement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__scope_val := entitlement_scope.value()
+	__updated_at_val := entitlement_updated_at.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("scope, updated_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT OR UPDATE INTO entitlements "), __clause, __sqlbundle_Literal(" THEN RETURN entitlements.scope, entitlements.features, entitlements.updated_at, entitlements.created_at")}}
+
+	var __values []any
+	__values = append(__values, __scope_val, __updated_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Features._set {
+		__values = append(__values, optional.Features.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	entitlement = &Entitlement{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&entitlement.Scope, spannerConvertJSON(&entitlement.Features), &entitlement.UpdatedAt, &entitlement.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&entitlement.Scope, spannerConvertJSON(&entitlement.Features), &entitlement.UpdatedAt, &entitlement.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return entitlement, nil
 
 }
 
@@ -39062,6 +39481,31 @@ func (obj *spannerImpl) All_Domain_Subdomain_By_ProjectId(ctx context.Context,
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *spannerImpl) Get_Entitlement_By_Scope(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field) (
+	entitlement *Entitlement, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT entitlements.scope, entitlements.features, entitlements.updated_at, entitlements.created_at FROM entitlements WHERE entitlements.scope = ?")
+
+	var __values []any
+	__values = append(__values, entitlement_scope.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	entitlement = &Entitlement{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&entitlement.Scope, spannerConvertJSON(&entitlement.Features), &entitlement.UpdatedAt, &entitlement.CreatedAt)
+	if err != nil {
+		return (*Entitlement)(nil), obj.makeErr(err)
+	}
+	return entitlement, nil
 
 }
 
@@ -44746,6 +45190,36 @@ func (obj *spannerImpl) Delete_Domain_By_ProjectId(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Delete_Entitlement_By_Scope(ctx context.Context,
+	entitlement_scope Entitlement_Scope_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM entitlements WHERE entitlements.scope = ?")
+
+	var __values []any
+	__values = append(__values, entitlement_scope.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 	count int64, err error) {
@@ -45817,6 +46291,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM entitlements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -46325,6 +46809,10 @@ type Methods interface {
 		domain_subdomain Domain_Subdomain_Field) (
 		deleted bool, err error)
 
+	Delete_Entitlement_By_Scope(ctx context.Context,
+		entitlement_scope Entitlement_Scope_Field) (
+		deleted bool, err error)
+
 	Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
 		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
 		count int64, err error)
@@ -46512,6 +47000,10 @@ type Methods interface {
 		domain_project_id Domain_ProjectId_Field,
 		domain_subdomain Domain_Subdomain_Field) (
 		domain *Domain, err error)
+
+	Get_Entitlement_By_Scope(ctx context.Context,
+		entitlement_scope Entitlement_Scope_Field) (
+		entitlement *Entitlement, err error)
 
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
@@ -46866,6 +47358,12 @@ type Methods interface {
 		optional ApiKeyTail_Create_Fields) (
 		api_key_tail *ApiKeyTail, err error)
 
+	Replace_Entitlement(ctx context.Context,
+		entitlement_scope Entitlement_Scope_Field,
+		entitlement_updated_at Entitlement_UpdatedAt_Field,
+		optional Entitlement_Create_Fields) (
+		entitlement *Entitlement, err error)
+
 	Replace_ProjectInvitation(ctx context.Context,
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
 		project_invitation_email ProjectInvitation_Email_Field,
@@ -47097,7 +47595,37 @@ func openpgxcockroach(source string) (*sql.DB, error) {
 }
 
 func openspanner(source string) (*sql.DB, error) {
-	return sql.Open("spanner", strings.TrimPrefix(source, "spanner://"))
+	connectorConfig, err := sqlspanner.ExtractConnectorConfig(strings.TrimPrefix(source, "spanner://"))
+	if err != nil {
+		return nil, err
+	}
+
+	var sessionLabels map[string]string
+	if v, ok := connectorConfig.Params["sessionlabels"]; ok {
+		sessionLabels = map[string]string{}
+		for _, kv := range strings.Split(v, ",") {
+			key, value, ok := strings.Cut(kv, "=")
+			if !ok {
+				return nil, fmt.Errorf("incorrect formatting of session labels in %q", v)
+			}
+			sessionLabels[key] = value
+		}
+	}
+
+	connectorConfig.Configurator = func(config *spanner.ClientConfig, opts *[]option.ClientOption) {
+		for k, v := range sessionLabels {
+			config.SessionLabels[k] = v
+		}
+		if v, ok := connectorConfig.Params["useragent"]; ok {
+			config.UserAgent = v
+		}
+	}
+
+	connector, err := sqlspanner.CreateConnector(connectorConfig)
+	if err != nil {
+		return nil, err
+	}
+	return sql.OpenDB(connector), nil
 }
 
 func spannerConvertJSON(v any) any {

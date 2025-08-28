@@ -89,6 +89,12 @@ CREATE TABLE coinpayments_transactions (
 	timeout INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE entitlements (
+	scope BYTES(MAX) NOT NULL,
+	features JSON NOT NULL DEFAULT (JSON "{}"),
+	updated_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( scope ) ;
 CREATE TABLE graceful_exit_progress (
 	node_id BYTES(MAX) NOT NULL,
 	bytes_transferred INT64 NOT NULL,
