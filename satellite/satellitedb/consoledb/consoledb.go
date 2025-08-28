@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/restapikeys"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/lrucache"
@@ -61,6 +62,11 @@ func (db *ConsoleDB) Projects() console.Projects {
 // ProjectMembers is a getter for ProjectMembers repository.
 func (db *ConsoleDB) ProjectMembers() console.ProjectMembers {
 	return &projectMembers{db: db.Methods, impl: db.Impl}
+}
+
+// Entitlements is a getter for Entitlements repository.
+func (db *ConsoleDB) Entitlements() entitlements.DB {
+	return &entitlementsDB{db: db.Methods}
 }
 
 // ProjectInvitations is a getter for ProjectInvitations repository.

@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/restapikeys"
+	"storj.io/storj/satellite/entitlements"
 )
 
 // DB contains access to different satellite databases.
@@ -38,6 +39,8 @@ type DB interface {
 	APIKeyTails() APIKeyTails
 	// Domains is a getter for Domains repository.
 	Domains() Domains
+	// Entitlements is a getter for Entitlements repository.
+	Entitlements() entitlements.DB
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

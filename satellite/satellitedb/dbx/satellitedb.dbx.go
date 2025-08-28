@@ -36565,7 +36565,7 @@ func (obj *spannerImpl) Replace_Entitlement(ctx context.Context,
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
 
 	if optional.Features._set {
-		__values = append(__values, optional.Features.value())
+		__values = append(__values, spannerConvertJSON(optional.Features.value()))
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
@@ -38062,7 +38062,7 @@ func (obj *spannerImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	}
 
 	if optional.NoticeDismissal._set {
-		__values = append(__values, optional.NoticeDismissal.value())
+		__values = append(__values, spannerConvertJSON(optional.NoticeDismissal.value()))
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notice_dismissal"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
