@@ -363,7 +363,7 @@ func deleteAccounts(
 					if inv.Status == payments.InvoiceStatusOpen || inv.Status == payments.InvoiceStatusDraft {
 						log.Error(
 							"cannot mark as deleted the account because it has pending invoices ('open' or 'draft')",
-							zap.String("user_email", user.Email),
+							zap.String("email", user.Email),
 						)
 						return nil
 					}
@@ -380,7 +380,7 @@ func deleteAccounts(
 			if hasPendingItems {
 				log.Error(
 					"cannot mark as deleted the account because it has pending invoice items",
-					zap.String("user_email", user.Email),
+					zap.String("email", user.Email),
 				)
 				return nil
 			}
@@ -400,7 +400,7 @@ func deleteAccounts(
 				if usage.Storage > 0 || usage.Egress > 0 || usage.SegmentCount > 0 {
 					log.Error(
 						"cannot mark as deleted the account because the project has usage",
-						zap.String("user_email", user.Email),
+						zap.String("email", user.Email),
 						zap.String("project_id", p.ID.String()),
 					)
 					return nil
@@ -425,7 +425,7 @@ func deleteAccounts(
 
 						log.Error(
 							"cannot mark as deleted the account because the project has usage last month and not invoiced yet",
-							zap.String("user_email", user.Email),
+							zap.String("email", user.Email),
 							zap.String("project_id", p.ID.String()),
 						)
 						return nil
