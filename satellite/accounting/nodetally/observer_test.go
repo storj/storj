@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/encryption"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -28,11 +27,13 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Tally.UseRangedLoop = true
-				config.RangedLoop.Parallelism = 4
-				config.RangedLoop.BatchSize = 4
-			},
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 2, 2),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.RangedLoop.Parallelism = 4
+					config.RangedLoop.BatchSize = 4
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		timespanHours := 2
@@ -50,18 +51,13 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 		// Setup: create 50KiB of data for the uplink to upload
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		// TODO uplink currently hardcode block size so we need to use the same value in test
-		encryptionParameters := storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
-			BlockSize:   29 * 256 * memory.B.Int32(),
-		}
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
-		require.NoError(t, err)
-
 		// Execute test: upload a file, then calculate at rest data
 		expectedBucketName := "testbucket"
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData))
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
+		require.Len(t, segments, 1)
 
 		secondNow := firstNow.Add(2 * time.Hour)
 		obs.SetNow(func() time.Time {
@@ -71,22 +67,15 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 		_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		// Confirm the correct number of shares were stored
-		rs := satelliteRS(t, planet.Satellites[0])
-		if !correctRedundencyScheme(len(obs.Node), rs) {
-			t.Fatalf("expected between: %d and %d, actual: %d", rs.RepairShares, rs.TotalShares, len(obs.Node))
-		}
-
 		// Confirm the correct number of bytes were stored on each node
 		for _, actualTotalBytes := range obs.Node {
-			require.EqualValues(t, expectedTotalBytes, actualTotalBytes)
+			require.EqualValues(t, segments[0].PieceSize(), actualTotalBytes)
 		}
 
 		// Confirm that tallies where saved to DB
 		tallies, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTalliesSince(ctx, secondNow.Add(-1*time.Second))
 		require.NoError(t, err)
-		require.LessOrEqual(t, len(tallies), int(rs.TotalShares))
-		require.GreaterOrEqual(t, len(tallies), int(rs.OptimalShares))
+		require.Len(t, tallies, len(obs.Node))
 
 		aliasMap, err := planet.Satellites[0].Metabase.DB.LatestNodesAliasMap(ctx)
 		require.NoError(t, err)
@@ -106,8 +95,7 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 
 		tallies, err = planet.Satellites[0].DB.StoragenodeAccounting().GetTalliesSince(ctx, thirdNow.Add(-1*time.Second))
 		require.NoError(t, err)
-		require.LessOrEqual(t, len(tallies), int(rs.TotalShares))
-		require.GreaterOrEqual(t, len(tallies), int(rs.OptimalShares))
+		require.Len(t, tallies, len(obs.Node))
 
 		aliasMap, err = planet.Satellites[0].Metabase.DB.LatestNodesAliasMap(ctx)
 		require.NoError(t, err)
@@ -123,11 +111,13 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Tally.UseRangedLoop = true
-				config.RangedLoop.Parallelism = 4
-				config.RangedLoop.BatchSize = 4
-			},
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 2, 2),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.RangedLoop.Parallelism = 4
+					config.RangedLoop.BatchSize = 4
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const timespanHours = 2
@@ -147,20 +137,15 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 		// Setup: create 50KiB of data for the uplink to upload
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
-		// TODO uplink currently hardcode block size so we need to use the same value in test
-		encryptionParameters := storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
-			BlockSize:   29 * 256 * memory.B.Int32(),
-		}
-		expectedBytesPerPiece, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
-		require.NoError(t, err)
-
 		// Execute test: upload a file, then calculate at rest data
 		expectedBucketName := "testbucket"
-		for i := 0; i < numObjects; i++ {
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], expectedBucketName, fmt.Sprintf("test/path%d", i), expectedData)
-			require.NoError(t, err)
+		for i := range numObjects {
+			require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], expectedBucketName, fmt.Sprintf("test/path%d", i), expectedData))
 		}
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, segments)
 
 		rangedLoop := planet.Satellites[0].RangedLoop
 		obs := rangedLoop.Accounting.NodeTallyObserver
@@ -171,17 +156,16 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 		_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		rs := satelliteRS(t, planet.Satellites[0])
-		minExpectedBytes := numObjects * int(expectedBytesPerPiece) * int(rs.OptimalShares)
-		maxExpectedBytes := numObjects * int(expectedBytesPerPiece) * int(rs.TotalShares)
+		// all objects have the same parameters so we can use one to calculate expected bytes
+		expectedBytes := numObjects * int(segments[0].PieceSize()) * int(segments[0].Redundancy.OptimalShares)
 
 		// Confirm the correct number of bytes were stored on each node
 		totalBytes := 0
 		for _, actualTotalBytes := range obs.Node {
 			totalBytes += int(actualTotalBytes)
 		}
-		require.LessOrEqual(t, totalBytes, maxExpectedBytes)
-		require.GreaterOrEqual(t, totalBytes, minExpectedBytes)
+
+		require.Equal(t, expectedBytes, totalBytes)
 
 		// Confirm that tallies where saved to DB
 		tallies, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTalliesSince(ctx, now.Add(-1*time.Second))
@@ -192,8 +176,7 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 			totalByteHours += int(tally.DataTotal)
 		}
 
-		require.LessOrEqual(t, totalByteHours, maxExpectedBytes*timespanHours)
-		require.GreaterOrEqual(t, totalByteHours, minExpectedBytes*timespanHours)
+		require.Equal(t, expectedBytes*timespanHours, totalByteHours)
 	})
 }
 
@@ -201,11 +184,13 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Tally.UseRangedLoop = true
-				config.RangedLoop.Parallelism = 1
-				config.RangedLoop.BatchSize = 4
-			},
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 2, 2),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.RangedLoop.Parallelism = 4
+					config.RangedLoop.BatchSize = 4
+				},
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const timespanHours = 2
@@ -229,58 +214,33 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 
 		// Upload expired objects and the same number of soon-to-expire objects
 		expectedBucketName := "testbucket"
-		for i := 0; i < numObjects; i++ {
-			err = planet.Uplinks[0].UploadWithExpiration(
-				ctx, planet.Satellites[0], expectedBucketName, fmt.Sprint("test/pathA", i), expectedData, now.Add(-1*time.Second),
-			)
-			require.NoError(t, err)
-			err = planet.Uplinks[0].UploadWithExpiration(
-				ctx, planet.Satellites[0], expectedBucketName, fmt.Sprint("test/pathB", i), expectedData, now.Add(1*time.Second),
-			)
-			require.NoError(t, err)
+		for i := range numObjects {
+			require.NoError(t, planet.Uplinks[0].UploadWithExpiration(
+				ctx, planet.Satellites[0], expectedBucketName, fmt.Sprint("test/pathA", i), expectedData, now.Add(-1*time.Minute),
+			))
+
+			require.NoError(t, planet.Uplinks[0].UploadWithExpiration(
+				ctx, planet.Satellites[0], expectedBucketName, fmt.Sprint("test/pathB", i), expectedData, now.Add(1*time.Minute),
+			))
 		}
 
 		_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
-		rs := satelliteRS(t, planet.Satellites[0])
-		// TODO uplink currently hardcode block size so we need to use the same value in test
-		encryptionParameters := storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
-			BlockSize:   29 * 256 * memory.B.Int32(),
-		}
-		expectedBytesPerPiece, err := encryption.CalcEncryptedSize(int64(len(expectedData)), encryptionParameters)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
-		minExpectedBytes := numObjects * int(expectedBytesPerPiece) * int(rs.OptimalShares)
-		maxExpectedBytes := numObjects * int(expectedBytesPerPiece) * int(rs.TotalShares)
+		require.NotEmpty(t, segments)
+
+		// all objects have the same parameters so we can use one to calculate expected bytes
+		expectedBytes := numObjects * int(segments[0].PieceSize()) * int(segments[0].Redundancy.OptimalShares)
 
 		// Confirm the correct number of bytes were stored on each node
 		totalBytes := 0
 		for _, actualTotalBytes := range obs.Node {
 			totalBytes += int(actualTotalBytes)
 		}
-		require.LessOrEqual(t, totalBytes, maxExpectedBytes)
-		require.GreaterOrEqual(t, totalBytes, minExpectedBytes)
+		require.Equal(t, expectedBytes, totalBytes)
 	})
-}
-
-func satelliteRS(t *testing.T, satellite *testplanet.Satellite) storj.RedundancyScheme {
-	rs := satellite.Config.Metainfo.RS
-
-	return storj.RedundancyScheme{
-		RequiredShares: int16(rs.Min),
-		RepairShares:   int16(rs.Repair),
-		OptimalShares:  int16(rs.Success),
-		TotalShares:    int16(rs.Total),
-		ShareSize:      rs.ErasureShareSize.Int32(),
-	}
-}
-
-func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
-	// The shareCount should be a value between RequiredShares and TotalShares where
-	// RequiredShares is the min number of shares required to recover a segment and
-	// TotalShares is the number of shares to encode
-	return int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares)
 }
 
 func BenchmarkProcess(b *testing.B) {

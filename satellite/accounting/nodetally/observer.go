@@ -199,8 +199,7 @@ func (partial *observerFork) processSegment(now time.Time, segment rangedloop.Se
 		return
 	}
 
-	pieceSize := float64(segment.EncryptedSize / int32(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
-
+	pieceSize := float64(segment.PieceSize())
 	for _, piece := range segment.AliasPieces {
 		partial.Node[piece.Alias] += pieceSize
 	}
