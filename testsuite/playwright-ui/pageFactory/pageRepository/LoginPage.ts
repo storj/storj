@@ -51,6 +51,6 @@ export class LoginPage {
     }
 
     async finishSetup(): Promise<void> {
-        await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).nth(1).click();
+        await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_ID).click();
     }
 }
