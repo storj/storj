@@ -128,7 +128,7 @@ type SegmentLimitConfig struct {
 
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
-	Free int `help:"the default free-tier project limit" default:"1"`
+	Free int `help:"the default free-tier project limit" default:"1" testDefault:"10"`
 	Paid int `help:"the default paid-tier project limit" default:"3"`
 	Nfr  int `help:"the default NFR project limit" default:"1"`
 }

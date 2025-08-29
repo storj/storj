@@ -228,13 +228,17 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 		service = system.API.Console.Service
 	}
 
-	regToken, err := service.CreateRegToken(ctx, maxNumberOfProjects)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	var regTokenSecret console.RegistrationSecret
+	if !system.Config.Console.OpenRegistrationEnabled {
+		regToken, err := service.CreateRegToken(ctx, maxNumberOfProjects)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		regTokenSecret = regToken.Secret
 	}
 
 	newUser.Password = newUser.FullName
-	user, err := service.CreateUser(ctx, newUser, regToken.Secret)
+	user, err := service.CreateUser(ctx, newUser, regTokenSecret)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
