@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/hubspotmails"
@@ -131,6 +132,10 @@ type ConsoleAPI struct {
 		RestKeys       restapikeys.Service
 		Endpoint       *consoleweb.Server
 		AuthTokens     *consoleauth.Service
+	}
+
+	Entitlements struct {
+		Service *entitlements.Service
 	}
 
 	Valdi struct {
@@ -399,6 +404,13 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		} else {
 			peer.Log.Named("userinfo:endpoint").Info("disabled")
 		}
+	}
+
+	{ // setup entitlements
+		peer.Entitlements.Service = entitlements.NewService(
+			peer.Log.Named("entitlements:service"),
+			db.Console().Entitlements(),
+		)
 	}
 
 	emissionService := emission.NewService(config.Emission)

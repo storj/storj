@@ -49,6 +49,7 @@ import (
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -157,6 +158,10 @@ type API struct {
 		RestKeys       restapikeys.Service
 		Endpoint       *consoleweb.Server
 		AuthTokens     *consoleauth.Service
+	}
+
+	Entitlements struct {
+		Service *entitlements.Service
 	}
 
 	Valdi struct {
@@ -494,6 +499,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup entitlements
+		peer.Entitlements.Service = entitlements.NewService(
+			peer.Log.Named("entitlements:service"),
+			db.Console().Entitlements(),
+		)
 	}
 
 	{ // setup metainfo

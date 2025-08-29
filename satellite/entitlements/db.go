@@ -7,11 +7,15 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 )
 
-// ErrNotFound is returned when an entitlement is not found.
-var ErrNotFound = errs.Class("entitlement not found")
+var (
+	// ErrNotFound is returned when an entitlement is not found.
+	ErrNotFound = errs.Class("entitlement not found")
+	mon         = monkit.Package()
+)
 
 // DB represents a storage interface for managing entitlements.
 type DB interface {
