@@ -39,7 +39,8 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 			},
@@ -108,7 +109,8 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 			},
@@ -214,7 +216,8 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 				config.Metainfo.RS.Min = 2
@@ -290,7 +293,8 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 			},
@@ -406,7 +410,8 @@ func TestRepairObserver(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
+				// disable ranged loop interval execution
+				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 			},
@@ -645,15 +650,13 @@ func TestObserver_PlacementCheck(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(1, 2, 4, 4),
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					// we need ranged loop enabled, but we will trigger it manually (and wait for results)
-					// one day interval guarantees that it won't be executed meantime (which can drain repair queue messages)
-					config.RangedLoop.Interval = 24 * time.Hour
+					// disable ranged loop interval execution
+					config.RangedLoop.Interval = -1
 				},
 			),
 		},
 		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.Pause()
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 
 		repairQueue := planet.Satellites[0].Repair.Queue
@@ -722,7 +725,8 @@ func TestObserver_PlacementCheck(t *testing.T) {
 
 				require.NoError(t, planet.Satellites[0].Repairer.Overlay.DownloadSelectionCache.Refresh(ctx))
 
-				planet.Satellites[0].RangedLoop.RangedLoop.Service.Loop.TriggerWait()
+				_, err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
+				require.NoError(t, err)
 
 				injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 				require.NoError(t, err)
