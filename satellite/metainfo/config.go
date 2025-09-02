@@ -239,7 +239,7 @@ type Config struct {
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
-	TestOptimizedInlineObjectUpload bool      `default:"false" devDefault:"true" help:"enables optimization for uploading objects with single inline segment"`
+	TestOptimizedInlineObjectUpload bool      `default:"false" help:"enables optimization for uploading objects with single inline segment"`
 	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 	TestingMigrationMode            bool      `default:"false"  help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
 
