@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/eventing"
+	"storj.io/storj/satellite/eventing/changestream"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -149,6 +150,8 @@ func Module(ball *mud.Ball) {
 	reputation.Module(ball)
 	jobq.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
+	changestream.Module(ball)
+
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.

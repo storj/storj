@@ -30,4 +30,8 @@ func Module(ball *mud.Ball) {
 		return &Repair{}
 	})
 	cli.RegisterSubcommand[*Repair](ball, "repair", "run the repair worker service")
+	mud.Provide[*ChangeStream](ball, func() *ChangeStream {
+		return &ChangeStream{}
+	})
+	cli.RegisterSubcommand[*ChangeStream](ball, "change-stream", "run the Spanner change stream processor service")
 }

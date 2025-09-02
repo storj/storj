@@ -20,6 +20,14 @@ import (
 func Module(ball *mud.Ball) {
 	mud.Provide[*DB](ball, OpenDatabaseWithMigration)
 	mud.View[*DB, DB](ball, mud.Dereference[DB])
+	// TODO: there are cases when we need all the adapters (like changefeed). We need a better way to configure which should be used for these usescases.
+	mud.View[*DB, Adapter](ball, func(db *DB) Adapter {
+		for _, v := range db.adapters {
+			return v
+		}
+		panic("no adapters found")
+	})
+
 }
 
 // DatabaseConfig is the minimum required configuration for metabase.
