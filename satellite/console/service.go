@@ -1449,6 +1449,11 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 		return Error.New("An error occurred while processing your request. %s", contactSupportErrMsg)
 	}
 
+	if err = requestData.IsValid(requestData.AllowNoName); err != nil {
+		// NOTE: error is already wrapped with an appropriated class.
+		return err
+	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(requestData.Password), s.config.PasswordCost)
 	if err != nil {
 		return Error.Wrap(err)

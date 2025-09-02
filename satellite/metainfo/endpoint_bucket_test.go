@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink"
@@ -688,6 +689,113 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		placement, err = planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, bucket3, projectID)
 		require.NoError(t, err)
 		require.Equal(t, storj.DefaultPlacement, placement)
+	})
+}
+
+func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
+	var (
+		plPoland         = storj.PlacementConstraint(40)
+		plUkraine        = storj.PlacementConstraint(60)
+		selfServeDetails = map[storj.PlacementConstraint]console.PlacementDetail{
+			plPoland:  {ID: 40, IdName: "poland"},
+			plUkraine: {ID: 60, IdName: "ukraine", WaitlistURL: "waitlist"},
+		}
+		allowedPlacements = []storj.PlacementConstraint{plPoland, plUkraine}
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, _ int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `40:annotation("location","poland");60:annotation("location","ukraine")`,
+				}
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeDetails.SetMap(selfServeDetails)
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
+				config.Entitlements.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+		endpoint := sat.API.Metainfo.Endpoint
+
+		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, project.ID, storj.DefaultPlacement))
+
+		mkReq := func(name, placement string) *pb.CreateBucketRequest {
+			var p []byte
+			if placement != "" {
+				p = []byte(placement)
+			}
+			return &pb.CreateBucketRequest{
+				Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:      []byte(name),
+				Placement: p,
+			}
+		}
+
+		tests := []struct {
+			name          string
+			feats         *entitlements.ProjectFeatures // nil => delete row (NotFound)
+			placementName string
+			want          rpcstatus.StatusCode
+		}{
+			{
+				name: "explicit allowlist includes placement → allowed",
+				feats: &entitlements.ProjectFeatures{
+					NewBucketPlacements: []storj.PlacementConstraint{plPoland},
+				},
+				placementName: "poland",
+				want:          rpcstatus.OK,
+			},
+			{
+				name: "explicit allowlist excludes placement (non-empty) → denied",
+				feats: &entitlements.ProjectFeatures{
+					// Non-empty list that does NOT include poland (40).
+					NewBucketPlacements: []storj.PlacementConstraint{storj.PlacementConstraint(999)},
+				},
+				placementName: "poland",
+				want:          rpcstatus.PlacementInvalidValue,
+			},
+			{
+				name: "explicit allowlist includes waitlisted placement → denied by self-serve",
+				feats: &entitlements.ProjectFeatures{
+					NewBucketPlacements: []storj.PlacementConstraint{plUkraine},
+				},
+				placementName: "ukraine",
+				want:          rpcstatus.PlacementInvalidValue,
+			},
+			{
+				name:          "no entitlements row (NotFound) → error (all projects must have entitlements)",
+				feats:         nil,
+				placementName: "poland",
+				want:          rpcstatus.PlacementInvalidValue,
+			},
+		}
+
+		for i, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				if tc.feats == nil {
+					err := sat.API.Entitlements.Service.Projects().DeleteByPublicID(ctx, project.PublicID)
+					require.NoError(t, err)
+				} else {
+					err := sat.API.Entitlements.Service.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, tc.feats.NewBucketPlacements)
+					require.NoError(t, err)
+				}
+
+				bucketName := fmt.Sprintf("ent-bucket-%s-%d", tc.placementName, i)
+
+				_, err := endpoint.CreateBucket(ctx, mkReq(bucketName, tc.placementName))
+				switch tc.want {
+				case rpcstatus.OK:
+					require.NoError(t, err)
+				default:
+					require.True(t, errs2.IsRPC(err, tc.want))
+				}
+			})
+		}
 	})
 }
 

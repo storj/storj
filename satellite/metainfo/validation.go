@@ -17,6 +17,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
@@ -32,6 +33,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -298,6 +300,35 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 		}
 	}
 	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized attempt to revoke macaroon")
+}
+
+// validateSelfServePlacement enforces entitlements-first placement validation.
+// Rules:
+//  1. If entitlements are enabled, every project MUST have an entitlements row
+//  2. If entitlements are enabled but project not found in entitlements: error (no fallback)
+//  3. If entitlements exist but NewBucketPlacements is nil/empty: error (no fallback)
+//  4. If entitlements exist with valid placements: check placement is in that list
+//  5. Always verify placement exists in selfServePlacements and has no WaitlistURL
+func (endpoint *Endpoint) validateSelfServePlacement(ctx context.Context, publicProjectID uuid.UUID, p storj.PlacementConstraint) error {
+	if placementDetail, exists := endpoint.selfServePlacements[p]; !exists || placementDetail.WaitlistURL != "" {
+		return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+	}
+
+	if endpoint.entitlementsConfig.Enabled {
+		feats, err := endpoint.entitlementsService.Projects().GetByPublicID(ctx, publicProjectID)
+		if err != nil {
+			if entitlements.ErrNotFound.Has(err) {
+				return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+			}
+			return rpcstatus.Error(rpcstatus.Internal, "unable to validate project entitlements")
+		}
+
+		if len(feats.NewBucketPlacements) == 0 || !slices.Contains(feats.NewBucketPlacements, p) {
+			return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+		}
+	}
+
+	return nil
 }
 
 // checkRate validates whether the rate limiter has been hit for a particular project and operation.

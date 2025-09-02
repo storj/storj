@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
@@ -106,6 +107,8 @@ type Endpoint struct {
 	selfServePlacements            map[storj.PlacementConstraint]console.PlacementDetail
 	nodeSelectionStats             *NodeSelectionStats
 	bucketEventing                 eventing.BucketLocationTopicIDMap
+	entitlementsService            *entitlements.Service
+	entitlementsConfig             entitlements.Config
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -119,7 +122,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	satellite signing.Signer, revocations revocation.DB, successTrackers *SuccessTrackers, failureTracker SuccessTracker,
 	trustedUplinks *trust.TrustedPeersList, config Config, migrationModeFlag *MigrationModeFlagExtension,
 	placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats,
-	bucketEventing eventing.BucketLocationTopicIDMap) (
+	bucketEventing eventing.BucketLocationTopicIDMap, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config) (
 	*Endpoint, error) {
 	trustedOrders := ordersConfig.TrustedOrders
 	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
@@ -202,6 +205,8 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		rateLimiterTime:           time.Now,
 		nodeSelectionStats:        nodeSelectionStats,
 		bucketEventing:            bucketEventing,
+		entitlementsService:       entitlementsService,
+		entitlementsConfig:        entitlementsConfig,
 	}, nil
 }
 

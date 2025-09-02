@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/changestream"
 	"storj.io/storj/satellite/jobq"
@@ -117,6 +118,14 @@ func Module(ball *mud.Ball) {
 	{
 		mud.Provide[*server.Server](ball, server.New)
 		config.RegisterConfig[server.Config](ball, "server2")
+	}
+
+	{
+		mud.View[DB, entitlements.DB](ball, func(db DB) entitlements.DB {
+			return db.Console().Entitlements()
+		})
+		mud.Provide[*entitlements.Service](ball, entitlements.NewService)
+		config.RegisterConfig[entitlements.Config](ball, "entitlements")
 	}
 
 	mud.Provide[*metainfo.MigrationModeFlagExtension](ball, metainfo.NewMigrationModeFlagExtension)
