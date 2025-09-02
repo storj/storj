@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/dbcleanup"
+	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/gc/sender"
@@ -146,7 +147,8 @@ type Core struct {
 	}
 
 	ConsoleDBCleanup struct {
-		Chore *dbcleanup.Chore
+		Chore              *dbcleanup.Chore
+		PendingDeleteChore *pendingdelete.Chore
 	}
 
 	GarbageCollection struct {
@@ -631,6 +633,24 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			Run:   peer.ConsoleDBCleanup.Chore.Run,
 			Close: peer.ConsoleDBCleanup.Chore.Close,
 		})
+	}
+
+	{ // setup pending delete escalator
+		if config.PendingDeleteCleanup.Enabled {
+			peer.ConsoleDBCleanup.PendingDeleteChore = pendingdelete.NewChore(
+				peer.Log.Named("console.dbcleanup.pendingdelete:chore"),
+				config.PendingDeleteCleanup,
+				peer.DB.Buckets(),
+				peer.DB.Console(),
+				peer.Metainfo.Metabase,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "dbcleanup.pendingdelete:chore",
+				Run:   peer.ConsoleDBCleanup.PendingDeleteChore.Run,
+				Close: peer.ConsoleDBCleanup.PendingDeleteChore.Close,
+			})
+		}
 	}
 
 	{

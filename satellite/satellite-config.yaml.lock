@@ -1529,6 +1529,21 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for storage per month in dollars/TB
 # payments.usage-price.storage-tb: "4"
 
+# how long after the project was marked for deletion should we wait before deleting data
+# pending-delete-cleanup.buffer-time: 720h0m0s
+
+# how many delete workers to run at a time
+# pending-delete-cleanup.delete-concurrency: 1
+
+# whether (pending deletion) user/project data should be deleted or not
+# pending-delete-cleanup.enabled: false
+
+# how often to run this chore
+# pending-delete-cleanup.interval: 24h0m0s
+
+# how many events to query in a batch
+# pending-delete-cleanup.list-limit: 100
+
 # batch size for updating nodes with number of pieces
 # piece-tracker.update-batch-size: 1000
 

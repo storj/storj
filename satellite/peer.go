@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/dbcleanup"
+	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
@@ -228,6 +229,8 @@ type Config struct {
 	ConsoleAuth      consoleauth.Config
 	EmailReminders   emailreminders.Config
 	ConsoleDBCleanup dbcleanup.Config
+
+	PendingDeleteCleanup pendingdelete.Config
 
 	Emission emission.Config
 
