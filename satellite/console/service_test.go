@@ -2268,6 +2268,52 @@ func TestChangeEmail(t *testing.T) {
 	})
 }
 
+func TestCreateProject_WithEntitlementsService(t *testing.T) {
+	var (
+		placement       = storj.PlacementConstraint(10)
+		placementDetail = console.PlacementDetail{
+			ID:     10,
+			IdName: "placement10",
+		}
+		allowedPlacements = []storj.PlacementConstraint{storj.DefaultPlacement, placement}
+	)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					storj.DefaultPlacement: {ID: 0},
+					placement:              placementDetail,
+				})
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
+				config.Entitlements.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "example@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test-project"})
+		require.NoError(t, err)
+
+		feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+		require.NoError(t, err)
+		require.NotNil(t, feats.NewBucketPlacements)
+		require.Nil(t, feats.ProductPlacementMappings)
+		require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
+	})
+}
+
 func TestDeleteProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,

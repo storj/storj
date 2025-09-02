@@ -886,6 +886,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.MinimumCharge.Amount,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
+				config.Entitlements,
+				peer.Entitlements.Service,
 				consoleConfig.Config,
 			)
 			if err != nil {

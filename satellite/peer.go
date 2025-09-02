@@ -47,6 +47,7 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/piecetracker"
@@ -225,6 +226,7 @@ type Config struct {
 	Payments paymentsconfig.Config
 
 	Console          consoleweb.Config
+	Entitlements     entitlements.Config
 	Valdi            valdi.Config
 	ConsoleAuth      consoleauth.Config
 	EmailReminders   emailreminders.Config

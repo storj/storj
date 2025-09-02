@@ -53,6 +53,7 @@ import (
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/hubspotmails"
@@ -266,6 +267,9 @@ type Service struct {
 
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig
 
+	entitlementsService *entitlements.Service
+	entitlementsConfig  entitlements.Config
+
 	minimumChargeAmount int64
 	minimumChargeDate   *time.Time
 
@@ -284,6 +288,12 @@ func init() {
 	if c.PasswordCost != 0 {
 		panic("invalid release constant defined in struct tag. should be 0 (=automatic)")
 	}
+
+	for _, id := range c.Placement.AllowedPlacementIdsForNewProjects {
+		if _, ok := c.Placement.SelfServeDetails.Get(id); !ok {
+			panic(fmt.Sprintf("allowed placement ID %d not found in self-serve placement details", id))
+		}
+	}
 }
 
 // Payments separates all payment related functionality.
@@ -298,7 +308,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
-	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, config Config) (*Service, error) {
+	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
+	entitlementsService *entitlements.Service, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -386,6 +397,9 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		minimumChargeAmount: minimumChargeAmount,
 		minimumChargeDate:   minimumChargeDate,
 		packagePlans:        packagePlans,
+
+		entitlementsService: entitlementsService,
+		entitlementsConfig:  entitlementsConfig,
 
 		nowFn: time.Now,
 	}, nil
@@ -3877,11 +3891,28 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return Error.Wrap(err)
 		}
 
+		if s.entitlementsConfig.Enabled {
+			// We have to use a direct DB call here because we are in a transaction.
+			feats := entitlements.ProjectFeatures{NewBucketPlacements: s.config.Placement.AllowedPlacementIdsForNewProjects}
+			featBytes, err := json.Marshal(feats)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			_, err = tx.Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+				Scope:     entitlements.ConvertPublicIDToProjectScope(p.PublicID),
+				Features:  featBytes,
+				UpdatedAt: s.nowFn(),
+			})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
 		projectID = p.ID
 
 		return nil
 	})
-
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

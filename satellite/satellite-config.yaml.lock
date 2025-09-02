@@ -562,6 +562,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
 # console.placement-edge-url-overrides: ""
 
+# list of placement IDs that are allowed for new projects, e.g.[0, 10]
+# console.placement.allowed-placement-ids-for-new-projects: ""
+
 # human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details.
 # console.placement.self-serve-details: ""
 
@@ -895,6 +898,9 @@ contact.external-address: ""
 
 # energy needed to write 1GB of data, in W-hours/GB
 # emission.write-energy: 0.005
+
+# indicates whether the entitlements service is enabled
+# entitlements.enabled: false
 
 # how many delete queries are sent in parallel
 # expired-deletion.delete-concurrency: 1

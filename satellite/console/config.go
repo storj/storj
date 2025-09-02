@@ -90,8 +90,9 @@ type RestAPIKeysConfig struct {
 
 // PlacementsConfig contains configurations for self-serve placement logic.
 type PlacementsConfig struct {
-	SelfServeEnabled bool             `help:"whether self-serve placement selection feature is enabled" default:"false"`
-	SelfServeDetails PlacementDetails `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
+	SelfServeEnabled                  bool                              `help:"whether self-serve placement selection feature is enabled" default:"false"`
+	SelfServeDetails                  PlacementDetails                  `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
+	AllowedPlacementIdsForNewProjects AllowedPlacementIDsForNewProjects `help:"list of placement IDs that are allowed for new projects, e.g.[0, 10]" default:"[]"`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.
@@ -136,6 +137,47 @@ type EdgeURLOverrides struct {
 	AuthService         string `json:"authService,omitempty"`
 	PublicLinksharing   string `json:"publicLinksharing,omitempty"`
 	InternalLinksharing string `json:"internalLinksharing,omitempty"`
+}
+
+// AllowedPlacementIDsForNewProjects represents a list of placement IDs that are allowed for new projects.
+type AllowedPlacementIDsForNewProjects []storj.PlacementConstraint
+
+// Ensure that AllowedPlacementIDsForNewProjects implements pflag.Value.
+var _ pflag.Value = (*AllowedPlacementIDsForNewProjects)(nil)
+
+// Type implements pflag.Value.
+func (*AllowedPlacementIDsForNewProjects) Type() string {
+	return "console.AllowedPlacementIDsForNewProjects"
+}
+
+// String implements pflag.Value.
+func (ap *AllowedPlacementIDsForNewProjects) String() string {
+	if ap == nil || len(*ap) == 0 {
+		return ""
+	}
+
+	placements, err := json.Marshal(ap)
+	if err != nil {
+		return ""
+	}
+
+	return string(placements)
+}
+
+// Set implements pflag.Value.
+func (ap *AllowedPlacementIDsForNewProjects) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	var placements []storj.PlacementConstraint
+	err := json.Unmarshal([]byte(s), &placements)
+	if err != nil {
+		return err
+	}
+	*ap = placements
+
+	return nil
 }
 
 // PlacementEdgeURLOverrides represents a mapping between placement IDs and edge service URL overrides.

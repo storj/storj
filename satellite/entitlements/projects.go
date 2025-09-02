@@ -30,7 +30,7 @@ type Projects struct {
 func (p *Projects) GetByPublicID(ctx context.Context, publicID uuid.UUID) (feats ProjectFeatures, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ent, err := p.service.db.GetByScope(ctx, convertIDToProjectScope(publicID))
+	ent, err := p.service.db.GetByScope(ctx, ConvertPublicIDToProjectScope(publicID))
 	if err != nil {
 		return ProjectFeatures{}, Error.Wrap(err)
 	}
@@ -47,7 +47,7 @@ func (p *Projects) SetNewBucketPlacementsByPublicID(ctx context.Context, publicI
 		return Error.New("placements cannot be empty")
 	}
 
-	scope := convertIDToProjectScope(publicID)
+	scope := ConvertPublicIDToProjectScope(publicID)
 
 	// Load current record (may not exist yet).
 	ent, err := p.getEntitlementBeforeSet(ctx, scope)
@@ -74,7 +74,7 @@ func (p *Projects) SetProductPlacementMappingsByPublicID(ctx context.Context, pu
 		return Error.New("product:placements mappings cannot be empty")
 	}
 
-	scope := convertIDToProjectScope(publicID)
+	scope := ConvertPublicIDToProjectScope(publicID)
 
 	// Load current record (may not exist yet).
 	ent, err := p.getEntitlementBeforeSet(ctx, scope)
@@ -97,7 +97,7 @@ func (p *Projects) SetProductPlacementMappingsByPublicID(ctx context.Context, pu
 func (p *Projects) DeleteByPublicID(ctx context.Context, publicID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(p.service.db.DeleteByScope(ctx, convertIDToProjectScope(publicID)))
+	return Error.Wrap(p.service.db.DeleteByScope(ctx, ConvertPublicIDToProjectScope(publicID)))
 }
 
 func (p *Projects) getEntitlementBeforeSet(ctx context.Context, scope []byte) (ent *Entitlement, err error) {
@@ -124,6 +124,7 @@ func (p *Projects) upsertNewEntitlement(ctx context.Context, ent *Entitlement, f
 	return err
 }
 
-func convertIDToProjectScope(publicID uuid.UUID) []byte {
+// ConvertPublicIDToProjectScope converts a public project ID to a database project scope.
+func ConvertPublicIDToProjectScope(publicID uuid.UUID) []byte {
 	return []byte("proj_id:" + publicID.String())
 }
