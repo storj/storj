@@ -627,6 +627,51 @@ func (projects *projects) List(
 	return page, nil
 }
 
+// ListPendingDeletionBefore returns a list of project and owner IDs that are pending deletion and were marked before the specified time.
+func (projects *projects) ListPendingDeletionBefore(
+	ctx context.Context,
+	offset int64,
+	limit int,
+	before time.Time,
+) (page console.ProjectIdOwnerIdPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxProjects, err := projects.db.Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx,
+		dbx.Project_Status(int(console.ProjectPendingDeletion)),
+		dbx.Project_StatusUpdatedAt(before.UTC()),
+		limit+1,
+		offset,
+	)
+	if err != nil {
+		return console.ProjectIdOwnerIdPage{}, err
+	}
+
+	if len(dbxProjects) == limit+1 {
+		page.Next = true
+		page.NextOffset = offset + int64(limit)
+
+		dbxProjects = dbxProjects[:len(dbxProjects)-1]
+	}
+	page.Limit = limit
+	page.Offset = offset
+
+	ids := make([]console.ProjectIdOwnerId, 0, len(dbxProjects))
+	for _, p := range dbxProjects {
+		id, err := uuid.FromBytes(p.Id)
+		if err != nil {
+			return console.ProjectIdOwnerIdPage{}, errs.Wrap(err)
+		}
+		ownerID, err := uuid.FromBytes(p.OwnerId)
+		if err != nil {
+			return console.ProjectIdOwnerIdPage{}, errs.Wrap(err)
+		}
+		ids = append(ids, console.ProjectIdOwnerId{ProjectID: id, OwnerID: ownerID})
+	}
+
+	page.Ids = ids
+	return page, nil
+}
+
 // ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
 func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, cursor console.ProjectsCursor) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -652,9 +697,11 @@ func (projects *projects) listByOwnerID(
 	}
 
 	page := console.ProjectsPage{
-		CurrentPage: cursor.Page,
-		Limit:       cursor.Limit,
-		Offset:      int64((cursor.Page - 1) * cursor.Limit),
+		PageInfo: console.PageInfo{
+			CurrentPage: cursor.Page,
+			Limit:       cursor.Limit,
+			Offset:      int64((cursor.Page - 1) * cursor.Limit),
+		},
 	}
 
 	countQuery := `

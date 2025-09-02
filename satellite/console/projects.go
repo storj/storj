@@ -87,6 +87,10 @@ type Projects interface {
 
 	// UpdateDefaultPlacement is a method to update the project's default placement for new segments.
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
+
+	// ListPendingDeletionBefore returns a list of project and owner IDs that are pending deletion and were marked before the specified time.
+	ListPendingDeletionBefore(ctx context.Context, offset int64, limit int, before time.Time) (page ProjectIdOwnerIdPage, err error)
+
 	// GetNowFn returns the current time function.
 	GetNowFn() func() time.Time
 	// TestSetNowFn is used to set the current time for testing purposes.
@@ -254,11 +258,9 @@ type ProjectsCursor struct {
 	Page  int
 }
 
-// ProjectsPage returns paginated projects,
-// providing next offset if there are more projects
-// to retrieve.
-type ProjectsPage struct {
-	Projects   []Project
+// PageInfo contains details about a pagination
+// result set.
+type PageInfo struct {
 	Next       bool
 	NextOffset int64
 
@@ -268,6 +270,24 @@ type ProjectsPage struct {
 	PageCount   int
 	CurrentPage int
 	TotalCount  int64
+}
+
+// ProjectsPage returns paginated projects.
+type ProjectsPage struct {
+	PageInfo
+	Projects []Project
+}
+
+// ProjectIdOwnerId holds a project ID and its owner's ID.
+type ProjectIdOwnerId struct {
+	ProjectID uuid.UUID
+	OwnerID   uuid.UUID
+}
+
+// ProjectIdOwnerIdPage holds a page of project IDs and their owner IDs.
+type ProjectIdOwnerIdPage struct {
+	PageInfo
+	Ids []ProjectIdOwnerId
 }
 
 // LimitRequestInfo holds data needed to request limit increase.
