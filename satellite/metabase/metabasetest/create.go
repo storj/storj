@@ -174,6 +174,56 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 	return segments
 }
 
+// MakeObject creates a slice of objects for the given object stream without inserting to the database.
+func MakeObject(obj metabase.ObjectStream, status metabase.ObjectStatus, expiresAt *time.Time, numberOfSegments byte) (metabase.RawObject, []metabase.RawSegment) {
+	segments := MakeSegments(obj, expiresAt, numberOfSegments)
+
+	object := metabase.RawObject{
+		ObjectStream: obj,
+
+		CreatedAt: time.Now(),
+		ExpiresAt: expiresAt,
+
+		Status:       status,
+		SegmentCount: int32(numberOfSegments),
+
+		Encryption: DefaultEncryption,
+	}
+	for _, seg := range segments {
+		object.TotalPlainSize += int64(seg.PlainSize)
+		object.TotalEncryptedSize += int64(seg.EncryptedSize)
+	}
+
+	return object, segments
+}
+
+// MakeSegments creates a slice of segments for the given object stream without inserting to the database.
+func MakeSegments(obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegments byte) []metabase.RawSegment {
+	var segments []metabase.RawSegment
+	for i := range numberOfSegments {
+		segments = append(segments, metabase.RawSegment{
+			StreamID:    obj.StreamID,
+			Position:    metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+			RootPieceID: storj.PieceID{1},
+
+			CreatedAt: time.Now(),
+			ExpiresAt: expiresAt,
+
+			Pieces: metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+			EncryptedKey:      []byte{3},
+			EncryptedKeyNonce: []byte{4},
+			EncryptedETag:     []byte{5},
+
+			EncryptedSize: 1024,
+			PlainSize:     512,
+			PlainOffset:   int64(i) * 512,
+			Redundancy:    DefaultRedundancy,
+		})
+	}
+	return segments
+}
+
 // CreateVersionedObjectsWithKeys creates multiple versioned objects with the specified keys and versions,
 // and returns a mapping of keys to final versions.
 func CreateVersionedObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName metabase.BucketName, keys map[metabase.ObjectKey][]metabase.Version) map[metabase.ObjectKey]metabase.ObjectEntry {

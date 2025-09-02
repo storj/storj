@@ -174,16 +174,17 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			now := time.Now()
 			pastTime := now.Add(-1 * time.Hour)
 
-			// make objects/segments snapshot to use it later in a loop
+			var objects []metabase.RawObject
+			var segments []metabase.RawSegment
+
 			for range 13 {
-				_ = metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, pastTime)
+				object, segs := metabasetest.MakeObject(metabasetest.RandObjectStream(), metabase.CommittedUnversioned, &pastTime, 3)
+				objects = append(objects, object)
+				segments = append(segments, segs...)
 			}
 
-			objects, err := db.TestingAllObjects(ctx)
-			require.NoError(t, err)
-
-			segments, err := db.TestingAllSegments(ctx)
-			require.NoError(t, err)
+			require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+			require.NoError(t, db.TestingBatchInsertSegments(ctx, segments))
 
 			metabasetest.DeleteExpiredObjects{
 				Opts: metabase.DeleteExpiredObjects{
@@ -195,11 +196,8 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 
 			for _, batchSize := range []int{1, 2, 3, 8, 100} {
-				err = db.TestingBatchInsertObjects(ctx, metabasetest.ObjectsToRaw(objects...))
-				require.NoError(t, err)
-
-				err = db.TestingBatchInsertSegments(ctx, metabasetest.SegmentsToRaw(segments))
-				require.NoError(t, err)
+				require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
+				require.NoError(t, db.TestingBatchInsertSegments(ctx, segments))
 
 				metabasetest.DeleteExpiredObjects{
 					Opts: metabase.DeleteExpiredObjects{
