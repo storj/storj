@@ -5,7 +5,6 @@ package changestream
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 
@@ -24,22 +23,24 @@ type Config struct {
 
 // Service implements a changestream processing service.
 type Service struct {
-	db  metabase.ChangeStreamAdapter
-	log *zap.Logger
-	cfg Config
+	db        metabase.ChangeStreamAdapter
+	log       *zap.Logger
+	cfg       Config
+	publisher EventPublisher
 }
 
 // NewService creates a new changestream service.
-func NewService(db metabase.Adapter, log *zap.Logger, cfg Config) (*Service, error) {
+func NewService(db metabase.Adapter, log *zap.Logger, cfg Config, publisher EventPublisher) (*Service, error) {
 	sdb, ok := db.(metabase.ChangeStreamAdapter)
 
 	if !ok {
 		return nil, errs.New("changestream service requires spanner adapter")
 	}
 	return &Service{
-		log: log,
-		db:  sdb,
-		cfg: cfg,
+		log:       log,
+		db:        sdb,
+		cfg:       cfg,
+		publisher: publisher,
 	}, nil
 }
 
@@ -49,7 +50,7 @@ func (s *Service) Run(ctx context.Context) error {
 	start := time.Now()
 	return Processor(ctx, s.db, s.cfg.Feedname, start, func(record metabase.DataChangeRecord) error {
 		for _, mod := range record.Mods {
-			s.log.Info("received change record",
+			s.log.Debug("received change record",
 				zap.String("table", record.TableName),
 				zap.Time("commit_timestamp", record.CommitTimestamp),
 				zap.String("mod_type", record.ModType),
@@ -59,17 +60,23 @@ func (s *Service) Run(ctx context.Context) error {
 				zap.Stringer("old_values", mod.OldValues),
 				zap.Stringer("new_values", mod.NewValues))
 		}
+
 		event, err := ConvertModsToEvent(record)
 		if err != nil {
 			s.log.Error("failed to convert mods to event", zap.Error(err))
 			return nil
 		}
-		raw, err := json.Marshal(event)
-		if err != nil {
-			s.log.Error("failed to serialize event", zap.Error(err))
+
+		if len(event.Records) == 0 {
+			// Nothing to publish
 			return nil
 		}
-		s.log.Info("bucket info event", zap.String("event", string(raw)))
+
+		err = s.publisher.Publish(ctx, event)
+		if err != nil {
+			s.log.Error("failed to publish event", zap.Error(err))
+			return nil
+		}
 		return nil
 	})
 }
@@ -78,7 +85,7 @@ func (s *Service) Run(ctx context.Context) error {
 func Processor(ctx context.Context, adapter metabase.ChangeStreamAdapter, feedName string, startTime time.Time, fn func(record metabase.DataChangeRecord) error) error {
 	var mu sync.Mutex
 	// TODO: from the spanner documentation it's not clear the graph structure returned by changestream. Might be enough to use []ChildPartitionsRecord.
-	//  or we can execute all potential redy to listen partitions parallel not just one level.
+	//  or we can execute all potential ready to listen partitions parallel not just one level.
 	var todo [][]metabase.ChildPartitionsRecord
 	for {
 		if ctx.Err() != nil {

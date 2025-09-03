@@ -12,4 +12,12 @@ import (
 func Module(ball *mud.Ball) {
 	mud.Provide[*Service](ball, NewService)
 	config.RegisterConfig[Config](ball, "change-stream")
+
+	config.RegisterConfig[PubSubConfig](ball, "change-stream.pubsub")
+	mud.Provide[*PubSubPublisher](ball, NewPubSubPublisher)
+	mud.Provide[*LogPublisher](ball, NewLogPublisher)
+	mud.RegisterInterfaceImplementation[EventPublisher, *PubSubPublisher](ball)
+
+	config.RegisterConfig[PubSubClientConfig](ball, "")
+	mud.Provide[*PubSubClient](ball, NewPubSubClient)
 }
