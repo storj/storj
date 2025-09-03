@@ -5,6 +5,7 @@ package changestream
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -58,6 +59,17 @@ func (s *Service) Run(ctx context.Context) error {
 				zap.Stringer("old_values", mod.OldValues),
 				zap.Stringer("new_values", mod.NewValues))
 		}
+		event, err := ConvertModsToEvent(record)
+		if err != nil {
+			s.log.Error("failed to convert mods to event", zap.Error(err))
+			return nil
+		}
+		raw, err := json.Marshal(event)
+		if err != nil {
+			s.log.Error("failed to serialize event", zap.Error(err))
+			return nil
+		}
+		s.log.Info("bucket info event", zap.String("event", string(raw)))
 		return nil
 	})
 }
