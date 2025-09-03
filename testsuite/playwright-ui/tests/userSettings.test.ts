@@ -28,6 +28,7 @@ test.describe('User settings', () => {
                 password,
                 name,
                 companyName,
+                managedEnc: false,
             });
             userCreated = true;
         }

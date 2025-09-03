@@ -16,6 +16,8 @@ test.describe('buckets', () => {
         loginPage,
         navigationMenu,
     }) => {
+        const email = `${uuidv4()}@test.test`;
+        const password = 'password';
         const passphrase = '1';
 
         if (!userCreated) {
@@ -27,12 +29,14 @@ test.describe('buckets', () => {
                 password,
                 name: 'John Doe',
                 companyName: 'Storj Labs',
+                managedEnc: false,
             });
             userCreated = true;
         }
 
         await loginPage.goToLogin();
         await loginPage.loginByCreds(email, password);
+
         await navigationMenu.switchPassphrase(passphrase);
     });
 

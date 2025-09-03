@@ -3,35 +3,26 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
+import { createAndOnboardUser } from './common';
 
 test.describe('Sign up account', () => {
-    test.beforeEach(async ({
-        loginPage,
-        signupPage,
-    }) => {
-        const email = `${uuidv4()}@test.test`;
-        const password = 'password';
-
-        await signupPage.navigateToSignup();
-        await signupPage.verifyHeader();
-        await signupPage.verifySubheader();
-
-        await signupPage.signupFirstStep(email, password);
-        await signupPage.verifySuccessMessage();
-
-        await signupPage.navigateToLogin();
-        await loginPage.loginByCreds(email, password);
-        await loginPage.verifySetupAccountFirstStep();
-    });
+    const email = `${uuidv4()}@test.test`;
+    const password = 'password';
 
     test('Signup', async ({
+        signupPage,
         loginPage,
+        navigationMenu,
     }) => {
-        const name = 'John Doe';
-        const companyName = 'Storj Labs';
-        await loginPage.fillSetupForm(name, companyName);
-        await loginPage.selectFreeTrial();
-        await loginPage.selectManagedEnc(false);
-        await loginPage.ensureSetupSuccess();
+        await createAndOnboardUser({
+            signupPage,
+            loginPage,
+            navigationMenu,
+            email,
+            password,
+            name: 'John Doe',
+            companyName: 'Storj Labs',
+            managedEnc: false,
+        });
     });
 });

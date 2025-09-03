@@ -13,6 +13,7 @@ export type CreateAndOnboardUserParams = {
     password: string;
     name: string;
     companyName: string;
+    managedEnc: boolean;
 }
 
 export async function createAndOnboardUser(params: CreateAndOnboardUserParams): Promise<void> {
@@ -25,7 +26,7 @@ export async function createAndOnboardUser(params: CreateAndOnboardUserParams): 
     await params.loginPage.verifySetupAccountFirstStep();
     await params.loginPage.fillSetupForm(params.name, params.companyName);
     await params.loginPage.selectFreeTrial();
-    await params.loginPage.selectManagedEnc(false);
+    await params.loginPage.selectManagedEnc(params.managedEnc);
     await params.loginPage.ensureSetupSuccess();
     await params.loginPage.finishSetup();
 
