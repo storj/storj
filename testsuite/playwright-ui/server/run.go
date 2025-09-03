@@ -14,6 +14,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 )
@@ -96,6 +97,15 @@ func configureSelfServePlacement(config *satellite.Config) {
 		placement0: placementDetail0,
 		placement1: placementDetail1,
 	})
+	config.Console.SatelliteManagedEncryptionEnabled = true
+	config.KeyManagement.MockClient = true
+	config.KeyManagement.KeyInfos = kms.KeyInfos{
+		Values: map[int]kms.KeyInfo{
+			1: {
+				SecretVersion: "secretversion1", SecretChecksum: 12345,
+			},
+		},
+	}
 }
 
 // Run starts a new UI test.
