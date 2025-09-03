@@ -362,6 +362,23 @@ var (
 		RunE:  cmdFixLastNets,
 	}
 
+	entitlementsCmd = &cobra.Command{
+		Use:   "entitlements",
+		Short: "Entitlements administration",
+		Long:  "Operations to administrate satellite entitlements",
+	}
+	projectEntitlementsCmd = &cobra.Command{
+		Use:   "projects",
+		Short: "Project entitlements administration",
+		Long:  "Operations to administrate satellite project entitlements",
+	}
+	setNewBucketPlacementsCmd = &cobra.Command{
+		Use:   "set-new-bucket-placements",
+		Short: "Set NewBucketPlacements entitlement for projects",
+		Long:  "Set NewBucketPlacements entitlement for projects to be reused during new bucket creation",
+		RunE:  cmdSetNewBucketPlacements,
+	}
+
 	usersCmd = &cobra.Command{
 		Use:   "user-accounts",
 		Short: "User accounts administration",
@@ -513,6 +530,7 @@ func init() {
 	rootCmd.AddCommand(fixLastNetsCmd)
 	rootCmd.AddCommand(usersCmd)
 	rootCmd.AddCommand(valueAttributionCmd)
+	rootCmd.AddCommand(entitlementsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -534,6 +552,12 @@ func init() {
 	billingCmd.AddCommand(completePendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	billingCmd.AddCommand(generateListOfReusedCardFingerprints)
+	entitlementsCmd.AddCommand(projectEntitlementsCmd)
+	projectEntitlementsCmd.AddCommand(setNewBucketPlacementsCmd)
+	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsEmail, "email", "", "Set bucket placements for all active projects of a specific user by email")
+	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsCSV, "csv", "", "Set bucket placements for all active projects of users listed in CSV file")
+	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsJSON, "placements", "", "JSON array of placement IDs to set (e.g., \"[0, 12]\"). If not provided, uses satellite config defaults")
+	setNewBucketPlacementsCmd.Flags().BoolVar(&setNewBucketPlacementsSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
@@ -589,6 +613,7 @@ func init() {
 	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(valueAttributionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setNewBucketPlacementsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)
