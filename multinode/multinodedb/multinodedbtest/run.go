@@ -100,6 +100,8 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db multinode.DB)) {
+	t.Parallel()
+
 	databases := []Database{
 		{
 			Name:    "Postgres",

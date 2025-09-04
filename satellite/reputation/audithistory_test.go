@@ -157,13 +157,13 @@ type hist struct {
 }
 
 func TestMergeAuditHistoriesWithMultipleAudits(t *testing.T) {
+	t.Parallel()
+
 	config := reputation.AuditHistoryConfig{
 		WindowSize:     10 * time.Minute,
 		TrackingPeriod: 1 * time.Hour,
 	}
 	startTime := time.Now().Truncate(time.Hour).Add(-time.Hour)
-
-	t.Parallel()
 
 	t.Run("normal-merge", func(t *testing.T) {
 		history := makeHistory([]hist{

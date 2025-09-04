@@ -5050,7 +5050,7 @@ func TestSessionExpiration(t *testing.T) {
 	})
 }
 
-func TestTrialExpiration(t *testing.T) {
+func TestTrialExpirationImmediate(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
@@ -5068,7 +5068,9 @@ func TestTrialExpiration(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, user.TrialExpiration)
 	})
+}
 
+func TestTrialExpirationDelayed(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{

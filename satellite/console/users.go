@@ -228,7 +228,7 @@ const (
 	// UserStatusCount indicates how many user status are currently supported.
 	// It is mainly used as a control that some UserStatus tests are updated when when the UserStatus
 	// valid values defined in this const block are updated.
-	UserStatusCount int = 7
+	UserStatusCount = 7
 )
 
 // UserKind - is used to indicate kind of the user's account.
