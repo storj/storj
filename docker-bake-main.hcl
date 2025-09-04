@@ -9,12 +9,6 @@ target "storagenode-modular" {
       ref  = "ghcr.io/storj/storagenode-modular-cache:main"
     }
   ]
-  output = [
-    {
-      type = "image"
-      name = "ghcr.io/storj/storagenode-modular:${BUILD_VERSION}"
-    }
-  ]
 }
 
 
@@ -26,12 +20,6 @@ target "satellite-modular" {
       ref  = "ghcr.io/storj/satellite-modular-cache:main"
     }
   ]
-  output = [
-    {
-      type = "image"
-      name = "ghcr.io/storj/satellite-modular:${BUILD_VERSION}"
-    }
-  ]
 }
 
 target "storagenode-ui" {
@@ -40,12 +28,6 @@ target "storagenode-ui" {
       type = "registry",
       mode = "min",
       ref  = "ghcr.io/storj/storagenode-ui-cache:main"
-    }
-  ]
-  output = [
-    {
-      type = "image"
-      name = "ghcr.io/storj/storagenode-ui:${BUILD_VERSION}"
     }
   ]
 }

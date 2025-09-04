@@ -4025,6 +4025,34 @@ func TestCommitObjectVersioned(t *testing.T) {
 				Objects: rawObjects,
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("Commit pending objects with negative version", func(t *testing.T) {
+			obj := metabasetest.RandObjectStream()
+
+			expectedObjects := []metabase.RawObject{}
+			for i := range 5 {
+				obj.Version = metabase.Version(-1 * testrand.Int63n(math.MaxInt64))
+				pendingObject := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
+				object := metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream: pendingObject.ObjectStream,
+						Versioned:    true,
+					},
+					ExpectVersion: metabase.Version(i + 1),
+				}.Check(ctx, t, db)
+
+				expectedObjects = append(expectedObjects, metabase.RawObject(object))
+			}
+			metabasetest.Verify{
+				Objects: expectedObjects,
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
