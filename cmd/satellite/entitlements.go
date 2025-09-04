@@ -89,7 +89,7 @@ func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
 
 	// Determine which users/projects to target.
 	if setNewBucketPlacementsEmail != "" {
-		return processUserEmail(ctx, setNewBucketPlacementsEmail, args)
+		return processUserEmail(ctx, setNewBucketPlacementsEmail, args, true)
 	} else if setNewBucketPlacementsCSV != "" {
 		return processCSVFile(ctx, setNewBucketPlacementsCSV, args)
 	} else {
@@ -98,8 +98,8 @@ func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
 	}
 }
 
-func processUserEmail(ctx context.Context, email string, args processingArgs) error {
-	if !utils.ValidateEmail(email) {
+func processUserEmail(ctx context.Context, email string, args processingArgs, validate bool) error {
+	if validate && !utils.ValidateEmail(email) {
 		return errs.New("invalid email format: %s", email)
 	}
 
@@ -164,6 +164,7 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 	}
 
 	var emails []string
+	var invalidEmails []string
 	for i, record := range records {
 		if len(record) == 0 {
 			continue
@@ -177,13 +178,16 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 		}
 
 		if !utils.ValidateEmail(email) {
-			args.log.Warn("Invalid email format, skipping", zap.String("email", email))
+			invalidEmails = append(invalidEmails, email)
 			continue
 		}
 
 		emails = append(emails, email)
 	}
 
+	if len(invalidEmails) > 0 {
+		return errs.New("CSV file contains invalid email addresses: %v", invalidEmails)
+	}
 	if len(emails) == 0 {
 		return errs.New("no valid emails found in CSV file")
 	}
@@ -197,7 +201,17 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 
 	args.log.Info("Processing CSV users", zap.Int("count", len(emails)))
 
-	// TODO: continue implementation.
+	var errList errs.Group
+	for _, email := range emails {
+		if err = processUserEmail(ctx, email, args, false); err != nil {
+			errList.Add(err)
+		}
+	}
+	if err = errList.Err(); err != nil {
+		return errs.New("errors occurred while processing CSV users: %+v", err)
+	}
+
+	args.log.Info("Successfully updated new bucket placements for all users from CSV file", zap.Int("count", len(emails)))
 
 	return nil
 }
@@ -212,7 +226,61 @@ func processAllUsers(ctx context.Context, args processingArgs) error {
 
 	args.log.Info("Processing all users and their projects")
 
-	// TODO: continue implementation.
+	var errList errs.Group
+	cursor := console.UserCursor{Limit: 500, Page: 1}
+
+	for {
+		usersPage, err := args.satDB.Console().Users().GetByStatus(ctx, console.Active, cursor)
+		if err != nil {
+			return errs.New("error fetching active users: %+v", err)
+		}
+
+		if len(usersPage.Users) == 0 {
+			break
+		}
+
+		args.log.Info("Processing users batch", zap.Int("count", len(usersPage.Users)), zap.Uint("page", cursor.Page))
+
+		for _, user := range usersPage.Users {
+			projects, err := args.satDB.Console().Projects().GetOwnActive(ctx, user.ID)
+			if err != nil {
+				errList.Add(errs.New("error fetching active projects for user %s: %+v", user.Email, err))
+				continue
+			}
+
+			for _, project := range projects {
+				if args.newPlacements != nil {
+					if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, args.newPlacements); err != nil {
+						errList.Add(errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err))
+						continue
+					}
+					continue
+				}
+
+				if project.DefaultPlacement == storj.DefaultPlacement {
+					if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, args.allowedPlacements); err != nil {
+						errList.Add(errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err))
+						continue
+					}
+					continue
+				}
+
+				if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, []storj.PlacementConstraint{project.DefaultPlacement}); err != nil {
+					errList.Add(errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err))
+				}
+			}
+		}
+
+		if cursor.Page >= usersPage.PageCount {
+			break
+		}
+		cursor.Page++
+	}
+	if err := errList.Err(); err != nil {
+		return errs.New("errors occurred while processing users: %+v", err)
+	}
+
+	args.log.Info("Successfully updated new bucket placements for all active users and their projects")
 
 	return nil
 }
