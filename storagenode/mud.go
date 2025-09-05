@@ -413,10 +413,6 @@ func Module(ball *mud.Ball) {
 		mud.Tag[*nodestats.Cache, modular.Service](ball, modular.Service{})
 	}
 
-	{ // setup estimation service
-		mud.Provide[estimatedpayouts.Service](ball, estimatedpayouts.NewService)
-	}
-
 	{
 		mud.Provide[*collector.Service](ball, collector.NewService)
 		mud.Provide[collector.RunOnce](ball, collector.NewRunnerOnce)

@@ -18,7 +18,6 @@ import (
 
 // Module is a mud module.
 func Module(ball *mud.Ball) {
-	mud.Provide[*DB](ball, OpenDatabaseWithMigration)
 	mud.View[*DB, DB](ball, mud.Dereference[DB])
 	// TODO: there are cases when we need all the adapters (like changefeed). We need a better way to configure which should be used for these usescases.
 	mud.View[*DB, Adapter](ball, func(db *DB) Adapter {

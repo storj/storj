@@ -192,9 +192,19 @@ func Execute[A any](ctx context.Context, ball *Ball, factory interface{}, option
 
 // Execute0 executes a function with injection all required parameters. Same as Execute but without return type.
 func Execute0(ctx context.Context, ball *Ball, factory interface{}) error {
-	_, err := runWithParams[any](ctx, ball, factory)
+	ret, err := runWithParams[any](ctx, ball, factory)
 	if err != nil {
 		return err
+	}
+
+	// Even if we are not interested about the return value, if it's an error, let's return with it.
+	if len(ret) > 0 {
+		last := ret[len(ret)-1]
+		if last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+			if !last.IsNil() {
+				return last.Interface().(error)
+			}
+		}
 	}
 	return nil
 }

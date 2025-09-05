@@ -5,6 +5,7 @@ package root
 
 import (
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 	trustmud "storj.io/storj/satellite/trust/mud"
 	"storj.io/storj/shared/modular"
@@ -17,9 +18,14 @@ import (
 func Module(ball *mud.Ball) {
 	logger.Module(ball)
 	modular.IdentityModule(ball)
+
+	// defining the databases here, and not in satellite.Module, as mudplanet would like to use different options
 	satellitedb.Module(ball)
+	mud.Provide[*metabase.DB](ball, metabase.OpenDatabaseWithMigration)
+
 	satellite.Module(ball)
 	trustmud.Module(ball)
+
 	mud.Provide[*modular.MonkitReport](ball, modular.NewMonkitReport)
 
 	mud.Provide[*Auditor](ball, func() *Auditor {

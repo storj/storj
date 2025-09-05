@@ -13,11 +13,15 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/migration"
+	"storj.io/uplink"
 )
 
 // MigrateSatelliteDB migrates satellite database.
@@ -124,6 +128,14 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 		return err
 	}
 
+	_, err = db.Buckets().CreateBucket(ctx, buckets.Bucket{
+		Name:      "bucket1",
+		ProjectID: projectID,
+	})
+	if err != nil {
+		return err
+	}
+
 	_, err = db.Console().APIKeys().GetByNameAndProjectID(ctx, "testkey", projectID)
 	if errors.Is(err, sql.ErrNoRows) {
 		_, err = db.Console().APIKeys().Create(ctx, head, console.APIKeyInfo{
@@ -136,4 +148,18 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 		return err
 	}
 	return err
+}
+
+// GetTestApiKey generates a new API key, using the predefined test credentials.
+func GetTestApiKey(ctx context.Context, id storj.NodeID, address string) (*uplink.Access, error) {
+	config := uplink.Config{}
+	apiKey, err := macaroon.FromParts(head, secret)
+	if err != nil {
+		return nil, err
+	}
+	access, err := config.RequestAccessWithPassphrase(ctx, id.String()+"@"+address, apiKey.Serialize(), password)
+	if err != nil {
+		return nil, err
+	}
+	return access, nil
 }

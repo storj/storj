@@ -22,6 +22,8 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
+	"storj.io/storj/shared/mudplanet"
+	"storj.io/storj/storagenode"
 	piecestore2 "storj.io/storj/storagenode/piecestore"
 	"storj.io/uplink/private/piecestore"
 )
@@ -154,4 +156,15 @@ func InitStoragenodeDirs(t *testing.T, id storj.NodeID, config *piecestore2.OldC
 	}()
 	_, err = v.Write(id.Bytes())
 	require.NoError(t, err)
+}
+
+// Storagenode is a predefined customization, just enough to run a storage node with mudplanet.
+var Storagenode = mudplanet.Customization{
+	Modules: mudplanet.Modules{
+		storagenode.Module,
+		mudplanet.TrustAll,
+	},
+	PreInit: []any{
+		InitStoragenodeDirs,
+	},
 }

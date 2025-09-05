@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenode
+package storagenode_test
 
 import (
 	"context"
@@ -16,21 +16,17 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/server"
 	"storj.io/storj/shared/debug"
-	"storj.io/storj/shared/mud"
 	"storj.io/storj/shared/mudplanet"
 	"storj.io/storj/shared/mudplanet/sntest"
+	"storj.io/storj/storagenode"
 )
 
 func TestDebugServer(t *testing.T) {
 	mudplanet.Run(t, mudplanet.Config{
 		Components: []mudplanet.Component{
-			{
-				Name: "storagenode",
-				Modules: mudplanet.Modules{
-					Module,
-				},
-				Selector: mud.SelectIfExists[debug.Wrapper](),
-			},
+			mudplanet.NewComponent("storagenode",
+				mudplanet.WithModule(storagenode.Module),
+				mudplanet.WithRunning[debug.Wrapper]()),
 		},
 	}, func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		wrapper := mudplanet.FindFirst[debug.Wrapper](t, run, "storagenode", 0)
@@ -48,17 +44,7 @@ func TestDebugServer(t *testing.T) {
 func TestUploadPiecestore(t *testing.T) {
 	mudplanet.Run(t, mudplanet.Config{
 		Components: []mudplanet.Component{
-			{
-				Name: "storagenode",
-				Modules: mudplanet.Modules{
-					Module,
-					mudplanet.TrustAll,
-				},
-				Selector: mud.SelectIfExists[*EndpointRegistration](),
-				PreInit: []any{
-					sntest.InitStoragenodeDirs,
-				},
-			},
+			mudplanet.NewComponent("storagenode", sntest.Storagenode, mudplanet.WithRunning[*storagenode.EndpointRegistration]()),
 		},
 	}, func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		srv := mudplanet.FindFirst[*server.Server](t, run, "storagenode", 0)

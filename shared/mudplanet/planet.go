@@ -27,21 +27,89 @@ import (
 
 // Config is a configuration for the test environment.
 type Config struct {
+	// RunWrapper is used to wrap the execution of test. Can be useful to run DB test. module will be added to all components.
+	RunWrapper func(t *testing.T, fn func(t *testing.T, module func(*mud.Ball)))
+
+	// Components is a list of components to run in the test environment (microservices like storagenode, satellite, etc.).
 	Components []Component
 }
 
 // Modules is a list of modules that can be applied to a component.
 type Modules []func(ball *mud.Ball)
 
-// Component is a configuration for a single component in the test environment.
-type Component struct {
-	Name     string
-	Type     reflect.Type
-	Modules  Modules
+// Customization defines how a component component should be created and run.
+type Customization struct {
+	// Modules define how the types can be created.
+	Modules Modules
+
+	// Selector defines which components to initialize and run.
 	Selector mud.ComponentSelector
 
 	// PreInit is a list of hooks that are executed before the component is initialized. Parameters will be injected by type.
+	// This is called after the configuration is created, before the components are created. use func(c *ConfigType) to modify the config.
 	PreInit []any
+}
+
+// Component is a configuration for a single component in the test environment.
+type Component struct {
+	Customization
+	Name string
+}
+
+// NewComponent creates a new component with the given name and customizations.
+func NewComponent(name string, customizations ...Customization) Component {
+	c := Component{
+		Name: name,
+	}
+	for _, customization := range customizations {
+		c.Modules = append(c.Modules, customization.Modules...)
+
+		if customization.Selector != nil {
+			if c.Selector == nil {
+				c.Selector = customization.Selector
+			} else {
+				c.Selector = mud.And(c.Selector, customization.Selector)
+			}
+		}
+
+		c.PreInit = append(c.PreInit, customization.PreInit...)
+	}
+	return c
+}
+
+// WithModule adds a module to the component.
+func WithModule(modules ...func(ball *mud.Ball)) Customization {
+	return Customization{
+		Modules: modules,
+	}
+}
+
+// WithConfig can make it possible customize a config (use pointer).
+func WithConfig[T any](fn T) Customization {
+	return Customization{
+		PreInit: []any{fn},
+	}
+}
+
+// WithRunningAll sets the component selector for the component.
+func WithRunningAll(selector ...mud.ComponentSelector) Customization {
+	return Customization{
+		Selector: mud.Or(selector...),
+	}
+}
+
+// WithRunning requests to Run T during the test.
+func WithRunning[T any]() Customization {
+	return Customization{
+		Selector: mud.SelectIfExists[T](),
+	}
+}
+
+// WithSelector sets a custom selector for the component.
+func WithSelector(selector mud.ComponentSelector) Customization {
+	return Customization{
+		Selector: selector,
+	}
 }
 
 // RuntimeEnvironment is the runtime environment of the test.
@@ -51,88 +119,101 @@ type RuntimeEnvironment struct {
 
 // Microservice is a single instance of a component in the test environment.
 type Microservice struct {
-	Name     string
-	Index    int
-	Ball     *mud.Ball
-	Selector mud.ComponentSelector
-	WorkDir  string
+	Name       string
+	Index      int
+	Ball       *mud.Ball
+	Selector   mud.ComponentSelector
+	WorkDir    string
+	RunWrapper func(t *testing.T, fn func(t *testing.T))
 }
 
 // Run sets up and executes a test environment with the specified components and configuration.
 // It initializes all components, executes pre-init hooks, starts all services,
 // calls the provided callback function, and ensures proper cleanup afterward.
 func Run(t *testing.T, c Config, callback func(t *testing.T, ctx context.Context, run RuntimeEnvironment)) {
-	tctx := testcontext.New(t)
-
-	ctx, cancel := context.WithCancel(tctx)
 	logger := zaptest.NewLogger(t)
-	re := RuntimeEnvironment{}
+	wrapper := func(t *testing.T, fn func(t *testing.T, module func(*mud.Ball))) {
+		fn(t, nil)
+	}
+	if c.RunWrapper != nil {
+		wrapper = c.RunWrapper
+	}
+	wrapper(t, func(t *testing.T, module func(*mud.Ball)) {
+		tctx := testcontext.New(t)
 
-	for ix, component := range c.Components {
-		ball := mud.NewBall()
+		ctx, cancel := context.WithCancel(tctx)
 
-		{
-			// default components, usually provided by the CLI Runner
-			mud.Supply[*zap.Logger](ball, logger)
-			mud.Supply[*identity.FullIdentity](ball, testidentity.MustPregeneratedIdentity(ix, storj.LatestIDVersion()))
-			mud.View[*identity.FullIdentity, storj.NodeID](ball, func(fullIdentity *identity.FullIdentity) storj.NodeID {
-				return fullIdentity.ID
-			})
-			mud.Supply[*modular.StopTrigger](ball, &modular.StopTrigger{Cancel: cancel})
-			mud.Supply[*testing.T](ball, t)
-		}
+		re := RuntimeEnvironment{}
+		for ix, component := range c.Components {
+			ball := mud.NewBall()
 
-		// apply module customization
-		for _, module := range component.Modules {
-			module(ball)
-		}
+			if module != nil {
+				module(ball)
+			}
 
-		// create
-		microService := Microservice{
-			Name:     component.Name,
-			Index:    len(re.Services),
-			Ball:     ball,
-			Selector: component.Selector,
-			WorkDir:  tctx.Dir(component.Name, strconv.Itoa(len(re.Services))),
-		}
+			{
+				// default components, usually provided by the CLI Runner
+				mud.Supply[*zap.Logger](ball, logger)
+				mud.Supply[*identity.FullIdentity](ball, testidentity.MustPregeneratedIdentity(ix, storj.LatestIDVersion()))
+				mud.View[*identity.FullIdentity, storj.NodeID](ball, func(fullIdentity *identity.FullIdentity) storj.NodeID {
+					return fullIdentity.ID
+				})
+				mud.Supply[*modular.StopTrigger](ball, &modular.StopTrigger{Cancel: cancel})
+				mud.Supply[*testing.T](ball, t)
+			}
 
-		// initialize and fill all the required configs (dependencies of the selector)
-		err := InitConfigDefaults(ctx, t, ball, component.Selector, microService.WorkDir)
-		require.NoError(t, err)
+			// apply module customization
+			for _, module := range component.Modules {
+				module(ball)
+			}
 
-		// additional customization point before we init all the remaining components
-		re.Services = append(re.Services, microService)
-		for _, hook := range component.PreInit {
-			err = initAndExec(ctx, ball, hook)
+			// create
+			microService := Microservice{
+				Name:     component.Name,
+				Index:    len(re.Services),
+				Ball:     ball,
+				Selector: component.Selector,
+				WorkDir:  tctx.Dir(component.Name, strconv.Itoa(len(re.Services))),
+			}
+
+			// initialize and fill all the required configs (dependencies of the selector)
+			err := InitConfigDefaults(ctx, t, ball, component.Selector, microService.WorkDir)
+			require.NoError(t, err)
+
+			// additional customization point before we init all the remaining components
+			re.Services = append(re.Services, microService)
+			for _, hook := range component.PreInit {
+				err = initAndExec(ctx, ball, hook)
+				require.NoError(t, err)
+			}
+
+			// create the instance
+			err = modular.Initialize(ctx, ball, component.Selector)
 			require.NoError(t, err)
 		}
 
-		// create the instance
-		err = modular.Initialize(ctx, ball, component.Selector)
-		require.NoError(t, err)
-	}
+		eg := &errgroup.Group{}
 
-	eg := &errgroup.Group{}
-
-	// start components
-	for _, service := range re.Services {
-		err := mud.ForEachDependency(service.Ball, service.Selector, func(component *mud.Component) error {
-			return errs2.IgnoreCanceled(component.Run(ctx, eg))
-		}, mud.All)
-		require.NoError(t, err)
-	}
-	defer func() {
+		// start components
 		for _, service := range re.Services {
-			err := mud.ForEachDependencyReverse(service.Ball, service.Selector, func(component *mud.Component) error {
-				return errs2.IgnoreCanceled(component.Close(ctx))
+			err := mud.ForEachDependency(service.Ball, service.Selector, func(component *mud.Component) error {
+				return errs2.IgnoreCanceled(component.Run(ctx, eg))
 			}, mud.All)
 			require.NoError(t, err)
 		}
-	}()
-	callback(t, ctx, re)
-	cancel()
-	err := eg.Wait()
-	require.NoError(t, errs2.IgnoreCanceled(err))
+		defer func() {
+			for _, service := range re.Services {
+				err := mud.ForEachDependencyReverse(service.Ball, service.Selector, func(component *mud.Component) error {
+					return errs2.IgnoreCanceled(component.Close(ctx))
+				}, mud.All)
+				require.NoError(t, err)
+			}
+		}()
+		callback(t, ctx, re)
+		cancel()
+		err := eg.Wait()
+		require.NoError(t, errs2.IgnoreCanceled(err))
+	})
 }
 
 // initAndExec executes the given hook with (early) initialized parameters.
