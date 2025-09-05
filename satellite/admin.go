@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -60,6 +61,10 @@ type Admin struct {
 
 	Analytics struct {
 		Service *analytics.Service
+	}
+
+	Entitlements struct {
+		Service *entitlements.Service
 	}
 
 	Payments struct {
@@ -169,6 +174,13 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		})
 	}
 
+	{ // setup entitlements
+		peer.Entitlements.Service = entitlements.NewService(
+			peer.Log.Named("entitlements:service"),
+			db.Console().Entitlements(),
+		)
+	}
+
 	{ // setup payments
 		pc := config.Payments
 
@@ -217,18 +229,20 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			stripe.ServiceDependencies{
-				DB:         peer.DB.StripeCoinPayments(),
-				WalletsDB:  peer.DB.Wallets(),
-				BillingDB:  peer.DB.Billing(),
-				ProjectsDB: peer.DB.Console().Projects(),
-				UsersDB:    peer.DB.Console().Users(),
-				UsageDB:    peer.DB.ProjectAccounting(),
-				Analytics:  peer.Analytics.Service,
-				Emission:   emission.NewService(config.Emission),
+				DB:           peer.DB.StripeCoinPayments(),
+				WalletsDB:    peer.DB.Wallets(),
+				BillingDB:    peer.DB.Billing(),
+				ProjectsDB:   peer.DB.Console().Projects(),
+				UsersDB:      peer.DB.Console().Users(),
+				UsageDB:      peer.DB.ProjectAccounting(),
+				Analytics:    peer.Analytics.Service,
+				Emission:     emission.NewService(config.Emission),
+				Entitlements: peer.Entitlements.Service,
 			},
 			stripe.ServiceConfig{
 				DeleteAccountEnabled:       config.Console.SelfServeAccountDeleteEnabled,
 				DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+				EntitlementsEnabled:        config.Entitlements.Enabled,
 			},
 			pc.StripeCoinPayments,
 			stripe.PricingConfig{

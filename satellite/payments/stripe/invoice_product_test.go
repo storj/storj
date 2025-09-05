@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -97,6 +98,8 @@ func TestInvoiceByProduct(t *testing.T) {
 				// ""      | 12        | 2
 				// "part1" | 0         | 3
 				// "part1" | 12        | 4
+				// entitle | 0         | 2 // entitled project for any partner
+				// entitle | 12        | 3 // entitled project for any partner
 
 				config.Placement = nodeselection.ConfigurablePlacementRule{
 					PlacementRules: `0:annotation("location", "global");12:annotation("location", "testplacement")`,
@@ -123,11 +126,14 @@ func TestInvoiceByProduct(t *testing.T) {
 				partnerPlacementProductMap.SetMap(partnersMap)
 				config.Payments.PartnersPlacementPriceOverrides = partnerPlacementProductMap
 				config.Payments.Products = productOverrides
+
+				config.Entitlements.Enabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		db := planet.Satellites[0].DB
 		stripeService := planet.Satellites[0].API.Payments.StripeService
+		projectEntitlements := planet.Satellites[0].API.Entitlements.Service.Projects()
 
 		period := time.Now().UTC()
 		firstDayOfMonth := time.Date(
@@ -139,9 +145,10 @@ func TestInvoiceByProduct(t *testing.T) {
 		nonDefaultPlacement := storj.PlacementConstraint(12)
 
 		testCases := []struct {
-			name               string
-			partner            string
-			expectedProductIDs []int32
+			name                string
+			partner             string
+			expectedProductIDs  []int32
+			entitlementOverride bool
 		}{
 			{
 				name:               "no partner",
@@ -149,9 +156,21 @@ func TestInvoiceByProduct(t *testing.T) {
 				expectedProductIDs: []int32{1, 2},
 			},
 			{
+				name:                "no partner - entitlement override",
+				partner:             "entitlement-override",
+				expectedProductIDs:  []int32{2, 3},
+				entitlementOverride: true,
+			},
+			{
 				name:               "with partner",
 				partner:            "part1",
 				expectedProductIDs: []int32{3, 4},
+			},
+			{
+				name:                "with partner - entitlement override",
+				partner:             "part1",
+				expectedProductIDs:  []int32{2, 3},
+				entitlementOverride: true,
 			},
 		}
 
@@ -166,6 +185,24 @@ func TestInvoiceByProduct(t *testing.T) {
 			project2, err := db.Console().Projects().Insert(
 				ctx, &console.Project{ID: testrand.UUID(), Name: "project 2"})
 			require.NoError(t, err)
+
+			if testCase.entitlementOverride {
+				mapping := entitlements.ProductPlacementMappings{
+					2: {0},
+					3: {12},
+				}
+				err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx,
+					project1.PublicID,
+					mapping,
+				)
+				require.NoError(t, err)
+
+				err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx,
+					project2.PublicID,
+					mapping,
+				)
+				require.NoError(t, err)
+			}
 
 			bucket1, err := db.Buckets().CreateBucket(
 				ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket1", ProjectID: project1.ID, Placement: defaultPlacement})
@@ -223,8 +260,8 @@ func TestInvoiceByProduct(t *testing.T) {
 			end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
 			records := []stripe.ProjectRecord{
-				{ProjectID: project1.ID, Storage: 1},
-				{ProjectID: project2.ID, Storage: 1},
+				{ProjectID: project1.ID, ProjectPublicID: project1.PublicID, Storage: 1},
+				{ProjectID: project2.ID, ProjectPublicID: project2.PublicID, Storage: 1},
 			}
 
 			for _, r := range records {

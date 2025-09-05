@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -1574,10 +1575,14 @@ func TestPartnerPlacements(t *testing.T) {
 					placement11: placementDetail11,
 					placement12: placementDetail12,
 				})
+
+				config.Entitlements.Enabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		paymentsAPI := sat.API.Console.Service.Payments()
+		entitlementsAPI := planet.Satellites[0].API.Entitlements.Service.Projects()
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName:  "Test User",
@@ -1596,9 +1601,45 @@ func TestPartnerPlacements(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, partner, string(proj.UserAgent))
 
-		prodID, model, err := sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
+		prodID, model, err := paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
 		require.NoError(t, err)
 		// expect overridden product for placement12
+		require.Equal(t, productModel2, model)
+		require.Equal(t, productID2, prodID)
+
+		// test entitlements mapping overrides pricing mapping
+		err = entitlementsAPI.SetProductPlacementMappingsByPublicID(ctx, proj.PublicID, entitlements.ProductPlacementMappings{
+			productID2: {placement11}, // map productID2 to placement11 instead of productID in global pricing
+			productID:  {placement12}, // map productID to placement12 instead of productID2 in global partner-overridden pricing
+		})
+		require.NoError(t, err)
+
+		prodID, model, err = paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
+		require.NoError(t, err)
+		// expect entitlements mapping for placement12
+		require.Equal(t, productModel, model)
+		require.Equal(t, productID, prodID)
+
+		prodID, model, err = paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, placement11)
+		require.NoError(t, err)
+		// expect entitlements mapping for placement11
+		require.Equal(t, productModel2, model)
+		require.Equal(t, productID2, prodID)
+
+		prodID, model, err = paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, placement10)
+		require.NoError(t, err)
+		// expect global partner-overridden mapping for placement10
+		// since entitlements mapping doesn't define placement10
+		require.Equal(t, productModel, model)
+		require.Equal(t, productID, prodID)
+
+		// delete entitlements mapping for project
+		err = entitlementsAPI.DeleteByPublicID(ctx, proj.PublicID)
+		require.NoError(t, err)
+
+		prodID, model, err = paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
+		require.NoError(t, err)
+		// expect global partner-overridden mapping for placement12
 		require.Equal(t, productModel2, model)
 		require.Equal(t, productID2, prodID)
 
@@ -1622,7 +1663,7 @@ func TestPartnerPlacements(t *testing.T) {
 		require.Contains(t, details, placementDetail11)
 		require.Contains(t, details, placementDetail12)
 
-		prodID, model, err = sat.API.Console.Service.Payments().GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
+		prodID, model, err = paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, placement12)
 		require.NoError(t, err)
 		// expect global product for placement12
 		require.Equal(t, productModel, model)

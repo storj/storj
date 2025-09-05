@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -84,18 +85,20 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 		log.Named("payments.stripe:service"),
 		stripeClient,
 		stripe.ServiceDependencies{
-			DB:         db.StripeCoinPayments(),
-			WalletsDB:  db.Wallets(),
-			BillingDB:  db.Billing(),
-			ProjectsDB: db.Console().Projects(),
-			UsersDB:    db.Console().Users(),
-			UsageDB:    db.ProjectAccounting(),
-			Analytics:  analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName, runCfg.Console.ExternalAddress),
-			Emission:   emission.NewService(runCfg.Emission),
+			DB:           db.StripeCoinPayments(),
+			WalletsDB:    db.Wallets(),
+			BillingDB:    db.Billing(),
+			ProjectsDB:   db.Console().Projects(),
+			UsersDB:      db.Console().Users(),
+			UsageDB:      db.ProjectAccounting(),
+			Analytics:    analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName, runCfg.Console.ExternalAddress),
+			Emission:     emission.NewService(runCfg.Emission),
+			Entitlements: entitlements.NewService(log.Named("entitlements:service"), db.Console().Entitlements()),
 		},
 		stripe.ServiceConfig{
 			DeleteAccountEnabled:       runCfg.Console.SelfServeAccountDeleteEnabled,
 			DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+			EntitlementsEnabled:        runCfg.Entitlements.Enabled,
 		},
 		pc.StripeCoinPayments,
 		stripe.PricingConfig{

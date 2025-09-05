@@ -85,8 +85,9 @@ type Accounts interface {
 	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
 	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
 
-	// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement.
-	GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel, _ error)
+	// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement,
+	// if there is none defined for the project ID.
+	GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel, _ error)
 
 	// GetProductName returns the product name for a given product ID.
 	GetProductName(productID int32) (string, error)
@@ -94,8 +95,9 @@ type Accounts interface {
 	// GetPartnerNames returns the partners relevant to billing.
 	GetPartnerNames() []string
 
-	// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key.
-	ProductIdAndPriceForUsageKey(key string) (int32, ProductUsagePriceModel)
+	// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key
+	// if there is none defined for the project ID.
+	ProductIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, ProductUsagePriceModel)
 
 	// GetPartnerPlacements returns the placements for a partner.
 	GetPartnerPlacements(partner string) []storj.PlacementConstraint
@@ -105,7 +107,7 @@ type Accounts interface {
 	CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) error
 
 	// CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-	CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error)
+	CheckProjectUsageStatus(ctx context.Context, projectID, projectPublicID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error)
 
 	// Charges returns list of all credit card charges related to account.
 	Charges(ctx context.Context, userID uuid.UUID) ([]Charge, error)

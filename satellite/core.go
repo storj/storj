@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/hubspotmails"
@@ -77,6 +78,10 @@ type Core struct {
 
 	Analytics struct {
 		Service *analytics.Service
+	}
+
+	Entitlements struct {
+		Service *entitlements.Service
 	}
 
 	Mail struct {
@@ -459,6 +464,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		}
 	}
 
+	{ // setup entitlements
+		peer.Entitlements.Service = entitlements.NewService(
+			peer.Log.Named("entitlements:service"),
+			db.Console().Entitlements(),
+		)
+	}
+
 	// TODO: remove in future, should be in API
 	{ // setup payments
 		pc := config.Payments
@@ -502,18 +514,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			stripe.ServiceDependencies{
-				DB:         peer.DB.StripeCoinPayments(),
-				WalletsDB:  peer.DB.Wallets(),
-				BillingDB:  peer.DB.Billing(),
-				ProjectsDB: peer.DB.Console().Projects(),
-				UsersDB:    peer.DB.Console().Users(),
-				UsageDB:    peer.DB.ProjectAccounting(),
-				Analytics:  peer.Analytics.Service,
-				Emission:   emission.NewService(config.Emission),
+				DB:           peer.DB.StripeCoinPayments(),
+				WalletsDB:    peer.DB.Wallets(),
+				BillingDB:    peer.DB.Billing(),
+				ProjectsDB:   peer.DB.Console().Projects(),
+				UsersDB:      peer.DB.Console().Users(),
+				UsageDB:      peer.DB.ProjectAccounting(),
+				Analytics:    peer.Analytics.Service,
+				Emission:     emission.NewService(config.Emission),
+				Entitlements: peer.Entitlements.Service,
 			},
 			stripe.ServiceConfig{
 				DeleteAccountEnabled:       config.Console.SelfServeAccountDeleteEnabled,
 				DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+				EntitlementsEnabled:        config.Entitlements.Enabled,
 			},
 			pc.StripeCoinPayments,
 			stripe.PricingConfig{

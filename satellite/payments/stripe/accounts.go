@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
@@ -575,7 +576,7 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 		productUsages := make(map[int32]accounting.ProjectUsage)
 		productInfos := make(map[int32]payments.ProductUsagePriceModel)
 
-		err = accounts.service.getAndProcessUsages(ctx, project.ID, productUsages, productInfos, since, before)
+		err = accounts.service.getAndProcessUsages(ctx, project.ID, project.PublicID, productUsages, productInfos, since, before)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -631,8 +632,29 @@ func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.Pro
 	return accounts.service.pricingConfig.UsagePrices
 }
 
-// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement.
-func (accounts *accounts) GetPartnerPlacementPriceModel(partner string, placement storj.PlacementConstraint) (productID int32, _ payments.ProductUsagePriceModel, _ error) {
+// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement,
+// if there is none defined for the project ID.
+func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel, _ error) {
+	if accounts.service.config.EntitlementsEnabled {
+		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
+		if err != nil {
+			if !entitlements.ErrNotFound.Has(err) {
+				return 0, payments.ProductUsagePriceModel{}, err
+			}
+		}
+		for productID, placementConstraints := range feats.ProductPlacementMappings {
+			for _, pC := range placementConstraints {
+				if pC != placement {
+					continue
+				}
+				if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
+					return productID, price, nil
+				}
+				return 0, payments.ProductUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for product %d", productID)
+			}
+		}
+	}
+
 	productID, ok := accounts.service.pricingConfig.PartnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
 	if !ok {
 		productID, _ = accounts.service.pricingConfig.PlacementProductMap.GetProductByPlacement(int(placement))
@@ -656,9 +678,10 @@ func (accounts *accounts) GetPartnerNames() []string {
 	return accounts.service.partnerNames
 }
 
-// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key.
-func (accounts *accounts) ProductIdAndPriceForUsageKey(key string) (int32, payments.ProductUsagePriceModel) {
-	return accounts.service.productIdAndPriceForUsageKey(key)
+// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key
+// if there is none defined for the project ID.
+func (accounts *accounts) ProductIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, payments.ProductUsagePriceModel) {
+	return accounts.service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
 }
 
 // GetPartnerPlacements returns the placements for a partner. It also includes the
@@ -714,7 +737,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 }
 
 // CheckProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
+func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID, projectPublicID uuid.UUID) (currentUsageExists, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	year, month, _ := accounts.service.nowFn().UTC().Date()
@@ -757,7 +780,7 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 				return decimal.Zero, errs.New("invalid usage key format")
 			}
 
-			_, priceModel := accounts.service.productIdAndPriceForUsageKey(key)
+			_, priceModel := accounts.service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
 			usage.Egress = applyEgressDiscount(usage, priceModel.ProjectUsagePriceModel)
 			price := accounts.service.calculateProjectUsagePrice(usage, priceModel.ProjectUsagePriceModel)
 

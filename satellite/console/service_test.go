@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -1776,11 +1777,6 @@ func TestGetUsageReport(t *testing.T) {
 		}
 	)
 
-	productModel, err := productPrice.ToModel()
-	require.NoError(t, err)
-	productModel2, err := productPrice2.ToModel()
-	require.NoError(t, err)
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
@@ -1803,22 +1799,28 @@ func TestGetUsageReport(t *testing.T) {
 					storj.DefaultPlacement: {ID: 0},
 					placement11:            placementDetail11,
 				})
+
+				config.Entitlements.Enabled = true
 			},
 		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			now := time.Now().Truncate(time.Hour).UTC()
 			var (
-				sat       = planet.Satellites[0]
-				service   = sat.API.Console.Service
-				projectID = planet.Uplinks[0].Projects[0].ID
-				endpoint  = sat.API.Metainfo.Endpoint
-				db        = sat.DB
+				sat                 = planet.Satellites[0]
+				service             = sat.API.Console.Service
+				projectID           = planet.Uplinks[0].Projects[0].ID
+				endpoint            = sat.API.Metainfo.Endpoint
+				projectEntitlements = sat.API.Entitlements.Service.Projects()
+				db                  = sat.DB
 			)
 
 			sat.Accounting.Tally.Loop.Pause()
 			sat.Accounting.Rollup.Loop.Pause()
 			sat.Accounting.RollupArchive.Loop.Pause()
+
+			project, err := db.Console().Projects().Get(ctx, projectID)
+			require.NoError(t, err)
 
 			// we only want to use one user and project for this test
 			// the extra uplink and project is only to "contaminate" the
@@ -1836,6 +1838,14 @@ func TestGetUsageReport(t *testing.T) {
 			for _, upl := range planet.Uplinks {
 				apiKey := upl.APIKey[sat.ID()]
 				pID := upl.Projects[0].ID
+
+				p, err := db.Console().Projects().Get(ctx, pID)
+				require.NoError(t, err)
+
+				err = projectEntitlements.SetNewBucketPlacementsByPublicID(ctx, p.PublicID,
+					[]storj.PlacementConstraint{placement11, storj.DefaultPlacement},
+				)
+				require.NoError(t, err)
 
 				for i := 0; i < numbBuckets; i++ {
 					bucketName := fmt.Sprintf("bucket-%d", i)
@@ -1875,16 +1885,10 @@ func TestGetUsageReport(t *testing.T) {
 				require.Equal(t, skus.StorageSKU, item.StorageSKU)
 				require.Equal(t, skus.EgressSKU, item.EgressSKU)
 				require.Equal(t, skus.SegmentSKU, item.SegmentSKU)
-				require.True(t, item.Placement == placement11 || item.Placement == storj.DefaultPlacement)
 
-				var priceModel payments.ProjectUsagePriceModel
-				if item.Placement == storj.DefaultPlacement {
-					priceModel = productModel
-					require.Equal(t, productPrice.Name, item.ProductName)
-				} else {
-					priceModel = productModel2
-					require.Equal(t, productPrice2.Name, item.ProductName)
-				}
+				_, priceModel, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
+					string(project.UserAgent), item.Placement)
+				require.NoError(t, err)
 
 				expectedStorageCost, _ := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(rollup.TotalStoredData))).Round(0).Float64()
 				expectedEgressCost, _ := priceModel.EgressMBCents.Mul(gbToMb(rollup.GetEgress).Round(0)).Round(0).Float64()
@@ -1972,6 +1976,14 @@ func TestGetUsageReport(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, items, 2)
 			for _, item := range items {
+				// check that items are mapped to the product and pricing
+				// defined globally
+				if item.Placement == placement11 {
+					require.Equal(t, productPrice2.Name, item.ProductName)
+				}
+				if item.Placement == storj.DefaultPlacement {
+					require.Equal(t, productPrice.Name, item.ProductName)
+				}
 				require.Empty(t, item.BucketName)
 				testCosts(item, rollupForItem(item))
 			}
@@ -1981,7 +1993,53 @@ func TestGetUsageReport(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, items, numbBuckets)
 			for _, item := range items {
+				// check that items are mapped to the product and pricing
+				// defined globally
+				if item.Placement == placement11 {
+					require.Equal(t, productPrice2.Name, item.ProductName)
+				}
+				if item.Placement == storj.DefaultPlacement {
+					require.Equal(t, productPrice.Name, item.ProductName)
+				}
 				require.NotEmpty(t, item.BucketName)
+				testCosts(item, rollupForItem(item))
+			}
+
+			// test overriding project price mappings via entitlement
+			err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx, project.PublicID, entitlements.ProductPlacementMappings{
+				productID2: {storj.DefaultPlacement}, // reverse of the global mapping
+				productID:  {placement11},
+			})
+			require.NoError(t, err)
+
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, numbBuckets)
+			for _, item := range items {
+				// expect that items are mapped to the opposite product and pricing now
+				if item.Placement == placement11 {
+					require.Equal(t, productPrice.Name, item.ProductName)
+				}
+				if item.Placement == storj.DefaultPlacement {
+					require.Equal(t, productPrice2.Name, item.ProductName)
+				}
+				require.NotEmpty(t, item.BucketName)
+				testCosts(item, rollupForItem(item))
+			}
+
+			params.GroupByProject = true
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, 2)
+			for _, item := range items {
+				// expect that items are mapped to the opposite product and pricing now
+				if item.Placement == placement11 {
+					require.Equal(t, productPrice.Name, item.ProductName)
+				}
+				if item.Placement == storj.DefaultPlacement {
+					require.Equal(t, productPrice2.Name, item.ProductName)
+				}
+				require.Empty(t, item.BucketName)
 				testCosts(item, rollupForItem(item))
 			}
 

@@ -1157,7 +1157,7 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 }
 
 // checkProjectUsageStatus returns error if for the given project there is some usage for current or previous month.
-func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID uuid.UUID) (currentUsage, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
+func (payment Payments) checkProjectUsageStatus(ctx context.Context, project Project) (currentUsage, invoicingIncomplete bool, currentMonthPrice decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = payment.service.getUserAndAuditLog(ctx, "project usage status")
@@ -1165,7 +1165,7 @@ func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID u
 		return false, false, decimal.Zero, Error.Wrap(err)
 	}
 
-	return payment.service.accounts.CheckProjectUsageStatus(ctx, projectID)
+	return payment.service.accounts.CheckProjectUsageStatus(ctx, project.ID, project.PublicID)
 }
 
 // ApplyCoupon applies a coupon to an account based on couponID.
@@ -2528,7 +2528,7 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 
 	if user.IsPaid() {
 		for _, p := range projects {
-			currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p.ID)
+			currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p)
 			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
 				return nil, err
 			}
@@ -3977,7 +3977,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 		return nil, ErrUnauthorized.New("please try again later")
 	}
 
-	info, err = s.checkProjectCanBeDeleted(ctx, user, projectID)
+	info, err = s.checkProjectCanBeDeleted(ctx, user, p)
 	if err != nil {
 		return info, Error.Wrap(err)
 	}
@@ -4025,7 +4025,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	projectID = p.ID
 
-	info, err := s.checkProjectCanBeDeleted(ctx, user, projectID)
+	info, err := s.checkProjectCanBeDeleted(ctx, user, p)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusConflict,
@@ -5314,7 +5314,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				}
 
 				if s.config.NewDetailedUsageReportEnabled {
-					item, err = s.transformProjectReportItem(item, param.IncludeCost, payments.ProductUsagePriceModel{})
+					item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, payments.ProductUsagePriceModel{})
 					if err != nil {
 						return nil, Error.Wrap(err)
 					}
@@ -5343,7 +5343,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					UserAgent:       p.UserAgent,
 				}
 
-				_, priceModel := s.accounts.ProductIdAndPriceForUsageKey(key)
+				_, priceModel := s.accounts.ProductIdAndPriceForUsageKey(ctx, p.PublicID, key)
 
 				partner := ""
 				placement := int(storj.DefaultPlacement)
@@ -5362,7 +5362,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				item.Placement = storj.PlacementConstraint(placement)
 				item.UserAgent = []byte(partner)
 
-				item, err = s.transformProjectReportItem(item, param.IncludeCost, priceModel)
+				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, priceModel)
 				if err != nil {
 					return nil, Error.Wrap(err)
 				}
@@ -5480,10 +5480,10 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 
 // transformProjectReportItem modifies the project report item, converting GB values to TB and
 // hour values to month values. It includes cost if addCost is true.
-func (s *Service) transformProjectReportItem(item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
+func (s *Service) transformProjectReportItem(ctx context.Context, item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
 	if priceModel == (payments.ProductUsagePriceModel{}) {
-		_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(string(item.UserAgent), item.Placement)
+		_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(ctx, item.ProjectPublicID, string(item.UserAgent), item.Placement)
 		if err != nil {
 			return accounting.ProjectReportItem{}, err
 		}
@@ -5817,11 +5817,11 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 
 // checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
 // no error means the project status is clean.
-func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, projectID uuid.UUID) (resp *DeleteProjectInfo, err error) {
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !s.config.AbbreviatedDeleteProjectEnabled {
-		buckets, err := s.buckets.CountBuckets(ctx, projectID)
+		buckets, err := s.buckets.CountBuckets(ctx, project.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -5831,7 +5831,7 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 
 		// ignore object browser api key because we hide it from the user, so they can't delete it.
 		// project row deletion cascades to api keys, so it's okay.
-		keys, err := s.store.APIKeys().GetAllNamesByProjectID(ctx, projectID)
+		keys, err := s.store.APIKeys().GetAllNamesByProjectID(ctx, project.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -5850,7 +5850,7 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 	currentPrice := decimal.Zero
 
 	if user.IsPaid() {
-		currentUsage, invoicingIncomplete, currentMonthPrice, err := s.Payments().checkProjectUsageStatus(ctx, projectID)
+		currentUsage, invoicingIncomplete, currentMonthPrice, err := s.Payments().checkProjectUsageStatus(ctx, *project)
 		if err != nil && !payments.ErrUnbilledUsage.Has(err) {
 			return nil, ErrUsage.Wrap(err)
 		}
@@ -6439,7 +6439,9 @@ func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, proje
 	if err != nil {
 		return 0, payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
 	}
-	productID, model, err := payment.service.accounts.GetPartnerPlacementPriceModel(string(isMember.project.UserAgent), placement)
+
+	project := isMember.project
+	productID, model, err := payment.service.accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID, string(project.UserAgent), placement)
 	if err != nil {
 		return 0, payments.ProjectUsagePriceModel{}, Error.Wrap(err)
 	}

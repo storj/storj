@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -61,14 +62,15 @@ const (
 
 // ServiceDependencies consolidates all database and service dependencies for stripe.NewService.
 type ServiceDependencies struct {
-	DB         DB
-	WalletsDB  storjscan.WalletsDB
-	BillingDB  billing.TransactionsDB
-	ProjectsDB console.Projects
-	UsersDB    console.Users
-	UsageDB    accounting.ProjectAccounting
-	Analytics  *analytics.Service
-	Emission   *emission.Service
+	DB           DB
+	WalletsDB    storjscan.WalletsDB
+	BillingDB    billing.TransactionsDB
+	ProjectsDB   console.Projects
+	UsersDB      console.Users
+	UsageDB      accounting.ProjectAccounting
+	Analytics    *analytics.Service
+	Emission     *emission.Service
+	Entitlements *entitlements.Service
 }
 
 // PricingConfig consolidates all pricing-related configuration for stripe.NewService.
@@ -88,6 +90,7 @@ type PricingConfig struct {
 type ServiceConfig struct {
 	DeleteAccountEnabled       bool
 	DeleteProjectCostThreshold int64
+	EntitlementsEnabled        bool
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -97,14 +100,15 @@ type Service struct {
 	log          *zap.Logger
 	stripeClient Client
 
-	db         DB
-	walletsDB  storjscan.WalletsDB
-	billingDB  billing.TransactionsDB
-	projectsDB console.Projects
-	usersDB    console.Users
-	usageDB    accounting.ProjectAccounting
-	analytics  *analytics.Service
-	emission   *emission.Service
+	db           DB
+	walletsDB    storjscan.WalletsDB
+	billingDB    billing.TransactionsDB
+	projectsDB   console.Projects
+	usersDB      console.Users
+	usageDB      accounting.ProjectAccounting
+	analytics    *analytics.Service
+	emission     *emission.Service
+	entitlements *entitlements.Service
 
 	config        ServiceConfig
 	stripeConfig  Config
@@ -148,14 +152,15 @@ func NewService(
 		log:          log,
 		stripeClient: stripeClient,
 
-		db:         deps.DB,
-		walletsDB:  deps.WalletsDB,
-		billingDB:  deps.BillingDB,
-		projectsDB: deps.ProjectsDB,
-		usersDB:    deps.UsersDB,
-		usageDB:    deps.UsageDB,
-		analytics:  deps.Analytics,
-		emission:   deps.Emission,
+		db:           deps.DB,
+		walletsDB:    deps.WalletsDB,
+		billingDB:    deps.BillingDB,
+		projectsDB:   deps.ProjectsDB,
+		usersDB:      deps.UsersDB,
+		usageDB:      deps.UsageDB,
+		analytics:    deps.Analytics,
+		emission:     deps.Emission,
+		entitlements: deps.Entitlements,
 
 		config:        config,
 		pricingConfig: pricing,
@@ -378,10 +383,10 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 				}
 
 				projectIDs := []uuid.UUID{}
-				projectNameMap := make(map[uuid.UUID]string)
+				publicIDMap := make(map[uuid.UUID]uuid.UUID)
 				for _, p := range projects {
 					projectIDs = append(projectIDs, p.ID)
-					projectNameMap[p.ID] = p.Name
+					publicIDMap[p.ID] = p.PublicID
 				}
 
 				records, err := service.db.ProjectRecords().GetUnappliedByProjectIDs(ctx, projectIDs, start, end)
@@ -403,6 +408,8 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 
 				for _, r := range records {
 					totalRecords.Add(1)
+
+					r.ProjectPublicID = publicIDMap[r.ProjectID]
 
 					skipped, err := service.ProcessRecord(ctx, r, productUsages, productInfos, from, to)
 					if err != nil {
@@ -618,7 +625,7 @@ func (service *Service) ProcessRecord(
 		return true, nil
 	}
 
-	err = service.getAndProcessUsages(ctx, record.ProjectID, productUsages, productInfos, from, to)
+	err = service.getAndProcessUsages(ctx, record.ProjectID, record.ProjectPublicID, productUsages, productInfos, from, to)
 	if err != nil {
 		return false, err
 	}
@@ -628,7 +635,7 @@ func (service *Service) ProcessRecord(
 
 func (service *Service) getAndProcessUsages(
 	ctx context.Context,
-	projectID uuid.UUID,
+	projectID, projectPublicID uuid.UUID,
 	productUsages map[int32]accounting.ProjectUsage,
 	productInfos map[int32]payments.ProductUsagePriceModel,
 	from, to time.Time,
@@ -644,7 +651,7 @@ func (service *Service) getAndProcessUsages(
 			return errs.New("invalid usage key format")
 		}
 
-		productID, priceModel := service.productIdAndPriceForUsageKey(key)
+		productID, priceModel := service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
 
 		// Create or update the product usage entry.
 		if existingUsage, ok := productUsages[productID]; ok {
@@ -690,7 +697,7 @@ func (service *Service) getAndProcessUsages(
 	return nil
 }
 
-func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payments.ProductUsagePriceModel) {
+func (service *Service) productIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, payments.ProductUsagePriceModel) {
 	partner := ""
 	placement := int(storj.DefaultPlacement)
 
@@ -707,7 +714,7 @@ func (service *Service) productIdAndPriceForUsageKey(key string) (int32, payment
 	}
 
 	// Get price model for the partner and placement.
-	productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(partner, storj.PlacementConstraint(placement))
+	productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(ctx, projectPublicID, partner, storj.PlacementConstraint(placement))
 	if err != nil {
 		service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
 		// Use partner-only price model as a fallback.

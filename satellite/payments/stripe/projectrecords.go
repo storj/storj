@@ -51,6 +51,9 @@ type ProjectRecord struct {
 	PeriodStart time.Time
 	PeriodEnd   time.Time
 	State       int
+
+	// transient field to retrieved from project records db.
+	ProjectPublicID uuid.UUID
 }
 
 // ProjectRecordsPage holds project records and
