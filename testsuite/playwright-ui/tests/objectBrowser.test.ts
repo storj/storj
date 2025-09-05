@@ -6,9 +6,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
 import { createAndOnboardUser } from './common';
 
-test.describe('object browser + edge services', () => {
+test.describe('self-managed encryption: object browser + edge services', () => {
     const email = `${uuidv4()}@example.com`;
     const password = 'password';
+    const passphrase = '1';
     let userCreated = false;
 
     test.beforeEach(async ({
@@ -16,9 +17,6 @@ test.describe('object browser + edge services', () => {
         loginPage,
         navigationMenu,
     }) => {
-        const email = `${uuidv4()}@test.test`;
-        const password = 'password';
-        const passphrase = '1';
 
         if (!userCreated) {
             await createAndOnboardUser({
@@ -40,6 +38,41 @@ test.describe('object browser + edge services', () => {
         await navigationMenu.switchPassphrase(passphrase);
     });
 
+    fileBrowserTests();
+});
+
+test.describe('satellite-managed encryption: object browser + edge services', () => {
+    const email = `${uuidv4()}@example.com`;
+    const password = 'password';
+    let userCreated = false;
+
+    test.beforeEach(async ({
+        signupPage,
+        loginPage,
+        navigationMenu,
+    }) => {
+        if (!userCreated) {
+            await createAndOnboardUser({
+                signupPage,
+                loginPage,
+                navigationMenu,
+                email,
+                password,
+                name: 'John Doe',
+                companyName: 'Storj Labs',
+                managedEnc: true,
+            });
+            userCreated = true;
+        }
+
+        await loginPage.goToLogin();
+        await loginPage.loginByCreds(email, password);
+    });
+
+    fileBrowserTests();
+});
+
+function fileBrowserTests() {
     test('File download and upload', async ({
         objectBrowserPage,
         bucketsPage,
@@ -212,4 +245,4 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.clickBreadcrumb(1);
         await objectBrowserPage.deleteItemByName(folderName);
     });
-});
+}
