@@ -26,6 +26,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/payments/stripe"
@@ -509,24 +510,48 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	project, err := server.db.Console().Projects().Insert(ctx, &console.Project{
-		Name:    input.ProjectName,
-		OwnerID: input.OwnerID,
+	err = server.db.Console().WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		project, err := tx.Projects().Insert(ctx, &console.Project{
+			Name:    input.ProjectName,
+			OwnerID: input.OwnerID,
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ProjectMembers().Insert(ctx, project.OwnerID, project.ID, console.RoleAdmin)
+		if err != nil {
+			return err
+		}
+
+		if server.entitlementsCfg.Enabled {
+			// We have to use a direct DB call here because we are in a transaction.
+			feats := entitlements.ProjectFeatures{NewBucketPlacements: server.console.Placement.AllowedPlacementIdsForNewProjects}
+			featBytes, err := json.Marshal(feats)
+			if err != nil {
+				return err
+			}
+
+			_, err = tx.Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+				Scope:     entitlements.ConvertPublicIDToProjectScope(project.PublicID),
+				Features:  featBytes,
+				UpdatedAt: server.nowFn(),
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		output.ProjectID = project.ID
+
+		return nil
 	})
 	if err != nil {
-		sendJSONError(w, "failed to insert project",
+		sendJSONError(w, "failed to create project",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	_, err = server.db.Console().ProjectMembers().Insert(ctx, project.OwnerID, project.ID, console.RoleAdmin)
-	if err != nil {
-		sendJSONError(w, "failed to insert project member",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	output.ProjectID = project.ID
 	data, err := json.Marshal(output)
 	if err != nil {
 		sendJSONError(w, "json encoding failed",

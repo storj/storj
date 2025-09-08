@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
@@ -611,42 +612,109 @@ func TestProjectLimitUpdate(t *testing.T) {
 }
 
 func TestProjectAdd(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 0,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
-				config.Admin.Address = "127.0.0.1:0"
+	t.Run("Basic project creation", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 0,
+			UplinkCount:      1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+					config.Admin.Address = "127.0.0.1:0"
+				},
 			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		userID := planet.Uplinks[0].Projects[0].Owner
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			address := sat.Admin.Admin.Listener.Addr()
+			userID := planet.Uplinks[0].Projects[0].Owner
 
-		body := strings.NewReader(fmt.Sprintf(`{"ownerId":"%s","projectName":"Test Project"}`, userID.ID.String()))
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/projects", body)
-		require.NoError(t, err)
-		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+			body := strings.NewReader(fmt.Sprintf(`{"ownerId":"%s","projectName":"Test Project"}`, userID.ID.String()))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/projects", body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", sat.Config.Console.AuthToken)
 
-		response, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, response.StatusCode)
-		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
-		responseBody, err := io.ReadAll(response.Body)
-		require.NoError(t, err)
-		require.NoError(t, response.Body.Close())
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+			responseBody, err := io.ReadAll(response.Body)
+			require.NoError(t, err)
+			require.NoError(t, response.Body.Close())
 
-		var output struct {
-			ProjectID uuid.UUID `json:"projectId"`
-		}
+			var output struct {
+				ProjectID uuid.UUID `json:"projectId"`
+			}
 
-		err = json.Unmarshal(responseBody, &output)
-		require.NoError(t, err)
+			err = json.Unmarshal(responseBody, &output)
+			require.NoError(t, err)
 
-		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, output.ProjectID)
-		require.NoError(t, err)
-		require.Equal(t, "Test Project", project.Name)
+			project, err := sat.DB.Console().Projects().Get(ctx, output.ProjectID)
+			require.NoError(t, err)
+			require.Equal(t, "Test Project", project.Name)
+			require.Equal(t, userID.ID, project.OwnerID)
+
+			page, err := sat.DB.Console().ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, output.ProjectID, console.ProjectMembersCursor{Limit: 10, Page: 1})
+			require.NoError(t, err)
+			require.Len(t, page.ProjectMembers, 1)
+			require.Equal(t, userID.ID, page.ProjectMembers[0].MemberID)
+			require.Equal(t, output.ProjectID, page.ProjectMembers[0].ProjectID)
+			require.Equal(t, console.RoleAdmin, page.ProjectMembers[0].Role)
+		})
+	})
+
+	t.Run("Project creation with entitlements enabled", func(t *testing.T) {
+		var allowedPlacements = []storj.PlacementConstraint{storj.DefaultPlacement, storj.PlacementConstraint(10)}
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount:   1,
+			StorageNodeCount: 0,
+			UplinkCount:      1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+					config.Admin.Address = "127.0.0.1:0"
+					config.Entitlements.Enabled = true
+					config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			address := sat.Admin.Admin.Listener.Addr()
+			userID := planet.Uplinks[0].Projects[0].Owner
+
+			body := strings.NewReader(fmt.Sprintf(`{"ownerId":"%s","projectName":"Test Project With Entitlements"}`, userID.ID.String()))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+address.String()+"/api/projects", body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", sat.Config.Console.AuthToken)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+			responseBody, err := io.ReadAll(response.Body)
+			require.NoError(t, err)
+			require.NoError(t, response.Body.Close())
+
+			var output struct {
+				ProjectID uuid.UUID `json:"projectId"`
+			}
+
+			err = json.Unmarshal(responseBody, &output)
+			require.NoError(t, err)
+
+			project, err := sat.DB.Console().Projects().Get(ctx, output.ProjectID)
+			require.NoError(t, err)
+			require.Equal(t, "Test Project With Entitlements", project.Name)
+			require.Equal(t, userID.ID, project.OwnerID)
+
+			page, err := sat.DB.Console().ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, output.ProjectID, console.ProjectMembersCursor{Limit: 10, Page: 1})
+			require.NoError(t, err)
+			require.Len(t, page.ProjectMembers, 1)
+			require.Equal(t, userID.ID, page.ProjectMembers[0].MemberID)
+			require.Equal(t, console.RoleAdmin, page.ProjectMembers[0].Role)
+
+			features, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			require.NotNil(t, features)
+			require.Equal(t, allowedPlacements, features.NewBucketPlacements)
+		})
 	})
 }
 

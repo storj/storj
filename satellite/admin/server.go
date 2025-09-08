@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restapikeys"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/oidc"
@@ -100,8 +101,9 @@ type Server struct {
 
 	nowFn func() time.Time
 
-	console consoleweb.Config
-	config  Config
+	console         consoleweb.Config
+	entitlementsCfg entitlements.Config
+	config          Config
 }
 
 // NewServer returns a new administration Server.
@@ -118,6 +120,7 @@ func NewServer(
 	backOfficeService *backoffice.Service,
 	placement nodeselection.PlacementDefinitions,
 	console consoleweb.Config,
+	entitlementsCfg entitlements.Config,
 	config Config,
 ) *Server {
 	server := &Server{
@@ -137,8 +140,9 @@ func NewServer(
 
 		nowFn: time.Now,
 
-		console: console,
-		config:  config,
+		console:         console,
+		entitlementsCfg: entitlementsCfg,
+		config:          config,
 	}
 
 	root := mux.NewRouter()
