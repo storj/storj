@@ -57,6 +57,7 @@ func Databases() []Database {
 
 // Run runs tests with all postgres compatible databases.
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, connstr string)) {
+	t.Parallel()
 	for _, db := range Databases() {
 		db := db
 		if strings.EqualFold(*db.Flag, "omit") {

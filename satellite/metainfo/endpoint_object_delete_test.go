@@ -63,8 +63,6 @@ func testDeleteObject(t *testing.T,
 ) {
 	bucketName := "deleteobjects"
 	t.Run("all nodes up", func(t *testing.T) {
-		t.Parallel()
-
 		var testCases = []struct {
 			caseDescription string
 			objData         []byte
@@ -127,8 +125,6 @@ func testDeleteObject(t *testing.T,
 	})
 
 	t.Run("some nodes down", func(t *testing.T) {
-		t.Parallel()
-
 		var testCases = []struct {
 			caseDescription string
 			objData         []byte
@@ -192,8 +188,6 @@ func testDeleteObject(t *testing.T,
 	})
 
 	t.Run("all nodes down", func(t *testing.T) {
-		t.Parallel()
-
 		var testCases = []struct {
 			caseDescription string
 			objData         []byte

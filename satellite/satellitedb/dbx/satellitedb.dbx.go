@@ -14948,6 +14948,11 @@ type Id_Email_FullName_Row struct {
 	FullName string
 }
 
+type Id_OwnerId_Row struct {
+	Id      []byte
+	OwnerId []byte
+}
+
 type Id_PieceCount_Row struct {
 	Id         []byte
 	PieceCount int64
@@ -19775,6 +19780,61 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 					return nil, err
 				}
 				rows = append(rows, project)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	project_status Project_Status_Field,
+	project_status_updated_at_less Project_StatusUpdatedAt_Field,
+	limit int, offset int64) (
+	rows []*Id_OwnerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_status_updated_at_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_OwnerId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.OwnerId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
 			}
 			return rows, nil
 		}()
@@ -30211,6 +30271,61 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 }
 
+func (obj *pgxcockroachImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	project_status Project_Status_Field,
+	project_status_updated_at_less Project_StatusUpdatedAt_Field,
+	limit int, offset int64) (
+	rows []*Id_OwnerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_status_updated_at_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_OwnerId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.OwnerId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -36565,7 +36680,7 @@ func (obj *spannerImpl) Replace_Entitlement(ctx context.Context,
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
 
 	if optional.Features._set {
-		__values = append(__values, optional.Features.value())
+		__values = append(__values, spannerConvertJSON(optional.Features.value()))
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("features"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
@@ -38062,7 +38177,7 @@ func (obj *spannerImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	}
 
 	if optional.NoticeDismissal._set {
-		__values = append(__values, optional.NoticeDismissal.value())
+		__values = append(__values, spannerConvertJSON(optional.NoticeDismissal.value()))
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("notice_dismissal"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
@@ -40905,6 +41020,61 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 					return nil, err
 				}
 				rows = append(rows, project)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	project_status Project_Status_Field,
+	project_status_updated_at_less Project_StatusUpdatedAt_Field,
+	limit int, offset int64) (
+	rows []*Id_OwnerId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_status_updated_at_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_OwnerId_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.OwnerId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
 			}
 			return rows, nil
 		}()
@@ -47245,6 +47415,12 @@ type Methods interface {
 		project_created_at_less Project_CreatedAt_Field,
 		limit int, offset int64) (
 		rows []*Project, err error)
+
+	Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+		project_status Project_Status_Field,
+		project_status_updated_at_less Project_StatusUpdatedAt_Field,
+		limit int, offset int64) (
+		rows []*Id_OwnerId_Row, err error)
 
 	Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,

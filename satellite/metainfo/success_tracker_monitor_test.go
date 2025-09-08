@@ -26,6 +26,7 @@ func TestSuccessTrackerMonitor_Stats(t *testing.T) {
 	node1 := testrand.NodeID()
 	node2 := testrand.NodeID()
 	node3 := testrand.NodeID()
+	node4 := testrand.NodeID()
 
 	mudtest.Run[*metainfo.SuccessTrackerMonitor](t,
 		mudtest.WithTestLogger(t, func(ball *mud.Ball) {
@@ -54,6 +55,7 @@ func TestSuccessTrackerMonitor_Stats(t *testing.T) {
 			tracker.scores[node1] = 0.95
 			tracker.scores[node2] = 0.85
 			tracker.scores[node3] = 0.75 // German node
+			tracker.scores[node4] = 0.75 // node with succes score, but not in the cache. Might be new joiners.
 
 			key := monkit.NewSeriesKey("test_tracker")
 			monitor.RegisterTracker(key, tracker)

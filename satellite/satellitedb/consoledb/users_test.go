@@ -711,151 +711,161 @@ func TestDeleteUnverifiedBefore(t *testing.T) {
 }
 
 func TestUsersSetStatusPendingDeletion(t *testing.T) {
-	const defaultDaysTillEscalation = 2
+	t.Parallel()
 	// There are 2 loops around satellitedbtest.Run and 3 inside because having all of them inside
 	// exhaust the Spanner emulator. I don't know the reasons, I founded with a trial and error
 	// approach.
 	for _, kind := range []console.UserKind{console.FreeUser, console.PaidUser} {
-		for status := 0; status < console.UserStatusCount; status++ {
-			satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-				usersRepo := db.Console().Users()
-
-				var thirdPartyProject uuid.UUID
-				{ // Create a user and project to add the users of the following combination of tests to be
-					// member of it for the project member test combinations.
-					user, err := usersRepo.Insert(ctx, &console.User{
-						ID:           testrand.UUID(),
-						FullName:     "Third party project owner",
-						Email:        "third-party-project-owner@mail.test",
-						PasswordHash: []byte("password"),
-					})
-					require.NoError(t, err)
-
-					project, err := db.Console().Projects().Insert(
-						ctx, &console.Project{
-							Name:    "third-party-project",
-							OwnerID: user.ID,
-						},
-					)
-					require.NoError(t, err)
-
-					thirdPartyProject = project.ID
-				}
-
-				userStatus := console.UserStatus(status)
-
-				// -1 means not being a member.
-				for m := -1; m <= int(console.RoleMember); m++ {
-					memberType := console.ProjectMemberRole(m)
-
-					// This loop finishes by a conditional at the end of the loop block.
-					for event := console.AccountFreezeEventType(0); true; event++ {
-						// Days until escalation. -1 is null in the DB
-						for days := -1; days <= 1; days++ {
-							t.Run(fmt.Sprintf(
-								"PaidTier=%t_Status=%s_Member=%s_Event=%s=DaysUntilEscalation=%d",
-								kind == console.PaidUser, userStatus.String(), memberType, event, days,
-							), func(t *testing.T) {
-								// Create user and set the account freeze event.
-								user, err := usersRepo.Insert(ctx, &console.User{
-									ID:           testrand.UUID(),
-									FullName:     "Test User",
-									Email:        fmt.Sprintf("test-%s@mail.test", testrand.UUID().String()),
-									PasswordHash: []byte("password"),
-									Kind:         kind,
-								})
-								require.NoError(t, err)
-
-								{ // Set the status because Insert ignores the status field.
-									updateReq := console.UpdateUserRequest{
-										Status: &userStatus,
-									}
-									err = usersRepo.Update(ctx, user.ID, updateReq)
-									require.NoError(t, err)
-								}
-
-								{ // Create a project and create an entry in project members because all the owners are
-									// admin member of their projects
-									project, err := db.Console().Projects().Insert(
-										ctx, &console.Project{
-											Name:    user.Email,
-											OwnerID: user.ID,
-										},
-									)
-									require.NoError(t, err)
-
-									_, err = db.Console().ProjectMembers().Insert(
-										ctx, user.ID, project.ID, console.RoleAdmin,
-									)
-									require.NoError(t, err)
-								}
-
-								if memberType.String() != "" {
-									_, err = db.Console().ProjectMembers().Insert(ctx, user.ID, thirdPartyProject, memberType)
-									require.NoError(t, err)
-								}
-
-								// We check that's a valid event, otherwise we skip it to have checks without without a
-								// freeze event.
-								if event.String() != "" {
-									var daysp *int
-									if days >= 0 {
-										daysp = &days
-									}
-									_, err = db.Console().AccountFreezeEvents().Upsert(ctx, &console.AccountFreezeEvent{
-										UserID: user.ID,
-										Type:   event,
-										Limits: &console.AccountFreezeEventLimits{
-											User:     console.UsageLimits{},
-											Projects: make(map[uuid.UUID]console.UsageLimits),
-										},
-										DaysTillEscalation: daysp,
-									})
-									require.NoError(t, err)
-								}
-
-								// Call SetSatusPendingDeletion for this user.
-								err = db.Console().Users().SetStatusPendingDeletion(ctx, user.ID, defaultDaysTillEscalation)
-
-								// Verify the result.
-								require.GreaterOrEqual(t, defaultDaysTillEscalation, 2,
-									"days till escalation is required to be at least 2 for this test setup",
-								)
-								if kind == console.FreeUser &&
-									userStatus == console.Active &&
-									event == console.TrialExpirationFreeze &&
-									days == 0 &&
-									memberType.String() == "" {
-
-									require.NoError(t, err)
-
-									updatedUser, err := db.Console().Users().Get(ctx, user.ID)
-									require.NoError(t, err)
-									require.Equal(t, console.PendingDeletion, updatedUser.Status)
-									require.NotNil(t, updatedUser.StatusUpdatedAt, "StatusUpdateAt")
-									// Delta is 10 seconds to reduce the chances to fail test because of the Spanner emulator
-									// running slower.
-									require.WithinDuration(
-										t, time.Now().UTC(), *updatedUser.StatusUpdatedAt, 10*time.Second, "StatusUpdatedAt",
-									)
-								} else {
-									require.ErrorIs(t, err, sql.ErrNoRows)
-								}
-							})
-						}
-
-						// If the event doesn't have a string representation is an invalid event. Event values
-						// are consecutive positive integers, hence, the previous iteration reached the event
-						// type with maximum value and this one was to check a user without a freeze event.
-						if event.String() == "" {
-							break
-						}
-					}
-				}
+		for status := console.UserStatus(0); status < console.UserStatusCount; status++ {
+			t.Run(fmt.Sprintf("kind=%v,status=%v", kind, status), func(t *testing.T) {
+				testUsersSetStatusPendingDeletion(t, kind, status)
 			})
 		}
 	}
+}
 
+func testUsersSetStatusPendingDeletion(t *testing.T, kind console.UserKind, status console.UserStatus) {
+	const defaultDaysTillEscalation = 2
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+
+		var thirdPartyProject uuid.UUID
+		{ // Create a user and project to add the users of the following combination of tests to be
+			// member of it for the project member test combinations.
+			user, err := usersRepo.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Third party project owner",
+				Email:        "third-party-project-owner@mail.test",
+				PasswordHash: []byte("password"),
+			})
+			require.NoError(t, err)
+
+			project, err := db.Console().Projects().Insert(
+				ctx, &console.Project{
+					Name:    "third-party-project",
+					OwnerID: user.ID,
+				},
+			)
+			require.NoError(t, err)
+
+			thirdPartyProject = project.ID
+		}
+
+		userStatus := status
+
+		// -1 means not being a member.
+		for m := -1; m <= int(console.RoleMember); m++ {
+			memberType := console.ProjectMemberRole(m)
+
+			// This loop finishes by a conditional at the end of the loop block.
+			for event := console.AccountFreezeEventType(0); true; event++ {
+				// Days until escalation. -1 is null in the DB
+				for days := -1; days <= 1; days++ {
+					t.Run(fmt.Sprintf(
+						"PaidTier=%t_Status=%s_Member=%s_Event=%s=DaysUntilEscalation=%d",
+						kind == console.PaidUser, userStatus.String(), memberType, event, days,
+					), func(t *testing.T) {
+						// Create user and set the account freeze event.
+						user, err := usersRepo.Insert(ctx, &console.User{
+							ID:           testrand.UUID(),
+							FullName:     "Test User",
+							Email:        fmt.Sprintf("test-%s@mail.test", testrand.UUID().String()),
+							PasswordHash: []byte("password"),
+							Kind:         kind,
+						})
+						require.NoError(t, err)
+
+						{ // Set the status because Insert ignores the status field.
+							updateReq := console.UpdateUserRequest{
+								Status: &userStatus,
+							}
+							err = usersRepo.Update(ctx, user.ID, updateReq)
+							require.NoError(t, err)
+						}
+
+						{ // Create a project and create an entry in project members because all the owners are
+							// admin member of their projects
+							project, err := db.Console().Projects().Insert(
+								ctx, &console.Project{
+									Name:    user.Email,
+									OwnerID: user.ID,
+								},
+							)
+							require.NoError(t, err)
+
+							_, err = db.Console().ProjectMembers().Insert(
+								ctx, user.ID, project.ID, console.RoleAdmin,
+							)
+							require.NoError(t, err)
+						}
+
+						if memberType.String() != "" {
+							_, err = db.Console().ProjectMembers().Insert(ctx, user.ID, thirdPartyProject, memberType)
+							require.NoError(t, err)
+						}
+
+						// We check that's a valid event, otherwise we skip it to have checks without without a
+						// freeze event.
+						if event.String() != "" {
+							var daysp *int
+							if days >= 0 {
+								daysp = &days
+							}
+							_, err = db.Console().AccountFreezeEvents().Upsert(ctx, &console.AccountFreezeEvent{
+								UserID: user.ID,
+								Type:   event,
+								Limits: &console.AccountFreezeEventLimits{
+									User:     console.UsageLimits{},
+									Projects: make(map[uuid.UUID]console.UsageLimits),
+								},
+								DaysTillEscalation: daysp,
+							})
+							require.NoError(t, err)
+						}
+
+						// Call SetSatusPendingDeletion for this user.
+						err = db.Console().Users().SetStatusPendingDeletion(ctx, user.ID, defaultDaysTillEscalation)
+
+						// Verify the result.
+						require.GreaterOrEqual(t, defaultDaysTillEscalation, 2,
+							"days till escalation is required to be at least 2 for this test setup",
+						)
+						if kind == console.FreeUser &&
+							userStatus == console.Active &&
+							event == console.TrialExpirationFreeze &&
+							days == 0 &&
+							memberType.String() == "" {
+
+							require.NoError(t, err)
+
+							updatedUser, err := db.Console().Users().Get(ctx, user.ID)
+							require.NoError(t, err)
+							require.Equal(t, console.PendingDeletion, updatedUser.Status)
+							require.NotNil(t, updatedUser.StatusUpdatedAt, "StatusUpdateAt")
+							// Delta is 10 seconds to reduce the chances to fail test because of the Spanner emulator
+							// running slower.
+							require.WithinDuration(
+								t, time.Now().UTC(), *updatedUser.StatusUpdatedAt, 10*time.Second, "StatusUpdatedAt",
+							)
+						} else {
+							require.ErrorIs(t, err, sql.ErrNoRows)
+						}
+					})
+				}
+
+				// If the event doesn't have a string representation is an invalid event. Event values
+				// are consecutive positive integers, hence, the previous iteration reached the event
+				// type with maximum value and this one was to check a user without a freeze event.
+				if event.String() == "" {
+					break
+				}
+			}
+		}
+	})
+}
+
+func TestUsersSetStatusPendingDeletion_UserMissing(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		t.Run("unexisting_user_account", func(t *testing.T) {
 			err := db.Console().Users().SetStatusPendingDeletion(ctx, testrand.UUID(), 0)

@@ -1095,6 +1095,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
 		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
+		AbbreviatedDeleteProjectEnabled:   server.config.DeleteProjectEnabled && server.config.AbbreviatedDeleteProjectEnabled,
 		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
 		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,

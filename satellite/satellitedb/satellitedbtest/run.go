@@ -231,6 +231,7 @@ func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbuti
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
+	t.Parallel()
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
 		t.Run(dbInfo.Name, func(t *testing.T) {

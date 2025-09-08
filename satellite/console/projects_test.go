@@ -257,6 +257,86 @@ func TestProjectsList(t *testing.T) {
 	})
 }
 
+func TestListPendingDeletionBefore(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersRepo := db.Console().Users()
+		projectsRepo := db.Console().Projects()
+
+		owner1, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Test User 1",
+			Email:        "test1@test.test",
+			PasswordHash: testrand.Bytes(8),
+		})
+		require.NoError(t, err)
+
+		owner2, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Test User 2",
+			Email:        "test2@test.test",
+			PasswordHash: testrand.Bytes(8),
+		})
+		require.NoError(t, err)
+
+		now := time.Now().Truncate(time.Minute)
+		beforeTime := now.Add(-time.Hour)
+		afterTime := now.Add(time.Hour)
+
+		pendingProject1, err := projectsRepo.Insert(ctx, &console.Project{
+			ID:      testrand.UUID(),
+			Name:    "PendingDeletion1",
+			OwnerID: owner1.ID,
+		})
+		require.NoError(t, err)
+
+		pendingProject2, err := projectsRepo.Insert(ctx, &console.Project{
+			ID:      testrand.UUID(),
+			Name:    "PendingDeletion2",
+			OwnerID: owner2.ID,
+		})
+		require.NoError(t, err)
+
+		_, err = projectsRepo.Insert(ctx, &console.Project{
+			ID:      testrand.UUID(),
+			Name:    "Active",
+			OwnerID: owner1.ID,
+		})
+		require.NoError(t, err)
+
+		err = projectsRepo.UpdateStatus(ctx, pendingProject1.ID, console.ProjectPendingDeletion)
+		require.NoError(t, err)
+
+		err = projectsRepo.UpdateStatus(ctx, pendingProject2.ID, console.ProjectPendingDeletion)
+		require.NoError(t, err)
+
+		page, err := projectsRepo.ListPendingDeletionBefore(ctx, 0, 10, afterTime)
+		require.NoError(t, err)
+		require.Len(t, page.Ids, 2)
+		require.Contains(t, page.Ids, console.ProjectIdOwnerId{
+			ProjectID: pendingProject1.ID,
+			OwnerID:   owner1.ID,
+		})
+		require.Contains(t, page.Ids, console.ProjectIdOwnerId{
+			ProjectID: pendingProject2.ID,
+			OwnerID:   owner2.ID,
+		})
+
+		page, err = projectsRepo.ListPendingDeletionBefore(ctx, 0, 1, afterTime)
+		require.NoError(t, err)
+		require.Len(t, page.Ids, 1)
+		require.Equal(t, pendingProject1.ID, page.Ids[0].ProjectID)
+
+		page, err = projectsRepo.ListPendingDeletionBefore(ctx, 1, 1, afterTime)
+		require.NoError(t, err)
+		require.Len(t, page.Ids, 1)
+		require.Equal(t, pendingProject2.ID, page.Ids[0].ProjectID)
+
+		page, err = projectsRepo.ListPendingDeletionBefore(ctx, 0, 10, beforeTime)
+		require.NoError(t, err)
+		require.Len(t, page.Ids, 0)
+	})
+}
+
 func TestUpdateStatus(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) { // repositories
 		owner, err := db.Console().Users().Insert(ctx,

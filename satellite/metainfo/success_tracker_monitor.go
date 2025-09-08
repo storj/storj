@@ -76,7 +76,11 @@ func (s *SuccessTrackerMonitor) Stats(cb func(key monkit.SeriesKey, field string
 	}
 	for key, tracker := range s.trackers {
 		tracker.Range(func(id storj.NodeID, f float64) {
-			if !s.filter.Match(nodes[id]) {
+			node, found := nodes[id]
+			if !found {
+				return
+			}
+			if !s.filter.Match(node) {
 				return
 			}
 			cb(key.WithTag("node_id", hex.EncodeToString(id.Bytes())), "recent", f)

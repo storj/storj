@@ -31,8 +31,6 @@ import (
 )
 
 func TestCache_Database(t *testing.T) {
-	t.Parallel()
-
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		testCache(ctx, t, db.OverlayCache(), db.NodeEvents())
 	})
@@ -166,8 +164,6 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 }
 
 func TestRandomizedSelectionCache(t *testing.T) {
-	t.Parallel()
-
 	totalNodes := 1000
 	selectIterations := 100
 	numNodesToSelect := 100

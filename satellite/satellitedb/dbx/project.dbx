@@ -219,6 +219,13 @@ read limitoffset (
 	orderby asc project.created_at
 )
 
+read limitoffset (
+	select project.id project.owner_id
+	where project.status = ?
+	where project.status_updated_at < ?
+	orderby asc project.status_updated_at
+)
+
 // project_member is an association table between projects and users.
 // It indicates which users have access to the specific project.
 model project_member (

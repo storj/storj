@@ -41,23 +41,24 @@ func TestDeleteTalliesBefore(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		test := tt
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			nodeIDs := []storj.NodeID{{1}, {2}, {3}}
-			nodeBWAmounts := []float64{1000, 1000, 1000}
+	for i, test := range tests {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+				nodeIDs := []storj.NodeID{{1}, {2}, {3}}
+				nodeBWAmounts := []float64{1000, 1000, 1000}
 
-			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeIDs, nodeBWAmounts)
-			require.NoError(t, err)
+				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeIDs, nodeBWAmounts)
+				require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore, 1)
-			require.NoError(t, err)
+				err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore, 1)
+				require.NoError(t, err)
 
-			raws, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
-			require.NoError(t, err)
-			assert.Len(t, raws, test.expectedRaws)
+				raws, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
+				require.NoError(t, err)
+				assert.Len(t, raws, test.expectedRaws)
+			})
 		})
 	}
 }

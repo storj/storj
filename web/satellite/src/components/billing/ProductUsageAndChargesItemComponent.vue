@@ -27,7 +27,7 @@
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
                     <div v-for="[productID, charge] in charges" :key="projectID + productID">
-                        <h4 class="my-2">Product: {{ getProductName(productID) }}</h4>
+                        <h4 class="my-2">{{ getProductName(productID) }}</h4>
                         <v-table density="comfortable" class="border rounded-lg">
                             <thead>
                                 <tr>

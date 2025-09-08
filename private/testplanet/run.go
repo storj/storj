@@ -22,6 +22,11 @@ import (
 
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
+	parallel := !config.NonParallel
+	if parallel {
+		t.Parallel()
+	}
+
 	databases := satellitedbtest.Databases()
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
@@ -36,7 +41,6 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			t.Skipf("Test is not enabled to run on Spanner.")
 		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
-			parallel := !config.NonParallel
 			if parallel {
 				t.Parallel()
 			}
