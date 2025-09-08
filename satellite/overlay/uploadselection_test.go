@@ -57,7 +57,9 @@ const (
 )
 
 func TestRefresh(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+	satellitedbtest.RunWithConfig(t, satellitedbtest.Config{
+		NonParallel: true,
+	}, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
@@ -84,8 +86,6 @@ func TestRefresh(t *testing.T) {
 		monkit.Default.Stats(func(key monkit.SeriesKey, field string, val float64) {
 			if key.Measurement == "placement" && (field == "UploadCount" || field == "Count") {
 				require.Equal(t, float64(nodeCount), val)
-				require.Equal(t, float64(nodeCount), val)
-
 			}
 		})
 		require.NoError(t, err)

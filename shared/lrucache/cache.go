@@ -65,6 +65,17 @@ func NewOf[T any](opts Options) *ExpiringLRUOf[T] {
 	}
 }
 
+// Reset resets the lru cache.
+func (e *ExpiringLRUOf[T]) Reset() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.order = list.New()
+	for key := range e.data {
+		delete(e.data, key)
+	}
+}
+
 // Get returns the value for some key if it exists and is valid. If not
 // it will call the provided function. Concurrent calls will dedupe as
 // best as they are able. If the function returns an error, it is not

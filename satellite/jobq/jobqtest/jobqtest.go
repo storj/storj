@@ -34,6 +34,9 @@ type ServerOptions struct {
 	MaxMemPerPlacement  memory.Size
 	InitAlloc           memory.Size
 	MemReleaseThreshold memory.Size
+
+	// Timeout for the testcontext.
+	Timeout time.Duration
 }
 
 // TestServer wraps a jobq server together with its setup information, so that
@@ -91,6 +94,9 @@ func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Co
 	if options.MemReleaseThreshold == 0 {
 		options.MemReleaseThreshold = 1e6
 	}
+	if options.Timeout == 0 {
+		options.Timeout = testcontext.DefaultTimeout
+	}
 
 	host := options.Host
 	if host == "" {
@@ -128,7 +134,9 @@ func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Co
 
 	testmonkit.Run(ctx, t, func(parent context.Context) {
 		pprof.Do(parent, pprof.Labels("test", t.Name()), func(parent context.Context) {
-			f(testcontext.New(t), testSrv)
+			ctx := testcontext.NewWithContextAndTimeout(parent, t, options.Timeout)
+			defer ctx.Cleanup()
+			f(ctx, testSrv)
 		})
 	})
 

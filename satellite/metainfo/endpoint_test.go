@@ -617,17 +617,15 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = 2
-				config.Metainfo.RateLimiter.CacheExpiration = time.Second
+				config.Metainfo.RateLimiter.CacheExpiration = 5 * time.Second
 			},
 			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-
-		// TODO find a way to reset limiter before test is executed, currently
-		// testplanet is doing one additional request to get access
-		time.Sleep(2 * time.Second)
+		limiter := satellite.Metainfo.Endpoint.TestingGetLimiterCache()
+		limiter.Reset()
 
 		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
@@ -656,7 +654,7 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(6 * time.Second)
 
 		var group2 errs2.Group
 

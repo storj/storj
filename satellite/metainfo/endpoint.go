@@ -214,6 +214,11 @@ func TestingNewAPIKeysEndpoint(log *zap.Logger, apiKeys APIKeys) *Endpoint {
 	}
 }
 
+// TestingGetLimiterCache returns the limiter cache for testing purposes.
+func (endpoint *Endpoint) TestingGetLimiterCache() *lrucache.ExpiringLRUOf[*rate.Limiter] {
+	return endpoint.limiterCache
+}
+
 // Run manages the internal dependencies of the endpoint such as the
 // success tracker.
 func (endpoint *Endpoint) Run(ctx context.Context) error {

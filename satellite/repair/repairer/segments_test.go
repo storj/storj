@@ -48,6 +48,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				},
 			),
 		},
+		Timeout:      -1,
 		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// disable pinging the Satellite so we can control storagenode status.
