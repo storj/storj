@@ -76,6 +76,35 @@
                                     Adding at least $10 will automatically upgrade your account to Pro.
                                 </p>
                             </v-alert>
+
+                            <v-alert
+                                v-if="isFrozenOrWarned"
+                                border
+                                class="mt-4"
+                                variant="outlined"
+                                title="Important!"
+                                color="warning"
+                            >
+                                <div class="text-body-2">
+                                    <p class="mb-2">
+                                        <strong>The "Add Funds" feature cannot be applied to overdue invoices.</strong>
+                                    </p>
+
+                                    <p class="mb-1">How to pay an overdue invoice:</p>
+                                    <ul class="pl-4">
+                                        <li>
+                                            <b>Pay directly from the invoice</b>:
+                                            go to <a class="link" @click="navigateToBillingHistory">Billing History</a>,
+                                            download your invoice, and click the <b>Pay online</b> link.
+                                        </li>
+                                        <li>
+                                            <b>Add a payment method</b> for automatic payment:
+                                            go to <a class="link" @click="navigateToPaymentMethods">Payment Methods</a>
+                                            and add a card, which will be used to pay your overdue invoice.
+                                        </li>
+                                    </ul>
+                                </div>
+                            </v-alert>
                         </v-form>
                     </v-window-item>
                     <v-window-item :value="Step.ConfirmPayment">
@@ -168,6 +197,7 @@ import { loadStripe } from '@stripe/stripe-js/pure';
 import { Stripe, StripeElements, StripeElementsOptionsMode } from '@stripe/stripe-js';
 import { CircleCheckBig } from 'lucide-vue-next';
 import { useTheme } from 'vuetify';
+import { useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';
 import { ChargeCardIntent, CreditCard } from '@/types/payments';
@@ -177,6 +207,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { ROUTES } from '@/router';
 
 type SelectValue = {
     title: string;
@@ -197,6 +228,7 @@ const userStore = useUsersStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 const theme = useTheme();
+const router = useRouter();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -210,6 +242,8 @@ const customCardForm = ref<boolean>(false);
 const customCardFormElements = ref<StripeElements>();
 
 const isFreeTier = computed<boolean>(() => userStore.state.user.isFree);
+
+const isFrozenOrWarned = computed<boolean>(() => userStore.state.user.freezeStatus.frozen || userStore.state.user.freezeStatus.warned);
 
 const amountRules = computed<ValidationRule<string>[]>(() => {
     return [
@@ -239,6 +273,16 @@ const nextButtonLabel = computed<string>(() => {
     if (step.value === Step.ConfirmPayment && customCardForm.value) return `Pay $${amount.value}`;
     return 'Continue';
 });
+
+function navigateToBillingHistory(): void {
+    model.value = false;
+    router.push(`${ROUTES.Billing.path}?tab=billing-history`);
+}
+
+function navigateToPaymentMethods(): void {
+    model.value = false;
+    router.push(`${ROUTES.Billing.path}?tab=payment-methods`);
+}
 
 function onUpdateAmount(value: string): void {
     if (!value) {
