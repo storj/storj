@@ -955,6 +955,47 @@ func TestAutoFreezeChore(t *testing.T) {
 			_, err = accFreezeDB.Get(ctx, nfrUser.ID, console.TrialExpirationFreeze)
 			require.ErrorIs(t, err, sql.ErrNoRows)
 		})
+
+		t.Run("No trial expiration escalation for non-active users", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			// reset chore clock
+			chore.TestSetNow(time.Now)
+
+			inactiveUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Inactive User",
+				Email:    "inactive@example.test",
+			}, 1)
+			require.NoError(t, err)
+
+			// freeze the user for trial expiration
+			err = service.TrialExpirationFreezeUser(ctx, inactiveUser.ID)
+			require.NoError(t, err)
+
+			// set user status to Deleted (non-active)
+			status := console.Deleted
+			err = usersDB.Update(ctx, inactiveUser.ID, console.UpdateUserRequest{
+				Status: &status,
+			})
+			require.NoError(t, err)
+
+			// forward date to after the grace period
+			chore.TestSetNow(func() time.Time {
+				return time.Now().Add(sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod).Add(24 * time.Hour)
+			})
+
+			// run the chore
+			chore.Loop.TriggerWait()
+
+			// verify user status hasn't changed (still Deleted, not escalated)
+			updatedUser, err := usersDB.Get(ctx, inactiveUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.Deleted, updatedUser.Status)
+
+			// verify freeze event still exists (not escalated)
+			event, err := accFreezeDB.Get(ctx, inactiveUser.ID, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.NotEmpty(t, event.DaysTillEscalation)
+		})
 	})
 }
 
