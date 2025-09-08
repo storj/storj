@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
@@ -16,13 +17,23 @@ const (
 	uncoordinatedDeleteBatchSizeLimit = intLimitRange(10000)
 )
 
+// UncoordinatedDeleteAllBucketObjects contains arguments for deleting a whole bucket.
+type UncoordinatedDeleteAllBucketObjects struct {
+	Bucket    BucketLocation
+	BatchSize int
+
+	// supported only by Spanner.
+	StalenessTimestampBound spanner.TimestampBound
+	MaxCommitDelay          *time.Duration
+}
+
 // UncoordinatedDeleteAllBucketObjects deletes all objects in the specified bucket.
 //
 // This deletion does not force the operations across the tables to be synchronized, speeding up the deletion.
 // If there are any ongoing uploads/downloads/deletes it may create zombie segments.
 //
 // Currently there's no special implementation for Postgres and Cockroach.
-func (db *DB) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (deletedObjects int64, err error) {
+func (db *DB) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts UncoordinatedDeleteAllBucketObjects) (deletedObjects int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Bucket.Verify(); err != nil {
@@ -39,12 +50,17 @@ func (db *DB) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts Dele
 }
 
 // UncoordinatedDeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
-func (p *PostgresAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
-	return p.DeleteAllBucketObjects(ctx, opts)
+func (p *PostgresAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts UncoordinatedDeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return p.DeleteAllBucketObjects(ctx, DeleteAllBucketObjects{
+		Bucket:    opts.Bucket,
+		BatchSize: opts.BatchSize,
+	})
 }
 
 // UncoordinatedDeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
-func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
+func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts UncoordinatedDeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var batchObjectCount, batchSegmentCount int64
@@ -79,8 +95,7 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 	//   2. user deletes that object A#X
 	//   3. user uploads object A with stream id Y
 	//   4. deletes object A#X, and deletes stream X, leaving stream Y dangling
-
-	err = s.client.Single().WithTimestampBound(spanner.MaxStaleness(opts.MaxStaleness)).ReadWithOptions(ctx, "objects", spanner.KeyRange{
+	err = s.client.Single().WithTimestampBound(opts.StalenessTimestampBound).ReadWithOptions(ctx, "objects", spanner.KeyRange{
 		Start: spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
 		End:   spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
 		Kind:  spanner.ClosedClosed,

@@ -207,7 +207,7 @@ func (step DeleteAllBucketObjects) Check(ctx *testcontext.Context, t testing.TB,
 
 // UncoordinatedDeleteAllBucketObjects is for testing metabase.UncoordinatedDeleteAllBucketObjects.
 type UncoordinatedDeleteAllBucketObjects struct {
-	Opts     metabase.DeleteAllBucketObjects
+	Opts     metabase.UncoordinatedDeleteAllBucketObjects
 	Deleted  int64
 	ErrClass *errs.Class
 	ErrText  string
