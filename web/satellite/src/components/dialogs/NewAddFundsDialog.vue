@@ -108,7 +108,9 @@
                         </v-form>
                     </v-window-item>
                     <v-window-item :value="Step.ConfirmPayment">
-                        <p class="mb-7">Select your payment method:</p>
+                        <strong>Amount to be charged: ${{ amount }}</strong>
+
+                        <p class="mt-4 mb-7">Select your payment method:</p>
 
                         <v-select
                             v-if="creditCards.length > 0 && !customCardForm"
