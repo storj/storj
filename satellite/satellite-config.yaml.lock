@@ -511,9 +511,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
 
-# whether to use new account setup flow
-# console.new-account-setup-enabled: false
-
 # whether to use the new detailed usage report
 # console.new-detailed-usage-report-enabled: false
 

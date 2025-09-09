@@ -5,6 +5,9 @@ import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
 
 test.describe('User settings', () => {
+    const name = 'John Doe';
+    const companyName = 'Storj Labs';
+
     test('Edit name', async ({
         loginPage,
         signupPage,
@@ -13,7 +16,6 @@ test.describe('User settings', () => {
     }) => {
         const email = `${uuidv4()}@example.test`;
         const password = 'password';
-        const name = 'John Doe';
         const newName = 'Jane Smith';
 
         await signupPage.navigateToSignup();
@@ -23,8 +25,7 @@ test.describe('User settings', () => {
         await signupPage.navigateToLogin();
         await loginPage.loginByCreds(email, password);
         await loginPage.verifySetupAccountFirstStep();
-        await loginPage.choosePersonalAccSetup();
-        await loginPage.fillPersonalSetupForm(name);
+        await loginPage.fillSetupForm(name, companyName);
         await loginPage.selectFreeTrial();
         await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
@@ -46,7 +47,6 @@ test.describe('User settings', () => {
         const email = `${uuidv4()}@example.test`;
         const password = 'password';
         const newPassword = 'newPassword';
-        const name = 'John Doe';
 
         await signupPage.navigateToSignup();
         await signupPage.verifyHeader();
@@ -55,8 +55,7 @@ test.describe('User settings', () => {
         await signupPage.navigateToLogin();
         await loginPage.loginByCreds(email, password);
         await loginPage.verifySetupAccountFirstStep();
-        await loginPage.choosePersonalAccSetup();
-        await loginPage.fillPersonalSetupForm(name);
+        await loginPage.fillSetupForm(name, companyName);
         await loginPage.selectFreeTrial();
         await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
@@ -77,7 +76,6 @@ test.describe('User settings', () => {
     }) => {
         const email = `${uuidv4()}@example.test`;
         const password = 'password';
-        const name = 'John Doe';
 
         await signupPage.navigateToSignup();
         await signupPage.verifyHeader();
@@ -86,8 +84,7 @@ test.describe('User settings', () => {
         await signupPage.navigateToLogin();
         await loginPage.loginByCreds(email, password);
         await loginPage.verifySetupAccountFirstStep();
-        await loginPage.choosePersonalAccSetup();
-        await loginPage.fillPersonalSetupForm(name);
+        await loginPage.fillSetupForm(name, companyName);
         await loginPage.selectFreeTrial();
         await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();

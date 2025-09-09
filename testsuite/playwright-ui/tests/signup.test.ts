@@ -4,7 +4,7 @@
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
 
-test.describe('Sign up personal/business accounts', () => {
+test.describe('Sign up account', () => {
     test.beforeEach(async ({
         loginPage,
         signupPage,
@@ -24,25 +24,12 @@ test.describe('Sign up personal/business accounts', () => {
         await loginPage.verifySetupAccountFirstStep();
     });
 
-    test('Signup Personal', async ({
+    test('Signup', async ({
         loginPage,
     }) => {
         const name = 'John Doe';
-        await loginPage.choosePersonalAccSetup();
-        await loginPage.fillPersonalSetupForm(name);
-        await loginPage.selectFreeTrial();
-        await loginPage.selectManagedEnc(false);
-        await loginPage.ensureSetupSuccess();
-    });
-
-    test('Signup Business', async ({
-        loginPage,
-    }) => {
-        const firstName = 'John';
-        const lastName = 'Doe';
         const companyName = 'Storj Labs';
-        await loginPage.chooseBusinessAccSetup();
-        await loginPage.fillBusinessSetupForm(firstName, lastName, companyName);
+        await loginPage.fillSetupForm(name, companyName);
         await loginPage.selectFreeTrial();
         await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();

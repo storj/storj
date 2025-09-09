@@ -1116,7 +1116,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
-		NewAccountSetupEnabled:            server.config.NewAccountSetupEnabled,
 		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,
 		UserFeedbackEnabled:               server.config.UserFeedbackEnabled,
 		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,

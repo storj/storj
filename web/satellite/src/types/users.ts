@@ -452,13 +452,11 @@ export class FreezeStatus {
  */
 export enum OnboardingStep {
     AccountTypeSelection = 'AccountTypeSelection',
-    PersonalAccountForm = 'PersonalAccountForm',
     PlanTypeSelection = 'PlanTypeSelection',
     AccountInfo = 'AccountInfo',
     PaymentMethodSelection = 'PaymentMethodSelection',
     PricingPlanSelection = 'PricingPlanSelection',
     ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
-    BusinessAccountForm = 'BusinessAccountForm',
     SetupComplete = 'SetupComplete',
     EncryptionPassphrase = 'EncryptionPassphrase',
     CreateBucket = 'CreateBucket',
@@ -474,17 +472,6 @@ export const ONBOARDING_STEPPER_STEPS = [
 ];
 
 export const ACCOUNT_SETUP_STEPS = [
-    OnboardingStep.AccountTypeSelection,
-    OnboardingStep.PersonalAccountForm,
-    OnboardingStep.BusinessAccountForm,
-    OnboardingStep.PlanTypeSelection,
-    OnboardingStep.PaymentMethodSelection,
-    OnboardingStep.PricingPlanSelection,
-    OnboardingStep.ManagedPassphraseOptIn,
-    OnboardingStep.SetupComplete,
-];
-
-export const NEW_ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountInfo,
     OnboardingStep.PlanTypeSelection,
     OnboardingStep.PaymentMethodSelection,

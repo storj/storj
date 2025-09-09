@@ -193,8 +193,7 @@
         </template>
     </v-app-bar>
 
-    <new-account-setup-dialog v-if="newAccountSetupFlow" />
-    <account-setup-dialog v-else />
+    <account-setup-dialog />
     <user-feedback-dialog v-if="userFeedbackEnabled" v-model="userFeedbackDialogShown" />
 </template>
 
@@ -230,7 +229,6 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
-import NewAccountSetupDialog from '@/components/dialogs/NewAccountSetupDialog.vue';
 import UserFeedbackDialog from '@/components/dialogs/UserFeedbackDialog.vue';
 
 const appStore = useAppStore();
@@ -253,7 +251,6 @@ withDefaults(defineProps<{
 
 const userFeedbackDialogShown = ref<boolean>(false);
 
-const newAccountSetupFlow = computed<boolean>(() => configStore.state.config.newAccountSetupEnabled);
 const userFeedbackEnabled = computed<boolean>(() => configStore.state.config.userFeedbackEnabled);
 
 const activeTheme = computed<number>(() => {

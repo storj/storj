@@ -97,7 +97,6 @@ export class FrontendConfig {
     storageMBMonthCents: string;
     egressMBCents: string;
     segmentMonthCents: string;
-    newAccountSetupEnabled: boolean;
     upgradePayUpfrontAmount: number;
     userFeedbackEnabled: boolean;
     useGeneratedPrivateAPI: boolean;

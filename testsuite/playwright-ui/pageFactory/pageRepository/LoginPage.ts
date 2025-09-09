@@ -19,25 +19,9 @@ export class LoginPage {
         await expect(header).toBeVisible();
     }
 
-    async choosePersonalAccSetup(): Promise<void> {
-        await this.page.locator(LoginPageObjects.PERSONAL_CARD_XPATH).click();
-    }
-
-    async chooseBusinessAccSetup(): Promise<void> {
-        await this.page.locator(LoginPageObjects.BUSINESS_CARD_XPATH).click();
-    }
-
-    async fillPersonalSetupForm(name: string): Promise<void> {
+    async fillSetupForm(name: string, companyName: string): Promise<void> {
         await this.page.locator(LoginPageObjects.NAME_EDITBOX_ID).fill(name);
-        await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).click();
-    }
-
-    async fillBusinessSetupForm(firstName: string, lastName: string, companyName: string): Promise<void> {
-        await this.page.locator(LoginPageObjects.FIRST_NAME_EDITBOX_ID).fill(firstName);
-        await this.page.locator(LoginPageObjects.LAST_NAME_EDITBOX_ID).fill(lastName);
         await this.page.locator(LoginPageObjects.COMPANY_NAME_EDITBOX_ID).fill(companyName);
-        await this.page.locator(LoginPageObjects.JOB_ROLE_EDITBOX_ID).click({ force: true }); // force is necessary to open v-select menu
-        await this.page.locator(LoginPageObjects.JOB_ROLE_SELECTION_XPATH).click();
         await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).click();
     }
 

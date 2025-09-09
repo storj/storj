@@ -12,6 +12,7 @@ test.describe('object browser + edge services', () => {
         navigationMenu,
     }) => {
         const name = 'John Doe';
+        const companyName = 'Storj Labs';
         const email = `${uuidv4()}@test.test`;
         const password = 'password';
         const passphrase = '1';
@@ -23,8 +24,7 @@ test.describe('object browser + edge services', () => {
 
         await loginPage.loginByCreds(email, password);
         await loginPage.verifySetupAccountFirstStep();
-        await loginPage.choosePersonalAccSetup();
-        await loginPage.fillPersonalSetupForm(name);
+        await loginPage.fillSetupForm(name, companyName);
         await loginPage.selectFreeTrial();
         await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
