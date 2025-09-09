@@ -34,6 +34,9 @@ enum RouteName {
     PasswordResetConfirmation = 'Password Reset Confirmation',
     PasswordRecovery = 'Password Recovery',
     Activate = 'Activate Account',
+    ComputeOverview = 'Overview',
+    ComputeInstances = 'Compute',
+    ComputeKeys = 'SSH Keys',
 }
 
 export abstract class ROUTES {
@@ -62,6 +65,10 @@ export abstract class ROUTES {
     public static PasswordResetConfirmation = new NavigationLink('/password-reset-confirmation', RouteName.PasswordResetConfirmation);
     public static PasswordRecovery = new NavigationLink('/password-recovery', RouteName.PasswordRecovery);
     public static Activate = new NavigationLink('/activate', RouteName.Activate);
+
+    public static ComputeOverview = new NavigationLink('compute-overview', RouteName.ComputeOverview);
+    public static ComputeInstances = new NavigationLink('compute-instances', RouteName.ComputeInstances);
+    public static ComputeKeys = new NavigationLink('compute-keys', RouteName.ComputeKeys);
 
     public static AuthRoutes = [
         ROUTES.Login.path,
@@ -218,6 +225,21 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.ProjectSettings.path,
                 name: ROUTES.ProjectSettings.name,
                 component: () => import(/* webpackChunkName: "ProjectSettings" */ '@/views/ProjectSettings.vue'),
+            },
+            {
+                path: ROUTES.ComputeOverview.path,
+                name: ROUTES.ComputeOverview.name,
+                component: () => import(/* webpackChunkName: "ComputeOverview" */ '@/views/ComputeOverview.vue'),
+            },
+            {
+                path: ROUTES.ComputeInstances.path,
+                name: ROUTES.ComputeInstances.name,
+                component: () => import(/* webpackChunkName: "ComputeInstances" */ '@/views/ComputeInstances.vue'),
+            },
+            {
+                path: ROUTES.ComputeKeys.path,
+                name: ROUTES.ComputeKeys.name,
+                component: () => import(/* webpackChunkName: "ComputeKeys" */ '@/views/ComputeKeys.vue'),
             },
         ],
     },

@@ -133,41 +133,74 @@
 
             <v-divider class="my-2" />
 
-            <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="closeDrawer">
-                <template #prepend>
-                    <component :is="LayoutDashboard" :size="18" />
-                </template>
-            </navigation-item>
+            <v-list v-model:opened="openedList">
+                <navigation-item :title="ROUTES.Dashboard.name" :to="dashboardURL" @click="closeDrawer">
+                    <template #prepend>
+                        <component :is="LayoutDashboard" :size="18" />
+                    </template>
+                </navigation-item>
 
-            <navigation-item title="Browse" :to="bucketsURL">
-                <template #prepend>
-                    <component :is="FolderOpen" :size="18" />
-                </template>
-            </navigation-item>
+                <navigation-item title="Browse" :to="bucketsURL">
+                    <template #prepend>
+                        <component :is="FolderOpen" :size="18" />
+                    </template>
+                </navigation-item>
 
-            <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="closeDrawer">
-                <template #prepend>
-                    <component :is="KeyRound" :size="18" />
-                </template>
-            </navigation-item>
+                <navigation-item :title="ROUTES.Access.name" :to="accessURL" @click="closeDrawer">
+                    <template #prepend>
+                        <component :is="KeyRound" :size="18" />
+                    </template>
+                </navigation-item>
 
-            <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="closeDrawer">
-                <template #prepend>
-                    <component :is="AppWindow" :size="18" />
-                </template>
-            </navigation-item>
+                <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="closeDrawer">
+                    <template #prepend>
+                        <component :is="AppWindow" :size="18" />
+                    </template>
+                </navigation-item>
 
-            <navigation-item v-if="domainsPageEnabled" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
-                <template #prepend>
-                    <component :is="Globe" :size="18" />
-                </template>
-            </navigation-item>
+                <navigation-item v-if="domainsPageEnabled" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
+                    <template #prepend>
+                        <component :is="Globe" :size="18" />
+                    </template>
+                </navigation-item>
 
-            <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
-                <template #prepend>
-                    <component :is="Users" :size="18" />
-                </template>
-            </navigation-item>
+                <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
+                    <template #prepend>
+                        <component :is="Users" :size="18" />
+                    </template>
+                </navigation-item>
+
+                <v-list-group v-if="computeUIEnabled" value="Compute">
+                    <template #activator="{ props }">
+                        <v-list-item v-bind="props" active-class="bg-background">
+                            <template #prepend>
+                                <component :is="Computer" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-4">
+                                Compute
+                            </v-list-item-title>
+                        </v-list-item>
+                    </template>
+
+                    <navigation-item :title="ROUTES.ComputeOverview.name" :to="computeOverviewURL" @click="closeDrawer">
+                        <template #prepend>
+                            <component :is="LayoutDashboard" :size="18" />
+                        </template>
+                    </navigation-item>
+
+                    <navigation-item :title="ROUTES.ComputeInstances.name" :to="computeInstancesURL" @click="closeDrawer">
+                        <template #prepend>
+                            <component :is="Microchip" :size="18" />
+                        </template>
+                    </navigation-item>
+
+                    <navigation-item :title="ROUTES.ComputeKeys.name" :to="computeKeysURL" @click="closeDrawer">
+                        <template #prepend>
+                            <component :is="FileKey" :size="18" />
+                        </template>
+                    </navigation-item>
+                </v-list-group>
+            </v-list>
 
             <v-divider class="my-2" />
 
@@ -282,6 +315,7 @@ import {
     VMenu,
     VChip,
     VDivider,
+    VListGroup,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 import {
@@ -302,6 +336,8 @@ import {
     BookOpenText,
     Microchip,
     HardDrive,
+    Computer,
+    FileKey,
 } from 'lucide-vue-next';
 
 import { Project } from '@/types/projects';
@@ -340,8 +376,10 @@ const model = computed<boolean>({
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isManagePassphraseDialogShown = ref<boolean>(false);
 const isCloudGpuDialogShown = ref<boolean>(false);
+const openedList = ref<string[]>(['Compute']);
 
 const domainsPageEnabled = computed<boolean>(() => configStore.state.config.domainsPageEnabled);
+const computeUIEnabled = computed<boolean>(() => configStore.state.config.computeUIEnabled);
 
 /**
  * Returns the selected project from the store.
@@ -369,6 +407,12 @@ const objectMountURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.
 const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
 
 const appsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Applications.path}`);
+
+const computeOverviewURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeOverview.path}`);
+
+const computeInstancesURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeInstances.path}`);
+
+const computeKeysURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeKeys.path}`);
 
 /**
  * Returns user's own projects.
@@ -496,3 +540,9 @@ onBeforeMount(() => {
     }
 });
 </script>
+
+<style lang="scss" scoped>
+.v-list-group__items .v-list-item {
+    padding-inline-start: 16px !important;
+}
+</style>
