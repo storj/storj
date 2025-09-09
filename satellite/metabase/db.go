@@ -19,6 +19,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
@@ -659,6 +660,12 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					`COMMENT ON COLUMN objects.encrypted_etag is 'encrypted_etag is the etag, which has been encrypted.';`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "create change stream for bucket eventing",
+				Version:     23,
+				Action:      migrate.SQL{},
+			},
 		},
 	}
 }
@@ -693,8 +700,55 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS encrypted_etag BYTES(MAX)`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "create change stream for bucket eventing",
+				Version:     23,
+				Action:      &createChangeStreamAction{adapter: s},
+			},
 		},
 	}
+}
+
+// createChangeStreamAction implements the Action interface to create a change stream
+// for the objects table with idempotency handling.
+type createChangeStreamAction struct {
+	adapter *SpannerAdapter
+}
+
+// Run creates the change stream, handling idempotency and emulator limitations.
+func (action *createChangeStreamAction) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+	// Build the SQL statement based on whether we're using emulator or not
+	var createChangeStreamSQL string
+	if action.adapter.connParams.Emulator {
+		// Spanner emulator doesn't support allow_txn_exclusion
+		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, exclude_update = TRUE)`
+	} else {
+		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, exclude_update = TRUE, allow_txn_exclusion = TRUE)`
+	}
+
+	// Execute the statement, handling the "already exists" error for idempotency
+	var err error
+	if tx != nil {
+		_, err = tx.ExecContext(ctx, createChangeStreamSQL)
+	} else {
+		_, err = db.ExecContext(ctx, createChangeStreamSQL)
+	}
+
+	if err != nil {
+		// Check if the error is due to the change stream already existing
+		// Spanner returns specific error messages for already existing change streams
+		if spanner.ErrCode(err) == codes.AlreadyExists ||
+			strings.Contains(err.Error(), "Duplicate name") {
+			// Change stream already exists, which is fine for idempotency
+			log.Info("change stream bucket_eventing already exists, skipping creation")
+			return nil
+		}
+		return Error.Wrap(err)
+	}
+
+	log.Info("successfully created change stream bucket_eventing")
+	return nil
 }
 
 // This is needed for migrate to work.

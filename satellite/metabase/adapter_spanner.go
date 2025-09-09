@@ -119,4 +119,9 @@ func (s *SpannerAdapter) Implementation() dbutil.Implementation {
 	return dbutil.Spanner
 }
 
+// IsEmulator returns true if the underlying DB is spanner emulator
+func (s *SpannerAdapter) IsEmulator() bool {
+	return s.connParams.Emulator
+}
+
 var _ Adapter = &SpannerAdapter{}
