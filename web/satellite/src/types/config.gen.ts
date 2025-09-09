@@ -101,6 +101,7 @@ export class FrontendConfig {
     userFeedbackEnabled: boolean;
     useGeneratedPrivateAPI: boolean;
     announcement: AnnouncementConfig;
+    computeUIEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

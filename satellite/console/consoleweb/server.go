@@ -1120,6 +1120,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UserFeedbackEnabled:               server.config.UserFeedbackEnabled,
 		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,
 		Announcement:                      server.config.Announcement,
+		ComputeUIEnabled:                  server.config.ComputeUiEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

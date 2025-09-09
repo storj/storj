@@ -379,6 +379,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to enable cloud GPU functionality
 # console.cloud-gpus-enabled: false
 
+# whether the compute UI is enabled
+# console.compute-ui-enabled: false
+
 # additional values for Content Security Policy connect-src, space separated
 # console.connect-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io'
 
