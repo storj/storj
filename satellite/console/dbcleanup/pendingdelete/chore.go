@@ -21,6 +21,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 )
@@ -186,7 +187,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 					return
 				}
 
-				err = chore.disableProject(ctx, p.ProjectID, p.OwnerID, projectDataTask)
+				err = chore.disableProject(ctx, p.ProjectID, p.ProjectPublicID, p.OwnerID, projectDataTask)
 				if err != nil {
 					addErr(err)
 					return
@@ -311,7 +312,7 @@ func (chore *Chore) runDeleteUserData(ctx context.Context) (err error) {
 						return
 					}
 
-					err = chore.disableProject(ctx, project.ID, event.UserID, userDataTask)
+					err = chore.disableProject(ctx, project.ID, project.PublicID, event.UserID, userDataTask)
 					if err != nil {
 						addErr(err)
 						return
@@ -427,7 +428,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 	return nil
 }
 
-func (chore *Chore) disableProject(ctx context.Context, projectID, ownerID uuid.UUID, task string) (err error) {
+func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublicID, ownerID uuid.UUID, task string) (err error) {
 	return chore.store.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
 		// delete project API keys.
 		err = tx.APIKeys().DeleteAllByProjectID(ctx, projectID)
@@ -439,6 +440,17 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, ownerID uuid.
 				zap.Error(err),
 			)
 			return err
+		}
+
+		// remove project entitlements.
+		err = tx.Entitlements().DeleteByScope(ctx, entitlements.ConvertPublicIDToProjectScope(projectPublicID))
+		if err != nil {
+			chore.log.Error("failed to delete project entitlements",
+				zap.String("task", task),
+				zap.String("projectID", projectID.String()),
+				zap.String("userID", ownerID.String()),
+				zap.Error(err),
+			)
 		}
 
 		// delete project domains.

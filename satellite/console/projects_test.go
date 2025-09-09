@@ -313,23 +313,27 @@ func TestListPendingDeletionBefore(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, page.Ids, 2)
 		require.Contains(t, page.Ids, console.ProjectIdOwnerId{
-			ProjectID: pendingProject1.ID,
-			OwnerID:   owner1.ID,
+			ProjectID:       pendingProject1.ID,
+			ProjectPublicID: pendingProject1.PublicID,
+			OwnerID:         owner1.ID,
 		})
 		require.Contains(t, page.Ids, console.ProjectIdOwnerId{
-			ProjectID: pendingProject2.ID,
-			OwnerID:   owner2.ID,
+			ProjectID:       pendingProject2.ID,
+			ProjectPublicID: pendingProject2.PublicID,
+			OwnerID:         owner2.ID,
 		})
 
 		page, err = projectsRepo.ListPendingDeletionBefore(ctx, 0, 1, afterTime)
 		require.NoError(t, err)
 		require.Len(t, page.Ids, 1)
 		require.Equal(t, pendingProject1.ID, page.Ids[0].ProjectID)
+		require.Equal(t, pendingProject1.PublicID, page.Ids[0].ProjectPublicID)
 
 		page, err = projectsRepo.ListPendingDeletionBefore(ctx, 1, 1, afterTime)
 		require.NoError(t, err)
 		require.Len(t, page.Ids, 1)
 		require.Equal(t, pendingProject2.ID, page.Ids[0].ProjectID)
+		require.Equal(t, pendingProject2.PublicID, page.Ids[0].ProjectPublicID)
 
 		page, err = projectsRepo.ListPendingDeletionBefore(ctx, 0, 10, beforeTime)
 		require.NoError(t, err)

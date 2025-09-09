@@ -636,7 +636,7 @@ func (projects *projects) ListPendingDeletionBefore(
 ) (page console.ProjectIdOwnerIdPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxProjects, err := projects.db.Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx,
+	dbxProjects, err := projects.db.Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx,
 		dbx.Project_Status(int(console.ProjectPendingDeletion)),
 		dbx.Project_StatusUpdatedAt(before.UTC()),
 		limit+1,
@@ -661,11 +661,15 @@ func (projects *projects) ListPendingDeletionBefore(
 		if err != nil {
 			return console.ProjectIdOwnerIdPage{}, errs.Wrap(err)
 		}
+		pubId, err := uuid.FromBytes(p.PublicId)
+		if err != nil {
+			return console.ProjectIdOwnerIdPage{}, errs.Wrap(err)
+		}
 		ownerID, err := uuid.FromBytes(p.OwnerId)
 		if err != nil {
 			return console.ProjectIdOwnerIdPage{}, errs.Wrap(err)
 		}
-		ids = append(ids, console.ProjectIdOwnerId{ProjectID: id, OwnerID: ownerID})
+		ids = append(ids, console.ProjectIdOwnerId{ProjectID: id, ProjectPublicID: pubId, OwnerID: ownerID})
 	}
 
 	page.Ids = ids

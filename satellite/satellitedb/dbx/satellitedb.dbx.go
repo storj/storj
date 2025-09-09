@@ -14948,14 +14948,15 @@ type Id_Email_FullName_Row struct {
 	FullName string
 }
 
-type Id_OwnerId_Row struct {
-	Id      []byte
-	OwnerId []byte
-}
-
 type Id_PieceCount_Row struct {
 	Id         []byte
 	PieceCount int64
+}
+
+type Id_PublicId_OwnerId_Row struct {
+	Id       []byte
+	PublicId []byte
+	OwnerId  []byte
 }
 
 type Id_Row struct {
@@ -19794,11 +19795,11 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 }
 
-func (obj *pgxImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+func (obj *pgxImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
 	project_status Project_Status_Field,
 	project_status_updated_at_less Project_StatusUpdatedAt_Field,
 	limit int, offset int64) (
-	rows []*Id_OwnerId_Row, err error) {
+	rows []*Id_PublicId_OwnerId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -19806,7 +19807,7 @@ func (obj *pgxImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdat
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -19821,7 +19822,7 @@ func (obj *pgxImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdat
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*Id_OwnerId_Row, err error) {
+		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -19829,8 +19830,8 @@ func (obj *pgxImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdat
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				row := &Id_OwnerId_Row{}
-				err = __rows.Scan(&row.Id, &row.OwnerId)
+				row := &Id_PublicId_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
 				if err != nil {
 					return nil, err
 				}
@@ -30271,11 +30272,11 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 }
 
-func (obj *pgxcockroachImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+func (obj *pgxcockroachImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
 	project_status Project_Status_Field,
 	project_status_updated_at_less Project_StatusUpdatedAt_Field,
 	limit int, offset int64) (
-	rows []*Id_OwnerId_Row, err error) {
+	rows []*Id_PublicId_OwnerId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -30283,7 +30284,7 @@ func (obj *pgxcockroachImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_St
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -30298,7 +30299,7 @@ func (obj *pgxcockroachImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_St
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*Id_OwnerId_Row, err error) {
+		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -30306,8 +30307,8 @@ func (obj *pgxcockroachImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_St
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				row := &Id_OwnerId_Row{}
-				err = __rows.Scan(&row.Id, &row.OwnerId)
+				row := &Id_PublicId_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
 				if err != nil {
 					return nil, err
 				}
@@ -41034,11 +41035,11 @@ func (obj *spannerImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(
 
 }
 
-func (obj *spannerImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+func (obj *spannerImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
 	project_status Project_Status_Field,
 	project_status_updated_at_less Project_StatusUpdatedAt_Field,
 	limit int, offset int64) (
-	rows []*Id_OwnerId_Row, err error) {
+	rows []*Id_PublicId_OwnerId_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
@@ -41046,7 +41047,7 @@ func (obj *spannerImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusU
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -41061,7 +41062,7 @@ func (obj *spannerImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusU
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err = func() (rows []*Id_OwnerId_Row, err error) {
+		rows, err = func() (rows []*Id_PublicId_OwnerId_Row, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -41069,8 +41070,8 @@ func (obj *spannerImpl) Limited_Project_Id_Project_OwnerId_By_Status_And_StatusU
 			defer closeRows(__rows, &err)
 
 			for __rows.Next() {
-				row := &Id_OwnerId_Row{}
-				err = __rows.Scan(&row.Id, &row.OwnerId)
+				row := &Id_PublicId_OwnerId_Row{}
+				err = __rows.Scan(&row.Id, &row.PublicId, &row.OwnerId)
 				if err != nil {
 					return nil, err
 				}
@@ -47416,11 +47417,11 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Project, err error)
 
-	Limited_Project_Id_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
 		project_status Project_Status_Field,
 		project_status_updated_at_less Project_StatusUpdatedAt_Field,
 		limit int, offset int64) (
-		rows []*Id_OwnerId_Row, err error)
+		rows []*Id_PublicId_OwnerId_Row, err error)
 
 	Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
 		storagenode_payment_node_id StoragenodePayment_NodeId_Field,

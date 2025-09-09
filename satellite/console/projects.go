@@ -280,8 +280,9 @@ type ProjectsPage struct {
 
 // ProjectIdOwnerId holds a project ID and its owner's ID.
 type ProjectIdOwnerId struct {
-	ProjectID uuid.UUID
-	OwnerID   uuid.UUID
+	ProjectID       uuid.UUID
+	ProjectPublicID uuid.UUID
+	OwnerID         uuid.UUID
 }
 
 // ProjectIdOwnerIdPage holds a page of project IDs and their owner IDs.

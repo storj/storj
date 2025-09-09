@@ -13,12 +13,14 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/uplink"
 )
 
@@ -156,6 +158,9 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 		chore := sat.Core.ConsoleDBCleanup.PendingDeleteChore
 		projectsDB := sat.DB.Console().Projects()
 		usersDB := sat.DB.Console().Users()
+		domainsDB := sat.DB.Console().Domains()
+
+		entitlementsService := entitlements.NewService(testplanet.NewLogger(t), sat.DB.Console().Entitlements())
 
 		chore.Loop.Pause()
 
@@ -180,7 +185,7 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 		}
 
 		addProjectAndData := func(status console.ProjectStatus) idAndUplink {
-			p, err := sat.AddProject(ctx, user.ID, "new project")
+			p, err := sat.AddProject(ctx, user.ID, "new-project")
 			require.NoError(t, err)
 			require.NotNil(t, p)
 
@@ -205,6 +210,11 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, upload.Commit())
 			}
+
+			err = entitlementsService.Projects().SetNewBucketPlacementsByPublicID(ctx, p.PublicID, []storj.PlacementConstraint{1})
+			require.NoError(t, err)
+			_, err = domainsDB.Create(ctx, console.Domain{ProjectID: p.ID, Subdomain: p.Name, CreatedBy: user.ID})
+			require.NoError(t, err)
 
 			if status != console.ProjectActive {
 				err = projectsDB.UpdateStatus(ctx, p.ID, status)
@@ -242,15 +252,38 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 			require.Equal(t, expected, count)
 		}
 
-		// verify that all users have objects after the first chore run,
+		verifyHasDbData := func(projID uuid.UUID, hasData bool) {
+			p, err := projectsDB.Get(ctx, projID)
+			require.NoError(t, err)
+			require.NotNil(t, p)
+
+			domains, err := domainsDB.GetAllDomainNamesByProjectID(ctx, projID)
+			require.NoError(t, err)
+			if !hasData {
+				require.Empty(t, domains)
+			} else {
+				require.NotEmpty(t, domains)
+			}
+
+			feats, err := entitlementsService.Projects().GetByPublicID(ctx, p.PublicID)
+			if !hasData {
+				require.Error(t, err)
+				require.True(t, entitlements.ErrNotFound.Has(err))
+			} else {
+				require.NoError(t, err)
+				require.NotEmpty(t, feats.NewBucketPlacements)
+			}
+		}
+
+		// verify that all users have data after the first chore run,
 		// even those marked for deletion because the buffer time has not yet elapsed.
 		for _, project := range projectsMarkedForDeletion {
-			// verify that the user has objects
 			testObjectsLength(project, objectsCount)
+			verifyHasDbData(project.projectID, true)
 		}
 		for _, project := range activeProjects {
-			// verify that the user has objects
 			testObjectsLength(project, objectsCount)
+			verifyHasDbData(project.projectID, true)
 		}
 
 		chore.TestSetNowFn(func() time.Time {
@@ -271,15 +304,17 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 			require.Equal(t, console.ProjectDisabled, *p.Status)
 		}
 
-		for _, project := range projectsMarkedForDeletion {
+		for _, p := range projectsMarkedForDeletion {
 			// verify that marked projects have no objects and
 			// are disabled.
-			testObjectsLength(project, 0)
-			testDisabled(project)
+			testObjectsLength(p, 0)
+			verifyHasDbData(p.projectID, false)
+			testDisabled(p)
 		}
-		for _, project := range activeProjects {
+		for _, p := range activeProjects {
 			// verify that the user has objects
-			testObjectsLength(project, objectsCount)
+			testObjectsLength(p, objectsCount)
+			verifyHasDbData(p.projectID, true)
 		}
 
 		// test that deletion is successful when concurrent delete is enabled
@@ -308,6 +343,7 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 
 		for _, p := range newProjectsList {
 			testObjectsLength(p, 0)
+			verifyHasDbData(p.projectID, false)
 			testDisabled(p)
 		}
 	})

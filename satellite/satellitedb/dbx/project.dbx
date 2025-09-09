@@ -220,7 +220,7 @@ read limitoffset (
 )
 
 read limitoffset (
-	select project.id project.owner_id
+	select project.id project.public_id project.owner_id
 	where project.status = ?
 	where project.status_updated_at < ?
 	orderby asc project.status_updated_at
