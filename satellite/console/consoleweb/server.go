@@ -127,7 +127,6 @@ type Config struct {
 	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
 	ObjectMountConsultationEnabled  bool          `help:"whether object mount consultation request form is visible" default:"false"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
-	BillingAddFundsEnabled          bool          `help:"whether billing add funds feature is enabled" default:"false"`
 	BillingStripeCheckoutEnabled    bool          `help:"whether billing stripe checkout feature is enabled" default:"false"`
 	AddCardAuthorizationEnabled     bool          `help:"whether card authorization is enabled when adding a card" default:"false"`
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
@@ -423,10 +422,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		if config.PricingPackagesEnabled {
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}
-		if config.BillingAddFundsEnabled {
-			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddFunds)))).Methods(http.MethodPost, http.MethodOptions)
-		}
 		if config.BillingStripeCheckoutEnabled {
+			paymentsRouter.Handle("/add-funds", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddFunds)))).Methods(http.MethodPost, http.MethodOptions)
 			paymentsRouter.Handle("/create-intent", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.CreateIntent)))).Methods(http.MethodPost, http.MethodOptions)
 		}
 		router.HandleFunc("/api/v0/payments/webhook", paymentController.HandleWebhookEvent).Methods(http.MethodPost, http.MethodOptions)
@@ -1109,7 +1106,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
 		ObjectMountConsultationEnabled:    server.config.ObjectMountConsultationEnabled,
 		CSRFToken:                         csrfToken,
-		BillingAddFundsEnabled:            server.config.BillingAddFundsEnabled,
 		BillingStripeCheckoutEnabled:      server.config.BillingStripeCheckoutEnabled,
 		AddCardAuthorizationEnabled:       server.config.AddCardAuthorizationEnabled,
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,

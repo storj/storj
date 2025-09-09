@@ -83,7 +83,6 @@ export class FrontendConfig {
     cunoFSBetaEnabled: boolean;
     objectMountConsultationEnabled: boolean;
     csrfToken: string;
-    billingAddFundsEnabled: boolean;
     billingStripeCheckoutEnabled: boolean;
     addCardAuthorizationEnabled: boolean;
     maxAddFundsAmount: number;

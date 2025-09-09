@@ -107,7 +107,7 @@
                                     <span class="text-h5 font-weight-bold">{{ formattedAccountBalance }}</span>
                                 </div>
                                 <v-divider class="my-4 border-0" />
-                                <div v-if="addFundsEnabled || checkoutEnabled" class="d-inline-block mr-2">
+                                <div v-if="checkoutEnabled" class="d-inline-block mr-2">
                                     <v-btn
                                         variant="outlined"
                                         color="default"
@@ -260,8 +260,7 @@
     </v-container>
 
     <apply-coupon-code-dialog v-model="isAddCouponDialogShown" />
-    <new-add-funds-dialog v-if="checkoutEnabled" v-model="isAddFundsDialogShown" />
-    <add-funds-dialog v-else-if="addFundsEnabled" v-model="isAddFundsDialogShown" />
+    <add-funds-dialog v-if="checkoutEnabled" v-model="isAddFundsDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -313,7 +312,6 @@ import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
 import BillingInformationTab from '@/components/billing/BillingInformationTab.vue';
 import AddFundsDialog from '@/components/dialogs/AddFundsDialog.vue';
-import NewAddFundsDialog from '@/components/dialogs/NewAddFundsDialog.vue';
 
 enum TABS {
     overview,
@@ -351,7 +349,6 @@ const creditCards = computed((): CreditCard[] => {
 
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
-const addFundsEnabled = computed<boolean>(() => configStore.state.config.billingAddFundsEnabled);
 const checkoutEnabled = computed<boolean>(() => configStore.state.config.billingStripeCheckoutEnabled);
 const minimumChargeCfg = computed<MinimumCharge>(() => configStore.minimumCharge);
 

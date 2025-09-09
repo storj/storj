@@ -313,9 +313,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for beta satellite support
 # console.beta-satellite-support-url: ""
 
-# whether billing add funds feature is enabled
-# console.billing-add-funds-enabled: false
-
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
 

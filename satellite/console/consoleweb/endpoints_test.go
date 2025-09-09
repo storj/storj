@@ -363,7 +363,7 @@ func TestPayments(t *testing.T) {
 					0:         {ID: 0},
 					placement: placementDetail,
 				})
-				config.Console.BillingAddFundsEnabled = true
+				config.Console.BillingStripeCheckoutEnabled = true
 				config.Console.RateLimit.Burst = 10
 			},
 		},

@@ -80,7 +80,6 @@ type FrontendConfig struct {
 	CunoFSBetaEnabled                 bool                        `json:"cunoFSBetaEnabled"`
 	ObjectMountConsultationEnabled    bool                        `json:"objectMountConsultationEnabled"`
 	CSRFToken                         string                      `json:"csrfToken"`
-	BillingAddFundsEnabled            bool                        `json:"billingAddFundsEnabled"`
 	BillingStripeCheckoutEnabled      bool                        `json:"billingStripeCheckoutEnabled"`
 	AddCardAuthorizationEnabled       bool                        `json:"addCardAuthorizationEnabled"`
 	MaxAddFundsAmount                 int                         `json:"maxAddFundsAmount"`
