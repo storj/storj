@@ -37,6 +37,7 @@ enum RouteName {
     ComputeOverview = 'Overview',
     ComputeInstances = 'Compute',
     ComputeKeys = 'SSH Keys',
+    ComputeDeployInstance = 'Deploy Instance',
 }
 
 export abstract class ROUTES {
@@ -69,6 +70,7 @@ export abstract class ROUTES {
     public static ComputeOverview = new NavigationLink('compute-overview', RouteName.ComputeOverview);
     public static ComputeInstances = new NavigationLink('compute-instances', RouteName.ComputeInstances);
     public static ComputeKeys = new NavigationLink('compute-keys', RouteName.ComputeKeys);
+    public static ComputeDeployInstance = new NavigationLink('compute-deploy-instance', RouteName.ComputeDeployInstance);
 
     public static AuthRoutes = [
         ROUTES.Login.path,
@@ -240,6 +242,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.ComputeKeys.path,
                 name: ROUTES.ComputeKeys.name,
                 component: () => import(/* webpackChunkName: "ComputeKeys" */ '@/views/ComputeKeys.vue'),
+            },
+            {
+                path: ROUTES.ComputeDeployInstance.path,
+                name: ROUTES.ComputeDeployInstance.name,
+                component: () => import(/* webpackChunkName: "ComputeDeployInstance" */ '@/views/ComputeDeployInstance.vue'),
             },
         ],
     },
