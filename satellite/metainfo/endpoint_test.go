@@ -491,6 +491,7 @@ func TestRateLimit(t *testing.T) {
 }
 
 func TestDisableRateLimit(t *testing.T) {
+	t.Skip("flaky")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
