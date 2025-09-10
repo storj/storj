@@ -108,6 +108,24 @@ func (client *Uplink) Download(ctx context.Context, bucketName string, path stor
 	return data, nil
 }
 
+// Delete data from specific satellite.
+func (client *Uplink) Delete(ctx context.Context, bucketName string, path storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := client.GetProject(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	_, err = project.DeleteObject(ctx, bucketName, path)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
 // GetProject returns a uplink.Project which allows interactions with a specific project.
 func (client *Uplink) GetProject(ctx context.Context) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -63,6 +63,7 @@ func TestUploadInline(t *testing.T) {
 			data, err := uplink.Download(ctx, "bucket1", "path/to/object")
 			require.NoError(t, err)
 			require.Equal(t, "data", string(data))
-
+			err = uplink.Delete(ctx, "bucket1", "path/to/object")
+			require.NoError(t, err)
 		})
 }
