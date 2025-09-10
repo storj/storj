@@ -151,13 +151,12 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 }
 
 // GetTestApiKey generates a new API key, using the predefined test credentials.
-func GetTestApiKey(ctx context.Context, id storj.NodeID, address string) (*uplink.Access, error) {
-	config := uplink.Config{}
+func GetTestApiKey(ctx context.Context, uplinkCfg uplink.Config, satelliteID storj.NodeID, satelliteAddr string) (*uplink.Access, error) {
 	apiKey, err := macaroon.FromParts(head, secret)
 	if err != nil {
 		return nil, err
 	}
-	access, err := config.RequestAccessWithPassphrase(ctx, id.String()+"@"+address, apiKey.Serialize(), password)
+	access, err := uplinkCfg.RequestAccessWithPassphrase(ctx, satelliteID.String()+"@"+satelliteAddr, apiKey.Serialize(), password)
 	if err != nil {
 		return nil, err
 	}

@@ -52,10 +52,11 @@ func TestUploadInline(t *testing.T) {
 			server := mudplanet.FindFirst[*server.Server](t, run, "satellite", 0)
 			id := mudplanet.FindFirst[*identity.FullIdentity](t, run, "satellite", 0)
 
-			access, err := satellitedb.GetTestApiKey(ctx, id.ID, server.Addr().String())
+			uplinkCfg := uplink.Config{}
+			access, err := satellitedb.GetTestApiKey(ctx, uplinkCfg, id.ID, server.Addr().String())
 			require.NoError(t, err)
 
-			uplink, err := uplinktest.NewUplink(access, uplink.Config{})
+			uplink, err := uplinktest.NewUplink(access, uplinkCfg)
 			require.NoError(t, err)
 			err = uplink.Upload(ctx, "bucket1", "path/to/object", []byte("data"))
 			require.NoError(t, err)
