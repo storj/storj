@@ -85,7 +85,7 @@ func WithModule(modules ...func(ball *mud.Ball)) Customization {
 }
 
 // WithConfig can make it possible customize a config (use pointer).
-func WithConfig[T any](fn T) Customization {
+func WithConfig[T any](fn func(T)) Customization {
 	return Customization{
 		PreInit: []any{fn},
 	}
