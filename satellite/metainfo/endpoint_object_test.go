@@ -2858,8 +2858,6 @@ func TestListUploads(t *testing.T) {
 }
 
 func TestNodeTagPlacement(t *testing.T) {
-	ctx := testcontext.New(t)
-
 	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 
 	placementRules := nodeselection.ConfigurablePlacementRule{}
@@ -2893,7 +2891,7 @@ func TestNodeTagPlacement(t *testing.T) {
 								},
 							},
 						}
-						signed, err := nodetag.Sign(ctx, tags, satelliteIdentity)
+						signed, err := nodetag.Sign(t.Context(), tags, satelliteIdentity)
 						require.NoError(t, err)
 
 						config.Contact.Tags = contact.SignedTags(pb.SignedNodeTagSets{

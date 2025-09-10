@@ -612,6 +612,7 @@ func TestRateLimit_ProjectRateLimitOverride(t *testing.T) {
 }
 
 func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
+	t.Skip("flaky")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{

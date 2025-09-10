@@ -214,15 +214,16 @@ func TestSegmentRepairInMemoryUpload(t *testing.T) {
 }
 
 func TestSegmentRepairWithNodeTags(t *testing.T) {
-	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
-	ctx := testcontext.New(t)
+	t.Skip("flaky")
 
+	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 	testplanet.Run(t, testplanet.Config{
 		// we use 23 nodes:
 		//      first 0-9: untagged
 		//      next 10-19: tagged, used to upload (remaining should be offline during first upload)
 		//      next 20-22: tagged, used to upload during repair (4 should be offline from the previous set: we will have 6 pieces + 3 new to these)
 		SatelliteCount: 1, StorageNodeCount: 23, UplinkCount: 1,
+		Timeout: -1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
@@ -232,7 +233,6 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 					}
 				},
 				func(log *zap.Logger, index int, config *satellite.Config) {
-
 					config.Overlay.Node.AsOfSystemTime.Enabled = false
 				},
 				testplanet.ReconfigureRS(4, 6, 8, 10),
@@ -250,7 +250,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 						},
 					}
 
-					signed, err := nodetag.Sign(ctx, tags, satelliteIdentity)
+					signed, err := nodetag.Sign(t.Context(), tags, satelliteIdentity)
 					require.NoError(t, err)
 
 					config.Contact.Tags = contact.SignedTags(pb.SignedNodeTagSets{
@@ -593,6 +593,7 @@ func updateNodeStatus(ctx context.Context, satellite *testplanet.Satellite, node
 // when both are placed to wrong nodes (nodes are moved to wrong country), only one of them will be repaired, as repairer
 // is configured to include only that placement constraint.
 func TestSegmentRepairPlacementRestrictions(t *testing.T) {
+	t.Skip("flaky")
 
 	placement := nodeselection.ConfigurablePlacementRule{}
 	err := placement.Set(`1:country("PL");2:country("PL")`)

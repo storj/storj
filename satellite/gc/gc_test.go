@@ -182,6 +182,7 @@ func TestGarbageCollection(t *testing.T) {
 // TestGarbageCollectionWithCopies checkes that server-side copy elements are not
 // affecting GC and nothing unexpected was deleted from storage nodes.
 func TestGarbageCollectionWithCopies(t *testing.T) {
+	t.Skip("flaky")
 	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,

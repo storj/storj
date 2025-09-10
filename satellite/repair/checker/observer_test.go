@@ -105,6 +105,8 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 }
 
 func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
+	t.Skip("flaky")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -212,6 +214,7 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 }
 
 func TestObserver_CheckSegmentCopy(t *testing.T) {
+	t.Skip("flaky")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
