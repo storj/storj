@@ -1214,7 +1214,8 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 		return nil, Error.New("stripe invoice couldn't be generated for customer %s", cusID)
 	}
 
-	if applyMinimumCharge && stripeInvoice.Total < service.pricingConfig.MinimumChargeAmount {
+	// We apply the minimum fee only if the invoice total is more than or equal to $0.01 and less than the minimum fee.
+	if applyMinimumCharge && stripeInvoice.Total >= 1 && stripeInvoice.Total < service.pricingConfig.MinimumChargeAmount {
 		shortfall := service.pricingConfig.MinimumChargeAmount - stripeInvoice.Total
 
 		_, err = service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{

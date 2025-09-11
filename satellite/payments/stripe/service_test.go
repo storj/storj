@@ -2115,6 +2115,55 @@ func TestService_CreateInvoice(t *testing.T) {
 			require.NotNil(t, inv)
 			require.Equal(t, int64(100), inv.AmountDue)
 		})
+
+		t.Run("zero invoice total → skip minimum charge", func(t *testing.T) {
+			stripeService.TestSetMinimumChargeCfg(5_000, nil)
+
+			anotherUser := &console.User{CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC)}
+			anotherCustomerID := "cus_yyy"
+			err = db.StripeCoinPayments().Customers().Insert(ctx, testrand.UUID(), anotherCustomerID)
+			require.NoError(t, err)
+
+			zeroAmountInvoiceItem := &stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   stripe.Int64(0),
+				Currency: stripe.String(string(stripe.CurrencyUSD)),
+				Customer: stripe.String(anotherCustomerID),
+			}
+
+			_, err = stripeClient.InvoiceItems().New(zeroAmountInvoiceItem)
+			require.NoError(t, err)
+
+			inv, err := stripeService.CreateInvoice(ctx, anotherCustomerID, anotherUser, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+			require.Equal(t, int64(0), inv.Total)
+
+			// Ensure no minimum charge adjustment was added to this specific invoice.
+			invoiceItemIter := stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+				Invoice:    stripe.String(inv.ID),
+				ListParams: stripe.ListParams{Context: ctx},
+				Customer:   stripe.String(anotherCustomerID),
+			})
+
+			var (
+				hasMinimumChargeAdjustment bool
+				itemsCount                 int
+			)
+			for invoiceItemIter.Next() {
+				itemsCount++
+				item := invoiceItemIter.InvoiceItem()
+				if item.Description == "Minimum charge adjustment" {
+					hasMinimumChargeAdjustment = true
+				}
+			}
+			require.NoError(t, invoiceItemIter.Err())
+			require.Equal(t, 1, itemsCount, "there should be exactly one invoice item")
+			require.False(t, hasMinimumChargeAdjustment, "minimum charge adjustment should not be applied to $0.00 invoices")
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
 	})
 }
 
