@@ -310,7 +310,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		go func() {
 			defer process.Status.Started.Release()
 
-			err := process.waitForAddress(process.processes.MaxStartupWait)
+			err := process.waitForAddress(ctx, process.processes.MaxStartupWait)
 			if err != nil {
 				_, _ = fmt.Fprintf(process.processes.Output, "failed to wait startup: %v", err)
 				cancelProcess()
@@ -335,10 +335,10 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 }
 
 // waitForAddress will monitor starting when we are able to start the process.
-func (process *Process) waitForAddress(maxStartupWait time.Duration) error {
+func (process *Process) waitForAddress(ctx context.Context, maxStartupWait time.Duration) error {
 	start := time.Now()
 	for !process.Status.Started.Released() {
-		if tryConnect(process.Info.Address) {
+		if tryConnect(ctx, process.Info.Address) {
 			return nil
 		}
 
@@ -353,8 +353,8 @@ func (process *Process) waitForAddress(maxStartupWait time.Duration) error {
 }
 
 // tryConnect will try to connect to the process public address.
-func tryConnect(address string) bool {
-	conn, err := net.Dial("tcp", address)
+func tryConnect(ctx context.Context, address string) bool {
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", address)
 	if err != nil {
 		return false
 	}

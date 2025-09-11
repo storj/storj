@@ -6,6 +6,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -40,6 +41,7 @@ func ignore(files []string) []string {
 // github.com/nilslice/protolock/cmd/protolock
 
 func main() {
+	ctx := context.Background()
 	flag.Parse()
 
 	// TODO: protolock
@@ -72,7 +74,7 @@ func main() {
 		args = append(args, protofiles...)
 
 		// generate new code
-		cmd := exec.Command(*protoc, args...)
+		cmd := exec.CommandContext(ctx, *protoc, args...)
 		fmt.Println(strings.Join(cmd.Args, " "))
 		out, err := cmd.CombinedOutput()
 		if len(out) > 0 {

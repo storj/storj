@@ -364,13 +364,13 @@ func (d *Domains) CheckDNSRecords(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cname, err := net.LookupCNAME(domain)
+	cname, err := (&net.Resolver{}).LookupCNAME(ctx, domain)
 	if err != nil {
 		d.sendResponse(w, checkDNSRecordsResponse{IsVerifyError: true})
 		return
 	}
 
-	txt, err := net.LookupTXT("txt-" + domain)
+	txt, err := (&net.Resolver{}).LookupTXT(ctx, "txt-"+domain)
 	if err != nil {
 		d.sendResponse(w, checkDNSRecordsResponse{IsVerifyError: true})
 		return
