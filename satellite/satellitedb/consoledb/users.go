@@ -892,6 +892,53 @@ func (users *users) SetStatusPendingDeletion(
 	return nil
 }
 
+// ListPendingDeletionBefore returns a list of user IDs that are pending deletion and were marked before the specified time.
+// This does not include users that have been frozen.
+// NB: This is intended to be used to delete the users this list returns so that every next call
+// does not return the same users again.
+func (users *users) ListPendingDeletionBefore(
+	ctx context.Context,
+	limit int,
+	before time.Time,
+) (page console.UserIDsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := users.db.Rebind(`
+			SELECT u.id
+			FROM users as u
+			WHERE u.status = ?
+				AND u.status_updated_at < ?
+				-- exclude frozen users
+				AND (SELECT COUNT(1) FROM account_freeze_events as afe WHERE u.id = afe.user_id) = 0
+			ORDER BY u.status_updated_at ASC
+			LIMIT ?
+		`)
+
+	rows, err := users.db.QueryContext(ctx, query, console.PendingDeletion, before.UTC(), limit+1)
+	if err != nil {
+		return console.UserIDsPage{}, err
+	}
+	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return console.UserIDsPage{}, errs.Wrap(err)
+		}
+		ids = append(ids, id)
+	}
+
+	if len(ids) == limit+1 {
+		page.HasNext = true
+
+		ids = ids[:len(ids)-1]
+	}
+	page.IDs = ids
+
+	return page, nil
+}
+
 // TestSetNow is a method to set the now function for testing purposes.
 func (users *users) TestSetNow(nowFn func() time.Time) {
 	users.nowFn = nowFn

@@ -94,6 +94,11 @@ type Users interface {
 	// The function return an error on system failure and an sql.ErrNoRows if the account doesn't exist
 	// or doesn't fulfill the requirements.
 	SetStatusPendingDeletion(ctx context.Context, userID uuid.UUID, defaultDaysTillEscalation uint) error
+	// ListPendingDeletionBefore returns a list of user IDs that are pending deletion and were marked before the specified time.
+	// This does not include users that have been frozen.
+	// NB: This is intended to be used to delete the users this list returns so that every next call
+	// does not return the same users again.
+	ListPendingDeletionBefore(ctx context.Context, limit int, before time.Time) (page UserIDsPage, err error)
 	// GetNowFn returns the current time function.
 	GetNowFn() func() time.Time
 	// TestSetNow is used to set the current time for testing purposes.
@@ -116,6 +121,12 @@ type UsersPage struct {
 	PageCount   uint   `json:"pageCount"`
 	CurrentPage uint   `json:"currentPage"`
 	TotalCount  uint64 `json:"totalCount"`
+}
+
+// UserIDsPage represents a page of user IDs.
+type UserIDsPage struct {
+	IDs     []uuid.UUID
+	HasNext bool
 }
 
 // UserInfo holds minimal user info.

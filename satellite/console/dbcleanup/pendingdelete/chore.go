@@ -28,10 +28,11 @@ import (
 
 var (
 	// Error defines the pendingdelete chore errors class.
-	Error           = errs.Class("pendingdelete")
-	mon             = monkit.Package()
-	userDataTask    = "user-pending-deletion"
-	projectDataTask = "project-pending-deletion"
+	Error                     = errs.Class("pendingdelete")
+	mon                       = monkit.Package()
+	frozenDataTask            = "frozen-user-deletion"
+	projectDataTask           = "project-pending-deletion"
+	pendingDeleteUserDataTask = "user-pending-deletion"
 )
 
 // Config contains configuration for pending deletion project cleanup.
@@ -42,6 +43,7 @@ type Config struct {
 	DeleteConcurrency int           `help:"how many delete workers to run at a time" default:"1"`
 
 	Project         DeleteTypeConfig
+	User            DeleteTypeConfig
 	ViolationFreeze DeleteTypeConfig
 	BillingFreeze   DeleteTypeConfig
 	TrialFreeze     DeleteTypeConfig
@@ -114,8 +116,17 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		if len(chore.enabledFrozenDeleteTypes()) != 0 {
 			group.Go(func() error {
-				return chore.runDeleteUserData(ctx)
+				return chore.runDeleteFrozenUsers(ctx)
 			})
+		}
+
+		if chore.config.User.Enabled {
+			group.Go(func() error {
+				return chore.runDeletePendingDeletionUsers(ctx)
+			})
+		} else {
+			chore.log.Info("skipping deleting pending deletion users because it is disabled in config",
+				zap.String("task", pendingDeleteUserDataTask))
 		}
 
 		return group.Wait()
@@ -172,7 +183,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				}
 
 				if project.Status == nil || *project.Status != console.ProjectPendingDeletion {
-					chore.log.Error("project not marked pending deletion, skipping",
+					chore.log.Info("project not marked pending deletion, skipping",
 						zap.String("task", projectDataTask),
 						zap.String("projectID", p.ProjectID.String()),
 						zap.String("userID", p.OwnerID.String()),
@@ -208,6 +219,115 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 	return Error.Wrap(errGrp.Err())
 }
 
+func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	chore.log.Info("deleting pending deletion users", zap.String("task", pendingDeleteUserDataTask))
+
+	mu := new(sync.Mutex)
+	var errGrp errs.Group
+
+	addErr := func(err error) {
+		mu.Lock()
+		errGrp.Add(err)
+		mu.Unlock()
+	}
+
+	errorLog := func(msg string, err2 error, args ...zap.Field) {
+		chore.log.Error(msg,
+			zap.String("task", pendingDeleteUserDataTask),
+			zap.Error(err2),
+		)
+	}
+
+	var skippedUsers, deletedUsers, deletedProjects atomic.Int64
+	hasNext := true
+	for hasNext {
+		idsPage, err := chore.store.Users().ListPendingDeletionBefore(
+			ctx,
+			chore.config.ListLimit, chore.nowFn().Add(-chore.config.User.BufferTime),
+		)
+		if err != nil {
+			chore.log.Error("failed to get users for deletion",
+				zap.String("task", pendingDeleteUserDataTask), zap.Error(err))
+			return err
+		}
+		hasNext = idsPage.HasNext
+
+		if !hasNext && len(idsPage.IDs) == 0 {
+			break
+		}
+
+		limiter := sync2.NewLimiter(chore.config.DeleteConcurrency)
+
+		for _, userID := range idsPage.IDs {
+			limiter.Go(ctx, func() {
+				// confirm user still marked pending deletion
+				user, err := chore.store.Users().Get(ctx, userID)
+				if err != nil {
+					chore.log.Error("failed to get user for deletion",
+						zap.String("task", pendingDeleteUserDataTask),
+						zap.String("userID", userID.String()),
+						zap.Error(err),
+					)
+					addErr(err)
+					return
+				}
+
+				if user.Status != console.PendingDeletion {
+					chore.log.Info("user not marked pending deletion, skipping",
+						zap.String("task", pendingDeleteUserDataTask),
+						zap.String("userID", userID.String()),
+					)
+					skippedUsers.Add(1)
+					return
+				}
+
+				projects, err := chore.store.Projects().GetActiveByUserID(ctx, userID)
+				if err != nil {
+					errorLog("failed to get projects for deletion", err, zap.String("userID", userID.String()))
+					addErr(err)
+					return
+				}
+
+				for _, project := range projects {
+					err := chore.deleteData(ctx, project.ID, userID, pendingDeleteUserDataTask)
+					if err != nil {
+						addErr(err)
+						return
+					}
+
+					err = chore.disableProject(ctx, project.ID, project.PublicID, userID, pendingDeleteUserDataTask)
+					if err != nil {
+						addErr(err)
+						return
+					}
+
+					deletedProjects.Add(1)
+				}
+
+				err = chore.deactivateUser(ctx, userID, nil, pendingDeleteUserDataTask)
+				if err != nil {
+					addErr(err)
+					return
+				}
+				deletedUsers.Add(1)
+			})
+		}
+
+		limiter.Wait()
+	}
+
+	chore.log.Info("finished deleting users",
+		zap.String("task", pendingDeleteUserDataTask),
+		zap.Int64("skipped_users", skippedUsers.Load()),
+		zap.Int64("deleted_users", deletedUsers.Load()),
+		zap.Int64("deleted_projects", deletedProjects.Load()),
+	)
+
+	return Error.Wrap(errGrp.Err())
+}
+
 func (chore *Chore) enabledFrozenDeleteTypes() []console.EventTypeAndTime {
 	var eventTypes []console.EventTypeAndTime
 	if chore.config.ViolationFreeze.Enabled {
@@ -230,7 +350,7 @@ func (chore *Chore) enabledFrozenDeleteTypes() []console.EventTypeAndTime {
 	}
 	if len(eventTypes) == 0 {
 		chore.log.Info("no freeze event types are enabled, skipping unpaid data deletion",
-			zap.String("task", userDataTask),
+			zap.String("task", frozenDataTask),
 		)
 		return nil
 	}
@@ -238,10 +358,10 @@ func (chore *Chore) enabledFrozenDeleteTypes() []console.EventTypeAndTime {
 	return eventTypes
 }
 
-func (chore *Chore) runDeleteUserData(ctx context.Context) (err error) {
+func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	chore.log.Info("deleting pending deletion users and data", zap.String("task", userDataTask))
+	chore.log.Info("deleting pending deletion users and data", zap.String("task", frozenDataTask))
 
 	mu := new(sync.Mutex)
 	var errGrp errs.Group
@@ -254,7 +374,7 @@ func (chore *Chore) runDeleteUserData(ctx context.Context) (err error) {
 
 	errorLog := func(msg string, err2 error, args ...zap.Field) {
 		chore.log.Error(msg,
-			zap.String("task", userDataTask),
+			zap.String("task", frozenDataTask),
 			zap.Error(err2),
 		)
 	}
@@ -290,9 +410,9 @@ func (chore *Chore) runDeleteUserData(ctx context.Context) (err error) {
 				}
 
 				if user.Status != console.PendingDeletion {
-					chore.log.Error("user not marked pending deletion, skipping",
+					chore.log.Info("user not marked pending deletion, skipping",
 						zap.String("userID", event.UserID.String()),
-						zap.String("task", userDataTask),
+						zap.String("task", frozenDataTask),
 					)
 					skippedUsers.Add(1)
 					return
@@ -306,13 +426,13 @@ func (chore *Chore) runDeleteUserData(ctx context.Context) (err error) {
 				}
 
 				for _, project := range projects {
-					err := chore.deleteData(ctx, project.ID, event.UserID, userDataTask)
+					err := chore.deleteData(ctx, project.ID, event.UserID, frozenDataTask)
 					if err != nil {
 						addErr(err)
 						return
 					}
 
-					err = chore.disableProject(ctx, project.ID, project.PublicID, event.UserID, userDataTask)
+					err = chore.disableProject(ctx, project.ID, project.PublicID, event.UserID, frozenDataTask)
 					if err != nil {
 						addErr(err)
 						return
@@ -321,39 +441,12 @@ func (chore *Chore) runDeleteUserData(ctx context.Context) (err error) {
 					deletedProjects.Add(1)
 				}
 
-				// this is ideally part of chore.deactivateUser, but we cannot use a db object in
-				// a transaction, which accounts.CreditCards().RemoveAll does internally.
-				err = chore.accounts.CreditCards().RemoveAll(ctx, event.UserID)
-				if err != nil {
-					chore.log.Error("failed to remove user credit cards",
-						zap.String("userID", event.UserID.String()),
-						zap.Error(err),
-					)
-					addErr(err)
-					return
-				}
-
-				err = chore.store.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
-					err = chore.deactivateUser(ctx, tx, event)
-					if err != nil {
-						return err
-					}
-
-					// remove the freeze event so this user is not retrieved by GetEscalatedEventsOlderThanToDelete
-					err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, event.UserID, event.Type)
-					if err != nil {
-						chore.log.Error("failed to remove freeze event", zap.String("userID", event.UserID.String()), zap.Error(err))
-						return err
-					}
-
-					deletedUsers.Add(1)
-
-					return nil
-				})
+				err = chore.deactivateUser(ctx, event.UserID, &event.Type, frozenDataTask)
 				if err != nil {
 					addErr(err)
 					return
 				}
+				deletedUsers.Add(1)
 			})
 		}
 
@@ -361,7 +454,7 @@ func (chore *Chore) runDeleteUserData(ctx context.Context) (err error) {
 	}
 
 	chore.log.Info("finished deleting pending deletion users and data",
-		zap.String("task", userDataTask),
+		zap.String("task", frozenDataTask),
 		zap.Int64("skipped_users", skippedUsers.Load()),
 		zap.Int64("deleted_users", deletedUsers.Load()),
 		zap.Int64("deleted_projects", deletedProjects.Load()),
@@ -485,44 +578,66 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 	})
 }
 
-func (chore *Chore) deactivateUser(ctx context.Context, tx console.DBTx, event console.EventWithUser) (err error) {
-	_, err = tx.WebappSessions().DeleteAllByUserID(ctx, event.UserID)
+func (chore *Chore) deactivateUser(ctx context.Context, userID uuid.UUID, freezeEventType *console.AccountFreezeEventType, task string) (err error) {
+	err = chore.accounts.CreditCards().RemoveAll(ctx, userID)
 	if err != nil {
-		chore.log.Error("failed to remove webapp sessions for user",
-			zap.String("task", userDataTask),
-			zap.String("userID", event.UserID.String()),
+		chore.log.Error("failed to remove user credit cards",
+			zap.String("task", task),
+			zap.String("userID", userID.String()),
 			zap.Error(err),
 		)
 		return err
 	}
 
-	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", event.UserID.String())
-	status := console.Deleted
+	return chore.store.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		_, err = tx.WebappSessions().DeleteAllByUserID(ctx, userID)
+		if err != nil {
+			chore.log.Error("failed to remove webapp sessions for user",
+				zap.String("task", task),
+				zap.String("userID", userID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
 
-	err = tx.Users().Update(ctx, event.UserID, console.UpdateUserRequest{
-		FullName:                    new(string),
-		ShortName:                   new(*string),
-		Email:                       &deactivatedEmail,
-		Status:                      &status,
-		ExternalID:                  new(*string),
-		EmailChangeVerificationStep: new(int),
+		deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", userID.String())
+		status := console.Deleted
+		err = tx.Users().Update(ctx, userID, console.UpdateUserRequest{
+			FullName:                    new(string),
+			ShortName:                   new(*string),
+			Email:                       &deactivatedEmail,
+			Status:                      &status,
+			ExternalID:                  new(*string),
+			EmailChangeVerificationStep: new(int),
+		})
+		if err != nil {
+			chore.log.Error("failed to update user status to Deleted",
+				zap.String("task", task),
+				zap.String("userID", userID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+
+		if freezeEventType != nil {
+			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, *freezeEventType)
+			if err != nil {
+				chore.log.Error("failed to remove freeze event",
+					zap.String("task", task),
+					zap.String("userID", userID.String()),
+					zap.Error(err))
+				return err
+			}
+		}
+
+		chore.log.Info(
+			"user deactivated",
+			zap.String("task", task),
+			zap.String("userID", userID.String()),
+		)
+
+		return nil
 	})
-	if err != nil {
-		chore.log.Error("failed to update user status to Deleted",
-			zap.String("task", userDataTask),
-			zap.String("userID", event.UserID.String()),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	chore.log.Info(
-		"user deactivated",
-		zap.String("task", userDataTask),
-		zap.String("userID", event.UserID.String()),
-	)
-
-	return nil
 }
 
 // Close stops chore.

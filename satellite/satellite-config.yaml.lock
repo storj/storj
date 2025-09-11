@@ -1590,6 +1590,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # pending-delete-cleanup.trial-freeze.enabled: false
 
 # how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.user.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.user.enabled: false
+
+# how long after the resource is marked for deletion should we wait before deleting data
 # pending-delete-cleanup.violation-freeze.buffer-time: 720h0m0s
 
 # whether data of this type of pending deletion resource should be deleted or not
