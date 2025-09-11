@@ -105,8 +105,6 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 }
 
 func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
-	t.Skip("flaky")
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -115,6 +113,9 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not read from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
 		ExerciseJobq: true,
