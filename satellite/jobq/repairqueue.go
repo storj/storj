@@ -111,13 +111,16 @@ func (rjq *RepairJobQueue) Select(ctx context.Context, limit int, includedPlacem
 			attemptedAt = &t
 		}
 		seg := queue.InjuredSegment{
-			StreamID:      job.ID.StreamID,
-			Position:      metabase.SegmentPositionFromEncoded(job.ID.Position),
-			SegmentHealth: job.Health,
-			AttemptedAt:   attemptedAt,
-			UpdatedAt:     time.Unix(int64(job.UpdatedAt), 0),
-			InsertedAt:    time.Unix(int64(job.InsertedAt), 0),
-			Placement:     storj.PlacementConstraint(job.Placement),
+			StreamID:                 job.ID.StreamID,
+			Position:                 metabase.SegmentPositionFromEncoded(job.ID.Position),
+			SegmentHealth:            job.Health,
+			AttemptedAt:              attemptedAt,
+			UpdatedAt:                time.Unix(int64(job.UpdatedAt), 0),
+			InsertedAt:               time.Unix(int64(job.InsertedAt), 0),
+			Placement:                storj.PlacementConstraint(job.Placement),
+			NumNormalizedRetrievable: job.NumNormalizedRetrievable,
+			NumNormalizedHealthy:     job.NumNormalizedHealthy,
+			NumOutOfPlacement:        job.NumOutOfPlacement,
 		}
 		injuredSegments = append(injuredSegments, seg)
 	}
@@ -138,12 +141,15 @@ func (rjq *RepairJobQueue) Release(ctx context.Context, job queue.InjuredSegment
 		// would be left in the queue under PostgreSQL/Cockroach,
 		// just with an updated LastAttemptedAt.
 		rJob := RepairJob{
-			ID:              SegmentIdentifier{StreamID: job.StreamID, Position: job.Position.Encode()},
-			Health:          job.SegmentHealth,
-			InsertedAt:      uint64(job.InsertedAt.Unix()),
-			LastAttemptedAt: ServerTimeNow,
-			UpdatedAt:       uint64(job.UpdatedAt.Unix()),
-			Placement:       uint16(job.Placement),
+			ID:                       SegmentIdentifier{StreamID: job.StreamID, Position: job.Position.Encode()},
+			Health:                   job.SegmentHealth,
+			InsertedAt:               uint64(job.InsertedAt.Unix()),
+			LastAttemptedAt:          ServerTimeNow,
+			UpdatedAt:                uint64(job.UpdatedAt.Unix()),
+			Placement:                uint16(job.Placement),
+			NumNormalizedHealthy:     job.NumNormalizedHealthy,
+			NumNormalizedRetrievable: job.NumNormalizedRetrievable,
+			NumOutOfPlacement:        job.NumOutOfPlacement,
 		}
 		rJob.NumAttempts++
 		_, err := rjq.jobqClient.Push(ctx, rJob)
@@ -171,13 +177,16 @@ func (rjq *RepairJobQueue) SelectN(ctx context.Context, limit int) ([]queue.Inju
 			attemptedAt = &t
 		}
 		seg := queue.InjuredSegment{
-			StreamID:      job.ID.StreamID,
-			Position:      metabase.SegmentPositionFromEncoded(job.ID.Position),
-			SegmentHealth: job.Health,
-			AttemptedAt:   attemptedAt,
-			UpdatedAt:     time.Unix(int64(job.UpdatedAt), 0),
-			InsertedAt:    time.Unix(int64(job.InsertedAt), 0),
-			Placement:     storj.PlacementConstraint(job.Placement),
+			StreamID:                 job.ID.StreamID,
+			Position:                 metabase.SegmentPositionFromEncoded(job.ID.Position),
+			SegmentHealth:            job.Health,
+			AttemptedAt:              attemptedAt,
+			UpdatedAt:                time.Unix(int64(job.UpdatedAt), 0),
+			InsertedAt:               time.Unix(int64(job.InsertedAt), 0),
+			Placement:                storj.PlacementConstraint(job.Placement),
+			NumNormalizedRetrievable: job.NumNormalizedRetrievable,
+			NumNormalizedHealthy:     job.NumNormalizedHealthy,
+			NumOutOfPlacement:        job.NumOutOfPlacement,
 		}
 		injuredSegments = append(injuredSegments, seg)
 	}
