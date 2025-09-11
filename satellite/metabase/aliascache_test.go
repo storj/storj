@@ -22,10 +22,9 @@ import (
 )
 
 func TestNodeAliasCache(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	t.Run("missing aliases", func(t *testing.T) {
+		ctx := testcontext.New(t)
+
 		cache := metabase.NewNodeAliasCache(&NodeAliasDB{}, false)
 		nodes, err := cache.Nodes(ctx, []metabase.NodeAlias{1, 2, 3})
 		require.EqualError(t, err, "metabase: aliases missing in database: [1 2 3]")
@@ -33,6 +32,8 @@ func TestNodeAliasCache(t *testing.T) {
 	})
 
 	t.Run("auto add nodes", func(t *testing.T) {
+		ctx := testcontext.New(t)
+
 		cache := metabase.NewNodeAliasCache(&NodeAliasDB{}, false)
 
 		n1, n2 := testrand.NodeID(), testrand.NodeID()
@@ -56,6 +57,8 @@ func TestNodeAliasCache(t *testing.T) {
 	})
 
 	t.Run("db error", func(t *testing.T) {
+		ctx := testcontext.New(t)
+
 		aliasDB := &NodeAliasDB{}
 		aliasDB.SetFail(errors.New("io.EOF"))
 		cache := metabase.NewNodeAliasCache(aliasDB, false)
@@ -72,6 +75,8 @@ func TestNodeAliasCache(t *testing.T) {
 	})
 
 	t.Run("EnsureAliases refresh once", func(t *testing.T) {
+		ctx := testcontext.New(t)
+
 		for repeat := 0; repeat < 3; repeat++ {
 			database := &NodeAliasDB{}
 			cache := metabase.NewNodeAliasCache(database, false)
@@ -102,6 +107,8 @@ func TestNodeAliasCache(t *testing.T) {
 	})
 
 	t.Run("Nodes refresh once", func(t *testing.T) {
+		ctx := testcontext.New(t)
+
 		for repeat := 0; repeat < 3; repeat++ {
 			n1, n2 := testrand.NodeID(), testrand.NodeID()
 
