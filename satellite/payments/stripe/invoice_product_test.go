@@ -341,6 +341,230 @@ func TestInvoiceByProduct(t *testing.T) {
 	})
 }
 
+func TestInvoiceByProduct_withPlaceholderItems(t *testing.T) {
+	// Define price models.
+	defaultPrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "1",
+		EgressTB:  "2",
+		Segment:   "3",
+	}
+
+	// Set up products with different placeholder fee configurations.
+	productWithBothFees := paymentsconfig.ProductUsagePrice{
+		Name:                "Product Both Fees",
+		SmallObjectFee:      "0.10",
+		MinimumRetentionFee: "0.05",
+		ProjectUsagePrice:   defaultPrice,
+	}
+	productWithNoFees := paymentsconfig.ProductUsagePrice{
+		Name:                "Product No Fees",
+		SmallObjectFee:      "0",
+		MinimumRetentionFee: "0",
+		ProjectUsagePrice:   defaultPrice,
+	}
+	productWithSmallObjectFee := paymentsconfig.ProductUsagePrice{
+		Name:                "Product Small Object Fee",
+		SmallObjectFee:      "0.12",
+		MinimumRetentionFee: "0",
+		ProjectUsagePrice:   defaultPrice,
+	}
+	productWithRetentionFee := paymentsconfig.ProductUsagePrice{
+		Name:                "Product Retention Fee",
+		SmallObjectFee:      "0",
+		MinimumRetentionFee: "0.07",
+		ProjectUsagePrice:   defaultPrice,
+	}
+
+	// Set up product ID mappings.
+	var productOverrides paymentsconfig.ProductPriceOverrides
+	productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+		1: productWithBothFees,
+		2: productWithNoFees,
+		3: productWithSmallObjectFee,
+		4: productWithRetentionFee,
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// Simple placement configuration for testing placeholder items:
+				// placement 0 -> product 1 (both fees)
+				// placement 10 -> product 2 (no fees)
+				// placement 20 -> product 3 (small object fee only)
+				// placement 30 -> product 4 (retention fee only)
+
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");10:annotation("location", "test1");20:annotation("location", "test2");30:annotation("location", "test3")`,
+				}
+
+				// Set up placement product map
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					0:  1, // Both fees
+					10: 2, // No fees
+					20: 3, // Small object fee only
+					30: 4, // Retention fee only
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].DB
+		stripeService := planet.Satellites[0].API.Payments.StripeService
+
+		period := time.Now().UTC()
+		firstDayOfMonth := time.Date(
+			period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
+		lastDayOfMonth := time.Date(
+			period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
+
+		placement0 := storj.DefaultPlacement         // Both fees
+		placement10 := storj.PlacementConstraint(10) // No fees
+		placement20 := storj.PlacementConstraint(20) // Small object fee only
+		placement30 := storj.PlacementConstraint(30) // Retention fee only
+
+		expectedInvoiceItemsPerProduct := map[int32]int{
+			1: 5, // storage, egress, segment, small object fee, minimum retention fee
+			2: 3, // storage, egress, segment (no fees)
+			3: 4, // storage, egress, segment, small object fee only
+			4: 4, // storage, egress, segment, minimum retention fee only
+		}
+
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+		planet.Satellites[0].Accounting.Rollup.Loop.Pause()
+		planet.Satellites[0].Accounting.RollupArchive.Loop.Pause()
+
+		// Create one project with buckets for each placement to test different fee combinations.
+		project, err := db.Console().Projects().Insert(
+			ctx, &console.Project{ID: testrand.UUID(), Name: "test project"})
+		require.NoError(t, err)
+
+		bucket1, err := db.Buckets().CreateBucket(
+			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket1", ProjectID: project.ID, Placement: placement0})
+		require.NoError(t, err)
+		bucket2, err := db.Buckets().CreateBucket(
+			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket2", ProjectID: project.ID, Placement: placement10})
+		require.NoError(t, err)
+		bucket3, err := db.Buckets().CreateBucket(
+			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket3", ProjectID: project.ID, Placement: placement20})
+		require.NoError(t, err)
+		bucket4, err := db.Buckets().CreateBucket(
+			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket4", ProjectID: project.ID, Placement: placement30})
+		require.NoError(t, err)
+
+		// Create attributions for each bucket (no partner needed)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucket1.Name),
+			Placement:  &placement0,
+		})
+		require.NoError(t, err)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucket2.Name),
+			Placement:  &placement10,
+		})
+		require.NoError(t, err)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucket3.Name),
+			Placement:  &placement20,
+		})
+		require.NoError(t, err)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucket4.Name),
+			Placement:  &placement30,
+		})
+		require.NoError(t, err)
+
+		dataVal := int64(1000000)
+
+		// Generate usage for each bucket.
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket1.Name, dataVal, dataVal, dataVal)
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket2.Name, dataVal, dataVal, dataVal)
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket3.Name, dataVal, dataVal, dataVal)
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket4.Name, dataVal, dataVal, dataVal)
+
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		records := []stripe.ProjectRecord{
+			{ProjectID: project.ID, Storage: 1},
+		}
+
+		for _, r := range records {
+			skipped, err := stripeService.ProcessRecord(ctx, r, productUsages, productInfos, start, end)
+			require.NoError(t, err)
+			require.False(t, skipped)
+		}
+		require.Len(t, productUsages, 4)
+		require.Len(t, productInfos, 4)
+
+		expectedProductIDs := []int32{1, 2, 3, 4}
+		var gotUsageProductIDs []int32
+		for pr, usage := range productUsages {
+			gotUsageProductIDs = append(gotUsageProductIDs, pr)
+			require.Equal(t, dataVal, usage.Egress)
+			require.Greater(t, usage.Storage, float64(0))
+		}
+		require.ElementsMatch(t, expectedProductIDs, gotUsageProductIDs)
+
+		var gotInfoProductIDs []int32
+		for pr := range productInfos {
+			gotInfoProductIDs = append(gotInfoProductIDs, pr)
+		}
+		require.ElementsMatch(t, expectedProductIDs, gotInfoProductIDs)
+
+		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+		// Calculate expected total invoice items.
+		expectedTotalItems := 0
+		for _, productID := range expectedProductIDs {
+			expectedTotalItems += expectedInvoiceItemsPerProduct[productID]
+		}
+		require.Len(t, invoiceItems, expectedTotalItems)
+
+		// Verify placeholder fees are included in invoice items.
+		itemIndex := 0
+		for _, productID := range expectedProductIDs {
+			t.Run(fmt.Sprintf("Product %d Items", productID), func(t *testing.T) {
+				productInfo := productInfos[productID]
+				currentIndex := itemIndex + 3 // Skip storage, egress, segment items
+
+				// Verify small object fee item if present
+				if !productInfo.SmallObjectFeeCents.IsZero() {
+					smallObjectFeeItem := invoiceItems[currentIndex]
+					require.NotNil(t, smallObjectFeeItem)
+					require.Contains(t, *smallObjectFeeItem.Description, productInfo.ProductName)
+					require.Contains(t, *smallObjectFeeItem.Description, "Minimum Object Size Remainder")
+					require.Equal(t, int64(0), *smallObjectFeeItem.Quantity)
+					smallObjectFeePrice, _ := productInfo.SmallObjectFeeCents.Float64()
+					require.Equal(t, smallObjectFeePrice, *smallObjectFeeItem.UnitAmountDecimal)
+					currentIndex++
+				}
+
+				// Verify minimum retention fee item if present
+				if !productInfo.MinimumRetentionFeeCents.IsZero() {
+					minimumRetentionFeeItem := invoiceItems[currentIndex]
+					require.NotNil(t, minimumRetentionFeeItem)
+					require.Contains(t, *minimumRetentionFeeItem.Description, productInfo.ProductName)
+					require.Contains(t, *minimumRetentionFeeItem.Description, "Minimum Storage Retention Remainder")
+					require.Equal(t, int64(0), *minimumRetentionFeeItem.Quantity)
+					minimumRetentionFeePrice, _ := productInfo.MinimumRetentionFeeCents.Float64()
+					require.Equal(t, minimumRetentionFeePrice, *minimumRetentionFeeItem.UnitAmountDecimal)
+				}
+			})
+			itemIndex += expectedInvoiceItemsPerProduct[productID]
+		}
+	})
+}
+
 func generateProjectUsage(ctx context.Context, tb testing.TB, db satellite.DB, projectID uuid.UUID, start, end time.Time, bucket string, egress, totalBytes, totalSegments int64) {
 	err := db.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(bucket),
 		pb.PieceAction_GET, egress, 0, start)

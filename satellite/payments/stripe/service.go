@@ -680,12 +680,16 @@ func (service *Service) getAndProcessUsages(
 
 			// Initialize product info.
 			productInfos[productID] = payments.ProductUsagePriceModel{
-				ProductID:              productID,
-				ProductName:            productName,
-				StorageSKU:             storageSKU,
-				EgressSKU:              egressSKU,
-				SegmentSKU:             segmentSKU,
-				ProjectUsagePriceModel: priceModel.ProjectUsagePriceModel,
+				ProductID:                productID,
+				ProductName:              productName,
+				StorageSKU:               storageSKU,
+				EgressSKU:                egressSKU,
+				SegmentSKU:               segmentSKU,
+				SmallObjectFeeCents:      priceModel.SmallObjectFeeCents,
+				MinimumRetentionFeeCents: priceModel.MinimumRetentionFeeCents,
+				SmallObjectFeeSKU:        priceModel.SmallObjectFeeSKU,
+				MinimumRetentionFeeSKU:   priceModel.MinimumRetentionFeeSKU,
+				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
 			}
 		}
 	}
@@ -785,6 +789,38 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		}
 
 		result = append(result, segmentItem)
+
+		if !info.SmallObjectFeeCents.IsZero() {
+			smallObjectFeeItem := &stripe.InvoiceItemParams{}
+			smallObjectFeeItem.Description = stripe.String(prefix + " - Minimum Object Size Remainder (MB-Month)")
+			smallObjectFeeItem.Quantity = stripe.Int64(0) // not applied for now.
+			smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+			smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+			if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
+				smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+			}
+			if service.stripeConfig.UseIdempotency {
+				smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
+			}
+
+			result = append(result, smallObjectFeeItem)
+		}
+
+		if !info.MinimumRetentionFeeCents.IsZero() {
+			minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
+			minimumRetentionFeeItem.Description = stripe.String(prefix + " - Minimum Storage Retention Remainder (MB-Month)")
+			minimumRetentionFeeItem.Quantity = stripe.Int64(0) // not applied for now.
+			minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Float64()
+			minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+			if info.MinimumRetentionFeeSKU != "" && service.stripeConfig.SkuEnabled {
+				minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
+			}
+			if service.stripeConfig.UseIdempotency {
+				minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
+			}
+
+			result = append(result, minimumRetentionFeeItem)
+		}
 	}
 
 	service.log.Info("invoice items by product", zap.Any("result", result))

@@ -116,7 +116,7 @@ type PriceOverrides struct {
 }
 
 // Type returns the type of the pflag.Value.
-func (PriceOverrides) Type() string { return "paymentsconfig.PriceOverrides" }
+func (*PriceOverrides) Type() string { return "paymentsconfig.PriceOverrides" }
 
 // String returns the string representation of the price overrides.
 func (p *PriceOverrides) String() string {
@@ -188,7 +188,11 @@ func (p *PriceOverrides) SetMap(overrides map[string]ProjectUsagePrice) {
 }
 
 // ToModels returns the price overrides represented as a mapping between a string and usage price models.
-func (p PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, error) {
+func (p *PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, error) {
+	if p == nil {
+		return nil, errs.New("no price overrides defined")
+	}
+
 	models := make(map[string]payments.ProjectUsagePriceModel)
 	for key, prices := range p.overrideMap {
 		model, err := prices.ToModel()
@@ -202,8 +206,12 @@ func (p PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, 
 
 // ProductUsagePrice represents the product name, SKUs and usage price for a product.
 type ProductUsagePrice struct {
-	ID   int32
-	Name string
+	ID                     int32
+	Name                   string
+	SmallObjectFee         string
+	MinimumRetentionFee    string
+	SmallObjectFeeSKU      string
+	MinimumRetentionFeeSKU string
 	ProductSKUs
 	ProjectUsagePrice
 }
@@ -219,20 +227,24 @@ type ProductSKUs struct {
 type ProductPriceOverrides []ProductUsagePrice
 
 // Type returns the type of the pflag.Value.
-func (ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPriceOverrides" }
+func (*ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPriceOverrides" }
 
 // ProductUsagePriceYaml represents the YAML representation of a product usage price.
 // Exported for testing purposes.
 type ProductUsagePriceYaml struct {
-	ID                  int32  `yaml:"id" json:"id"`
-	Name                string `yaml:"name" json:"name"`
-	Storage             string `yaml:"storage" json:"storage"`
-	StorageSKU          string `yaml:"storage-sku" json:"storage_sku"`
-	Egress              string `yaml:"egress" json:"egress"`
-	EgressSKU           string `yaml:"egress-sku" json:"egress_sku"`
-	Segment             string `yaml:"segment" json:"segment"`
-	SegmentSKU          string `yaml:"segment-sku" json:"segment_sku"`
-	EgressDiscountRatio string `yaml:"egress-discount-ratio" json:"egress_discount_ratio"`
+	ID                     int32  `yaml:"id" json:"id"`
+	Name                   string `yaml:"name" json:"name"`
+	Storage                string `yaml:"storage" json:"storage"`
+	StorageSKU             string `yaml:"storage-sku" json:"storage_sku"`
+	Egress                 string `yaml:"egress" json:"egress"`
+	EgressSKU              string `yaml:"egress-sku" json:"egress_sku"`
+	Segment                string `yaml:"segment" json:"segment"`
+	SegmentSKU             string `yaml:"segment-sku" json:"segment_sku"`
+	EgressDiscountRatio    string `yaml:"egress-discount-ratio" json:"egress_discount_ratio"`
+	SmallObjectFee         string `yaml:"small-object-fee" json:"-"`
+	MinimumRetentionFee    string `yaml:"minimum-retention-fee" json:"-"`
+	SmallObjectFeeSKU      string `yaml:"small-object-fee-sku" json:"-"`
+	MinimumRetentionFeeSKU string `yaml:"minimum-retention-fee-sku" json:"-"`
 }
 
 // String returns the YAML string representation of the price overrides.
@@ -244,15 +256,19 @@ func (p *ProductPriceOverrides) String() string {
 	pricesConv := make([]ProductUsagePriceYaml, len(*p))
 	for i, price := range *p {
 		pricesConv[i] = ProductUsagePriceYaml{
-			ID:                  price.ID,
-			Name:                price.Name,
-			Storage:             price.StorageTB,
-			StorageSKU:          price.StorageSKU,
-			Egress:              price.EgressTB,
-			EgressSKU:           price.EgressSKU,
-			Segment:             price.Segment,
-			SegmentSKU:          price.SegmentSKU,
-			EgressDiscountRatio: fmt.Sprintf("%.2f", price.EgressDiscountRatio),
+			ID:                     price.ID,
+			Name:                   price.Name,
+			Storage:                price.StorageTB,
+			StorageSKU:             price.StorageSKU,
+			Egress:                 price.EgressTB,
+			EgressSKU:              price.EgressSKU,
+			Segment:                price.Segment,
+			SegmentSKU:             price.SegmentSKU,
+			EgressDiscountRatio:    fmt.Sprintf("%.2f", price.EgressDiscountRatio),
+			SmallObjectFee:         price.SmallObjectFee,
+			MinimumRetentionFee:    price.MinimumRetentionFee,
+			SmallObjectFeeSKU:      price.SmallObjectFeeSKU,
+			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
 		}
 	}
 	prices, err := yaml.Marshal(pricesConv)
@@ -317,6 +333,10 @@ func (p *ProductPriceOverrides) Set(s string) error {
 				Segment:             price.Segment,
 				EgressDiscountRatio: egressDiscount,
 			},
+			SmallObjectFee:         price.SmallObjectFee,
+			MinimumRetentionFee:    price.MinimumRetentionFee,
+			SmallObjectFeeSKU:      price.SmallObjectFeeSKU,
+			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
 		}
 	}
 	*p = prices
@@ -334,20 +354,44 @@ func (p *ProductPriceOverrides) SetMap(overrides map[int32]ProductUsagePrice) {
 }
 
 // ToModels returns the price overrides represented as a mapping between a string and product usage price models.
-func (p ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePriceModel, error) {
+func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePriceModel, error) {
+	if p == nil {
+		return nil, errs.New("no product prices defined")
+	}
+
 	models := make(map[int32]payments.ProductUsagePriceModel)
-	for _, prices := range p {
+	for _, prices := range *p {
 		projectUsageModel, err := prices.ToModel()
 		if err != nil {
 			return nil, err
 		}
+
+		smallObjectFee := decimal.Zero
+		if prices.SmallObjectFee != "" {
+			smallObjectFee, err = decimal.NewFromString(prices.SmallObjectFee)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
+		minimumRetentionFee := decimal.Zero
+		if prices.MinimumRetentionFee != "" {
+			minimumRetentionFee, err = decimal.NewFromString(prices.MinimumRetentionFee)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
+
 		models[prices.ID] = payments.ProductUsagePriceModel{
-			ProductID:              prices.ID,
-			ProductName:            prices.Name,
-			StorageSKU:             prices.StorageSKU,
-			EgressSKU:              prices.EgressSKU,
-			SegmentSKU:             prices.SegmentSKU,
-			ProjectUsagePriceModel: projectUsageModel,
+			ProductID:                prices.ID,
+			ProductName:              prices.Name,
+			StorageSKU:               prices.StorageSKU,
+			EgressSKU:                prices.EgressSKU,
+			SegmentSKU:               prices.SegmentSKU,
+			ProjectUsagePriceModel:   projectUsageModel,
+			SmallObjectFeeCents:      smallObjectFee.Shift(2),
+			MinimumRetentionFeeCents: minimumRetentionFee.Shift(2),
+			SmallObjectFeeSKU:        prices.SmallObjectFeeSKU,
+			MinimumRetentionFeeSKU:   prices.MinimumRetentionFeeSKU,
 		}
 	}
 	return models, nil

@@ -59,10 +59,14 @@ type ProjectUsagePriceModel struct {
 
 // ProductUsagePriceModel represents price model for product ID and usage price.
 type ProductUsagePriceModel struct {
-	ProductID   int32  `json:"productID"`
-	ProductName string `json:"productName"`
-	StorageSKU  string `json:"storageSKU"`
-	EgressSKU   string `json:"egressSKU"`
-	SegmentSKU  string `json:"segmentSKU"`
+	ProductID                int32           `json:"productID"`
+	ProductName              string          `json:"productName"`
+	StorageSKU               string          `json:"storageSKU"`
+	EgressSKU                string          `json:"egressSKU"`
+	SegmentSKU               string          `json:"segmentSKU"`
+	SmallObjectFeeCents      decimal.Decimal `json:"-"`
+	MinimumRetentionFeeCents decimal.Decimal `json:"-"`
+	SmallObjectFeeSKU        string          `json:"-"`
+	MinimumRetentionFeeSKU   string          `json:"-"`
 	ProjectUsagePriceModel
 }
