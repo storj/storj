@@ -159,12 +159,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket placement")
 	}
 
-	if retention.Enabled() || req.LegalHold {
-		if bucket.Versioning != buckets.VersioningEnabled {
-			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockInvalidBucketState, "cannot specify Object Lock settings when uploading into a bucket without Versioning enabled")
-		} else if !bucket.ObjectLock.Enabled {
-			return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
-		}
+	if err = validateBucketObjectLockStatus(bucket, retention, req.LegalHold); err != nil {
+		return nil, err
 	}
 
 	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
@@ -618,8 +614,8 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket placement")
 	}
 
-	if (retention.Enabled() || beginObjectReq.LegalHold) && !bucket.ObjectLock.Enabled {
-		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	if err = validateBucketObjectLockStatus(bucket, retention, beginObjectReq.LegalHold); err != nil {
+		return nil, nil, nil, err
 	}
 
 	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
@@ -2774,10 +2770,8 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket state")
 	}
 
-	if (retention.Enabled() || req.LegalHold) && (bucket.Versioning != buckets.VersioningEnabled || !bucket.ObjectLock.Enabled) {
-		// note: AWS returns an "object lock configuration missing" error for both unversioned or missing object lock configuration
-		// which differs slightly to other endpoints that return an error about invalid bucket state for an unversioned bucket.
-		return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	if err = validateBucketObjectLockStatus(bucket, retention, req.LegalHold); err != nil {
+		return nil, err
 	}
 
 	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
@@ -3056,10 +3050,8 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket state")
 	}
 
-	if (retention.Enabled() || req.LegalHold) && (bucket.Versioning != buckets.VersioningEnabled || !bucket.ObjectLock.Enabled) {
-		// note: AWS returns an "object lock configuration missing" error for both unversioned or missing object lock configuration
-		// which differs slightly to other endpoints that return an error about invalid bucket state for an unversioned bucket.
-		return nil, rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	if err = validateBucketObjectLockStatus(bucket, retention, req.LegalHold); err != nil {
+		return nil, err
 	}
 
 	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {

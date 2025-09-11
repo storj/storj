@@ -495,6 +495,16 @@ func validateBucketLabel(label []byte) error {
 	return nil
 }
 
+func validateBucketObjectLockStatus(bucket buckets.Bucket, retention metabase.Retention, legalHoldRequested bool) error {
+	if (retention.Enabled() || legalHoldRequested) && (bucket.Versioning != buckets.VersioningEnabled || !bucket.ObjectLock.Enabled) {
+		// note: AWS returns an "object lock configuration missing"
+		// error for both unversioned or missing object lock
+		// configuration.
+		return rpcstatus.Errorf(rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "cannot specify Object Lock settings when uploading into a bucket without Object Lock enabled")
+	}
+	return nil
+}
+
 func validateObjectVersion(version []byte) error {
 	if len(version) != 0 && len(version) != 16 {
 		return Error.New("invalid object version length")
