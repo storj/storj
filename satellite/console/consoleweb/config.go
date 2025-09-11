@@ -66,7 +66,6 @@ type FrontendConfig struct {
 	EmailChangeFlowEnabled            bool                        `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                        `json:"selfServeAccountDeleteEnabled"`
 	DeleteProjectEnabled              bool                        `json:"deleteProjectEnabled"`
-	AbbreviatedDeleteProjectEnabled   bool                        `json:"abbreviatedDeleteProjectEnabled"`
 	NoLimitsUiEnabled                 bool                        `json:"noLimitsUiEnabled"`
 	AltObjBrowserPagingEnabled        bool                        `json:"altObjBrowserPagingEnabled"`
 	AltObjBrowserPagingThreshold      int                         `json:"altObjBrowserPagingThreshold"`

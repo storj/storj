@@ -2496,37 +2496,47 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 
 	resp = &DeleteAccountResponse{}
 	deletionRestricted := false
-	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	var projects []Project
 
-	resp.OwnedProjects = len(projects)
-
-	// check project deletion restrictions
-	for _, p := range projects {
-		buckets, err := s.buckets.CountBuckets(ctx, p.ID)
+	if !s.config.AbbreviatedDeleteAccountEnabled {
+		projects, err = s.store.Projects().GetOwnActive(ctx, user.ID)
 		if err != nil {
-			return nil, err
-		}
-		if buckets > 0 {
-			deletionRestricted = true
-			resp.Buckets += buckets
+			return nil, Error.Wrap(err)
 		}
 
-		// ignore object browser api key because we hide it from the user, so they can't delete it.
-		// project row deletion cascades to api keys, so it's okay.
-		keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, p.ID, APIKeyCursor{Limit: 1, Page: 1}, s.config.ObjectBrowserKeyNamePrefix)
-		if err != nil {
-			return nil, err
-		}
-		if keys.TotalCount > 0 {
-			deletionRestricted = true
-			resp.ApiKeys += int(keys.TotalCount)
+		resp.OwnedProjects = len(projects)
+
+		// check project deletion restrictions
+		for _, p := range projects {
+			buckets, err := s.buckets.CountBuckets(ctx, p.ID)
+			if err != nil {
+				return nil, err
+			}
+			if buckets > 0 {
+				deletionRestricted = true
+				resp.Buckets += buckets
+			}
+
+			// ignore object browser api key because we hide it from the user, so they can't delete it.
+			// project row deletion cascades to api keys, so it's okay.
+			keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, p.ID, APIKeyCursor{Limit: 1, Page: 1}, s.config.ObjectBrowserKeyNamePrefix)
+			if err != nil {
+				return nil, err
+			}
+			if keys.TotalCount > 0 {
+				deletionRestricted = true
+				resp.ApiKeys += int(keys.TotalCount)
+			}
 		}
 	}
 
 	if user.IsPaid() {
+		if len(projects) == 0 {
+			projects, err = s.store.Projects().GetOwnActive(ctx, user.ID)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
 		for _, p := range projects {
 			currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p)
 			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
@@ -2886,6 +2896,36 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
+	status := Deleted
+	if s.config.AbbreviatedDeleteAccountEnabled {
+		status = PendingDeletion
+		err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+			FullName:  new(string),
+			ShortName: new(*string),
+			Status:    &status,
+			// Self-serve account deletion isn't allowed for SSO users, but we keep this here as a precaution.
+			ExternalID:                  new(*string),
+			EmailChangeVerificationStep: new(int),
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		s.log.Info("account marked for deletion successfully by user",
+			zap.String("user_id", user.ID.String()),
+			zap.String("user_email", user.Email),
+		)
+		s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID)
+
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: user.Email, Name: user.FullName}},
+			&AccountDeletionSuccessEmail{},
+		)
+
+		return nil
+	}
+
 	projects, err := s.store.Projects().GetOwnActive(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)
@@ -2937,8 +2977,6 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 	}
 
 	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
-	status := Deleted
-
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		FullName:  new(string),
 		ShortName: new(*string),

@@ -48,6 +48,7 @@ type Config struct {
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
 	AbbreviatedDeleteProjectEnabled   bool                      `help:"whether the abbreviated delete project flow is enabled" default:"false"`
 	SelfServeAccountDeleteEnabled     bool                      `help:"whether self-serve account delete flow is enabled" default:"false"`
+	AbbreviatedDeleteAccountEnabled   bool                      `help:"whether the abbreviated self-serve delete account flow is enabled" default:"false"`
 	UseNewRestKeysTable               bool                      `help:"whether to use the new rest keys table" default:"false"`
 	NewDetailedUsageReportEnabled     bool                      `help:"whether to use the new detailed usage report" default:"false"`
 	PricingPackagesEnabled            bool                      `help:"whether to allow purchasing pricing packages" default:"true"`

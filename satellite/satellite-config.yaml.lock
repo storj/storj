@@ -232,6 +232,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the Flagship environment ID
 # console.ab-testing.hit-tracking-url: https://ariane.abtasty.com
 
+# whether the abbreviated self-serve delete account flow is enabled
+# console.abbreviated-delete-account-enabled: false
+
 # whether the abbreviated delete project flow is enabled
 # console.abbreviated-delete-project-enabled: false
 

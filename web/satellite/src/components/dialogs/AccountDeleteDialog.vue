@@ -275,6 +275,7 @@
 
                         <v-btn
                             v-if="step === DeleteAccountStep.FinalConfirmDeleteStep"
+                            :loading="isLoading"
                             color="error"
                             variant="flat"
                             block
