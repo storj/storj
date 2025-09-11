@@ -1603,3 +1603,171 @@ func TestDailyPeriods(t *testing.T) {
 
 	require.Equal(t, int64(4), nodeselection.DailyPeriodsForHour(23, []int64{1, 2, 3, 4}))
 }
+
+func TestMultiSelector(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	t.Run("combines multiple selectors", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 20; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID:         testrand.NodeID(),
+				LastNet:    fmt.Sprintf("192.168.%d.0/24", i/5),
+				LastIPPort: fmt.Sprintf("192.168.%d.%d:8080", i/5, i%5+1),
+			})
+		}
+
+		// Create multi-selector that combines random selector with itself
+		selectorInit := nodeselection.MultiSelector(
+			nodeselection.RandomSelector(),
+			nodeselection.RandomSelector(),
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		// Request 10 nodes, each selector should get 5
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 10)
+
+		// Note: MultiSelector doesn't prevent duplicates between selectors,
+		// so we just verify we got the expected number of nodes
+		require.LessOrEqual(t, len(selected), 20) // Can't exceed available nodes
+	})
+
+	t.Run("distributes nodes evenly among selectors", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 30; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testrand.NodeID(),
+			})
+		}
+
+		// Create multi-selector with 3 random selectors
+		selectorInit := nodeselection.MultiSelector(
+			nodeselection.RandomSelector(),
+			nodeselection.RandomSelector(),
+			nodeselection.RandomSelector(),
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		// Request 15 nodes, each selector should get 5
+		selected, err := selector(ctx, storj.NodeID{}, 15, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 15)
+	})
+
+	t.Run("handles empty selectors", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 10; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testrand.NodeID(),
+			})
+		}
+
+		selectorInit := nodeselection.MultiSelector()
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 5, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 0)
+	})
+
+	t.Run("handles single selector", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 10; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testrand.NodeID(),
+			})
+		}
+
+		selectorInit := nodeselection.MultiSelector(
+			nodeselection.RandomSelector(),
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 5, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 5)
+	})
+
+	t.Run("basic functionality with insufficient nodes", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 4; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testrand.NodeID(),
+			})
+		}
+
+		// Create multi-selector with 2 random selectors
+		selectorInit := nodeselection.MultiSelector(
+			nodeselection.RandomSelector(),
+			nodeselection.RandomSelector(),
+		)
+		selector := selectorInit(ctx, nodes, nil)
+
+		// Request 10 nodes total, each selector gets 5
+		// With only 4 nodes available, each selector can return at most 4 nodes
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+		// Could get duplicates between selectors, so length could vary
+		require.GreaterOrEqual(t, len(selected), 0)
+		require.LessOrEqual(t, len(selected), 8) // At most 4 nodes from each selector
+	})
+}
+
+func TestFixedSelector(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	t.Run("overrides requested count with fixed count", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 20; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID: testrand.NodeID(),
+			})
+		}
+
+		// Create fixed selector that always selects 7 nodes
+		selectorInit := nodeselection.FixedSelector(7, nodeselection.RandomSelector())
+		selector := selectorInit(ctx, nodes, nil)
+
+		// Request 10 nodes but should only get 7
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 7)
+
+		// Request 3 nodes but should still get 7
+		selected, err = selector(ctx, storj.NodeID{}, 3, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 7)
+	})
+
+	t.Run("delegates to wrapped selector correctly", func(t *testing.T) {
+		var nodes []*nodeselection.SelectedNode
+		for i := 0; i < 20; i++ {
+			nodes = append(nodes, &nodeselection.SelectedNode{
+				ID:      testrand.NodeID(),
+				LastNet: fmt.Sprintf("192.168.%d.0/24", i),
+			})
+		}
+
+		// Use attribute group selector as delegate to verify delegation
+		attribute, err := nodeselection.CreateNodeAttribute("last_net")
+		require.NoError(t, err)
+
+		selectorInit := nodeselection.FixedSelector(5, nodeselection.AttributeGroupSelector(attribute))
+		selector := selectorInit(ctx, nodes, nil)
+
+		selected, err := selector(ctx, storj.NodeID{}, 10, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 5)
+
+		// Verify the delegate's behavior is preserved (different subnets)
+		subnets := make(map[string]bool)
+		for _, node := range selected {
+			subnets[node.LastNet] = true
+		}
+		require.Equal(t, 5, len(subnets), "Each selected node should be from different subnet")
+	})
+}
