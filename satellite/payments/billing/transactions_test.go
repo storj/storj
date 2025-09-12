@@ -237,6 +237,9 @@ func TestUpdateTransactions(t *testing.T) {
 
 	t.Run("update metadata", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+			credit10TX := credit10TX
+			debit10TX := debit10TX
+
 			_, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
 			txIDs, err := db.Billing().Insert(ctx, debit10TX)
@@ -262,6 +265,8 @@ func TestUpdateTransactions(t *testing.T) {
 
 	t.Run("confirm new token deposit", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+			credit10TX := credit10TX
+
 			_, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
 			credit10TX.Status = payments.PaymentStatusConfirmed
