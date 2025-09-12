@@ -171,6 +171,7 @@ func TestSetNewBucketPlacements_UserEmail(t *testing.T) {
 func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
@@ -220,19 +221,15 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 		require.NoError(t, sat.DB.Console().Projects().UpdateDefaultPlacement(ctx, user3Project.ID, storj.PlacementConstraint(10)))
 
 		entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
+		args := processingArgs{
+			log:         zaptest.NewLogger(t),
+			satDB:       sat.DB,
+			entService:  entService,
+			skipConfirm: true,
+		}
 
 		t.Run("ProcessAllActiveUsers", func(t *testing.T) {
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{5, 12},
-				allowedPlacements: nil,
-			}
-
-			// Set skip confirm to true to avoid interactive prompt.
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{5, 12}
 
 			err = processAllUsers(ctx, args)
 			require.NoError(t, err)
@@ -256,17 +253,8 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     nil, // Use default logic
-				allowedPlacements: []storj.PlacementConstraint{3, 4},
-			}
-
-			// Set skip confirm to true to avoid interactive prompt.
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = nil // Use default logic
+			args.allowedPlacements = []storj.PlacementConstraint{3, 4}
 
 			err = processAllUsers(ctx, args)
 			require.NoError(t, err)
@@ -292,17 +280,8 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{7, 8, 9},
-				allowedPlacements: []storj.PlacementConstraint{1, 2, 3}, // These should be ignored
-			}
-
-			// Set skip confirm to true to avoid interactive prompt.
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{7, 8, 9}
+			args.allowedPlacements = []storj.PlacementConstraint{1, 2, 3} // These should be ignored
 
 			err = processAllUsers(ctx, args)
 			require.NoError(t, err)
@@ -320,6 +299,7 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 func TestSetNewBucketPlacements_CSV(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
@@ -353,6 +333,12 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 		activeProjects := []uuid.UUID{user1Project.PublicID, user2Project.PublicID}
 
 		entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
+		args := processingArgs{
+			log:         zaptest.NewLogger(t),
+			satDB:       sat.DB,
+			entService:  entService,
+			skipConfirm: true,
+		}
 
 		// Helper function to create temporary CSV file.
 		createTempCSV := func(content string) string {
@@ -375,17 +361,7 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{5, 12},
-				allowedPlacements: nil,
-			}
-
-			// Set skip confirm to avoid interactive prompt.
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{5, 12}
 
 			err = processCSVFile(ctx, csvPath, args)
 			require.NoError(t, err)
@@ -411,16 +387,7 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{3, 4},
-				allowedPlacements: nil,
-			}
-
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{3, 4}
 
 			err = processCSVFile(ctx, csvPath, args)
 			require.NoError(t, err)
@@ -446,16 +413,7 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{7, 8},
-				allowedPlacements: nil,
-			}
-
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{7, 8}
 
 			err = processCSVFile(ctx, csvPath, args)
 			require.NoError(t, err)
@@ -475,16 +433,7 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{9, 10},
-				allowedPlacements: nil,
-			}
-
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{9, 10}
 
 			// Should return error because of invalid email addresses.
 			err = processCSVFile(ctx, csvPath, args)
@@ -499,16 +448,7 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{11, 12},
-				allowedPlacements: nil,
-			}
-
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{11, 12}
 
 			// Should return error because of nonexistent user.
 			err = processCSVFile(ctx, csvPath, args)
@@ -523,16 +463,7 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 				require.NoError(t, os.Remove(csvPath))
 			}()
 
-			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{13, 14},
-				allowedPlacements: nil,
-			}
-
-			setNewBucketPlacementsSkipConfirm = true
-			defer func() { setNewBucketPlacementsSkipConfirm = false }()
+			args.newPlacements = []storj.PlacementConstraint{13, 14}
 
 			// Should return error because user3 is inactive.
 			err = processCSVFile(ctx, csvPath, args)
@@ -543,7 +474,8 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 
 	t.Run("CSVFileErrors", func(t *testing.T) {
 		args := processingArgs{
-			log: zaptest.NewLogger(t),
+			log:         zaptest.NewLogger(t),
+			skipConfirm: true,
 		}
 
 		t.Run("NonexistentFile", func(t *testing.T) {
@@ -587,7 +519,6 @@ func TestSetNewBucketPlacements_Validation(t *testing.T) {
 		setNewBucketPlacementsEmail = "test@example.com"
 		setNewBucketPlacementsCSV = "test.csv"
 		setNewBucketPlacementsJSON = ""
-		setNewBucketPlacementsSkipConfirm = true
 
 		err := cmdSetNewBucketPlacements(nil, nil)
 		require.Error(t, err)
@@ -598,7 +529,6 @@ func TestSetNewBucketPlacements_Validation(t *testing.T) {
 		setNewBucketPlacementsEmail = "test@example.com"
 		setNewBucketPlacementsCSV = ""
 		setNewBucketPlacementsJSON = "invalid-json"
-		setNewBucketPlacementsSkipConfirm = true
 
 		err := cmdSetNewBucketPlacements(nil, nil)
 		require.Error(t, err)

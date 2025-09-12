@@ -38,6 +38,7 @@ type processingArgs struct {
 	entService        *entitlements.Service
 	newPlacements     []storj.PlacementConstraint
 	allowedPlacements []storj.PlacementConstraint
+	skipConfirm       bool
 }
 
 func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
@@ -85,6 +86,7 @@ func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
 		entService:        entitlementsService,
 		newPlacements:     newPlacements,
 		allowedPlacements: runCfg.Console.Placement.AllowedPlacementIdsForNewProjects,
+		skipConfirm:       setNewBucketPlacementsSkipConfirm,
 	}
 
 	// Determine which users/projects to target.
@@ -192,11 +194,9 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 		return errs.New("no valid emails found in CSV file")
 	}
 
-	if !setNewBucketPlacementsSkipConfirm {
-		if !askForConfirmation(fmt.Sprintf("Set bucket placements for %d users from CSV file?", len(emails))) {
-			args.log.Info("Operation cancelled by user")
-			return nil
-		}
+	if !args.skipConfirm && !askForConfirmation(fmt.Sprintf("Set bucket placements for %d users from CSV file?", len(emails))) {
+		args.log.Info("Operation cancelled by user")
+		return nil
 	}
 
 	args.log.Info("Processing CSV users", zap.Int("count", len(emails)))
@@ -217,11 +217,9 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 }
 
 func processAllUsers(ctx context.Context, args processingArgs) error {
-	if !setNewBucketPlacementsSkipConfirm {
-		if !askForConfirmation("Set bucket placements for ALL active projects of ALL active users?") {
-			args.log.Info("Operation cancelled by user")
-			return nil
-		}
+	if !args.skipConfirm && !askForConfirmation("Set bucket placements for ALL active projects of ALL active users?") {
+		args.log.Info("Operation cancelled by user")
+		return nil
 	}
 
 	args.log.Info("Processing all users and their projects")
