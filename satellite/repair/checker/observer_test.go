@@ -418,6 +418,10 @@ func TestRepairObserver(t *testing.T) {
 				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
 		ExerciseJobq: true,
@@ -438,16 +442,16 @@ func TestRepairObserver(t *testing.T) {
 			BucketName: "test-bucket",
 		}
 
-		// add some valid pointers
-		for x := 0; x < 20; x++ {
+		// add some valid segment
+		for x := range 20 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
 		var injuredSegmentStreamIDs []uuid.UUID
 
-		// add pointer that needs repair
-		for x := 0; x < 5; x++ {
+		// add segment that needs repair
+		for x := range 5 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("b-%d", x))
 			injuredSegmentStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 			injuredSegmentStreamIDs = append(injuredSegmentStreamIDs, injuredSegmentStreamID)
@@ -458,8 +462,8 @@ func TestRepairObserver(t *testing.T) {
 		expiresAt := time.Now().Add(-time.Hour)
 		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
-		// add some valid pointers
-		for x := 0; x < 20; x++ {
+		// add some valid segments
+		for x := range 20 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
