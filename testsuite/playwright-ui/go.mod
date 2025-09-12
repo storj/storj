@@ -1,6 +1,6 @@
 module storj.io/storj/testsuite/playwright-ui
 
-go 1.24.0
+go 1.24.7
 
 replace storj.io/storj => ../../
 

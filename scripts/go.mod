@@ -1,6 +1,6 @@
 module storj.io/storj
 
-go 1.24.3
+go 1.24.7
 
 tool (
 	github.com/AlekSi/gocov-xml
