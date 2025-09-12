@@ -5341,6 +5341,8 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 					SegmentCount:    usage.SegmentCount,
 					ObjectCount:     usage.ObjectCount,
 					UserAgent:       p.UserAgent,
+					Since:           param.Since,
+					Before:          param.Before,
 				}
 
 				_, priceModel := s.accounts.ProductIdAndPriceForUsageKey(ctx, p.PublicID, key)
@@ -5485,7 +5487,11 @@ func (s *Service) transformProjectReportItem(ctx context.Context, item accountin
 	if priceModel == (payments.ProductUsagePriceModel{}) {
 		_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(ctx, item.ProjectPublicID, string(item.UserAgent), item.Placement)
 		if err != nil {
-			return accounting.ProjectReportItem{}, err
+			s.log.Error("failed to get partner placement price model", zap.String("partner", string(item.UserAgent)), zap.Int("placement", int(item.Placement)), zap.Error(err))
+			// Use partner-only price model as a fallback.
+			priceModel = payments.ProductUsagePriceModel{
+				ProjectUsagePriceModel: s.accounts.GetProjectUsagePriceModel(string(item.UserAgent)),
+			}
 		}
 	}
 	item.ProductName = priceModel.ProductName

@@ -1749,13 +1749,25 @@ func TestGetUsageReport(t *testing.T) {
 		productID2        = int32(2)
 		placement11       = storj.PlacementConstraint(11)
 		placementDetail11 = console.PlacementDetail{
-			ID:     11,
+			ID:     int(placement11),
 			IdName: "placement11",
+		}
+		placement13       = storj.PlacementConstraint(13)
+		placementDetail13 = console.PlacementDetail{
+			ID:     int(placement13),
+			IdName: "placement13",
 		}
 		skus = paymentsconfig.ProductSKUs{
 			StorageSKU: "StorageSKU",
 			EgressSKU:  "EgressSKU",
 			SegmentSKU: "SegmentSKU",
+		}
+		defaultPrice = paymentsconfig.ProductUsagePrice{
+			ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "300000",
+				EgressTB:  "300000",
+				Segment:   "3",
+			},
 		}
 		productPrice = paymentsconfig.ProductUsagePrice{
 			Name:        "product1",
@@ -1785,7 +1797,13 @@ func TestGetUsageReport(t *testing.T) {
 				config.Console.NewDetailedUsageReportEnabled = true
 				config.Payments.StripeCoinPayments.SkuEnabled = true
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: `0:annotation("location", "defaultPlacement");11:annotation("location", "placement11")`,
+					PlacementRules: `0:annotation("location", "defaultPlacement");11:annotation("location", "placement11");13:annotation("location", "placement13")`,
+				}
+				config.Payments.UsagePrice = paymentsconfig.ProjectUsagePrice{
+					StorageTB:           defaultPrice.StorageTB,
+					EgressTB:            defaultPrice.EgressTB,
+					Segment:             defaultPrice.Segment,
+					EgressDiscountRatio: defaultPrice.EgressDiscountRatio,
 				}
 				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
 					productID:  productPrice,
@@ -1798,6 +1816,7 @@ func TestGetUsageReport(t *testing.T) {
 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
 					storj.DefaultPlacement: {ID: 0},
 					placement11:            placementDetail11,
+					placement13:            placementDetail13,
 				})
 
 				config.Entitlements.Enabled = true
@@ -1834,6 +1853,22 @@ func TestGetUsageReport(t *testing.T) {
 
 			numbBuckets := 4
 
+			createBucketWithUsage := func(projectID uuid.UUID, apiKey *macaroon.APIKey, bucket, placementName string) {
+				_, err = endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+					Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Name:      []byte(bucket),
+					Placement: []byte(placementName),
+				})
+				require.NoError(t, err)
+
+				err = generateRollups(ctx, db.Orders(), projectID, bucket, now)
+				require.NoError(t, err)
+				err = generateTallies(ctx, db.ProjectAccounting(), projectID, bucket, now)
+				require.NoError(t, err)
+				err = db.Attribution().UpdateUserAgent(ctx, projectID, bucket, []byte(strings.ReplaceAll(projectID.String(), "-", " ")))
+				require.NoError(t, err)
+			}
+
 			bucketNames := make([]string, 0, numbBuckets)
 			for _, upl := range planet.Uplinks {
 				apiKey := upl.APIKey[sat.ID()]
@@ -1843,31 +1878,17 @@ func TestGetUsageReport(t *testing.T) {
 				require.NoError(t, err)
 
 				err = projectEntitlements.SetNewBucketPlacementsByPublicID(ctx, p.PublicID,
-					[]storj.PlacementConstraint{placement11, storj.DefaultPlacement},
+					[]storj.PlacementConstraint{placement11, placement13, storj.DefaultPlacement},
 				)
 				require.NoError(t, err)
 
 				for i := 0; i < numbBuckets; i++ {
 					bucketName := fmt.Sprintf("bucket-%d", i)
-					req := &pb.CreateBucketRequest{
-						Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-						Name:   []byte(bucketName),
-					}
+					placementName := ""
 					if i%2 == 0 {
-						req.Placement = []byte(placementDetail11.IdName)
+						placementName = placementDetail11.IdName
 					}
-					_, err = endpoint.CreateBucket(ctx, req)
-					require.NoError(t, err)
-
-					err = generateRollups(ctx, db.Orders(), pID, bucketName, now)
-					require.NoError(t, err)
-
-					err = generateTallies(ctx, db.ProjectAccounting(), pID, bucketName, now)
-					require.NoError(t, err)
-
-					err = db.Attribution().UpdateUserAgent(ctx, pID, bucketName, []byte(strings.ReplaceAll(projectID.String(), "-", " ")))
-					require.NoError(t, err)
-
+					createBucketWithUsage(pID, apiKey, bucketName, placementName)
 					if pID == projectID {
 						bucketNames = append(bucketNames, bucketName)
 					}
@@ -1881,14 +1902,23 @@ func TestGetUsageReport(t *testing.T) {
 				return hours.Div(hoursPerMonth).Round(0)
 			}
 
-			testCosts := func(item accounting.ProjectReportItem, rollup accounting.BucketUsageRollup) {
-				require.Equal(t, skus.StorageSKU, item.StorageSKU)
-				require.Equal(t, skus.EgressSKU, item.EgressSKU)
-				require.Equal(t, skus.SegmentSKU, item.SegmentSKU)
-
+			priceForItem := func(item accounting.ProjectReportItem) payments.ProductUsagePriceModel {
 				_, priceModel, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
 					string(project.UserAgent), item.Placement)
-				require.NoError(t, err)
+				if err != nil {
+					priceModel = payments.ProductUsagePriceModel{
+						ProjectUsagePriceModel: sat.API.Payments.Accounts.GetProjectUsagePriceModel(string(item.UserAgent)),
+					}
+				}
+				return priceModel
+			}
+
+			testCosts := func(item accounting.ProjectReportItem, rollup accounting.BucketUsageRollup) {
+				priceModel := priceForItem(item)
+				require.Equal(t, priceModel.StorageSKU, item.StorageSKU)
+				require.Equal(t, priceModel.EgressSKU, item.EgressSKU)
+				require.Equal(t, priceModel.SegmentSKU, item.SegmentSKU)
+				require.Equal(t, priceModel.ProductName, item.ProductName)
 
 				expectedStorageCost, _ := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(rollup.TotalStoredData))).Round(0).Float64()
 				expectedEgressCost, _ := priceModel.EgressMBCents.Mul(gbToMb(rollup.GetEgress).Round(0)).Round(0).Float64()
@@ -2041,6 +2071,31 @@ func TestGetUsageReport(t *testing.T) {
 				}
 				require.Empty(t, item.BucketName)
 				testCosts(item, rollupForItem(item))
+			}
+
+			// remove the entitlement mappings
+			err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx, project.PublicID, entitlements.ProductPlacementMappings{})
+			require.NoError(t, err)
+
+			apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+			pID := planet.Uplinks[0].Projects[0].ID
+			// test that placement 13 without a specific product mapping
+			// will not cause report to break, but will use the default pricing
+			createBucketWithUsage(pID, apiKey, "bucket-placement-13", placementDetail13.IdName)
+
+			params.GroupByProject = false
+			items, err = service.GetUsageReport(usrCtx, params)
+			require.NoError(t, err)
+			require.Len(t, items, numbBuckets+1)
+			for _, item := range items {
+				if item.Placement == placement13 {
+					priceModel := priceForItem(item)
+					defaultModel, err := defaultPrice.ToModel()
+					require.NoError(t, err)
+					require.Equal(t, defaultModel, priceModel.ProjectUsagePriceModel)
+					testCosts(item, rollupForItem(item))
+					break
+				}
 			}
 
 			user, err = sat.AddUser(ctx, console.CreateUser{
