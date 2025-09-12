@@ -1668,6 +1668,14 @@ func TestPartnerPlacements(t *testing.T) {
 		// expect global product for placement12
 		require.Equal(t, productModel, model)
 		require.Equal(t, productID, prodID)
+
+		// expect default pricing for placement without mapping
+		defaultPrice, err := sat.Config.Payments.UsagePrice.ToModel()
+		require.NoError(t, err)
+
+		_, model, err = paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, storj.PlacementConstraint(50))
+		require.NoError(t, err)
+		require.Equal(t, defaultPrice, model)
 	})
 }
 

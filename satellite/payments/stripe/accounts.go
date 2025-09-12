@@ -13,12 +13,12 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stripe/stripe-go/v81"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/currency"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
@@ -634,13 +634,13 @@ func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.Pro
 
 // GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement,
 // if there is none defined for the project ID.
-func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel, _ error) {
+func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {
 	if accounts.service.config.EntitlementsEnabled {
 		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
 		if err != nil {
-			if !entitlements.ErrNotFound.Has(err) {
-				return 0, payments.ProductUsagePriceModel{}, err
-			}
+			accounts.service.log.Error(
+				"could not get pricing entitlements for project, falling back to defaults",
+				zap.String("partner", partner), zap.Int("placement", int(placement)), zap.Error(err))
 		}
 		for productID, placementConstraints := range feats.ProductPlacementMappings {
 			for _, pC := range placementConstraints {
@@ -648,9 +648,12 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, pro
 					continue
 				}
 				if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
-					return productID, price, nil
+					return productID, price
 				}
-				return 0, payments.ProductUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for product %d", productID)
+				accounts.service.log.Info(
+					"no product definition for product and partner, falling back to defaults",
+					zap.String("partner", partner), zap.Int("placement", int(placement)))
+				// fall through to global pricing
 			}
 		}
 	}
@@ -660,17 +663,17 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, pro
 		productID, _ = accounts.service.pricingConfig.PlacementProductMap.GetProductByPlacement(int(placement))
 	}
 	if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
-		return productID, price, nil
+		return productID, price
 	}
-	return 0, payments.ProductUsagePriceModel{}, ErrPricingNotfound.New("pricing not found for partner %s and placement %d", partner, placement)
-}
 
-// GetProductName returns the product name for a given product ID.
-func (accounts *accounts) GetProductName(productID int32) (string, error) {
-	if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
-		return price.ProductName, nil
+	accounts.service.log.Info(
+		"no product definition for product and partner, falling back to defaults",
+		zap.String("partner", partner), zap.Int("placement", int(placement)))
+
+	// fall back to default pricing for partner
+	return 0, payments.ProductUsagePriceModel{
+		ProjectUsagePriceModel: accounts.GetProjectUsagePriceModel(partner),
 	}
-	return "", ErrPricingNotfound.New("pricing not found for product %d", productID)
 }
 
 // GetPartnerNames returns the partners relevant to billing.

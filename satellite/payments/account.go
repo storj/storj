@@ -87,10 +87,7 @@ type Accounts interface {
 
 	// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement,
 	// if there is none defined for the project ID.
-	GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel, _ error)
-
-	// GetProductName returns the product name for a given product ID.
-	GetProductName(productID int32) (string, error)
+	GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)
 
 	// GetPartnerNames returns the partners relevant to billing.
 	GetPartnerNames() []string

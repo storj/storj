@@ -5485,14 +5485,7 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 func (s *Service) transformProjectReportItem(ctx context.Context, item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
 	if priceModel == (payments.ProductUsagePriceModel{}) {
-		_, priceModel, err = s.accounts.GetPartnerPlacementPriceModel(ctx, item.ProjectPublicID, string(item.UserAgent), item.Placement)
-		if err != nil {
-			s.log.Error("failed to get partner placement price model", zap.String("partner", string(item.UserAgent)), zap.Int("placement", int(item.Placement)), zap.Error(err))
-			// Use partner-only price model as a fallback.
-			priceModel = payments.ProductUsagePriceModel{
-				ProjectUsagePriceModel: s.accounts.GetProjectUsagePriceModel(string(item.UserAgent)),
-			}
-		}
+		_, priceModel = s.accounts.GetPartnerPlacementPriceModel(ctx, item.ProjectPublicID, string(item.UserAgent), item.Placement)
 	}
 	item.ProductName = priceModel.ProductName
 	if s.config.SkuEnabled {
@@ -6447,10 +6440,7 @@ func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, proje
 	}
 
 	project := isMember.project
-	productID, model, err := payment.service.accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID, string(project.UserAgent), placement)
-	if err != nil {
-		return 0, payments.ProjectUsagePriceModel{}, Error.Wrap(err)
-	}
+	productID, model := payment.service.accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID, string(project.UserAgent), placement)
 
 	return productID, model.ProjectUsagePriceModel, nil
 }

@@ -42,10 +42,6 @@ var (
 	// Error defines stripecoinpayments service error.
 	Error = errs.Class("stripecoinpayments service")
 
-	// ErrPricingNotfound is returned when pricing model for a
-	// partner and/or placement is not found.
-	ErrPricingNotfound = errs.Class("pricing not found")
-
 	mon = monkit.Package()
 
 	_ healthcheck.HealthCheck = (*Service)(nil)
@@ -714,16 +710,7 @@ func (service *Service) productIdAndPriceForUsageKey(ctx context.Context, projec
 	}
 
 	// Get price model for the partner and placement.
-	productID, priceModel, err := service.Accounts().GetPartnerPlacementPriceModel(ctx, projectPublicID, partner, storj.PlacementConstraint(placement))
-	if err != nil {
-		service.log.Error("failed to get partner placement price model", zap.String("partner", partner), zap.Int("placement", placement), zap.Error(err))
-		// Use partner-only price model as a fallback.
-		// This should be removed once the tests are updated
-		priceModel = payments.ProductUsagePriceModel{
-			ProjectUsagePriceModel: service.Accounts().GetProjectUsagePriceModel(partner),
-		}
-	}
-	return productID, priceModel
+	return service.Accounts().GetPartnerPlacementPriceModel(ctx, projectPublicID, partner, storj.PlacementConstraint(placement))
 }
 
 // InvoiceItemsFromTotalProjectUsages calculates per-product Stripe invoice items from total project usages.

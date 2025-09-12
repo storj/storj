@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/stripe"
 )
 
 var (
@@ -685,10 +684,6 @@ func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.
 
 	_, pricing, err := p.service.Payments().GetPartnerPlacementPriceModel(ctx, projectID, placement)
 	if err != nil {
-		if stripe.ErrPricingNotfound.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusNotFound, err)
-			return
-		}
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

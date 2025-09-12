@@ -1902,19 +1902,9 @@ func TestGetUsageReport(t *testing.T) {
 				return hours.Div(hoursPerMonth).Round(0)
 			}
 
-			priceForItem := func(item accounting.ProjectReportItem) payments.ProductUsagePriceModel {
-				_, priceModel, err := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
-					string(project.UserAgent), item.Placement)
-				if err != nil {
-					priceModel = payments.ProductUsagePriceModel{
-						ProjectUsagePriceModel: sat.API.Payments.Accounts.GetProjectUsagePriceModel(string(item.UserAgent)),
-					}
-				}
-				return priceModel
-			}
-
 			testCosts := func(item accounting.ProjectReportItem, rollup accounting.BucketUsageRollup) {
-				priceModel := priceForItem(item)
+				_, priceModel := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
+					string(project.UserAgent), item.Placement)
 				require.Equal(t, priceModel.StorageSKU, item.StorageSKU)
 				require.Equal(t, priceModel.EgressSKU, item.EgressSKU)
 				require.Equal(t, priceModel.SegmentSKU, item.SegmentSKU)
@@ -2089,7 +2079,8 @@ func TestGetUsageReport(t *testing.T) {
 			require.Len(t, items, numbBuckets+1)
 			for _, item := range items {
 				if item.Placement == placement13 {
-					priceModel := priceForItem(item)
+					_, priceModel := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
+						string(project.UserAgent), item.Placement)
 					defaultModel, err := defaultPrice.ToModel()
 					require.NoError(t, err)
 					require.Equal(t, defaultModel, priceModel.ProjectUsagePriceModel)
