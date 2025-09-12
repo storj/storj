@@ -113,7 +113,6 @@ type Core struct {
 	}
 
 	Audit struct {
-		VerifyQueue          audit.VerifyQueue
 		ReverifyQueue        audit.ReverifyQueue
 		ContainmentSyncChore *audit.ContainmentSyncChore
 	}
@@ -371,7 +370,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	{ // setup audit
 		config := config.Audit
 
-		peer.Audit.VerifyQueue = db.VerifyQueue()
 		peer.Audit.ReverifyQueue = db.ReverifyQueue()
 
 		peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
