@@ -43,6 +43,10 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
 		ExerciseJobq: true,
@@ -66,23 +70,23 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 			BucketName: "test-bucket",
 		}
 
-		// add some valid pointers
-		for x := 0; x < 10; x++ {
+		// add some valid segments
+		for x := range 10 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
-		// add pointer that needs repair
+		// add segments that needs repair
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
 		b0StreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 
-		// add pointer that is unhealthy, but is expired
+		// add segment that is unhealthy, but is expired
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
 		expiresAt := time.Now().Add(-time.Hour)
 		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
 		// add some valid pointers
-		for x := 0; x < 10; x++ {
+		for x := range 10 {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
@@ -114,7 +118,8 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
 
-				// disable repairer to not read from the queue in the background
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
 				config.Repairer.Interval = -1
 			},
 		},
@@ -215,7 +220,6 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 }
 
 func TestObserver_CheckSegmentCopy(t *testing.T) {
-	t.Skip("flaky")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -228,6 +232,10 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 				config.Metainfo.RS.Repair = 3
 				config.Metainfo.RS.Success = 4
 				config.Metainfo.RS.Total = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
 		ExerciseJobq: true,
@@ -278,7 +286,7 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 		}
 
 		// check that repair queue has original segment and copied one as it has exactly the same metadata
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			injuredSegments, err := repairQueue.Select(ctx, 1, nil, nil)
 			require.NoError(t, err)
 			ensureExistsOnce(t, &injuredSegments[0])
@@ -301,6 +309,10 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 				config.RangedLoop.Interval = -1
 				config.RangedLoop.Parallelism = 4
 				config.RangedLoop.BatchSize = 4
+
+				// disable repairer to not interfere with the test
+				// as it can drain from the queue in the background
+				config.Repairer.Interval = -1
 			},
 		},
 		ExerciseJobq: true,
