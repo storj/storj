@@ -19,6 +19,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
 )
@@ -687,11 +688,33 @@ func (accounts *accounts) ProductIdAndPriceForUsageKey(ctx context.Context, proj
 	return accounts.service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
 }
 
-// GetPartnerPlacements returns the placements for a partner. It also includes the
-// placements for the default product price config that have not been overridden
-// for the partner.
-func (accounts *accounts) GetPartnerPlacements(partner string) []storj.PlacementConstraint {
+// GetPartnerPlacements returns the placements for a project or partner. It will return the placements allowed for the
+// project on the entitlements level or those allowed globally for the partner if entitlements are disabled.
+// In the case of disabled entitlements, it also includes the placements for the default product price
+// config that have not been overridden for the partner.
+func (accounts *accounts) GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) ([]storj.PlacementConstraint, error) {
 	placements := make([]storj.PlacementConstraint, 0)
+
+	if accounts.service.config.EntitlementsEnabled {
+		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
+		switch {
+		case err == nil:
+			placements = append(placements, feats.NewBucketPlacements...)
+			sort.SliceStable(placements, func(i, j int) bool {
+				return placements[i] < placements[j]
+			})
+			return placements, nil
+		case entitlements.ErrNotFound.Has(err):
+			// fall through to global level partner placements
+			// log at info level, as this is not an error case
+			accounts.service.log.Info(
+				"no entitlements found for project, falling back to partner placements",
+				zap.String("partner", partner), zap.String("projectPublicID", projectPublicID.String()))
+		default:
+			return nil, err
+		}
+	}
+
 	placementMap, ok := accounts.service.pricingConfig.PartnerPlacementMap[partner]
 	if !ok {
 		placementMap = make(payments.PlacementProductIdMap)
@@ -707,7 +730,8 @@ func (accounts *accounts) GetPartnerPlacements(partner string) []storj.Placement
 	sort.SliceStable(placements, func(i, j int) bool {
 		return placements[i] < placements[j]
 	})
-	return placements
+
+	return placements, nil
 }
 
 // CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage

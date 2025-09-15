@@ -5242,8 +5242,14 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
+	project := isMember.project
+
+	placements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(isMember.project.UserAgent))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	details := make([]PlacementDetail, 0)
-	placements := s.accounts.GetPartnerPlacements(string(isMember.project.UserAgent))
 	for _, placement := range placements {
 		if detail, ok := s.config.Placement.SelfServeDetails.Get(placement); ok {
 			details = append(details, detail)

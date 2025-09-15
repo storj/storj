@@ -96,8 +96,11 @@ type Accounts interface {
 	// if there is none defined for the project ID.
 	ProductIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, ProductUsagePriceModel)
 
-	// GetPartnerPlacements returns the placements for a partner.
-	GetPartnerPlacements(partner string) []storj.PlacementConstraint
+	// GetPartnerPlacements returns the placements for a project or partner. It will return the placements allowed for the
+	// project on the entitlements level or those allowed globally for the partner if entitlements are disabled.
+	// In the case of disabled entitlements, it also includes the placements for the default product price
+	// config that have not been overridden for the partner.
+	GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) ([]storj.PlacementConstraint, error)
 
 	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).

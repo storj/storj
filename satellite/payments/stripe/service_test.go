@@ -1676,6 +1676,16 @@ func TestPartnerPlacements(t *testing.T) {
 		_, model, err = paymentsAPI.GetPartnerPlacementPriceModel(userCtx, proj.ID, storj.PlacementConstraint(50))
 		require.NoError(t, err)
 		require.Equal(t, defaultPrice, model)
+
+		// set entitlements for allowed self-serve placements
+		err = entitlementsAPI.SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placement11})
+		require.NoError(t, err)
+
+		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		require.NoError(t, err)
+		// expect only placement11, which is defined in entitlements
+		require.Len(t, details, 1)
+		require.Contains(t, details, placementDetail11)
 	})
 }
 
