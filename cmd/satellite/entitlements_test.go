@@ -14,17 +14,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
-func TestSetNewBucketPlacements_UserEmail(t *testing.T) {
+func TestSetEntitlement_UserEmail(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -75,20 +80,37 @@ func TestSetNewBucketPlacements_UserEmail(t *testing.T) {
 
 		t.Run("ValidUser", func(t *testing.T) {
 			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{5, 12},
-				allowedPlacements: nil,
+				log:        zaptest.NewLogger(t),
+				satDB:      sat.DB,
+				entService: entService,
 			}
+			t.Run("SetNewBucketPlacements", func(t *testing.T) {
+				args.action = actionSetNewBucketPlacements
+				args.newPlacements = []storj.PlacementConstraint{5, 12}
 
-			err = processUserEmail(ctx, user1.Email, args, true)
-			require.NoError(t, err)
+				err = processUserEmail(ctx, user1.Email, args, true)
+				require.NoError(t, err)
 
-			// Verify that entitlements were set for user1's project
-			features, err := entService.Projects().GetByPublicID(ctx, user1Project.PublicID)
-			require.NoError(t, err)
-			require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
+				// Verify that entitlements were set for user1's project
+				features, err := entService.Projects().GetByPublicID(ctx, user1Project.PublicID)
+				require.NoError(t, err)
+				require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
+			})
+
+			t.Run("SetProductPlacementMap", func(t *testing.T) {
+				args.action = actionSetProductPlacementMap
+				args.productPlacementMap = entitlements.ProductPlacementMappings{
+					1: []storj.PlacementConstraint{5, 12},
+				}
+
+				err = processUserEmail(ctx, user1.Email, args, true)
+				require.NoError(t, err)
+
+				// Verify that entitlements were set for user1's project
+				features, err := entService.Projects().GetByPublicID(ctx, user1Project.PublicID)
+				require.NoError(t, err)
+				require.EqualValues(t, args.productPlacementMap, features.ProductPlacementMappings)
+			})
 		})
 
 		t.Run("InvalidEmail", func(t *testing.T) {
@@ -129,46 +151,122 @@ func TestSetNewBucketPlacements_UserEmail(t *testing.T) {
 
 		t.Run("MultipleProjects", func(t *testing.T) {
 			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     []storj.PlacementConstraint{1, 2},
-				allowedPlacements: nil,
+				log:        zaptest.NewLogger(t),
+				satDB:      sat.DB,
+				entService: entService,
 			}
 
-			err = processUserEmail(ctx, user2.Email, args, true)
-			require.NoError(t, err)
+			t.Run("SetNewBucketPlacements", func(t *testing.T) {
+				args.action = actionSetNewBucketPlacements
+				args.newPlacements = []storj.PlacementConstraint{1, 2}
 
-			// Verify entitlements were set for all of user2's projects
-			projectPublicIDs := []uuid.UUID{user2Project.PublicID, proj2.PublicID, proj3.PublicID}
-			for _, publicID := range projectPublicIDs {
-				features, err := entService.Projects().GetByPublicID(ctx, publicID)
+				err = processUserEmail(ctx, user2.Email, args, true)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{1, 2}, features.NewBucketPlacements)
-			}
+
+				// Verify entitlements were set for all of user2's projects
+				projectPublicIDs := []uuid.UUID{user2Project.PublicID, proj2.PublicID, proj3.PublicID}
+				for _, publicID := range projectPublicIDs {
+					features, err := entService.Projects().GetByPublicID(ctx, publicID)
+					require.NoError(t, err)
+					require.EqualValues(t, []storj.PlacementConstraint{1, 2}, features.NewBucketPlacements)
+				}
+			})
+
+			t.Run("SetProductPlacementMap", func(t *testing.T) {
+				args.action = actionSetProductPlacementMap
+				args.productPlacementMap = entitlements.ProductPlacementMappings{
+					1: []storj.PlacementConstraint{1, 2},
+				}
+
+				err = processUserEmail(ctx, user2.Email, args, true)
+				require.NoError(t, err)
+
+				// Verify entitlements were set for all of user2's projects
+				projectPublicIDs := []uuid.UUID{user2Project.PublicID, proj2.PublicID, proj3.PublicID}
+				for _, publicID := range projectPublicIDs {
+					features, err := entService.Projects().GetByPublicID(ctx, publicID)
+					require.NoError(t, err)
+					require.EqualValues(t, args.productPlacementMap, features.ProductPlacementMappings)
+				}
+			})
 		})
 
 		t.Run("DefaultPlacementLogic", func(t *testing.T) {
 			args := processingArgs{
-				log:               zaptest.NewLogger(t),
-				satDB:             sat.DB,
-				entService:        entService,
-				newPlacements:     nil, // Use default logic
-				allowedPlacements: []storj.PlacementConstraint{3, 4},
+				log:        zaptest.NewLogger(t),
+				satDB:      sat.DB,
+				entService: entService,
 			}
 
-			err = processUserEmail(ctx, user4.Email, args, true)
-			require.NoError(t, err)
+			t.Run("SetNewBucketPlacements", func(t *testing.T) {
+				args.action = actionSetNewBucketPlacements
+				args.newPlacements = nil // Use default logic
+				args.allowedPlacements = []storj.PlacementConstraint{3, 4}
 
-			// Verify that user4's project got its custom default placement (10)
-			features, err := entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
-			require.NoError(t, err)
-			require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
+				err = processUserEmail(ctx, user4.Email, args, true)
+				require.NoError(t, err)
+
+				// Verify that user4's project got its custom default placement (10)
+				features, err := entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
+				require.NoError(t, err)
+				require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
+			})
+
+			t.Run("SetProductPlacementMap", func(t *testing.T) {
+				args.action = actionSetProductPlacementMap
+				args.productPlacementMap = nil // Use default logic
+				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
+					"":           {1: 3},
+					"test-agent": {1: 4},
+				}
+
+				err = processUserEmail(ctx, user4.Email, args, true)
+				require.NoError(t, err)
+
+				// Verify that user4's project got partner overridden placement mapping
+				features, err := entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
+				require.NoError(t, err)
+				require.EqualValues(t, entitlements.ProductPlacementMappings{
+					3: []storj.PlacementConstraint{1},
+				}, features.ProductPlacementMappings)
+
+				// remove entitlements for user4's project
+				err = entService.Projects().DeleteByPublicID(ctx, user4Project.PublicID)
+				require.NoError(t, err)
+
+				// update user4's project to have "unknown-agent" user agent
+				require.NoError(t, sat.DB.Console().Projects().UpdateUserAgent(ctx, user4Project.ID, []byte("unknown-agent")))
+
+				err = processUserEmail(ctx, user4.Email, args, true)
+				require.NoError(t, err)
+
+				// verify that user4's project gets mapping for the default partner ("")
+				// because "unknown-agent" is not in defaultPartnerMap
+				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
+				require.NoError(t, err)
+				require.EqualValues(t, entitlements.ProductPlacementMappings{
+					3: []storj.PlacementConstraint{1},
+				}, features.ProductPlacementMappings)
+
+				err = entService.Projects().DeleteByPublicID(ctx, user4Project.PublicID)
+				require.NoError(t, err)
+				require.NoError(t, sat.DB.Console().Projects().UpdateUserAgent(ctx, user4Project.ID, []byte("test-agent")))
+
+				err = processUserEmail(ctx, user4.Email, args, true)
+				require.NoError(t, err)
+
+				// verify that user4's project gets mapping for test-agent
+				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
+				require.NoError(t, err)
+				require.EqualValues(t, entitlements.ProductPlacementMappings{
+					4: []storj.PlacementConstraint{1},
+				}, features.ProductPlacementMappings)
+			})
 		})
 	})
 }
 
-func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
+func TestSetEntitlement_AllUsers(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
 		NonParallel: true,
@@ -204,11 +302,15 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 
 		user1Project, err := sat.AddProject(ctx, user1.ID, "user1project")
 		require.NoError(t, err)
+		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, user1Project.ID, []byte("test-agent"))
+		require.NoError(t, err)
 		user2Project, err := sat.AddProject(ctx, user2.ID, "user2project")
 		require.NoError(t, err)
 		user2Project2, err := sat.AddProject(ctx, user2.ID, "user2project2")
 		require.NoError(t, err)
 		user3Project, err := sat.AddProject(ctx, user3.ID, "user3project")
+		require.NoError(t, err)
+		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, user3Project.ID, []byte("test-agent"))
 		require.NoError(t, err)
 
 		activeProjects := []uuid.UUID{user1Project.PublicID, user2Project.PublicID, user2Project2.PublicID, user3Project.PublicID}
@@ -229,17 +331,37 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 		}
 
 		t.Run("ProcessAllActiveUsers", func(t *testing.T) {
-			args.newPlacements = []storj.PlacementConstraint{5, 12}
+			t.Run("SetNewBucketPlacements", func(t *testing.T) {
+				args.action = actionSetNewBucketPlacements
+				args.newPlacements = []storj.PlacementConstraint{5, 12}
 
-			err = processAllUsers(ctx, args)
-			require.NoError(t, err)
-
-			// Verify that entitlements were set for all active users' projects.
-			for _, publicID := range activeProjects {
-				features, err := entService.Projects().GetByPublicID(ctx, publicID)
+				err = processAllUsers(ctx, args)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
-			}
+
+				// Verify that entitlements were set for all active users' projects.
+				for _, publicID := range activeProjects {
+					features, err := entService.Projects().GetByPublicID(ctx, publicID)
+					require.NoError(t, err)
+					require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
+				}
+			})
+
+			t.Run("SetProductPlacementMap", func(t *testing.T) {
+				args.action = actionSetProductPlacementMap
+				args.productPlacementMap = entitlements.ProductPlacementMappings{
+					1: []storj.PlacementConstraint{5, 12},
+				}
+
+				err = processAllUsers(ctx, args)
+				require.NoError(t, err)
+
+				// Verify that entitlements were set for all active users' projects.
+				for _, publicID := range activeProjects {
+					features, err := entService.Projects().GetByPublicID(ctx, publicID)
+					require.NoError(t, err)
+					require.EqualValues(t, args.productPlacementMap, features.ProductPlacementMappings)
+				}
+			})
 
 			// Verify that inactive user's project was not processed.
 			_, err = entService.Projects().GetByPublicID(ctx, inactiveUserProject.PublicID)
@@ -249,31 +371,67 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 		t.Run("ProcessAllUsersWithDefaultPlacementLogic", func(t *testing.T) {
 			// Reset entitlements first.
 			for _, publicID := range activeProjects {
-				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storj.PlacementConstraint{storj.DefaultPlacement})
+				err = entService.Projects().DeleteByPublicID(ctx, publicID)
 				require.NoError(t, err)
 			}
 
-			args.newPlacements = nil // Use default logic
-			args.allowedPlacements = []storj.PlacementConstraint{3, 4}
+			t.Run("SetNewBucketPlacements", func(t *testing.T) {
+				args.action = actionSetNewBucketPlacements
+				args.newPlacements = nil // use default logic
+				args.allowedPlacements = []storj.PlacementConstraint{3, 4}
 
-			err = processAllUsers(ctx, args)
-			require.NoError(t, err)
-
-			// Verify that projects with default placement got allowedPlacements.
-			defaultPlacementProjects := []uuid.UUID{user1Project.PublicID, user2Project.PublicID, user2Project2.PublicID}
-			for _, publicID := range defaultPlacementProjects {
-				features, err := entService.Projects().GetByPublicID(ctx, publicID)
+				err = processAllUsers(ctx, args)
 				require.NoError(t, err)
-				require.EqualValues(t, []storj.PlacementConstraint{3, 4}, features.NewBucketPlacements)
-			}
 
-			// Verify that user3's project got its custom default placement (10).
-			features, err := entService.Projects().GetByPublicID(ctx, user3Project.PublicID)
-			require.NoError(t, err)
-			require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
+				// Verify that projects with default placement got allowedPlacements.
+				defaultPlacementProjects := []uuid.UUID{user1Project.PublicID, user2Project.PublicID, user2Project2.PublicID}
+				for _, publicID := range defaultPlacementProjects {
+					features, err := entService.Projects().GetByPublicID(ctx, publicID)
+					require.NoError(t, err)
+					require.EqualValues(t, []storj.PlacementConstraint{3, 4}, features.NewBucketPlacements)
+				}
+
+				// Verify that user3's project got its custom default placement (10).
+				features, err := entService.Projects().GetByPublicID(ctx, user3Project.PublicID)
+				require.NoError(t, err)
+				require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
+			})
+
+			t.Run("SetProductPlacementMap", func(t *testing.T) {
+				args.action = actionSetProductPlacementMap
+				args.productPlacementMap = nil // use default logic
+				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
+					"":           {1: 3},
+					"test-agent": {1: 4},
+				}
+
+				err = processAllUsers(ctx, args)
+				require.NoError(t, err)
+
+				// Verify that projects with no partner got {1:3} mapping.
+				noPartnerProjects := []uuid.UUID{user2Project.PublicID, user2Project2.PublicID}
+				for _, publicID := range noPartnerProjects {
+					features, err := entService.Projects().GetByPublicID(ctx, publicID)
+					require.NoError(t, err)
+					require.EqualValues(t, entitlements.ProductPlacementMappings{
+						3: []storj.PlacementConstraint{1},
+					}, features.ProductPlacementMappings)
+				}
+
+				// Verify that projects with "test-agent" partner got {1:4} mapping.
+				testAgentProjects := []uuid.UUID{user1Project.PublicID, user3Project.PublicID}
+				for _, publicID := range testAgentProjects {
+					features, err := entService.Projects().GetByPublicID(ctx, publicID)
+					require.NoError(t, err)
+					require.EqualValues(t, entitlements.ProductPlacementMappings{
+						4: []storj.PlacementConstraint{1},
+					}, features.ProductPlacementMappings)
+				}
+			})
 		})
 
 		t.Run("NewPlacementsTakesPrecedenceOverAllowedPlacements", func(t *testing.T) {
+			args.action = actionSetNewBucketPlacements
 			// Reset entitlements first.
 			for _, publicID := range activeProjects {
 				err = entService.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, []storj.PlacementConstraint{storj.DefaultPlacement})
@@ -296,7 +454,7 @@ func TestSetNewBucketPlacements_AllUsers(t *testing.T) {
 	})
 }
 
-func TestSetNewBucketPlacements_CSV(t *testing.T) {
+func TestSetEntitlement_CSV(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
 		NonParallel: true,
@@ -514,24 +672,161 @@ func TestSetNewBucketPlacements_CSV(t *testing.T) {
 	})
 }
 
-func TestSetNewBucketPlacements_Validation(t *testing.T) {
-	t.Run("BothEmailAndCSVFlags", func(t *testing.T) {
-		setNewBucketPlacementsEmail = "test@example.com"
-		setNewBucketPlacementsCSV = "test.csv"
-		setNewBucketPlacementsJSON = ""
+func TestSetEntitlement_Validation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global")`,
+				}
 
-		err := cmdSetNewBucketPlacements(nil, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "cannot specify both --email and --csv flags")
-	})
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					0: 1,
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
 
-	t.Run("InvalidJSONPlacements", func(t *testing.T) {
-		setNewBucketPlacementsEmail = "test@example.com"
-		setNewBucketPlacementsCSV = ""
-		setNewBucketPlacementsJSON = "invalid-json"
+				var part1Map paymentsconfig.PlacementProductMap
+				part1Map.SetMap(map[int]int32{
+					0: 2,
+				})
+				partnersMap := make(map[string]paymentsconfig.PlacementProductMap)
+				partnersMap["part1"] = part1Map
+				config.Payments.PartnersPlacementPriceOverrides.SetMap(partnersMap)
 
-		err := cmdSetNewBucketPlacements(nil, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid JSON format for placements")
+				price := paymentsconfig.ProjectUsagePrice{
+					StorageTB: "4",
+					EgressTB:  "7",
+					Segment:   "0.0000088",
+				}
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {ProjectUsagePrice: price},
+					2: {ProjectUsagePrice: price},
+				})
+				config.Payments.Products = productOverrides
+
+				config.Console.Placement.SelfServeDetails = []console.PlacementDetail{
+					{ID: 0},
+				}
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = []storj.PlacementConstraint{0}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		runCfg.Placement = sat.Config.Placement
+		runCfg.Payments = sat.Config.Payments
+		runCfg.Console = sat.Config.Console
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@test.test",
+		}, 1)
+		require.NoError(t, err)
+
+		entitlementUserEmail = user.Email
+
+		p1, err := sat.AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+		p2, err := sat.AddProject(ctx, user.ID, "testproject2")
+		require.NoError(t, err)
+
+		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, p2.ID, []byte("part1"))
+		require.NoError(t, err)
+
+		t.Run("BothEmailAndCSVFlags", func(t *testing.T) {
+			entitlementUserEmailCSV = "test.csv"
+			entitlementJSON = ""
+			entitlementSkipConfirm = true
+
+			err := cmdSetNewBucketPlacements(nil, nil)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "cannot specify both --email and --csv flags")
+
+			err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "cannot specify both --email and --csv flags")
+		})
+
+		t.Run("InvalidJSONPlacements", func(t *testing.T) {
+			t.Run("InvalidJSONPlacements", func(t *testing.T) {
+				entitlementUserEmailCSV = ""
+				entitlementJSON = "invalid-json"
+				entitlementSkipConfirm = true
+
+				err := cmdSetNewBucketPlacements(nil, nil)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "invalid JSON format for placements")
+
+				err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "invalid JSON format for product-placement mapping")
+			})
+
+			t.Run("InvalidMappingsAndPlacement", func(t *testing.T) {
+
+				t.Run("SetNewBucketPlacements", func(t *testing.T) {
+					entitlementJSON = `[3]`
+					err := cmdSetNewBucketPlacements(nil, nil)
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "invalid placement ID: 3")
+				})
+
+				t.Run("SetProductPlacementMap", func(t *testing.T) {
+					entitlementJSON = `{"3": [1]}`
+					err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "invalid product ID: 3")
+
+					entitlementJSON = `{"1": [1]}`
+					err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "invalid placement ID: 1")
+				})
+			})
+
+			t.Run("AllValidationsPass", func(t *testing.T) {
+				t.Run("SetProductPlacementMap", func(t *testing.T) {
+					entitlementJSON = `{"1": [0]}`
+					err := setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+					require.NoError(t, err)
+
+					entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
+
+					// test that entitlement was set
+					for _, p := range []uuid.UUID{p1.PublicID, p2.PublicID} {
+						features, err := entService.Projects().GetByPublicID(ctx, p)
+						require.NoError(t, err)
+						require.EqualValues(t, entitlements.ProductPlacementMappings{
+							1: []storj.PlacementConstraint{0},
+						}, features.ProductPlacementMappings)
+					}
+
+					// reset entitlement
+					entitlementJSON = ""
+					err = entService.Projects().DeleteByPublicID(ctx, p1.PublicID)
+					require.NoError(t, err)
+					err = entService.Projects().DeleteByPublicID(ctx, p2.PublicID)
+					require.NoError(t, err)
+
+					err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+					require.NoError(t, err)
+
+					// expect global mappings to be set
+					features, err := entService.Projects().GetByPublicID(ctx, p1.PublicID)
+					require.NoError(t, err)
+					require.EqualValues(t, entitlements.ProductPlacementMappings{
+						1: []storj.PlacementConstraint{0},
+					}, features.ProductPlacementMappings)
+
+					features, err = entService.Projects().GetByPublicID(ctx, p2.PublicID)
+					require.NoError(t, err)
+					require.EqualValues(t, entitlements.ProductPlacementMappings{
+						2: []storj.PlacementConstraint{0},
+					}, features.ProductPlacementMappings)
+				})
+			})
+		})
 	})
 }

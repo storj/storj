@@ -378,6 +378,12 @@ var (
 		Long:  "Set NewBucketPlacements entitlement for projects to be reused during new bucket creation",
 		RunE:  cmdSetNewBucketPlacements,
 	}
+	setProductPlacementMapCmd = &cobra.Command{
+		Use:   "set-product-placement-mappings",
+		Short: "Set ProductPlacementMappings entitlement for projects",
+		Long:  "Set ProductPlacementMappings entitlement for projects to override global configs",
+		RunE:  cmdSetProductPlacementMap,
+	}
 
 	usersCmd = &cobra.Command{
 		Use:   "user-accounts",
@@ -564,10 +570,15 @@ func init() {
 	billingCmd.AddCommand(generateListOfReusedCardFingerprints)
 	entitlementsCmd.AddCommand(projectEntitlementsCmd)
 	projectEntitlementsCmd.AddCommand(setNewBucketPlacementsCmd)
-	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsEmail, "email", "", "Set bucket placements for all active projects of a specific user by email")
-	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsCSV, "csv", "", "Set bucket placements for all active projects of users listed in CSV file")
-	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsJSON, "placements", "", "JSON array of placement IDs to set (e.g., \"[0, 12]\"). If not provided, uses satellite config defaults")
-	setNewBucketPlacementsCmd.Flags().BoolVar(&setNewBucketPlacementsSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
+	setNewBucketPlacementsCmd.Flags().StringVar(&entitlementUserEmail, "email", "", "Set bucket placements for all active projects of a specific user by email")
+	setNewBucketPlacementsCmd.Flags().StringVar(&entitlementUserEmailCSV, "csv", "", "Set bucket placements for all active projects of users listed in CSV file")
+	setNewBucketPlacementsCmd.Flags().StringVar(&entitlementJSON, "placements", "", "JSON array of placement IDs to set (e.g., \"[0, 12]\"). If not provided, uses satellite config defaults")
+	setNewBucketPlacementsCmd.Flags().BoolVar(&entitlementSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
+	projectEntitlementsCmd.AddCommand(setProductPlacementMapCmd)
+	setProductPlacementMapCmd.Flags().StringVar(&entitlementUserEmail, "email", "", "Set product-placement mapping for all active projects of a specific user by email")
+	setProductPlacementMapCmd.Flags().StringVar(&entitlementUserEmailCSV, "csv", "", "Set product-placement mapping for all active projects of users listed in CSV file")
+	setProductPlacementMapCmd.Flags().StringVar(&entitlementJSON, "placements", "", "JSON mapping of product IDs to placement array to set (e.g., \"{3:[0],2,[12]}\"). If not provided, uses satellite config defaults")
+	setProductPlacementMapCmd.Flags().BoolVar(&entitlementSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
@@ -626,6 +637,7 @@ func init() {
 	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(valueAttributionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setNewBucketPlacementsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setProductPlacementMapCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)
