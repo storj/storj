@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.24.2
+ARG GO_VERSION=1.24.7
 
 FROM debian:bookworm-slim AS base
 RUN apt-get update
