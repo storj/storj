@@ -142,7 +142,7 @@ pipeline {
             }
             steps {
                 sh 'psql -U postgres -c \'create database benchstorj;\''
-                sh 'go test -parallel 1 -p 1 -vet=off -timeout 60m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+                sh 'go test -parallel 1 -p 16 -vet=off -timeout 60m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
             }
         }
 
