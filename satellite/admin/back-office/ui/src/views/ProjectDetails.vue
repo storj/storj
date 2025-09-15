@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container>
+    <v-container v-if="project && userAccount">
         <v-row>
             <v-col cols="12" md="8">
                 <PageTitleComponent title="Project Details" />
 
-                <v-chip variant="outlined" color="default" class="mr-2 mb-2 mb-md-0 pr-4" router-link to="/account-details">
+                <v-chip variant="outlined" color="default" class="mr-2 mb-2 mb-md-0 pr-4" router-link :to="`/accounts/${userAccount.email}`">
                     <v-tooltip activator="parent" location="top">
                         Go to account
                     </v-tooltip>
@@ -171,7 +171,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import {
     VAlert,
     VContainer,
@@ -185,6 +185,7 @@ import {
     VCardText,
     VDivider,
 } from 'vuetify/components';
+import { useRouter } from 'vue-router';
 
 import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -201,6 +202,8 @@ import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
 
 const appStore = useAppStore();
+const router = useRouter();
+
 const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
 
 const userAccount = computed<UserAccount>(() => appStore.state.userAccount as UserAccount);
@@ -215,5 +218,23 @@ const placementText = computed<string>(() => {
  */
 const usageCacheError = computed<boolean>(() => {
     return project.value.storageUsed === null || project.value.segmentUsed === null;
+});
+
+onMounted(async () => {
+    if (project.value) {
+        return;
+    }
+    const projectID = router.currentRoute.value.params.id as string;
+    const userEmail = router.currentRoute.value.params.email as string;
+
+    try {
+        await Promise.all([
+            appStore.getProject(projectID),
+            appStore.getUserByEmail(userEmail),
+        ]);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (error) {
+        router.push('/account-search');
+    }
 });
 </script>

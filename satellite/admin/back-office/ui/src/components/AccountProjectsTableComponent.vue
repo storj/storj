@@ -219,7 +219,7 @@ const projects = computed<ProjectTableItem[]>(() => {
 */
 async function selectProject(id: string): Promise<void> {
     await appStore.selectProject(id);
-    router.push('/project-details');
+    router.push(`${router.currentRoute.value.path}/projects/${id}`);
 }
 
 function getPercentColor(percent: number) {

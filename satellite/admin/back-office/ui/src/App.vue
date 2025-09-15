@@ -2,7 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-    <template v-if="appStore.state.settings">
+    <div
+        v-if="!appStore.state.settings"
+        class="d-flex justify-center align-center align-items-center"
+        style="height: 100vh;"
+    >
+        <v-skeleton-loader
+            class="mx-auto"
+            width="300"
+            height="200"
+            type="card"
+        />
+    </div>
+    <template v-else>
         <router-view />
         <notifications />
     </template>
@@ -10,6 +22,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
+import { VSkeletonLoader } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
@@ -21,15 +34,12 @@ const notify = useNotificationsStore();
 
 onMounted(async () => {
     try {
-        await appStore.getPlacements();
+        await Promise.all([
+            appStore.getSettings(),
+            appStore.getPlacements(),
+        ]);
     } catch (error) {
-        notify.notifyError(`Failed to get placements. ${error.message}`);
-    }
-
-    try {
-        await appStore.getSettings();
-    } catch (error) {
-        notify.notifyError(`Failed to get settings. ${error.message}`);
+        notify.notifyError(`Failed to initialise app. ${error.message}`);
     }
 });
 </script>

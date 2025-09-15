@@ -21,8 +21,16 @@ export const useAppStore = defineStore('app', () => {
     const projectApi = new ProjectManagementHttpApiV1();
     const settingsApi = new SettingsHttpApiV1();
 
-    async function getUserByEmail(email: string): Promise<void> {
+    async function getUserByEmail(email: string): Promise<UserAccount> {
         state.userAccount = await userApi.getUserByEmail(email);
+
+        return state.userAccount;
+    }
+
+    async function getProject(id: string): Promise<Project> {
+        state.selectedProject = await projectApi.getProject(id);
+
+        return state.selectedProject;
     }
 
     function clearUser(): void {
@@ -76,6 +84,7 @@ export const useAppStore = defineStore('app', () => {
     return {
         state,
         getUserByEmail,
+        getProject,
         clearUser,
         getPlacements,
         getPlacementText,

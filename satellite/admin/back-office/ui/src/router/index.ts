@@ -31,18 +31,33 @@ const routes = [
             },
             {
                 path: '/accounts',
-                name: 'Accounts',
-                component: () => import(/* webpackChunkName: "Users" */ '@/views/Accounts.vue'),
+                children: [
+                    {
+                        path: '',
+                        name: 'Accounts',
+                        component: () => import(/* webpackChunkName: "Users" */ '@/views/Accounts.vue'),
+                    },
+                    {
+                        path: ':email',
+                        children: [
+                            {
+                                path: '',
+                                name: 'Account Details',
+                                component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountDetails.vue'),
+                            },
+                            {
+                                path: 'projects/:id',
+                                name: 'User Project Details',
+                                component: () => import(/* webpackChunkName: "Users" */ '@/views/ProjectDetails.vue'),
+                            },
+                        ],
+                    },
+                ],
             },
             {
                 path: '/account-search',
                 name: 'Search Account',
                 component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountSearch.vue'),
-            },
-            {
-                path: '/account-details',
-                name: 'Account Details',
-                component: () => import(/* webpackChunkName: "AccountDetails" */ '@/views/AccountDetails.vue'),
             },
             {
                 path: '/projects',

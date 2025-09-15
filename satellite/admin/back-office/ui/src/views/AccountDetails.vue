@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container>
+    <v-container v-if="appStore.state.userAccount">
         <v-row>
             <v-col cols="12" md="8">
                 <PageTitleComponent title="Account Details" />
@@ -266,7 +266,19 @@ const usageCacheError = computed<boolean>(() => {
     );
 });
 
-onBeforeMount(() => !userAccount.value && router.push('/accounts'));
+onBeforeMount(async () => {
+    if (appStore.state.userAccount !== null) {
+        return;
+    }
+
+    try {
+        const email = router.currentRoute.value.params.email as string;
+        await appStore.getUserByEmail(email);
+    } catch {
+        router.push('/account-search');
+    }
+});
+
 onUnmounted(() => {
     if (appStore.state.selectedProject === null) {
         appStore.clearUser();

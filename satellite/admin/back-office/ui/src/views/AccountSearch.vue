@@ -90,8 +90,8 @@ async function goToUser(): Promise<void> {
     const retryDelay = 1000;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-            await appStore.getUserByEmail(email.value);
-            router.push(`/account-details`);
+            const user = await appStore.getUserByEmail(email.value);
+            router.push(`/accounts/${user.email}`);
             isLoading.value = false;
             return;
         } catch (error) {
