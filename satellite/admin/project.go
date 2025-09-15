@@ -692,6 +692,86 @@ func (server *Server) updateProjectsUserAgent(w http.ResponseWriter, r *http.Req
 	}
 }
 
+func (server *Server) updateComputeAccessToken(w http.ResponseWriter, r *http.Request) {
+	if !server.entitlementsCfg.Enabled {
+		sendJSONError(w, "entitlements are disabled", "", http.StatusForbidden)
+		return
+	}
+
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		sendJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.getProjectByAnyID(ctx, projectUUIDString)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, "project with specified uuid does not exist",
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "error getting project",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	var input struct {
+		AccessToken *string `json:"accessToken"`
+	}
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var newAccessToken []byte
+	if input.AccessToken != nil {
+		if *input.AccessToken == "" {
+			sendJSONError(w, "new token was not provided",
+				"", http.StatusBadRequest)
+			return
+		}
+		newAccessToken = []byte(*input.AccessToken)
+	}
+
+	feats, err := server.entitlements.Projects().GetByPublicID(ctx, project.PublicID)
+	if err != nil {
+		if entitlements.ErrNotFound.Has(err) {
+			feats = entitlements.ProjectFeatures{}
+		} else {
+			sendJSONError(w, "failed to get project entitlements",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if bytes.Equal(feats.ComputeAccessToken, newAccessToken) {
+		sendJSONError(w, "new token is equal to existing ComputeAccessToken",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	err = server.entitlements.Projects().SetComputeAccessTokenByPublicID(ctx, project.PublicID, newAccessToken)
+	if err != nil {
+		sendJSONError(w, "failed to update compute access token",
+			err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

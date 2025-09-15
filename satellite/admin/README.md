@@ -47,6 +47,7 @@ Requires setting `Authorization` header for requests.
             * [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
             * [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
             * [DELETE /api/projects/{project}/apikeys?name={value}](#delete-apiprojectsprojectapikeysnamevalue)
+            * [PATCH /api/projects/{project-id}/compute-access-token](#patch-apiprojectsproject-idcompute-access-token)
             * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
             * [GET /api/projects/{project-id}/limit - DEPRECATED](#get-apiprojectsproject-idlimit---deprecated)
             * [Update limits](#update-limits)
@@ -465,6 +466,26 @@ This endpoint returns whether the project has outstanding usage or not.
 
 A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
 Otherwise, it returns status code 409 with a JSON error.`{"error":"usage for current month exists""}`.
+
+#### PATCH /api/projects/{project-id}/compute-access-token
+
+Updates project's compute access token.
+
+Example request:
+
+```json
+{
+  "accessToken": "some-access-token"
+}
+```
+
+or
+
+```json
+{
+  "accessToken": "null"
+}
+```
 
 #### GET /api/projects/{project-id}/limit - DEPRECATED
 

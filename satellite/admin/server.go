@@ -96,6 +96,7 @@ type Server struct {
 	restKeys       restapikeys.Service
 	analytics      *analytics.Service
 	freezeAccounts *console.AccountFreezeService
+	entitlements   *entitlements.Service
 
 	placement nodeselection.PlacementDefinitions
 
@@ -118,6 +119,7 @@ func NewServer(
 	analyticsService *analytics.Service,
 	accounts payments.Accounts,
 	backOfficeService *backoffice.Service,
+	entitlements *entitlements.Service,
 	placement nodeselection.PlacementDefinitions,
 	console consoleweb.Config,
 	entitlementsCfg entitlements.Config,
@@ -135,6 +137,7 @@ func NewServer(
 		restKeys:       restKeys,
 		analytics:      analyticsService,
 		freezeAccounts: freezeAccounts,
+		entitlements:   entitlements,
 
 		placement: placement,
 
@@ -178,6 +181,7 @@ func NewServer(
 	fullAccessAPI.HandleFunc("/projects/{project}/buckets/{bucket}/value-attributions", server.updateBucketValueAttributionPlacement).Methods("PUT")
 	fullAccessAPI.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
 	fullAccessAPI.HandleFunc("/projects/{project}/useragent", server.updateProjectsUserAgent).Methods("PATCH")
+	fullAccessAPI.HandleFunc("/projects/{project}/compute-access-token", server.updateComputeAccessToken).Methods("PATCH")
 	fullAccessAPI.HandleFunc("/projects/{project}/placement", server.updatePlacementForProject).Methods("PUT")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.getAPIKey).Methods("GET")
 	fullAccessAPI.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")

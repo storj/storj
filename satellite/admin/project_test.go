@@ -902,6 +902,69 @@ func TestProjectRename(t *testing.T) {
 	})
 }
 
+func TestProjectUpdateComputeAccessToken(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+				config.Entitlements.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		entService := sat.Admin.Entitlements.Service
+		address := sat.Admin.Admin.Listener.Addr()
+		project := planet.Uplinks[0].Projects[0]
+		newAccessToken := "awesome token value"
+
+		t.Run("OK", func(t *testing.T) {
+			url := fmt.Sprintf("http://"+address.String()+"/api/projects/%s/compute-access-token", project.ID)
+			body := strings.NewReader(fmt.Sprintf(`{"accessToken":"%s"}`, newAccessToken))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPatch, url, body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", sat.Config.Console.AuthToken)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			feats, err := entService.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			require.NotNil(t, feats.ComputeAccessToken)
+			require.EqualValues(t, []byte(newAccessToken), feats.ComputeAccessToken)
+
+			// update to nil.
+			body = strings.NewReader(`{"accessToken":null}`)
+			req, err = http.NewRequestWithContext(ctx, http.MethodPatch, url, body)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", sat.Config.Console.AuthToken)
+
+			response, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, response.StatusCode)
+			require.NoError(t, response.Body.Close())
+
+			feats, err = entService.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			require.Nil(t, feats.ComputeAccessToken)
+		})
+
+		t.Run("Same AccessToken", func(t *testing.T) {
+			err := entService.Projects().SetComputeAccessTokenByPublicID(ctx, project.PublicID, []byte(newAccessToken))
+			require.NoError(t, err)
+
+			link := fmt.Sprintf("http://"+address.String()+"/api/projects/%s/compute-access-token", project.ID)
+			body := fmt.Sprintf(`{"accessToken":"%s"}`, newAccessToken)
+			responseBody := assertReq(ctx, t, link, http.MethodPatch, body, http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "new token is equal to existing ComputeAccessToken")
+		})
+	})
+}
+
 func TestProjectDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

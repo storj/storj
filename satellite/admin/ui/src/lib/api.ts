@@ -173,6 +173,19 @@ export class Admin {
 					const query = this.urlQueryFromObject({ id });
 					return this.fetch('PUT', `projects/${projectId}/placement`, query) as Promise<null>;
 				}
+			},
+			{
+				name: 'update compute access token',
+				desc: `Update project's compute access token.`,
+				params: [
+					['Project ID', new InputText('text', true)],
+					['Access Token (string value or null)', new InputText('text', true)]
+				],
+				func: async (projectId: string, accessToken: string): Promise<null> => {
+					return this.fetch('PATCH', `projects/${projectId}/compute-access-token`, null, {
+						accessToken: accessToken.toUpperCase() === 'NULL' ? null : accessToken
+					}) as Promise<null>;
+				}
 			}
 		],
 		user: [
