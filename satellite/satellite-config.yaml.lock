@@ -200,7 +200,7 @@ compensation.rates.put-tb: "0"
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # expiration time for account recovery and activation tokens
-# console-auth.token-expiration-time: 30m0s
+# console-auth.token-expiration-time: 10m0s
 
 # interval for 'AS OF SYSTEM TIME' clause (CockroachDB specific) to read from the DB at a specific time in the past
 # console-db-cleanup.as-of-system-time-interval: -5m0s

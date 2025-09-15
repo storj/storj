@@ -18,7 +18,7 @@ var mon = monkit.Package()
 
 // Config contains configuration parameters for console auth.
 type Config struct {
-	TokenExpirationTime time.Duration `help:"expiration time for account recovery and activation tokens" default:"30m"`
+	TokenExpirationTime time.Duration `help:"expiration time for account recovery and activation tokens" default:"10m"`
 }
 
 // Service handles creating, signing, and checking the expiration of auth tokens.
