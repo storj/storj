@@ -689,6 +689,8 @@ func (service *Service) getAndProcessUsages(
 				MinimumRetentionFeeCents: priceModel.MinimumRetentionFeeCents,
 				SmallObjectFeeSKU:        priceModel.SmallObjectFeeSKU,
 				MinimumRetentionFeeSKU:   priceModel.MinimumRetentionFeeSKU,
+				EgressOverageMode:        priceModel.EgressOverageMode,
+				IncludedEgressSKU:        priceModel.IncludedEgressSKU,
 				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
 			}
 		}
@@ -752,24 +754,83 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		result = append(result, storageItem)
 
-		// Create egress invoice item.
-		egressItem := &stripe.InvoiceItemParams{}
-		egressDesc := prefix + egressInvoiceItemDesc
-		if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
-			egressItem.AddMetadata("SKU", info.EgressSKU)
-			if service.stripeConfig.InvItemSKUInDescription {
-				egressDesc += " - " + info.EgressSKU
-			}
-		}
-		egressItem.Description = stripe.String(egressDesc)
-		egressItem.Quantity = stripe.Int64(egressMBDecimal(discountedUsage.Egress).IntPart())
-		egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
-		egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-		if service.stripeConfig.UseIdempotency {
-			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
-		}
+		// Create egress invoice item(s).
+		if info.EgressOverageMode {
+			// In overage mode, show both included egress (at $0) and overage (when present).
 
-		result = append(result, egressItem)
+			totalEgressMB := egressMBDecimal(usage.Egress).IntPart()
+			overageEgressMB := egressMBDecimal(discountedUsage.Egress).IntPart()
+			includedEgressMB := totalEgressMB - overageEgressMB
+
+			if includedEgressMB > 0 {
+				includedEgressItem := &stripe.InvoiceItemParams{}
+
+				// Format discount ratio for description (e.g., "3X" for ratio 3.0, "0.5X" for 0.5).
+				discountRatio := info.ProjectUsagePriceModel.EgressDiscountRatio
+				var discountRatioStr string
+				if discountRatio == float64(int64(discountRatio)) {
+					// Whole number, format without decimal places.
+					discountRatioStr = fmt.Sprintf("%.0fX", discountRatio)
+				} else {
+					// Has decimal places, show with appropriate precision.
+					discountRatioStr = fmt.Sprintf("%.1fX", discountRatio)
+				}
+				includedEgressDesc := prefix + fmt.Sprintf(" - %s Included Egress (MB)", discountRatioStr)
+				if info.IncludedEgressSKU != "" && service.stripeConfig.SkuEnabled {
+					includedEgressItem.AddMetadata("SKU", info.IncludedEgressSKU)
+					if service.stripeConfig.InvItemSKUInDescription {
+						includedEgressDesc += " - " + info.IncludedEgressSKU
+					}
+				}
+				includedEgressItem.Description = stripe.String(includedEgressDesc)
+				includedEgressItem.Quantity = stripe.Int64(includedEgressMB)
+				includedEgressItem.UnitAmountDecimal = stripe.Float64(0) // $0 price for included egress.
+				if service.stripeConfig.UseIdempotency {
+					includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
+				}
+
+				result = append(result, includedEgressItem)
+			}
+
+			if overageEgressMB > 0 {
+				overageEgressItem := &stripe.InvoiceItemParams{}
+				overageEgressDesc := prefix + " - Additional Egress (MB)"
+
+				if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
+					overageEgressItem.AddMetadata("SKU", info.EgressSKU)
+					if service.stripeConfig.InvItemSKUInDescription {
+						overageEgressDesc += " - " + info.EgressSKU
+					}
+				}
+				overageEgressItem.Description = stripe.String(overageEgressDesc)
+				overageEgressItem.Quantity = stripe.Int64(overageEgressMB)
+				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+				overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+				if service.stripeConfig.UseIdempotency {
+					overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
+				}
+
+				result = append(result, overageEgressItem)
+			}
+		} else {
+			egressItem := &stripe.InvoiceItemParams{}
+			egressDesc := prefix + egressInvoiceItemDesc
+			if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
+				egressItem.AddMetadata("SKU", info.EgressSKU)
+				if service.stripeConfig.InvItemSKUInDescription {
+					egressDesc += " - " + info.EgressSKU
+				}
+			}
+			egressItem.Description = stripe.String(egressDesc)
+			egressItem.Quantity = stripe.Int64(egressMBDecimal(discountedUsage.Egress).IntPart())
+			egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+			egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+			if service.stripeConfig.UseIdempotency {
+				egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
+			}
+
+			result = append(result, egressItem)
+		}
 
 		// Create segment invoice item.
 		segmentItem := &stripe.InvoiceItemParams{}
@@ -785,7 +846,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
 		segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
 		if service.stripeConfig.UseIdempotency {
-			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
+			segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
 		}
 
 		result = append(result, segmentItem)

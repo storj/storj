@@ -212,6 +212,8 @@ type ProductUsagePrice struct {
 	MinimumRetentionFee    string
 	SmallObjectFeeSKU      string
 	MinimumRetentionFeeSKU string
+	EgressOverageMode      bool
+	IncludedEgressSKU      string
 	ProductSKUs
 	ProjectUsagePrice
 }
@@ -245,6 +247,8 @@ type ProductUsagePriceYaml struct {
 	MinimumRetentionFee    string `yaml:"minimum-retention-fee" json:"-"`
 	SmallObjectFeeSKU      string `yaml:"small-object-fee-sku" json:"-"`
 	MinimumRetentionFeeSKU string `yaml:"minimum-retention-fee-sku" json:"-"`
+	EgressOverageMode      bool   `yaml:"egress-overage-mode" json:"-"`
+	IncludedEgressSKU      string `yaml:"included-egress-sku" json:"-"`
 }
 
 // String returns the YAML string representation of the price overrides.
@@ -269,6 +273,8 @@ func (p *ProductPriceOverrides) String() string {
 			MinimumRetentionFee:    price.MinimumRetentionFee,
 			SmallObjectFeeSKU:      price.SmallObjectFeeSKU,
 			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
+			EgressOverageMode:      price.EgressOverageMode,
+			IncludedEgressSKU:      price.IncludedEgressSKU,
 		}
 	}
 	prices, err := yaml.Marshal(pricesConv)
@@ -337,6 +343,8 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			MinimumRetentionFee:    price.MinimumRetentionFee,
 			SmallObjectFeeSKU:      price.SmallObjectFeeSKU,
 			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
+			EgressOverageMode:      price.EgressOverageMode,
+			IncludedEgressSKU:      price.IncludedEgressSKU,
 		}
 	}
 	*p = prices
@@ -392,6 +400,8 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			MinimumRetentionFeeCents: minimumRetentionFee.Shift(2),
 			SmallObjectFeeSKU:        prices.SmallObjectFeeSKU,
 			MinimumRetentionFeeSKU:   prices.MinimumRetentionFeeSKU,
+			EgressOverageMode:        prices.EgressOverageMode,
+			IncludedEgressSKU:        prices.IncludedEgressSKU,
 		}
 	}
 	return models, nil

@@ -68,5 +68,8 @@ type ProductUsagePriceModel struct {
 	MinimumRetentionFeeCents decimal.Decimal `json:"-"`
 	SmallObjectFeeSKU        string          `json:"-"`
 	MinimumRetentionFeeSKU   string          `json:"-"`
+	// EgressOverageMode when true, we show both included egress and overage egress in the invoice.
+	EgressOverageMode bool   `json:"-"`
+	IncludedEgressSKU string `json:"-"`
 	ProjectUsagePriceModel
 }

@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	stripeSDK "github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
@@ -563,6 +565,213 @@ func TestInvoiceByProduct_withPlaceholderItems(t *testing.T) {
 			itemIndex += expectedInvoiceItemsPerProduct[productID]
 		}
 	})
+}
+
+func TestEgressOverageFunctionality(t *testing.T) {
+	defaultPlacement := storj.DefaultPlacement
+	includedEgressDesc := "Included Egress"
+	additionalEgressDesc := "Additional Egress"
+	standardEgressDesc := "Egress Bandwidth"
+
+	price := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "1",
+		EgressTB:  "2",
+		Segment:   "3",
+	}
+
+	priceWithDiscount := paymentsconfig.ProductUsagePrice{
+		Name:              "Global",
+		EgressOverageMode: false,
+		ProjectUsagePrice: price,
+	}
+	priceWithDiscount.EgressDiscountRatio = 2.0 // 2X multiplier.
+
+	testCases := []struct {
+		name                   string
+		productConfig          paymentsconfig.ProductUsagePrice
+		egressUsage            int64
+		storageUsage           int64
+		expectIncludedEgress   bool
+		expectAdditionalEgress bool
+		expectStandardEgress   bool
+		expectedDiscountRatio  string
+	}{
+		{
+			name: "Overage mode with included and additional egress",
+			productConfig: func() paymentsconfig.ProductUsagePrice {
+				config := priceWithDiscount
+				config.EgressOverageMode = true
+				return config
+			}(),
+			egressUsage:            10000000, // 10MB.
+			storageUsage:           1000000,  // 1MB storage -> 2MB included egress (2X ratio).
+			expectIncludedEgress:   true,
+			expectAdditionalEgress: true,
+			expectStandardEgress:   false,
+			expectedDiscountRatio:  "2X",
+		},
+		{
+			name: "Overage mode with only included egress (no overage)",
+			productConfig: func() paymentsconfig.ProductUsagePrice {
+				config := priceWithDiscount
+				config.EgressOverageMode = true
+				return config
+			}(),
+			egressUsage:            1000000, // 1MB egress.
+			storageUsage:           1000000, // 1MB storage -> 2MB included egress (2X ratio).
+			expectIncludedEgress:   true,
+			expectAdditionalEgress: false,
+			expectStandardEgress:   false,
+			expectedDiscountRatio:  "2X",
+		},
+		{
+			name: "Overage mode with zero egress and storage",
+			productConfig: func() paymentsconfig.ProductUsagePrice {
+				config := priceWithDiscount
+				config.EgressOverageMode = true
+				return config
+			}(),
+			egressUsage:            0,
+			storageUsage:           0,
+			expectIncludedEgress:   false,
+			expectAdditionalEgress: false,
+			expectStandardEgress:   false,
+		},
+		{
+			name: "Standard mode - should use traditional egress item",
+			productConfig: func() paymentsconfig.ProductUsagePrice {
+				config := priceWithDiscount
+				config.EgressOverageMode = false
+				return config
+			}(),
+			egressUsage:            10000000,
+			storageUsage:           1000000,
+			expectIncludedEgress:   false,
+			expectAdditionalEgress: false,
+			expectStandardEgress:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var productOverrides paymentsconfig.ProductPriceOverrides
+			productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+				1: tc.productConfig,
+			})
+
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+						config.Placement = nodeselection.ConfigurablePlacementRule{
+							PlacementRules: `0:annotation("location", "test")`,
+						}
+
+						var placementProductMap paymentsconfig.PlacementProductMap
+						placementProductMap.SetMap(map[int]int32{0: 1})
+						config.Payments.PlacementPriceOverrides = placementProductMap
+						config.Payments.Products = productOverrides
+					},
+				},
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+				sat := planet.Satellites[0]
+				db := sat.DB
+				stripeService := sat.API.Payments.StripeService
+
+				sat.Accounting.Tally.Loop.Pause()
+				sat.Accounting.Rollup.Loop.Pause()
+				sat.Accounting.RollupArchive.Loop.Pause()
+
+				// Create test data.
+				project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: "test project"})
+				require.NoError(t, err)
+				bucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{ID: testrand.UUID(), Name: "test-bucket", ProjectID: project.ID, Placement: storj.DefaultPlacement})
+				require.NoError(t, err)
+
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(bucket.Name),
+					Placement:  &defaultPlacement,
+				})
+				require.NoError(t, err)
+
+				period := time.Now().UTC()
+				firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
+				lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
+
+				generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket.Name, tc.egressUsage, tc.storageUsage, 1000000)
+
+				// Process through stripe service.
+				productUsages := make(map[int32]accounting.ProjectUsage)
+				productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+				start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+				end := start.AddDate(0, 1, 0)
+
+				record := stripe.ProjectRecord{ProjectID: project.ID, Storage: 1}
+				_, err = stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+				require.NoError(t, err)
+
+				// Verify the product configuration.
+				require.Len(t, productInfos, 1)
+				productInfo := productInfos[1]
+				require.Equal(t, tc.productConfig.EgressOverageMode, productInfo.EgressOverageMode)
+
+				// Generate invoice items.
+				invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+				// Check invoice items.
+				var foundIncludedEgress, foundAdditionalEgress, foundStandardEgress bool
+				var includedEgressItem, additionalEgressItem, standardEgressItem *stripeSDK.InvoiceItemParams
+
+				for _, item := range invoiceItems {
+					desc := *item.Description
+					require.NotNil(t, desc)
+
+					if strings.Contains(desc, includedEgressDesc) {
+						foundIncludedEgress = true
+						includedEgressItem = item
+					} else if strings.Contains(desc, additionalEgressDesc) {
+						foundAdditionalEgress = true
+						additionalEgressItem = item
+					} else if strings.Contains(desc, standardEgressDesc) {
+						foundStandardEgress = true
+						standardEgressItem = item
+					}
+				}
+
+				// Validate expectations.
+				require.Equal(t, tc.expectIncludedEgress, foundIncludedEgress)
+				require.Equal(t, tc.expectAdditionalEgress, foundAdditionalEgress)
+				require.Equal(t, tc.expectStandardEgress, foundStandardEgress)
+
+				// Validate included egress item details.
+				if tc.expectIncludedEgress {
+					require.NotNil(t, includedEgressItem)
+					require.Contains(t, *includedEgressItem.Description, tc.productConfig.Name)
+					require.Contains(t, *includedEgressItem.Description, tc.expectedDiscountRatio)
+					require.Equal(t, float64(0), *includedEgressItem.UnitAmountDecimal) // $0 price.
+					require.Greater(t, *includedEgressItem.Quantity, int64(0))          // Should have quantity > 0.
+				}
+
+				// Validate additional egress item details.
+				if tc.expectAdditionalEgress {
+					require.NotNil(t, additionalEgressItem)
+					require.Contains(t, *additionalEgressItem.Description, tc.productConfig.Name)
+					require.Contains(t, *additionalEgressItem.Description, additionalEgressDesc)
+					require.Greater(t, *additionalEgressItem.UnitAmountDecimal, float64(0)) // Should have price > $0.
+					require.Greater(t, *additionalEgressItem.Quantity, int64(0))            // Should have quantity > 0.
+				}
+
+				// Validate standard egress item details.
+				if tc.expectStandardEgress {
+					require.NotNil(t, standardEgressItem)
+					require.Contains(t, *standardEgressItem.Description, tc.productConfig.Name)
+					require.Contains(t, *standardEgressItem.Description, standardEgressDesc)
+				}
+			})
+		})
+	}
 }
 
 func generateProjectUsage(ctx context.Context, tb testing.TB, db satellite.DB, projectID uuid.UUID, start, end time.Time, bucket string, egress, totalBytes, totalSegments int64) {
