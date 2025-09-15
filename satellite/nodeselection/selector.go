@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zeebo/errs"
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
@@ -1044,4 +1045,34 @@ func DailyPeriods(values ...int64) func() int64 {
 func DailyPeriodsForHour(hour int, values []int64) int64 {
 	adjustedIndex := hour * len(values) / 24.0
 	return values[adjustedIndex]
+}
+
+// MultiSelector can combine multiple selectors. It will call each selector in order, and combine the results.
+func MultiSelector(selectors ...NodeSelectorInit) NodeSelectorInit {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		var all []NodeSelector
+		for _, delegate := range selectors {
+			all = append(all, delegate(ctx, nodes, filter))
+		}
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (nodes []*SelectedNode, err error) {
+			for _, delegate := range all {
+				selectedNodes, selectErr := delegate(ctx, requester, n/len(selectors), excluded, alreadySelected)
+				if err != nil {
+					err = errs.Combine(err, selectErr)
+				}
+				nodes = append(nodes, selectedNodes...)
+			}
+			return nodes, err
+		}
+	}
+}
+
+// FixedSelector selector can override the number of the required nodes, and select more (or less).
+func FixedSelector(fixed int64, delegate NodeSelectorInit) NodeSelectorInit {
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		selector := delegate(ctx, nodes, filter)
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (nodes []*SelectedNode, err error) {
+			return selector(ctx, requester, int(fixed), excluded, alreadySelected)
+		}
+	}
 }

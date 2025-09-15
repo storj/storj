@@ -142,7 +142,7 @@ func main() {
 					*retries = math.MaxInt32
 				}
 				for try := 0; try < *retries; try++ {
-					if tryConnect(target) {
+					if tryConnect(ctx, target) {
 						return nil
 					}
 					fmt.Print(".")

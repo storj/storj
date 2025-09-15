@@ -32,6 +32,10 @@ func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.RangedLoop.Parallelism = 4
 					config.RangedLoop.BatchSize = 4
+
+					// disable repairer to not interfere with the test
+					// as used RS will trigger repair for segments
+					config.Repairer.Interval = -1
 				},
 			),
 		},
@@ -116,6 +120,10 @@ func TestManyObjectsNodeTallyRangedLoop(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.RangedLoop.Parallelism = 4
 					config.RangedLoop.BatchSize = 4
+
+					// disable repairer to not interfere with the test
+					// as used RS will trigger repair for segments
+					config.Repairer.Interval = -1
 				},
 			),
 		},
@@ -187,8 +195,15 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(2, 2, 2, 2),
 				func(log *zap.Logger, index int, config *satellite.Config) {
+					// disable ranged loop interval execution
+					// to execute it manually to have a predictable test
+					config.RangedLoop.Interval = -1
 					config.RangedLoop.Parallelism = 4
 					config.RangedLoop.BatchSize = 4
+
+					// disable repairer to not interfere with the test
+					// as used RS will trigger repair for segments
+					config.Repairer.Interval = -1
 				},
 			),
 		},

@@ -26,6 +26,7 @@ test.describe('User settings', () => {
         await loginPage.choosePersonalAccSetup();
         await loginPage.fillPersonalSetupForm(name);
         await loginPage.selectFreeTrial();
+        await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
         await loginPage.finishSetup();
 
@@ -57,6 +58,7 @@ test.describe('User settings', () => {
         await loginPage.choosePersonalAccSetup();
         await loginPage.fillPersonalSetupForm(name);
         await loginPage.selectFreeTrial();
+        await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
         await loginPage.finishSetup();
 
@@ -87,6 +89,7 @@ test.describe('User settings', () => {
         await loginPage.choosePersonalAccSetup();
         await loginPage.fillPersonalSetupForm(name);
         await loginPage.selectFreeTrial();
+        await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
         await loginPage.finishSetup();
 

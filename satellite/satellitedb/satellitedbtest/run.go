@@ -231,11 +231,26 @@ func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbuti
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
-	t.Parallel()
+	RunWithConfig(t, Config{}, test)
+}
+
+// Config allows customizing Run behaviour.
+type Config struct {
+	NonParallel bool
+}
+
+// RunWithConfig method will iterate over all supported databases. Will establish
+// connection and will create tables for each DB.
+func RunWithConfig(t *testing.T, cfg Config, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
+	if !cfg.NonParallel {
+		t.Parallel()
+	}
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
 		t.Run(dbInfo.Name, func(t *testing.T) {
-			t.Parallel()
+			if !cfg.NonParallel {
+				t.Parallel()
+			}
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()

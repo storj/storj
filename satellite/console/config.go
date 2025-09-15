@@ -32,7 +32,7 @@ type Config struct {
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
 	BillingFeaturesEnabled            bool                      `help:"indicates if billing features should be enabled" default:"true"`
-	MaxAddFundsAmount                 int                       `help:"maximum amount (in cents) allowed to be added to an account balance." default:"10000"`
+	MaxAddFundsAmount                 int                       `help:"maximum amount (in cents) allowed to be added to an account balance." default:"250000"`
 	MinAddFundsAmount                 int                       `help:"minimum amount (in cents) allowed to be added to an account balance." default:"1000"`
 	UpgradePayUpfrontAmount           int                       `help:"amount (in cents) required to upgrade to a paid tier, use 0 to disable" default:"0"`
 	SignupActivationCodeEnabled       bool                      `help:"indicates whether the whether account activation is done using activation code" default:"true" testDefault:"false" devDefault:"false"`
@@ -90,8 +90,9 @@ type RestAPIKeysConfig struct {
 
 // PlacementsConfig contains configurations for self-serve placement logic.
 type PlacementsConfig struct {
-	SelfServeEnabled bool             `help:"whether self-serve placement selection feature is enabled" default:"false"`
-	SelfServeDetails PlacementDetails `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
+	SelfServeEnabled                  bool                              `help:"whether self-serve placement selection feature is enabled" default:"false"`
+	SelfServeDetails                  PlacementDetails                  `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
+	AllowedPlacementIdsForNewProjects AllowedPlacementIDsForNewProjects `help:"list of placement IDs that are allowed for new projects, e.g.[0, 10]" default:"[]"`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.
@@ -136,6 +137,47 @@ type EdgeURLOverrides struct {
 	AuthService         string `json:"authService,omitempty"`
 	PublicLinksharing   string `json:"publicLinksharing,omitempty"`
 	InternalLinksharing string `json:"internalLinksharing,omitempty"`
+}
+
+// AllowedPlacementIDsForNewProjects represents a list of placement IDs that are allowed for new projects.
+type AllowedPlacementIDsForNewProjects []storj.PlacementConstraint
+
+// Ensure that AllowedPlacementIDsForNewProjects implements pflag.Value.
+var _ pflag.Value = (*AllowedPlacementIDsForNewProjects)(nil)
+
+// Type implements pflag.Value.
+func (*AllowedPlacementIDsForNewProjects) Type() string {
+	return "console.AllowedPlacementIDsForNewProjects"
+}
+
+// String implements pflag.Value.
+func (ap *AllowedPlacementIDsForNewProjects) String() string {
+	if ap == nil || len(*ap) == 0 {
+		return ""
+	}
+
+	placements, err := json.Marshal(ap)
+	if err != nil {
+		return ""
+	}
+
+	return string(placements)
+}
+
+// Set implements pflag.Value.
+func (ap *AllowedPlacementIDsForNewProjects) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	var placements []storj.PlacementConstraint
+	err := json.Unmarshal([]byte(s), &placements)
+	if err != nil {
+		return err
+	}
+	*ap = placements
+
+	return nil
 }
 
 // PlacementEdgeURLOverrides represents a mapping between placement IDs and edge service URL overrides.

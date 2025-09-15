@@ -31,7 +31,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.UncoordinatedDeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket: metabase.BucketLocation{
 						ProjectID:  uuid.UUID{},
 						BucketName: "",
@@ -42,7 +42,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.UncoordinatedDeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket: metabase.BucketLocation{
 						ProjectID:  uuid.UUID{1},
 						BucketName: "",
@@ -59,7 +59,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.UncoordinatedDeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 0,
@@ -74,7 +74,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj1, 2)
 
 			metabasetest.UncoordinatedDeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 1,
@@ -89,7 +89,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj1, 0)
 
 			metabasetest.UncoordinatedDeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 1,
@@ -106,7 +106,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj3, 2)
 
 			metabasetest.UncoordinatedDeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
 				},
@@ -133,7 +133,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 			metabasetest.CreateObject(ctx, t, db, obj1, 1)
 
 			metabasetest.UncoordinatedDeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket: obj1.Location().Bucket(),
 				},
 				Deleted: 1,
@@ -201,7 +201,7 @@ func TestUncoordinatedDeleteAllBucketObjectsParallel(t *testing.T) {
 		var errgroup errgroup.Group
 		for i := 0; i < 3; i++ {
 			errgroup.Go(func() error {
-				_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+				_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 2,
 				})
@@ -222,7 +222,7 @@ func TestUncoordinatedDeleteAllBucketObjectsCancel(t *testing.T) {
 
 		testCtx, cancel := context.WithCancel(ctx)
 		cancel()
-		_, err := db.UncoordinatedDeleteAllBucketObjects(testCtx, metabase.DeleteAllBucketObjects{
+		_, err := db.UncoordinatedDeleteAllBucketObjects(testCtx, metabase.UncoordinatedDeleteAllBucketObjects{
 			Bucket:    object.Location().Bucket(),
 			BatchSize: 2,
 		})
@@ -262,7 +262,7 @@ func TestUncoordinatedDeleteBucketWithCopies(t *testing.T) {
 						CopyObjectStream: &copyObjectStream,
 					}.Run(ctx, t, db)
 
-					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  originalObjStream.ProjectID,
 							BucketName: "copy-bucket",
@@ -301,7 +301,7 @@ func TestUncoordinatedDeleteBucketWithCopies(t *testing.T) {
 						CopyObjectStream: &copyObjectStream,
 					}.Run(ctx, t, db)
 
-					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  originalObjStream.ProjectID,
 							BucketName: "original-bucket",
@@ -365,7 +365,7 @@ func TestUncoordinatedDeleteBucketWithCopies(t *testing.T) {
 					}.Run(ctx, t, db)
 
 					// done preparing, delete bucket 2
-					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+					_, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 						Bucket: metabase.BucketLocation{
 							ProjectID:  projectID,
 							BucketName: "bucket2",

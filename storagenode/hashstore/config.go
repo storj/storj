@@ -13,7 +13,7 @@ import (
 
 // Config is the configuration for the hashstore.
 type Config struct {
-	SyncLifo         bool         `help:"controls if waiters are processed in LIFO or FIFO order." default:"false"`
+	SyncLifo         bool         `help:"controls if waiters are processed in LIFO or FIFO order." default:"false" hidden:"true"`
 	LogsPath         string       `help:"path to store log files in (by default, it's relative to the storage directory)'" default:"hashstore"`
 	TablePath        string       `help:"path to store tables in. Can be same as LogsPath, as subdirectories are used (by default, it's relative to the storage directory)" default:"hashstore"`
 	TableDefaultKind TableKindCfg `help:"default table kind to use (hashtbl or memtbl) during NEW compations" default:"hashtbl"`
@@ -58,17 +58,17 @@ var _ pflag.Value = (*TableKindCfg)(nil)
 // CompactionCfg is the configuration for log compaction.
 type CompactionCfg struct {
 	MaxLogSize             uint64  `help:"max size of a log file" default:"1073741824"`
-	ExpiresDays            uint64  `help:"number of days to keep trash records around" default:"7"`
+	ExpiresDays            uint64  `help:"number of days to keep trash records around" default:"7" hidden:"true"`
 	AliveFraction          float64 `help:"if the log file is not this alive, compact it" default:"0.25"`
 	ProbabilityPower       float64 `help:"power to raise the rewrite probability to. >1 means must be closer to the alive fraction to be compacted, <1 means the opposite" default:"2.0"`
 	RewriteMultiple        float64 `help:"multiple of the hashtbl to rewrite in a single compaction" default:"10"`
-	DeleteTrashImmediately bool    `help:"if set, deletes all trash immediately instead of after the ttl" default:"false"`
+	DeleteTrashImmediately bool    `help:"if set, deletes all trash immediately instead of after the ttl" default:"false" hidden:"true"`
 	OrderedRewrite         bool    `help:"controls if we collect records and sort them and rewrite them before the hashtbl" default:"true"`
 }
 
 // StoreCfg is the configuration for the store.
 type StoreCfg struct {
-	FlushSemaphore int  `help:"controls the number of concurrent flushes to log files" default:"0"`
+	FlushSemaphore int  `help:"controls the number of concurrent flushes to log files" default:"0" hidden:"true"`
 	SyncWrites     bool `help:"if set, writes to the log file and table are fsync'd to disk" default:"false"`
 }
 

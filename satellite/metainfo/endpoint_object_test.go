@@ -2858,8 +2858,6 @@ func TestListUploads(t *testing.T) {
 }
 
 func TestNodeTagPlacement(t *testing.T) {
-	ctx := testcontext.New(t)
-
 	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 
 	placementRules := nodeselection.ConfigurablePlacementRule{}
@@ -2893,7 +2891,7 @@ func TestNodeTagPlacement(t *testing.T) {
 								},
 							},
 						}
-						signed, err := nodetag.Sign(ctx, tags, satelliteIdentity)
+						signed, err := nodetag.Sign(t.Context(), tags, satelliteIdentity)
 						require.NoError(t, err)
 
 						config.Contact.Tags = contact.SignedTags(pb.SignedNodeTagSets{
@@ -3363,11 +3361,15 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 		restrictedLegalHoldApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowPutLegalHold: true})
 		require.NoError(t, err)
 
-		createBucket := func(t *testing.T, name string, lockEnabled bool) {
+		createBucket := func(t *testing.T, name string, versioned, lockEnabled bool) {
+			versioning := buckets.VersioningEnabled
+			if !versioned {
+				versioning, lockEnabled = buckets.Unversioned, false
+			}
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 				Name:       name,
 				ProjectID:  project.ID,
-				Versioning: buckets.VersioningEnabled,
+				Versioning: versioning,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled: lockEnabled,
 				},
@@ -3486,7 +3488,7 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 		}
 
 		bucketName := testrand.BucketName()
-		createBucket(t, bucketName, true)
+		createBucket(t, bucketName, true, true)
 
 		t.Run("BeginObject and CommitObject", func(t *testing.T) {
 			t.Run("Success", func(t *testing.T) {
@@ -3560,9 +3562,20 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				})
 			})
 
+			t.Run("unversioned bucket", func(t *testing.T) {
+				bucketName := testrand.BucketName()
+				createBucket(t, bucketName, false, false)
+
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, err := endpoint.BeginObject(ctx, reqs.beginObject)
+					rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
+			})
+
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
 				bucketName := testrand.BucketName()
-				createBucket(t, bucketName, false)
+				createBucket(t, bucketName, true, false)
 
 				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
 					_, err := endpoint.BeginObject(ctx, reqs.beginObject)
@@ -3688,9 +3701,20 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				})
 			})
 
+			t.Run("unversioned bucket", func(t *testing.T) {
+				bucketName := testrand.BucketName()
+				createBucket(t, bucketName, false, false)
+
+				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
+					_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
+					rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
+					requireNoObject(t, bucketName, string(reqs.beginObject.EncryptedObjectKey))
+				})
+			})
+
 			t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
 				bucketName := testrand.BucketName()
-				createBucket(t, bucketName, false)
+				createBucket(t, bucketName, true, false)
 
 				runLockCases(t, apiKey, bucketName, func(t *testing.T, reqs uploadRequests) {
 					_, _, _, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
@@ -4083,12 +4107,16 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			return object
 		}
 
-		createBucket := func(t *testing.T, lockEnabled bool) string {
+		createBucket := func(t *testing.T, versioned, lockEnabled bool) string {
+			versioning := buckets.VersioningEnabled
+			if !versioned {
+				versioning, lockEnabled = buckets.Unversioned, false
+			}
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 				Name:       name,
 				ProjectID:  project.ID,
-				Versioning: buckets.VersioningEnabled,
+				Versioning: versioning,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled: lockEnabled,
 				},
@@ -4097,7 +4125,7 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			return name
 		}
 
-		lockBucketName := createBucket(t, true)
+		lockBucketName := createBucket(t, true, true)
 
 		t.Run("Success", func(t *testing.T) {
 			objStream1 := randObjectStream(project.ID, lockBucketName)
@@ -4255,8 +4283,19 @@ func TestEndpoint_GetObjectLegalHold(t *testing.T) {
 			require.True(t, resp.Enabled)
 		})
 
+		t.Run("unversioned bucket", func(t *testing.T) {
+			bucketName := createBucket(t, false, false)
+			resp, err := endpoint.GetObjectLegalHold(ctx, &pb.GetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
+			})
+			require.Nil(t, resp)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
+		})
+
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
-			bucketName := createBucket(t, false)
+			bucketName := createBucket(t, true, false)
 			resp, err := endpoint.GetObjectLegalHold(ctx, &pb.GetObjectLegalHoldRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte(bucketName),
@@ -4362,12 +4401,16 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 			return object
 		}
 
-		createBucket := func(t *testing.T, lockEnabled bool) string {
+		createBucket := func(t *testing.T, versioned, lockEnabled bool) string {
+			versioning := buckets.VersioningEnabled
+			if !versioned {
+				versioning, lockEnabled = buckets.Unversioned, false
+			}
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 				Name:       name,
 				ProjectID:  project.ID,
-				Versioning: buckets.VersioningEnabled,
+				Versioning: versioning,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled: lockEnabled,
 				},
@@ -4376,7 +4419,7 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 			return name
 		}
 
-		lockBucketName := createBucket(t, true)
+		lockBucketName := createBucket(t, true, true)
 
 		t.Run("Set legal hold", func(t *testing.T) {
 			objStream := randObjectStream(project.ID, lockBucketName)
@@ -4537,8 +4580,23 @@ func TestEndpoint_SetObjectLegalHold(t *testing.T) {
 			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		})
 
+		t.Run("unversioned bucket", func(t *testing.T) {
+			bucketName := createBucket(t, false, false)
+			obj := createObject(t, randObjectStream(project.ID, bucketName), false)
+
+			_, err := endpoint.SetObjectLegalHold(ctx, &pb.SetObjectLegalHoldRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(obj.BucketName),
+				EncryptedObjectKey: []byte(obj.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+				Enabled:            true,
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
+			requireLegalHold(t, obj.Location(), obj.Version, false)
+		})
+
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
-			bucketName := createBucket(t, false)
+			bucketName := createBucket(t, true, false)
 			obj := createObject(t, randObjectStream(project.ID, bucketName), false)
 
 			_, err := endpoint.SetObjectLegalHold(ctx, &pb.SetObjectLegalHoldRequest{
@@ -4642,12 +4700,16 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			return object
 		}
 
-		createBucket := func(t *testing.T, lockEnabled bool) string {
+		createBucket := func(t *testing.T, versioned, lockEnabled bool) string {
+			versioning := buckets.VersioningEnabled
+			if !versioned {
+				versioning, lockEnabled = buckets.Unversioned, false
+			}
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 				Name:       name,
 				ProjectID:  project.ID,
-				Versioning: buckets.VersioningEnabled,
+				Versioning: versioning,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled: lockEnabled,
 				},
@@ -4656,7 +4718,7 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			return name
 		}
 
-		lockBucketName := createBucket(t, true)
+		lockBucketName := createBucket(t, true, true)
 
 		t.Run("Success", func(t *testing.T) {
 			objStream1 := randObjectStream(project.ID, lockBucketName)
@@ -4860,8 +4922,19 @@ func TestEndpoint_GetObjectRetention(t *testing.T) {
 			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockObjectRetentionConfigurationMissing, "object does not have a retention configuration")
 		})
 
+		t.Run("unversioned bucket", func(t *testing.T) {
+			bucketName := createBucket(t, false, false)
+			resp, err := endpoint.GetObjectRetention(ctx, &pb.GetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
+			})
+			require.Nil(t, resp)
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
+		})
+
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
-			bucketName := createBucket(t, false)
+			bucketName := createBucket(t, true, false)
 			resp, err := endpoint.GetObjectRetention(ctx, &pb.GetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Bucket:             []byte(bucketName),
@@ -4969,12 +5042,16 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			return object
 		}
 
-		createBucket := func(t *testing.T, lockEnabled bool) string {
+		createBucket := func(t *testing.T, versioned, lockEnabled bool) string {
+			versioning := buckets.VersioningEnabled
+			if !versioned {
+				versioning, lockEnabled = buckets.Unversioned, false
+			}
 			name := testrand.BucketName()
 			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 				Name:       name,
 				ProjectID:  project.ID,
-				Versioning: buckets.VersioningEnabled,
+				Versioning: versioning,
 				ObjectLock: buckets.ObjectLockSettings{
 					Enabled: lockEnabled,
 				},
@@ -4991,7 +5068,7 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			{name: "Governance mode", mode: storj.GovernanceMode},
 		}
 
-		lockBucketName := createBucket(t, true)
+		lockBucketName := createBucket(t, true, true)
 
 		t.Run("Set retention", func(t *testing.T) {
 			for _, tt := range testCases {
@@ -5317,8 +5394,21 @@ func TestEndpoint_SetObjectRetention(t *testing.T) {
 			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockInvalidObjectState, objectInvalidStateErrMsg)
 		})
 
+		t.Run("unversioned bucket", func(t *testing.T) {
+			bucketName := createBucket(t, false, false)
+			obj := createObject(t, randObjectStream(project.ID, bucketName), metabase.Retention{})
+			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(obj.BucketName),
+				EncryptedObjectKey: []byte(obj.ObjectKey),
+				ObjectVersion:      obj.StreamVersionID().Bytes(),
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing, "Object Lock is not enabled for this bucket")
+			requireRetention(t, obj.Location(), obj.Version, metabase.Retention{})
+		})
+
 		t.Run("Object Lock not enabled for bucket", func(t *testing.T) {
-			bucketName := createBucket(t, false)
+			bucketName := createBucket(t, true, false)
 			obj := createObject(t, randObjectStream(project.ID, bucketName), metabase.Retention{})
 			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},

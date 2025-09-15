@@ -467,6 +467,7 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 			), deleted_segments AS (
 				DELETE FROM segments
 				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING 1
 			)
 			SELECT (SELECT COUNT(*) FROM deleted_objects)
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {

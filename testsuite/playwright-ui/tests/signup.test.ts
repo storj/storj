@@ -31,6 +31,7 @@ test.describe('Sign up personal/business accounts', () => {
         await loginPage.choosePersonalAccSetup();
         await loginPage.fillPersonalSetupForm(name);
         await loginPage.selectFreeTrial();
+        await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
     });
 
@@ -43,6 +44,7 @@ test.describe('Sign up personal/business accounts', () => {
         await loginPage.chooseBusinessAccSetup();
         await loginPage.fillBusinessSetupForm(firstName, lastName, companyName);
         await loginPage.selectFreeTrial();
+        await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
     });
 });

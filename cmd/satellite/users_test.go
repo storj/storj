@@ -178,6 +178,31 @@ func TestDeleteObjects(t *testing.T) {
 	}
 }
 
+func TestDeleteObjectsFromNonExistingBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(100)))
+
+		err := deleteNonExistingBucketObjects(ctx, zaptest.NewLogger(t), planet.Satellites[0].DB.Buckets(), planet.Satellites[0].Metabase.DB, planet.Uplinks[0].Projects[0].ID, "testbucket", 10)
+		require.Error(t, err)
+
+		err = planet.Satellites[0].DB.Buckets().DeleteBucket(ctx, []byte("testbucket"), planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+
+		err = deleteNonExistingBucketObjects(ctx, zaptest.NewLogger(t), planet.Satellites[0].DB.Buckets(), planet.Satellites[0].Metabase.DB, planet.Uplinks[0].Projects[0].ID, "testbucket", 10)
+		require.NoError(t, err)
+
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 0)
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 0)
+	})
+}
+
 func TestDeleteAccounts(t *testing.T) {
 	// The test is based on 16 uplinks because it offers having several users with projects.
 	// The test uses them to create the following scenario following the order of the uplinks. If

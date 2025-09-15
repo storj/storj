@@ -137,6 +137,8 @@ func TestSignupCouponCodes(t *testing.T) {
 			pc.MinimumCharge.Amount,
 			minimumChargeDate,
 			pc.PackagePlans.Packages,
+			sat.Config.Entitlements,
+			nil,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

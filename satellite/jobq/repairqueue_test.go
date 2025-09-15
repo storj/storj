@@ -23,6 +23,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/jobq/jobqtest"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/repair/queue"
@@ -231,7 +232,8 @@ func TestRepairQueue_BatchInsert(t *testing.T) {
 }
 
 func TestRepairQueue_Stat(t *testing.T) {
-	jobqtest.Run(t, func(ctx *testcontext.Context, t *testing.T, rq queue.RepairQueue) {
+	jobqtest.WithServerAndClient(t, nil, func(ctx *testcontext.Context, srv *jobqtest.TestServer, cli *jobq.Client) {
+		rq := jobq.WrapJobQueue(cli)
 		testSegments := make([]*queue.InjuredSegment, 20)
 		for i := 0; i < len(testSegments); i++ {
 
@@ -245,8 +247,11 @@ func TestRepairQueue_Stat(t *testing.T) {
 					Part:  uint32(i),
 					Index: 2,
 				},
-				SegmentHealth: 10,
-				Placement:     placement,
+				SegmentHealth:            10,
+				Placement:                placement,
+				NumNormalizedHealthy:     5,
+				NumNormalizedRetrievable: 6,
+				NumOutOfPlacement:        7,
 			}
 			testSegments[i] = is
 		}
@@ -258,6 +263,12 @@ func TestRepairQueue_Stat(t *testing.T) {
 		require.NoError(t, err)
 		err = rq.Release(ctx, job[0], false)
 		require.NoError(t, err)
+
+		inspect, err := cli.Inspect(ctx, job[0].Placement, job[0].StreamID, job[0].Position.Encode())
+		require.NoError(t, err)
+		require.Equal(t, int16(5), inspect.NumNormalizedHealthy)
+		require.Equal(t, int16(6), inspect.NumNormalizedRetrievable)
+		require.Equal(t, int16(7), inspect.NumOutOfPlacement)
 
 		stat, err := rq.Stat(ctx)
 		require.NoError(t, err)

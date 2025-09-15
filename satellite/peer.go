@@ -40,12 +40,14 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/dbcleanup"
+	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/piecetracker"
@@ -224,10 +226,13 @@ type Config struct {
 	Payments paymentsconfig.Config
 
 	Console          consoleweb.Config
+	Entitlements     entitlements.Config
 	Valdi            valdi.Config
 	ConsoleAuth      consoleauth.Config
 	EmailReminders   emailreminders.Config
 	ConsoleDBCleanup dbcleanup.Config
+
+	PendingDeleteCleanup pendingdelete.Config
 
 	Emission emission.Config
 

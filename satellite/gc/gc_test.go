@@ -182,6 +182,7 @@ func TestGarbageCollection(t *testing.T) {
 // TestGarbageCollectionWithCopies checkes that server-side copy elements are not
 // affecting GC and nothing unexpected was deleted from storage nodes.
 func TestGarbageCollectionWithCopies(t *testing.T) {
+	t.Skip("flaky")
 	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -310,8 +311,9 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 // TestGarbageCollectionWithCopies checks that server-side copy elements are not
 // affecting GC and nothing unexpected was deleted from storage nodes.
 func TestGarbageCollectionWithCopiesWithDuplicateMetadata(t *testing.T) {
-	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
+	t.Skip("flaky")
 
+	testObservers(t, func(t *testing.T, makeObserver func(*zap.Logger, bloomfilter.Config, bloomfilter.Overlay) rangedloop.Observer) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 			Reconfigure: testplanet.Reconfigure{

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -169,6 +170,66 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 		return errs.New("error in deleting objects: %+v", err)
 	}
 
+	return nil
+}
+
+func cmdDeleteNonExistingBucketObjects(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	projectID, err := uuid.FromString(args[0])
+	if err != nil {
+		return errs.New("invalid public project id %q: %+v", args[0], err)
+	}
+	bucketName := args[1]
+
+	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:      "satellite-users",
+		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
+		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
+	})
+	if err != nil {
+		return errs.New("error connecting to satellite database: %+v", err)
+	}
+	defer func() { err = errs.Combine(err, satDB.Close()) }()
+
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, runCfg.Metainfo.Metabase("satellite-uncoordinated-delete"))
+	if err != nil {
+		return errs.New("error creating metabase connection: %+v", err)
+	}
+	defer func() { err = errs.Combine(err, metabaseDB.Close()) }()
+
+	return deleteNonExistingBucketObjects(ctx, log, satDB.Buckets(), metabaseDB, projectID, bucketName, batchSizeDeleteObjects)
+}
+
+func deleteNonExistingBucketObjects(ctx context.Context, log *zap.Logger, bucketsDB buckets.DB, metabaseDB *metabase.DB, projectID uuid.UUID, bucketName string, batchSize int) error {
+
+	// we will be listing and deleting only object that existed at this timestamp
+	// to avoid deleting newer objects that might be created after bucket check.
+	// only case when it can happened is when bucket was deleted and recreated with same name.
+	readTimestamp := time.Now()
+	_, err := bucketsDB.GetBucket(ctx, []byte(bucketName), projectID)
+	if err != nil && !buckets.ErrBucketNotFound.Has(err) {
+		return errs.New("failed to get bucket information: %+v", err)
+	}
+	if err == nil {
+		return errs.New("bucket exists, operation aborted")
+	}
+
+	maxCommitDelay := 25 * time.Millisecond
+	deletedObjectCount, err := metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
+		Bucket: metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: metabase.BucketName(bucketName),
+		},
+		BatchSize:               batchSize,
+		StalenessTimestampBound: spanner.ReadTimestamp(readTimestamp),
+		MaxCommitDelay:          &maxCommitDelay,
+	})
+	log.Info("total deleted objects", zap.String("bucket", bucketName), zap.Int64("count", deletedObjectCount))
+	if err != nil {
+		return errs.New("error in deleting objects: %+v", err)
+	}
 	return nil
 }
 
@@ -668,13 +729,13 @@ func deleteAllObjectsUncoordinated(
 ) (deleteCount int64, err error) {
 
 	maxCommitDelay := 25 * time.Millisecond
-	return metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+	return metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 		Bucket: metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: metabase.BucketName(bucketName),
 		},
-		BatchSize:      batchSizeDeleteObjects,
-		MaxStaleness:   10 * time.Second,
-		MaxCommitDelay: &maxCommitDelay,
+		BatchSize:               batchSize,
+		StalenessTimestampBound: spanner.MaxStaleness(10 * time.Second),
+		MaxCommitDelay:          &maxCommitDelay,
 	})
 }

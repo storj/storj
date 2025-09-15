@@ -203,7 +203,7 @@ func isAddressValid(addrstring string) error {
 	if addr == "" {
 		return nil
 	}
-	resolvedhosts, err := net.LookupHost(addr)
+	resolvedhosts, err := (&net.Resolver{}).LookupHost(context.Background(), addr)
 	if err != nil || len(resolvedhosts) == 0 {
 		return errs.New("lookup %q failed: %+v", addr, err)
 	}

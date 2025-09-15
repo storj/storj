@@ -45,6 +45,14 @@ export class LoginPage {
         await this.page.locator(LoginPageObjects.FREE_PLAN_XPATH).click();
     }
 
+    async selectManagedEnc(automatic: boolean) {
+        if (automatic) {
+            await this.page.locator(LoginPageObjects.AUTOMATIC_ENC_LABEL_XPATH).click();
+        } else {
+            await this.page.locator(LoginPageObjects.SELF_MANAGED_ENC_LABEL_XPATH).click();
+        }
+    }
+
     async ensureSetupSuccess(): Promise<void> {
         const label = this.page.locator(LoginPageObjects.SETUP_SUCCESS_LABEL_XPATH);
         await expect(label).toBeVisible();

@@ -65,9 +65,6 @@ func requireSaneTimestamp(t *testing.T, when time.Time) {
 }
 
 func TestTransactionsDBList(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
 	const (
 		limit            = 5
 		transactionCount = limit * 4

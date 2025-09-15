@@ -157,6 +157,7 @@ func TestInvoiceByProduct(t *testing.T) {
 
 		planet.Satellites[0].Accounting.Tally.Loop.Pause()
 		planet.Satellites[0].Accounting.Rollup.Loop.Pause()
+		planet.Satellites[0].Accounting.RollupArchive.Loop.Pause()
 
 		for _, testCase := range testCases {
 			project1, err := db.Console().Projects().Insert(

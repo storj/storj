@@ -118,13 +118,15 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			testmonkit.Run(t.Context(), t, func(parent context.Context) {
 				pprof.Do(parent, pprof.Labels("test", t.Name()), func(parent context.Context) {
 					jobqtest.WithServer(t, &jobqtest.ServerOptions{
-						Host: planetConfig.Host,
+						Host:    planetConfig.Host,
+						Timeout: config.Timeout,
 					}, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
 						timeout := config.Timeout
 						if timeout == 0 {
 							timeout = testcontext.DefaultTimeout
 						}
 						ctx = testcontext.NewWithContextAndTimeout(ctx, t, timeout)
+						defer ctx.Cleanup()
 
 						reconfig := func(log *zap.Logger, index int, config *satellite.Config) {
 							config.JobQueue = jobq.Config{

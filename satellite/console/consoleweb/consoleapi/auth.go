@@ -109,6 +109,11 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if tokenRequest.Password == "" {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("password is required"))
+		return
+	}
+
 	tokenRequest.UserAgent = r.UserAgent()
 	tokenRequest.IP, err = web.GetRequestIP(r)
 	if err != nil {

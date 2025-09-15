@@ -362,6 +362,23 @@ var (
 		RunE:  cmdFixLastNets,
 	}
 
+	entitlementsCmd = &cobra.Command{
+		Use:   "entitlements",
+		Short: "Entitlements administration",
+		Long:  "Operations to administrate satellite entitlements",
+	}
+	projectEntitlementsCmd = &cobra.Command{
+		Use:   "projects",
+		Short: "Project entitlements administration",
+		Long:  "Operations to administrate satellite project entitlements",
+	}
+	setNewBucketPlacementsCmd = &cobra.Command{
+		Use:   "set-new-bucket-placements",
+		Short: "Set NewBucketPlacements entitlement for projects",
+		Long:  "Set NewBucketPlacements entitlement for projects to be reused during new bucket creation",
+		RunE:  cmdSetNewBucketPlacements,
+	}
+
 	usersCmd = &cobra.Command{
 		Use:   "user-accounts",
 		Short: "User accounts administration",
@@ -395,6 +412,16 @@ var (
 			"The owner-email argument is used to verify that the provided project and bucket are owned by the user with this email address.",
 		Args: cobra.ExactArgs(3),
 		RunE: cmdDeleteAllObjectsUncoordinated,
+	}
+
+	deleteNonExistingBucketObjectsCmd = &cobra.Command{
+		Use:   "delete-non-existing-bucket-objects <project-id> <bucket-name>",
+		Short: "Delete all the objects in a bucket",
+		Long: "Deletes the objects in a given bucket, but does not guarantee consistency, while the " +
+			"delete is in progress. Bucket must not exists at the moment when command is executed otherwise " +
+			"command will return error",
+		Args: cobra.ExactArgs(2),
+		RunE: cmdDeleteNonExistingBucketObjects,
 	}
 
 	deleteAccountsCmd = &cobra.Command{
@@ -513,6 +540,7 @@ func init() {
 	rootCmd.AddCommand(fixLastNetsCmd)
 	rootCmd.AddCommand(usersCmd)
 	rootCmd.AddCommand(valueAttributionCmd)
+	rootCmd.AddCommand(entitlementsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -534,6 +562,12 @@ func init() {
 	billingCmd.AddCommand(completePendingInvoiceTokenPaymentCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
 	billingCmd.AddCommand(generateListOfReusedCardFingerprints)
+	entitlementsCmd.AddCommand(projectEntitlementsCmd)
+	projectEntitlementsCmd.AddCommand(setNewBucketPlacementsCmd)
+	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsEmail, "email", "", "Set bucket placements for all active projects of a specific user by email")
+	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsCSV, "csv", "", "Set bucket placements for all active projects of users listed in CSV file")
+	setNewBucketPlacementsCmd.Flags().StringVar(&setNewBucketPlacementsJSON, "placements", "", "JSON array of placement IDs to set (e.g., \"[0, 12]\"). If not provided, uses satellite config defaults")
+	setNewBucketPlacementsCmd.Flags().BoolVar(&setNewBucketPlacementsSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
@@ -542,6 +576,7 @@ func init() {
 	usersCmd.AddCommand(deleteAllObjectsUncoordinatedCmd)
 	deleteAllObjectsUncoordinatedCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
 	deleteAllObjectsUncoordinatedCmd.Flags().BoolVar(&executeDeleteAllObjectsUncoordinated, "really-run-this-dangerous-command-without-any-confirmation", false, "This disables bucket reconfirmation.")
+	usersCmd.AddCommand(deleteNonExistingBucketObjectsCmd)
 	usersCmd.AddCommand(setAccountsStatusPendingDeletionCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -586,9 +621,11 @@ func init() {
 	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteAllObjectsUncoordinatedCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(deleteNonExistingBucketObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(valueAttributionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setNewBucketPlacementsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)

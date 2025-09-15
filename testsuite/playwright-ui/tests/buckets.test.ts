@@ -26,6 +26,7 @@ test.describe('buckets', () => {
         await loginPage.choosePersonalAccSetup();
         await loginPage.fillPersonalSetupForm(name);
         await loginPage.selectFreeTrial();
+        await loginPage.selectManagedEnc(false);
         await loginPage.ensureSetupSuccess();
         await loginPage.finishSetup();
 

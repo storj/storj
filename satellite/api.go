@@ -537,6 +537,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Orders,
 			nodeSelectionStats,
 			config.BucketEventing.Buckets,
+			peer.Entitlements.Service,
+			config.Entitlements,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -886,6 +888,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.MinimumCharge.Amount,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
+				config.Entitlements,
+				peer.Entitlements.Service,
 				consoleConfig.Config,
 			)
 			if err != nil {

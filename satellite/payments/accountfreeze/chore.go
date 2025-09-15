@@ -661,6 +661,17 @@ func (chore *Chore) attemptEscalateTrialExpirationFreeze(ctx context.Context) {
 					zap.Any("userID", event.UserID),
 					zap.Error(Error.Wrap(err)),
 				)
+				totalSkipped++
+				continue
+			}
+
+			if user.Status != console.Active {
+				chore.log.Info("Skipping user; account not active",
+					zap.String("process", "trial expiration freeze escalation"),
+					zap.Any("userID", event.UserID),
+					zap.String("status", user.Status.String()),
+				)
+				totalSkipped++
 				continue
 			}
 

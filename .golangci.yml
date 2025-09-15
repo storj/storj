@@ -179,6 +179,12 @@ linters:
       - linters: # uninteresting, it's fine to redefine builtins
           - revive
         text: redefines-builtin-id
+      - linters:
+          - noctx
+        text: "net.Listen must not be called"
+      - linters:
+          - noctx
+        text: "os/exec.Command must not be called"
     paths:
       - .*\.pb\.go$
       - .*\.dbx\.go$

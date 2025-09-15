@@ -312,8 +312,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
 			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
 		}
-		if placementDetail, exists := endpoint.selfServePlacements[bucketReq.Placement]; !exists || placementDetail.WaitlistURL != "" {
-			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+		if err = endpoint.validateSelfServePlacement(ctx, project.PublicID, bucketReq.Placement); err != nil {
+			return nil, err
 		}
 	} else {
 		bucketReq.Placement = project.DefaultPlacement
