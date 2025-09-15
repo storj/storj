@@ -36,6 +36,7 @@ var (
 	entitlementUserEmailCSV string
 	entitlementJSON         string
 	entitlementSkipConfirm  bool
+	entitlementVerbose      bool
 )
 
 type processingArgs struct {
@@ -45,6 +46,7 @@ type processingArgs struct {
 	newPlacements     []storj.PlacementConstraint
 	allowedPlacements []storj.PlacementConstraint
 	skipConfirm       bool
+	verbose           bool
 
 	productPlacementMap entitlements.ProductPlacementMappings
 	defaultPartnerMap   payments.PartnersPlacementProductMap
@@ -98,7 +100,12 @@ func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
 		newPlacements:     newPlacements,
 		allowedPlacements: runCfg.Console.Placement.AllowedPlacementIdsForNewProjects,
 		skipConfirm:       entitlementSkipConfirm,
+		verbose:           entitlementVerbose,
 		action:            actionSetNewBucketPlacements,
+	}
+
+	if args.verbose {
+		log.Info("Setting new bucket placements", zap.Any("placements", newPlacements), zap.Any("allowed_placements", args.allowedPlacements))
 	}
 
 	// Determine which users/projects to target.
@@ -145,10 +152,15 @@ func setProductPlacementMap(ctx context.Context, log *zap.Logger, satDB satellit
 
 	var partnerMapping payments.PartnersPlacementProductMap
 	if mappings == nil {
-		log.Info("Setting new bucket placements to default values")
 
 		partnerMapping = runCfg.Payments.PartnersPlacementPriceOverrides.ToMap()
 		partnerMapping[""] = runCfg.Payments.PlacementPriceOverrides.ToMap()
+
+		logArgs := make([]zap.Field, 0)
+		if entitlementVerbose {
+			logArgs = append(logArgs, zap.Any("mapping", partnerMapping))
+		}
+		log.Info("Setting new bucket placements using default partner mappings", logArgs...)
 	} else {
 		productPrices, err := runCfg.Payments.Products.ToModels()
 		if err != nil {
@@ -166,7 +178,11 @@ func setProductPlacementMap(ctx context.Context, log *zap.Logger, satDB satellit
 			}
 		}
 
-		log.Info("Setting product-placement mapping to provided value")
+		logArgs := make([]zap.Field, 0)
+		if entitlementVerbose {
+			logArgs = append(logArgs, zap.Any("mapping", mappings))
+		}
+		log.Info("Setting product-placement mapping to provided values", logArgs...)
 	}
 
 	entitlementsService := entitlements.NewService(log.Named("entitlements"), satDB.Console().Entitlements())
@@ -176,6 +192,8 @@ func setProductPlacementMap(ctx context.Context, log *zap.Logger, satDB satellit
 		entService:          entitlementsService,
 		productPlacementMap: mappings,
 		defaultPartnerMap:   partnerMapping,
+		skipConfirm:         entitlementSkipConfirm,
+		verbose:             entitlementVerbose,
 		action:              actionSetProductPlacementMap,
 	}
 
@@ -248,6 +266,10 @@ func processProject(ctx context.Context, project console.Project, args processin
 			return errs.New("error setting product-placement mapping for project %s: %+v", project.PublicID, err)
 		}
 
+		if args.verbose {
+			args.log.Info("Set product-placement mapping for project", zap.String("project_id", project.PublicID.String()), zap.Any("mapping", productPlacementMap))
+		}
+
 		return nil
 	}
 
@@ -258,16 +280,22 @@ func processProject(ctx context.Context, project console.Project, args processin
 		return nil
 	}
 
+	newPlacements := args.allowedPlacements
 	if project.DefaultPlacement == storj.DefaultPlacement {
 		if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, args.allowedPlacements); err != nil {
 			return errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err)
 		}
-		return nil
+	} else {
+		newPlacements = []storj.PlacementConstraint{project.DefaultPlacement}
+		if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, []storj.PlacementConstraint{project.DefaultPlacement}); err != nil {
+			return errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err)
+		}
 	}
 
-	if err = args.entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, []storj.PlacementConstraint{project.DefaultPlacement}); err != nil {
-		return errs.New("error setting new bucket placements for project %s: %+v", project.PublicID, err)
+	if args.verbose {
+		args.log.Info("Set new bucket placements for project", zap.String("project_id", project.PublicID.String()), zap.Any("placements", newPlacements))
 	}
+
 	return nil
 }
 
