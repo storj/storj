@@ -118,13 +118,6 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		clingy.Transform(strconv.Atoi),
 		clingy.Advanced,
 	).(int)
-	c.uploadConfig.LongTailMargin = params.Flag(
-		"long-tail-margin",
-		"How many extra pieces to upload and cancel per segment",
-		c.uploadConfig.LongTailMargin,
-		clingy.Transform(strconv.Atoi),
-		clingy.Advanced,
-	).(int)
 	c.uploadLogFile = params.Flag("upload-log-file", "File to write upload logs to", "",
 		clingy.Advanced,
 	).(string)
