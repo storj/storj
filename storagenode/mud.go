@@ -232,21 +232,7 @@ func Module(ball *mud.Ball) {
 				DebounceLimit:       server.DebounceLimit(),
 				FastOpen:            server.FastOpen(),
 				HashstoreMemtbl:     hashstoreConfig.TableDefaultKind.Kind == hashstore.TableKind_MemTbl,
-			}
-
-			err = state.Range(func(id storj.NodeID, bytes []byte) error {
-				var ms piecestore.MigrationState
-				err := json.Unmarshal(bytes, &ms)
-				if err != nil {
-					log.Warn("failed to unmarshal migration state", zap.Error(err), zap.Stringer("satellite", id))
-				}
-				if ms.WriteToNew {
-					nodeInfo.HashstoreWriteToNew = true
-				}
-				return nil
-			})
-			if err != nil {
-				return nodeInfo, err
+				HashstoreWriteToNew: ReportHashstoreWriteToNew(log, state),
 			}
 
 			return nodeInfo, nil
@@ -463,4 +449,26 @@ type EndpointRegistration struct{}
 // HttpFallbackHandler is an extension to the public DRPC server.
 type HttpFallbackHandler struct {
 	Handler http.HandlerFunc
+}
+
+// ReportHashstoreWriteToNew returns a function that can be used for reporting current WriteToNew status for satellites.
+func ReportHashstoreWriteToNew(log *zap.Logger, store *satstore.SatelliteStore) func() bool {
+	return func() bool {
+		var res bool
+		err := store.Range(func(id storj.NodeID, bytes []byte) error {
+			var ms piecestore.MigrationState
+			err := json.Unmarshal(bytes, &ms)
+			if err != nil {
+				log.Warn("failed to unmarshal migration state", zap.Error(err), zap.Stringer("satellite", id))
+			}
+			if ms.WriteToNew {
+				res = true
+			}
+			return nil
+		})
+		if err != nil {
+			log.Warn("Couldn't read migration state", zap.Error(err))
+		}
+		return res
+	}
 }
