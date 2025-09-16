@@ -218,7 +218,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 			defer service.JobLimiter.Release(1)
 			defer cancel()
 			if err := service.worker(ctx, seg); err != nil {
-				log.Error("repair worker failed", zap.Error(err))
+				log.Error("repair worker failed", zap.Uint16("placement", uint16(seg.Placement)), zap.Error(err))
 			}
 		}()
 	}
