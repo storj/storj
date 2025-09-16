@@ -5,6 +5,7 @@ package consoledb
 
 import (
 	"context"
+	"encoding/hex"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -128,6 +129,49 @@ func (tails *apiKeyTails) GetByTail(ctx context.Context, tail []byte) (_ *consol
 	}
 
 	return fromDBXAPIKeyTail(dbxTail)
+}
+
+// CheckExistenceBatch checks the existence of multiple tails in a single query.
+func (tails *apiKeyTails) CheckExistenceBatch(ctx context.Context, tailsToCheck [][]byte) (_ map[string]bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(tailsToCheck) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]bool, len(tailsToCheck))
+	for _, tail := range tailsToCheck {
+		result[hex.EncodeToString(tail)] = false
+	}
+
+	var rows tagsql.Rows
+	switch tails.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		query := tails.dbMethods.Rebind(`SELECT tail FROM api_key_tails WHERE tail = ANY(?)`)
+		rows, err = tails.dbMethods.QueryContext(ctx, query, pgutil.ByteaArray(tailsToCheck))
+	case dbutil.Spanner:
+		query := `SELECT tail FROM api_key_tails WHERE tail IN UNNEST(?)`
+		rows, err = tails.dbMethods.QueryContext(ctx, query, tailsToCheck)
+	default:
+		return nil, Error.New("unsupported database implementation")
+	}
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var foundTail []byte
+		if err = rows.Scan(&foundTail); err != nil {
+			return nil, Error.Wrap(err)
+		}
+		result[hex.EncodeToString(foundTail)] = true
+	}
+	if err = rows.Err(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return result, nil
 }
 
 // fromDBXAPIKeyTail converts *dbx.ApiKeyTail to *console.APIKeyTail.

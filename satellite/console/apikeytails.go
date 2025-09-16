@@ -20,6 +20,9 @@ type APIKeyTails interface {
 	UpsertBatch(ctx context.Context, batch []APIKeyTail) error
 	// GetByTail retrieves APIKeyTail for given key tail.
 	GetByTail(ctx context.Context, tail []byte) (*APIKeyTail, error)
+	// CheckExistenceBatch checks the existence of multiple tails in a single query.
+	// Returns a map where key is hex-encoded tail and value indicates existence.
+	CheckExistenceBatch(ctx context.Context, tails [][]byte) (map[string]bool, error)
 }
 
 // APIKeyTail describing api key tail model in the database.

@@ -4,6 +4,7 @@
 package consoledb_test
 
 import (
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -134,6 +135,85 @@ func TestAPIKeyTails(t *testing.T) {
 			dbTail2, err = tailsDB.GetByTail(ctx, secondTail.Tail)
 			require.NoError(t, err)
 			require.WithinDuration(t, updated, dbTail2.LastUsed, time.Minute)
+		})
+	})
+}
+
+func TestAPIKeyTails_checkExistenceBatch(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		tailsDB := db.Console().APIKeyTails()
+		apiKeysDB := db.Console().APIKeys()
+
+		user, err := db.Console().Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			Email:        "test@example.test",
+			PasswordHash: testrand.Bytes(8),
+		})
+		require.NoError(t, err)
+
+		project, err := db.Console().Projects().Insert(ctx, &console.Project{
+			ID:      testrand.UUID(),
+			Name:    "Test Project",
+			OwnerID: user.ID,
+		})
+		require.NoError(t, err)
+
+		secret, err := macaroon.NewSecret()
+		require.NoError(t, err)
+		apiKey, err := macaroon.NewAPIKey(secret)
+		require.NoError(t, err)
+
+		keyInfo, err := apiKeysDB.Create(ctx, apiKey.Head(), console.APIKeyInfo{
+			ProjectID: project.ID,
+			Name:      "test key",
+			Secret:    secret,
+		})
+		require.NoError(t, err)
+
+		tail1 := testrand.Bytes(32)
+		tail2 := testrand.Bytes(32)
+		nonExistentTail := testrand.Bytes(32)
+
+		testTail1 := &console.APIKeyTail{
+			RootKeyID:  keyInfo.ID,
+			Tail:       tail1,
+			ParentTail: testrand.Bytes(32),
+			Caveat:     testrand.Bytes(32),
+			LastUsed:   time.Now(),
+		}
+		testTail2 := &console.APIKeyTail{
+			RootKeyID:  keyInfo.ID,
+			Tail:       tail2,
+			ParentTail: testrand.Bytes(32),
+			Caveat:     testrand.Bytes(32),
+			LastUsed:   time.Now(),
+		}
+
+		_, err = tailsDB.Upsert(ctx, testTail1)
+		require.NoError(t, err)
+		_, err = tailsDB.Upsert(ctx, testTail2)
+		require.NoError(t, err)
+
+		t.Run("batch existence check", func(t *testing.T) {
+			results, err := tailsDB.CheckExistenceBatch(ctx, [][]byte{tail1, tail2, nonExistentTail})
+			require.NoError(t, err)
+			require.Len(t, results, 3)
+			require.True(t, results[hex.EncodeToString(tail1)])
+			require.True(t, results[hex.EncodeToString(tail2)])
+			require.False(t, results[hex.EncodeToString(nonExistentTail)])
+		})
+
+		t.Run("empty batch", func(t *testing.T) {
+			results, err := tailsDB.CheckExistenceBatch(ctx, [][]byte{})
+			require.NoError(t, err)
+			require.Empty(t, results)
+		})
+
+		t.Run("single tail batch", func(t *testing.T) {
+			results, err := tailsDB.CheckExistenceBatch(ctx, [][]byte{tail1})
+			require.NoError(t, err)
+			require.Len(t, results, 1)
+			require.True(t, results[hex.EncodeToString(tail1)])
 		})
 	})
 }
