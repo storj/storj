@@ -469,6 +469,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if generated console api should be used
 # console.generated-api-enabled: true
 
+# maximum number of ghost session email timestamps to keep in memory
+# console.ghost-session-cache-limit: 10000
+
 # whether to enable ghost session detection and notification
 # console.ghost-session-check-enabled: false
 

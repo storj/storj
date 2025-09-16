@@ -135,6 +135,7 @@ type Config struct {
 	LiveCheckBadPasswords           bool          `help:"whether to check if provided password is in bad passwords list" default:"false"`
 	UseGeneratedPrivateAPI          bool          `help:"whether to use generated private API" default:"false"`
 	GhostSessionCheckEnabled        bool          `help:"whether to enable ghost session detection and notification" default:"false"`
+	GhostSessionCacheLimit          int           `help:"maximum number of ghost session email timestamps to keep in memory" default:"10000"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -930,6 +931,16 @@ func (server *Server) checkGhostSession(ctx context.Context, r *http.Request, se
 			return nil // Email sent recently, skip.
 		}
 
+		// Simple size limit: if we're at capacity, remove a random entry.
+		if len(server.ghostSessionEmailSent) >= server.config.GhostSessionCacheLimit {
+			for cached := range server.ghostSessionEmailSent {
+				if cached != user.ID {
+					delete(server.ghostSessionEmailSent, cached)
+					break
+				}
+			}
+		}
+
 		server.ghostSessionEmailSent[user.ID] = time.Now()
 		server.hubspotMailService.SendAsync(ctx, &hubspotmails.SendEmailRequest{
 			Kind: hubspotmails.GhostSessionWarning,
@@ -953,14 +964,18 @@ func (server *Server) runGhostSessionCacheCleanup(ctx context.Context) {
 			// Remove timestamps older than 24 hours.
 			cutoff := time.Now().Add(-24 * time.Hour)
 			server.ghostSessionEmailMutex.Lock()
+
+			var removed int
 			for userID, timestamp := range server.ghostSessionEmailSent {
 				if timestamp.Before(cutoff) {
 					delete(server.ghostSessionEmailSent, userID)
+					removed++
 				}
 			}
+
 			server.ghostSessionEmailMutex.Unlock()
 
-			server.log.Info("Cleaned up old ghost session email timestamps")
+			server.log.Info("Cleaned up old ghost session email timestamps", zap.Int("removed", removed))
 		}
 	}
 }
