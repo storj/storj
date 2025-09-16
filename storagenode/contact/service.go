@@ -104,7 +104,7 @@ type NodeInfo struct {
 	NoiseKeyAttestation *pb.NoiseKeyAttestation
 	DebounceLimit       int
 	FastOpen            bool
-	HashstoreWriteToNew bool
+	HashstoreWriteToNew func() bool
 	HashstoreMemtbl     bool
 }
 
@@ -203,7 +203,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID, 
 	if self.FastOpen {
 		features |= uint64(pb.NodeAddress_TCP_FASTOPEN_ENABLED)
 	}
-	if self.HashstoreWriteToNew {
+	if self.HashstoreWriteToNew != nil && self.HashstoreWriteToNew() {
 		features |= uint64(pb.CheckInRequest_HASHSTORE_FOR_NEW)
 	}
 	if self.HashstoreMemtbl {
