@@ -449,78 +449,6 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 				require.Error(t, err)
 			}
 		})
-
-		t.Run("store api key tails", func(t *testing.T) {
-			sat := planet.Satellites[0]
-			upl := planet.Uplinks[0]
-
-			secret, err := macaroon.NewSecret()
-			require.NoError(t, err)
-			apiKey, err := macaroon.NewAPIKey(secret)
-			require.NoError(t, err)
-
-			keyInfo, err := sat.DB.Console().APIKeys().Create(ctx, apiKey.Head(), console.APIKeyInfo{
-				Name:      "test-key",
-				ProjectID: upl.Projects[0].ID,
-				Secret:    secret,
-				Version:   macaroon.APIKeyVersionAuditable,
-			})
-			require.NoError(t, err)
-
-			caveat0 := macaroon.Caveat{DisallowDeletes: true}
-			macaroon0, err := apiKey.Restrict(caveat0)
-			require.NoError(t, err)
-			require.NotNil(t, macaroon0)
-
-			caveat1 := macaroon.Caveat{DisallowWrites: true}
-			macaroon1, err := macaroon0.Restrict(caveat1)
-			require.NoError(t, err)
-			require.NotNil(t, macaroon1)
-
-			metainfoClient, err := upl.DialMetainfo(ctx, sat, macaroon1)
-			require.NoError(t, err)
-			defer ctx.Check(metainfoClient.Close)
-
-			_, err = metainfoClient.ListBuckets(ctx, metaclient.ListBucketsParams{
-				ListOpts: metaclient.BucketListOptions{
-					Cursor:    "",
-					Direction: metaclient.Forward,
-					Limit:     10,
-				},
-			})
-			require.NoError(t, err)
-
-			err = sat.Metainfo.Endpoint.TestWaitForTailsCombinerWorkers(ctx)
-			require.NoError(t, err)
-
-			tailsDB := sat.DB.Console().APIKeyTails()
-
-			tail0, err := tailsDB.GetByTail(ctx, macaroon0.Tail())
-			require.NoError(t, err)
-			require.NotNil(t, tail0)
-			require.EqualValues(t, keyInfo.ID, tail0.RootKeyID)
-			require.EqualValues(t, macaroon0.Tail(), tail0.Tail)
-			require.EqualValues(t, apiKey.Tail(), tail0.ParentTail)
-			require.WithinDuration(t, time.Now(), tail0.LastUsed, time.Minute)
-
-			parsedCaveat, err := macaroon.ParseCaveat(tail0.Caveat)
-			require.NoError(t, err)
-			require.NotNil(t, parsedCaveat)
-			require.EqualValues(t, caveat0, *parsedCaveat)
-
-			tail1, err := tailsDB.GetByTail(ctx, macaroon1.Tail())
-			require.NoError(t, err)
-			require.NotNil(t, tail1)
-			require.EqualValues(t, keyInfo.ID, tail1.RootKeyID)
-			require.EqualValues(t, macaroon1.Tail(), tail1.Tail)
-			require.EqualValues(t, macaroon0.Tail(), tail1.ParentTail)
-			require.WithinDuration(t, time.Now(), tail1.LastUsed, time.Minute)
-
-			parsedCaveat, err = macaroon.ParseCaveat(tail1.Caveat)
-			require.NoError(t, err)
-			require.NotNil(t, parsedCaveat)
-			require.EqualValues(t, caveat1, *parsedCaveat)
-		})
 	})
 }
 
@@ -532,6 +460,87 @@ func assertInvalidArgument(t *testing.T, err error, allowed bool) {
 	if !allowed {
 		assert.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 	}
+}
+
+func TestAPIKeyTails(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.APIKeyTailsConfig.CombinerQueueEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+
+		secret, err := macaroon.NewSecret()
+		require.NoError(t, err)
+		apiKey, err := macaroon.NewAPIKey(secret)
+		require.NoError(t, err)
+
+		keyInfo, err := sat.DB.Console().APIKeys().Create(ctx, apiKey.Head(), console.APIKeyInfo{
+			Name:      "test-key",
+			ProjectID: upl.Projects[0].ID,
+			Secret:    secret,
+			Version:   macaroon.APIKeyVersionMin,
+		})
+		require.NoError(t, err)
+
+		caveat0 := macaroon.Caveat{DisallowDeletes: true}
+		macaroon0, err := apiKey.Restrict(caveat0)
+		require.NoError(t, err)
+		require.NotNil(t, macaroon0)
+
+		caveat1 := macaroon.Caveat{DisallowWrites: true}
+		macaroon1, err := macaroon0.Restrict(caveat1)
+		require.NoError(t, err)
+		require.NotNil(t, macaroon1)
+
+		metainfoClient, err := upl.DialMetainfo(ctx, sat, macaroon1)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		_, err = metainfoClient.ListBuckets(ctx, metaclient.ListBucketsParams{
+			ListOpts: metaclient.BucketListOptions{
+				Cursor:    "",
+				Direction: metaclient.Forward,
+				Limit:     10,
+			},
+		})
+		require.NoError(t, err)
+
+		err = sat.Metainfo.Endpoint.TestWaitForTailsCombinerWorkers(ctx)
+		require.NoError(t, err)
+
+		tailsDB := sat.DB.Console().APIKeyTails()
+
+		tail0, err := tailsDB.GetByTail(ctx, macaroon0.Tail())
+		require.NoError(t, err)
+		require.NotNil(t, tail0)
+		require.EqualValues(t, keyInfo.ID, tail0.RootKeyID)
+		require.EqualValues(t, macaroon0.Tail(), tail0.Tail)
+		require.EqualValues(t, apiKey.Tail(), tail0.ParentTail)
+		require.WithinDuration(t, time.Now(), tail0.LastUsed, time.Minute)
+
+		parsedCaveat, err := macaroon.ParseCaveat(tail0.Caveat)
+		require.NoError(t, err)
+		require.NotNil(t, parsedCaveat)
+		require.EqualValues(t, caveat0, *parsedCaveat)
+
+		tail1, err := tailsDB.GetByTail(ctx, macaroon1.Tail())
+		require.NoError(t, err)
+		require.NotNil(t, tail1)
+		require.EqualValues(t, keyInfo.ID, tail1.RootKeyID)
+		require.EqualValues(t, macaroon1.Tail(), tail1.Tail)
+		require.EqualValues(t, macaroon0.Tail(), tail1.ParentTail)
+		require.WithinDuration(t, time.Now(), tail1.LastUsed, time.Minute)
+
+		parsedCaveat, err = macaroon.ParseCaveat(tail1.Caveat)
+		require.NoError(t, err)
+		require.NotNil(t, parsedCaveat)
+		require.EqualValues(t, caveat1, *parsedCaveat)
+	})
 }
 
 func TestRateLimit(t *testing.T) {

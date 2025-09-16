@@ -273,7 +273,7 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		return nil, nil, err
 	}
 
-	if endpoint.keyTailsHandler != nil && keyInfo.Version.SupportsAuditability() {
+	if endpoint.keyTailsHandler != nil && !keyInfo.Version.SupportsAuditability() {
 		combiner := endpoint.keyTailsHandler.combiner.Load()
 		if combiner != nil {
 			combiner.Enqueue(ctx, keyTailTask{
