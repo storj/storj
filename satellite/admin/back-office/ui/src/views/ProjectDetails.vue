@@ -189,6 +189,7 @@ import { useRouter } from 'vue-router';
 
 import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
+import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
@@ -229,12 +230,12 @@ onMounted(async () => {
 
     try {
         await Promise.all([
-            appStore.getProject(projectID),
+            appStore.selectProject(projectID),
             appStore.getUserByEmail(userEmail),
         ]);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
-        router.push('/account-search');
+        router.push({ name: ROUTES.AccountSearch.name });
     }
 });
 </script>

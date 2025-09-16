@@ -192,6 +192,7 @@ import {
 import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';
+import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
@@ -275,7 +276,7 @@ onBeforeMount(async () => {
         const email = router.currentRoute.value.params.email as string;
         await appStore.getUserByEmail(email);
     } catch {
-        router.push('/account-search');
+        router.push({ name: ROUTES.AccountSearch.name });
     }
 });
 

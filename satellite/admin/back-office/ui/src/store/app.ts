@@ -27,12 +27,6 @@ export const useAppStore = defineStore('app', () => {
         return state.userAccount;
     }
 
-    async function getProject(id: string): Promise<Project> {
-        state.selectedProject = await projectApi.getProject(id);
-
-        return state.selectedProject;
-    }
-
     function clearUser(): void {
         state.userAccount = null;
     }
@@ -53,8 +47,10 @@ export const useAppStore = defineStore('app', () => {
         return `Unknown (${code})`;
     }
 
-    async function selectProject(id: string): Promise<void> {
+    async function selectProject(id: string): Promise<Project> {
         state.selectedProject = await projectApi.getProject(id);
+
+        return state.selectedProject;
     }
 
     async function updateProjectLimits(id: string, limits: ProjectLimitsUpdate): Promise<void> {
@@ -84,7 +80,6 @@ export const useAppStore = defineStore('app', () => {
     return {
         state,
         getUserByEmail,
-        getProject,
         clearUser,
         getPlacements,
         getPlacementText,

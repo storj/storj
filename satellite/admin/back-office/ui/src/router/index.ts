@@ -4,6 +4,21 @@
 import { watch } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
+import { NavigationLink } from '@/router/navigation';
+
+export abstract class ROUTES {
+    public static AccountSearch = new NavigationLink('/account-search', 'Account Search');
+    public static Accounts = new NavigationLink('/accounts', 'Accounts');
+    public static Account = new NavigationLink(':email', 'Account');
+    public static AccountProject = new NavigationLink('projects/:id', 'Account Project');
+
+    public static Projects = new NavigationLink('/projects', 'Projects');
+    public static ProjectDetail = new NavigationLink('/projects-details', 'Project Details');
+
+    public static BucketDetail = new NavigationLink('/bucket-details', 'Bucket Details');
+    public static AdminSettings = new NavigationLink('/admin-settings', 'Admin Settings');
+}
+
 const routes = [
     {
         path: '/',
@@ -18,7 +33,7 @@ const routes = [
         // ],
         // TODO: once the switch satellite feature is implemented, remove the redirection below and
         // uncomment the above code.
-        redirect: '/account-search', // directly redirect
+        redirect: ROUTES.AccountSearch.path, // directly redirect
     },
     {
         path: '/admin',
@@ -30,24 +45,24 @@ const routes = [
                 component: () => import(/* webpackChunkName: "Dashboard" */ '@/views/Dashboard.vue'),
             },
             {
-                path: '/accounts',
+                path: ROUTES.Accounts.path,
                 children: [
                     {
                         path: '',
-                        name: 'Accounts',
+                        name: ROUTES.Accounts.name,
                         component: () => import(/* webpackChunkName: "Users" */ '@/views/Accounts.vue'),
                     },
                     {
-                        path: ':email',
+                        path: ROUTES.Account.path,
                         children: [
                             {
                                 path: '',
-                                name: 'Account Details',
+                                name: ROUTES.Account.name,
                                 component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountDetails.vue'),
                             },
                             {
-                                path: 'projects/:id',
-                                name: 'User Project Details',
+                                path: ROUTES.AccountProject.path,
+                                name: ROUTES.AccountProject.name,
                                 component: () => import(/* webpackChunkName: "Users" */ '@/views/ProjectDetails.vue'),
                             },
                         ],
@@ -55,28 +70,28 @@ const routes = [
                 ],
             },
             {
-                path: '/account-search',
-                name: 'Search Account',
+                path: ROUTES.AccountSearch.path,
+                name: ROUTES.AccountSearch.name,
                 component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountSearch.vue'),
             },
             {
-                path: '/projects',
-                name: 'Projects',
+                path: ROUTES.Projects.path,
+                name: ROUTES.Projects.name,
                 component: () => import(/* webpackChunkName: "Projects" */ '@/views/Projects.vue'),
             },
             {
-                path: '/project-details',
-                name: 'Project Details',
+                path: ROUTES.ProjectDetail.path,
+                name: ROUTES.ProjectDetail.name,
                 component: () => import(/* webpackChunkName: "ProjectDetails" */ '@/views/ProjectDetails.vue'),
             },
             {
-                path: '/bucket-details',
-                name: 'Bucket Details',
+                path: ROUTES.BucketDetail.path,
+                name: ROUTES.BucketDetail.name,
                 component: () => import(/* webpackChunkName: "BucketDetails" */ '@/views/BucketDetails.vue'),
             },
             {
-                path: '/admin-settings',
-                name: 'Admin Settings',
+                path: ROUTES.AdminSettings.path,
+                name: ROUTES.AdminSettings.name,
                 component: () => import(/* webpackChunkName: "AdminSettings" */ '@/views/AdminSettings.vue'),
             },
         ],

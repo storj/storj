@@ -59,6 +59,7 @@ import { VContainer, VRow, VCol, VBtn, VCard, VCardText, VForm, VTextField } fro
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
+import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -91,7 +92,7 @@ async function goToUser(): Promise<void> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
             const user = await appStore.getUserByEmail(email.value);
-            router.push(`/accounts/${user.email}`);
+            router.push({ name: ROUTES.Account.name, params: { email: user.email } });
             isLoading.value = false;
             return;
         } catch (error) {
