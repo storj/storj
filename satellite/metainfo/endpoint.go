@@ -265,8 +265,11 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 
 // Close closes resources.
 func (endpoint *Endpoint) Close() error {
-	if endpoint.keyTailsHandler != nil && endpoint.keyTailsHandler.combiner != nil {
-		endpoint.keyTailsHandler.combiner.Close()
+	if endpoint.keyTailsHandler != nil {
+		combiner := endpoint.keyTailsHandler.combiner.Load()
+		if combiner != nil {
+			combiner.Close()
+		}
 	}
 
 	return nil

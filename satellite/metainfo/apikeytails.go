@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,7 +19,7 @@ import (
 
 // keyTailsHandler is a handler for processing API key tails using a combiner queue.
 type keyTailsHandler struct {
-	combiner *combiner.Combiner[keyTailTask]
+	combiner atomic.Pointer[combiner.Combiner[keyTailTask]]
 	cache    *lrucache.ExpiringLRUOf[struct{}]
 }
 
@@ -79,11 +80,12 @@ func (endpoint *Endpoint) initTailsCombiner(parentCtx context.Context) {
 		}
 	}
 
-	endpoint.keyTailsHandler.combiner = combiner.New[keyTailTask](parentCtx, combiner.Options[keyTailTask]{
+	c := combiner.New[keyTailTask](parentCtx, combiner.Options[keyTailTask]{
 		Process:   process,
 		Fail:      fail,
 		QueueSize: endpoint.config.APIKeyTailsConfig.QueueSize,
 	})
+	endpoint.keyTailsHandler.combiner.Store(c)
 }
 
 // TestWaitForTailsCombinerWorkers waits for the combiner workers to finish processing.
@@ -92,6 +94,10 @@ func (endpoint *Endpoint) TestWaitForTailsCombinerWorkers(ctx context.Context) e
 		return nil
 	}
 
-	endpoint.keyTailsHandler.combiner.Stop()
-	return endpoint.keyTailsHandler.combiner.Wait(ctx)
+	c := endpoint.keyTailsHandler.combiner.Load()
+	if c != nil {
+		c.Stop()
+		return c.Wait(ctx)
+	}
+	return nil
 }
