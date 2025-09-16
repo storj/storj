@@ -5,7 +5,6 @@ package storagenode
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -510,20 +509,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			HashstoreMemtbl:     config.Hashstore.TableDefaultKind.Kind == hashstore.TableKind_MemTbl,
 		}
 
-		err = peer.Storage2.MigrationState.Range(func(id storj.NodeID, bytes []byte) error {
-			var ms piecestore.MigrationState
-			err := json.Unmarshal(bytes, &ms)
-			if err != nil {
-				log.Warn("failed to unmarshal migration state", zap.Error(err), zap.Stringer("satellite", id))
-			}
-			if ms.WriteToNew {
-				self.HashstoreWriteToNew = true
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		self.HashstoreWriteToNew = ReportHashstoreWriteToNew(peer.Log, peer.Storage2.MigrationState)
 
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
