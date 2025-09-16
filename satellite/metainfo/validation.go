@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
@@ -273,7 +274,22 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		return nil, nil, err
 	}
 
-	if endpoint.keyTailsHandler != nil && !keyInfo.Version.SupportsAuditability() {
+	err = endpoint.handleAPIKeyTails(ctx, key, keyInfo)
+	if err != nil {
+		endpoint.log.Debug("api key tails check failed", zap.Error(err))
+		return nil, nil, err
+	}
+
+	return key, keyInfo, nil
+}
+
+func (endpoint *Endpoint) handleAPIKeyTails(ctx context.Context, key *macaroon.APIKey, keyInfo *console.APIKeyInfo) error {
+	if endpoint.keyTailsHandler == nil {
+		return nil
+	}
+
+	if !keyInfo.Version.SupportsAuditability() {
+		// For non-auditable keys, store tails automatically.
 		combiner := endpoint.keyTailsHandler.combiner.Load()
 		if combiner != nil {
 			combiner.Enqueue(ctx, keyTailTask{
@@ -283,9 +299,36 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 				secret:     keyInfo.Secret,
 			})
 		}
+
+		return nil
 	}
 
-	return key, keyInfo, nil
+	// For auditable keys, check that all tails exist.
+	mac, err := macaroon.ParseMacaroon(key.SerializeRaw())
+	if err != nil {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid macaroon: %v", err)
+	}
+
+	tails := mac.Tails(keyInfo.Secret)
+	if len(tails) <= 1 {
+		return nil
+	}
+
+	tailsToCheck := tails[1:]
+
+	results, err := endpoint.apiKeyTails.CheckExistenceBatch(ctx, tailsToCheck)
+	if err != nil {
+		return rpcstatus.Errorf(rpcstatus.Internal, "failed to check tail existence: %v", err)
+	}
+
+	for _, tail := range tailsToCheck {
+		tailHex := hex.EncodeToString(tail)
+		if !results[tailHex] {
+			return rpcstatus.Errorf(rpcstatus.PermissionDenied, "unregistered tail not allowed for auditable API key")
+		}
+	}
+
+	return nil
 }
 
 func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.RequestHeader, macToRevoke *macaroon.Macaroon) (_ *console.APIKeyInfo, err error) {

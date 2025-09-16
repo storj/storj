@@ -547,6 +547,101 @@ func TestAPIKeyTails(t *testing.T) {
 	})
 }
 
+func TestAuditableAPIKeyValidation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.APIKeyTailsConfig.CombinerQueueEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+
+		t.Run("auditable key with unregistered tail should be rejected", func(t *testing.T) {
+			secret, err := macaroon.NewSecret()
+			require.NoError(t, err)
+			apiKey, err := macaroon.NewAPIKey(secret)
+			require.NoError(t, err)
+
+			_, err = sat.DB.Console().APIKeys().Create(ctx, apiKey.Head(), console.APIKeyInfo{
+				Name:      "auditable-key",
+				ProjectID: upl.Projects[0].ID,
+				Secret:    secret,
+				Version:   macaroon.APIKeyVersionAuditable,
+			})
+			require.NoError(t, err)
+
+			caveat := macaroon.Caveat{DisallowDeletes: true}
+			restrictedKey, err := apiKey.Restrict(caveat)
+			require.NoError(t, err)
+
+			metainfoClient, err := upl.DialMetainfo(ctx, sat, restrictedKey)
+			require.NoError(t, err)
+			defer ctx.Check(metainfoClient.Close)
+
+			_, err = metainfoClient.ListBuckets(ctx, metaclient.ListBucketsParams{
+				ListOpts: metaclient.BucketListOptions{
+					Cursor:    "",
+					Direction: metaclient.Forward,
+					Limit:     10,
+				},
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		})
+
+		t.Run("auditable key with registered tail should work", func(t *testing.T) {
+			secret, err := macaroon.NewSecret()
+			require.NoError(t, err)
+			apiKey, err := macaroon.NewAPIKey(secret)
+			require.NoError(t, err)
+
+			keyInfo, err := sat.DB.Console().APIKeys().Create(ctx, apiKey.Head(), console.APIKeyInfo{
+				Name:      "auditable-key-registered",
+				ProjectID: upl.Projects[0].ID,
+				Secret:    secret,
+				Version:   macaroon.APIKeyVersionAuditable,
+			})
+			require.NoError(t, err)
+
+			caveat := macaroon.Caveat{DisallowDeletes: true}
+			restrictedKey, err := apiKey.Restrict(caveat)
+			require.NoError(t, err)
+
+			mac, err := macaroon.ParseMacaroon(restrictedKey.SerializeRaw())
+			require.NoError(t, err)
+			tails := mac.Tails(keyInfo.Secret)
+			caveats := mac.Caveats()
+
+			restrictedTail := &console.APIKeyTail{
+				RootKeyID:  keyInfo.ID,
+				Tail:       tails[1],
+				ParentTail: tails[0],
+				Caveat:     caveats[0],
+				LastUsed:   time.Now(),
+			}
+
+			_, err = sat.DB.Console().APIKeyTails().Upsert(ctx, restrictedTail)
+			require.NoError(t, err)
+
+			metainfoClient, err := upl.DialMetainfo(ctx, sat, restrictedKey)
+			require.NoError(t, err)
+			defer ctx.Check(metainfoClient.Close)
+
+			_, err = metainfoClient.ListBuckets(ctx, metaclient.ListBucketsParams{
+				ListOpts: metaclient.BucketListOptions{
+					Cursor:    "",
+					Direction: metaclient.Forward,
+					Limit:     10,
+				},
+			})
+			require.NoError(t, err)
+		})
+	})
+}
+
 func TestRateLimit(t *testing.T) {
 	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
