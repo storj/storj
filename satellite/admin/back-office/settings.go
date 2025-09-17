@@ -107,6 +107,12 @@ func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
 			settings.Admin.Features.Account.Search = true
 			settings.Admin.Features.Account.Projects = true
 		}
+		if s.authorizer.HasPermissions(g, PermAccountSuspendTemporary) || s.authorizer.HasPermissions(g, PermAccountSuspendPermanently) {
+			settings.Admin.Features.Account.Suspend = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountReActivateTemporary) || s.authorizer.HasPermissions(g, PermAccountReActivatePermanently) {
+			settings.Admin.Features.Account.Unsuspend = true
+		}
 
 		// project permission features
 		if s.authorizer.HasPermissions(g, PermProjectView) {

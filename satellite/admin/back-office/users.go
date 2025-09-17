@@ -26,13 +26,13 @@ type User struct {
 // UserAccount holds information about a user's account.
 type UserAccount struct {
 	User
-	PaidTier         bool                      `json:"paidTier"`
-	Kind             console.UserKind          `json:"kind"`
+	Kind             console.KindInfo          `json:"kind"`
 	CreatedAt        time.Time                 `json:"createdAt"`
 	Status           string                    `json:"status"`
 	UserAgent        string                    `json:"userAgent"`
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 	Projects         []UserProject             `json:"projects"`
+	FreezeStatus     *FreezeEventType          `json:"freezeStatus"`
 }
 
 // UserProject is project owned by a user with  basic information, usage, and limits.
@@ -105,18 +105,50 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 		})
 	}
 
+	freezes, err := s.accountFreeze.GetAll(ctx, user.ID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	var freezeEvent *console.AccountFreezeEvent
+	if freezes.BillingFreeze != nil {
+		freezeEvent = freezes.BillingFreeze
+	} else if freezes.LegalFreeze != nil {
+		freezeEvent = freezes.LegalFreeze
+	} else if freezes.ViolationFreeze != nil {
+		freezeEvent = freezes.ViolationFreeze
+	} else if freezes.TrialExpirationFreeze != nil {
+		freezeEvent = freezes.TrialExpirationFreeze
+	} else if freezes.BotFreeze != nil {
+		freezeEvent = freezes.BotFreeze
+	} else if freezes.DelayedBotFreeze != nil {
+		freezeEvent = freezes.DelayedBotFreeze
+	} else if freezes.BillingWarning != nil {
+		freezeEvent = freezes.BillingWarning
+	}
+	var freezeStatus *FreezeEventType
+	if freezeEvent != nil {
+		freezeStatus = &FreezeEventType{
+			Name:  freezeEvent.Type.String(),
+			Value: freezeEvent.Type,
+		}
+	}
+
 	return &UserAccount{
 		User: User{
 			ID:       user.ID,
 			FullName: user.FullName,
 			Email:    user.Email,
 		},
-		Kind:             user.Kind,
-		PaidTier:         user.IsPaid(),
+		Kind:             user.Kind.Info(),
 		CreatedAt:        user.CreatedAt,
 		Status:           user.Status.String(),
 		UserAgent:        string(user.UserAgent),
 		DefaultPlacement: user.DefaultPlacement,
 		Projects:         usageLimits,
+		FreezeStatus:     freezeStatus,
 	}, api.HTTPError{}
 }

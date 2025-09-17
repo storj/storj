@@ -31,7 +31,10 @@ type PlacementManagementService interface {
 }
 
 type UserManagementService interface {
+	GetFreezeEventTypes(ctx context.Context) ([]FreezeEventType, api.HTTPError)
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
+	FreezeUser(ctx context.Context, userID uuid.UUID, request FreezeUserRequest) api.HTTPError
+	UnfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError
 }
 
 type ProjectManagementService interface {
@@ -106,7 +109,10 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	}
 
 	usersRouter := router.PathPrefix("/back-office/api/v1/users").Subrouter()
+	usersRouter.HandleFunc("/freeze-event-types", handler.handleGetFreezeEventTypes).Methods("GET")
 	usersRouter.HandleFunc("/{email}", handler.handleGetUserByEmail).Methods("GET")
+	usersRouter.HandleFunc("/freeze-events/{userID}", handler.handleFreezeUser).Methods("POST")
+	usersRouter.HandleFunc("/freeze-events/{userID}", handler.handleUnfreezeUser).Methods("DELETE")
 
 	return handler
 }
@@ -166,6 +172,27 @@ func (h *PlacementManagementHandler) handleGetPlacements(w http.ResponseWriter, 
 	}
 }
 
+func (h *UserManagementHandler) handleGetFreezeEventTypes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx = h.auth.ContextWithRequestGroups(ctx, r)
+
+	retVal, httpErr := h.service.GetFreezeEventTypes(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetFreezeEventTypes response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
 func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -193,6 +220,72 @@ func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *h
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetUserByEmail response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := FreezeUserRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx = h.auth.ContextWithRequestGroups(ctx, r)
+	if h.auth.IsRejected(w, r, 128) {
+		return
+	}
+
+	httpErr := h.service.FreezeUser(ctx, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx = h.auth.ContextWithRequestGroups(ctx, r)
+	if h.auth.IsRejected(w, r, 256) {
+		return
+	}
+
+	httpErr := h.service.UnfreezeUser(ctx, userID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 

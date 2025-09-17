@@ -43,6 +43,21 @@ export class FeatureFlags {
     switchSatellite: boolean;
 }
 
+export class FreezeEventType {
+    name: string;
+    value: number;
+}
+
+export class FreezeUserRequest {
+    type: number;
+}
+
+export class KindInfo {
+    value: number;
+    name: string;
+    hasPaidPrivileges: boolean;
+}
+
 export class PlacementInfo {
     id: number;
     location: string;
@@ -109,13 +124,13 @@ export class UserAccount {
     id: UUID;
     fullName: string;
     email: string;
-    paidTier: boolean;
-    kind: number;
+    kind: KindInfo;
     createdAt: Time;
     status: string;
     userAgent: string;
     defaultPlacement: number;
     projects: UserProject[] | null;
+    freezeStatus: FreezeEventType | null;
 }
 
 export class UserProject {
@@ -172,11 +187,41 @@ export class UserManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/back-office/api/v1/users';
 
+    public async getFreezeEventTypes(): Promise<FreezeEventType[]> {
+        const fullPath = `${this.ROOT_PATH}/freeze-event-types`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as FreezeEventType[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async getUserByEmail(email: string): Promise<UserAccount> {
         const fullPath = `${this.ROOT_PATH}/${email}`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async freezeUser(request: FreezeUserRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/freeze-events/${userID}`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async unfreezeUser(userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/freeze-events/${userID}`;
+        const response = await this.http.delete(fullPath);
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

@@ -9,7 +9,10 @@
 * PlacementManagement
   * [Get placements](#placementmanagement-get-placements)
 * UserManagement
+  * [Get freeze event types](#usermanagement-get-freeze-event-types)
   * [Get user](#usermanagement-get-user)
+  * [Freeze User](#usermanagement-freeze-user)
+  * [Unfreeze User](#usermanagement-unfreeze-user)
 * ProjectManagement
   * [Get project](#projectmanagement-get-project)
   * [Update project limits](#projectmanagement-update-project-limits)
@@ -101,6 +104,25 @@ Gets placement rule IDs and their locations
 
 ```
 
+<h3 id='usermanagement-get-freeze-event-types'>Get freeze event types (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets account freeze event types
+
+`GET /back-office/api/v1/users/freeze-event-types`
+
+**Response body:**
+
+```typescript
+[
+	{
+		name: string
+		value: number
+	}
+
+]
+
+```
+
 <h3 id='usermanagement-get-user'>Get user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets user by email address
@@ -120,8 +142,12 @@ Gets user by email address
 	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	fullName: string
 	email: string
-	paidTier: boolean
-	kind: number
+	kind: 	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	status: string
 	userAgent: string
@@ -140,9 +166,43 @@ Gets user by email address
 
 	]
 
+	freezeStatus: unknown
 }
 
 ```
+
+<h3 id='usermanagement-freeze-user'>Freeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Freeze a user account
+
+`POST /back-office/api/v1/users/freeze-events/{userID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	type: number
+}
+
+```
+
+<h3 id='usermanagement-unfreeze-user'>Unfreeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Unfreeze a user account
+
+`DELETE /back-office/api/v1/users/freeze-events/{userID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
 <h3 id='projectmanagement-get-project'>Get project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

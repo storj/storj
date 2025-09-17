@@ -19,12 +19,13 @@ type Defaults struct {
 
 // Service provides functionality for administrating satellites.
 type Service struct {
-	log          *zap.Logger
-	consoleDB    console.DB
-	accountingDB accounting.ProjectAccounting
-	accounting   *accounting.Service
-	placement    nodeselection.PlacementDefinitions
-	defaults     Defaults
+	log           *zap.Logger
+	consoleDB     console.DB
+	accountFreeze *console.AccountFreezeService
+	accountingDB  accounting.ProjectAccounting
+	accounting    *accounting.Service
+	placement     nodeselection.PlacementDefinitions
+	defaults      Defaults
 
 	authorizer *Authorizer
 }
@@ -36,17 +37,19 @@ func NewService(
 	accountingDB accounting.ProjectAccounting,
 	accounting *accounting.Service,
 	authorizer *Authorizer,
+	accountFreeze *console.AccountFreezeService,
 	placement nodeselection.PlacementDefinitions,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
 ) *Service {
 	return &Service{
-		log:          log,
-		consoleDB:    consoleDB,
-		accountingDB: accountingDB,
-		accounting:   accounting,
-		authorizer:   authorizer,
-		placement:    placement,
+		log:           log,
+		consoleDB:     consoleDB,
+		accountingDB:  accountingDB,
+		accounting:    accounting,
+		accountFreeze: accountFreeze,
+		authorizer:    authorizer,
+		placement:     placement,
 		defaults: Defaults{
 			MaxBuckets: defaultMaxBuckets,
 			RateLimit:  int(defaultRateLimit),

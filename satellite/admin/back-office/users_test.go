@@ -78,7 +78,7 @@ func TestGetUser(t *testing.T) {
 		require.Equal(t, consoleUser.ID, user.User.ID)
 		require.Equal(t, consoleUser.FullName, user.User.FullName)
 		require.Equal(t, consoleUser.Email, user.User.Email)
-		require.Equal(t, consoleUser.Kind, user.Kind)
+		require.Equal(t, consoleUser.Kind.Info(), user.Kind)
 		require.Equal(t, consoleUser.Status.String(), user.Status)
 		require.Equal(t, string(consoleUser.UserAgent), user.UserAgent)
 		require.Equal(t, consoleUser.DefaultPlacement, user.DefaultPlacement)

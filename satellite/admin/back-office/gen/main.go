@@ -51,6 +51,14 @@ func main() {
 	group = api.Group("UserManagement", "users")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 
+	group.Get("/freeze-event-types", &apigen.Endpoint{
+		Name:           "Get freeze event types",
+		Description:    "Gets account freeze event types",
+		GoName:         "GetFreezeEventTypes",
+		TypeScriptName: "getFreezeEventTypes",
+		Response:       []backoffice.FreezeEventType{},
+	})
+
 	group.Get("/{email}", &apigen.Endpoint{
 		Name:           "Get user",
 		Description:    "Gets user by email address",
@@ -62,6 +70,33 @@ func main() {
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
+	group.Post("/freeze-events/{userID}", &apigen.Endpoint{
+		Name:           "Freeze User",
+		Description:    "Freeze a user account",
+		GoName:         "FreezeUser",
+		TypeScriptName: "freezeUser",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.FreezeUserRequest{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountSuspendTemporary},
+		},
+	})
+
+	group.Delete("/freeze-events/{userID}", &apigen.Endpoint{
+		Name:           "Unfreeze User",
+		Description:    "Unfreeze a user account",
+		GoName:         "UnfreezeUser",
+		TypeScriptName: "unfreezeUser",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountReActivateTemporary},
 		},
 	})
 
