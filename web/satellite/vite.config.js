@@ -79,7 +79,40 @@ export default defineConfig(({ mode }) => {
             reportCompressedSize: isProd,
             rollupOptions: {
                 output: {
-                    experimentalMinChunkSize: 50*1024,
+                    experimentalMinChunkSize: 150*1024, // 150KB
+                    manualChunks: (id) => {
+                        if (id.includes('node_modules')) {
+                            if (id.includes('vuetify')) return 'vendor-ui';
+                            if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router')) return 'vendor-vue';
+                            if (id.includes('lucide')) return 'vendor-icons';
+                            if (id.includes('chart.js')) return 'vendor-charts';
+                            if (id.includes('papaparse')) return 'vendor-utils';
+                            // Keep AWS SDK in vendor-misc to avoid circular deps.
+                            return 'vendor-misc';
+                        }
+
+                        if (id.includes('/dialogs/') || id.includes('Dialog.vue')) {
+                            return 'feature-dialogs';
+                        }
+                        if (id.includes('/components/common/')) {
+                            return 'components-common';
+                        }
+                        if (id.includes('/components/') && (id.includes('Icon') || id.includes('icon'))) {
+                            return 'components-icons';
+                        }
+                    },
+                    chunkFileNames: (chunkInfo) => {
+                        if (chunkInfo.name && chunkInfo.name.startsWith('vendor-')) {
+                            return 'vendors/[name]-[hash].js';
+                        }
+                        if (chunkInfo.name && chunkInfo.name.startsWith('feature-')) {
+                            return 'features/[name]-[hash].js';
+                        }
+                        if (chunkInfo.name && chunkInfo.name.startsWith('components-')) {
+                            return 'components/[name]-[hash].js';
+                        }
+                        return 'chunks/[name]-[hash].js';
+                    },
                 },
             },
             chunkSizeWarningLimit: 3000,
