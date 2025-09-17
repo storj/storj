@@ -44,6 +44,7 @@ type SettingsHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service SettingsService
+	auth    *Authorizer
 }
 
 // PlacementManagementHandler is an api handler that implements all PlacementManagement API endpoints functionality.
@@ -69,11 +70,12 @@ type ProjectManagementHandler struct {
 	auth    *Authorizer
 }
 
-func NewSettings(log *zap.Logger, mon *monkit.Scope, service SettingsService, router *mux.Router) *SettingsHandler {
+func NewSettings(log *zap.Logger, mon *monkit.Scope, service SettingsService, router *mux.Router, auth *Authorizer) *SettingsHandler {
 	handler := &SettingsHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
+		auth:    auth,
 	}
 
 	settingsRouter := router.PathPrefix("/back-office/api/v1/settings").Subrouter()
@@ -131,6 +133,8 @@ func (h *SettingsHandler) handleGetSettings(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 
+	ctx = h.auth.ContextWithRequestGroups(ctx, r)
+
 	retVal, httpErr := h.service.GetSettings(ctx)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
@@ -175,6 +179,7 @@ func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *h
 		return
 	}
 
+	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 1) {
 		return
 	}
@@ -210,6 +215,7 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
+	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 8192) {
 		return
 	}
@@ -251,6 +257,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
+	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 16384) {
 		return
 	}

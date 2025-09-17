@@ -25,6 +25,8 @@ type Service struct {
 	accounting   *accounting.Service
 	placement    nodeselection.PlacementDefinitions
 	defaults     Defaults
+
+	authorizer *Authorizer
 }
 
 // NewService creates a new satellite administration service.
@@ -33,6 +35,7 @@ func NewService(
 	consoleDB console.DB,
 	accountingDB accounting.ProjectAccounting,
 	accounting *accounting.Service,
+	authorizer *Authorizer,
 	placement nodeselection.PlacementDefinitions,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
@@ -42,10 +45,16 @@ func NewService(
 		consoleDB:    consoleDB,
 		accountingDB: accountingDB,
 		accounting:   accounting,
+		authorizer:   authorizer,
 		placement:    placement,
 		defaults: Defaults{
 			MaxBuckets: defaultMaxBuckets,
 			RateLimit:  int(defaultRateLimit),
 		},
 	}
+}
+
+// TestSetBypassAuth sets whether to bypass authentication. This is only for testing purposes.
+func (s *Service) TestSetBypassAuth(bypass bool) {
+	s.authorizer.enabled = !bypass
 }

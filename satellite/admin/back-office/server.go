@@ -77,17 +77,12 @@ func NewServer(
 		root = mux.NewRouter()
 	}
 
-	auth := NewAuthorizer(
-		log,
-		config,
-	)
-
 	// API endpoints.
 	// API generator already add the PathPrefix.
 	NewPlacementManagement(log, mon, service, root)
-	NewUserManagement(log, mon, service, root, auth)
-	NewProjectManagement(log, mon, service, root, auth)
-	NewSettings(log, mon, service, root)
+	NewUserManagement(log, mon, service, root, service.authorizer)
+	NewProjectManagement(log, mon, service, root, service.authorizer)
+	NewSettings(log, mon, service, root, service.authorizer)
 
 	root = root.PathPrefix(PathPrefix).Subrouter()
 	// Static assets for the web interface.

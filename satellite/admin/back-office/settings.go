@@ -85,57 +85,37 @@ type BucketFlags struct {
 	View                   bool `json:"view"`
 }
 
-// GetSettings returns the service settings.
+// GetSettings returns the service settings based on the caller's permissions.
 func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
-	return &Settings{
-		Admin: SettingsAdmin{
-			Features: FeatureFlags{
-				Account: AccountFlags{
-					Create:                 false,
-					Delete:                 false,
-					History:                false,
-					List:                   false,
-					Projects:               true,
-					Search:                 true,
-					Suspend:                false,
-					Unsuspend:              false,
-					ResetMFA:               false,
-					UpdateInfo:             false,
-					UpdateLimits:           false,
-					UpdatePlacement:        false,
-					UpdateStatus:           false,
-					UpdateValueAttribution: false,
-					View:                   true,
-				},
-				Project: ProjectFlags{
-					Create:                 false,
-					Delete:                 false,
-					History:                false,
-					List:                   false,
-					UpdateInfo:             false,
-					UpdateLimits:           true,
-					UpdatePlacement:        false,
-					UpdateValueAttribution: false,
-					View:                   true,
-					MemberList:             false,
-					MemberAdd:              false,
-					MemberRemove:           false,
-				},
-				Bucket: BucketFlags{
-					Create:                 false,
-					Delete:                 false,
-					History:                false,
-					List:                   false,
-					UpdateInfo:             false,
-					UpdatePlacement:        false,
-					UpdateValueAttribution: false,
-					View:                   false,
-				},
-				Dashboard:       false,
-				Operator:        false,
-				SignOut:         false,
-				SwitchSatellite: false,
-			},
-		},
-	}, api.HTTPError{}
+	if ctx.Value(groupContextKey) == nil {
+		// nothing will be enabled for this user
+		return &Settings{}, api.HTTPError{}
+	}
+
+	groups := ctx.Value(groupContextKey).([]string)
+	if len(groups) == 0 {
+		// nothing will be enabled for this user
+		return &Settings{}, api.HTTPError{}
+	}
+
+	var settings Settings
+
+	for _, g := range groups {
+		// account permission features
+		if s.authorizer.HasPermissions(g, PermAccountView) {
+			settings.Admin.Features.Account.View = true
+			settings.Admin.Features.Account.Search = true
+			settings.Admin.Features.Account.Projects = true
+		}
+
+		// project permission features
+		if s.authorizer.HasPermissions(g, PermProjectView) {
+			settings.Admin.Features.Project.View = true
+		}
+		if s.authorizer.HasPermissions(g, PermProjectSetLimits) {
+			settings.Admin.Features.Project.UpdateLimits = true
+		}
+	}
+
+	return &settings, api.HTTPError{}
 }

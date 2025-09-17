@@ -301,6 +301,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.Console(),
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.Service,
+			backoffice.NewAuthorizer(log.Named("back-office:auth"), config.Admin.BackOffice),
 			placement,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,

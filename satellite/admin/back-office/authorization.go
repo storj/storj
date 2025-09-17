@@ -4,6 +4,7 @@
 package admin
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -70,6 +71,10 @@ const (
 			PermAccountDeleteWithData | PermProjectView | PermBucketView,
 	)
 )
+
+type groupKey int
+
+const groupContextKey groupKey = 0
 
 // ErrAuthorizer is the error class that wraps all the errors returned by the authorization.
 var ErrAuthorizer = errs.Class("authorizer")
@@ -177,4 +182,19 @@ func (auth *Authorizer) IsRejected(w http.ResponseWriter, r *http.Request, perms
 	err := Error.Wrap(ErrAuthorizer.New("Not enough permissions (your groups: %s)", groupsh))
 	api.ServeError(auth.log, w, http.StatusUnauthorized, err)
 	return true
+}
+
+// ContextWithRequestGroups appends the groups from the "X-Forwarded-Groups" header to the
+// context for handlers to use it.
+func (auth *Authorizer) ContextWithRequestGroups(ctx context.Context, r *http.Request) context.Context {
+	if !auth.enabled {
+		return context.WithValue(ctx, groupContextKey, []string{"bypass-auth"})
+	}
+	groupsh := r.Header.Get("X-Forwarded-Groups")
+	if groupsh == "" {
+		return ctx
+	}
+
+	groups := strings.Split(groupsh, ",")
+	return context.WithValue(ctx, groupContextKey, groups)
 }

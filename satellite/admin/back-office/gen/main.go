@@ -28,6 +28,7 @@ func main() {
 	}
 
 	group := api.Group("Settings", "settings")
+	group.Middleware = append(group.Middleware, authMiddleware{})
 
 	group.Get("/", &apigen.Endpoint{
 		Name:           "Get settings",
@@ -107,9 +108,11 @@ type authMiddleware struct {
 }
 
 func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
+	format := "ctx = h.auth.ContextWithRequestGroups(ctx, r)"
+
 	perms := apigen.LoadSetting(authPermsKey, ep, []backoffice.Permission{})
 	if len(perms) == 0 {
-		return ""
+		return format
 	}
 
 	verbs := make([]string, 0, len(perms))
@@ -119,9 +122,10 @@ func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, e
 		values = append(values, p)
 	}
 
-	format := fmt.Sprintf(`if h.auth.IsRejected(w, r, %s) {
-		return
-	}`, strings.Join(verbs, ", "))
+	format += fmt.Sprintf(`
+		if h.auth.IsRejected(w, r, %s) {
+			return
+		}`, strings.Join(verbs, ", "))
 
 	return fmt.Sprintf(format, values...)
 }
