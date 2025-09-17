@@ -229,16 +229,7 @@ const accountInfoNextStep = computed<OnboardingStep>(() => {
     // If billing isn’t on, we always take the default step.
     if (!billingEnabled.value) return defaultNextStep.value;
     if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
-
-    // If user have entered a company name or chosen a large‐storage tier.
-    const isProfessional =
-        !!companyName.value ||
-        (storageNeeds.value && [AccountSetupStorageNeeds._100TB_TO_1PB, AccountSetupStorageNeeds.OVER_1PB].includes(storageNeeds.value));
-
-    if (isProfessional) return OnboardingStep.PlanTypeSelection;
-
-    // Otherwise, same default step as when billing is off.
-    return defaultNextStep.value;
+    return OnboardingStep.PlanTypeSelection;
 });
 
 const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
