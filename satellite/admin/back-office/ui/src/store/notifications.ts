@@ -13,13 +13,11 @@ export class NotificationsState {
 export const useNotificationsStore = defineStore('notifications', () => {
     const state = reactive<NotificationsState>(new NotificationsState());
 
-    const deleteCallback = (id: symbol) => deleteNotification(id);
-
     function addNotification(notification: DelayedNotification) {
         state.notificationQueue.push(notification);
     }
 
-    function deleteNotification(id: symbol) {
+    function deleteNotification(id: string) {
         if (state.notificationQueue.length < 1) {
             return;
         }
@@ -31,57 +29,63 @@ export const useNotificationsStore = defineStore('notifications', () => {
         }
     }
 
-    function pauseNotification(id: symbol) {
+    function pauseNotification(id: string) {
         const selectedNotification = state.notificationQueue.find(n => n.id === id);
         if (selectedNotification) {
             selectedNotification.pause();
         }
     }
 
-    function resumeNotification(id: symbol) {
+    function resumeNotification(id: string) {
         const selectedNotification = state.notificationQueue.find(n => n.id === id);
         if (selectedNotification) {
             selectedNotification.start();
         }
     }
 
-    function notifySuccess(message: NotificationMessage, title?: string): void {
+    function notifySuccess(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
-            deleteCallback,
+            () => deleteNotification(notification.id),
             NotificationType.Success,
             message,
             title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyInfo(message: NotificationMessage, title?: string): void {
+    function notifyInfo(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
-            deleteCallback,
+            () => deleteNotification(notification.id),
             NotificationType.Info,
             message,
             title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyWarning(message: NotificationMessage): void {
+    function notifyWarning(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
-            deleteCallback,
+            remainingTime ? () => deleteNotification(notification.id) : () => {},
             NotificationType.Warning,
             message,
+            title,
+            remainingTime,
         );
 
         addNotification(notification);
     }
 
-    function notifyError(message: NotificationMessage): void {
+    function notifyError(message: NotificationMessage, title?: string, remainingTime?: number): void {
         const notification = new DelayedNotification(
-            deleteCallback,
+            remainingTime ? () => deleteNotification(notification.id) : () => {},
             NotificationType.Error,
             message,
+            title,
+            remainingTime,
         );
 
         addNotification(notification);

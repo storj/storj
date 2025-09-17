@@ -76,12 +76,12 @@ import { X } from 'lucide-vue-next';
 import { UserAccount } from '@/api/client.gen';
 import { useUsersStore } from '@/store/users';
 import { useLoading } from '@/composables/useLoading';
-import { useNotificationsStore } from '@/store/notifications';
+import { useNotify } from '@/composables/useNotify';
 
 const usersStore = useUsersStore();
 
 const { isLoading, withLoading } = useLoading();
-const notify = useNotificationsStore();
+const notify = useNotify();
 
 const freezeType = ref<number>();
 
@@ -100,12 +100,12 @@ function freezeAccount() {
         }
         try {
             await usersStore.freezeUser(props.account.id, freezeType.value);
-            notify.notifySuccess('Account frozen successfully.');
+            notify.success('Account frozen successfully.');
             model.value = false;
 
             await usersStore.getUserByEmail(props.account.email);
         } catch (error) {
-            notify.notifyError(`Failed to freeze account. ${error.message}`);
+            notify.error(`Failed to freeze account. ${error.message}`);
             return;
         }
     });

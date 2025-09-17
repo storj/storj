@@ -14,10 +14,10 @@ type RenderFunction = () => (string | VNode | (string | VNode)[]);
 export type NotificationMessage = string | RenderFunction;
 
 export class DelayedNotification {
-    public readonly id: symbol = Symbol();
+    public readonly id: string;
 
-    private readonly callback: (id: symbol) => void;
-    private timerId: number;
+    private readonly callback: () => void;
+    private timerId: ReturnType<typeof setTimeout>;
     private startTime: number;
     private remainingTime: number;
 
@@ -25,12 +25,13 @@ export class DelayedNotification {
     public readonly title: string | undefined;
     public readonly messageNode: RenderFunction;
 
-    constructor(callback: (id: symbol) => void, type: NotificationType, message: NotificationMessage, title?: string) {
+    constructor(callback: () => void, type: NotificationType, message: NotificationMessage, title?: string, remainingTime = 3000) {
         this.callback = callback;
         this.type = type;
         this.title = title;
         this.messageNode = typeof message === 'string' ? () => createTextVNode(message) : message;
-        this.remainingTime = 3000;
+        this.id = '_' + Math.random().toString(36).substr(2, 9);
+        this.remainingTime = remainingTime;
         this.start();
     }
 
@@ -45,6 +46,6 @@ export class DelayedNotification {
 
     public start(): void {
         this.startTime = new Date().getMilliseconds();
-        this.timerId = window.setTimeout(() => this.callback(this.id), this.remainingTime);
+        this.timerId = setTimeout(this.callback, this.remainingTime);
     }
 }

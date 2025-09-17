@@ -25,14 +25,14 @@ import { onMounted } from 'vue';
 import { VSkeletonLoader } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
-import { useNotificationsStore } from '@/store/notifications';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/users';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const notify = useNotificationsStore();
+const notify = useNotify();
 
 onMounted(async () => {
     try {
@@ -41,7 +41,7 @@ onMounted(async () => {
             appStore.getPlacements(),
         ]);
     } catch (error) {
-        notify.notifyError(`Failed to initialise app. ${error.message}`);
+        notify.error(`Failed to initialise app. ${error.message}`);
     }
 });
 </script>

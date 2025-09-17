@@ -25,7 +25,7 @@
                 <v-tooltip text="Light Theme" location="bottom">
                     <template #activator="{ props }">
                         <v-btn
-                            v-bind="props" icon="mdi-weather-sunny" size="x-small" class="px-4" aria-label="Toggle Light Theme"
+                            v-bind="props" :icon="Sun" size="x-small" class="px-4" aria-label="Toggle Light Theme"
                             @click="toggleTheme('light')"
                         />
                     </template>
@@ -34,7 +34,7 @@
                 <v-tooltip text="Dark Theme" location="bottom">
                     <template #activator="{ props }">
                         <v-btn
-                            v-bind="props" icon="mdi-weather-night" size="x-small" class="px-4" aria-label="Toggle Dark Theme"
+                            v-bind="props" :icon="MoonStar" size="x-small" class="px-4" aria-label="Toggle Dark Theme"
                             @click="toggleTheme('dark')"
                         />
                     </template>
@@ -207,6 +207,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useTheme } from 'vuetify';
+import { MoonStar, Sun } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';

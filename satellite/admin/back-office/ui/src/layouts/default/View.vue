@@ -3,10 +3,15 @@
 
 <template>
     <v-main>
-        <router-view />
+        <v-container :max-width="xlAndUp ? '85%' : '100%'">
+            <router-view />
+        </v-container>
     </v-main>
 </template>
 
 <script setup lang="ts">
-import { VMain } from 'vuetify/components';
+import { VMain, VContainer } from 'vuetify/components';
+import { useDisplay } from 'vuetify';
+
+const { xlAndUp } = useDisplay();
 </script>

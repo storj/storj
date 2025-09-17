@@ -35,7 +35,7 @@
             <v-col cols="12" md="4" class="d-flex justify-start justify-md-end align-top align-md-center">
                 <v-btn>
                     <template #append>
-                        <v-icon icon="mdi-chevron-down" />
+                        <v-icon :icon="ChevronDown" />
                     </template>
                     Account Actions
                     <AccountActionsMenu :user="userAccount" @toggle-freeze="toggleFreeze" />
@@ -47,7 +47,7 @@
             <v-col>
                 <v-alert variant="tonal" color="error" rounded="lg" density="comfortable" border>
                     <div class="d-flex align-center">
-                        <v-icon icon="mdi-alert-circle" color="error" class="mr-3" />
+                        <v-icon :icon="AlertCircle" color="error" class="mr-3" />
                         An error occurred when retrieving project usage data.
                         Please retry after a few minutes and report the issue if it persists.
                     </div>
@@ -209,6 +209,7 @@ import {
     VProgressCircular,
     VTooltip,
 } from 'vuetify/components';
+import { AlertCircle, ChevronDown } from 'lucide-vue-next';
 
 import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -217,7 +218,7 @@ import { userIsNFR, userIsPaid } from '@/types/user';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { useLoading } from '@/composables/useLoading';
-import { useNotificationsStore } from '@/store/notifications';
+import { useNotify } from '@/composables/useNotify';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
@@ -237,7 +238,7 @@ const appStore = useAppStore();
 const router = useRouter();
 
 const { isLoading, withLoading } = useLoading();
-const notify = useNotificationsStore();
+const notify = useNotify();
 
 const unfreezing = ref<boolean>(false);
 const freezeDialogEnabled = ref<boolean>(false);
@@ -329,17 +330,17 @@ function toggleFreeze() {
 
 async function unfreezeAccount() {
     if (!userAccount.value.freezeStatus) {
-        notify.notifyError('Account is not frozen.');
+        notify.error('Account is not frozen.');
         return;
     }
     unfreezing.value = true;
     try {
         await usersStore.unfreezeUser(userAccount.value.id);
-        notify.notifySuccess('Account unfrozen successfully.');
+        notify.success('Account unfrozen successfully.');
 
         await usersStore.getUserByEmail(userAccount.value.email);
     } catch (error) {
-        notify.notifyError(`Failed to toggle account freeze status. ${error.message}`);
+        notify.error(`Failed to toggle account freeze status. ${error.message}`);
         return;
     } finally {
         unfreezing.value = false;

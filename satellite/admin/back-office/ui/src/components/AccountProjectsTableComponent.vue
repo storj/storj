@@ -4,7 +4,7 @@
 <template>
     <v-card variant="flat" :border="true" rounded="xlg">
         <v-text-field
-            v-model="search" label="Search" prepend-inner-icon="mdi-magnify" single-line variant="solo-filled" flat
+            v-model="search" label="Search" :prepend-inner-icon="Search" single-line variant="solo-filled" flat
             hide-details clearable density="compact" rounded="lg" class="mx-2 mt-2"
         />
 
@@ -25,7 +25,7 @@
                         width="24" height="24"
                     >
                         <ProjectActionsMenu />
-                        <v-icon icon="mdi-dots-horizontal" />
+                        <v-icon :icon="MoreHorizontal" />
                     </v-btn>
                     <v-chip
                         variant="text" color="default" size="small"
@@ -57,14 +57,14 @@
                 >
                     {{ item.storage.percent }}&percnt;
                 </v-chip>
-                <v-icon v-else icon="mdi-alert-circle-outline" color="error" />
+                <v-icon v-else :icon="AlertCircle" color="error" />
             </template>
 
             <template #item.storage.used="{ item }: ProjectTableSlotProps">
                 <template v-if="item.storage.used !== null">
                     {{ sizeToBase10String(item.storage.used) }}
                 </template>
-                <v-icon v-else icon="mdi-alert-circle-outline" color="error" />
+                <v-icon v-else :icon="AlertCircle" color="error" />
             </template>
 
             <template #item.storage.limit="{ item }: ProjectTableSlotProps">
@@ -107,7 +107,7 @@
                         >
                             {{ item.segment.percent }}&percnt;
                         </v-chip>
-                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" v-bind="activatorProps" />
+                        <v-icon v-else :icon="AlertCircle" color="error" v-bind="activatorProps" />
                     </template>
                 </v-tooltip>
             </template>
@@ -137,6 +137,7 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VCard, VTextField, VBtn, VIcon, VDataTable, VTooltip, VChip } from 'vuetify/components';
+import { AlertCircle, MoreHorizontal, Search } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';

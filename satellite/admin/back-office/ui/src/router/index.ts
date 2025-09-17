@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { watch } from 'vue';
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory, Router } from 'vue-router';
 
 import { NavigationLink } from '@/router/navigation';
 
@@ -98,14 +98,16 @@ const routes = [
     },
 ];
 
-const router = createRouter({
-    history: createWebHistory(process.env.BASE_URL),
-    routes,
-});
+export function setupRouter(): Router {
+    const router = createRouter({
+        history: createWebHistory(process.env.BASE_URL),
+        routes,
+    });
 
-watch(
-    () => router.currentRoute.value.name as string,
-    routeName => document.title = 'Storj Admin' + (routeName ? ' - ' + routeName : ''),
-);
+    watch(
+        () => router.currentRoute.value.name as string,
+        routeName => document.title = 'Storj Admin' + (routeName ? ' - ' + routeName : ''),
+    );
 
-export default router;
+    return router;
+}

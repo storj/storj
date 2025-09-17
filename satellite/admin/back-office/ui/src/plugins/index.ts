@@ -1,23 +1,19 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-/**
- * plugins/index.ts
- *
- * Automatically included in `./src/main.ts`
- */
-
-// Plugins
-// import { loadFonts } from './webfontloader'
-import pinia from '../store';
-import router from '../router';
+import { createPinia, setActivePinia } from 'pinia';
 
 import vuetify from './vuetify';
 
+import NotificatorPlugin from '@/plugins/notificator';
+import { setupRouter } from '@/router';
+
+const pinia = createPinia();
+setActivePinia(pinia);
+
 export function registerPlugins (app) {
-    // loadFonts()
-    app
-        .use(vuetify)
-        .use(router)
-        .use(pinia);
+    app.use(vuetify).use(pinia).use(NotificatorPlugin);
+
+    const router = setupRouter();
+    app.use(router);
 }

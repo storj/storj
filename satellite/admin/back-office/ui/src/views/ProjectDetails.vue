@@ -44,7 +44,7 @@
                 <v-btn>
                     Project Actions
                     <template #append>
-                        <v-icon icon="mdi-chevron-down" />
+                        <v-icon :icon="ChevronDown" />
                     </template>
                     <ProjectActionsMenu />
                 </v-btn>
@@ -189,6 +189,7 @@ import {
     VDivider,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
+import { ChevronDown } from 'lucide-vue-next';
 
 import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
