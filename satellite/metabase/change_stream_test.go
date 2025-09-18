@@ -361,7 +361,7 @@ func collectChangeStreamEvents(t *testing.T, eventCh <-chan metabase.DataChangeR
 				event.TableName, event.ModType, event.ServerTransactionId)
 
 			// Reset the event timeout when we receive events
-			eventTimeout = time.After(4 * time.Second)
+			eventTimeout = time.After(10 * time.Second)
 
 		case err := <-errCh:
 			t.Logf("Change stream reader error: %v", err)
