@@ -1608,9 +1608,9 @@ func TestPartnerPlacements(t *testing.T) {
 		require.Equal(t, productID2, prodID)
 
 		// test entitlements mapping overrides pricing mapping
-		err = entitlementsAPI.SetProductPlacementMappingsByPublicID(ctx, proj.PublicID, entitlements.ProductPlacementMappings{
-			productID2: {placement11}, // map productID2 to placement11 instead of productID in global pricing
-			productID:  {placement12}, // map productID to placement12 instead of productID2 in global partner-overridden pricing
+		err = entitlementsAPI.SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{
+			placement11: productID2, // map placement11 to productID2 instead of productID in global pricing
+			placement12: productID,  // map placement12 to productID instead of productID2 in global partner-overridden pricing
 		})
 		require.NoError(t, err)
 

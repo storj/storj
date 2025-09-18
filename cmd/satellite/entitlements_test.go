@@ -97,10 +97,11 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				require.EqualValues(t, []storj.PlacementConstraint{5, 12}, features.NewBucketPlacements)
 			})
 
-			t.Run("SetProductPlacementMap", func(t *testing.T) {
-				args.action = actionSetProductPlacementMap
-				args.productPlacementMap = entitlements.ProductPlacementMappings{
-					1: []storj.PlacementConstraint{5, 12},
+			t.Run("SetPlacementProductMap", func(t *testing.T) {
+				args.action = actionSetPlacementProductMap
+				args.placementProductMap = entitlements.PlacementProductMappings{
+					5:  1,
+					12: 1,
 				}
 
 				err = processUserEmail(ctx, user1.Email, args, true)
@@ -109,7 +110,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				// Verify that entitlements were set for user1's project
 				features, err := entService.Projects().GetByPublicID(ctx, user1Project.PublicID)
 				require.NoError(t, err)
-				require.EqualValues(t, args.productPlacementMap, features.ProductPlacementMappings)
+				require.EqualValues(t, args.placementProductMap, features.PlacementProductMappings)
 			})
 		})
 
@@ -172,10 +173,11 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				}
 			})
 
-			t.Run("SetProductPlacementMap", func(t *testing.T) {
-				args.action = actionSetProductPlacementMap
-				args.productPlacementMap = entitlements.ProductPlacementMappings{
-					1: []storj.PlacementConstraint{1, 2},
+			t.Run("SetPlacementProductMap", func(t *testing.T) {
+				args.action = actionSetPlacementProductMap
+				args.placementProductMap = entitlements.PlacementProductMappings{
+					1: 1,
+					2: 1,
 				}
 
 				err = processUserEmail(ctx, user2.Email, args, true)
@@ -186,7 +188,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				for _, publicID := range projectPublicIDs {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
-					require.EqualValues(t, args.productPlacementMap, features.ProductPlacementMappings)
+					require.EqualValues(t, args.placementProductMap, features.PlacementProductMappings)
 				}
 			})
 		})
@@ -212,9 +214,9 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
 			})
 
-			t.Run("SetProductPlacementMap", func(t *testing.T) {
-				args.action = actionSetProductPlacementMap
-				args.productPlacementMap = nil // Use default logic
+			t.Run("SetPlacementProductMap", func(t *testing.T) {
+				args.action = actionSetPlacementProductMap
+				args.placementProductMap = nil // Use default logic
 				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
 					"":           {1: 3},
 					"test-agent": {1: 4},
@@ -226,9 +228,9 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				// Verify that user4's project got partner overridden placement mapping
 				features, err := entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
-				require.EqualValues(t, entitlements.ProductPlacementMappings{
-					3: []storj.PlacementConstraint{1},
-				}, features.ProductPlacementMappings)
+				require.EqualValues(t, entitlements.PlacementProductMappings{
+					1: 3,
+				}, features.PlacementProductMappings)
 
 				// remove entitlements for user4's project
 				err = entService.Projects().DeleteByPublicID(ctx, user4Project.PublicID)
@@ -244,9 +246,9 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				// because "unknown-agent" is not in defaultPartnerMap
 				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
-				require.EqualValues(t, entitlements.ProductPlacementMappings{
-					3: []storj.PlacementConstraint{1},
-				}, features.ProductPlacementMappings)
+				require.EqualValues(t, entitlements.PlacementProductMappings{
+					1: 3,
+				}, features.PlacementProductMappings)
 
 				err = entService.Projects().DeleteByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
@@ -258,9 +260,9 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				// verify that user4's project gets mapping for test-agent
 				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
-				require.EqualValues(t, entitlements.ProductPlacementMappings{
-					4: []storj.PlacementConstraint{1},
-				}, features.ProductPlacementMappings)
+				require.EqualValues(t, entitlements.PlacementProductMappings{
+					1: 4,
+				}, features.PlacementProductMappings)
 			})
 		})
 	})
@@ -346,10 +348,11 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				}
 			})
 
-			t.Run("SetProductPlacementMap", func(t *testing.T) {
-				args.action = actionSetProductPlacementMap
-				args.productPlacementMap = entitlements.ProductPlacementMappings{
-					1: []storj.PlacementConstraint{5, 12},
+			t.Run("SetPlacementProductMap", func(t *testing.T) {
+				args.action = actionSetPlacementProductMap
+				args.placementProductMap = entitlements.PlacementProductMappings{
+					5:  1,
+					12: 1,
 				}
 
 				err = processAllUsers(ctx, args)
@@ -359,7 +362,7 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				for _, publicID := range activeProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
-					require.EqualValues(t, args.productPlacementMap, features.ProductPlacementMappings)
+					require.EqualValues(t, args.placementProductMap, features.PlacementProductMappings)
 				}
 			})
 
@@ -397,9 +400,9 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				require.EqualValues(t, []storj.PlacementConstraint{10}, features.NewBucketPlacements)
 			})
 
-			t.Run("SetProductPlacementMap", func(t *testing.T) {
-				args.action = actionSetProductPlacementMap
-				args.productPlacementMap = nil // use default logic
+			t.Run("SetPlacementProductMap", func(t *testing.T) {
+				args.action = actionSetPlacementProductMap
+				args.placementProductMap = nil // use default logic
 				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
 					"":           {1: 3},
 					"test-agent": {1: 4},
@@ -413,9 +416,9 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				for _, publicID := range noPartnerProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
-					require.EqualValues(t, entitlements.ProductPlacementMappings{
-						3: []storj.PlacementConstraint{1},
-					}, features.ProductPlacementMappings)
+					require.EqualValues(t, entitlements.PlacementProductMappings{
+						1: 3,
+					}, features.PlacementProductMappings)
 				}
 
 				// Verify that projects with "test-agent" partner got {1:4} mapping.
@@ -423,9 +426,9 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				for _, publicID := range testAgentProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
-					require.EqualValues(t, entitlements.ProductPlacementMappings{
-						4: []storj.PlacementConstraint{1},
-					}, features.ProductPlacementMappings)
+					require.EqualValues(t, entitlements.PlacementProductMappings{
+						1: 4,
+					}, features.PlacementProductMappings)
 				}
 			})
 		})
@@ -744,7 +747,7 @@ func TestSetEntitlement_Validation(t *testing.T) {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "cannot specify both --email and --csv flags")
 
-			err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+			err = setPlacementProductMap(ctx, testplanet.NewLogger(t), sat.DB)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "cannot specify both --email and --csv flags")
 		})
@@ -759,9 +762,9 @@ func TestSetEntitlement_Validation(t *testing.T) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "invalid JSON format for placements")
 
-				err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+				err = setPlacementProductMap(ctx, testplanet.NewLogger(t), sat.DB)
 				require.Error(t, err)
-				require.Contains(t, err.Error(), "invalid JSON format for product-placement mapping")
+				require.Contains(t, err.Error(), "invalid JSON format for placement-product mapping")
 			})
 
 			t.Run("InvalidMappingsAndPlacement", func(t *testing.T) {
@@ -773,23 +776,23 @@ func TestSetEntitlement_Validation(t *testing.T) {
 					require.Contains(t, err.Error(), "invalid placement ID: 3")
 				})
 
-				t.Run("SetProductPlacementMap", func(t *testing.T) {
-					entitlementJSON = `{"3": [1]}`
-					err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+				t.Run("SetPlacementProductMap", func(t *testing.T) {
+					entitlementJSON = `{"0": 3}`
+					err = setPlacementProductMap(ctx, testplanet.NewLogger(t), sat.DB)
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "invalid product ID: 3")
 
-					entitlementJSON = `{"1": [1]}`
-					err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+					entitlementJSON = `{"1": 1}`
+					err = setPlacementProductMap(ctx, testplanet.NewLogger(t), sat.DB)
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "invalid placement ID: 1")
 				})
 			})
 
 			t.Run("AllValidationsPass", func(t *testing.T) {
-				t.Run("SetProductPlacementMap", func(t *testing.T) {
-					entitlementJSON = `{"1": [0]}`
-					err := setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+				t.Run("SetPlacementProductMap", func(t *testing.T) {
+					entitlementJSON = `{"0": 1}`
+					err := setPlacementProductMap(ctx, testplanet.NewLogger(t), sat.DB)
 					require.NoError(t, err)
 
 					entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
@@ -798,9 +801,9 @@ func TestSetEntitlement_Validation(t *testing.T) {
 					for _, p := range []uuid.UUID{p1.PublicID, p2.PublicID} {
 						features, err := entService.Projects().GetByPublicID(ctx, p)
 						require.NoError(t, err)
-						require.EqualValues(t, entitlements.ProductPlacementMappings{
-							1: []storj.PlacementConstraint{0},
-						}, features.ProductPlacementMappings)
+						require.EqualValues(t, entitlements.PlacementProductMappings{
+							0: 1,
+						}, features.PlacementProductMappings)
 					}
 
 					// reset entitlement
@@ -810,21 +813,21 @@ func TestSetEntitlement_Validation(t *testing.T) {
 					err = entService.Projects().DeleteByPublicID(ctx, p2.PublicID)
 					require.NoError(t, err)
 
-					err = setProductPlacementMap(ctx, testplanet.NewLogger(t), sat.DB)
+					err = setPlacementProductMap(ctx, testplanet.NewLogger(t), sat.DB)
 					require.NoError(t, err)
 
 					// expect global mappings to be set
 					features, err := entService.Projects().GetByPublicID(ctx, p1.PublicID)
 					require.NoError(t, err)
-					require.EqualValues(t, entitlements.ProductPlacementMappings{
-						1: []storj.PlacementConstraint{0},
-					}, features.ProductPlacementMappings)
+					require.EqualValues(t, entitlements.PlacementProductMappings{
+						0: 1,
+					}, features.PlacementProductMappings)
 
 					features, err = entService.Projects().GetByPublicID(ctx, p2.PublicID)
 					require.NoError(t, err)
-					require.EqualValues(t, entitlements.ProductPlacementMappings{
-						2: []storj.PlacementConstraint{0},
-					}, features.ProductPlacementMappings)
+					require.EqualValues(t, entitlements.PlacementProductMappings{
+						0: 2,
+					}, features.PlacementProductMappings)
 				})
 			})
 		})

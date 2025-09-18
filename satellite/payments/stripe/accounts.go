@@ -643,19 +643,17 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, pro
 				"could not get pricing entitlements for project, falling back to defaults",
 				zap.String("partner", partner), zap.Int("placement", int(placement)), zap.Error(err))
 		}
-		for productID, placementConstraints := range feats.ProductPlacementMappings {
-			for _, pC := range placementConstraints {
-				if pC != placement {
-					continue
-				}
-				if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
-					return productID, price
-				}
-				accounts.service.log.Info(
-					"no product definition for product and partner, falling back to defaults",
-					zap.String("partner", partner), zap.Int("placement", int(placement)))
-				// fall through to global pricing
+		for placementConstraint, productID := range feats.PlacementProductMappings {
+			if placementConstraint != placement {
+				continue
 			}
+			if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
+				return productID, price
+			}
+			accounts.service.log.Info(
+				"no product definition for product and partner, falling back to defaults",
+				zap.String("partner", partner), zap.Int("placement", int(placement)))
+			// fall through to global pricing
 		}
 	}
 

@@ -187,17 +187,17 @@ func TestInvoiceByProduct(t *testing.T) {
 			require.NoError(t, err)
 
 			if testCase.entitlementOverride {
-				mapping := entitlements.ProductPlacementMappings{
-					2: {0},
-					3: {12},
+				mapping := entitlements.PlacementProductMappings{
+					0:  2,
+					12: 3,
 				}
-				err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx,
+				err = projectEntitlements.SetPlacementProductMappingsByPublicID(ctx,
 					project1.PublicID,
 					mapping,
 				)
 				require.NoError(t, err)
 
-				err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx,
+				err = projectEntitlements.SetPlacementProductMappingsByPublicID(ctx,
 					project2.PublicID,
 					mapping,
 				)

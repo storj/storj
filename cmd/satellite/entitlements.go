@@ -28,7 +28,7 @@ import (
 
 const (
 	actionSetNewBucketPlacements int = iota
-	actionSetProductPlacementMap
+	actionSetPlacementProductMap
 )
 
 var (
@@ -48,7 +48,7 @@ type processingArgs struct {
 	skipConfirm       bool
 	verbose           bool
 
-	productPlacementMap entitlements.ProductPlacementMappings
+	placementProductMap entitlements.PlacementProductMappings
 	defaultPartnerMap   payments.PartnersPlacementProductMap
 
 	action int
@@ -119,7 +119,7 @@ func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
 	}
 }
 
-func cmdSetProductPlacementMap(cmd *cobra.Command, _ []string) error {
+func cmdSetPlacementProductMap(cmd *cobra.Command, _ []string) error {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
@@ -133,20 +133,20 @@ func cmdSetProductPlacementMap(cmd *cobra.Command, _ []string) error {
 		err = errs.Combine(err, satDB.Close())
 	}()
 
-	return setProductPlacementMap(ctx, log, satDB)
+	return setPlacementProductMap(ctx, log, satDB)
 }
 
 // this method is separated to allow easier testing with a mock satellitedb
-func setProductPlacementMap(ctx context.Context, log *zap.Logger, satDB satellite.DB) error {
+func setPlacementProductMap(ctx context.Context, log *zap.Logger, satDB satellite.DB) error {
 	// Validate that only one target option is provided.
 	if entitlementUserEmail != "" && entitlementUserEmailCSV != "" {
 		return errs.New("cannot specify both --email and --csv flags, please use only one")
 	}
 
-	var mappings entitlements.ProductPlacementMappings
+	var mappings entitlements.PlacementProductMappings
 	if entitlementJSON != "" {
 		if err := json.Unmarshal([]byte(entitlementJSON), &mappings); err != nil {
-			return errs.New("invalid JSON format for product-placement mapping: %+v", err)
+			return errs.New("invalid JSON format for placement-product mapping: %+v", err)
 		}
 	}
 
@@ -167,14 +167,12 @@ func setProductPlacementMap(ctx context.Context, log *zap.Logger, satDB satellit
 			return errs.New("error converting product prices: %+v", err)
 		}
 
-		for productID, placements := range mappings {
+		for placement, productID := range mappings {
+			if _, ok := runCfg.Console.Placement.SelfServeDetails.Get(placement); !ok {
+				return errs.New("invalid placement ID: %d", placement)
+			}
 			if _, ok := productPrices[productID]; !ok {
 				return errs.New("invalid product ID: %d", productID)
-			}
-			for _, placement := range placements {
-				if _, ok := runCfg.Console.Placement.SelfServeDetails.Get(placement); !ok {
-					return errs.New("invalid placement ID: %d", placement)
-				}
 			}
 		}
 
@@ -182,7 +180,7 @@ func setProductPlacementMap(ctx context.Context, log *zap.Logger, satDB satellit
 		if entitlementVerbose {
 			logArgs = append(logArgs, zap.Any("mapping", mappings))
 		}
-		log.Info("Setting product-placement mapping to provided values", logArgs...)
+		log.Info("Setting placement-product mapping to provided values", logArgs...)
 	}
 
 	entitlementsService := entitlements.NewService(log.Named("entitlements"), satDB.Console().Entitlements())
@@ -190,11 +188,11 @@ func setProductPlacementMap(ctx context.Context, log *zap.Logger, satDB satellit
 		log:                 log,
 		satDB:               satDB,
 		entService:          entitlementsService,
-		productPlacementMap: mappings,
+		placementProductMap: mappings,
 		defaultPartnerMap:   partnerMapping,
 		skipConfirm:         entitlementSkipConfirm,
 		verbose:             entitlementVerbose,
-		action:              actionSetProductPlacementMap,
+		action:              actionSetPlacementProductMap,
 	}
 
 	// Determine which users/projects to target.
@@ -236,8 +234,8 @@ func processUserEmail(ctx context.Context, email string, args processingArgs, va
 	}
 
 	actionTxt := "new bucket placements"
-	if args.action == actionSetProductPlacementMap {
-		actionTxt = "product-placement mapping"
+	if args.action == actionSetPlacementProductMap {
+		actionTxt = "placement-product mapping"
 	}
 	args.log.Info(fmt.Sprintf("Successfully updated %s for user", actionTxt), zap.String("email", email), zap.Int("project_count", len(projects)))
 
@@ -245,9 +243,9 @@ func processUserEmail(ctx context.Context, email string, args processingArgs, va
 }
 
 func processProject(ctx context.Context, project console.Project, args processingArgs) (err error) {
-	if args.action == actionSetProductPlacementMap {
-		productPlacementMap := args.productPlacementMap
-		if productPlacementMap == nil {
+	if args.action == actionSetPlacementProductMap {
+		placementProductMap := args.placementProductMap
+		if placementProductMap == nil {
 			partner := ""
 			if project.UserAgent != nil {
 				partner = string(project.UserAgent)
@@ -256,18 +254,18 @@ func processProject(ctx context.Context, project console.Project, args processin
 			if mapping == nil {
 				mapping = args.defaultPartnerMap[""] // fallback to default mapping
 			}
-			productPlacementMap = entitlements.ProductPlacementMappings{}
+			placementProductMap = entitlements.PlacementProductMappings{}
 			for placement, productID := range mapping {
-				productPlacementMap[productID] = []storj.PlacementConstraint{storj.PlacementConstraint(placement)}
+				placementProductMap[storj.PlacementConstraint(placement)] = productID
 			}
 		}
 
-		if err = args.entService.Projects().SetProductPlacementMappingsByPublicID(ctx, project.PublicID, productPlacementMap); err != nil {
-			return errs.New("error setting product-placement mapping for project %s: %+v", project.PublicID, err)
+		if err = args.entService.Projects().SetPlacementProductMappingsByPublicID(ctx, project.PublicID, placementProductMap); err != nil {
+			return errs.New("error setting placement-product mapping for project %s: %+v", project.PublicID, err)
 		}
 
 		if args.verbose {
-			args.log.Info("Set product-placement mapping for project", zap.String("project_id", project.PublicID.String()), zap.Any("mapping", productPlacementMap))
+			args.log.Info("Set placement-product mapping for project", zap.String("project_id", project.PublicID.String()), zap.Any("mapping", placementProductMap))
 		}
 
 		return nil
@@ -349,8 +347,8 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 
 	if !args.skipConfirm {
 		actionText := "Set bucket placements"
-		if args.action == actionSetProductPlacementMap {
-			actionText = "Set product-placement mapping"
+		if args.action == actionSetPlacementProductMap {
+			actionText = "Set placement-product mapping"
 		}
 		if !askForConfirmation(fmt.Sprintf("%s for %d users from CSV file?", actionText, len(emails))) {
 			args.log.Info("Operation cancelled by user")
@@ -371,8 +369,8 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 	}
 
 	actionText := "new bucket placements"
-	if args.action == actionSetProductPlacementMap {
-		actionText = "product-placement mapping"
+	if args.action == actionSetPlacementProductMap {
+		actionText = "placement-product mapping"
 	}
 
 	args.log.Info(fmt.Sprintf("Successfully updated %s for all users from CSV file", actionText), zap.Int("count", len(emails)))
@@ -383,8 +381,8 @@ func processCSVFile(ctx context.Context, csvPath string, args processingArgs) er
 func processAllUsers(ctx context.Context, args processingArgs) error {
 	if !args.skipConfirm {
 		actionText := "Set bucket placements"
-		if args.action == actionSetProductPlacementMap {
-			actionText = "Set product-placement mapping"
+		if args.action == actionSetPlacementProductMap {
+			actionText = "Set placement-product mapping"
 		}
 		if !askForConfirmation(fmt.Sprintf("%s for ALL active projects of ALL active users?", actionText)) {
 			args.log.Info("Operation cancelled by user")
@@ -433,8 +431,8 @@ func processAllUsers(ctx context.Context, args processingArgs) error {
 	}
 
 	actionTxt := "new bucket placements"
-	if args.action == actionSetProductPlacementMap {
-		actionTxt = "product-placement mapping"
+	if args.action == actionSetPlacementProductMap {
+		actionTxt = "placement-product mapping"
 	}
 	args.log.Info(fmt.Sprintf("Successfully updated %s for all active users and their projects", actionTxt))
 

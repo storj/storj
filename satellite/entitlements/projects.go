@@ -12,13 +12,13 @@ import (
 	"storj.io/common/uuid"
 )
 
-// ProductPlacementMappings maps product IDs to their corresponding placement constraints.
-type ProductPlacementMappings map[int32][]storj.PlacementConstraint
+// PlacementProductMappings maps placements to their corresponding product IDs.
+type PlacementProductMappings map[storj.PlacementConstraint]int32
 
 // ProjectFeatures defines the features available for a project.
 type ProjectFeatures struct {
 	NewBucketPlacements      []storj.PlacementConstraint `json:"new_bucket_placements,omitempty"`
-	ProductPlacementMappings ProductPlacementMappings    `json:"product_placement_mappings,omitempty"`
+	PlacementProductMappings PlacementProductMappings    `json:"placement_product_mappings,omitempty"`
 }
 
 // Projects separates project-related entitlements functionality.
@@ -66,12 +66,12 @@ func (p *Projects) SetNewBucketPlacementsByPublicID(ctx context.Context, publicI
 	return Error.Wrap(p.upsertNewEntitlement(ctx, ent, features))
 }
 
-// SetProductPlacementMappingsByPublicID sets the product placement mappings for a project by its public ID.
-func (p *Projects) SetProductPlacementMappingsByPublicID(ctx context.Context, publicID uuid.UUID, newMappings ProductPlacementMappings) (err error) {
+// SetPlacementProductMappingsByPublicID sets the placement product mappings for a project by its public ID.
+func (p *Projects) SetPlacementProductMappingsByPublicID(ctx context.Context, publicID uuid.UUID, newMappings PlacementProductMappings) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if newMappings == nil {
-		return Error.New("product:placements mappings cannot be empty")
+		return Error.New("placement:product mappings cannot be empty")
 	}
 
 	scope := ConvertPublicIDToProjectScope(publicID)
@@ -88,7 +88,7 @@ func (p *Projects) SetProductPlacementMappingsByPublicID(ctx context.Context, pu
 			return Error.Wrap(err)
 		}
 	}
-	features.ProductPlacementMappings = newMappings
+	features.PlacementProductMappings = newMappings
 
 	return Error.Wrap(p.upsertNewEntitlement(ctx, ent, features))
 }

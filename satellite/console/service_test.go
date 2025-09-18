@@ -2026,9 +2026,9 @@ func TestGetUsageReport(t *testing.T) {
 			}
 
 			// test overriding project price mappings via entitlement
-			err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx, project.PublicID, entitlements.ProductPlacementMappings{
-				productID2: {storj.DefaultPlacement}, // reverse of the global mapping
-				productID:  {placement11},
+			err = projectEntitlements.SetPlacementProductMappingsByPublicID(ctx, project.PublicID, entitlements.PlacementProductMappings{
+				storj.DefaultPlacement: productID2, // reverse of the global mapping
+				placement11:            productID,
 			})
 			require.NoError(t, err)
 
@@ -2064,7 +2064,7 @@ func TestGetUsageReport(t *testing.T) {
 			}
 
 			// remove the entitlement mappings
-			err = projectEntitlements.SetProductPlacementMappingsByPublicID(ctx, project.PublicID, entitlements.ProductPlacementMappings{})
+			err = projectEntitlements.SetPlacementProductMappingsByPublicID(ctx, project.PublicID, entitlements.PlacementProductMappings{})
 			require.NoError(t, err)
 
 			apiKey := planet.Uplinks[0].APIKey[sat.ID()]
@@ -2413,7 +2413,7 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 		feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
 		require.NoError(t, err)
 		require.NotNil(t, feats.NewBucketPlacements)
-		require.Nil(t, feats.ProductPlacementMappings)
+		require.Nil(t, feats.PlacementProductMappings)
 		require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
 	})
 }

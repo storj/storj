@@ -41,15 +41,15 @@ func TestEntitlements(t *testing.T) {
 
 		scope := []byte("proj_id:" + testrand.UUID().String())
 		newBucketPlacements := []storj.PlacementConstraint{storj.DefaultPlacement, 12}
-		productPlacementMappings := entitlements.ProductPlacementMappings{
-			1: {storj.DefaultPlacement},
-			2: {12},
+		placementProductMappings := entitlements.PlacementProductMappings{
+			storj.DefaultPlacement: 1,
+			12:                     2,
 		}
 
 		t.Run("Upsert (create) entitlement", func(t *testing.T) {
 			projectFeatures := entitlements.ProjectFeatures{
 				NewBucketPlacements:      newBucketPlacements,
-				ProductPlacementMappings: productPlacementMappings,
+				PlacementProductMappings: placementProductMappings,
 			}
 			feats, err := json.Marshal(projectFeatures)
 			require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestEntitlements(t *testing.T) {
 			err = json.Unmarshal(got.Features, &gotFeats)
 			require.NoError(t, err)
 			require.ElementsMatch(t, newBucketPlacements, gotFeats.NewBucketPlacements)
-			require.Equal(t, productPlacementMappings, gotFeats.ProductPlacementMappings)
+			require.Equal(t, placementProductMappings, gotFeats.PlacementProductMappings)
 		})
 
 		t.Run("Get by scope", func(t *testing.T) {
@@ -82,14 +82,14 @@ func TestEntitlements(t *testing.T) {
 			err = json.Unmarshal(got.Features, &gotFeats)
 			require.NoError(t, err)
 			require.ElementsMatch(t, newBucketPlacements, gotFeats.NewBucketPlacements)
-			require.Equal(t, productPlacementMappings, gotFeats.ProductPlacementMappings)
+			require.Equal(t, placementProductMappings, gotFeats.PlacementProductMappings)
 		})
 
 		t.Run("Upsert (update) preserves unrelated fields", func(t *testing.T) {
 			newBucketPlacements1 := []storj.PlacementConstraint{3}
 			projectFeatures := entitlements.ProjectFeatures{
 				NewBucketPlacements:      newBucketPlacements1,
-				ProductPlacementMappings: productPlacementMappings,
+				PlacementProductMappings: placementProductMappings,
 			}
 			feats, err := json.Marshal(projectFeatures)
 			require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestEntitlements(t *testing.T) {
 			err = json.Unmarshal(got.Features, &gotFeats)
 			require.NoError(t, err)
 			require.ElementsMatch(t, newBucketPlacements1, gotFeats.NewBucketPlacements)
-			require.Equal(t, productPlacementMappings, gotFeats.ProductPlacementMappings)
+			require.Equal(t, placementProductMappings, gotFeats.PlacementProductMappings)
 
 			refetched, err := entDB.GetByScope(ctx, scope)
 			require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestEntitlements(t *testing.T) {
 			err = json.Unmarshal(refetched.Features, &refetchedFeats)
 			require.NoError(t, err)
 			require.ElementsMatch(t, newBucketPlacements1, refetchedFeats.NewBucketPlacements)
-			require.Equal(t, productPlacementMappings, refetchedFeats.ProductPlacementMappings)
+			require.Equal(t, placementProductMappings, refetchedFeats.PlacementProductMappings)
 		})
 
 		t.Run("Delete by scope", func(t *testing.T) {

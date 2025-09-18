@@ -378,11 +378,11 @@ var (
 		Long:  "Set NewBucketPlacements entitlement for projects to be reused during new bucket creation",
 		RunE:  cmdSetNewBucketPlacements,
 	}
-	setProductPlacementMapCmd = &cobra.Command{
-		Use:   "set-product-placement-mappings",
-		Short: "Set ProductPlacementMappings entitlement for projects",
-		Long:  "Set ProductPlacementMappings entitlement for projects to override global configs",
-		RunE:  cmdSetProductPlacementMap,
+	setPlacementProductMapCmd = &cobra.Command{
+		Use:   "set-placement-product-mappings",
+		Short: "Set PlacementProductMappings entitlement for projects",
+		Long:  "Set PlacementProductMappings entitlement for projects to override global configs",
+		RunE:  cmdSetPlacementProductMap,
 	}
 
 	usersCmd = &cobra.Command{
@@ -575,12 +575,12 @@ func init() {
 	setNewBucketPlacementsCmd.Flags().StringVar(&entitlementJSON, "placements", "", "JSON array of placement IDs to set (e.g., \"[0, 12]\"). If not provided, uses satellite config defaults")
 	setNewBucketPlacementsCmd.Flags().BoolVar(&entitlementSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
 	setNewBucketPlacementsCmd.Flags().BoolVar(&entitlementVerbose, "verbose", false, "Whether to log info about each processed project")
-	projectEntitlementsCmd.AddCommand(setProductPlacementMapCmd)
-	setProductPlacementMapCmd.Flags().StringVar(&entitlementUserEmail, "email", "", "Set product-placement mapping for all active projects of a specific user by email")
-	setProductPlacementMapCmd.Flags().StringVar(&entitlementUserEmailCSV, "csv", "", "Set product-placement mapping for all active projects of users listed in CSV file")
-	setProductPlacementMapCmd.Flags().StringVar(&entitlementJSON, "placements", "", "JSON mapping of product IDs to placement array to set (e.g., \"{3:[0],2,[12]}\"). If not provided, uses satellite config defaults")
-	setProductPlacementMapCmd.Flags().BoolVar(&entitlementSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
-	setProductPlacementMapCmd.Flags().BoolVar(&entitlementVerbose, "verbose", false, "Whether to log info about each processed project")
+	projectEntitlementsCmd.AddCommand(setPlacementProductMapCmd)
+	setPlacementProductMapCmd.Flags().StringVar(&entitlementUserEmail, "email", "", "Set placement-product mapping for all active projects of a specific user by email")
+	setPlacementProductMapCmd.Flags().StringVar(&entitlementUserEmailCSV, "csv", "", "Set placement-product mapping for all active projects of users listed in CSV file")
+	setPlacementProductMapCmd.Flags().StringVar(&entitlementJSON, "placements", "", "1:1 JSON mapping of placement to product ID to set (e.g., \"{0:3,12:2}\"). If not provided, uses satellite config defaults")
+	setPlacementProductMapCmd.Flags().BoolVar(&entitlementSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
+	setPlacementProductMapCmd.Flags().BoolVar(&entitlementVerbose, "verbose", false, "Whether to log info about each processed project")
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
@@ -639,7 +639,7 @@ func init() {
 	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(valueAttributionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setNewBucketPlacementsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(setProductPlacementMapCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setPlacementProductMapCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)

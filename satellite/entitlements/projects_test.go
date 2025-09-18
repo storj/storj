@@ -39,23 +39,23 @@ func TestProjectEntitlements(t *testing.T) {
 		got, err := projects.GetByPublicID(ctx, publicID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, p1, got.NewBucketPlacements)
-		require.Empty(t, got.ProductPlacementMappings)
+		require.Empty(t, got.PlacementProductMappings)
 
-		err = projects.SetProductPlacementMappingsByPublicID(ctx, publicID, nil)
+		err = projects.SetPlacementProductMappingsByPublicID(ctx, publicID, nil)
 		require.Error(t, err)
 
-		m1 := entitlements.ProductPlacementMappings{
-			1: {0},
-			2: {12},
+		m1 := entitlements.PlacementProductMappings{
+			storj.DefaultPlacement: 1,
+			12:                     2,
 		}
-		err = projects.SetProductPlacementMappingsByPublicID(ctx, publicID, m1)
+		err = projects.SetPlacementProductMappingsByPublicID(ctx, publicID, m1)
 		require.NoError(t, err)
 
 		// Get should show BOTH fields (placements preserved).
 		got, err = projects.GetByPublicID(ctx, publicID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, p1, got.NewBucketPlacements)
-		require.Equal(t, m1, got.ProductPlacementMappings)
+		require.Equal(t, m1, got.PlacementProductMappings)
 
 		// Update placements again; mappings must remain intact.
 		p2 := []storj.PlacementConstraint{3}
@@ -65,19 +65,19 @@ func TestProjectEntitlements(t *testing.T) {
 		got, err = projects.GetByPublicID(ctx, publicID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, p2, got.NewBucketPlacements)
-		require.Equal(t, m1, got.ProductPlacementMappings)
+		require.Equal(t, m1, got.PlacementProductMappings)
 
 		// Update mappings again; placements must remain intact.
-		m2 := entitlements.ProductPlacementMappings{
-			3: {3},
+		m2 := entitlements.PlacementProductMappings{
+			3: 3,
 		}
-		err = projects.SetProductPlacementMappingsByPublicID(ctx, publicID, m2)
+		err = projects.SetPlacementProductMappingsByPublicID(ctx, publicID, m2)
 		require.NoError(t, err)
 
 		got, err = projects.GetByPublicID(ctx, publicID)
 		require.NoError(t, err)
 		require.ElementsMatch(t, p2, got.NewBucketPlacements)
-		require.Equal(t, m2, got.ProductPlacementMappings)
+		require.Equal(t, m2, got.PlacementProductMappings)
 
 		err = projects.DeleteByPublicID(ctx, publicID)
 		require.NoError(t, err)
