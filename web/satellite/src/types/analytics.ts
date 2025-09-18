@@ -33,3 +33,9 @@ export type ObjectMountConsultationForm = {
     implementationTimeline: string;
     additionalInformation: string;
 };
+
+export type UserFeedbackForm = {
+    type: string;
+    message: string;
+    allowContact: boolean;
+};

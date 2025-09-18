@@ -369,6 +369,14 @@ type TrackOnboardingInfoFields struct {
 	InterestedInPartnering bool
 }
 
+// UserFeedbackFormData is the data submitted by the user feedback form.
+type UserFeedbackFormData struct {
+	Type         string `json:"type"`
+	Message      string `json:"message"`
+	ReproSteps   string `json:"reproSteps"`
+	AllowContact bool   `json:"allowContact"`
+}
+
 func (service *Service) enqueueMessage(message segment.Message) {
 	err := service.segment.Enqueue(message)
 	if err != nil {

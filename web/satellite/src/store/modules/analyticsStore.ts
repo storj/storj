@@ -6,7 +6,7 @@ import { computed } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { JoinCunoFSBetaForm, ObjectMountConsultationForm } from '@/types/analytics';
+import { JoinCunoFSBetaForm, ObjectMountConsultationForm, UserFeedbackForm } from '@/types/analytics';
 import { useConfigStore } from '@/store/modules/configStore';
 
 export const useAnalyticsStore = defineStore('analytics', () => {
@@ -27,8 +27,8 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         await analytics.joinPlacementWaitlist(storageNeeds, placementID, csrfToken.value);
     }
 
-    async function sendUserFeedback(type: string, message: string): Promise<void> {
-        await analytics.sendUserFeedback(type, message, csrfToken.value);
+    async function sendUserFeedback(data: UserFeedbackForm): Promise<void> {
+        await analytics.sendUserFeedback(data, csrfToken.value);
     }
 
     async function requestObjectMountConsultation(data: ObjectMountConsultationForm): Promise<void> {

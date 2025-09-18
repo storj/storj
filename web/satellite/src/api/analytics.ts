@@ -4,7 +4,7 @@
 import { HttpClient } from '@/utils/httpClient';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APIError } from '@/utils/error';
-import { JoinCunoFSBetaForm, ObjectMountConsultationForm } from '@/types/analytics';
+import { JoinCunoFSBetaForm, ObjectMountConsultationForm, UserFeedbackForm } from '@/types/analytics';
 
 /**
  * AnalyticsHttpApi is a console Analytics API.
@@ -60,14 +60,13 @@ export class AnalyticsHttpApi {
     /**
      * Used to send user feedback.
      *
-     * @param type - feedback type
-     * @param message - feedback message
+     * @param data - feedback data
      * @param csrfProtectionToken - CSRF token
      */
-    public async sendUserFeedback(type: string, message: string, csrfProtectionToken: string): Promise<void> {
+    public async sendUserFeedback(data: UserFeedbackForm, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/send-feedback`;
 
-        const response = await this.http.post(path, JSON.stringify({ type, message }), { csrfProtectionToken });
+        const response = await this.http.post(path, JSON.stringify(data), { csrfProtectionToken });
         if (!response.ok) {
             const result = await response.json();
 

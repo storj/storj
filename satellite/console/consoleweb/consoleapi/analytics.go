@@ -194,10 +194,7 @@ func (a *Analytics) SendFeedback(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var data struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
-	}
+	var data analytics.UserFeedbackFormData
 	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
@@ -213,7 +210,7 @@ func (a *Analytics) SendFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.service.SendUserFeedback(ctx, data.Type, data.Message)
+	err = a.service.SendUserFeedback(ctx, data)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			a.serveJSONError(ctx, w, http.StatusUnauthorized, err)

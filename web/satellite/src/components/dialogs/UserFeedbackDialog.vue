@@ -25,6 +25,19 @@
 
             <v-divider />
 
+            <v-card-item class="px-6 pb-0">
+                <v-alert
+                    border
+                    variant="outlined"
+                    color="info"
+                >
+                    <p class="text-body-2">
+                        <strong>Do not use this form for account, billing, or support issues.</strong>
+                        If you need help with those, please <a :href="supportURL" target="_blank" rel="noopener noreferrer">create a support ticket here.</a>
+                    </p>
+                </v-alert>
+            </v-card-item>
+
             <v-card-item class="px-6">
                 <v-form ref="form" v-model="formValid" class="pt-2" @submit.prevent="sendFeedback">
                     <v-select
@@ -38,10 +51,16 @@
                         class="mt-2"
                         variant="outlined"
                         :rules="[RequiredRule]"
-                        label="Write what you think"
-                        placeholder="Enter your feedback here"
+                        :label="type === FeedbackType.Report ? 'Provide reproduction steps' : 'Write what you think'"
+                        :placeholder="type === FeedbackType.Report ? 'Enter reproduction steps here' : 'Enter your feedback here'"
                         :maxlength="500"
                         required
+                    />
+
+                    <v-checkbox
+                        v-model="allowContact"
+                        class="no-min-height"
+                        label="You may contact me for more details."
                     />
                 </v-form>
             </v-card-item>
@@ -78,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -92,14 +111,18 @@ import {
     VRow,
     VSelect,
     VTextarea,
+    VCheckbox,
+    VAlert,
 } from 'vuetify/components';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const analyticsStore = useAnalyticsStore();
+const configStore = useConfigStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -114,9 +137,12 @@ const model = defineModel<boolean>({ required: true });
 
 const type = ref<FeedbackType>(FeedbackType.General);
 const message = ref<string>('');
+const allowContact = ref<boolean>(false);
 const formValid = ref(false);
 
 const form = ref<VForm>();
+
+const supportURL = computed<string>(() => configStore.state.config.generalRequestURL);
 
 function sendFeedback(): void {
     if (!formValid.value) {
@@ -124,7 +150,11 @@ function sendFeedback(): void {
     }
     withLoading(async () => {
         try {
-            await analyticsStore.sendUserFeedback(type.value, message.value);
+            await analyticsStore.sendUserFeedback({
+                type: type.value,
+                message: message.value,
+                allowContact: allowContact.value,
+            });
             notify.success('Feedback sent successfully');
             model.value = false;
         } catch (error) {
@@ -141,3 +171,9 @@ watch(model, val => {
     }
 });
 </script>
+
+<style scoped lang="scss">
+.no-min-height :deep(.v-selection-control) {
+    min-height: unset;
+}
+</style>

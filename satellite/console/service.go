@@ -3681,7 +3681,7 @@ func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCu
 }
 
 // SendUserFeedback is a method for tracking user feedback submission.
-func (s *Service) SendUserFeedback(ctx context.Context, feedbackType, message string) (err error) {
+func (s *Service) SendUserFeedback(ctx context.Context, data analytics.UserFeedbackFormData) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !s.config.UserFeedbackEnabled {
@@ -3696,11 +3696,12 @@ func (s *Service) SendUserFeedback(ctx context.Context, feedbackType, message st
 		return ErrBotUser.New(contactSupportErrMsg)
 	}
 
-	data := map[string]string{
-		"feedback_type": feedbackType,
-		"message":       message,
+	props := map[string]string{
+		"feedback_type": data.Type,
+		"message":       data.Message,
+		"allow_contact": strconv.FormatBool(data.AllowContact),
 	}
-	s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, data, user.HubspotObjectID)
+	s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, props, user.HubspotObjectID)
 
 	return nil
 }
