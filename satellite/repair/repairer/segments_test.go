@@ -212,8 +212,6 @@ func TestSegmentRepairInMemoryUpload(t *testing.T) {
 }
 
 func TestSegmentRepairWithNodeTags(t *testing.T) {
-	t.Skip("flaky")
-
 	satelliteIdentity := signing.SignerFromFullIdentity(testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()))
 	testplanet.Run(t, testplanet.Config{
 		// we use 23 nodes:
@@ -588,8 +586,6 @@ func updateNodeStatus(ctx context.Context, satellite *testplanet.Satellite, node
 // when both are placed to wrong nodes (nodes are moved to wrong country), only one of them will be repaired, as repairer
 // is configured to include only that placement constraint.
 func TestSegmentRepairPlacementRestrictions(t *testing.T) {
-	t.Skip("flaky")
-
 	placement := nodeselection.ConfigurablePlacementRule{}
 	err := placement.Set(`1:country("PL");2:country("PL")`)
 	require.NoError(t, err)
