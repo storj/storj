@@ -6,18 +6,22 @@ if (!WebAssembly.instantiate) {
 }
 
 async function setupWithCacheControl(mode) {
-    const manifestResp = await fetch('/static/static/wasm/wasm-manifest.json', { cache: 'no-store' });
+    // Determine the base path for WASM files based on environment.
+    // Dev server runs on port 3000, production builds are served differently
+    const wasmBasePath = self.location.port === '3000' ? '/wasm' : '/static/static/wasm';
+
+    const manifestResp = await fetch(`${wasmBasePath}/wasm-manifest.json`, { cache: 'no-store' });
     if (!manifestResp.ok) {
         throw new Error('Failed to fetch wasm manifest.');
     }
     const manifest = await manifestResp.json();
 
     // eslint-disable-next-line no-undef
-    importScripts(`/static/static/wasm/${manifest.helperFileName}`);
+    importScripts(`${wasmBasePath}/${manifest.helperFileName}`);
 
     const go = new self.Go();
 
-    const response = await fetch(`/static/static/wasm/${manifest.moduleFileName}`, { cache: mode });
+    const response = await fetch(`${wasmBasePath}/${manifest.moduleFileName}`, { cache: mode });
     if (!response.ok) {
         throw new Error('Failed to fetch wasm module.');
     }

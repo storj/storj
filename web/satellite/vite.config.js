@@ -25,7 +25,6 @@ const plugins = [
         },
     }),
     checker({ typescript: true, vueTsc: true }),
-    papaParseWorker(),
 ];
 
 if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
@@ -40,8 +39,8 @@ if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
 export default defineConfig(({ mode }) => {
     const isProd = mode === 'production';
 
-    // compress chunks only for production mode builds.
     if (isProd) {
+        plugins.push(papaParseWorker());
         plugins.push(viteCompression({
             algorithm: 'brotliCompress',
             threshold: 1024,
@@ -49,15 +48,42 @@ export default defineConfig(({ mode }) => {
             filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
         }));
     } else {
+        // Provide a stub for the papa parse worker in DEV mode.
+        plugins.push({
+            name: 'papa-parse-worker-dev-stub',
+            resolveId(id) {
+                if (id === 'virtual:papa-parse-worker') {
+                    return id;
+                }
+            },
+            load(id) {
+                if (id === 'virtual:papa-parse-worker') {
+                    return 'export default null;';
+                }
+            },
+        });
         process.env['NODE_ENV'] = 'development';
     }
 
     return {
-        base: '/static/dist',
+        base: isProd ? '/static/dist' : '/',
         plugins,
         define: {
             'process.env': {},
+            global: 'globalThis',
         },
+        server: {
+            port: 3000,
+            host: true,
+            proxy: {
+                '/api': {
+                    target: 'http://localhost:10000',
+                    changeOrigin: true,
+                    secure: false,
+                },
+            },
+        },
+        publicDir: isProd ? '' : 'static',
         resolve: {
             alias: {
                 '@': resolve(__dirname, './src'),

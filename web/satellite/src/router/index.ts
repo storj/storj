@@ -224,7 +224,8 @@ const routes: RouteRecordRaw[] = [
 ];
 
 export function setupRouter(): Router {
-    const history = createWebHistory('');
+    const base = import.meta.env.PROD ? '' : '/';
+    const history = createWebHistory(base);
     const router = createRouter({
         history,
         routes,

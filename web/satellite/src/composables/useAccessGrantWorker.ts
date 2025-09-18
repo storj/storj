@@ -92,12 +92,7 @@ export function useAccessGrantWorker() {
     }
 
     async function start(): Promise<void> {
-        let worker: Worker;
-        if (import.meta.env.MODE === 'development') {
-            worker = new Worker('/static/src/utils/accessGrant.worker.js');
-        } else {
-            worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url));
-        }
+        const worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url));
 
         worker.postMessage({ 'type': 'Setup' });
 
