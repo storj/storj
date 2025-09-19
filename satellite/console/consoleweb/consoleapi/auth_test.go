@@ -1715,6 +1715,10 @@ func TestAuth_DeleteAccount(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
 		year, month, day := time.Now().UTC().Date()
 		timestamp := time.Date(year, month, day, 12, 0, 0, 0, time.UTC)
 		lastMonth := time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
