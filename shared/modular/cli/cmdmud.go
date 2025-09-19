@@ -12,10 +12,12 @@ import (
 	"runtime"
 	"runtime/pprof"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/shared/modular"
@@ -25,10 +27,11 @@ import (
 
 // MudCommand is a command that initializes and runs modular components.
 type MudCommand struct {
-	ball        *mud.Ball
-	selector    mud.ComponentSelector // selector for components to initialize and run
-	runSelector mud.ComponentSelector // optional selector for components to run. Used for config list, where everything is used to initialize, but only the subcommand is executed.
-	cfg         *ConfigSupport
+	ball           *mud.Ball
+	selector       mud.ComponentSelector // selector for components to initialize and run
+	runSelector    mud.ComponentSelector // optional selector for components to run. Used for config list, where everything is used to initialize, but only the subcommand is executed.
+	cfg            *ConfigSupport
+	componentDebug string
 }
 
 // Setup implements clingy setup phase.
@@ -42,6 +45,8 @@ func (m *MudCommand) Setup(params clingy.Parameters) {
 	} else if selectorStr != "" {
 		m.selector = mud.Or(m.selector, modular.CreateSelectorFromString(m.ball, selectorStr))
 	}
+
+	m.componentDebug = params.Flag("debug-components", "Debug which components supposed to be run (selected or all)", "").(string)
 
 	// create all the config structs
 	err := mud.ForEachDependency(m.ball, m.selector, func(component *mud.Component) error {
@@ -67,8 +72,18 @@ func (m *MudCommand) Setup(params clingy.Parameters) {
 	}
 }
 
+// sortComponentNames is a helper function to sort component names, ignoring any leading '*' character.
+func sortComponentNames(a, b string) int {
+	a = strings.TrimPrefix(a, "*")
+	b = strings.TrimPrefix(b, "*")
+	return strings.Compare(a, b)
+}
+
 // Execute is the clingy entry point.
 func (m *MudCommand) Execute(ctx context.Context) error {
+	if m.componentDebug != "" {
+		return m.printComponentInformation()
+	}
 	if m.runSelector == nil {
 		m.runSelector = m.selector
 	}
@@ -132,4 +147,38 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 	}
 
 	return eg.Wait()
+}
+
+func (m *MudCommand) printComponentInformation() error {
+	switch m.componentDebug {
+	case "all":
+		fmt.Println("All possible components to select from:")
+		fmt.Println()
+		var res []string
+		for _, comp := range mud.Find(m.ball, mud.All) {
+			res = append(res, comp.Name())
+		}
+		slices.SortFunc(res, sortComponentNames)
+		for _, name := range res {
+			fmt.Println(name)
+		}
+	case "selected":
+		fmt.Println("The selected components which will be started/used:")
+		fmt.Println()
+		var res []string
+		err := mud.ForEachDependency(m.ball, m.selector, func(component *mud.Component) error {
+			res = append(res, component.Name())
+			return nil
+		}, mud.All)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		slices.SortFunc(res, sortComponentNames)
+		for _, name := range res {
+			fmt.Println(name)
+		}
+	default:
+		return errs.New("Use `selected` or `all` as parameter for --debug-components")
+	}
+	return nil
 }
