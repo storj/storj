@@ -1,13 +1,26 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "esnext",
     "module": "esnext",
+    "moduleResolution": "bundler",
     "strict": true,
+    "skipLibCheck": true,
     "noImplicitAny": false,
-    "baseUrl": "./",
-    "moduleResolution": "node",
+    "jsx": "preserve",
+    "importHelpers": true,
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": true,
+    "baseUrl": ".",
     "strictPropertyInitialization": false,
-    "useUnknownInCatchVariables": false,
+    "resolveJsonModule": true,
+    "useUnknownInCatchVariables": false, // TODO: reenable it later
+    "types": [
+      "node",
+      "vuetify",
+      "filesystem"
+    ],
     "paths": {
       "@/*": [
         "src/*"
@@ -19,5 +32,17 @@
       "dom.iterable",
       "scripthost"
     ]
-  }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "src/types/*.d.ts",
+    "tests/**/*.ts",
+    "vitePlugins/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "tests/unit/ignore/**",
+    "src/api/v1.gen.ts"
+  ]
 }

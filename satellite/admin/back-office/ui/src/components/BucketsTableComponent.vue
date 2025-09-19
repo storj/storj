@@ -60,8 +60,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VCard, VTextField, VBtn, VIcon, VChip } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
+import { VCard, VTextField, VDataTable, VBtn, VIcon, VChip } from 'vuetify/components';
 
 import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
 

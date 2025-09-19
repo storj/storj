@@ -10,3 +10,16 @@ export function RequiredRule(value: unknown): string | boolean {
 export type UUID = string;
 export type MemorySize = string;
 export type Time = string;
+
+export type DataTableHeader = {
+    key: string;
+    title: string;
+    align?: 'start' | 'end' | 'center';
+    sortable?: boolean;
+    width?: number | string;
+};
+
+export type SortItem = {
+    key: string;
+    order?: boolean | 'asc' | 'desc';
+};

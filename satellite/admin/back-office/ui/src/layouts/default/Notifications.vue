@@ -15,7 +15,7 @@
             closable
             variant="elevated"
             :title="item.title || item.type"
-            :type="item.type.toLowerCase() as 'error' | 'success' | 'warning' | 'info'"
+            :type="item.alertType"
             rounded="lg"
             class="my-2"
             border

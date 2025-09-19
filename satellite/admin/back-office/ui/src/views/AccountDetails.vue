@@ -269,7 +269,7 @@ const usageCacheError = computed<boolean>(() => {
 onBeforeMount(() => !userAccount.value && router.push('/accounts'));
 onUnmounted(() => {
     if (appStore.state.selectedProject === null) {
-        appStore.clearUser;
+        appStore.clearUser();
     }
 });
 </script>

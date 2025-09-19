@@ -94,8 +94,8 @@ export class HttpClient {
             };
 
             await fetch(logoutPath, request);
-            // eslint-disable-next-line no-empty
-        } catch (error) {}
+            // eslint-disable-next-line no-empty,@typescript-eslint/no-unused-vars
+        } catch (_) {}
 
         setTimeout(() => {
             if (!window.location.href.includes('/login')) {

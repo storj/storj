@@ -10,7 +10,7 @@
 
         <v-data-table
             v-model="selected"
-            v-model:sort-by="sortBy"
+            :sort-by="sortBy"
             :headers="headers"
             :items="projects"
             :search="search"
@@ -30,7 +30,7 @@
                     <v-chip
                         variant="text" color="default" size="small"
                         class="font-weight-bold pl-1 ml-1"
-                        @click="selectProject(item.raw.id)"
+                        @click="selectProject(item.id)"
                     >
                         <template #prepend>
                             <svg class="mr-2" width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -41,71 +41,71 @@
                                 />
                             </svg>
                         </template>
-                        {{ item.raw.name }}
+                        {{ item.name }}
                     </v-chip>
                 </div>
             </template>
 
             <template #item.storage.percent="{ item }: ProjectTableSlotProps">
                 <v-chip
-                    v-if="item.raw.storage.percent !== null"
+                    v-if="item.storage.percent !== null"
                     variant="tonal"
-                    :color="getPercentColor(item.raw.storage.percent)"
+                    :color="getPercentColor(item.storage.percent)"
                     size="small"
                     rounded="lg"
                     class="font-weight-bold"
                 >
-                    {{ item.raw.storage.percent }}&percnt;
+                    {{ item.storage.percent }}&percnt;
                 </v-chip>
                 <v-icon v-else icon="mdi-alert-circle-outline" color="error" />
             </template>
 
             <template #item.storage.used="{ item }: ProjectTableSlotProps">
-                <template v-if="item.raw.storage.used !== null">
-                    {{ sizeToBase10String(item.raw.storage.used) }}
+                <template v-if="item.storage.used !== null">
+                    {{ sizeToBase10String(item.storage.used) }}
                 </template>
                 <v-icon v-else icon="mdi-alert-circle-outline" color="error" />
             </template>
 
             <template #item.storage.limit="{ item }: ProjectTableSlotProps">
-                {{ sizeToBase10String(item.raw.storage.limit) }}
+                {{ sizeToBase10String(item.storage.limit) }}
             </template>
 
             <template #item.download.percent="{ item }: ProjectTableSlotProps">
                 <v-chip
                     variant="tonal"
-                    :color="getPercentColor(item.raw.download.percent)"
+                    :color="getPercentColor(item.download.percent)"
                     size="small"
                     rounded="lg"
                     class="font-weight-bold"
                 >
-                    {{ item.raw.download.percent }}&percnt;
+                    {{ item.download.percent }}&percnt;
                 </v-chip>
             </template>
 
             <template #item.download.used="{ item }: ProjectTableSlotProps">
-                {{ sizeToBase10String(item.raw.download.used) }}
+                {{ sizeToBase10String(item.download.used) }}
             </template>
 
             <template #item.download.limit="{ item }: ProjectTableSlotProps">
-                {{ sizeToBase10String(item.raw.download.limit) }}
+                {{ sizeToBase10String(item.download.limit) }}
             </template>
 
             <template #item.segment.percent="{ item }: ProjectTableSlotProps">
                 <v-tooltip>
-                    {{ item.raw.segment.used !== null ? item.raw.segment.used.toLocaleString() + '/' : 'Limit:' }}
-                    {{ item.raw.segment.limit.toLocaleString() }}
+                    {{ item.segment.used !== null ? item.segment.used.toLocaleString() + '/' : 'Limit:' }}
+                    {{ item.segment.limit.toLocaleString() }}
                     <template #activator="{ props }">
                         <v-chip
-                            v-if="item.raw.segment.percent !== null"
+                            v-if="item.segment.percent !== null"
                             v-bind="props"
                             variant="tonal"
-                            :color="getPercentColor(item.raw.segment.percent)"
+                            :color="getPercentColor(item.segment.percent)"
                             size="small"
                             rounded="lg"
                             class="font-weight-bold"
                         >
-                            {{ item.raw.segment.percent }}&percnt;
+                            {{ item.segment.percent }}&percnt;
                         </v-chip>
                         <v-icon v-else icon="mdi-alert-circle-outline" color="error" v-bind="props" />
                     </template>
@@ -113,19 +113,19 @@
             </template>
 
             <template #item.id="{ item }: ProjectTableSlotProps">
-                <div class="text-caption text-no-wrap text-uppercase">{{ item.raw.id }}</div>
+                <div class="text-caption text-no-wrap text-uppercase">{{ item.id }}</div>
             </template>
 
             <!--
             <template #item.agent="{ item }">
-                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="search = item.raw.agent">
-                    {{ item.raw.agent }}
+                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="search = item.agent">
+                    {{ item.agent }}
                 </v-chip>
             </template>
 
             <template #item.date="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.raw.date }}
+                    {{ item.date }}
                 </span>
             </template>
             -->
@@ -136,11 +136,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { VCard, VTextField, VBtn, VIcon, VTooltip, VChip } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
+import { VCard, VTextField, VBtn, VIcon, VDataTable, VTooltip, VChip } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';
+import { DataTableHeader, SortItem } from '@/types/common';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 
@@ -162,14 +162,15 @@ type ProjectTableItem = {
     segment: UsageStats;
 };
 
-type ProjectTableSlotProps = { item: { raw: ProjectTableItem } };
+type ProjectTableSlotProps = { item: ProjectTableItem  };
+
+const router = useRouter();
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);
-const sortBy = ref([{ key: 'name', order: 'asc' }]);
-const router = useRouter();
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
-const headers = [
+const headers: DataTableHeader[] = [
     { title: 'Name', key: 'name' },
     { title: 'Storage Used', key: 'storage.percent' },
     { title: 'Storage Used', key: 'storage.used' },

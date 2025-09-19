@@ -2,8 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <router-view />
-    <notifications />
+    <template v-if="appStore.state.settings">
+        <router-view />
+        <notifications />
+    </template>
 </template>
 
 <script setup lang="ts">

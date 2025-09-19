@@ -34,6 +34,10 @@ export class DelayedNotification {
         this.start();
     }
 
+    public get alertType() {
+        return this.type.toLowerCase() as 'error' | 'success' | 'warning' | 'info';
+    }
+
     public pause(): void {
         clearTimeout(this.timerId);
         this.remainingTime -= new Date().getMilliseconds() - this.startTime;

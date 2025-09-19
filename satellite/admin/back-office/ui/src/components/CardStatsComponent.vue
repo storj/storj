@@ -13,7 +13,7 @@
 <script setup lang="ts">
 import { VCard, VCardText, VChip } from 'vuetify/components';
 
-const props = defineProps<{
+defineProps<{
     title: string;
     subtitle: string;
     data?: string;

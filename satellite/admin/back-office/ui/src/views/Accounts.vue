@@ -30,9 +30,6 @@
 <script setup lang="ts">
 import { VContainer, VRow, VCol, VBtn } from 'vuetify/components';
 
-import { useAppStore } from '@/store/app';
-import { useNotificationsStore } from '@/store/notifications';
-
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import AccountsTableComponent from '@/components/AccountsTableComponent.vue';

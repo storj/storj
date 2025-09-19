@@ -101,8 +101,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VTextField, VBtn, VIcon, VChip, VTooltip } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
+import { VTextField, VDataTable, VBtn, VIcon, VChip, VTooltip } from 'vuetify/components';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 

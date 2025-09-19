@@ -49,8 +49,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VCard, VTextField, VChip, VListItem } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
+import { VCard, VTextField, VDataTable, VChip, VListItem } from 'vuetify/components';
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);

@@ -110,8 +110,8 @@ import {
     VIcon,
     VChip,
     VTooltip,
+    VDataTable,
 } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 

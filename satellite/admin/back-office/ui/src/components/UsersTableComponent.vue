@@ -71,8 +71,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VCard, VTextField, VBtn, VIcon, VChip } from 'vuetify/components';
-import { VDataTable } from 'vuetify/labs/components';
+import { VCard, VDataTable, VTextField, VBtn, VIcon, VChip } from 'vuetify/components';
 
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
 
