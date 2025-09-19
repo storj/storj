@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeMount, onBeforeUnmount, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
@@ -186,6 +186,10 @@ function onThemeChange(e: MediaQueryListEvent) {
     themeStore.setThemeLightness(!e.matches);
 }
 
+function handleBeforeUnload(event: BeforeUnloadEvent): void {
+    if (obStore.uploadingLength > 0) event.preventDefault();
+}
+
 /**
  * Lifecycle hook before initial render.
  * Sets up variables from meta tags from config such satellite name, etc.
@@ -203,6 +207,9 @@ onBeforeMount(async (): Promise<void> => {
     await setup();
 
     isLoading.value = false;
+
+    // Add beforeunload event listener for ongoing uploads warning.
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     if (configStore.state.config.analyticsEnabled) {
         analyticsStore.pageVisit(route.matched[route.matched.length - 1].path, configStore.state.config.satelliteName);
@@ -364,6 +371,10 @@ watch(() => themeStore.state.name, (theme) => {
     }
     darkThemeMediaQuery.removeEventListener('change', onThemeChange);
 }, { immediate: true });
+
+onUnmounted(() => {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+});
 
 onBeforeUnmount(() => {
     billingStore.stopPaymentsPolling();
