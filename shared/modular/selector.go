@@ -44,6 +44,18 @@ func CreateSelectorFromString(ball *mud.Ball, selection string) mud.ComponentSel
 			selector = mud.Or(selector, mud.Tagged[Service]())
 		case strings.HasPrefix(s, "-"):
 			selector = mud.And(selector, excludeType(s[1:]))
+		case strings.HasPrefix(s, "~"):
+			c := mud.Find(ball, includeType(s[1:]))
+			if len(c) != 1 {
+				panic(fmt.Sprintf("component selector %s should match exactly one component", s[1:]))
+			}
+			mud.AddTagOf[mud.Optional](c[0], mud.Optional{})
+		case strings.HasPrefix(s, "$"):
+			c := mud.Find(ball, includeType(s[1:]))
+			if len(c) != 1 {
+				panic(fmt.Sprintf("component selector %s should match exactly one component", s[1:]))
+			}
+			mud.RemoveTagOf[mud.Optional](c[0])
 		case strings.HasPrefix(s, "!"):
 			interf := mud.Find(ball, includeType(s[1:]))
 			if len(interf) != 1 {
