@@ -15,8 +15,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
-	_ "storj.io/storj/satellite/admin/back-office/ui" // embed ui
-	_ "storj.io/storj/satellite/admin/ui"             // embed ui
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 )

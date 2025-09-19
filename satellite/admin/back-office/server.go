@@ -9,6 +9,9 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"os"
+	"path"
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -17,15 +20,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/storj/private/emptyfs"
 )
-
-// Assets contains either the built admin/back-office/ui or it is nil.
-var Assets fs.FS = emptyfs.FS{}
 
 // PathPrefix is the path that will be prefixed to the router passed to the NewServer constructor.
 // This is temporary until this server will replace the storj.io/storj/satellite/admin/server.go.
-const PathPrefix = "/back-office/"
+const PathPrefix = "/back-office"
 
 var (
 	// Error is the error class that wraps all the errors returned by this package.
@@ -37,6 +36,8 @@ var (
 // Config defines configuration for the satellite administration server.
 type Config struct {
 	StaticDir string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+
+	BypassAuth bool `help:"ignore authentication for local development" default:"false" hidden:"true"`
 
 	UserGroupsRoleAdmin           []string `help:"the list of groups whose users has the administration role"   releaseDefault:"" devDefault:""`
 	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`
@@ -78,10 +79,7 @@ func NewServer(
 
 	auth := NewAuthorizer(
 		log,
-		config.UserGroupsRoleAdmin,
-		config.UserGroupsRoleViewer,
-		config.UserGroupsRoleCustomerSupport,
-		config.UserGroupsRoleFinanceManager,
+		config,
 	)
 
 	// API endpoints.
@@ -95,14 +93,43 @@ func NewServer(
 	// Static assets for the web interface.
 	// This handler must be the last one because it uses the root as prefix, otherwise, it will serve
 	// all the paths defined by the handlers set after this one.
-	var staticHandler http.Handler
-	if config.StaticDir == "" {
-		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.FS(Assets)))
-	} else {
-		staticHandler = http.StripPrefix(PathPrefix, http.FileServer(http.Dir(config.StaticDir)))
-	}
+	staticPath := path.Join(PathPrefix, "static")
+	staticHandler := http.StripPrefix(staticPath, http.FileServer(http.Dir(config.StaticDir)))
+	root.PathPrefix("/static/").Handler(staticHandler)
 
-	root.PathPrefix("/").Handler(staticHandler).Methods("GET")
+	appHandler := func(w http.ResponseWriter, r *http.Request) {
+		header := w.Header()
+
+		header.Set("Content-Type", "text/html; charset=UTF-8")
+		header.Set("X-Content-Type-Options", "nosniff")
+		header.Set("Referrer-Policy", "same-origin")
+
+		indexPath := filepath.Join(server.config.StaticDir, "dist", "index.html")
+		file, err := os.Open(indexPath)
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				server.log.Error("index.html was not generated. run 'npm run build' in the "+server.config.StaticDir+" directory", zap.Error(err))
+			} else {
+				server.log.Error("error loading index.html", zap.String("path", indexPath), zap.Error(err))
+			}
+			return
+		}
+
+		defer func() {
+			if err := file.Close(); err != nil {
+				server.log.Error("error closing index.html", zap.String("path", indexPath), zap.Error(err))
+			}
+		}()
+
+		info, err := file.Stat()
+		if err != nil {
+			server.log.Error("failed to retrieve index.html file info", zap.Error(err))
+			return
+		}
+
+		http.ServeContent(w, r, indexPath, info.ModTime(), file)
+	}
+	root.PathPrefix("").Handler(http.HandlerFunc(appHandler))
 
 	return server
 }

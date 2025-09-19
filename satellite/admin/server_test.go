@@ -29,6 +29,7 @@ func TestBasic(t *testing.T) {
 				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.StaticDir = "ui"
 				config.Admin.BackOffice.StaticDir = "back-office/ui"
+				config.Admin.BackOffice.BypassAuth = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -37,8 +38,8 @@ func TestBasic(t *testing.T) {
 		baseURL := "http://" + address.String()
 
 		t.Run("UI", func(t *testing.T) {
-			testUI := func(t *testing.T, baseURL string) {
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/package.json", nil)
+			testUI := func(t *testing.T, requestUrl string, expectContentContains string) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestUrl, nil)
 				require.NoError(t, err)
 
 				response, err := http.DefaultClient.Do(req)
@@ -49,15 +50,39 @@ func TestBasic(t *testing.T) {
 				content, err := io.ReadAll(response.Body)
 				require.NoError(t, response.Body.Close())
 				require.NotEmpty(t, content)
-				require.Equal(t, byte('{'), content[0])
+				require.Contains(t, string(content), expectContentContains)
 				require.NoError(t, err)
 			}
 
 			t.Run("current", func(t *testing.T) {
-				testUI(t, baseURL)
+				testUI(t, baseURL+"/package.json", "{")
 			})
 			t.Run("back-office", func(t *testing.T) {
-				testUI(t, baseURL+"/back-office")
+				// expect routed to back-office UI
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office", nil)
+				require.NoError(t, err)
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.Equal(t, "text/html; charset=UTF-8", response.Header.Get("Content-Type"))
+				require.NoError(t, response.Body.Close())
+
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office/child", nil)
+				require.NoError(t, err)
+				response, err = http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.Equal(t, "text/html; charset=UTF-8", response.Header.Get("Content-Type"))
+				require.NoError(t, response.Body.Close())
+
+				// expect routed to back-office API
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office/api/v1/users/alice@storj.test", nil)
+				require.NoError(t, err)
+				response, err = http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusNotFound, response.StatusCode)
+				require.Equal(t, "application/json", response.Header.Get("Content-Type"))
+				require.NoError(t, response.Body.Close())
 			})
 		})
 

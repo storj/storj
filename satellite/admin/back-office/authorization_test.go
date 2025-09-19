@@ -148,7 +148,13 @@ func TestAuthorizer(t *testing.T) {
 		},
 	}
 
-	auth := admin.NewAuthorizer(log, gropusAdmin, groupsViewer, groupsSupport, groupsFinance)
+	config := admin.Config{
+		UserGroupsRoleAdmin:           gropusAdmin,
+		UserGroupsRoleViewer:          groupsViewer,
+		UserGroupsRoleCustomerSupport: groupsSupport,
+		UserGroupsRoleFinanceManager:  groupsFinance,
+	}
+	auth := admin.NewAuthorizer(log, config)
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Run("HasPermissions", func(t *testing.T) {
