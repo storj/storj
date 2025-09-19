@@ -2843,6 +2843,14 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		)
 	}
 
+	err = s.entitlementsService.Projects().DeleteByPublicID(ctx, publicProjectID)
+	if err != nil {
+		s.log.Error("failed to delete project entitlements",
+			zap.String("project_public_id", publicProjectID.String()),
+			zap.Error(err),
+		)
+	}
+
 	// We update status to disabled instead of deleting the project
 	// to not lose the historical project/user usage data.
 	err = s.store.Projects().UpdateStatus(ctx, projectID, ProjectDisabled)
@@ -2895,6 +2903,14 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		if err != nil {
 			s.log.Error("failed to delete all domains for project",
 				zap.String("project_id", p.ID.String()),
+				zap.Error(err),
+			)
+		}
+
+		err = s.entitlementsService.Projects().DeleteByPublicID(ctx, p.PublicID)
+		if err != nil {
+			s.log.Error("failed to delete project entitlements",
+				zap.String("project_public_id", p.PublicID.String()),
 				zap.Error(err),
 			)
 		}

@@ -2698,6 +2698,23 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, project)
 
+		scope := entitlements.ConvertPublicIDToProjectScope(project.PublicID)
+		feats := entitlements.ProjectFeatures{NewBucketPlacements: []storj.PlacementConstraint{storj.DefaultPlacement}}
+		featBytes, err := json.Marshal(feats)
+		require.NoError(t, err)
+		require.NotNil(t, featBytes)
+
+		_, err = sat.API.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+			Scope:    scope,
+			Features: featBytes,
+		})
+		require.NoError(t, err)
+
+		entitlement, err := sat.API.DB.Console().Entitlements().GetByScope(ctx, scope)
+		require.NoError(t, err)
+		require.NotNil(t, entitlement)
+		require.NotNil(t, entitlement.Features)
+
 		_, err = sat.DB.Console().Domains().Create(ctx, console.Domain{
 			Subdomain:       "example.test",
 			ProjectID:       p2.ID,
@@ -2719,6 +2736,9 @@ func TestDeleteProject(t *testing.T) {
 		domains, err = sat.DB.Console().Domains().GetAllDomainNamesByProjectID(ctx, p2.ID)
 		require.NoError(t, err)
 		require.Len(t, domains, 0)
+
+		_, err = sat.API.DB.Console().Entitlements().GetByScope(ctx, scope)
+		require.True(t, entitlements.ErrNotFound.Has(err))
 
 		projects, err := db.Console().Projects().GetOwnActive(ctx, user.ID)
 		require.NoError(t, err)
@@ -3624,6 +3644,23 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, cards, 1)
 
+			scope := entitlements.ConvertPublicIDToProjectScope(p2.PublicID)
+			feats := entitlements.ProjectFeatures{NewBucketPlacements: []storj.PlacementConstraint{storj.DefaultPlacement}}
+			featBytes, err := json.Marshal(feats)
+			require.NoError(t, err)
+			require.NotNil(t, featBytes)
+
+			_, err = sat.API.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+				Scope:    scope,
+				Features: featBytes,
+			})
+			require.NoError(t, err)
+
+			entitlement, err := sat.API.DB.Console().Entitlements().GetByScope(ctx, scope)
+			require.NoError(t, err)
+			require.NotNil(t, entitlement)
+			require.NotNil(t, entitlement.Features)
+
 			_, err = sat.DB.Console().Domains().Create(ctx, console.Domain{
 				Subdomain:       "example.test",
 				ProjectID:       p2.ID,
@@ -3648,6 +3685,9 @@ func TestDeleteAccount(t *testing.T) {
 			require.WithinDuration(t, timestamp, *user.StatusUpdatedAt, time.Minute)
 			require.Empty(t, user.ActivationCode)
 			require.Contains(t, user.Email, "deactivated")
+
+			_, err = sat.API.DB.Console().Entitlements().GetByScope(ctx, scope)
+			require.True(t, entitlements.ErrNotFound.Has(err))
 
 			domains, err = sat.DB.Console().Domains().GetAllDomainNamesByProjectID(ctx, p2.ID)
 			require.NoError(t, err)
