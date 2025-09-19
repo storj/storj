@@ -34,9 +34,13 @@ type MudCommand struct {
 // Setup implements clingy setup phase.
 func (m *MudCommand) Setup(params clingy.Parameters) {
 	ctx := context.Background()
+
+	selectorStr := params.Flag("components", "Modular component selection. If empty, all default components will be running", "").(string)
+
 	if m.selector == nil {
-		selectorStr := params.Flag("components", "Modular component selection. If empty, all default components will be running", "").(string)
 		m.selector = modular.CreateSelectorFromString(m.ball, selectorStr)
+	} else if selectorStr != "" {
+		m.selector = mud.Or(m.selector, modular.CreateSelectorFromString(m.ball, selectorStr))
 	}
 
 	// create all the config structs
