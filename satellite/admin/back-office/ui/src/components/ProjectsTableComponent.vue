@@ -18,7 +18,7 @@
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
                         width="24" height="24"
                     >
-                        <ProjectActionsMenu />
+                        <!--                        <ProjectActionsMenu />-->
                         <v-icon icon="mdi-dots-horizontal" />
                     </v-btn>
                     <v-chip
@@ -114,8 +114,6 @@ import {
 } from 'vuetify/components';
 
 import { DataTableHeader, SortItem } from '@/types/common';
-
-import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);

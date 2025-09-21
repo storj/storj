@@ -24,7 +24,10 @@
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
                         width="24" height="24"
                     >
-                        <ProjectActionsMenu />
+                        <ProjectActionsMenu
+                            :project-id="item.id" :owner="item.owner"
+                            @update-limits="onUpdateLimitsClicked"
+                        />
                         <v-icon :icon="MoreHorizontal" />
                     </v-btn>
                     <v-chip
@@ -131,10 +134,12 @@
             -->
         </v-data-table>
     </v-card>
+
+    <ProjectLimitsDialog v-if="projectToUpdate && featureFlags.project.updateLimits" v-model="updateLimitsDialog" :project="projectToUpdate" />
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VCard, VTextField, VBtn, VIcon, VDataTable, VTooltip, VChip } from 'vuetify/components';
 import { AlertCircle, MoreHorizontal, Search } from 'lucide-vue-next';
@@ -142,10 +147,12 @@ import { AlertCircle, MoreHorizontal, Search } from 'lucide-vue-next';
 import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';
 import { DataTableHeader, SortItem } from '@/types/common';
-import { UserAccount } from '@/api/client.gen';
+import { Project, User, UserAccount } from '@/api/client.gen';
+import { useProjectsStore } from '@/store/projects';
 import { ROUTES } from '@/router';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
+import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 
 type UsageStats = {
     used: number | null;
@@ -163,15 +170,20 @@ type ProjectTableItem = {
     storage: UsageStats;
     download: RequiredUsageStats;
     segment: UsageStats;
+    owner: User;
 };
 
 type ProjectTableSlotProps = { item: ProjectTableItem  };
 
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const router = useRouter();
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);
+const projectToUpdate = ref<Project>();
+const updateLimitsDialog = ref<boolean>(false);
+
 const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
 const headers: DataTableHeader[] = [
@@ -192,6 +204,8 @@ const props = defineProps<{
     account: UserAccount;
 }>();
 
+const featureFlags = computed(() => appStore.state.settings.admin.features);
+
 /**
  * Returns the user's project usage data.
  */
@@ -199,10 +213,18 @@ const projects = computed<ProjectTableItem[]>(() => {
     function makeUsageStats(used: number, limit: number): RequiredUsageStats;
     function makeUsageStats(used: number | null, limit: number): UsageStats;
     function makeUsageStats(used: number | null, limit: number) {
+        const normalizedUsed = used ?? 0;
+        let percent: number;
+        if (limit === 0 || normalizedUsed > limit) {
+            percent = 100;
+        } else {
+            percent = Math.round(normalizedUsed * 100 / limit);
+        }
+
         return {
             used,
             limit,
-            percent: used !== null && limit > 0 ? Math.round(used * 100 / limit) : 0,
+            percent,
         };
     }
 
@@ -217,14 +239,19 @@ const projects = computed<ProjectTableItem[]>(() => {
         storage: makeUsageStats(project.storageUsed, project.storageLimit),
         download: makeUsageStats(project.bandwidthUsed, project.bandwidthLimit),
         segment: makeUsageStats(project.segmentUsed, project.segmentLimit),
+        owner: props.account,
     }));
 });
+
+async function onUpdateLimitsClicked(projectId: string) {
+    projectToUpdate.value = await projectsStore.getProject(projectId);
+    updateLimitsDialog.value = true;
+}
 
 /**
 * Selects the project and navigates to the project dashboard.
 */
-async function selectProject(id: string): Promise<void> {
-    await appStore.selectProject(id);
+function selectProject(id: string):void {
     router.push({
         name: ROUTES.AccountProject.name,
         params: { email: props.account?.email, id },
@@ -240,4 +267,10 @@ function getPercentColor(percent: number) {
         return 'success';
     }
 }
+
+watch(updateLimitsDialog, (shown) => {
+    if (!shown) {
+        projectToUpdate.value = undefined;
+    }
+});
 </script>

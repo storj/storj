@@ -2,12 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="project && userAccount">
+    <div v-if="!project || !userAccount" class="d-flex justify-center align-center" style="height: 100vh;">
+        <v-skeleton-loader width="300" height="200" type="article" />
+    </div>
+    <v-container v-else>
         <v-row>
             <v-col cols="12" md="8">
                 <PageTitleComponent title="Project Details" />
 
-                <v-chip variant="outlined" color="default" class="mr-2 mb-2 mb-md-0 pr-4" router-link :to="`/accounts/${userAccount.email}`">
+                <v-chip variant="outlined" color="default" class="mr-2 mb-2 mb-md-0 pr-4" @click="goToAccount">
                     <v-tooltip activator="parent" location="top">
                         Go to account
                     </v-tooltip>
@@ -46,7 +49,10 @@
                     <template #append>
                         <v-icon :icon="ChevronDown" />
                     </template>
-                    <ProjectActionsMenu />
+                    <ProjectActionsMenu
+                        :project-id="project.id" :owner="project.owner"
+                        @update-limits="onUpdateLimitsClicked"
+                    />
                 </v-btn>
             </v-col>
         </v-row>
@@ -122,31 +128,61 @@
         </v-row>
 
         <v-row>
-            <ProjectLimitsDialog />
-
             <v-col cols="12" sm="6" lg="4">
                 <!-- TODO: get bucket count -->
-                <UsageProgressComponent title="Buckets" :only-limit="true" :limit="project.maxBuckets || 0" color="success" link />
+                <UsageProgressComponent
+                    title="Buckets" :only-limit="true"
+                    :limit="project.maxBuckets || 0"
+                    link
+                    @update-limits="onUpdateLimitsClicked"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent title="Storage" :is-bytes="true" :used="project.storageUsed || 0" :limit="project.storageLimit || 0" color="success" link />
+                <UsageProgressComponent
+                    title="Storage" :is-bytes="true"
+                    :used="project.storageUsed || 0"
+                    :limit="project.storageLimit || 0"
+                    link
+                    @update-limits="onUpdateLimitsClicked"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent title="Download" :is-bytes="true" :used="project.bandwidthUsed" :limit="project.bandwidthLimit || 0" color="success" link />
+                <UsageProgressComponent
+                    title="Download" :is-bytes="true"
+                    :used="project.bandwidthUsed"
+                    :limit="project.bandwidthLimit || 0"
+                    link
+                    @update-limits="onUpdateLimitsClicked"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent title="Segments" :used="project.segmentUsed || 0" :limit="project.segmentLimit || 0" color="success" link />
+                <UsageProgressComponent
+                    title="Segments"
+                    :used="project.segmentUsed || 0"
+                    :limit="project.segmentLimit || 0"
+                    link
+                    @update-limits="onUpdateLimitsClicked"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent title="Rate" :only-limit="true" :limit="project.rateLimit || 0" color="success" link />
+                <UsageProgressComponent
+                    title="Rate" :only-limit="true"
+                    :limit="project.rateLimit || 0"
+                    link
+                    @update-limits="onUpdateLimitsClicked"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent title="Burst" :only-limit="true" :limit="project.burstLimit || 0" color="success" link />
+                <UsageProgressComponent
+                    title="Burst" :only-limit="true"
+                    :limit="project.burstLimit || 0" link
+                    @update-limits="onUpdateLimitsClicked"
+                />
             </v-col>
         </v-row>
 
@@ -171,10 +207,12 @@
             </v-col>
         </v-row>
     </v-container>
+
+    <ProjectLimitsDialog v-if="project && featureFlags.project.updateLimits" v-model="updateLimitsDialog" :project="project" />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     VAlert,
     VContainer,
@@ -187,16 +225,18 @@ import {
     VCard,
     VCardText,
     VDivider,
+    VSkeletonLoader,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 import { ChevronDown } from 'lucide-vue-next';
 
-import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
+import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { useNotificationsStore } from '@/store/notifications';
 import { userIsNFR, userIsPaid } from '@/types/user';
+import { useProjectsStore } from '@/store/projects';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
@@ -210,36 +250,44 @@ import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
 
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotificationsStore();
 
+const updateLimitsDialog = ref<boolean>(false);
+
 const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
 
 const userAccount = computed<UserAccount>(() => usersStore.state.userAccount as UserAccount);
-const project = computed<Project>(() => appStore.state.selectedProject as Project);
+const project = computed(() => projectsStore.state.currentProject);
 
 const placementText = computed<string>(() => {
-    return appStore.getPlacementText(project.value.defaultPlacement);
+    return appStore.getPlacementText(project.value?.defaultPlacement || 0);
 });
 
 /**
  * Returns whether an error occurred retrieving usage data from the Redis live accounting cache.
  */
 const usageCacheError = computed<boolean>(() => {
-    return project.value.storageUsed === null || project.value.segmentUsed === null;
+    return !!project.value && (project.value.storageUsed === null || project.value.segmentUsed === null);
 });
 
+async function onUpdateLimitsClicked() {
+    updateLimitsDialog.value = true;
+}
+
+function goToAccount() {
+    router.push({ name: ROUTES.Account.name, params: { email: userAccount.value.email } });
+}
+
 onMounted(async () => {
-    if (project.value && userAccount.value) {
-        return;
-    }
     const projectID = router.currentRoute.value.params.id as string;
     const userEmail = router.currentRoute.value.params.email as string;
 
     try {
         await Promise.all([
-            appStore.selectProject(projectID),
+            projectsStore.updateCurrentProject(projectID),
             usersStore.getUserByEmail(userEmail),
         ]);
     } catch (error) {

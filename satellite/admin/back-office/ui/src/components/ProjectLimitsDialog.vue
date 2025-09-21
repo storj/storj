@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="dialog" activator="parent" width="auto" transition="fade-transition">
+    <v-dialog v-model="model" width="auto" transition="fade-transition">
         <v-card rounded="xlg">
             <v-sheet>
                 <v-card-item class="pl-7 py-4">
@@ -13,7 +13,7 @@
                     </template>
 
                     <template #append>
-                        <v-btn icon="$close" variant="text" size="small" color="default" @click="dialog = false" />
+                        <v-btn icon="$close" variant="text" size="small" color="default" @click="model = false" />
                     </template>
                 </v-card-item>
             </v-sheet>
@@ -64,7 +64,7 @@
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
-                            :model-value="appStore.state.selectedProject?.id" label="Project ID" variant="solo-filled" flat readonly
+                            :model-value="project.id" label="Project ID" variant="solo-filled" flat readonly
                             hide-details="auto"
                         />
                     </v-col>
@@ -76,7 +76,13 @@
             <v-card-actions class="pa-7">
                 <v-row>
                     <v-col>
-                        <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
+                        <v-btn
+                            variant="outlined" color="default"
+                            :disabled="isLoading"
+                            block @click="model = false"
+                        >
+                            Cancel
+                        </v-btn>
                     </v-col>
                     <v-col>
                         <v-btn color="primary" variant="flat" block :loading="isLoading" @click="updateLimits">Save</v-btn>
@@ -88,8 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch } from 'vue';
 import {
     VDialog,
     VCard,
@@ -105,18 +110,18 @@ import {
     VCardActions,
 } from 'vuetify/components';
 
-import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
 import { RequiredRule, ValidationRule } from '@/types/common';
+import { Project } from '@/api/client.gen';
+import { useProjectsStore } from '@/store/projects';
 
 const valid = ref<boolean>(false);
 const isLoading = ref<boolean>(false);
 
-const appStore = useAppStore();
+const projectsStore = useProjectsStore();
 const notify = useNotificationsStore();
-const router = useRouter();
 
-const dialog = ref<boolean>(false);
+const model = defineModel<boolean>({ required: true });
 
 const buckets = ref<number>(0);
 const storage = ref<number>(0);
@@ -124,6 +129,21 @@ const egress = ref<number>(0);
 const segments = ref<number>(0);
 const rate = ref<number>(0);
 const burst = ref<number>(0);
+
+const props = defineProps<{
+    project: Project;
+}>();
+
+/**
+ * Returns an array of validation rules applied to the text input.
+ */
+const limitRules = computed<ValidationRule<string>[]>(() => {
+    return [
+        RequiredRule,
+        v => !(isNaN(+v) || isNaN(parseFloat(v))) || 'Invalid number',
+        v => (parseFloat(v) >= 0) || 'Number must be zero or greater',
+    ];
+});
 
 async function updateLimits() {
     if (!valid.value) {
@@ -140,28 +160,21 @@ async function updateLimits() {
             burstLimit: Number(burst.value),
         };
 
-        await appStore.updateProjectLimits(appStore.state.selectedProject?.id || '', updateReq);
+        await projectsStore.updateProjectLimits(props.project.id, updateReq);
+        if (projectsStore.state.currentProject?.id === props.project.id) {
+            await projectsStore.updateCurrentProject(props.project.id);
+        }
+        model.value = false;
         notify.notifySuccess('Successfully updated project limits.');
     } catch (error) {
         notify.notifyError(`Error updating project limits. ${error.message}`);
+    } finally {
+        isLoading.value = false;
     }
-    isLoading.value = false;
-    dialog.value = false;
 }
 
-/**
- * Returns an array of validation rules applied to the text input.
- */
-const limitRules = computed<ValidationRule<string>[]>(() => {
-    return [
-        RequiredRule,
-        v => !(isNaN(+v) || isNaN(parseFloat(v))) || 'Invalid number',
-        v => (parseFloat(v) >= 0) || 'Number must be zero or greater',
-    ];
-});
-
 function setInputFields() {
-    const p = appStore.state.selectedProject;
+    const p = props.project;
     if (!p) {
         return;
     }
@@ -173,16 +186,8 @@ function setInputFields() {
     burst.value = p.burstLimit || 0;
 }
 
-watch(dialog, (shown) => {
-    if (!shown || !appStore.state.selectedProject) {
-        return;
-    }
-    setInputFields();
-});
-
-onBeforeMount(() => {
-    if (!appStore.state.selectedProject) {
-        router.push('/accounts');
+watch(model, (shown) => {
+    if (!shown) {
         return;
     }
     setInputFields();

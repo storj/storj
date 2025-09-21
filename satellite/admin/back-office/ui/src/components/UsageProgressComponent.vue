@@ -28,7 +28,15 @@
                 <template v-if="featureFlags.project.updateLimits">
                     <v-divider />
                     <v-col>
-                        <v-btn size="small" variant="outlined" color="default" class="mt-1 my-2">Change Limits</v-btn>
+                        <v-btn
+                            size="small"
+                            variant="outlined"
+                            color="default"
+                            class="mt-1 my-2"
+                            @click="emit('updateLimits')"
+                        >
+                            Change Limits
+                        </v-btn>
                     </v-col>
                 </template>
             </v-row>
@@ -60,12 +68,38 @@ const props = defineProps<{
     onlyLimit?: boolean;
     used?: number;
     limit: number;
-    color: string;
 }>();
+
+const emit = defineEmits<{
+    (e: 'updateLimits'): void;
+}>();
+
+const color = computed((): string => {
+    if (props.onlyLimit || !props.used) {
+        return 'success';
+    }
+
+    if (props.limit <= props.used) {
+        return 'error';
+    }
+
+    const p = props.used/props.limit * 100;
+    if (p < 50) {
+        return 'success';
+    } else if (p < 80) {
+        return 'warning';
+    } else {
+        return 'error';
+    }
+});
 
 const percentage = computed((): string => {
     if (props.onlyLimit || !props.used) {
         return '0';
+    }
+
+    if (props.limit <= props.used) {
+        return '100';
     }
 
     const p = props.used/props.limit * 100;
@@ -74,6 +108,10 @@ const percentage = computed((): string => {
 
 const available = computed((): number => {
     if (props.onlyLimit || !props.used) {
+        return 0;
+    }
+
+    if (props.limit <= props.used) {
         return 0;
     }
 

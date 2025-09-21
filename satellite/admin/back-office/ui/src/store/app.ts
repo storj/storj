@@ -7,16 +7,12 @@ import { defineStore } from 'pinia';
 import {
     PlacementInfo,
     PlacementManagementHttpApiV1,
-    Project,
-    ProjectLimitsUpdate,
-    ProjectManagementHttpApiV1,
     Settings,
     SettingsHttpApiV1,
 } from '@/api/client.gen';
 
 class AppState {
     public placements: PlacementInfo[];
-    public selectedProject: Project | null = null;
     public settings: Settings;
 }
 
@@ -24,7 +20,6 @@ export const useAppStore = defineStore('app', () => {
     const state = reactive<AppState>(new AppState());
 
     const placementApi = new PlacementManagementHttpApiV1();
-    const projectApi = new ProjectManagementHttpApiV1();
     const settingsApi = new SettingsHttpApiV1();
 
     async function getPlacements(): Promise<void> {
@@ -43,16 +38,6 @@ export const useAppStore = defineStore('app', () => {
         return `Unknown (${code})`;
     }
 
-    async function selectProject(id: string): Promise<Project> {
-        state.selectedProject = await projectApi.getProject(id);
-
-        return state.selectedProject;
-    }
-
-    async function updateProjectLimits(id: string, limits: ProjectLimitsUpdate): Promise<void> {
-        await projectApi.updateProjectLimits(limits, id);
-    }
-
     async function getSettings(): Promise<void> {
         state.settings = await settingsApi.get();
     }
@@ -61,8 +46,6 @@ export const useAppStore = defineStore('app', () => {
         state,
         getPlacements,
         getPlacementText,
-        selectProject,
-        updateProjectLimits,
         getSettings,
     };
 });
