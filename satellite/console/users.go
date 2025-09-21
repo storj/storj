@@ -244,6 +244,12 @@ const (
 	NFRUser UserKind = 2
 )
 
+// UserKinds holds all supported user kinds.
+var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser}
+
+// UserStatuses holds all supported user statuses.
+var UserStatuses = []UserStatus{Inactive, Active, Deleted, PendingDeletion, LegalHold, PendingBotVerification, UserRequestedDeletion}
+
 // String returns a string representation of the user status.
 func (s *UserStatus) String() string {
 	switch *s {
@@ -263,6 +269,20 @@ func (s *UserStatus) String() string {
 		return "User Requested Deletion"
 	default:
 		return ""
+	}
+}
+
+// UserStatusInfo holds info about user status.
+type UserStatusInfo struct {
+	Name  string     `json:"name"`
+	Value UserStatus `json:"value"`
+}
+
+// Info returns info about the user status.
+func (s *UserStatus) Info() UserStatusInfo {
+	return UserStatusInfo{
+		Name:  s.String(),
+		Value: *s,
 	}
 }
 

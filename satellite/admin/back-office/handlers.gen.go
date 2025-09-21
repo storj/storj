@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/console"
 )
 
 var ErrSettingsAPI = errs.Class("admin settings api")
@@ -32,7 +33,10 @@ type PlacementManagementService interface {
 
 type UserManagementService interface {
 	GetFreezeEventTypes(ctx context.Context) ([]FreezeEventType, api.HTTPError)
+	GetUserKinds(ctx context.Context) ([]console.KindInfo, api.HTTPError)
+	GetUserStatuses(ctx context.Context) ([]console.UserStatusInfo, api.HTTPError)
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
+	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	FreezeUser(ctx context.Context, userID uuid.UUID, request FreezeUserRequest) api.HTTPError
 	UnfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError
 }
@@ -110,7 +114,10 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 
 	usersRouter := router.PathPrefix("/back-office/api/v1/users").Subrouter()
 	usersRouter.HandleFunc("/freeze-event-types", handler.handleGetFreezeEventTypes).Methods("GET")
-	usersRouter.HandleFunc("/{email}", handler.handleGetUserByEmail).Methods("GET")
+	usersRouter.HandleFunc("/kinds", handler.handleGetUserKinds).Methods("GET")
+	usersRouter.HandleFunc("/statuses", handler.handleGetUserStatuses).Methods("GET")
+	usersRouter.HandleFunc("/email/{email}", handler.handleGetUserByEmail).Methods("GET")
+	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleFreezeUser).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleUnfreezeUser).Methods("DELETE")
 
@@ -205,6 +212,62 @@ func (h *UserManagementHandler) handleGetFreezeEventTypes(w http.ResponseWriter,
 	}
 }
 
+func (h *UserManagementHandler) handleGetUserKinds(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetUserKinds(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetUserKinds response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleGetUserStatuses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetUserStatuses(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetUserStatuses response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
 func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -236,6 +299,46 @@ func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *h
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetUserByEmail response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleGetUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetUser(ctx, userID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetUser response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 

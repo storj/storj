@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
 	backoffice "storj.io/storj/satellite/admin/back-office"
+	"storj.io/storj/satellite/console"
 )
 
 type authParamKey int
@@ -68,13 +69,49 @@ func main() {
 		Response:       []backoffice.FreezeEventType{},
 	})
 
-	group.Get("/{email}", &apigen.Endpoint{
+	group.Get("/kinds", &apigen.Endpoint{
+		Name:           "Get user kinds",
+		Description:    "Gets available user kinds",
+		GoName:         "GetUserKinds",
+		TypeScriptName: "getUserKinds",
+		Response:       []console.KindInfo{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
+	group.Get("/statuses", &apigen.Endpoint{
+		Name:           "Get user statuses",
+		Description:    "Gets available user statuses",
+		GoName:         "GetUserStatuses",
+		TypeScriptName: "getUserStatuses",
+		Response:       []console.UserStatusInfo{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
+	group.Get("/email/{email}", &apigen.Endpoint{
 		Name:           "Get user",
 		Description:    "Gets user by email address",
 		GoName:         "GetUserByEmail",
 		TypeScriptName: "getUserByEmail",
 		PathParams: []apigen.Param{
 			apigen.NewParam("email", ""),
+		},
+		Response: backoffice.UserAccount{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
+	group.Get("/{userID}", &apigen.Endpoint{
+		Name:           "Get user",
+		Description:    "Gets user by ID",
+		GoName:         "GetUser",
+		TypeScriptName: "getUser",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
 		},
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{

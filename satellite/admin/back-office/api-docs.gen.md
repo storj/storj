@@ -10,6 +10,9 @@
   * [Get placements](#placementmanagement-get-placements)
 * UserManagement
   * [Get freeze event types](#usermanagement-get-freeze-event-types)
+  * [Get user kinds](#usermanagement-get-user-kinds)
+  * [Get user statuses](#usermanagement-get-user-statuses)
+  * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Freeze User](#usermanagement-freeze-user)
   * [Unfreeze User](#usermanagement-unfreeze-user)
@@ -123,11 +126,50 @@ Gets account freeze event types
 
 ```
 
+<h3 id='usermanagement-get-user-kinds'>Get user kinds (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets available user kinds
+
+`GET /back-office/api/v1/users/kinds`
+
+**Response body:**
+
+```typescript
+[
+	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
+]
+
+```
+
+<h3 id='usermanagement-get-user-statuses'>Get user statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets available user statuses
+
+`GET /back-office/api/v1/users/statuses`
+
+**Response body:**
+
+```typescript
+[
+	{
+		name: string
+		value: number
+	}
+
+]
+
+```
+
 <h3 id='usermanagement-get-user'>Get user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets user by email address
 
-`GET /back-office/api/v1/users/{email}`
+`GET /back-office/api/v1/users/email/{email}`
 
 **Path Params:**
 
@@ -149,7 +191,12 @@ Gets user by email address
 	}
 
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
-	status: string
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	status: 	{
+		name: string
+		value: number
+	}
+
 	userAgent: string
 	defaultPlacement: number
 	projects: 	[
@@ -166,7 +213,70 @@ Gets user by email address
 
 	]
 
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
 	freezeStatus: unknown
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+}
+
+```
+
+<h3 id='usermanagement-get-user'>Get user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets user by ID
+
+`GET /back-office/api/v1/users/{userID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	fullName: string
+	email: string
+	kind: 	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	status: 	{
+		name: string
+		value: number
+	}
+
+	userAgent: string
+	defaultPlacement: number
+	projects: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			name: string
+			bandwidthLimit: number
+			bandwidthUsed: number
+			storageLimit: number
+			storageUsed: number
+			segmentLimit: number
+			segmentUsed: number
+		}
+
+	]
+
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	freezeStatus: unknown
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 }
 
 ```

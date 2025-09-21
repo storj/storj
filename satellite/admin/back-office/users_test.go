@@ -19,6 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	backoffice "storj.io/storj/satellite/admin/back-office"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
@@ -51,6 +52,9 @@ func TestGetUser(t *testing.T) {
 		_, apiErr := service.GetUserByEmail(ctx, consoleUser.Email)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
+		_, apiErr = service.GetUser(ctx, consoleUser.ID)
+		require.Equal(t, http.StatusNotFound, apiErr.Status)
+		require.Error(t, apiErr.Err)
 
 		_, err := consoleDB.Users().Insert(ctx, consoleUser)
 		require.NoError(t, err)
@@ -65,6 +69,9 @@ func TestGetUser(t *testing.T) {
 		_, apiErr = service.GetUserByEmail(ctx, consoleUser.Email)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
+		// can be retrieved by ID though.
+		_, apiErr = service.GetUser(ctx, consoleUser.ID)
+		require.NoError(t, apiErr.Err)
 
 		consoleUser.Status = console.Active
 		require.NoError(
@@ -72,16 +79,26 @@ func TestGetUser(t *testing.T) {
 			consoleDB.Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{Status: &consoleUser.Status}),
 		)
 
+		testUserFields := func(expected *console.User, actual *backoffice.UserAccount) {
+			require.Equal(t, expected.ID, actual.User.ID)
+			require.Equal(t, expected.FullName, actual.User.FullName)
+			require.Equal(t, expected.Email, actual.User.Email)
+			require.Equal(t, expected.Kind.Info(), actual.Kind)
+			require.Equal(t, expected.Status.Info(), actual.Status)
+			require.Equal(t, string(expected.UserAgent), actual.UserAgent)
+			require.Equal(t, expected.DefaultPlacement, actual.DefaultPlacement)
+		}
+
 		user, apiErr := service.GetUserByEmail(ctx, consoleUser.Email)
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, user)
-		require.Equal(t, consoleUser.ID, user.User.ID)
-		require.Equal(t, consoleUser.FullName, user.User.FullName)
-		require.Equal(t, consoleUser.Email, user.User.Email)
-		require.Equal(t, consoleUser.Kind.Info(), user.Kind)
-		require.Equal(t, consoleUser.Status.String(), user.Status)
-		require.Equal(t, string(consoleUser.UserAgent), user.UserAgent)
-		require.Equal(t, consoleUser.DefaultPlacement, user.DefaultPlacement)
+		testUserFields(consoleUser, user)
+		require.Empty(t, user.Projects)
+
+		user, apiErr = service.GetUser(ctx, consoleUser.ID)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, user)
+		testUserFields(consoleUser, user)
 		require.Empty(t, user.Projects)
 
 		type expectedTotal struct {
@@ -149,28 +166,36 @@ func TestGetUser(t *testing.T) {
 
 		sat.Accounting.Tally.Loop.TriggerWait()
 
+		testProjectsFields := func(user *backoffice.UserAccount) {
+			sort.Slice(user.Projects, func(i, j int) bool {
+				return user.Projects[i].Name < user.Projects[j].Name
+			})
+			for i, info := range user.Projects {
+				proj := projects[i]
+				name := proj.Name
+				require.Equal(t, proj.PublicID, info.ID, name)
+				require.Equal(t, name, info.Name, name)
+				require.EqualValues(t, *proj.StorageLimit, info.StorageLimit, name)
+				require.EqualValues(t, *proj.BandwidthLimit, info.BandwidthLimit, name)
+				require.Equal(t, *proj.SegmentLimit, info.SegmentLimit, name)
+
+				total := expectedTotals[i]
+				require.Equal(t, total.storage, *info.StorageUsed, name)
+				require.Equal(t, total.bandwidth, info.BandwidthUsed, name)
+				require.Equal(t, total.segments, *info.SegmentUsed, name)
+			}
+		}
+
 		user, apiErr = service.GetUserByEmail(ctx, consoleUser.Email)
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, user)
 		require.Len(t, user.Projects, len(projects))
+		testProjectsFields(user)
 
-		sort.Slice(user.Projects, func(i, j int) bool {
-			return user.Projects[i].Name < user.Projects[j].Name
-		})
-
-		for i, info := range user.Projects {
-			proj := projects[i]
-			name := proj.Name
-			require.Equal(t, proj.PublicID, info.ID, name)
-			require.Equal(t, name, info.Name, name)
-			require.EqualValues(t, *proj.StorageLimit, info.StorageLimit, name)
-			require.EqualValues(t, *proj.BandwidthLimit, info.BandwidthLimit, name)
-			require.Equal(t, *proj.SegmentLimit, info.SegmentLimit, name)
-
-			total := expectedTotals[i]
-			require.Equal(t, total.storage, *info.StorageUsed, name)
-			require.Equal(t, total.bandwidth, info.BandwidthUsed, name)
-			require.Equal(t, total.segments, *info.SegmentUsed, name)
-		}
+		user, apiErr = service.GetUser(ctx, consoleUser.ID)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, user)
+		require.Len(t, user.Projects, len(projects))
+		testProjectsFields(user)
 	})
 }

@@ -247,7 +247,7 @@ const statusColor = computed(() => {
     if (!userAccount.value) {
         return 'default';
     }
-    const status = userAccount.value.status.toLowerCase();
+    const status = userAccount.value.status.name.toLowerCase();
     if (status.includes('deletion') || status.includes('deleted')) {
         return 'error';
     }

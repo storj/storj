@@ -126,11 +126,17 @@ export class UserAccount {
     email: string;
     kind: KindInfo;
     createdAt: Time;
-    status: string;
+    upgradeTime: Time | null;
+    status: UserStatusInfo;
     userAgent: string;
     defaultPlacement: number;
     projects: UserProject[] | null;
+    projectLimit: number;
+    storageLimit: number;
+    bandwidthLimit: number;
+    segmentLimit: number;
     freezeStatus: FreezeEventType | null;
+    trialExpiration: Time | null;
 }
 
 export class UserProject {
@@ -142,6 +148,11 @@ export class UserProject {
     storageUsed: number | null;
     segmentLimit: number;
     segmentUsed: number | null;
+}
+
+export class UserStatusInfo {
+    name: string;
+    value: number;
 }
 
 export class APIError extends Error {
@@ -197,8 +208,38 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
+    public async getUserKinds(): Promise<KindInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/kinds`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as KindInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getUserStatuses(): Promise<UserStatusInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/statuses`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserStatusInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async getUserByEmail(email: string): Promise<UserAccount> {
-        const fullPath = `${this.ROOT_PATH}/${email}`;
+        const fullPath = `${this.ROOT_PATH}/email/${email}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getUser(userID: UUID): Promise<UserAccount> {
+        const fullPath = `${this.ROOT_PATH}/${userID}`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);

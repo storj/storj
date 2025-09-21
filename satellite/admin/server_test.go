@@ -76,7 +76,7 @@ func TestBasic(t *testing.T) {
 				require.NoError(t, response.Body.Close())
 
 				// expect routed to back-office API
-				req, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office/api/v1/users/alice@storj.test", nil)
+				req, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office/api/v1/users/email/alice@storj.test", nil)
 				require.NoError(t, err)
 				response, err = http.DefaultClient.Do(req)
 				require.NoError(t, err)
