@@ -19,6 +19,7 @@ type PlacementProductMappings map[storj.PlacementConstraint]int32
 type ProjectFeatures struct {
 	NewBucketPlacements      []storj.PlacementConstraint `json:"new_bucket_placements,omitempty"`
 	PlacementProductMappings PlacementProductMappings    `json:"placement_product_mappings,omitempty"`
+	ComputeAccessToken       []byte                      `json:"compute_access_token,omitempty"`
 }
 
 // Projects separates project-related entitlements functionality.
@@ -89,6 +90,29 @@ func (p *Projects) SetPlacementProductMappingsByPublicID(ctx context.Context, pu
 		}
 	}
 	features.PlacementProductMappings = newMappings
+
+	return Error.Wrap(p.upsertNewEntitlement(ctx, ent, features))
+}
+
+// SetComputeAccessTokenByPublicID sets the compute access token for a project by its public ID.
+func (p *Projects) SetComputeAccessTokenByPublicID(ctx context.Context, publicProjectID uuid.UUID, token []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	scope := ConvertPublicIDToProjectScope(publicProjectID)
+
+	// Load current record (may not exist yet).
+	ent, err := p.getEntitlementBeforeSet(ctx, scope)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var features ProjectFeatures
+	if len(ent.Features) > 0 {
+		if err = json.Unmarshal(ent.Features, &features); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	features.ComputeAccessToken = token
 
 	return Error.Wrap(p.upsertNewEntitlement(ctx, ent, features))
 }

@@ -78,6 +78,42 @@ func TestProjectEntitlements(t *testing.T) {
 		require.NoError(t, err)
 		require.ElementsMatch(t, p2, got.NewBucketPlacements)
 		require.Equal(t, m2, got.PlacementProductMappings)
+		require.Nil(t, got.ComputeAccessToken)
+
+		// Test compute access token functionality.
+		token1 := []byte("compute-token-123")
+		err = projects.SetComputeAccessTokenByPublicID(ctx, publicID, token1)
+		require.NoError(t, err)
+
+		got, err = projects.GetByPublicID(ctx, publicID)
+		require.NoError(t, err)
+		require.ElementsMatch(t, p2, got.NewBucketPlacements)
+		require.Equal(t, m2, got.PlacementProductMappings)
+		require.Equal(t, token1, got.ComputeAccessToken)
+
+		// Test setting token to empty byte slice.
+		err = projects.SetComputeAccessTokenByPublicID(ctx, publicID, []byte{})
+		require.NoError(t, err)
+
+		got, err = projects.GetByPublicID(ctx, publicID)
+		require.NoError(t, err)
+		require.Nil(t, got.ComputeAccessToken)
+
+		// Test setting token to nil.
+		token2 := []byte("new-compute-token-456")
+		err = projects.SetComputeAccessTokenByPublicID(ctx, publicID, token2)
+		require.NoError(t, err)
+
+		got, err = projects.GetByPublicID(ctx, publicID)
+		require.NoError(t, err)
+		require.Equal(t, token2, got.ComputeAccessToken)
+
+		err = projects.SetComputeAccessTokenByPublicID(ctx, publicID, nil)
+		require.NoError(t, err)
+
+		got, err = projects.GetByPublicID(ctx, publicID)
+		require.NoError(t, err)
+		require.Nil(t, got.ComputeAccessToken)
 
 		err = projects.DeleteByPublicID(ctx, publicID)
 		require.NoError(t, err)
