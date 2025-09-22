@@ -743,6 +743,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
 					ObjectLocation: obj.Location(),
+					SegmentLimit:   10,
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:             obj.StreamID,
@@ -907,6 +908,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
 					ObjectLocation: obj.Location(),
+					SegmentLimit:   10,
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:             obj.StreamID,
@@ -1077,6 +1079,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
 					ObjectLocation: obj.Location(),
+					SegmentLimit:   10,
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:             obj.StreamID,
@@ -1395,6 +1398,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
 					ObjectLocation: obj.Location(),
+					SegmentLimit:   10,
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:             obj.StreamID,
@@ -1562,6 +1566,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
 					ObjectLocation: obj.Location(),
+					SegmentLimit:   10,
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:             obj.StreamID,

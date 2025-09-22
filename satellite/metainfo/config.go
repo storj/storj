@@ -247,6 +247,8 @@ type Config struct {
 
 	APIKeyTailsConfig APIKeyTailsConfig `help:"Config for API key tails processing"`
 
+	CopyMoveSegmentLimit int64 `help:"the maximum number of segments that can be copied or moved in a single operation" default:"10000"`
+
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
 	TestOptimizedInlineObjectUpload bool      `default:"false" help:"enables optimization for uploading objects with single inline segment"`

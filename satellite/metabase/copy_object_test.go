@@ -37,6 +37,20 @@ func TestBeginCopyObject(t *testing.T) {
 			})
 		}
 
+		t.Run("invalid segment limit", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 3)
+
+			metabasetest.BeginCopyObject{
+				Opts: metabase.BeginCopyObject{
+					ObjectLocation: object.Location(),
+					SegmentLimit:   0,
+				},
+				ErrText: "metabase: invalid request: Segment limit invalid: 0",
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("begin copy object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -69,6 +83,7 @@ func TestBeginCopyObject(t *testing.T) {
 				metabasetest.BeginCopyObject{
 					Opts: metabase.BeginCopyObject{
 						ObjectLocation: obj.Location(),
+						SegmentLimit:   10,
 					},
 					Result: metabase.BeginCopyObjectResult{
 						StreamID:             expectedObject.StreamID,
@@ -101,6 +116,7 @@ func TestBeginCopyObject(t *testing.T) {
 					Opts: metabase.BeginCopyObject{
 						ObjectLocation: object.Location(),
 						Version:        object.Version,
+						SegmentLimit:   10,
 					},
 					Result: metabase.BeginCopyObjectResult{
 						StreamID:             object.StreamID,
@@ -126,8 +142,23 @@ func TestBeginCopyObject(t *testing.T) {
 				Opts: metabase.BeginCopyObject{
 					ObjectLocation: object.Location(),
 					Version:        result.Markers[0].Version,
+					SegmentLimit:   10,
 				},
 				ErrClass: &metabase.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("segment limit", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 3)
+
+			metabasetest.BeginCopyObject{
+				Opts: metabase.BeginCopyObject{
+					ObjectLocation: object.Location(),
+					SegmentLimit:   2,
+				},
+				ErrText: "metabase: invalid request: object has too many segments (3). Limit is 2.",
 			}.Check(ctx, t, db)
 		})
 	})
@@ -1499,6 +1530,7 @@ func TestFinishCopyObject(t *testing.T) {
 			results, err := db.BeginCopyObject(ctx, metabase.BeginCopyObject{
 				ObjectLocation: sourceObject.Location(),
 				Version:        sourceObject.Version,
+				SegmentLimit:   10,
 			})
 			require.NoError(t, err)
 

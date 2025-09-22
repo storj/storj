@@ -46,6 +46,8 @@ type EncryptedKeyAndNonce struct {
 // BeginMoveObject holds all data needed begin move object method.
 type BeginMoveObject struct {
 	ObjectLocation
+
+	SegmentLimit int64
 }
 
 // BeginMoveCopyResults holds all data needed to begin move and copy object methods.
@@ -60,7 +62,7 @@ type BeginMoveCopyResults struct {
 // BeginMoveObject collects all data needed to begin object move procedure.
 func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (_ BeginMoveObjectResult, err error) {
 	// TODO(ver) add support specifying move source object version
-	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, 0, MoveSegmentLimit, nil)
+	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, 0, opts.SegmentLimit, nil)
 	if err != nil {
 		return BeginMoveObjectResult{}, err
 	}
@@ -74,6 +76,10 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 
 	if err := location.Verify(); err != nil {
 		return BeginMoveCopyResults{}, err
+	}
+
+	if segmentLimit <= 0 {
+		return BeginMoveCopyResults{}, ErrInvalidRequest.New("Segment limit invalid: %v", segmentLimit)
 	}
 
 	var object Object
@@ -96,7 +102,7 @@ func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, 
 	}
 
 	if int64(object.SegmentCount) > segmentLimit {
-		return BeginMoveCopyResults{}, ErrInvalidRequest.New("object has too many segments (%d). Limit is %d.", object.SegmentCount, CopySegmentLimit)
+		return BeginMoveCopyResults{}, ErrInvalidRequest.New("object has too many segments (%d). Limit is %d.", object.SegmentCount, segmentLimit)
 	}
 
 	if verifyLimits != nil {

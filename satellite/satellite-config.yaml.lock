@@ -1127,6 +1127,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enable the use of the bucket tagging endpoints
 # metainfo.bucket-tagging-enabled: false
 
+# the maximum number of segments that can be copied or moved in a single operation
+# metainfo.copy-move-segment-limit: 10000
+
 # the database connection string to use
 # metainfo.database-url: postgres://
 

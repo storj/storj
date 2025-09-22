@@ -48,12 +48,6 @@ const (
 // ListLimit is the maximum number of items the client can request for listing.
 const ListLimit = intLimitRange(1000)
 
-// MoveSegmentLimit is the maximum number of segments that can be moved.
-const MoveSegmentLimit = int64(10000)
-
-// CopySegmentLimit is the maximum number of segments that can be copied.
-const CopySegmentLimit = int64(10000)
-
 // batchsizeLimit specifies up to how many items fetch from the storage layer at
 // a time.
 //

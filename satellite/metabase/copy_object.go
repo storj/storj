@@ -38,6 +38,8 @@ type BeginCopyObject struct {
 	ObjectLocation
 	Version Version
 
+	SegmentLimit int64
+
 	// VerifyLimits holds a callback by which the caller can interrupt the copy
 	// if it turns out the copy would exceed a limit.
 	VerifyLimits func(encryptedObjectSize int64, nSegments int64) error
@@ -45,7 +47,7 @@ type BeginCopyObject struct {
 
 // BeginCopyObject collects all data needed to begin object copy procedure.
 func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (_ BeginCopyObjectResult, err error) {
-	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, opts.Version, CopySegmentLimit, opts.VerifyLimits)
+	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, opts.Version, opts.SegmentLimit, opts.VerifyLimits)
 	if err != nil {
 		return BeginCopyObjectResult{}, err
 	}

@@ -2605,6 +2605,8 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
+
+		SegmentLimit: endpoint.config.CopyMoveSegmentLimit,
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -2897,7 +2899,8 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		Version: version,
+		Version:      version,
+		SegmentLimit: endpoint.config.CopyMoveSegmentLimit,
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
 			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},

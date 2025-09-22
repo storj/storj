@@ -34,6 +34,20 @@ func TestBeginMoveObject(t *testing.T) {
 			})
 		}
 
+		t.Run("invalid segment limit", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 3)
+
+			metabasetest.BeginMoveObject{
+				Opts: metabase.BeginMoveObject{
+					ObjectLocation: object.Location(),
+					SegmentLimit:   0,
+				},
+				ErrText: "metabase: invalid request: Segment limit invalid: 0",
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("begin move object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -66,6 +80,7 @@ func TestBeginMoveObject(t *testing.T) {
 				metabasetest.BeginMoveObject{
 					Opts: metabase.BeginMoveObject{
 						ObjectLocation: obj.Location(),
+						SegmentLimit:   10,
 					},
 					Result: metabase.BeginMoveObjectResult{
 						StreamID:             expectedObject.StreamID,
@@ -79,6 +94,20 @@ func TestBeginMoveObject(t *testing.T) {
 			metabasetest.Verify{
 				Objects:  expectedRawObjects,
 				Segments: expectedRawSegments,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("segment limit", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 3)
+
+			metabasetest.BeginMoveObject{
+				Opts: metabase.BeginMoveObject{
+					ObjectLocation: object.Location(),
+					SegmentLimit:   2,
+				},
+				ErrText: "metabase: invalid request: object has too many segments (3). Limit is 2.",
 			}.Check(ctx, t, db)
 		})
 	})
