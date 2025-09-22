@@ -3,7 +3,7 @@ FROM golang:1.24.2
 WORKDIR /go/storj
 
 multinode-web:
-    FROM node:20.10
+    FROM node:24.8
     WORKDIR /build
     COPY web/multinode .
     RUN ./build.sh
@@ -21,7 +21,7 @@ wasm:
    SAVE ARTIFACT release/earthly/wasm wasm AS LOCAL web/satellite/static/wasm
 
 storagenode-web:
-    FROM node:20.10
+    FROM node:24.8
     WORKDIR /build
     COPY web/storagenode .
     RUN ./build.sh
@@ -29,7 +29,7 @@ storagenode-web:
     SAVE ARTIFACT static AS LOCAL web/storagenode/static
 
 satellite-web:
-    FROM node:20.10
+    FROM node:24.8
     WORKDIR /build
     COPY web/satellite .
     RUN ./build.sh
@@ -38,7 +38,7 @@ satellite-web:
     SAVE ARTIFACT static AS LOCAL web/satellite/static
 
 satellite-admin:
-    FROM node:20.10
+    FROM node:24.8
     WORKDIR /build
     COPY satellite/admin/ui .
     RUN ./build.sh
