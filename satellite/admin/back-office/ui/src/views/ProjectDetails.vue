@@ -67,8 +67,11 @@
             <v-col cols="12" md="4">
                 <v-card title="Project" :subtitle="project.name" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
-                        <v-chip color="success" variant="tonal" class="mr-2 font-weight-bold">
-                            {{ userAccount.paidTier ? 'Pro' : 'Free' }}
+                        <v-chip
+                            :color="userIsPaid(userAccount) ? 'success' : userIsNFR(userAccount) ? 'warning' : 'info'"
+                            variant="tonal" class="mr-2 font-weight-bold"
+                        >
+                            {{ userAccount.kind.name }}
                             <!-- TODO: We don't have this information we have to decide what we show here (e.g. Show the date when a credit card was added, etc.) ->
                             <v-tooltip activator="parent" location="top">
                                 Pro account since: 2 May 2022
@@ -190,6 +193,9 @@ import { useRouter } from 'vue-router';
 import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
+import { useUsersStore } from '@/store/users';
+import { useNotificationsStore } from '@/store/notifications';
+import { userIsNFR, userIsPaid } from '@/types/user';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
@@ -203,11 +209,13 @@ import ProjectLimitsDialog from '@/components/ProjectLimitsDialog.vue';
 import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
 
 const appStore = useAppStore();
+const usersStore = useUsersStore();
 const router = useRouter();
+const notify = useNotificationsStore();
 
 const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
 
-const userAccount = computed<UserAccount>(() => appStore.state.userAccount as UserAccount);
+const userAccount = computed<UserAccount>(() => usersStore.state.userAccount as UserAccount);
 const project = computed<Project>(() => appStore.state.selectedProject as Project);
 
 const placementText = computed<string>(() => {
@@ -222,7 +230,7 @@ const usageCacheError = computed<boolean>(() => {
 });
 
 onMounted(async () => {
-    if (project.value) {
+    if (project.value && userAccount.value) {
         return;
     }
     const projectID = router.currentRoute.value.params.id as string;
@@ -231,10 +239,10 @@ onMounted(async () => {
     try {
         await Promise.all([
             appStore.selectProject(projectID),
-            appStore.getUserByEmail(userEmail),
+            usersStore.getUserByEmail(userEmail),
         ]);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (error) {
+        notify.notifyError('Failed to load project details. ' + error.message);
         router.push({ name: ROUTES.AccountSearch.name });
     }
 });

@@ -4,10 +4,10 @@
 <template>
     <v-container fluid>
         <v-row>
-            <v-col cols="6">
+            <!--            <v-col cols="6">
                 <PageTitleComponent title="Accounts" />
                 <PageSubtitleComponent subtitle="Find accounts on North America US1." />
-            </v-col>
+            </v-col>-->
 
             <v-col v-if="featureFlags.account.create" cols="6" class="d-flex justify-end align-center">
                 <v-btn variant="outlined" color="default">
@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VContainer, VRow, VCol, VBtn, VCard, VCardText, VForm, VTextField } from 'vuetify/components';
 
@@ -60,9 +60,8 @@ import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
 import { ROUTES } from '@/router';
+import { useUsersStore } from '@/store/users';
 
-import PageTitleComponent from '@/components/PageTitleComponent.vue';
-import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import NewAccountDialog from '@/components/NewAccountDialog.vue';
 
 const isLoading = ref<boolean>(false);
@@ -76,9 +75,12 @@ const emailRules: ((value: string) => boolean | string)[] = [
 ];
 
 const appStore = useAppStore();
+const usersStore = useUsersStore();
 const notify = useNotificationsStore();
 const router = useRouter();
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+
 /**
  * Fetches user information and navigates to Account Details page.
  * Displays an error message if no user has the input email address.
@@ -91,7 +93,7 @@ async function goToUser(): Promise<void> {
     const retryDelay = 1000;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
-            const user = await appStore.getUserByEmail(email.value);
+            const user = await usersStore.getUserByEmail(email.value);
             router.push({ name: ROUTES.Account.name, params: { email: user.email } });
             isLoading.value = false;
             return;

@@ -95,10 +95,10 @@
                 <v-tooltip>
                     {{ item.segment.used !== null ? item.segment.used.toLocaleString() + '/' : 'Limit:' }}
                     {{ item.segment.limit.toLocaleString() }}
-                    <template #activator="{ props }">
+                    <template #activator="{ props: activatorProps }">
                         <v-chip
                             v-if="item.segment.percent !== null"
-                            v-bind="props"
+                            v-bind="activatorProps"
                             variant="tonal"
                             :color="getPercentColor(item.segment.percent)"
                             size="small"
@@ -107,7 +107,7 @@
                         >
                             {{ item.segment.percent }}&percnt;
                         </v-chip>
-                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" v-bind="props" />
+                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" v-bind="activatorProps" />
                     </template>
                 </v-tooltip>
             </template>
@@ -141,6 +141,7 @@ import { VCard, VTextField, VBtn, VIcon, VDataTable, VTooltip, VChip } from 'vue
 import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';
 import { DataTableHeader, SortItem } from '@/types/common';
+import { UserAccount } from '@/api/client.gen';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 
@@ -164,6 +165,7 @@ type ProjectTableItem = {
 
 type ProjectTableSlotProps = { item: ProjectTableItem  };
 
+const appStore = useAppStore();
 const router = useRouter();
 
 const search = ref<string>('');
@@ -184,7 +186,9 @@ const headers: DataTableHeader[] = [
     // { title: 'Date Created', key: 'date' },
 ];
 
-const appStore = useAppStore();
+const props = defineProps<{
+    account: UserAccount;
+}>();
 
 /**
  * Returns the user's project usage data.
@@ -196,11 +200,11 @@ const projects = computed<ProjectTableItem[]>(() => {
         return {
             used,
             limit,
-            percent: used !== null ? Math.round(used * 100 / limit) : null,
+            percent: used !== null && limit > 0 ? Math.round(used * 100 / limit) : 0,
         };
     }
 
-    const projects = appStore.state.userAccount?.projects;
+    const projects = props.account.projects;
     if (!projects || !projects.length) {
         return [];
     }
@@ -221,7 +225,7 @@ async function selectProject(id: string): Promise<void> {
     await appStore.selectProject(id);
     router.push({
         name: ROUTES.AccountProject.name,
-        params: { email: appStore.state.userAccount?.email, id },
+        params: { email: props.account?.email, id },
     });
 }
 

@@ -2,7 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="appStore.state.userAccount">
+    <div v-if="isLoading || !userAccount" class="d-flex justify-center align-center" style="height: 100vh;">
+        <v-skeleton-loader width="300" height="200" type="article" />
+    </div>
+    <v-container v-else>
         <v-row>
             <v-col cols="12" md="8">
                 <PageTitleComponent title="Account Details" />
@@ -35,7 +38,7 @@
                         <v-icon icon="mdi-chevron-down" />
                     </template>
                     Account Actions
-                    <AccountActionsMenu />
+                    <AccountActionsMenu :user="userAccount" @toggle-freeze="toggleFreeze" />
                 </v-btn>
             </v-col>
         </v-row>
@@ -56,8 +59,23 @@
             <v-col cols="12" sm="6" md="3">
                 <v-card title="Account" :subtitle="userAccount.fullName" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
-                        <v-chip :color="userAccount.paidTier ? 'success' : 'default'" variant="tonal" class="mr-2 font-weight-bold">
-                            {{ userAccount.paidTier ? 'Pro' : 'Free' }}
+                        <v-chip
+                            :color="userIsPaid(userAccount) ? 'success' : userIsNFR(userAccount) ? 'warning' : 'info'"
+                            variant="tonal" class="mr-2 font-weight-bold"
+                        >
+                            {{ userAccount.kind.name }}
+                        </v-chip>
+                        <v-chip
+                            v-if="userAccount.freezeStatus"
+                            color="error"
+                            variant="tonal"
+                            class="mr-2 font-weight-bold"
+                        >
+                            <template v-if="featureFlags.account.unsuspend" #append>
+                                <v-progress-circular v-if="unfreezing" class="ml-1" size="x-small" width="1" indeterminate />
+                                <v-icon v-else icon="$close" @click="unfreezeAccount" />
+                            </template>
+                            {{ userAccount.freezeStatus?.name }}
                         </v-chip>
                         <template v-if="featureFlags.account.updateInfo">
                             <v-divider class="my-4" />
@@ -73,7 +91,7 @@
             <v-col cols="12" sm="6" md="3">
                 <v-card title="Status" subtitle="Account" variant="flat" :border="true" rounded="xlg">
                     <v-card-text>
-                        <v-chip color="success" variant="tonal" class="mr-2 font-weight-bold">
+                        <v-chip :color="statusColor" variant="tonal" class="mr-2 font-weight-bold">
                             {{ userAccount.status }}
                         </v-chip>
                         <template v-if="featureFlags.account.updateStatus">
@@ -159,7 +177,7 @@
         <v-row v-if="featureFlags.account.projects">
             <v-col>
                 <h3 class="my-4">Projects</h3>
-                <AccountProjectsTableComponent />
+                <AccountProjectsTableComponent :account="userAccount" />
             </v-col>
         </v-row>
 
@@ -170,29 +188,36 @@
             </v-col>
         </v-row>
     </v-container>
+    <AccountFreezeDialog v-if="userAccount" v-model="freezeDialogEnabled" :account="userAccount" />
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onUnmounted } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
-    VContainer,
-    VRow,
-    VCol,
-    VChip,
-    VTooltip,
-    VIcon,
+    VAlert,
+    VBtn,
     VCard,
     VCardText,
+    VChip,
+    VCol,
+    VContainer,
     VDivider,
-    VBtn,
-    VAlert,
+    VIcon,
+    VRow,
+    VSkeletonLoader,
+    VProgressCircular,
+    VTooltip,
 } from 'vuetify/components';
 
 import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';
+import { userIsNFR, userIsPaid } from '@/types/user';
 import { ROUTES } from '@/router';
+import { useUsersStore } from '@/store/users';
+import { useLoading } from '@/composables/useLoading';
+import { useNotificationsStore } from '@/store/notifications';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
@@ -203,17 +228,44 @@ import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 import AccountInformationDialog from '@/components/AccountInformationDialog.vue';
 import AccountStatusDialog from '@/components/AccountStatusDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
+import AccountFreezeDialog from '@/components/AccountFreezeDialog.vue';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
+const usersStore = useUsersStore();
 const appStore = useAppStore();
 const router = useRouter();
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+
+const { isLoading, withLoading } = useLoading();
+const notify = useNotificationsStore();
+
+const unfreezing = ref<boolean>(false);
+const freezeDialogEnabled = ref<boolean>(false);
+
+const statusColor = computed(() => {
+    if (!userAccount.value) {
+        return 'default';
+    }
+    const status = userAccount.value.status.toLowerCase();
+    if (status.includes('deletion') || status.includes('deleted')) {
+        return 'error';
+    }
+    if (status.includes('active')) {
+        return 'success';
+    }
+
+    return 'warning';
+});
+
+/**
+ * Return the enabled feature flags from the store.
+ */
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 
 /**
  * Returns user account info from store.
  */
-const userAccount = computed<UserAccount>(() => appStore.state.userAccount as UserAccount);
+const userAccount = computed<UserAccount>(() => usersStore.state.userAccount as UserAccount);
 
 /**
  * Returns the date that the user was created.
@@ -267,22 +319,44 @@ const usageCacheError = computed<boolean>(() => {
     );
 });
 
-onBeforeMount(async () => {
-    if (appStore.state.userAccount !== null) {
+function toggleFreeze() {
+    if (userAccount.value.freezeStatus) {
+        unfreezeAccount();
         return;
     }
+    freezeDialogEnabled.value = true;
+}
 
+async function unfreezeAccount() {
+    if (!userAccount.value.freezeStatus) {
+        notify.notifyError('Account is not frozen.');
+        return;
+    }
+    unfreezing.value = true;
     try {
-        const email = router.currentRoute.value.params.email as string;
-        await appStore.getUserByEmail(email);
-    } catch {
-        router.push({ name: ROUTES.AccountSearch.name });
-    }
-});
+        await usersStore.unfreezeUser(userAccount.value.id);
+        notify.notifySuccess('Account unfrozen successfully.');
 
-onUnmounted(() => {
-    if (appStore.state.selectedProject === null) {
-        appStore.clearUser();
+        await usersStore.getUserByEmail(userAccount.value.email);
+    } catch (error) {
+        notify.notifyError(`Failed to toggle account freeze status. ${error.message}`);
+        return;
+    } finally {
+        unfreezing.value = false;
     }
+}
+
+onBeforeMount(() => {
+    if (userAccount.value) {
+        return;
+    }
+    withLoading(async () => {
+        try {
+            const email = router.currentRoute.value.params.email as string;
+            await usersStore.getUserByEmail(email);
+        } catch {
+            router.push({ name: ROUTES.AccountSearch.name });
+        }
+    });
 });
 </script>

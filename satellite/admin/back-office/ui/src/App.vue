@@ -26,16 +26,18 @@ import { VSkeletonLoader } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
+import { useUsersStore } from '@/store/users';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 
 const appStore = useAppStore();
+const usersStore = useUsersStore();
 const notify = useNotificationsStore();
 
 onMounted(async () => {
     try {
         await Promise.all([
-            appStore.getSettings(),
+            usersStore.getAccountFreezeTypes(),appStore.getSettings(),
             appStore.getPlacements(),
         ]);
     } catch (error) {

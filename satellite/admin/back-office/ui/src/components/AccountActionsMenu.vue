@@ -4,13 +4,13 @@
 <template>
     <v-menu activator="parent">
         <v-list class="pa-2">
-            <v-list-item v-if="featureFlags.account.view" density="comfortable" link rounded="lg" base-color="info" router-link to="/account-details">
+            <v-list-item v-if="featureFlags.account.view && !isCurrentRouteViewAccount" density="comfortable" link rounded="lg" base-color="info" @click="viewAccount">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     View Account
                 </v-list-item-title>
             </v-list-item>
 
-            <v-divider v-if="featureFlags.account.updateInfo || featureFlags.account.updateStaus || featureFlags.account.updateValueAttribution || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
+            <v-divider v-if="featureFlags.account.updateInfo || featureFlags.account.updateStatus || featureFlags.account.updateValueAttribution || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
 
             <v-list-item v-if="featureFlags.account.updateInfo" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
@@ -63,10 +63,12 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.suspend" density="comfortable" link rounded="lg" base-color="warning">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Suspend
-                    <AccountSuspendDialog />
+            <v-list-item
+                v-if="featureFlags.account.suspend || featureFlags.account.unsuspend"
+                density="comfortable" link rounded="lg" base-color="warning"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium" @click="emit('toggleFreeze', user)">
+                    {{ user.freezeStatus ? "Unfreeze" : "Freeze" }}
                 </v-list-item-title>
             </v-list-item>
 
@@ -82,19 +84,40 @@
 
 <script setup lang="ts">
 import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 
-import { FeatureFlags } from '@/api/client.gen';
+import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
+import { ROUTES } from '@/router';
 
 import AccountInformationDialog from '@/components/AccountInformationDialog.vue';
 import AccountStatusDialog from '@/components/AccountStatusDialog.vue';
 import AccountResetMFADialog from '@/components/AccountResetMFADialog.vue';
-import AccountSuspendDialog from '@/components/AccountSuspendDialog.vue';
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
 import AccountLimitsDialog from '@/components/AccountLimitsDialog.vue';
 
-const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
+const appStore = useAppStore();
+const router = useRouter();
+
+const props = defineProps<{
+    user: UserAccount;
+}>();
+
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+
+const isCurrentRouteViewAccount = computed(() => {
+    return router.currentRoute.value.name === ROUTES.Account.name;
+});
+
+const emit = defineEmits<{
+    (e: 'toggleFreeze', user: UserAccount): void;
+}>();
+
+function viewAccount() {
+    router.push({ name: ROUTES.Account.name, params: { email: props.user.email } });
+}
 </script>
