@@ -696,21 +696,19 @@ func TestRateLimit_ProjectRateLimitOverride(t *testing.T) {
 }
 
 func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
-	t.Skip("flaky")
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = 2
-				config.Metainfo.RateLimiter.CacheExpiration = 5 * time.Second
+				config.Metainfo.RateLimiter.CacheExpiration = 2 * time.Second
 			},
 			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		ul := planet.Uplinks[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
 		satellite := planet.Satellites[0]
-		limiter := satellite.Metainfo.Endpoint.TestingGetLimiterCache()
-		limiter.Reset()
 
 		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
@@ -722,12 +720,23 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		var group1 errs2.Group
+		limiter := satellite.Metainfo.Endpoint.TestingGetLimiterCache()
+		limiter.Reset()
 
-		for i := 0; i <= rateLimit; i++ {
+		listBuckets := func() error {
+			_, err := satellite.Metainfo.Endpoint.ListBuckets(ctx, &pb.ListBucketsRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Direction: pb.ListDirection_AFTER,
+			})
+			return err
+		}
+
+		var group1 errs2.Group
+		for range rateLimit + 1 {
 			group1.Go(func() error {
-				_, err := ul.ListBuckets(ctx, satellite)
-				return err
+				return listBuckets()
 			})
 		}
 		group1Errs := group1.Wait()
@@ -739,14 +748,12 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		err = satellite.DB.Console().Projects().Update(ctx, &projects[0])
 		require.NoError(t, err)
 
-		time.Sleep(6 * time.Second)
+		time.Sleep(4 * time.Second)
 
 		var group2 errs2.Group
-
-		for i := 0; i <= rateLimit; i++ {
+		for range rateLimit + 1 {
 			group2.Go(func() error {
-				_, err := ul.ListBuckets(ctx, satellite)
-				return err
+				return listBuckets()
 			})
 		}
 		group2Errs := group2.Wait()
