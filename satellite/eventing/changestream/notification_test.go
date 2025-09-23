@@ -62,6 +62,29 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	require.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
 }
 
+func TestConvertModsToEvent_Update(t *testing.T) {
+	var r metabase.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/update.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	require.Equal(t, "2.1", record.EventVersion)
+	require.Equal(t, "storj:s3", record.EventSource)
+	require.Equal(t, "2025-09-24T08:54:41.183Z", record.EventTime)
+	require.Equal(t, "ObjectCreated:Put", record.EventName)
+	require.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	require.Equal(t, "bucket1", record.S3.Bucket.Name)
+	require.Equal(t, "arn:storj:s3:::bucket1", record.S3.Bucket.Arn)
+	require.Equal(t, "Aty6AiyVFSbBYzAjR2rY52KiD85CsiRJPIBSnhvHVFs=", record.S3.Object.Key)
+	require.Equal(t, "100", record.S3.Object.VersionId)
+	require.Equal(t, "18682C0B37F170B8", record.S3.Object.Sequencer)
+}
+
 func TestConvertModsToEvent(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
@@ -127,6 +150,98 @@ func TestConvertModsToEvent(t *testing.T) {
 						Value: map[string]interface{}{
 							"status":           float64(4), // CommittedVersioned
 							"total_plain_size": float64(2048),
+						},
+						Valid: true,
+					},
+				},
+			},
+		}
+
+		event, err := ConvertModsToEvent(dataRecord)
+		require.NoError(t, err)
+		require.Len(t, event.Records, 1)
+
+		record := event.Records[0]
+		require.Equal(t, "ObjectCreated:Put", record.EventName)
+		require.Equal(t, int64(2048), record.S3.Object.Size)
+	})
+
+	t.Run("ObjectCreated:Put for CommittedUnversioned with update", func(t *testing.T) {
+		dataRecord := metabase.DataChangeRecord{
+			CommitTimestamp: testTime,
+			ModType:         "UPDATE",
+			Mods: []*metabase.Mods{
+				{
+					NewValues: spanner.NullJSON{
+						Value: map[string]interface{}{
+							"status":           float64(3), // CommittedUnversioned
+							"total_plain_size": float64(1024),
+						},
+						Valid: true,
+					},
+					Keys: spanner.NullJSON{
+						Value: map[string]interface{}{
+							"bucket_name": "test-bucket",
+							"object_key":  "test/object.txt",
+							"version":     float64(1),
+						},
+						Valid: true,
+					},
+					OldValues: spanner.NullJSON{
+						Value: map[string]interface{}{
+							"status":           float64(1), // Pending
+							"total_plain_size": float64(0),
+						},
+						Valid: true,
+					},
+				},
+			},
+		}
+
+		event, err := ConvertModsToEvent(dataRecord)
+		require.NoError(t, err)
+		require.Len(t, event.Records, 1)
+
+		record := event.Records[0]
+		require.Equal(t, "2.1", record.EventVersion)
+		require.Equal(t, "storj:s3", record.EventSource)
+		require.Equal(t, "2024-01-01T12:00:00.000Z", record.EventTime)
+		require.Equal(t, "ObjectCreated:Put", record.EventName)
+		require.Equal(t, "1.0", record.S3.S3SchemaVersion)
+		require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+		require.Equal(t, "test-bucket", record.S3.Bucket.Name)
+		require.Equal(t, "arn:storj:s3:::test-bucket", record.S3.Bucket.Arn)
+		require.Equal(t, "test/object.txt", record.S3.Object.Key)
+		require.Equal(t, int64(1024), record.S3.Object.Size)
+		require.Equal(t, "1", record.S3.Object.VersionId)
+		require.Equal(t, fmt.Sprintf("%016X", testTime.UnixNano()), record.S3.Object.Sequencer)
+	})
+
+	t.Run("ObjectCreated:Put for CommittedVersioned with update", func(t *testing.T) {
+		dataRecord := metabase.DataChangeRecord{
+			CommitTimestamp: testTime,
+			ModType:         "UPDATE",
+			Mods: []*metabase.Mods{
+				{
+					Keys: spanner.NullJSON{
+						Value: map[string]interface{}{
+							"bucket_name": "test-bucket",
+							"object_key":  "test/object.txt",
+							"version":     float64(2),
+						},
+						Valid: true,
+					},
+					NewValues: spanner.NullJSON{
+						Value: map[string]interface{}{
+							"status":           float64(4), // CommittedVersioned
+							"total_plain_size": float64(2048),
+						},
+						Valid: true,
+					},
+					OldValues: spanner.NullJSON{
+						Value: map[string]interface{}{
+							"status":           float64(1), // Pending
+							"total_plain_size": float64(0),
 						},
 						Valid: true,
 					},
@@ -379,6 +494,40 @@ func TestDetermineEventName(t *testing.T) {
 		newValues := map[string]interface{}{"status": float64(4)}
 		eventName := determineEventName("INSERT", newValues, nil)
 		require.Equal(t, "ObjectCreated:Put", eventName)
+	})
+
+	t.Run("UPDATE with CommittedUnversioned", func(t *testing.T) {
+		oldValues := map[string]interface{}{"status": float64(1)}
+		newValues := map[string]interface{}{"status": float64(3)}
+		eventName := determineEventName("UPDATE", newValues, oldValues)
+		require.Equal(t, "ObjectCreated:Put", eventName)
+	})
+
+	t.Run("UPDATE with CommittedVersioned", func(t *testing.T) {
+		oldValues := map[string]interface{}{"status": float64(1)}
+		newValues := map[string]interface{}{"status": float64(4)}
+		eventName := determineEventName("UPDATE", newValues, oldValues)
+		require.Equal(t, "ObjectCreated:Put", eventName)
+	})
+
+	t.Run("UPDATE with no pending status change returns empty", func(t *testing.T) {
+		oldValues := map[string]interface{}{"status": float64(3)}
+		newValues := map[string]interface{}{"status": float64(3)}
+		eventName := determineEventName("UPDATE", newValues, oldValues)
+		require.Equal(t, "", eventName)
+	})
+
+	t.Run("UPDATE with no committed status change returns empty", func(t *testing.T) {
+		oldValues := map[string]interface{}{"status": float64(1)}
+		newValues := map[string]interface{}{"status": float64(1)}
+		eventName := determineEventName("UPDATE", newValues, oldValues)
+		require.Equal(t, "", eventName)
+	})
+
+	t.Run("UPDATE with no committed status change and no old values", func(t *testing.T) {
+		newValues := map[string]interface{}{"status": float64(1)}
+		eventName := determineEventName("UPDATE", newValues, nil)
+		require.Equal(t, "", eventName)
 	})
 
 	t.Run("INSERT with DeleteMarkerVersioned", func(t *testing.T) {
