@@ -23,7 +23,7 @@ var ErrUsersAPI = errs.Class("admin users api")
 var ErrProjectsAPI = errs.Class("admin projects api")
 
 type SettingsService interface {
-	GetSettings(ctx context.Context) (*Settings, api.HTTPError)
+	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
 }
 
 type PlacementManagementService interface {
@@ -139,9 +139,13 @@ func (h *SettingsHandler) handleGetSettings(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx = h.auth.ContextWithRequestGroups(ctx, r)
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
 
-	retVal, httpErr := h.service.GetSettings(ctx)
+	retVal, httpErr := h.service.GetSettings(ctx, authInfo)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -179,8 +183,6 @@ func (h *UserManagementHandler) handleGetFreezeEventTypes(w http.ResponseWriter,
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx = h.auth.ContextWithRequestGroups(ctx, r)
-
 	retVal, httpErr := h.service.GetFreezeEventTypes(ctx)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
@@ -206,7 +208,6 @@ func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *h
 		return
 	}
 
-	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 1) {
 		return
 	}
@@ -248,7 +249,6 @@ func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 128) {
 		return
 	}
@@ -278,7 +278,6 @@ func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *htt
 		return
 	}
 
-	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 256) {
 		return
 	}
@@ -308,7 +307,6 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
-	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 8192) {
 		return
 	}
@@ -350,7 +348,6 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	ctx = h.auth.ContextWithRequestGroups(ctx, r)
 	if h.auth.IsRejected(w, r, 16384) {
 		return
 	}

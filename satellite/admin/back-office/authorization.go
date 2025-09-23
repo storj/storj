@@ -4,7 +4,6 @@
 package admin
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -72,10 +71,6 @@ const (
 	)
 )
 
-type groupKey int
-
-const groupContextKey groupKey = 0
-
 // ErrAuthorizer is the error class that wraps all the errors returned by the authorization.
 var ErrAuthorizer = errs.Class("authorizer")
 
@@ -95,6 +90,11 @@ func (auth Authorization) Has(perms ...Permission) bool {
 	}
 
 	return true
+}
+
+// AuthInfo is the structure that holds information about the authenticated user.
+type AuthInfo struct {
+	Groups []string
 }
 
 // Authorizer checks if a group has certain permissions.
@@ -155,6 +155,19 @@ func (auth *Authorizer) HasPermissions(group string, perms ...Permission) bool {
 	return groupAuth.Has(perms...)
 }
 
+// GetAuthInfo returns the information about the authenticated user from the request.
+func (auth *Authorizer) GetAuthInfo(r *http.Request) *AuthInfo {
+	if !auth.enabled {
+		return &AuthInfo{Groups: []string{"bypass-auth"}}
+	}
+	groups := r.Header.Get("X-Forwarded-Groups")
+	if groups == "" {
+		return nil
+	}
+
+	return &AuthInfo{Groups: strings.Split(groups, ",")}
+}
+
 // IsRejected verifies that r is from a user who belongs to a group that has all perms and returns
 // false, otherwise responds with http.StatusUnauthorized using
 // storj.io/storj/private.api.ServeError and returns true.
@@ -165,36 +178,21 @@ func (auth *Authorizer) IsRejected(w http.ResponseWriter, r *http.Request, perms
 	if !auth.enabled {
 		return false
 	}
-	groupsh := r.Header.Get("X-Forwarded-Groups")
-	if groupsh == "" {
+
+	authInfo := auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 {
 		err := Error.Wrap(ErrAuthorizer.New("You do not belong to any group"))
 		api.ServeError(auth.log, w, http.StatusUnauthorized, err)
 		return true
 	}
 
-	groups := strings.Split(groupsh, ",")
-	for _, g := range groups {
+	for _, g := range authInfo.Groups {
 		if auth.HasPermissions(g, perms...) {
 			return false
 		}
 	}
 
-	err := Error.Wrap(ErrAuthorizer.New("Not enough permissions (your groups: %s)", groupsh))
+	err := Error.Wrap(ErrAuthorizer.New("Not enough permissions (your groups: %s)", strings.Join(authInfo.Groups, ",")))
 	api.ServeError(auth.log, w, http.StatusUnauthorized, err)
 	return true
-}
-
-// ContextWithRequestGroups appends the groups from the "X-Forwarded-Groups" header to the
-// context for handlers to use it.
-func (auth *Authorizer) ContextWithRequestGroups(ctx context.Context, r *http.Request) context.Context {
-	if !auth.enabled {
-		return context.WithValue(ctx, groupContextKey, []string{"bypass-auth"})
-	}
-	groupsh := r.Header.Get("X-Forwarded-Groups")
-	if groupsh == "" {
-		return ctx
-	}
-
-	groups := strings.Split(groupsh, ",")
-	return context.WithValue(ctx, groupContextKey, groups)
 }

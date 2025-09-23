@@ -86,21 +86,9 @@ type BucketFlags struct {
 }
 
 // GetSettings returns the service settings based on the caller's permissions.
-func (s *Service) GetSettings(ctx context.Context) (*Settings, api.HTTPError) {
-	if ctx.Value(groupContextKey) == nil {
-		// nothing will be enabled for this user
-		return &Settings{}, api.HTTPError{}
-	}
-
-	groups := ctx.Value(groupContextKey).([]string)
-	if len(groups) == 0 {
-		// nothing will be enabled for this user
-		return &Settings{}, api.HTTPError{}
-	}
-
+func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError) {
 	var settings Settings
-
-	for _, g := range groups {
+	for _, g := range authInfo.Groups {
 		// account permission features
 		if s.authorizer.HasPermissions(g, PermAccountView) {
 			settings.Admin.Features.Account.View = true

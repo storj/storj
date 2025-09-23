@@ -53,23 +53,27 @@ func TestGetSettings(t *testing.T) {
 			Name       string
 			groups     []string
 			bypassAuth bool
-			expected   backoffice.Settings
+			expected   *backoffice.Settings // nil means unauthorized
 		}
 		testCases := []groupTest{
 			{
-				Name:     "no groups",
-				groups:   []string{},
-				expected: backoffice.Settings{},
+				Name:   "no groups",
+				groups: []string{},
 			},
 			{
 				Name:     "admin group",
 				groups:   []string{"admin"},
-				expected: adminSettings,
+				expected: &adminSettings,
+			},
+			{
+				Name:     "admin and viewer group",
+				groups:   []string{"admin", "viewer"},
+				expected: &adminSettings,
 			},
 			{
 				Name:   "viewer group",
 				groups: []string{"viewer"},
-				expected: backoffice.Settings{
+				expected: &backoffice.Settings{
 					Admin: backoffice.SettingsAdmin{
 						Features: backoffice.FeatureFlags{
 							Account: backoffice.AccountFlags{
@@ -87,7 +91,7 @@ func TestGetSettings(t *testing.T) {
 			{
 				Name:       "bypass auth",
 				bypassAuth: true,
-				expected:   adminSettings,
+				expected:   &adminSettings,
 			},
 		}
 
@@ -104,8 +108,20 @@ func TestGetSettings(t *testing.T) {
 				require.NoError(t, err)
 				req.Header.Add("X-Forwarded-Groups", strings.Join(tc.groups, ","))
 
-				res, err := http.DefaultClient.Do(req) //nolint:bodyclose
+				var res *http.Response
+				defer func() {
+					ctx.Check(res.Body.Close)
+					if tc.bypassAuth {
+						sat.Admin.Admin.Service.TestSetBypassAuth(false)
+					}
+				}()
+
+				res, err = http.DefaultClient.Do(req) //nolint:bodyclose
 				require.NoError(t, err)
+				if tc.expected == nil {
+					require.Equal(t, http.StatusUnauthorized, res.StatusCode, "response status code")
+					return
+				}
 				require.Equal(t, http.StatusOK, res.StatusCode, "response status code")
 
 				resBody, err := io.ReadAll(res.Body)
@@ -115,12 +131,7 @@ func TestGetSettings(t *testing.T) {
 				var respSettings backoffice.Settings
 				err = json.Unmarshal(resBody, &respSettings)
 				require.NoError(t, err)
-				require.Equal(t, tc.expected, respSettings)
-
-				ctx.Check(res.Body.Close)
-				if tc.bypassAuth {
-					sat.Admin.Admin.Service.TestSetBypassAuth(false)
-				}
+				require.Equal(t, *tc.expected, respSettings)
 			})
 		}
 

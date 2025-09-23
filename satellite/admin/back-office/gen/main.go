@@ -19,6 +19,12 @@ import (
 	backoffice "storj.io/storj/satellite/admin/back-office"
 )
 
+type authParamKey int
+
+// passAuthParamKey is a setting key to mark endpoints whose service
+// methods should be passed authenticated user's groups.
+const passAuthParamKey authParamKey = 0
+
 func main() {
 	api := &apigen.API{
 		PackageName: "admin",
@@ -36,6 +42,9 @@ func main() {
 		GoName:         "GetSettings",
 		TypeScriptName: "get",
 		Response:       backoffice.Settings{},
+		Settings: map[any]any{
+			passAuthParamKey: true,
+		},
 	})
 
 	group = api.Group("PlacementManagement", "placements")
@@ -142,8 +151,17 @@ type authMiddleware struct {
 	auth *backoffice.Authorizer
 }
 
-func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
-	format := "ctx = h.auth.ContextWithRequestGroups(ctx, r)"
+func (a authMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
+	format := ""
+	if apigen.LoadSetting(passAuthParamKey, ep, false) {
+		format += `
+			authInfo := h.auth.GetAuthInfo(r)
+			if authInfo == nil || len(authInfo.Groups) == 0 {
+				api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+				return
+			}
+		`
+	}
 
 	perms := apigen.LoadSetting(authPermsKey, ep, []backoffice.Permission{})
 	if len(perms) == 0 {
@@ -166,7 +184,12 @@ func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, e
 }
 
 // ExtraServiceParams satisfies the apigen.Middleware interface.
-func (a authMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, _ *apigen.FullEndpoint) []apigen.Param {
+func (a authMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) []apigen.Param {
+	if apigen.LoadSetting(passAuthParamKey, ep, false) {
+		return []apigen.Param{
+			apigen.NewParam("authInfo", &backoffice.AuthInfo{}),
+		}
+	}
 	return nil
 }
 
