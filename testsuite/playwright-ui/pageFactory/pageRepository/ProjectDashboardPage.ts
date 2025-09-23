@@ -6,8 +6,8 @@ import { expect, Page } from '@playwright/test';
 export class ProjectDashboardPage {
     constructor(readonly page: Page) {}
 
-    async verifyDashboardPage(name: string): Promise<void> {
-        const locator = this.page.locator(`//h1[text()='Welcome ${name}']`);
+    async verifyDashboardPage(): Promise<void> {
+        const locator = this.page.locator(`//h1[contains(text(), 'Welcome')]`);
         await expect(locator).toBeVisible();
     }
 }

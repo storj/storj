@@ -4,32 +4,35 @@
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
 import { BucketsPageObjects } from '@objects/BucketsPageObjects';
+import { createAndOnboardUser } from './common';
 
 test.describe('buckets', () => {
+    const email = `${uuidv4()}@example.com`;
+    const password = 'password';
+    let userCreated = false;
+
     test.beforeEach(async ({
         signupPage,
         loginPage,
         navigationMenu,
     }) => {
-        const name = 'John Doe';
-        const companyName = 'Storj Labs';
-        const email = `${uuidv4()}@test.test`;
-        const password = 'password';
         const passphrase = '1';
 
-        await signupPage.navigateToSignup();
-        await signupPage.signupFirstStep(email, password);
-        await signupPage.verifySuccessMessage();
-        await signupPage.navigateToLogin();
+        if (!userCreated) {
+            await createAndOnboardUser({
+                signupPage,
+                loginPage,
+                navigationMenu,
+                email,
+                password,
+                name: 'John Doe',
+                companyName: 'Storj Labs',
+            });
+            userCreated = true;
+        }
 
+        await loginPage.goToLogin();
         await loginPage.loginByCreds(email, password);
-        await loginPage.verifySetupAccountFirstStep();
-        await loginPage.fillSetupForm(name, companyName);
-        await loginPage.selectFreeTrial();
-        await loginPage.selectManagedEnc(false);
-        await loginPage.ensureSetupSuccess();
-        await loginPage.finishSetup();
-
         await navigationMenu.switchPassphrase(passphrase);
     });
 
@@ -104,6 +107,9 @@ test.describe('buckets', () => {
         // Check Bucket Share, see if copy button changed to copied
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyShareBucket();
+
+        await bucketsPage.openBucketSettings();
+        await bucketsPage.verifyDeleteBucket(bucketName);
     });
 
     test('Create bucket with placement', async ({

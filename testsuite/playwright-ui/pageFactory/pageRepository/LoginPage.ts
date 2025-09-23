@@ -4,9 +4,14 @@
 import { LoginPageObjects } from '@objects/LoginPageObjects';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { testConfig } from '@config/testConfig';
 
 export class LoginPage {
     constructor(readonly page: Page) {}
+
+    async goToLogin(): Promise<void> {
+        await this.page.goto(`${testConfig.host}:${testConfig.port}/login`);
+    }
 
     async loginByCreds(email: string, password: string): Promise<void> {
         await this.page.locator(LoginPageObjects.EMAIL_EDITBOX_ID).fill(email);

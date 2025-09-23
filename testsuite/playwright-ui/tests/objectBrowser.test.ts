@@ -4,33 +4,35 @@
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
+import { createAndOnboardUser } from './common';
 
 test.describe('object browser + edge services', () => {
+    const email = `${uuidv4()}@example.com`;
+    const password = 'password';
+    let userCreated = false;
+
     test.beforeEach(async ({
         signupPage,
         loginPage,
         navigationMenu,
     }) => {
-        const name = 'John Doe';
-        const companyName = 'Storj Labs';
-        const email = `${uuidv4()}@test.test`;
-        const password = 'password';
         const passphrase = '1';
 
-        await signupPage.navigateToSignup();
-        await signupPage.signupFirstStep(email, password);
-        await signupPage.verifySuccessMessage();
-        await signupPage.navigateToLogin();
+        if (!userCreated) {
+            await createAndOnboardUser({
+                signupPage,
+                loginPage,
+                navigationMenu,
+                email,
+                password,
+                name: 'John Doe',
+                companyName: 'Storj Labs',
+            });
+            userCreated = true;
+        }
 
+        await loginPage.goToLogin();
         await loginPage.loginByCreds(email, password);
-        await loginPage.verifySetupAccountFirstStep();
-        await loginPage.fillSetupForm(name, companyName);
-        await loginPage.selectFreeTrial();
-        await loginPage.selectManagedEnc(false);
-        await loginPage.ensureSetupSuccess();
-        await loginPage.finishSetup();
-
-        //await allProjectsPage.createProject(name);
         await navigationMenu.switchPassphrase(passphrase);
     });
 
@@ -63,6 +65,10 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.clickItem(fileName);
         await objectBrowserPage.verifyObjectMapIsVisible();
         await objectBrowserPage.verifyShareObjectLink();
+
+        // Clean up.
+        await objectBrowserPage.closePreview();
+        await objectBrowserPage.deleteItemByName(fileName);
     });
 
     test('Bulk file deletion', async ({
@@ -115,6 +121,12 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.clickBreadcrumb(1);
         await objectBrowserPage.waitForItems();
         await objectBrowserPage.expectItems(['testdata', 'a.txt', 'b.txt']);
+
+        // Clean up.
+        await objectBrowserPage.selectItem('a.txt');
+        await objectBrowserPage.selectItem('b.txt');
+        await objectBrowserPage.selectItem('testdata');
+        await objectBrowserPage.deleteSelectedItems();
     });
 
     test('Nested folder deletion', async ({
@@ -191,5 +203,9 @@ test.describe('object browser + edge services', () => {
         await objectBrowserPage.createFolder(folderName);
         await objectBrowserPage.doubleClickFolder(folderName);
         await objectBrowserPage.checkSingleBreadcrumb(folderName);
+
+        // Clean up.
+        await objectBrowserPage.clickBreadcrumb(1);
+        await objectBrowserPage.deleteItemByName(folderName);
     });
 });
