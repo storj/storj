@@ -161,6 +161,15 @@ func determineEventName(modType string, newValues, oldValues map[string]interfac
 				return "ObjectRemoved:DeleteMarkerCreated"
 			}
 		}
+	case "UPDATE":
+		if newStatus, ok := extractInt64(newValues, "status"); ok {
+			if oldStatus, ok := extractInt64(oldValues, "status"); ok && metabase.ObjectStatus(oldStatus) == metabase.Pending {
+				switch metabase.ObjectStatus(newStatus) {
+				case metabase.CommittedUnversioned, metabase.CommittedVersioned:
+					return "ObjectCreated:Put"
+				}
+			}
+		}
 	case "DELETE":
 		if oldStatus, ok := extractInt64(oldValues, "status"); ok {
 			switch metabase.ObjectStatus(oldStatus) {

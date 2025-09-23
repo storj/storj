@@ -1219,6 +1219,17 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	return object, nil
 }
 
+// verifyObjectLockAndRetention checks that constraints for object lock and retention are correctly set.
+func (object *Object) verifyObjectLockAndRetention() error {
+	if err := object.Retention.Verify(); err != nil {
+		return err
+	}
+	if object.ExpiresAt != nil && (object.LegalHold || object.Retention.Enabled()) {
+		return Error.New("object expiration must not be set if Object Lock configuration is set")
+	}
+	return nil
+}
+
 func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1293,11 +1304,8 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		}
 		return Error.New("failed to update object: %w", err)
 	}
-	if err := object.Retention.Verify(); err != nil {
+	if err := object.verifyObjectLockAndRetention(); err != nil {
 		return Error.Wrap(err)
-	}
-	if object.ExpiresAt != nil && (object.LegalHold || object.Retention.Enabled()) {
-		return Error.New("object expiration must not be set if Object Lock configuration is set")
 	}
 
 	return nil
@@ -1306,17 +1314,99 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	requestedEncryptionParameters := opts.Encryption
-	var (
-		deleted                 bool
-		oldUserData             EncryptedUserData
-		oldEncryptionParameters storj.EncryptionParameters
-	)
-	lockMode := lockModeWrapper{
-		retentionMode: &object.Retention.Mode,
-		legalHold:     &object.LegalHold,
+	if opts.Version == nextVersion {
+		var status ObjectStatus
+		var streamID uuid.UUID
+
+		row, err := stx.tx.ReadRowWithOptions(ctx, "objects",
+			spanner.Key{opts.ProjectID, opts.BucketName, opts.ObjectKey, int64(opts.Version)}, []string{
+				"status", "stream_id", "created_at", "expires_at",
+				"encryption",
+				"retention_mode",
+				"retain_until",
+			}, &spanner.ReadOptions{
+				RequestTag: "finalize-object-commit-read",
+			})
+		if err != nil {
+			if errors.Is(err, spanner.ErrRowNotFound) {
+				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+			}
+			return Error.New("failed read object: %w", err)
+		}
+		err = row.Columns(
+			&status, &streamID, &object.CreatedAt, &object.ExpiresAt,
+			encryptionParameters{&object.Encryption},
+			object.columnRetentionMode(),
+			object.columnRetainUntil(),
+		)
+		if err != nil {
+			return Error.New("failed to read existing object details: %w", err)
+		}
+		if status != Pending || streamID != opts.ObjectStream.StreamID {
+			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+		}
+
+		if err := object.verifyObjectLockAndRetention(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
+		if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+			object.Encryption = opts.Encryption
+		} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
+			return ErrInvalidRequest.New("Encryption is missing")
+		} else {
+			// leave the old value
+		}
+		if opts.OverrideEncryptedMetadata {
+			object.EncryptedUserData = opts.EncryptedUserData
+		}
+
+		columns := []string{
+			"project_id", "bucket_name", "object_key", "version",
+			"status", "segment_count",
+			"total_plain_size", "total_encrypted_size", "fixed_segment_size",
+			"encryption", "zombie_deletion_deadline",
+		}
+		values := []any{
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			nextStatus, len(finalSegments),
+
+			totalPlainSize, totalEncryptedSize, int64(fixedSegmentSize),
+			encryptionParameters{&object.Encryption}, nil, // zombie_deletion_deadline is NULL
+		}
+
+		if opts.OverrideEncryptedMetadata {
+			columns = append(columns,
+				"encrypted_metadata_nonce",
+				"encrypted_metadata",
+				"encrypted_metadata_encrypted_key",
+				"encrypted_etag",
+			)
+
+			values = append(values,
+				opts.EncryptedUserData.EncryptedMetadataNonce,
+				opts.EncryptedUserData.EncryptedMetadata,
+				opts.EncryptedUserData.EncryptedMetadataEncryptedKey,
+				opts.EncryptedUserData.EncryptedETag,
+			)
+		}
+
+		err = stx.tx.BufferWrite([]*spanner.Mutation{
+			spanner.Update("objects", columns, values),
+		})
+		if err != nil {
+			if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
+				// TODO maybe we should check message if 'encryption' label is there
+				return ErrInvalidRequest.New("Encryption is missing (%w)", err)
+			}
+			return Error.New("failed to update object: %w", err)
+		}
+
+		return nil
 	}
-	retainUntil := timeWrapper{&object.Retention.RetainUntil}
+
+	var deleted bool
 
 	// We can not simply UPDATE the row, because we are changing the 'version' column,
 	// which is part of the primary key. Spanner does not allow changing a primary key
@@ -1335,7 +1425,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 					created_at, expires_at,
 					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,
 					encryption,
-					retention_mode, retain_until
+					retention_mode,
+					retain_until
 			`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
@@ -1348,8 +1439,10 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		deleted = true
 		return Error.Wrap(row.Columns(
 			&object.CreatedAt, &object.ExpiresAt,
-			&oldUserData.EncryptedMetadata, &oldUserData.EncryptedMetadataEncryptedKey, &oldUserData.EncryptedMetadataNonce, &oldUserData.EncryptedETag,
-			encryptionParameters{&oldEncryptionParameters}, lockMode, retainUntil,
+			&object.EncryptedUserData.EncryptedMetadata, &object.EncryptedUserData.EncryptedMetadataEncryptedKey, &object.EncryptedUserData.EncryptedMetadataNonce, &object.EncryptedUserData.EncryptedETag,
+			encryptionParameters{&object.Encryption},
+			object.columnRetentionMode(),
+			object.columnRetainUntil(),
 		))
 	})
 	if err != nil {
@@ -1358,24 +1451,21 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	if !deleted {
 		return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
 	}
-	if err := object.Retention.Verify(); err != nil {
+
+	if err := object.verifyObjectLockAndRetention(); err != nil {
 		return Error.Wrap(err)
-	}
-	if object.ExpiresAt != nil && (object.LegalHold || object.Retention.Enabled()) {
-		return Error.New("object expiration must not be set if Object Lock configuration is set")
 	}
 
 	// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
-	var encryptionArg *storj.EncryptionParameters
-	if oldEncryptionParameters.IsZero() && !requestedEncryptionParameters.IsZero() {
-		encryptionArg = &requestedEncryptionParameters
-	} else if oldEncryptionParameters.IsZero() && requestedEncryptionParameters.IsZero() {
+	if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+		object.Encryption = opts.Encryption
+	} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
 		return ErrInvalidRequest.New("Encryption is missing")
 	} else {
-		encryptionArg = &oldEncryptionParameters
+		// leave as is
 	}
 	if opts.OverrideEncryptedMetadata {
-		oldUserData = opts.EncryptedUserData
+		object.EncryptedUserData = opts.EncryptedUserData
 	}
 
 	// Create insert mutation for objects table
@@ -1391,10 +1481,11 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		[]any{
 			opts.ProjectID, opts.BucketName, opts.ObjectKey, nextVersion,
 			opts.StreamID, object.CreatedAt, object.ExpiresAt, nextStatus, len(finalSegments),
-			oldUserData.EncryptedMetadataNonce, oldUserData.EncryptedMetadata, oldUserData.EncryptedMetadataEncryptedKey, oldUserData.EncryptedETag,
+			object.EncryptedUserData.EncryptedMetadataNonce, object.EncryptedUserData.EncryptedMetadata, object.EncryptedUserData.EncryptedMetadataEncryptedKey, object.EncryptedUserData.EncryptedETag,
 			totalPlainSize, totalEncryptedSize, int64(fixedSegmentSize),
-			encryptionParameters{encryptionArg}, nil, // zombie_deletion_deadline is NULL
-			lockMode, retainUntil,
+			encryptionParameters{&object.Encryption}, nil, // zombie_deletion_deadline is NULL
+			object.columnRetentionMode(),
+			object.columnRetainUntil(),
 		})
 
 	err = stx.tx.BufferWrite([]*spanner.Mutation{objectInsert})
@@ -1405,8 +1496,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		}
 		return Error.New("failed to update object: %w", err)
 	}
-	object.Encryption = *encryptionArg
-	object.EncryptedUserData = oldUserData
+
 	return nil
 }
 
