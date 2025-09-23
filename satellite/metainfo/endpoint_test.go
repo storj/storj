@@ -339,6 +339,9 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 			apiKey0 := upl1.APIKey[sat.ID()]
 			apiKey1 := planet.Uplinks[1].APIKey[sat.ID()]
 
+			project, err := sat.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+			require.NoError(t, err)
+
 			metainfo0, err := upl1.DialMetainfo(ctx, sat, apiKey0)
 			require.NoError(t, err)
 
@@ -365,6 +368,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, info0.ProjectSalt)
 			require.NotNil(t, info0.EdgeUrlOverrides)
+			require.WithinDuration(t, info0.ProjectCreatedAt, project.CreatedAt, time.Nanosecond)
 			require.Equal(t, authUrl, string(info0.EdgeUrlOverrides.AuthService))
 			require.Equal(t, publicLinksharing, string(info0.EdgeUrlOverrides.PublicLinksharing))
 			require.Equal(t, internalLinksharing, string(info0.EdgeUrlOverrides.PrivateLinksharing))

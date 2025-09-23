@@ -311,16 +311,19 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	if err != nil {
 		return nil, err
 	}
+
+	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
 	info := &pb.ProjectInfoResponse{
-		ProjectPublicId: keyInfo.ProjectPublicID.Bytes(),
-		ProjectSalt:     salt,
+		ProjectPublicId:  keyInfo.ProjectPublicID.Bytes(),
+		ProjectCreatedAt: project.CreatedAt,
+		ProjectSalt:      salt,
 	}
 
 	if endpoint.config.SendEdgeUrlOverrides {
-		project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
-		if err != nil {
-			return nil, err
-		}
 		if edgeURLs, ok := endpoint.placementEdgeUrlOverrides.Get(project.DefaultPlacement); ok {
 			info.EdgeUrlOverrides = &pb.EdgeUrlOverrides{
 				AuthService:        []byte(edgeURLs.AuthService),
