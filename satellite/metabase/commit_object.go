@@ -186,7 +186,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 				status = `+statusPending+`
 			RETURNING
 				created_at, expires_at,
-				encryption;
+				encryption
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID, nextStatus,
 		len(finalSegments),
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
@@ -211,6 +211,10 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO: add missing object lock handling
+	// TODO: handle metadata constraints
+	// TODO: add optimization for opts.Version == nextVersion
+
 	// We cannot do an UPDATE here because we want to change the version column,
 	// and that column is part of the primary key. We must delete the row and
 	// insert a new one.
@@ -228,7 +232,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 			THEN RETURN
 				created_at, expires_at, encryption
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":       opts.ProjectID,
 			"bucket_name":      opts.BucketName,
 			"object_key":       opts.ObjectKey,
@@ -270,7 +274,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 				@encryption, NULL
 			)
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":                       opts.ProjectID,
 			"bucket_name":                      opts.BucketName,
 			"object_key":                       opts.ObjectKey,

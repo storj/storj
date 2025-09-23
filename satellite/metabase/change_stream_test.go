@@ -78,8 +78,11 @@ func testChangeStreamInsertOperations(ctx context.Context, t *testing.T, db *met
 	})
 	require.NoError(t, err, "Should be able to begin object")
 
-	// Commit object (inserts a new record with status=3)
-	// An object is committed to the table with a `DELETE`+`INSERT` transaction
+	// Commit object (inserts or updates a new record with status=3)
+
+	// An object is committed to the table with either a:
+	//  * `DELETE` + `INSERT` transaction, when the version needs to change.
+	//  * `SELECT` + `UPDATE` transaction, when the version doesn't change.
 	_, err = db.CommitObject(ctx, metabase.CommitObject{
 		ObjectStream:  obj,
 		TransmitEvent: true,
@@ -92,8 +95,9 @@ func testChangeStreamInsertOperations(ctx context.Context, t *testing.T, db *met
 
 	// Check that we have both status=1 and status=3 events
 	statuses := make(map[string]bool)
+	countByType := make(map[string]int)
 	for _, event := range events {
-		require.Equal(t, "INSERT", event.ModType, "All events should be INSERT type")
+		countByType[event.ModType]++
 		if len(event.Mods) > 0 {
 			mod := event.Mods[0]
 			if mod.NewValues.Valid {
@@ -105,6 +109,9 @@ func testChangeStreamInsertOperations(ctx context.Context, t *testing.T, db *met
 			}
 		}
 	}
+
+	require.Equal(t, 1, countByType["INSERT"], "should have one INSERT event (from BeginObject)")
+	require.Equal(t, 1, countByType["UPDATE"], "should have one UPDATE event (from CommitObject)")
 
 	require.True(t, statuses["1"], "Should have event with status=1 (from BeginObject)")
 	require.True(t, statuses["3"], "Should have event with status=3 (from CommitObject)")
@@ -303,7 +310,9 @@ func testNoEventsForNonTrackedColumns(ctx context.Context, t *testing.T, db *met
 	// Verify events only contain the tracked columns in new_values
 	for i, event := range relevantEvents {
 		t.Logf("Event %d: ModType=%s", i+1, event.ModType)
-		require.Equal(t, "INSERT", event.ModType, "Events should be INSERT type (exclude_update=TRUE)")
+		require.True(t,
+			event.ModType == "INSERT" || event.ModType == "UPDATE",
+			"Events should be INSERT or UPDATE type")
 
 		if len(event.Mods) > 0 {
 			mod := event.Mods[0]

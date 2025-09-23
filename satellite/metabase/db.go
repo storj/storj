@@ -722,9 +722,9 @@ func (action *createChangeStreamAction) Run(ctx context.Context, log *zap.Logger
 	var createChangeStreamSQL string
 	if action.adapter.connParams.Emulator {
 		// Spanner emulator doesn't support allow_txn_exclusion
-		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, exclude_update = TRUE)`
+		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE)`
 	} else {
-		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, exclude_update = TRUE, allow_txn_exclusion = TRUE)`
+		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, allow_txn_exclusion = TRUE)`
 	}
 
 	// Execute the statement, handling the "already exists" error for idempotency

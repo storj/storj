@@ -148,7 +148,6 @@ func (s *SpannerAdapter) ChangeStream(ctx context.Context, name string, partitio
 
 // TestCreateChangeStream creates a change stream for testing purposes.
 func (s *SpannerAdapter) TestCreateChangeStream(ctx context.Context, name string) error {
-
 	ddlStatement := fmt.Sprintf(`
 		CREATE CHANGE STREAM %s
 		FOR objects
