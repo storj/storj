@@ -46,7 +46,7 @@ export class Version {
     number: number;
 }
 
-class APIError extends Error {
+export class APIError extends Error {
     constructor(
         public readonly msg: string,
         public readonly responseStatusCode?: number,
@@ -80,7 +80,7 @@ export class DocumentsHttpApiV0 {
     }
 
     public async getTag(path: string, tagName: string): Promise<string[]> {
-        const fullPath = `${this.ROOT_PATH}/${path}/${tagName}`;
+        const fullPath = `${this.ROOT_PATH}/${path}/tag/${tagName}`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as string[]);
@@ -90,7 +90,7 @@ export class DocumentsHttpApiV0 {
     }
 
     public async getVersions(path: string): Promise<Version[]> {
-        const fullPath = `${this.ROOT_PATH}/${path}`;
+        const fullPath = `${this.ROOT_PATH}/${path}/versions`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as Version[]);

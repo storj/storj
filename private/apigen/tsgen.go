@@ -70,7 +70,7 @@ func (f *tsGenFile) generateTS() {
 	f.result += f.types.GenerateTypescriptDefinitions()
 
 	f.result += `
-class APIError extends Error {
+export class APIError extends Error {
 	constructor(
 		public readonly msg: string,
 		public readonly responseStatusCode?: number,
@@ -149,11 +149,10 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 }
 
 func (f *tsGenFile) getArgsAndPath(method *FullEndpoint, group *EndpointGroup) (funcArgs, path string) {
-	// remove path parameter placeholders
+	// replace path parameter placeholders with TypeScript template literals
 	path = method.Path
-	i := strings.Index(path, "{")
-	if i > -1 {
-		path = method.Path[:i]
+	for _, p := range method.PathParams {
+		path = strings.ReplaceAll(path, "{"+p.Name+"}", "${"+p.Name+"}")
 	}
 	path = "${this.ROOT_PATH}" + path
 
@@ -163,7 +162,6 @@ func (f *tsGenFile) getArgsAndPath(method *FullEndpoint, group *EndpointGroup) (
 
 	for _, p := range method.PathParams {
 		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
-		path += fmt.Sprintf("/${%s}", p.Name)
 	}
 
 	for _, p := range method.QueryParams {

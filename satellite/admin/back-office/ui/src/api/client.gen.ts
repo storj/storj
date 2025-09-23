@@ -144,7 +144,7 @@ export class UserProject {
     segmentUsed: number | null;
 }
 
-class APIError extends Error {
+export class APIError extends Error {
     constructor(
         public readonly msg: string,
         public readonly responseStatusCode?: number,
@@ -208,7 +208,7 @@ export class UserManagementHttpApiV1 {
     }
 
     public async freezeUser(request: FreezeUserRequest, userID: UUID): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/freeze-events/${userID}`;
+        const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
@@ -218,7 +218,7 @@ export class UserManagementHttpApiV1 {
     }
 
     public async unfreezeUser(userID: UUID): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/freeze-events/${userID}`;
+        const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
         const response = await this.http.delete(fullPath);
         if (response.ok) {
             return;

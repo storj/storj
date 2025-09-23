@@ -148,7 +148,11 @@ func (a *API) generateGo() ([]byte, error) {
 			for i, param := range params[e] {
 				paramStr += param.Name
 				if i == len(params[e])-1 || param.Type != params[e][i+1].Type {
-					paramStr += " " + param.Type.String()
+					if param.Type.Kind() == reflect.Pointer && param.Type.Elem().PkgPath() == a.PackagePath {
+						paramStr += " *" + param.Type.Elem().Name()
+					} else {
+						paramStr += " " + param.Type.String()
+					}
 				}
 				paramStr += ", "
 			}

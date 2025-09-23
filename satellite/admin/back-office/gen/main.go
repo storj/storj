@@ -73,7 +73,7 @@ func main() {
 		},
 	})
 
-	group.Post("/freeze-events/{userID}", &apigen.Endpoint{
+	group.Post("/{userID}/freeze-events", &apigen.Endpoint{
 		Name:           "Freeze User",
 		Description:    "Freeze a user account",
 		GoName:         "FreezeUser",
@@ -87,7 +87,7 @@ func main() {
 		},
 	})
 
-	group.Delete("/freeze-events/{userID}", &apigen.Endpoint{
+	group.Delete("/{userID}/freeze-events", &apigen.Endpoint{
 		Name:           "Unfreeze User",
 		Description:    "Unfreeze a user account",
 		GoName:         "UnfreezeUser",

@@ -175,7 +175,7 @@ Gets user by email address
 
 Freeze a user account
 
-`POST /back-office/api/v1/users/freeze-events/{userID}`
+`POST /back-office/api/v1/users/{userID}/freeze-events`
 
 **Path Params:**
 
@@ -196,7 +196,7 @@ Freeze a user account
 
 Unfreeze a user account
 
-`DELETE /back-office/api/v1/users/freeze-events/{userID}`
+`DELETE /back-office/api/v1/users/{userID}/freeze-events`
 
 **Path Params:**
 

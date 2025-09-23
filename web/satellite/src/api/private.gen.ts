@@ -44,7 +44,7 @@ export class UserAccount {
     freezeStatus: FreezeStat;
 }
 
-class APIError extends Error {
+export class APIError extends Error {
     constructor(
         public readonly msg: string,
         public readonly responseStatusCode?: number,

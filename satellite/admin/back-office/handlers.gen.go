@@ -111,8 +111,8 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter := router.PathPrefix("/back-office/api/v1/users").Subrouter()
 	usersRouter.HandleFunc("/freeze-event-types", handler.handleGetFreezeEventTypes).Methods("GET")
 	usersRouter.HandleFunc("/{email}", handler.handleGetUserByEmail).Methods("GET")
-	usersRouter.HandleFunc("/freeze-events/{userID}", handler.handleFreezeUser).Methods("POST")
-	usersRouter.HandleFunc("/freeze-events/{userID}", handler.handleUnfreezeUser).Methods("DELETE")
+	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleFreezeUser).Methods("POST")
+	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleUnfreezeUser).Methods("DELETE")
 
 	return handler
 }
