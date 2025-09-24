@@ -6,6 +6,7 @@ import { reactive } from 'vue';
 
 import {
     AccountMin,
+    CreateRestKeyRequest,
     FreezeEventType,
     FreezeUserRequest,
     KindInfo,
@@ -91,6 +92,12 @@ export const useUsersStore = defineStore('users', () => {
         await userApi.disableMFA(userID);
     }
 
+    async function createRestKey(userID: string, expirationDate: Date): Promise<string> {
+        const request = new CreateRestKeyRequest();
+        request.expiration = expirationDate.toISOString();
+        return await userApi.createRestKey(request, userID);
+    }
+
     async function findUsers(param: string): Promise<void> {
         state.searchResults =  await userApi.searchUsers(param);
     }
@@ -115,5 +122,6 @@ export const useUsersStore = defineStore('users', () => {
         updateUser,
         deleteUser,
         disableMFA,
+        createRestKey,
     };
 });

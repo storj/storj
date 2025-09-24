@@ -39,6 +39,17 @@
                 </v-list-item-title>
             </v-list-item>
 
+            <v-list-item
+                v-if="featureFlags.account.createRestKey"
+                density="comfortable"
+                link rounded="lg"
+                @click="emit('createRestKey', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Create REST API Key
+                </v-list-item-title>
+            </v-list-item>
+
             <v-list-item v-if="featureFlags.project.create" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     New Project
@@ -142,6 +153,7 @@ const emit = defineEmits<{
     (e: 'updateLimits', user: UserAccount): void;
     (e: 'delete', user: UserAccount): void;
     (e: 'disableMfa', user: UserAccount): void;
+    (e: 'createRestKey', user: UserAccount): void;
 }>();
 
 function viewAccount() {

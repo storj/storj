@@ -33,6 +33,7 @@
                     @delete="deleteAccountDialogEnabled = true"
                     @disable-mfa="disableMFADialogEnabled = true"
                     @toggle-freeze="toggleFreeze"
+                    @create-rest-key="createRestKeyDialogEnabled = true"
                 />
             </v-btn>
         </div>
@@ -72,6 +73,7 @@
                                 @delete="deleteAccountDialogEnabled = true"
                                 @disable-mfa="disableMFADialogEnabled = true"
                                 @toggle-freeze="toggleFreeze"
+                                @create-rest-key="createRestKeyDialogEnabled = true"
                             />
                         </v-btn>
                     </template>
@@ -215,6 +217,7 @@
     <AccountUpdateLimitsDialog v-if="userAccount" v-model="updateLimitsDialogEnabled" :account="userAccount" />
     <AccountDeleteDialog v-if="userAccount" v-model="deleteAccountDialogEnabled" :account="userAccount" />
     <AccountDisableMFADialog v-if="userAccount" v-model="disableMFADialogEnabled" :account="userAccount" />
+    <AccountCreateRestKeyDialog v-if="userAccount" v-model="createRestKeyDialogEnabled" :account="userAccount" />
     <FullScreenLoader v-model="isActionInProgress" />
 </template>
 
@@ -259,6 +262,7 @@ import AccountUpdateLimitsDialog from '@/components/AccountUpdateLimitsDialog.vu
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import AccountDisableMFADialog from '@/components/AccountDisableMFADialog.vue';
+import AccountCreateRestKeyDialog from '@/components/AccountCreateRestKeyDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -274,6 +278,7 @@ const updateAccountDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
 const deleteAccountDialogEnabled = ref<boolean>(false);
 const disableMFADialogEnabled = ref<boolean>(false);
+const createRestKeyDialogEnabled = ref<boolean>(false);
 
 const statusColor = computed(() => {
     if (!userAccount.value) {
