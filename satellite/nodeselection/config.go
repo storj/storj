@@ -50,7 +50,7 @@ type placementDefinition struct {
 	UploadFilter       string `yaml:"upload-filter"`
 	Invariant          string
 	Selector           string
-	DownloadSelector   string
+	DownloadSelector   string `yaml:"download-selector"`
 	CohortRequirements string `yaml:"cohort-requirements"`
 	EC                 ECParameters
 }
