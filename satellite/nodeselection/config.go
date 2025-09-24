@@ -293,25 +293,6 @@ func FilterFromString(expr string, environment PlacementConfigEnvironment) (Node
 	return filter.(NodeFilter), nil
 }
 
-// DownloadSelectorFromString parses complex node download selection expressions
-// from config lines.
-func DownloadSelectorFromString(expr string, environment PlacementConfigEnvironment) (DownloadSelector, error) {
-	if expr == "" {
-		expr = "random"
-	}
-	env := map[any]any{
-		"random":    DefaultDownloadSelector,
-		"choiceofn": DownloadChoiceOfN,
-		"best":      DownloadBest,
-	}
-	environment.apply(env)
-	selector, err := mito.Eval(expr, env)
-	if err != nil {
-		return nil, errs.New("Invalid download selector definition '%s', %v", expr, err)
-	}
-	return selector.(DownloadSelector), nil
-}
-
 // SelectorFromString parses complex node selection rules from config lines.
 func SelectorFromString(expr string, environment PlacementConfigEnvironment) (NodeSelectorInit, error) {
 	if expr == "" {

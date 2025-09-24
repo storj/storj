@@ -617,64 +617,6 @@ func ChoiceOfNSelection(n int64, delegate NodeSelectorInit, scoreSource ...Score
 	}
 }
 
-var downloadChoiceOfNTask = mon.Task()
-
-// DownloadChoiceOfN will take a set of nodes and winnow it down using choice
-// of n. n is an int64 type due to a mito scripting shortcoming but really an
-// int16 should be fine.
-func DownloadChoiceOfN(comparison CompareNodes, n int64) DownloadSelector {
-	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
-		defer downloadChoiceOfNTask(&ctx)(&err)
-		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
-		for _, node := range possibleNodes {
-			nodeSlice = append(nodeSlice, node)
-		}
-
-		nodeSlice = choiceOfNReduction(ctx, comparison(requester), int(n), nodeSlice, needed)
-
-		result := make(map[storj.NodeID]*SelectedNode, needed)
-		for _, node := range nodeSlice {
-			result[node.ID] = node
-		}
-		return result, nil
-	}
-}
-
-var downloadBestTask = mon.Task()
-
-// DownloadBest will take a set of nodes and will return just the best nodes.
-func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
-	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
-		defer downloadBestTask(&ctx)(&err)
-		nodeSlice := make([]*SelectedNode, 0, len(possibleNodes)+needed)
-		for _, node := range possibleNodes {
-			nodeSlice = append(nodeSlice, node)
-		}
-
-		getSuccessRate := tracker.Get(requester)
-
-		sort.Slice(nodeSlice, func(i, j int) bool {
-			success0 := getSuccessRate(nodeSlice[i])
-			success1 := getSuccessRate(nodeSlice[j])
-
-			// we do the same thing as choiceofn where we assume NaN is better
-			// than not NaN. this has the additional benefit of falling back
-			// to random selection behavior for full nodes, where they still
-			// get a shot.
-			return success0 > success1 || math.IsNaN(success0) && !math.IsNaN(success1)
-		})
-		if len(nodeSlice) > needed {
-			nodeSlice = nodeSlice[:needed]
-		}
-
-		result := make(map[storj.NodeID]*SelectedNode, needed)
-		for _, node := range nodeSlice {
-			result[node.ID] = node
-		}
-		return result, nil
-	}
-}
-
 var filterBestTask = mon.Task()
 
 // FilterBest is a selector, which keeps only the best nodes (based on percentage, or fixed number of nodes).
