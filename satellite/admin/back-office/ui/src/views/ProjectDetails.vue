@@ -292,7 +292,7 @@ onMounted(async () => {
         ]);
     } catch (error) {
         notify.notifyError('Failed to load project details. ' + error.message);
-        router.push({ name: ROUTES.AccountSearch.name });
+        router.push({ name: ROUTES.Accounts.name });
     }
 });
 </script>

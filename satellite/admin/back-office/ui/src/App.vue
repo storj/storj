@@ -5,7 +5,7 @@
     <div
         v-if="!appStore.state.settings"
         class="d-flex justify-center align-center align-items-center"
-        style="height: 100vh;"
+        style="height: calc(100vh - 150px);"
     >
         <v-skeleton-loader
             class="mx-auto"

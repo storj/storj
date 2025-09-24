@@ -2,47 +2,39 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="isLoading || !userAccount" class="d-flex justify-center align-center" style="height: 100vh;">
+    <div v-if="isLoading || !userAccount" class="d-flex justify-center align-center" style="height: calc(100vh - 150px);">
         <v-skeleton-loader width="300" height="200" type="article" />
     </div>
     <v-container v-else>
-        <v-row>
-            <v-col cols="12" md="8">
+        <div class="d-flex ga-2 flex-wrap justify-space-between align-center mb-5">
+            <div>
                 <PageTitleComponent title="Account Details" />
-                <v-chip class="mr-2 mb-2 mb-md-0 pr-4 font-weight-medium" color="default">
-                    <v-tooltip activator="parent" location="top">
-                        This account
-                    </v-tooltip>
-                    <template #prepend>
-                        <v-icon class="mr-1" :icon="User" />
-                    </template>
-                    {{ userAccount.email }}
-                </v-chip>
+                <div class="d-flex ga-2 flex-wrap justify-start align-center mt-3">
+                    <v-chip v-tooltip="'This account'" class="pl-4" :prepend-icon="User">
+                        <span class="font-weight-medium text-truncate">{{ userAccount.email }} </span>
+                    </v-chip>
 
-                <v-chip class="mr-2 mb-2 mb-md-0" variant="text">
-                    Customer for {{ Math.floor((Date.now() - createdAt.getTime()) / MS_PER_DAY).toLocaleString() }} days
-                    <v-tooltip activator="parent" location="top">
-                        Account created:
-                        {{ createdAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) }}
-                    </v-tooltip>
-                </v-chip>
-            </v-col>
-            <v-col cols="12" md="4" class="d-flex justify-start justify-md-end align-top align-md-center">
-                <v-btn>
-                    <template #append>
-                        <v-icon :icon="ChevronDown" />
-                    </template>
-                    Account Actions
-                    <AccountActionsMenu
-                        :user="userAccount"
-                        @update="updateAccountDialogEnabled = true"
-                        @update-limits="updateLimitsDialogEnabled = true"
-                        @delete="deleteAccountDialogEnabled = true"
-                        @toggle-freeze="toggleFreeze"
-                    />
-                </v-btn>
-            </v-col>
-        </v-row>
+                    <v-chip>
+                        Customer for {{ date.getDiff(Date.now(), createdAt, 'days') }} day(s)
+                        <v-tooltip activator="parent" location="top">
+                            Account created:
+                            {{ date.format(createdAt, 'fullDate') }}
+                        </v-tooltip>
+                    </v-chip>
+                </div>
+            </div>
+
+            <v-btn :append-icon="ChevronDown">
+                Account Actions
+                <AccountActionsMenu
+                    :user="userAccount"
+                    @update="updateAccountDialogEnabled = true"
+                    @update-limits="updateLimitsDialogEnabled = true"
+                    @delete="deleteAccountDialogEnabled = true"
+                    @toggle-freeze="toggleFreeze"
+                />
+            </v-btn>
+        </div>
 
         <v-row v-if="usageCacheError">
             <v-col>
@@ -58,7 +50,7 @@
 
         <v-row>
             <v-col cols="12" sm="6" md="3">
-                <v-card :title="userAccount.fullName" :subtitle="kindDetails" variant="flat" :border="true" rounded="xlg">
+                <v-card :title="userAccount.fullName || '__'" :subtitle="kindDetails" variant="flat" :border="true" rounded="xlg">
                     <template #subtitle>
                         <span v-if="kindDetails">{{ kindDetails }}</span>
                         <span v-else>&nbsp;</span>
@@ -262,8 +254,6 @@ import AccountUpdateDialog from '@/components/AccountUpdateDialog.vue';
 import AccountUpdateLimitsDialog from '@/components/AccountUpdateLimitsDialog.vue';
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
 const usersStore = useUsersStore();
 const appStore = useAppStore();
 const router = useRouter();
@@ -410,7 +400,7 @@ onBeforeMount(() => {
             await usersStore.updateCurrentUser(userID);
         } catch (error) {
             notify.error(`Failed to get account details. ${error.message}`);
-            router.push({ name: ROUTES.AccountSearch.name });
+            router.push({ name: ROUTES.Accounts.name });
         }
     });
 });

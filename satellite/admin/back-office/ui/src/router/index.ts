@@ -7,7 +7,6 @@ import { createRouter, createWebHistory, Router } from 'vue-router';
 import { NavigationLink } from '@/router/navigation';
 
 export abstract class ROUTES {
-    public static AccountSearch = new NavigationLink('/account-search', 'Account Search');
     public static Accounts = new NavigationLink('/accounts', 'Accounts');
     public static Account = new NavigationLink(':userID', 'Account');
     public static AccountProject = new NavigationLink('projects/:projectID', 'Account Project');
@@ -33,7 +32,7 @@ const routes = [
         // ],
         // TODO: once the switch satellite feature is implemented, remove the redirection below and
         // uncomment the above code.
-        redirect: ROUTES.AccountSearch.path, // directly redirect
+        redirect: ROUTES.Accounts.path, // directly redirect
     },
     {
         path: '/admin',
@@ -50,7 +49,7 @@ const routes = [
                     {
                         path: '',
                         name: ROUTES.Accounts.name,
-                        component: () => import(/* webpackChunkName: "Users" */ '@/views/Accounts.vue'),
+                        component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountSearch.vue'),
                     },
                     {
                         path: ROUTES.Account.path,
@@ -68,11 +67,6 @@ const routes = [
                         ],
                     },
                 ],
-            },
-            {
-                path: ROUTES.AccountSearch.path,
-                name: ROUTES.AccountSearch.name,
-                component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountSearch.vue'),
             },
             {
                 path: ROUTES.Projects.path,

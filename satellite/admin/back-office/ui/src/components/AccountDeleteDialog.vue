@@ -89,7 +89,7 @@ function deleteAccount() {
 
             model.value = false;
             await new Promise((resolve) => setTimeout(resolve, 200)); // wait for dialog to close
-            router.push({ name: ROUTES.AccountSearch.name });
+            router.push({ name: ROUTES.Accounts.name });
         } catch (e) {
             notify.error(`Failed to delete account. ${e.message}`);
         }

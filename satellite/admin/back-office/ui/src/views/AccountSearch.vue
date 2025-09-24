@@ -4,47 +4,89 @@
 <template>
     <v-container fluid>
         <v-row>
-            <!--            <v-col cols="6">
-                <PageTitleComponent title="Accounts" />
-                <PageSubtitleComponent subtitle="Find accounts on North America US1." />
-            </v-col>-->
-
             <v-col v-if="featureFlags.account.create" cols="6" class="d-flex justify-end align-center">
                 <v-btn variant="outlined" color="default">
-                    <svg width="16" height="16" class="mr-2" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                            d="M10 1C14.9706 1 19 5.02944 19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1ZM10 2.65C5.94071 2.65 2.65 5.94071 2.65 10C2.65 14.0593 5.94071 17.35 10 17.35C14.0593 17.35 17.35 14.0593 17.35 10C17.35 5.94071 14.0593 2.65 10 2.65ZM10.7496 6.8989L10.7499 6.91218L10.7499 9.223H12.9926C13.4529 9.223 13.8302 9.58799 13.8456 10.048C13.8602 10.4887 13.5148 10.8579 13.0741 10.8726L13.0608 10.8729L10.7499 10.873L10.75 13.171C10.75 13.6266 10.3806 13.996 9.925 13.996C9.48048 13.996 9.11807 13.6444 9.10066 13.2042L9.1 13.171L9.09985 10.873H6.802C6.34637 10.873 5.977 10.5036 5.977 10.048C5.977 9.60348 6.32857 9.24107 6.76882 9.22366L6.802 9.223H9.09985L9.1 6.98036C9.1 6.5201 9.46499 6.14276 9.925 6.12745C10.3657 6.11279 10.7349 6.45818 10.7496 6.8989Z"
-                            fill="currentColor"
-                        />
-                    </svg>
+                    <template #prepend>
+                        <v-icon :icon="PlusCircle" />
+                    </template>
                     New Account
                     <NewAccountDialog />
                 </v-btn>
             </v-col>
         </v-row>
-        <v-row align="center" justify="center">
-            <v-col cols="12" sm="8" md="6" lg="4">
-                <v-card variant="flat" class="mt-8 pa-4" rounded="xlg" border>
-                    <v-card-text>
-                        <v-form v-model="isFormValid" @submit.prevent="goToUser">
-                            <h2 class="my-1">Find an account</h2>
-                            <p>Enter account email</p>
+        <v-row align="center" justify="center" class="search-area">
+            <v-col cols="12" md="10" lg="8" xl="6">
+                <v-card :loading="isLoading" title="Find Account" subtitle="This searches by email or name" variant="flat" rounded="xlg" border>
+                    <v-data-table
+                        :loading="isLoading"
+                        :headers="headers"
+                        :items="results ?? []"
+                        class="border-0"
+                        hide-default-header
+                    >
+                        <template #no-data>
+                            {{ searchTerm?.length >= 3 ? 'No results found' : 'Enter a search term of at least 3 characters' }}
+                        </template>
+                        <template #loading>
+                            Searching...
+                        </template>
+                        <template #bottom>
+                            <v-container class="v-data-table-footer" />
+                        </template>
+                        <template #top>
                             <v-text-field
-                                v-model="email"
-                                label="Email"
-                                variant="outlined"
-                                class="mt-5"
-                                :disabled="isLoading"
-                                autofocus
-                                :rules="emailRules"
-                                :error-messages="notFoundError ? 'The user was not found.' : ''"
-                                @click="goToUser"
+                                v-model="searchTerm" label="Search" :prepend-inner-icon="Search" single-line variant="solo-filled" flat
+                                hide-details clearable density="compact" rounded="lg" class="mx-4 mb-2"
+                                @update:model-value="onSearchChange"
                             />
-                            <v-btn class="mt-3" block size="large" :loading="isLoading" @click="goToUser">
-                                Continue
+                        </template>
+                        <template #item.email="{ item }">
+                            <v-btn
+                                v-tooltip="item.email"
+                                variant="outlined"
+                                color="default"
+                                density="compact"
+                                @click="goToUser(item)"
+                            >
+                                <template #prepend>
+                                    <v-icon :icon="User" />
+                                </template>
+                                <template #default>
+                                    <span class="text-truncate" style="max-width: 120px;">{{ item.email }}</span>
+                                </template>
                             </v-btn>
-                        </v-form>
-                    </v-card-text>
+                        </template>
+
+                        <template #item.name="{ item }">
+                            <v-chip variant="tonal" color="default" size="small">
+                                {{ item.fullName }}
+                            </v-chip>
+                        </template>
+
+                        <template #item.kind="{ item }">
+                            <v-chip
+                                :color="userIsPaid(item) ? 'success' : userIsNFR(item) ? 'warning' : 'info'"
+                                variant="tonal" size="small" class="font-weight-medium"
+                            >
+                                {{ item.kind.name }}
+                            </v-chip>
+                        </template>
+
+                        <template #item.status="{ item }">
+                            <v-chip
+                                :color="statusColor(item.status)"
+                                variant="tonal" size="small" class="font-weight-medium"
+                            >
+                                {{ item.status.name }}
+                            </v-chip>
+                        </template>
+
+                        <template #item.createdAt="{ item }">
+                            <span class="text-no-wrap">
+                                Created on {{ formatDate(item.createdAt) }}
+                            </span>
+                        </template>
+                    </v-data-table>
                 </v-card>
             </v-col>
         </v-row>
@@ -52,75 +94,95 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { VContainer, VRow, VCol, VBtn, VCard, VCardText, VForm, VTextField } from 'vuetify/components';
+import { VContainer, VDataTable, VChip, VRow, VCol, VIcon, VBtn, VCard, VTextField } from 'vuetify/components';
+import { PlusCircle, Search, User } from 'lucide-vue-next';
+import { useDate } from 'vuetify';
 
-import { FeatureFlags } from '@/api/client.gen';
+import { AccountMin, FeatureFlags, UserStatusInfo } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
+import { userIsNFR, userIsPaid } from '@/types/user';
+import { useLoading } from '@/composables/useLoading';
 
 import NewAccountDialog from '@/components/NewAccountDialog.vue';
-
-const isLoading = ref<boolean>(false);
-const isFormValid = ref<boolean>(false);
-const email = ref<string>('');
-const notFoundError = ref<boolean>(false);
-
-const emailRules: ((value: string) => boolean | string)[] = [
-    v => /.+@.+\..+/.test(v) || 'E-mail must be valid.',
-    v => !!v || 'Required',
-];
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotificationsStore();
 const router = useRouter();
+const { isLoading } = useLoading();
+const date = useDate();
+
+let timer: ReturnType<typeof setTimeout> | null = null;
+const headers = [
+    { title: 'Email', key: 'email' },
+    { title: 'Name', key: 'fullName' },
+    { title: 'Kind', key: 'kind' },
+    { title: 'Status', key: 'status' },
+    { title: 'Date Created', key: 'createdAt' },
+];
+
+const searchTerm = computed({
+    get: () => usersStore.state.searchTerm,
+    set: usersStore.setSearchTerm,
+});
+
+const results = computed(() => usersStore.state.searchResults);
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 
-/**
- * Fetches user information and navigates to Account Details page.
- * Displays an error message if no user has the input email address.
- */
-async function goToUser(): Promise<void> {
-    if (isLoading.value || !isFormValid.value) return;
-    isLoading.value = true;
-
-    const maxAttempts = 3;
-    const retryDelay = 1000;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        try {
-            const user = await usersStore.getUserByEmail(email.value);
-            await usersStore.updateCurrentUser(user);
-            router.push({ name: ROUTES.Account.name, params: { userID: user.id } });
-            isLoading.value = false;
-            return;
-        } catch (error) {
-            if (error.responseStatusCode === 404) {
-                notFoundError.value = true;
-                break;
-            } else if (error.responseStatusCode === 409) {
-                if (attempt >= maxAttempts-1) {
-                    notify.notifyError(`Error getting user. Please wait a few minutes before trying again.`);
-                    break;
-                }
-                await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
-            } else {
-                notify.notifyError(`Error getting user. ${error.message}`);
-                break;
-            }
-        }
+function statusColor(info: UserStatusInfo) {
+    const status = info.name.toLowerCase();
+    if (status.includes('deletion') || status.includes('deleted')) {
+        return 'error';
+    }
+    if (status.includes('active')) {
+        return 'success';
     }
 
-    isLoading.value = false;
+    return 'warning';
 }
 
-watch(email, () => notFoundError.value = false);
+function formatDate(dateString: string) {
+    return `${date.format(dateString, 'shortDate')}, ${date.format(dateString, 'year')}`;
+}
+
+function onSearchChange(search: string) {
+    if (timer) clearTimeout(timer);
+    if (!search || search.length < 3) {
+        return;
+    }
+    timer = setTimeout(async () => {
+        isLoading.value = true;
+        try {
+            await usersStore.findUsers(search);
+        } catch (error) {
+            notify.notifyError(`Error searching users. ${error.message}`);
+        } finally {
+            isLoading.value = false;
+        }
+    }, 500);
+}
+
+function goToUser(user: AccountMin):void {
+    router.push({ name: ROUTES.Account.name, params: { userID: user.id } });
+}
 
 onMounted(() => {
     usersStore.clearCurrentUser();
 });
 </script>
+<style scoped lang="scss">
+.search-area {
+    height: calc(100vh - 150px); // attempt to vertically center the search area
+}
+
+:deep(.v-data-table-footer) {
+    background: rgb(var(--v-theme-surface)) !important;
+    box-shadow: none !important;
+}
+</style>

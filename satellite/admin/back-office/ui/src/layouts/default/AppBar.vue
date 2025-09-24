@@ -190,24 +190,14 @@
                     </v-list-item-title>
                 </v-list-item>
 
-                <v-list-item v-if="featureFlags.account.list" link router-link to="/accounts" class="my-1" rounded="lg">
-                    <template #prepend>
-                        <img src="@/assets/icon-team.svg" alt="Accounts">
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Accounts
-                    </v-list-item-title>
-                </v-list-item>
-
-                <!-- This view is temporary until we implement list with search -->
-                <v-list-item v-if="featureFlags.account.search" link router-link to="/account-search" class="my-1" rounded="lg">
-                    <template #prepend>
-                        <v-icon :icon="UserRoundSearch" />
-                    </template>
-                    <v-list-item-title class="text-body-2 ml-3">
-                        Search account
-                    </v-list-item-title>
-                </v-list-item>
+                <v-list-item
+                    v-if="featureFlags.account.search"
+                    link router-link
+                    :to="{ name: ROUTES.Accounts.name }"
+                    rounded="lg"
+                    title="Accounts"
+                    :prepend-icon="UserRoundSearch"
+                />
 
                 <v-list-item v-if="featureFlags.project.list" link router-link to="/projects" class="my-1" rounded="lg">
                     <template #prepend>
@@ -246,6 +236,7 @@ import { Monitor, MoonStar, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useThemeStore } from '@/store/theme';
+import { ROUTES } from '@/router';
 
 const appStore = useAppStore();
 const themeStore = useThemeStore();

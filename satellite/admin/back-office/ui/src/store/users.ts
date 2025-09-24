@@ -5,6 +5,7 @@ import { defineStore } from 'pinia';
 import { reactive } from 'vue';
 
 import {
+    AccountMin,
     FreezeEventType,
     FreezeUserRequest,
     KindInfo,
@@ -19,6 +20,8 @@ class UsersState {
     public freezeTypes: FreezeEventType[] = [];
     public userKinds: KindInfo[] = [];
     public userStatuses: UserStatusInfo[] = [];
+    public searchResults: AccountMin[] = [];
+    public searchTerm = '';
 }
 
 export const useUsersStore = defineStore('users', () => {
@@ -84,8 +87,19 @@ export const useUsersStore = defineStore('users', () => {
         await userApi.deleteUser(userID);
     }
 
+    async function findUsers(param: string): Promise<void> {
+        state.searchResults =  await userApi.searchUsers(param);
+    }
+
+    function setSearchTerm(term: string): void {
+        state.searchTerm = term;
+        state.searchResults = [];
+    }
+
     return {
         state,
+        setSearchTerm,
+        findUsers,
         getUserByEmail,
         updateCurrentUser,
         clearCurrentUser,

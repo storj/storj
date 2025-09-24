@@ -3,21 +3,22 @@
 
 <template>
     <v-card variant="flat" :border="true" rounded="xlg">
-        <v-text-field
-            v-model="search" label="Search" :prepend-inner-icon="Search" single-line variant="solo-filled" flat
-            hide-details clearable density="compact" rounded="lg" class="mx-2 mt-2 mb-2"
-        />
-
         <v-data-table
             v-model="selected"
             :sort-by="sortBy"
             :headers="headers"
             :items="projects"
             :search="search"
-            class="elevation-1"
+            class="border-0"
             density="comfortable"
             hover
         >
+            <template #top>
+                <v-text-field
+                    v-model="search" label="Search" :prepend-inner-icon="Search" single-line variant="solo-filled" flat
+                    hide-details clearable density="compact" rounded="lg" class="mx-2 mt-2 mb-2"
+                />
+            </template>
             <template #item.name="{ item }: ProjectTableSlotProps">
                 <div class="text-no-wrap">
                     <v-btn
