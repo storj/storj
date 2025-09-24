@@ -98,6 +98,7 @@ func TestGetSettings(t *testing.T) {
 		sat := planet.Satellites[0]
 		address := sat.Admin.Admin.Listener.Addr()
 		settingsUrl := "http://" + address.String() + "/back-office/api/v1/settings/"
+		sat.Admin.Admin.Service.TestSetAllowedHost(address.String())
 
 		for _, tc := range testCases {
 			t.Run(tc.Name, func(t *testing.T) {

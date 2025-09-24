@@ -152,7 +152,12 @@ type authMiddleware struct {
 }
 
 func (a authMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
-	format := ""
+	format := `
+		if err = h.auth.VerifyHost(r); err != nil {
+			api.ServeError(h.log, w, http.StatusForbidden, err)
+			return
+		}
+	`
 	if apigen.LoadSetting(passAuthParamKey, ep, false) {
 		format += `
 			authInfo := h.auth.GetAuthInfo(r)

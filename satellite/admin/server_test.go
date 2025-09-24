@@ -278,6 +278,38 @@ func TestWithOAuth(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, response.StatusCode)
 		})
+
+		// Test back-office API access through Oauth.
+		t.Run("BackOfficeThroughOauth", func(t *testing.T) {
+			t.Run("AllowedHost", func(t *testing.T) {
+				sat.Admin.Admin.Service.TestSetAllowedHost(address)
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office/api/v1/settings/", nil)
+				require.NoError(t, err)
+				req.Header.Set("X-Forwarded-Groups", "LimitUpdate")
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.NoError(t, response.Body.Close())
+
+				require.Equal(t, http.StatusOK, response.StatusCode)
+			})
+
+			t.Run("NotAllowedHost", func(t *testing.T) {
+				sat.Admin.Admin.Service.TestSetAllowedHost("some-other-host")
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office/api/v1/settings/", nil)
+				require.NoError(t, err)
+				req.Header.Set("X-Forwarded-Groups", "LimitUpdate")
+
+				response, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				body, err := io.ReadAll(response.Body)
+				require.NoError(t, response.Body.Close())
+				require.NoError(t, err)
+
+				require.Equal(t, http.StatusForbidden, response.StatusCode)
+				require.Contains(t, string(body), "forbidden host")
+			})
+		})
 	})
 }
 

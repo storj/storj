@@ -102,7 +102,8 @@ type Authorizer struct {
 	log         *zap.Logger
 	groupsRoles map[string]Authorization
 
-	enabled bool
+	enabled     bool
+	allowedHost string
 }
 
 // NewAuthorizer creates an Authorizer with the list of groups that are assigned to each different
@@ -139,6 +140,7 @@ func NewAuthorizer(
 		log:         log.Named("authorizer"),
 		groupsRoles: groupsRoles,
 		enabled:     !config.BypassAuth,
+		allowedHost: config.AllowedOauthHost,
 	}
 }
 
@@ -195,4 +197,16 @@ func (auth *Authorizer) IsRejected(w http.ResponseWriter, r *http.Request, perms
 	err := Error.Wrap(ErrAuthorizer.New("Not enough permissions (your groups: %s)", strings.Join(authInfo.Groups, ",")))
 	api.ServeError(auth.log, w, http.StatusUnauthorized, err)
 	return true
+}
+
+// VerifyHost checks that the provided host is allowed to host the back office.
+func (auth *Authorizer) VerifyHost(r *http.Request) error {
+	if !auth.enabled {
+		return nil
+	}
+
+	if r.Host != auth.allowedHost {
+		return Error.New("forbidden host: %s", r.Host)
+	}
+	return nil
 }

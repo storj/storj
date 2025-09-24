@@ -139,6 +139,11 @@ func (h *SettingsHandler) handleGetSettings(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
 	authInfo := h.auth.GetAuthInfo(r)
 	if authInfo == nil || len(authInfo.Groups) == 0 {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
@@ -183,6 +188,11 @@ func (h *UserManagementHandler) handleGetFreezeEventTypes(w http.ResponseWriter,
 
 	w.Header().Set("Content-Type", "application/json")
 
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
 	retVal, httpErr := h.service.GetFreezeEventTypes(ctx)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
@@ -205,6 +215,11 @@ func (h *UserManagementHandler) handleGetUserByEmail(w http.ResponseWriter, r *h
 	email, ok := mux.Vars(r)["email"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing email route param"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
 		return
 	}
 
@@ -249,6 +264,11 @@ func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.
 		return
 	}
 
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 128) {
 		return
 	}
@@ -278,6 +298,11 @@ func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *htt
 		return
 	}
 
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 256) {
 		return
 	}
@@ -304,6 +329,11 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 	publicID, err := uuid.FromString(publicIDParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
 		return
 	}
 
@@ -345,6 +375,11 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 	payload := ProjectLimitsUpdate{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
 		return
 	}
 

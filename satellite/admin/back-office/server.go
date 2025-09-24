@@ -38,6 +38,8 @@ type Config struct {
 	StaticDir string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
 
 	BypassAuth bool `help:"ignore authentication for local development" default:"false" hidden:"true"`
+	// hidden for now because it is provided by the legacy admin server.
+	AllowedOauthHost string `help:"the oauth host allowed to host the backoffice." default:"" hidden:"true"`
 
 	UserGroupsRoleAdmin           []string `help:"the list of groups whose users has the administration role"   releaseDefault:"" devDefault:""`
 	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`

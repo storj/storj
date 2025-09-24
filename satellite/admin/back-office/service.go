@@ -61,3 +61,8 @@ func NewService(
 func (s *Service) TestSetBypassAuth(bypass bool) {
 	s.authorizer.enabled = !bypass
 }
+
+// TestSetAllowedHost sets the allowed host for oauth. This is only for testing purposes.
+func (s *Service) TestSetAllowedHost(host string) {
+	s.authorizer.allowedHost = host
+}

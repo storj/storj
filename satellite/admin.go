@@ -296,6 +296,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
+		config.Admin.BackOffice.AllowedOauthHost = config.Admin.AllowedOauthHost
 		peer.Admin.Service = backoffice.NewService(
 			log.Named("back-office:service"),
 			peer.DB.Console(),
