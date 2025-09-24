@@ -57,6 +57,7 @@
                             :rules="emailRules"
                             maxlength="72"
                             label="Enter e-mail"
+                            placeholder="Enter e-mail here"
                             hint="Members will have read, write, and delete permissions."
                             required
                             autofocus
@@ -143,10 +144,10 @@ const emailRules: ValidationRule<string>[] = [
 /**
  * Handles primary button click.
  */
-async function onPrimaryClick(): Promise<void> {
+function onPrimaryClick(): void {
     if (!valid.value) return;
 
-    await withLoading(async () => {
+    withLoading(async () => {
         try {
             await pmStore.inviteMember(email.value, props.projectId);
 

@@ -10,6 +10,8 @@ import { AllProjectsPage } from '@pages/AllProjectsPage';
 import { ObjectBrowserPage } from '@pages/ObjectBrowserPage';
 import { AccountSettingsPage } from '@pages/AccountSettingsPage';
 import { ProjectDashboardPage } from '@pages/ProjectDashboardPage';
+import { AccessKeysPage } from '@pages/AccessKeysPage';
+import { TeamPage } from '@pages/TeamPage';
 
 const test = baseTest.extend<{
     loginPage: LoginPage;
@@ -20,6 +22,8 @@ const test = baseTest.extend<{
     allProjectsPage: AllProjectsPage;
     accountSettingsPage: AccountSettingsPage;
     projectDashboardPage: ProjectDashboardPage;
+    accessKeysPage: AccessKeysPage;
+    teamPage: TeamPage;
 }>({
     loginPage: async ({ page }, use) => {
         await use(new LoginPage(page));
@@ -44,6 +48,12 @@ const test = baseTest.extend<{
     },
     projectDashboardPage: async ({ page }, use) => {
         await use(new ProjectDashboardPage(page));
+    },
+    accessKeysPage: async ({ page }, use) => {
+        await use(new AccessKeysPage(page));
+    },
+    teamPage: async ({ page }, use) => {
+        await use(new TeamPage(page));
     },
 });
 

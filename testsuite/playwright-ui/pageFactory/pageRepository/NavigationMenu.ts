@@ -11,6 +11,19 @@ export class NavigationMenu {
         await this.page.locator(NavigationMenuObject.BUCKETS_XPATH).click();
     }
 
+    async clickOnTeam(): Promise<void> {
+        await this.page.locator(NavigationMenuObject.TEAM_XPATH).click();
+    }
+
+    async clickOnAccessKeys(): Promise<void> {
+        await this.page.locator(NavigationMenuObject.ACCESS_KEYS_XPATH).click();
+    }
+
+    async enterPassphrase(passphrase: string):Promise<void> {
+        await this.page.locator(NavigationMenuObject.PASSPHRASE_INPUT_XPATH).fill(passphrase);
+        await this.page.locator(NavigationMenuObject.CONFIRM_ENTER_PASSPHRASE_BUTTON_XPATH).click();
+    }
+
     async switchPassphrase(passphrase: string): Promise<void> {
         await this.page.locator(NavigationMenuObject.PROJECT_SELECT_XPATH).click();
         await this.page.locator(NavigationMenuObject.MANAGE_PASSPHRASE_ACTION_XPATH).click();

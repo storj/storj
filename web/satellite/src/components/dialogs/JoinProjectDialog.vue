@@ -50,7 +50,7 @@
                             :loading="isAccepting"
                             @click="respondToInvitation(ProjectInvitationResponse.Accept)"
                         >
-                            Join Project
+                            Join
                         </v-btn>
                     </v-col>
                 </v-row>

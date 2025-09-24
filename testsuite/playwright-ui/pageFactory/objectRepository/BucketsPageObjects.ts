@@ -23,4 +23,6 @@ export class BucketsPageObjects {
     static SELF_SERVE_PLACEMENT_TITLE_CREATE_BUCKET_FLOW_XPATH = `//p[text()='Choose Data Location']`;
     static NEW_BUCKET_GLOBAL_PLACEMENT_BUTTON_XPATH = `//span[div[text()='Global']]`;
     static NEW_BUCKET_SELECT_PLACEMENT_BUTTON_XPATH = `//span[div[text()='Storj Select']]`;
+    static CANNOT_DELETE_BUCKET_DIALOG_TITLE_XPATH = `//div[text()=' Cannot Delete Bucket']`;
+    static CANCEL_BUTTON_XPATH = `//button[span[text()='Cancel']]`;
 }

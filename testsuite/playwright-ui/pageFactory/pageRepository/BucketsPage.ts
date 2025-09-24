@@ -117,6 +117,13 @@ export class BucketsPage {
         await this.page.locator(ObjectBrowserPageObjects.CLOSE_SHARE_MODAL_BUTTON_XPATH).click();
     }
 
+    async verifyCannotDeleteBucket(): Promise<void> {
+        await this.page.locator(BucketsPageObjects.DELETE_BUCKET_BUTTON_XPATH).click();
+        const loc = this.page.locator(BucketsPageObjects.CANNOT_DELETE_BUCKET_DIALOG_TITLE_XPATH);
+        await expect(loc).toBeVisible();
+        await this.page.locator(BucketsPageObjects.CANCEL_BUTTON_XPATH).click();
+    }
+
     async verifyDeleteBucket(name: string): Promise<void> {
         await this.page.locator(BucketsPageObjects.DELETE_BUCKET_BUTTON_XPATH).click();
         await this.page.locator(BucketsPageObjects.CONFIRM_DELETE_INPUT_FIELD_XPATH).fill('DELETE');

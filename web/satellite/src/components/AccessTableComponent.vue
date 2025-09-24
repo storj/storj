@@ -49,6 +49,7 @@
         </template>
         <template #item.actions="{ item }">
             <v-btn
+                title="Access Actions"
                 variant="outlined"
                 color="default"
                 size="small"
