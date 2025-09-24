@@ -24,6 +24,15 @@ export class AccountFlags {
     view: boolean;
 }
 
+export class AccountMin {
+    id: UUID;
+    fullName: string;
+    email: string;
+    kind: KindInfo;
+    status: UserStatusInfo;
+    createdAt: Time;
+}
+
 export class BucketFlags {
     create: boolean;
     delete: boolean;
@@ -240,6 +249,18 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as UserStatusInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async searchUsers(term: string): Promise<AccountMin[]> {
+        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        u.searchParams.set('term', term);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as AccountMin[]);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

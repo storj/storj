@@ -91,6 +91,20 @@ func main() {
 		},
 	})
 
+	group.Get("/", &apigen.Endpoint{
+		Name:           "Search users",
+		Description:    "Search users by email or name. Results are limited to 100 users.",
+		GoName:         "SearchUsers",
+		TypeScriptName: "searchUsers",
+		QueryParams: []apigen.Param{
+			apigen.NewParam("term", ""),
+		},
+		Response: []backoffice.AccountMin{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
 	group.Get("/email/{email}", &apigen.Endpoint{
 		Name:           "Get user",
 		Description:    "Gets user by email address",

@@ -28,6 +28,16 @@ type User struct {
 	Email    string    `json:"email"`
 }
 
+// AccountMin holds minimal information about a user's account.
+type AccountMin struct {
+	ID        uuid.UUID              `json:"id"`
+	FullName  string                 `json:"fullName"`
+	Email     string                 `json:"email"`
+	Kind      console.KindInfo       `json:"kind"`
+	Status    console.UserStatusInfo `json:"status"`
+	CreatedAt time.Time              `json:"createdAt"`
+}
+
 // UserAccount holds information about a user's account.
 type UserAccount struct {
 	User
@@ -91,6 +101,41 @@ func (s *Service) GetUserStatuses(ctx context.Context) ([]console.UserStatusInfo
 		statuses[i] = us.Info()
 	}
 	return statuses, api.HTTPError{}
+}
+
+// SearchUsers searches for users by a search term in their name or email.
+func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if len(term) < 3 {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("search term must be at least 3 characters"),
+		}
+	}
+
+	uPage, err := s.consoleDB.Users().Search(ctx, term)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	users := make([]AccountMin, 0, len(uPage))
+	for _, u := range uPage {
+		users = append(users, AccountMin{
+			ID:        u.ID,
+			FullName:  u.FullName,
+			Email:     u.Email,
+			Kind:      u.Kind.Info(),
+			Status:    u.Status.Info(),
+			CreatedAt: u.CreatedAt,
+		})
+	}
+
+	return users, api.HTTPError{}
 }
 
 // GetUser returns information about a user by their ID.

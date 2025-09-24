@@ -35,6 +35,7 @@ type UserManagementService interface {
 	GetFreezeEventTypes(ctx context.Context) ([]FreezeEventType, api.HTTPError)
 	GetUserKinds(ctx context.Context) ([]console.KindInfo, api.HTTPError)
 	GetUserStatuses(ctx context.Context) ([]console.UserStatusInfo, api.HTTPError)
+	SearchUsers(ctx context.Context, term string) ([]AccountMin, api.HTTPError)
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
@@ -118,6 +119,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/freeze-event-types", handler.handleGetFreezeEventTypes).Methods("GET")
 	usersRouter.HandleFunc("/kinds", handler.handleGetUserKinds).Methods("GET")
 	usersRouter.HandleFunc("/statuses", handler.handleGetUserStatuses).Methods("GET")
+	usersRouter.HandleFunc("/", handler.handleSearchUsers).Methods("GET")
 	usersRouter.HandleFunc("/email/{email}", handler.handleGetUserByEmail).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
@@ -269,6 +271,40 @@ func (h *UserManagementHandler) handleGetUserStatuses(w http.ResponseWriter, r *
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetUserStatuses response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleSearchUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	term := r.URL.Query().Get("term")
+	if term == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'term' can't be empty"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
+
+	retVal, httpErr := h.service.SearchUsers(ctx, term)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json SearchUsers response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 

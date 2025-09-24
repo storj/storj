@@ -24,6 +24,9 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
+	// Search searches for users by a search term in their name or email.
+	// Results are limited to 100 users.
+	Search(ctx context.Context, term string) (_ []UserInfo, err error)
 	// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
 	// AND have not been frozen.
 	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]User, error)
@@ -117,7 +120,12 @@ type UsersPage struct {
 
 // UserInfo holds minimal user info.
 type UserInfo struct {
-	Status UserStatus
+	ID        uuid.UUID
+	Email     string
+	FullName  string
+	Kind      UserKind
+	CreatedAt time.Time
+	Status    UserStatus
 }
 
 // CreateUser struct holds info for User creation.

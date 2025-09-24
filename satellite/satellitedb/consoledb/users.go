@@ -65,6 +65,38 @@ func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, fai
 	return
 }
 
+// Search searches for users by a search term in their name or email.
+// Results are limited to 100 users.
+func (users *users) Search(ctx context.Context, term string) (_ []console.UserInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	search := "%" + strings.ReplaceAll(term, " ", "%") + "%"
+	query := `
+		SELECT id, full_name, email, status, kind, created_at
+		FROM users
+		WHERE normalized_email LIKE UPPER(?)
+		   OR LOWER(full_name) LIKE LOWER(?)
+		ORDER BY normalized_email ASC
+		LIMIT 100;`
+
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), search, search)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
+
+	var userInfos []console.UserInfo
+	for rows.Next() {
+		var usr console.UserInfo
+		if err := rows.Scan(&usr.ID, &usr.FullName, &usr.Email, &usr.Status, &usr.Kind, &usr.CreatedAt); err != nil {
+			return nil, err
+		}
+		userInfos = append(userInfos, usr)
+	}
+
+	return userInfos, nil
+}
+
 // Get is a method for querying user from the database by id.
 func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)

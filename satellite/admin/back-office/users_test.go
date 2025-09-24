@@ -193,6 +193,34 @@ func TestGetUser(t *testing.T) {
 		require.NotNil(t, user)
 		require.Len(t, user.Projects, len(projects))
 		testProjectsFields(user)
+
+		users, apiErr := service.SearchUsers(ctx, consoleUser.Email)
+		require.NoError(t, apiErr.Err)
+		require.Len(t, users, 1)
+		require.Equal(t, consoleUser.ID, users[0].ID)
+		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+
+		users, apiErr = service.SearchUsers(ctx, "test@")
+		require.NoError(t, apiErr.Err)
+		require.Len(t, users, 1)
+		require.Equal(t, consoleUser.ID, users[0].ID)
+		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+
+		// partial name match
+		users, apiErr = service.SearchUsers(ctx, "User")
+		require.NoError(t, apiErr.Err)
+		require.Len(t, users, 1)
+		require.Equal(t, consoleUser.ID, users[0].ID)
+		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+
+		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+		users, apiErr = service.SearchUsers(ctx, "nothing")
+		require.NoError(t, apiErr.Err)
+		require.Empty(t, users)
+
+		_, apiErr = service.SearchUsers(ctx, "")
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
 	})
 }
 
