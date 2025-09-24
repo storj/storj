@@ -42,6 +42,7 @@ type UserManagementService interface {
 	DeleteUser(ctx context.Context, userID uuid.UUID) api.HTTPError
 	FreezeUser(ctx context.Context, userID uuid.UUID, request FreezeUserRequest) api.HTTPError
 	UnfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError
+	DisableMFA(ctx context.Context, userID uuid.UUID) api.HTTPError
 }
 
 type ProjectManagementService interface {
@@ -126,6 +127,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}", handler.handleDeleteUser).Methods("DELETE")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleFreezeUser).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleUnfreezeUser).Methods("DELETE")
+	usersRouter.HandleFunc("/mfa/{userID}", handler.handleDisableMFA).Methods("DELETE")
 
 	return handler
 }
@@ -533,6 +535,40 @@ func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *htt
 	}
 
 	httpErr := h.service.UnfreezeUser(ctx, userID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UserManagementHandler) handleDisableMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 32) {
+		return
+	}
+
+	httpErr := h.service.DisableMFA(ctx, userID)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

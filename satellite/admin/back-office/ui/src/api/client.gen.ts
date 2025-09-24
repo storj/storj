@@ -13,7 +13,7 @@ export class AccountFlags {
     search: boolean;
     suspend: boolean;
     unsuspend: boolean;
-    resetMFA: boolean;
+    disableMFA: boolean;
     updateLimits: boolean;
     updatePlacement: boolean;
     updateStatus: boolean;
@@ -162,6 +162,7 @@ export class UserAccount {
     freezeStatus: FreezeEventType | null;
     trialExpiration: Time | null;
     hasUnpaidInvoices: boolean;
+    mfaEnabled: boolean;
 }
 
 export class UserProject {
@@ -318,6 +319,16 @@ export class UserManagementHttpApiV1 {
 
     public async unfreezeUser(userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
+        const response = await this.http.delete(fullPath);
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async disableMFA(userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/mfa/${userID}`;
         const response = await this.http.delete(fullPath);
         if (response.ok) {
             return;

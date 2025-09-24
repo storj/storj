@@ -193,6 +193,19 @@ func main() {
 		},
 	})
 
+	group.Delete("/mfa/{userID}", &apigen.Endpoint{
+		Name:           "Disable MFA",
+		Description:    "Disables MFA for a user",
+		GoName:         "DisableMFA",
+		TypeScriptName: "disableMFA",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountDisableMFA},
+		},
+	})
+
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 

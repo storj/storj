@@ -447,3 +447,52 @@ func TestDeleteUser(t *testing.T) {
 		require.Equal(t, console.Deleted, u.Status.Value)
 	})
 }
+
+func TestDisableMFA(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "test@test.io",
+		}, 1)
+		require.NoError(t, err)
+
+		// Enable MFA.
+		user.MFAEnabled = true
+		user.MFASecretKey = "randomtext"
+		user.MFARecoveryCodes = []string{"0123456789"}
+		secretKeyPtr := &user.MFASecretKey
+		err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			MFAEnabled:       &user.MFAEnabled,
+			MFASecretKey:     &secretKeyPtr,
+			MFARecoveryCodes: &user.MFARecoveryCodes,
+		})
+		require.NoError(t, err)
+
+		u, apiErr := service.GetUser(ctx, user.ID)
+		require.NoError(t, apiErr.Err)
+		require.True(t, u.MFAEnabled)
+
+		user, err = sat.DB.Console().Users().Get(ctx, u.ID)
+		require.NoError(t, err)
+		require.True(t, user.MFAEnabled)
+		require.NotEmpty(t, user.MFASecretKey)
+		require.NotEmpty(t, user.MFARecoveryCodes)
+
+		apiErr = service.DisableMFA(ctx, user.ID)
+		require.NoError(t, apiErr.Err)
+
+		u, apiErr = service.GetUser(ctx, user.ID)
+		require.NoError(t, apiErr.Err)
+		require.False(t, u.MFAEnabled)
+
+		user, err = sat.DB.Console().Users().Get(ctx, u.ID)
+		require.NoError(t, err)
+		require.False(t, user.MFAEnabled)
+		require.Empty(t, user.MFASecretKey)
+		require.Empty(t, user.MFARecoveryCodes)
+	})
+}

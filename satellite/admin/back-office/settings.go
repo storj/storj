@@ -48,7 +48,7 @@ type AccountFlags struct {
 	Search          bool `json:"search"`
 	Suspend         bool `json:"suspend"`
 	Unsuspend       bool `json:"unsuspend"`
-	ResetMFA        bool `json:"resetMFA"`
+	DisableMFA      bool `json:"disableMFA"`
 	UpdateLimits    bool `json:"updateLimits"`
 	UpdatePlacement bool `json:"updatePlacement"`
 	UpdateStatus    bool `json:"updateStatus"`
@@ -123,6 +123,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermAccountDeleteWithData, PermAccountDeleteNoData) {
 			settings.Admin.Features.Account.Delete = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountDisableMFA) {
+			settings.Admin.Features.Account.DisableMFA = true
 		}
 
 		// project permission features

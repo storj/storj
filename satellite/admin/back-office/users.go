@@ -55,6 +55,7 @@ type UserAccount struct {
 	FreezeStatus      *FreezeEventType          `json:"freezeStatus"`
 	TrialExpiration   *time.Time                `json:"trialExpiration"`
 	HasUnpaidInvoices bool                      `json:"hasUnpaidInvoices"`
+	MFAEnabled        bool                      `json:"mfaEnabled"`
 }
 
 // UpdateUserRequest represents a request to update a user.
@@ -188,6 +189,7 @@ func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, 
 		FreezeStatus:      freezeStatus,
 		TrialExpiration:   user.TrialExpiration,
 		HasUnpaidInvoices: hasUnpaid,
+		MFAEnabled:        user.MFAEnabled,
 	}, api.HTTPError{}
 }
 
@@ -240,6 +242,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 		FreezeStatus:      freezeStatus,
 		TrialExpiration:   user.TrialExpiration,
 		HasUnpaidInvoices: hasUnpaid,
+		MFAEnabled:        user.MFAEnabled,
 	}, api.HTTPError{}
 }
 
@@ -693,4 +696,41 @@ func (s *Service) hasUnpaidInvoices(ctx context.Context, userID uuid.UUID) (_ bo
 	}
 
 	return s.payments.Invoices().CheckPendingItems(ctx, userID)
+}
+
+// DisableMFA disables MFA for a user.
+func (s *Service) DisableMFA(ctx context.Context, userID uuid.UUID) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errors.New("user not found")
+		}
+		return api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	user.MFAEnabled = false
+	user.MFASecretKey = ""
+	mfaSecretKeyPtr := &user.MFASecretKey
+	var mfaRecoveryCodes []string
+
+	err = s.consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{
+		MFAEnabled:       &user.MFAEnabled,
+		MFASecretKey:     &mfaSecretKeyPtr,
+		MFARecoveryCodes: &mfaRecoveryCodes,
+	})
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return api.HTTPError{}
 }

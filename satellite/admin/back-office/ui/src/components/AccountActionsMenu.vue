@@ -46,7 +46,7 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.resetMFA" density="comfortable" link rounded="lg">
+            <v-list-item v-if="featureFlags.account.disableMFA" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Reset MFA
                     <AccountResetMFADialog />

@@ -19,6 +19,7 @@
   * [Delete user](#usermanagement-delete-user)
   * [Freeze User](#usermanagement-freeze-user)
   * [Unfreeze User](#usermanagement-unfreeze-user)
+  * [Disable MFA](#usermanagement-disable-mfa)
 * ProjectManagement
   * [Get project](#projectmanagement-get-project)
   * [Update project limits](#projectmanagement-update-project-limits)
@@ -44,7 +45,7 @@ Gets the settings of the service and relevant Storj services settings
 				search: boolean
 				suspend: boolean
 				unsuspend: boolean
-				resetMFA: boolean
+				disableMFA: boolean
 				updateLimits: boolean
 				updatePlacement: boolean
 				updateStatus: boolean
@@ -264,6 +265,7 @@ Gets user by email address
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	hasUnpaidInvoices: boolean
+	mfaEnabled: boolean
 }
 
 ```
@@ -324,6 +326,7 @@ Gets user by ID
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	hasUnpaidInvoices: boolean
+	mfaEnabled: boolean
 }
 
 ```
@@ -402,6 +405,7 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	hasUnpaidInvoices: boolean
+	mfaEnabled: boolean
 }
 
 ```
@@ -444,6 +448,18 @@ Freeze a user account
 Unfreeze a user account
 
 `DELETE /back-office/api/v1/users/{userID}/freeze-events`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+<h3 id='usermanagement-disable-mfa'>Disable MFA (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Disables MFA for a user
+
+`DELETE /back-office/api/v1/users/mfa/{userID}`
 
 **Path Params:**
 
