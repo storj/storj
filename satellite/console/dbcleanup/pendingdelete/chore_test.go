@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/uplink"
 )
 
@@ -179,12 +180,7 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 		projectsDB.TestSetNowFn(func() time.Time { return now })
 		chore.TestSetNowFn(func() time.Time { return now })
 
-		type idAndUplink struct {
-			upl       *uplink.Project
-			projectID uuid.UUID
-		}
-
-		addProjectAndData := func(status console.ProjectStatus) idAndUplink {
+		addProjectAndData := func(status console.ProjectStatus) uuid.UUID {
 			p, err := sat.AddProject(ctx, user.ID, "new-project")
 			require.NoError(t, err)
 			require.NotNil(t, p)
@@ -221,11 +217,11 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			return idAndUplink{upl: uplProject, projectID: p.ID}
+			return p.ID
 		}
 
-		projectsMarkedForDeletion := make([]idAndUplink, 0)
-		activeProjects := make([]idAndUplink, 0)
+		projectsMarkedForDeletion := make([]uuid.UUID, 0)
+		activeProjects := make([]uuid.UUID, 0)
 
 		for i := range projectsCount {
 			if i%2 == 0 {
@@ -242,14 +238,18 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 
 		chore.Loop.TriggerWait()
 
-		testObjectsLength := func(upl idAndUplink, expected int) {
-			itr := upl.upl.ListObjects(ctx, "test-bucket", nil)
-			count := 0
-			for itr.Next() {
-				count++
+		testObjectsLength := func(projectID uuid.UUID, expected int) {
+			objs, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			pObjs := make([]metabase.Object, 0)
+			for i, object := range objs {
+				if projectID == object.ProjectID {
+					pObjs = append(pObjs, objs[i])
+				}
 			}
-			require.NoError(t, itr.Err())
-			require.Equal(t, expected, count)
+
+			require.Len(t, pObjs, expected)
 		}
 
 		verifyHasDbData := func(projID uuid.UUID, hasData bool) {
@@ -277,13 +277,13 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 
 		// verify that all users have data after the first chore run,
 		// even those marked for deletion because the buffer time has not yet elapsed.
-		for _, project := range projectsMarkedForDeletion {
-			testObjectsLength(project, objectsCount)
-			verifyHasDbData(project.projectID, true)
+		for _, projectID := range projectsMarkedForDeletion {
+			testObjectsLength(projectID, objectsCount)
+			verifyHasDbData(projectID, true)
 		}
-		for _, project := range activeProjects {
-			testObjectsLength(project, objectsCount)
-			verifyHasDbData(project.projectID, true)
+		for _, projectID := range activeProjects {
+			testObjectsLength(projectID, objectsCount)
+			verifyHasDbData(projectID, true)
 		}
 
 		chore.TestSetNowFn(func() time.Time {
@@ -297,38 +297,38 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, objects, (projectsCount*objectsCount)/2)
 
-		testDisabled := func(upl idAndUplink) {
-			p, err := projectsDB.Get(ctx, upl.projectID)
+		testDisabled := func(projectID uuid.UUID) {
+			p, err := projectsDB.Get(ctx, projectID)
 			require.NoError(t, err)
 			require.NotNil(t, p.Status)
 			require.Equal(t, console.ProjectDisabled, *p.Status)
 		}
 
-		for _, p := range projectsMarkedForDeletion {
+		for _, projectID := range projectsMarkedForDeletion {
 			// verify that marked projects have no objects and
 			// are disabled.
-			testObjectsLength(p, 0)
-			verifyHasDbData(p.projectID, false)
-			testDisabled(p)
+			testObjectsLength(projectID, 0)
+			verifyHasDbData(projectID, false)
+			testDisabled(projectID)
 		}
-		for _, p := range activeProjects {
+		for _, projectID := range activeProjects {
 			// verify that the user has objects
-			testObjectsLength(p, objectsCount)
-			verifyHasDbData(p.projectID, true)
+			testObjectsLength(projectID, objectsCount)
+			verifyHasDbData(projectID, true)
 		}
 
 		// test that deletion is successful when concurrent delete is enabled
 		chore.TestSetDeleteConcurrency(2)
 
-		newProjectsList := make([]idAndUplink, 0)
+		newProjectsList := make([]uuid.UUID, 0)
 		for range projectsCount {
 			newProjectsList = append(newProjectsList, addProjectAndData(console.ProjectPendingDeletion))
 		}
 
 		// mark active projects for deletion
-		for i, p := range activeProjects {
+		for i, projectID := range activeProjects {
 			projectsDB.TestSetNowFn(func() time.Time { return now.Add(time.Duration(i) * time.Minute) })
-			err = projectsDB.UpdateStatus(ctx, p.projectID, console.ProjectPendingDeletion)
+			err = projectsDB.UpdateStatus(ctx, projectID, console.ProjectPendingDeletion)
 			require.NoError(t, err)
 		}
 
@@ -341,10 +341,10 @@ func TestPendingDeleteChore_Projects(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, objects)
 
-		for _, p := range newProjectsList {
-			testObjectsLength(p, 0)
-			verifyHasDbData(p.projectID, false)
-			testDisabled(p)
+		for _, projectID := range newProjectsList {
+			testObjectsLength(projectID, 0)
+			verifyHasDbData(projectID, false)
+			testDisabled(projectID)
 		}
 	})
 }
@@ -371,15 +371,15 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 
 		chore.Loop.Pause()
 
-		type uplinkAndUser struct {
-			upl  *uplink.Project
-			user *console.User
+		type projectAndUser struct {
+			projectID uuid.UUID
+			userID    uuid.UUID
 		}
 
 		usersCount := 4
 		userObjectsCount := 4
 
-		addUserAndData := func(email string, freezeType *console.AccountFreezeEventType) uplinkAndUser {
+		addUserAndData := func(email string, freezeType *console.AccountFreezeEventType) projectAndUser {
 			u, err := sat.AddUser(ctx, console.CreateUser{
 				FullName:  "test_name",
 				ShortName: "",
@@ -435,11 +435,11 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 				require.Equal(t, console.PendingDeletion, u.Status)
 			}
 
-			return uplinkAndUser{user: u, upl: uplProject}
+			return projectAndUser{userID: u.ID, projectID: p.ID}
 		}
 
-		usersMarkedForDeletion := make([]uplinkAndUser, 0)
-		activeUsers := make([]uplinkAndUser, 0)
+		usersMarkedForDeletion := make([]projectAndUser, 0)
+		activeUsers := make([]projectAndUser, 0)
 
 		for i := range usersCount {
 			eventType := console.TrialExpirationFreeze
@@ -460,25 +460,29 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 
 		chore.Loop.TriggerWait()
 
-		testObjectsLength := func(upl *uplink.Project, expected int) {
-			itr := upl.ListObjects(ctx, "test-bucket", nil)
-			count := 0
-			for itr.Next() {
-				count++
+		testObjectsLength := func(usr projectAndUser, expected int) {
+			usrObjs := make([]metabase.Object, 0)
+			objs, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			for i, object := range objs {
+				if usr.projectID == object.ProjectID {
+					usrObjs = append(usrObjs, objs[i])
+				}
 			}
-			require.NoError(t, itr.Err())
-			require.Equal(t, expected, count)
+
+			require.Len(t, usrObjs, expected)
 		}
 
 		// verify that all users have objects after the first chore run,
 		// even those marked for deletion because the buffer time has not yet elapsed.
 		for _, user := range usersMarkedForDeletion {
 			// verify that the user has objects
-			testObjectsLength(user.upl, userObjectsCount)
+			testObjectsLength(user, userObjectsCount)
 		}
 		for _, user := range activeUsers {
 			// verify that the user has objects
-			testObjectsLength(user.upl, userObjectsCount)
+			testObjectsLength(user, userObjectsCount)
 		}
 
 		chore.TestSetNowFn(func() time.Time {
@@ -492,13 +496,13 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, objects, (usersCount*userObjectsCount)/2)
 
-		testDeactivated := func(user uplinkAndUser) {
-			u, err := usersDB.Get(ctx, user.user.ID)
+		testDeactivated := func(user projectAndUser) {
+			u, err := usersDB.Get(ctx, user.userID)
 			require.NoError(t, err)
 			require.Equal(t, console.Deleted, u.Status)
 
 			// list all projects for the user, they should be deactivated
-			projects, err := sat.DB.Console().Projects().GetOwn(ctx, user.user.ID)
+			projects, err := sat.DB.Console().Projects().GetOwn(ctx, user.userID)
 			require.NoError(t, err)
 			for _, p := range projects {
 				require.NotNil(t, p.Status)
@@ -508,19 +512,19 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 
 		for _, user := range usersMarkedForDeletion {
 			// verify that deleted user has no objects
-			testObjectsLength(user.upl, 0)
+			testObjectsLength(user, 0)
 			testDeactivated(user)
 		}
 		for _, user := range activeUsers {
 			// verify that the user has objects
-			testObjectsLength(user.upl, userObjectsCount)
+			testObjectsLength(user, userObjectsCount)
 		}
 
 		// test that deletion is successful when concurrent delete is enabled
 
 		chore.TestSetDeleteConcurrency(2)
 
-		newUserList := make([]uplinkAndUser, 0)
+		newUserList := make([]projectAndUser, 0)
 		// add some frozen users with more data
 		for i := range usersCount {
 			eventType := console.TrialExpirationFreeze
@@ -533,7 +537,7 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 		// freeze and escalate active users
 		for _, u := range activeUsers {
 			_, err = accFreezeDB.Upsert(ctx, &console.AccountFreezeEvent{
-				UserID:             u.user.ID,
+				UserID:             u.userID,
 				Type:               console.TrialExpirationFreeze,
 				DaysTillEscalation: nil,
 			})
@@ -541,7 +545,7 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 
 			// mark the user as pending deletion
 			pD := console.PendingDeletion
-			err = usersDB.Update(ctx, u.user.ID, console.UpdateUserRequest{
+			err = usersDB.Update(ctx, u.userID, console.UpdateUserRequest{
 				Status: &pD,
 			})
 			require.NoError(t, err)
@@ -558,7 +562,7 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 		require.Empty(t, objects)
 
 		for _, user := range newUserList {
-			testObjectsLength(user.upl, 0)
+			testObjectsLength(user, 0)
 			testDeactivated(user)
 		}
 	})
