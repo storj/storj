@@ -21,18 +21,34 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, watch } from 'vue';
 import { VSkeletonLoader } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/users';
+import { DARK_THEME_QUERY, useThemeStore } from '@/store/theme';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 
 const appStore = useAppStore();
+const themeStore = useThemeStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
+
+const darkThemeMediaQuery = window.matchMedia(DARK_THEME_QUERY);
+
+function onThemeChange(e: MediaQueryListEvent) {
+    themeStore.setThemeLightness(!e.matches);
+}
+
+watch(() => themeStore.state.name, (theme) => {
+    if (theme === 'auto') {
+        darkThemeMediaQuery.addEventListener('change', onThemeChange);
+        return;
+    }
+    darkThemeMediaQuery.removeEventListener('change', onThemeChange);
+}, { immediate: true });
 
 onMounted(async () => {
     try {
@@ -43,5 +59,9 @@ onMounted(async () => {
     } catch (error) {
         notify.error(`Failed to initialise app. ${error.message}`);
     }
+});
+
+onBeforeUnmount(() => {
+    darkThemeMediaQuery.removeEventListener('change', onThemeChange);
 });
 </script>

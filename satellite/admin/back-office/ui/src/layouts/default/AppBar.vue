@@ -5,41 +5,77 @@
     <v-app-bar :elevation="0">
         <v-app-bar-nav-icon
             variant="text" color="default" class="mr-1" size="small" density="comfortable"
-            @click.stop="drawer = !drawer"
+            @click.stop="!mdAndUp ? drawer = !drawer : rail = !rail"
         />
 
         <v-app-bar-title class="mx-1">
             <router-link v-if="featureFlags.dashboard" to="/dashboard">
-                <v-img v-if="theme.global.current.value.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
+                <v-img v-if="themeStore.globalTheme?.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
                 <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
             </router-link>
             <div v-else>
-                <v-img v-if="theme.global.current.value.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
+                <v-img v-if="themeStore.globalTheme?.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
                 <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
             </div>
         </v-app-bar-title>
 
         <template #append>
-            <!-- Theme Toggle Light/Dark Mode -->
-            <v-btn-toggle v-model="activeTheme" mandatory border inset rounded="lg" density="compact">
-                <v-tooltip text="Light Theme" location="bottom">
-                    <template #activator="{ props }">
-                        <v-btn
-                            v-bind="props" :icon="Sun" size="x-small" class="px-4" aria-label="Toggle Light Theme"
-                            @click="toggleTheme('light')"
-                        />
-                    </template>
-                </v-tooltip>
+            <v-menu offset-y width="200" class="rounded-xl">
+                <template #activator="{ props: activatorProps }">
+                    <v-btn
+                        class="mr-2"
+                        v-bind="activatorProps"
+                        variant="outlined"
+                        color="default"
+                        rounded="lg"
+                        :icon="activeThemeIcon"
+                    />
+                </template>
 
-                <v-tooltip text="Dark Theme" location="bottom">
-                    <template #activator="{ props }">
-                        <v-btn
-                            v-bind="props" :icon="MoonStar" size="x-small" class="px-4" aria-label="Toggle Dark Theme"
-                            @click="toggleTheme('dark')"
-                        />
-                    </template>
-                </v-tooltip>
-            </v-btn-toggle>
+                <v-list class="px-2 rounded-lg">
+                    <v-list-item :active="activeTheme === 0" class="px-2" @click="themeStore.setTheme('light')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-2"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="Sun"
+                            />
+                            Light
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item :active="activeTheme === 1" class="px-2" @click="themeStore.setTheme('dark')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-2"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="MoonStar"
+                            />
+                            Dark
+                        </v-list-item-title>
+                    </v-list-item>
+
+                    <v-list-item :active="activeTheme === 2" class="px-2" @click="themeStore.setTheme('auto')">
+                        <v-list-item-title class="text-body-2">
+                            <v-btn
+                                class="mr-2"
+                                variant="outlined"
+                                color="default"
+                                size="x-small"
+                                rounded="lg"
+                                :icon="smAndDown ? Smartphone : Monitor"
+                            />
+                            System
+                        </v-list-item-title>
+                    </v-list-item>
+                </v-list>
+            </v-menu>
 
             <v-menu offset-y class="rounded-xl">
                 <template v-if="featureFlags.switchSatellite && featureFlags.operator &&featureFlags.signOut" #activator="{ props }">
@@ -86,9 +122,9 @@
         </template>
     </v-app-bar>
 
-    <v-navigation-drawer v-model="drawer" color="surface">
+    <v-navigation-drawer v-model="drawer" :rail="mdAndUp && rail" :permanent="mdAndUp" color="surface">
         <v-sheet>
-            <v-list class="px-2" variant="flat">
+            <v-list density="compact" nav>
                 <v-list-item v-if="featureFlags.switchSatellite" link class="pa-4 rounded-lg">
                     <v-menu activator="parent" location="end" transition="scale-transition">
                         <v-list class="pa-2">
@@ -166,7 +202,7 @@
                 <!-- This view is temporary until we implement list with search -->
                 <v-list-item v-if="featureFlags.account.search" link router-link to="/account-search" class="my-1" rounded="lg">
                     <template #prepend>
-                        <img src="@/assets/icon-team.svg" alt="Accounts">
+                        <v-icon :icon="UserRoundSearch" />
                     </template>
                     <v-list-item-title class="text-body-2 ml-3">
                         Search account
@@ -187,49 +223,58 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VAppBar,
     VAppBarNavIcon,
     VAppBarTitle,
-    VImg,
-    VMenu,
-    VBtnToggle,
     VBtn,
-    VTooltip,
+    VDivider,
     VIcon,
+    VImg,
     VList,
     VListItem,
-    VListItemTitle,
     VListItemSubtitle,
-    VDivider,
+    VListItemTitle,
+    VMenu,
     VNavigationDrawer,
     VSheet,
 } from 'vuetify/components';
-import { useTheme } from 'vuetify';
-import { MoonStar, Sun } from 'lucide-vue-next';
+import { useDisplay } from 'vuetify';
+import { Monitor, MoonStar, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
+import { useThemeStore } from '@/store/theme';
 
-const theme = useTheme();
+const appStore = useAppStore();
+const themeStore = useThemeStore();
+const { mdAndUp, smAndDown } = useDisplay();
+
 const drawer = ref<boolean>(true);
-const activeTheme = ref<number>(0);
-const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
+const rail = ref<boolean>(true);
 
-function toggleTheme(newTheme: string) {
-    if ((newTheme === 'dark' && theme.global.current.value.dark) || (newTheme === 'light' && !theme.global.current.value.dark)) {
-        return;
+const activeTheme = computed<number>(() => {
+    switch (themeStore.state.name) {
+    case 'light':
+        return 0;
+    case 'dark':
+        return 1;
+    default:
+        return 2;
     }
-    theme.global.name.value = newTheme;
-    localStorage.setItem('theme', newTheme);  // Store the selected theme in localStorage
-}
-
-watch(() => theme.global.current.value.dark, newVal => {
-    activeTheme.value = newVal ? 1 : 0;
 });
 
-// Check for stored theme in localStorage. If none, default to 'light'
-toggleTheme(localStorage.getItem('theme') || 'light');
-activeTheme.value = theme.global.current.value.dark ? 1 : 0;
+const activeThemeIcon = computed(() => {
+    switch (themeStore.state.name) {
+    case 'light':
+        return Sun;
+    case 'dark':
+        return MoonStar;
+    default:
+        return themeStore.globalTheme?.dark ? MoonStar : Sun;
+    }
+});
+
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 </script>
