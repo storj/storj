@@ -36,6 +36,7 @@
                     <AccountActionsMenu
                         :user="userAccount"
                         @update="updateAccountDialogEnabled = true"
+                        @update-limits="updateLimitsDialogEnabled = true"
                         @toggle-freeze="toggleFreeze"
                     />
                 </v-btn>
@@ -73,6 +74,7 @@
                             <AccountActionsMenu
                                 :user="userAccount"
                                 @update="updateAccountDialogEnabled = true"
+                                @update-limits="updateLimitsDialogEnabled = true"
                                 @toggle-freeze="toggleFreeze"
                             />
                         </v-btn>
@@ -153,33 +155,48 @@
 
         <v-row>
             <v-col cols="12" sm="6" md="3">
-                <card-stats-component title="Projects" subtitle="Total" :data="userAccount.projects?.length.toString() || '0'" />
+                <card-stats-component
+                    title="Projects"
+                    subtitle="Total"
+                    :used="userAccount.projects?.length || 0"
+                    :limit="userAccount.projectLimit"
+                    :update-disabled="!!userAccount.freezeStatus"
+                    @update-limits="updateLimitsDialogEnabled = true"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" md="3">
-                <card-stats-component title="Storage" subtitle="Total">
-                    <template #data>
-                        <v-chip v-if="totalUsage.storage !== null" class="font-weight-bold">
-                            {{ sizeToBase10String(totalUsage.storage) }}
-                        </v-chip>
-                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" size="x-large" />
-                    </template>
-                </card-stats-component>
+                <card-stats-component
+                    title="Storage"
+                    subtitle="Total"
+                    :used="new Size(totalUsage.storage || 0)"
+                    :limit="new Size(userAccount.storageLimit, 2)"
+                    :update-disabled="!!userAccount.freezeStatus"
+                    @update-limits="updateLimitsDialogEnabled = true"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" md="3">
-                <card-stats-component title="Download" subtitle="This month" :data="sizeToBase10String(totalUsage.download)" />
+                <card-stats-component
+                    title="Download"
+                    subtitle="This month"
+                    :used="new Size(totalUsage.download || 0)"
+                    :limit="new Size(userAccount.bandwidthLimit, 2)"
+                    :update-disabled="!!userAccount.freezeStatus"
+                    @update-limits="updateLimitsDialogEnabled = true"
+                />
             </v-col>
 
             <v-col cols="12" sm="6" md="3">
-                <card-stats-component title="Segments" subtitle="Total">
-                    <template #data>
-                        <v-chip v-if="totalUsage.segments !== null" class="font-weight-bold">
-                            {{ totalUsage.segments.toLocaleString() }}
-                        </v-chip>
-                        <v-icon v-else icon="mdi-alert-circle-outline" color="error" size="x-large" />
-                    </template>
-                </card-stats-component>
+                <card-stats-component
+                    title="Segments"
+                    subtitle="Total"
+                    :used="totalUsage.segments || 0"
+                    :limit="userAccount.segmentLimit"
+                    :data="userAccount.segmentLimit"
+                    :update-disabled="!!userAccount.freezeStatus"
+                    @update-limits="updateLimitsDialogEnabled = true"
+                />
             </v-col>
         </v-row>
 
@@ -199,6 +216,7 @@
     </v-container>
     <AccountFreezeDialog v-if="userAccount" v-model="freezeDialogEnabled" :account="userAccount" />
     <AccountUpdateDialog v-if="userAccount" v-model="updateAccountDialogEnabled" :account="userAccount" />
+    <AccountUpdateLimitsDialog v-if="userAccount" v-model="updateLimitsDialogEnabled" :account="userAccount" />
 </template>
 
 <script setup lang="ts">
@@ -228,7 +246,7 @@ import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
-import { sizeToBase10String } from '@/utils/memory';
+import { Size } from '@/utils/bytesSize';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
@@ -238,6 +256,7 @@ import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import AccountFreezeDialog from '@/components/AccountFreezeDialog.vue';
 import AccountUpdateDialog from '@/components/AccountUpdateDialog.vue';
+import AccountUpdateLimitsDialog from '@/components/AccountUpdateLimitsDialog.vue';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -252,6 +271,7 @@ const date = useDate();
 const unfreezing = ref<boolean>(false);
 const freezeDialogEnabled = ref<boolean>(false);
 const updateAccountDialogEnabled = ref<boolean>(false);
+const updateLimitsDialogEnabled = ref<boolean>(false);
 
 const statusColor = computed(() => {
     if (!userAccount.value) {

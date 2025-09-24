@@ -29,13 +29,13 @@
             </v-list-item>
 
             <v-list-item
-                v-if="featureFlags.account.updateLimits"
+                v-if="featureFlags.account.updateLimits && !user.freezeStatus"
                 density="comfortable"
                 link rounded="lg"
+                @click="emit('updateLimits', user)"
             >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Change Limits
-                    <AccountLimitsDialog />
                 </v-list-item-title>
             </v-list-item>
 
@@ -85,7 +85,6 @@ import AccountResetMFADialog from '@/components/AccountResetMFADialog.vue';
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
-import AccountLimitsDialog from '@/components/AccountLimitsDialog.vue';
 
 const appStore = useAppStore();
 const router = useRouter();
@@ -111,6 +110,7 @@ const isCurrentRouteViewAccount = computed(() => {
 const emit = defineEmits<{
     (e: 'toggleFreeze', user: UserAccount): void;
     (e: 'update', user: UserAccount): void;
+    (e: 'updateLimits', user: UserAccount): void;
 }>();
 
 function viewAccount() {

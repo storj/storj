@@ -124,13 +124,13 @@
 
         <v-row>
             <v-col cols="12" md="4">
-                <CardStatsComponent title="Storage" subtitle="Total" data="524 GB" variant="tonal" />
+                <!--                <CardStatsComponent title="Storage" subtitle="Total" data="524 GB" variant="tonal" />-->
             </v-col>
             <v-col cols="12" md="4">
-                <CardStatsComponent title="Download" subtitle="This Month" data="273 GB" variant="tonal" />
+                <!--                <CardStatsComponent title="Download" subtitle="This Month" data="273 GB" variant="tonal" />-->
             </v-col>
             <v-col cols="12" md="4">
-                <CardStatsComponent title="Segments" subtitle="Total" data="241,721" variant="tonal" />
+                <!--                <CardStatsComponent title="Segments" subtitle="Total" data="241,721" variant="tonal" />-->
             </v-col>
         </v-row>
     </v-container>
@@ -158,7 +158,6 @@ import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
 import BucketGeofenceDialog from '@/components/BucketGeofenceDialog.vue';
 import BucketUserAgentsDialog from '@/components/BucketUserAgentsDialog.vue';
 import BucketInformationDialog from '@/components/BucketInformationDialog.vue';
-import CardStatsComponent from '@/components/CardStatsComponent.vue';
 
 const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
 </script>

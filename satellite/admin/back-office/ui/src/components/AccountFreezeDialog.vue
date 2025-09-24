@@ -21,6 +21,7 @@
                             v-model="freezeType"
                             label="Freeze type" placeholder="Select freeze type"
                             :items="freezeTypes"
+                            :disabled="isLoading"
                             item-title="name" item-value="value"
                             hide-details="auto"
                             variant="solo-filled"

@@ -1,9 +1,24 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { Memory } from '@/utils/bytesSize';
+
 export type ValidationRule<T> = string | boolean | ((value: T) => string | boolean);
 export function RequiredRule(value: unknown): string | boolean {
     return (Array.isArray(value) ? !!value.length : !!value || typeof value === 'number') || 'Required';
+}
+export function BytesMustBeWholeRule(tb: number): string | boolean {
+    if (isNaN(tb)) {
+        return 'Must be a valid number';
+    }
+    const bytes = tb * Memory.TB;
+    return Number.isInteger(bytes) || `Bytes ${bytes} is not whole.`;
+}
+export function PositiveNumberRule(value: number): string | boolean {
+    if (isNaN(value)) {
+        return 'Must be a valid number';
+    }
+    return value > -1 || 'Must be a positive number';
 }
 export function EmailRule(value: string): string | boolean {
     // This regular expression fulfills our needs to validate international emails.

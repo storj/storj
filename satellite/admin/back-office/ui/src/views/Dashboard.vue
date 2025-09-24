@@ -8,31 +8,31 @@
 
         <v-row class="d-flex align-center justify-center mt-2">
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent
+                <!--                <CardStatsComponent
                     title="All Accounts" subtitle="Satellite Total" data="218,748" color="default" router-link
                     to="/accounts"
-                />
+                />-->
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent
+                <!--                <CardStatsComponent
                     title="Enterprise" subtitle="Accounts" data="3,405" color="default" router-link
                     to="/accounts"
-                />
+                />-->
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent
+                <!--                <CardStatsComponent
                     title="Priority" subtitle="Accounts" data="5,224" color="default" router-link
                     to="/accounts"
-                />
+                />-->
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Pro" subtitle="Accounts" data="82,386" color="default" router-link to="/accounts" />
+                <!--                <CardStatsComponent title="Pro" subtitle="Accounts" data="82,386" color="default" router-link to="/accounts" />-->
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Free" subtitle="Accounts" data="123,480" color="default" router-link to="/accounts" />
+                <!--                <CardStatsComponent title="Free" subtitle="Accounts" data="123,480" color="default" router-link to="/accounts" />-->
             </v-col>
             <v-col cols="12" sm="6" md="4" lg="2">
-                <CardStatsComponent title="Suspended" subtitle="Accounts" data="1" color="default" router-link to="/accounts" />
+                <!--                <CardStatsComponent title="Suspended" subtitle="Accounts" data="1" color="default" router-link to="/accounts" />-->
             </v-col>
         </v-row>
 
@@ -52,6 +52,5 @@ import { VContainer, VRow, VCol, VCard, VDivider } from 'vuetify/components';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
-import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import DashboardLimitsTableComponent from '@/components/DashboardLimitsTableComponent.vue';
 </script>
