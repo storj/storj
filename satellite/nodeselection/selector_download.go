@@ -32,6 +32,14 @@ func DownloadSelectorFromString(expr string, environment PlacementConfigEnvironm
 		"random":    DefaultDownloadSelector,
 		"choiceofn": DownloadChoiceOfN,
 		"best":      DownloadBest,
+		"case":      NewDownloadCase,
+		"requestor": RequesterIs,
+		"switch":    DownloadSwitch,
+		"filter":    DownloadFilter,
+	}
+	environment.apply(env)
+	for k, v := range supportedFilters {
+		env[k] = v
 	}
 	environment.apply(env)
 	selector, err := mito.Eval(expr, env)
@@ -119,5 +127,118 @@ func DownloadBest(tracker UploadSuccessTracker) DownloadSelector {
 			result[node.ID] = node
 		}
 		return result, nil
+	}
+}
+
+var downloadSwitchTask = mon.Task()
+
+// DownloadSwitch creates a DownloadSelector that tries cases in order, then falls back to default.
+func DownloadSwitch(dflt DownloadSelector, cases ...DownloadCase) DownloadSelector {
+	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+		defer downloadSwitchTask(&ctx)(&err)
+
+		remainingNodes := make(map[storj.NodeID]*SelectedNode)
+		for id, node := range possibleNodes {
+			remainingNodes[id] = node
+		}
+
+		result := make(map[storj.NodeID]*SelectedNode)
+		remainingNeeded := needed
+
+		// Try each case in order
+		for _, switchCase := range cases {
+			if remainingNeeded <= 0 {
+				break
+			}
+
+			// Check if the case condition is met
+			if !switchCase.condition(ctx, requester) {
+				continue
+			}
+
+			// Apply the case selector to remaining nodes
+			selected, err := switchCase.selector(ctx, requester, remainingNodes, remainingNeeded)
+			if err != nil {
+				return nil, err
+			}
+
+			// Add selected nodes to result and remove from remaining
+			for id, node := range selected {
+				result[id] = node
+				delete(remainingNodes, id)
+				remainingNeeded--
+			}
+		}
+
+		// If we still need more nodes, use the default selector
+		if remainingNeeded > 0 && len(remainingNodes) > 0 {
+			selected, err := dflt(ctx, requester, remainingNodes, remainingNeeded)
+			if err != nil {
+				return nil, err
+			}
+
+			for id, node := range selected {
+				result[id] = node
+			}
+		}
+
+		return result, nil
+	}
+}
+
+// DownloadCase represents a conditional selector case for DownloadSwitch.
+type DownloadCase struct {
+	condition DownloadCondition
+	selector  DownloadSelector
+}
+
+// NewDownloadCase creates a new DownloadCase with the given condition and selector.
+func NewDownloadCase(condition DownloadCondition, selector DownloadSelector) DownloadCase {
+	return DownloadCase{
+		condition: condition,
+		selector:  selector,
+	}
+}
+
+// DownloadCondition is a function that determines if a condition is met for a requester.
+type DownloadCondition func(ctx context.Context, requestor storj.NodeID) bool
+
+// RequesterIs creates a DownloadCondition that matches if the requester is one of the target nodes.
+func RequesterIs(targets ...string) DownloadCondition {
+	var nodeIDs []storj.NodeID
+	for _, id := range targets {
+		nodeID, err := storj.NodeIDFromString(id)
+		if err != nil {
+			panic("Invalid NodeID: " + id)
+		}
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	return func(ctx context.Context, requester storj.NodeID) bool {
+		for _, target := range nodeIDs {
+			if target == requester {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+var downloadFilterTask = mon.Task()
+
+// DownloadFilter creates a DownloadSelector that applies a filter before using another selector.
+func DownloadFilter(filter NodeFilter, selector DownloadSelector) DownloadSelector {
+	return func(ctx context.Context, requester storj.NodeID, possibleNodes map[storj.NodeID]*SelectedNode, needed int) (_ map[storj.NodeID]*SelectedNode, err error) {
+		defer downloadFilterTask(&ctx)(&err)
+
+		// Filter nodes based on the provided filter
+		filteredNodes := make(map[storj.NodeID]*SelectedNode)
+		for id, node := range possibleNodes {
+			if filter.Match(node) {
+				filteredNodes[id] = node
+			}
+		}
+
+		// Apply the selector to filtered nodes
+		return selector(ctx, requester, filteredNodes, needed)
 	}
 }

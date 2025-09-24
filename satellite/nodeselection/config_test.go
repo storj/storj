@@ -28,7 +28,7 @@ func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 19)
+	require.Len(t, config, 20)
 
 	{
 		// checking filters
@@ -159,6 +159,40 @@ func TestParsedConfig(t *testing.T) {
 		require.Equal(t, p.CohortNames["0"](node), []byte("ewr0-1"))
 		require.Equal(t, proto.CompactTextString(p.CohortRequirements.ToProto()), `and:<requirements:<literal:<value:49 > > requirements:<withhold:<tag_key:"1" amount:1 child:<withhold:<tag_key:"0" amount:3 child:<literal:<value:29 > > > > > > > `)
 	}
+
+	t.Run("download-selector", func(t *testing.T) {
+		possibleNodes := map[storj.NodeID]*SelectedNode{}
+		for i := 0; i < 10; i++ {
+			id := testrand.NodeID()
+			node := &SelectedNode{
+				ID: id,
+			}
+			if i == 9 {
+				node.CountryCode = location.UnitedStates
+			} else {
+				node.CountryCode = location.Germany
+			}
+			possibleNodes[id] = node
+		}
+		// smoketest for download selector
+		requester, err := storj.NodeIDFromString("126fuL2fPdYYvAJwgEjF4NwBDkfGRoRwBT8JcXpjF9QmUMgLuVe")
+		require.NoError(t, err)
+
+		selected, err := config[19].DownloadSelector(ctx, requester, possibleNodes, 1)
+		require.NoError(t, err)
+		require.Len(t, selected, 1)
+		for _, node := range selected {
+			require.Equal(t, location.UnitedStates, node.CountryCode)
+		}
+
+		selected2, err := config[19].DownloadSelector(ctx, storj.NodeID{}, possibleNodes, 1)
+		require.NoError(t, err)
+		require.Len(t, selected2, 9)
+		for _, node := range selected2 {
+			require.Equal(t, location.Germany, node.CountryCode)
+		}
+	})
+
 }
 
 func TestParsedConfigWithoutTracker(t *testing.T) {
@@ -168,7 +202,7 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 19)
+	require.Len(t, config, 20)
 
 	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(ctx,

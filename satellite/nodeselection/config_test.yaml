@@ -68,3 +68,10 @@ placements:
   - id: 18
     name: cohort_test
     cohort-requirements: min(49) && withhold(attr("tag:$SIGNER_ZERO/dc"), 1, withhold(attr("tag:$SIGNER_ZERO/dc") + "-" + attr("tag:$SIGNER_ZERO/rack"), 3, min(29)))
+  - id: 19
+    name: download_selector
+    download-selector: |-
+      switch(
+        filter(country("EU"),random),
+        case(requestor("126fuL2fPdYYvAJwgEjF4NwBDkfGRoRwBT8JcXpjF9QmUMgLuVe"),filter(country("US"),random))
+      )
