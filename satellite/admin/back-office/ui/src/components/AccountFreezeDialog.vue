@@ -101,10 +101,9 @@ function freezeAccount() {
         }
         try {
             await usersStore.freezeUser(props.account.id, freezeType.value);
+            await usersStore.updateCurrentUser(props.account.id);
             notify.success('Account frozen successfully.');
             model.value = false;
-
-            await usersStore.updateCurrentUser(props.account.id);
         } catch (error) {
             notify.error(`Failed to freeze account. ${error.message}`);
             return;

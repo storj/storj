@@ -87,6 +87,10 @@ export const useUsersStore = defineStore('users', () => {
         await userApi.deleteUser(userID);
     }
 
+    async function disableMFA(userID: string): Promise<void> {
+        await userApi.disableMFA(userID);
+    }
+
     async function findUsers(param: string): Promise<void> {
         state.searchResults =  await userApi.searchUsers(param);
     }
@@ -110,5 +114,6 @@ export const useUsersStore = defineStore('users', () => {
         getUserStatuses,
         updateUser,
         deleteUser,
+        disableMFA,
     };
 });

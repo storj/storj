@@ -46,18 +46,22 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.disableMFA" density="comfortable" link rounded="lg">
+            <v-list-item
+                v-if="featureFlags.account.disableMFA && user.mfaEnabled"
+                density="comfortable" link rounded="lg"
+                @click="emit('disableMfa', user)"
+            >
                 <v-list-item-title class="text-body-2 font-weight-medium">
-                    Reset MFA
-                    <AccountResetMFADialog />
+                    Disable MFA
                 </v-list-item-title>
             </v-list-item>
 
             <v-list-item
                 v-if="featureFlags.account.suspend || featureFlags.account.unsuspend"
                 density="comfortable" link rounded="lg" base-color="warning"
+                @click="emit('toggleFreeze', user)"
             >
-                <v-list-item-title class="text-body-2 font-weight-medium" @click="emit('toggleFreeze', user)">
+                <v-list-item-title class="text-body-2 font-weight-medium">
                     {{ user.freezeStatus ? "Unfreeze" : "Freeze" }}
                 </v-list-item-title>
             </v-list-item>
@@ -93,7 +97,6 @@ import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 
-import AccountResetMFADialog from '@/components/AccountResetMFADialog.vue';
 import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 
@@ -138,6 +141,7 @@ const emit = defineEmits<{
     (e: 'update', user: UserAccount): void;
     (e: 'updateLimits', user: UserAccount): void;
     (e: 'delete', user: UserAccount): void;
+    (e: 'disableMfa', user: UserAccount): void;
 }>();
 
 function viewAccount() {

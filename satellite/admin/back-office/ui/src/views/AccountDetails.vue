@@ -31,6 +31,7 @@
                     @update="updateAccountDialogEnabled = true"
                     @update-limits="updateLimitsDialogEnabled = true"
                     @delete="deleteAccountDialogEnabled = true"
+                    @disable-mfa="disableMFADialogEnabled = true"
                     @toggle-freeze="toggleFreeze"
                 />
             </v-btn>
@@ -69,6 +70,7 @@
                                 @update="updateAccountDialogEnabled = true"
                                 @update-limits="updateLimitsDialogEnabled = true"
                                 @delete="deleteAccountDialogEnabled = true"
+                                @disable-mfa="disableMFADialogEnabled = true"
                                 @toggle-freeze="toggleFreeze"
                             />
                         </v-btn>
@@ -212,6 +214,8 @@
     <AccountUpdateDialog v-if="userAccount" v-model="updateAccountDialogEnabled" :account="userAccount" />
     <AccountUpdateLimitsDialog v-if="userAccount" v-model="updateLimitsDialogEnabled" :account="userAccount" />
     <AccountDeleteDialog v-if="userAccount" v-model="deleteAccountDialogEnabled" :account="userAccount" />
+    <AccountDisableMFADialog v-if="userAccount" v-model="disableMFADialogEnabled" :account="userAccount" />
+    <FullScreenLoader v-model="isActionInProgress" />
 </template>
 
 <script setup lang="ts">
@@ -253,20 +257,23 @@ import AccountFreezeDialog from '@/components/AccountFreezeDialog.vue';
 import AccountUpdateDialog from '@/components/AccountUpdateDialog.vue';
 import AccountUpdateLimitsDialog from '@/components/AccountUpdateLimitsDialog.vue';
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
+import FullScreenLoader from '@/components/FullScreenLoader.vue';
+import AccountDisableMFADialog from '@/components/AccountDisableMFADialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
 const router = useRouter();
 
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLoading, withCustomLoading } = useLoading();
 const notify = useNotify();
 const date = useDate();
 
-const unfreezing = ref<boolean>(false);
+const isActionInProgress = ref<boolean>(false);
 const freezeDialogEnabled = ref<boolean>(false);
 const updateAccountDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
 const deleteAccountDialogEnabled = ref<boolean>(false);
+const disableMFADialogEnabled = ref<boolean>(false);
 
 const statusColor = computed(() => {
     if (!userAccount.value) {
@@ -370,24 +377,20 @@ function toggleFreeze() {
     freezeDialogEnabled.value = true;
 }
 
-async function unfreezeAccount() {
-    if (unfreezing.value) return;
-    if (!userAccount.value.freezeStatus) {
-        notify.error('Account is not frozen.');
-        return;
-    }
-    unfreezing.value = true;
-    try {
-        await usersStore.unfreezeUser(userAccount.value.id);
-        notify.success('Account unfrozen successfully.');
-
-        await usersStore.updateCurrentUser(userAccount.value.id);
-    } catch (error) {
-        notify.error(`Failed to toggle account freeze status. ${error.message}`);
-        return;
-    } finally {
-        unfreezing.value = false;
-    }
+function unfreezeAccount() {
+    withCustomLoading(isActionInProgress, async () => {
+        if (!userAccount.value.freezeStatus) {
+            notify.error('Account is not frozen.');
+            return;
+        }
+        try {
+            await usersStore.unfreezeUser(userAccount.value.id);
+            await usersStore.updateCurrentUser(userAccount.value.id);
+            notify.success('Account unfrozen successfully.');
+        } catch (error) {
+            notify.error(`Failed to toggle account freeze status. ${error.message}`);
+        }
+    });
 }
 
 onBeforeMount(() => {
