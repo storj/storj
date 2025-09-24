@@ -35,6 +35,7 @@ func TestGetSettings(t *testing.T) {
 			Admin: backoffice.SettingsAdmin{
 				Features: backoffice.FeatureFlags{
 					Account: backoffice.AccountFlags{
+						Delete:          true,
 						View:            true,
 						Search:          true,
 						Projects:        true,

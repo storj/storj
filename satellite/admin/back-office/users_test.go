@@ -39,25 +39,21 @@ func TestGetUser(t *testing.T) {
 		service := sat.Admin.Admin.Service
 		consoleDB := sat.DB.Console()
 
-		consoleUser := &console.User{
-			ID:               testrand.UUID(),
-			FullName:         "Test User",
-			Email:            "test@storj.io",
-			PasswordHash:     testrand.Bytes(8),
-			Status:           console.Inactive,
-			UserAgent:        []byte("agent"),
-			DefaultPlacement: 5,
-		}
-
-		_, apiErr := service.GetUserByEmail(ctx, consoleUser.Email)
+		_, apiErr := service.GetUserByEmail(ctx, "test@storj.io")
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
-		_, apiErr = service.GetUser(ctx, consoleUser.ID)
+		_, apiErr = service.GetUser(ctx, testrand.UUID())
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
-		_, err := consoleDB.Users().Insert(ctx, consoleUser)
+		consoleUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName:  "Test User",
+			Email:     "test@storj.io",
+			UserAgent: []byte("agent"),
+		}, 1)
 		require.NoError(t, err)
+		consoleUser.Status = console.Inactive
+		require.NoError(t, consoleDB.Users().Update(ctx, consoleUser.ID, console.UpdateUserRequest{Status: &consoleUser.Status}))
 
 		consoleUser.Kind = console.PaidUser
 		require.NoError(
@@ -374,5 +370,52 @@ func TestUpdateUser(t *testing.T) {
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.Error(t, apiErr.Err)
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+	})
+}
+
+func TestDeleteUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "test@test.test",
+		}, 1)
+		require.NoError(t, err)
+
+		p, err := sat.AddProject(ctx, user.ID, "Project")
+		require.NoError(t, err)
+
+		apiErr := service.DeleteUser(ctx, testrand.UUID())
+		require.Equal(t, http.StatusNotFound, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		apiErr = service.DeleteUser(ctx, user.ID)
+		require.Equal(t, http.StatusConflict, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "active projects")
+
+		err = sat.DB.Console().Projects().Delete(ctx, p.ID)
+		require.NoError(t, err)
+
+		inv, err := sat.Admin.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "test invoice 1")
+		require.NoError(t, err)
+
+		apiErr = service.DeleteUser(ctx, user.ID)
+		require.Equal(t, http.StatusConflict, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "unpaid invoices")
+
+		_, err = sat.Admin.Payments.Accounts.Invoices().Delete(ctx, inv.ID)
+		require.NoError(t, err)
+
+		require.NoError(t, service.DeleteUser(ctx, user.ID).Err)
+
+		u, apiErr := service.GetUser(ctx, user.ID)
+		require.NoError(t, apiErr.Err)
+		require.Contains(t, u.Email, "deactivated")
+		require.Equal(t, console.Deleted, u.Status.Value)
 	})
 }

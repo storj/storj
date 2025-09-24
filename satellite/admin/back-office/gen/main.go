@@ -138,6 +138,20 @@ func main() {
 		},
 	})
 
+	group.Delete("/{userID}", &apigen.Endpoint{
+		Name: "Delete user",
+		Description: "Deletes user by ID. User can only be deleted if they have no active projects" +
+			" and pending invoices.",
+		GoName:         "DeleteUser",
+		TypeScriptName: "deleteUser",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountDeleteNoData},
+		},
+	})
+
 	group.Post("/{userID}/freeze-events", &apigen.Endpoint{
 		Name:           "Freeze User",
 		Description:    "Freeze a user account",

@@ -121,6 +121,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountChangeEmail) {
 			settings.Admin.Features.Account.UpdateEmail = true
 		}
+		if s.authorizer.HasPermissions(g, PermAccountDeleteWithData, PermAccountDeleteNoData) {
+			settings.Admin.Features.Account.Delete = true
+		}
 
 		// project permission features
 		if s.authorizer.HasPermissions(g, PermProjectView) {

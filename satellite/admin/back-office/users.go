@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -30,19 +31,20 @@ type User struct {
 // UserAccount holds information about a user's account.
 type UserAccount struct {
 	User
-	Kind             console.KindInfo          `json:"kind"`
-	CreatedAt        time.Time                 `json:"createdAt"`
-	UpgradeTime      *time.Time                `json:"upgradeTime"`
-	Status           console.UserStatusInfo    `json:"status"`
-	UserAgent        string                    `json:"userAgent"`
-	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
-	Projects         []UserProject             `json:"projects"`
-	ProjectLimit     int                       `json:"projectLimit"`
-	StorageLimit     int64                     `json:"storageLimit"`
-	BandwidthLimit   int64                     `json:"bandwidthLimit"`
-	SegmentLimit     int64                     `json:"segmentLimit"`
-	FreezeStatus     *FreezeEventType          `json:"freezeStatus"`
-	TrialExpiration  *time.Time                `json:"trialExpiration"`
+	Kind              console.KindInfo          `json:"kind"`
+	CreatedAt         time.Time                 `json:"createdAt"`
+	UpgradeTime       *time.Time                `json:"upgradeTime"`
+	Status            console.UserStatusInfo    `json:"status"`
+	UserAgent         string                    `json:"userAgent"`
+	DefaultPlacement  storj.PlacementConstraint `json:"defaultPlacement"`
+	Projects          []UserProject             `json:"projects"`
+	ProjectLimit      int                       `json:"projectLimit"`
+	StorageLimit      int64                     `json:"storageLimit"`
+	BandwidthLimit    int64                     `json:"bandwidthLimit"`
+	SegmentLimit      int64                     `json:"segmentLimit"`
+	FreezeStatus      *FreezeEventType          `json:"freezeStatus"`
+	TrialExpiration   *time.Time                `json:"trialExpiration"`
+	HasUnpaidInvoices bool                      `json:"hasUnpaidInvoices"`
 }
 
 // UpdateUserRequest represents a request to update a user.
@@ -61,8 +63,9 @@ type UpdateUserRequest struct {
 
 // UserProject is project owned by a user with  basic information, usage, and limits.
 type UserProject struct {
-	ID   uuid.UUID `json:"id"` // This is the public ID
-	Name string    `json:"name"`
+	ID     uuid.UUID `json:"id"` // This is the public ID
+	Name   string    `json:"name"`
+	Active bool      `json:"active"`
 	ProjectUsageLimits[int64]
 }
 
@@ -112,25 +115,34 @@ func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, 
 		return nil, apiErr
 	}
 
+	hasUnpaid, err := s.hasUnpaidInvoices(ctx, user.ID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
 	return &UserAccount{
 		User: User{
 			ID:       user.ID,
 			FullName: user.FullName,
 			Email:    user.Email,
 		},
-		Kind:             user.Kind.Info(),
-		CreatedAt:        user.CreatedAt,
-		UpgradeTime:      user.UpgradeTime,
-		Status:           user.Status.Info(),
-		UserAgent:        string(user.UserAgent),
-		DefaultPlacement: user.DefaultPlacement,
-		Projects:         usageLimits,
-		ProjectLimit:     user.ProjectLimit,
-		StorageLimit:     user.ProjectStorageLimit,
-		BandwidthLimit:   user.ProjectBandwidthLimit,
-		SegmentLimit:     user.ProjectSegmentLimit,
-		FreezeStatus:     freezeStatus,
-		TrialExpiration:  user.TrialExpiration,
+		Kind:              user.Kind.Info(),
+		CreatedAt:         user.CreatedAt,
+		UpgradeTime:       user.UpgradeTime,
+		Status:            user.Status.Info(),
+		UserAgent:         string(user.UserAgent),
+		DefaultPlacement:  user.DefaultPlacement,
+		Projects:          usageLimits,
+		ProjectLimit:      user.ProjectLimit,
+		StorageLimit:      user.ProjectStorageLimit,
+		BandwidthLimit:    user.ProjectBandwidthLimit,
+		SegmentLimit:      user.ProjectSegmentLimit,
+		FreezeStatus:      freezeStatus,
+		TrialExpiration:   user.TrialExpiration,
+		HasUnpaidInvoices: hasUnpaid,
 	}, api.HTTPError{}
 }
 
@@ -156,24 +168,33 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 		return nil, apiErr
 	}
 
+	hasUnpaid, err := s.hasUnpaidInvoices(ctx, user.ID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
 	return &UserAccount{
 		User: User{
 			ID:       user.ID,
 			FullName: user.FullName,
 			Email:    user.Email,
 		},
-		Kind:             user.Kind.Info(),
-		CreatedAt:        user.CreatedAt,
-		Status:           user.Status.Info(),
-		UserAgent:        string(user.UserAgent),
-		DefaultPlacement: user.DefaultPlacement,
-		Projects:         usageLimits,
-		ProjectLimit:     user.ProjectLimit,
-		StorageLimit:     user.ProjectStorageLimit,
-		BandwidthLimit:   user.ProjectBandwidthLimit,
-		SegmentLimit:     user.ProjectSegmentLimit,
-		FreezeStatus:     freezeStatus,
-		TrialExpiration:  user.TrialExpiration,
+		Kind:              user.Kind.Info(),
+		CreatedAt:         user.CreatedAt,
+		Status:            user.Status.Info(),
+		UserAgent:         string(user.UserAgent),
+		DefaultPlacement:  user.DefaultPlacement,
+		Projects:          usageLimits,
+		ProjectLimit:      user.ProjectLimit,
+		StorageLimit:      user.ProjectStorageLimit,
+		BandwidthLimit:    user.ProjectBandwidthLimit,
+		SegmentLimit:      user.ProjectSegmentLimit,
+		FreezeStatus:      freezeStatus,
+		TrialExpiration:   user.TrialExpiration,
+		HasUnpaidInvoices: hasUnpaid,
 	}, api.HTTPError{}
 }
 
@@ -214,8 +235,9 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 		}
 
 		usageLimits = append(usageLimits, UserProject{
-			ID:   p.PublicID,
-			Name: p.Name,
+			ID:     p.PublicID,
+			Name:   p.Name,
+			Active: p.Status != nil && *p.Status == console.ProjectActive,
 			ProjectUsageLimits: ProjectUsageLimits[int64]{
 				BandwidthLimit: bandwidthl,
 				BandwidthUsed:  bandwidthu,
@@ -536,4 +558,94 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 	}
 
 	return api.HTTPError{}
+}
+
+// DeleteUser deactivates a user if they have no active projects or unpaid invoices.
+func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("user not found")
+		}
+		return api.HTTPError{Status: status, Err: Error.Wrap(err)}
+	}
+
+	projects, err := s.consoleDB.Projects().GetOwnActive(ctx, user.ID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+	if len(projects) > 0 {
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.New("user has active projects"),
+		}
+	}
+
+	// ensure no unpaid invoices exist.
+	hasUnpaid, err := s.hasUnpaidInvoices(ctx, user.ID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+	if hasUnpaid {
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.New("user has unpaid invoices or pending items"),
+		}
+	}
+
+	emptyName := ""
+	emptyNamePtr := &emptyName
+	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+	status := console.Deleted
+	var externalID *string // nil - no external ID.
+
+	err = s.consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{
+		FullName:   &emptyName,
+		ShortName:  &emptyNamePtr,
+		Email:      &deactivatedEmail,
+		Status:     &status,
+		ExternalID: &externalID,
+	})
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	err = s.payments.CreditCards().RemoveAll(ctx, user.ID)
+	if err != nil {
+		s.log.Error("Failed to remove credit cards for deleted user", zap.Stringer("userId", user.ID), zap.Error(err))
+	}
+
+	return api.HTTPError{}
+}
+
+func (s *Service) hasUnpaidInvoices(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	invoices, err := s.payments.Invoices().List(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	if len(invoices) > 0 {
+		for _, invoice := range invoices {
+			if invoice.Status == "draft" || invoice.Status == "open" {
+				return true, nil
+			}
+		}
+	}
+
+	return s.payments.Invoices().CheckPendingItems(ctx, userID)
 }

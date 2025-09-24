@@ -15,6 +15,7 @@
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
+  * [Delete user](#usermanagement-delete-user)
   * [Freeze User](#usermanagement-freeze-user)
   * [Unfreeze User](#usermanagement-unfreeze-user)
 * ProjectManagement
@@ -206,6 +207,7 @@ Gets user by email address
 		{
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
+			active: boolean
 			bandwidthLimit: number
 			bandwidthUsed: number
 			storageLimit: number
@@ -222,6 +224,7 @@ Gets user by email address
 	segmentLimit: number
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	hasUnpaidInvoices: boolean
 }
 
 ```
@@ -264,6 +267,7 @@ Gets user by ID
 		{
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
+			active: boolean
 			bandwidthLimit: number
 			bandwidthUsed: number
 			storageLimit: number
@@ -280,6 +284,7 @@ Gets user by ID
 	segmentLimit: number
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	hasUnpaidInvoices: boolean
 }
 
 ```
@@ -340,6 +345,7 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 		{
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
+			active: boolean
 			bandwidthLimit: number
 			bandwidthUsed: number
 			storageLimit: number
@@ -356,9 +362,22 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	segmentLimit: number
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	hasUnpaidInvoices: boolean
 }
 
 ```
+
+<h3 id='usermanagement-delete-user'>Delete user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Deletes user by ID. User can only be deleted if they have no active projects and pending invoices.
+
+`DELETE /back-office/api/v1/users/{userID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
 <h3 id='usermanagement-freeze-user'>Freeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

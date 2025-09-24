@@ -152,11 +152,13 @@ export class UserAccount {
     segmentLimit: number;
     freezeStatus: FreezeEventType | null;
     trialExpiration: Time | null;
+    hasUnpaidInvoices: boolean;
 }
 
 export class UserProject {
     id: UUID;
     name: string;
+    active: boolean;
     bandwidthLimit: number;
     bandwidthUsed: number;
     storageLimit: number;
@@ -268,6 +270,16 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async deleteUser(userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}`;
+        const response = await this.http.delete(fullPath);
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
