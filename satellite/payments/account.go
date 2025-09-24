@@ -97,6 +97,10 @@ type Accounts interface {
 	// if there is none defined for the project ID.
 	GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)
 
+	// GetPlacementProductMappings returns the placement to product ID mappings for a partner
+	// and the default mappings.
+	GetPlacementProductMappings(partner string) (partnerMap PlacementProductIdMap, defaultMap PlacementProductIdMap)
+
 	// GetPartnerNames returns the partners relevant to billing.
 	GetPartnerNames() []string
 

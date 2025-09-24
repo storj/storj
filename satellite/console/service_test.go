@@ -2383,11 +2383,22 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 			IdName: "placement10",
 		}
 		allowedPlacements = []storj.PlacementConstraint{storj.DefaultPlacement, placement}
+		partnersMapping   = entitlements.PlacementProductMappings{
+			storj.DefaultPlacement:        2,
+			storj.PlacementConstraint(12): 2,
+		}
+		defaultMapping = entitlements.PlacementProductMappings{
+			storj.DefaultPlacement:        1,
+			storj.PlacementConstraint(12): 2,
+		}
 	)
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");12:annotation("location", "archive")`,
+				}
 				config.Console.Placement.SelfServeEnabled = true
 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
 					storj.DefaultPlacement: {ID: 0},
@@ -2395,6 +2406,32 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 				})
 				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
 				config.Entitlements.Enabled = true
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					0: 1, 12: 2,
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+
+				var part1Map paymentsconfig.PlacementProductMap
+				part1Map.SetMap(map[int]int32{
+					0: 2,
+				})
+				partnersMap := make(map[string]paymentsconfig.PlacementProductMap)
+				partnersMap["part1"] = part1Map
+				config.Payments.PartnersPlacementPriceOverrides.SetMap(partnersMap)
+
+				price := paymentsconfig.ProjectUsagePrice{
+					StorageTB: "4",
+					EgressTB:  "7",
+					Segment:   "0.0000088",
+				}
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {ProjectUsagePrice: price},
+					2: {ProjectUsagePrice: price},
+				})
+				config.Payments.Products = productOverrides
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -2416,8 +2453,29 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 		feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
 		require.NoError(t, err)
 		require.NotNil(t, feats.NewBucketPlacements)
-		require.Nil(t, feats.PlacementProductMappings)
 		require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
+		require.NotNil(t, feats.PlacementProductMappings)
+		require.EqualValues(t, defaultMapping, feats.PlacementProductMappings)
+
+		user, err = sat.AddUser(ctx, console.CreateUser{
+			FullName:  "Test User2",
+			Email:     "example2@mail.test",
+			UserAgent: []byte("part1"),
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err = sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		p, err = service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test-project"})
+		require.NoError(t, err)
+
+		feats, err = sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+		require.NoError(t, err)
+		require.NotNil(t, feats.NewBucketPlacements)
+		require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
+		require.NotNil(t, feats.PlacementProductMappings)
+		require.EqualValues(t, partnersMapping, feats.PlacementProductMappings)
 	})
 }
 

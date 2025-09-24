@@ -3953,7 +3953,20 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 
 		if s.entitlementsConfig.Enabled {
 			// We have to use a direct DB call here because we are in a transaction.
-			feats := entitlements.ProjectFeatures{NewBucketPlacements: s.config.Placement.AllowedPlacementIdsForNewProjects}
+			partnerMap, defaultMap := s.accounts.GetPlacementProductMappings(string(newProject.UserAgent))
+			mapping := entitlements.PlacementProductMappings{}
+			for placement, productID := range partnerMap {
+				mapping[storj.PlacementConstraint(placement)] = productID
+			}
+			for placement, productID := range defaultMap {
+				if _, exists := mapping[storj.PlacementConstraint(placement)]; !exists {
+					mapping[storj.PlacementConstraint(placement)] = productID
+				}
+			}
+			feats := entitlements.ProjectFeatures{
+				NewBucketPlacements:      s.config.Placement.AllowedPlacementIdsForNewProjects,
+				PlacementProductMappings: mapping,
+			}
 			featBytes, err := json.Marshal(feats)
 			if err != nil {
 				return Error.Wrap(err)

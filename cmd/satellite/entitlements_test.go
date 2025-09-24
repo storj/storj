@@ -193,7 +193,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 			})
 		})
 
-		t.Run("DefaultPlacementLogic", func(t *testing.T) {
+		t.Run("DefaultsLogic", func(t *testing.T) {
 			args := processingArgs{
 				log:        zaptest.NewLogger(t),
 				satDB:      sat.DB,
@@ -218,7 +218,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				args.action = actionSetPlacementProductMap
 				args.placementProductMap = nil // Use default logic
 				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
-					"":           {1: 3},
+					"":           {1: 3, 2: 4},
 					"test-agent": {1: 4},
 				}
 
@@ -229,7 +229,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				features, err := entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
 				require.EqualValues(t, entitlements.PlacementProductMappings{
-					1: 3,
+					1: 3, 2: 4,
 				}, features.PlacementProductMappings)
 
 				// remove entitlements for user4's project
@@ -247,7 +247,7 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
 				require.EqualValues(t, entitlements.PlacementProductMappings{
-					1: 3,
+					1: 3, 2: 4,
 				}, features.PlacementProductMappings)
 
 				err = entService.Projects().DeleteByPublicID(ctx, user4Project.PublicID)
@@ -257,11 +257,12 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				err = processUserEmail(ctx, user4.Email, args, true)
 				require.NoError(t, err)
 
-				// verify that user4's project gets mapping for test-agent
+				// verify that user4's project gets mapping for test-agent with non-overridden
+				// placements added to the mapping
 				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
 				require.EqualValues(t, entitlements.PlacementProductMappings{
-					1: 4,
+					1: 4, 2: 4,
 				}, features.PlacementProductMappings)
 			})
 		})
@@ -371,7 +372,7 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 			require.True(t, entitlements.ErrNotFound.Has(err))
 		})
 
-		t.Run("ProcessAllUsersWithDefaultPlacementLogic", func(t *testing.T) {
+		t.Run("ProcessAllUsersWithDefaultsLogic", func(t *testing.T) {
 			// Reset entitlements first.
 			for _, publicID := range activeProjects {
 				err = entService.Projects().DeleteByPublicID(ctx, publicID)
@@ -404,30 +405,31 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 				args.action = actionSetPlacementProductMap
 				args.placementProductMap = nil // use default logic
 				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
-					"":           {1: 3},
+					"":           {1: 3, 2: 4},
 					"test-agent": {1: 4},
 				}
 
 				err = processAllUsers(ctx, args)
 				require.NoError(t, err)
 
-				// Verify that projects with no partner got {1:3} mapping.
+				// Verify that projects with no partner got {1:3, 2:4} mapping.
 				noPartnerProjects := []uuid.UUID{user2Project.PublicID, user2Project2.PublicID}
 				for _, publicID := range noPartnerProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
 					require.EqualValues(t, entitlements.PlacementProductMappings{
-						1: 3,
+						1: 3, 2: 4,
 					}, features.PlacementProductMappings)
 				}
 
-				// Verify that projects with "test-agent" partner got {1:4} mapping.
+				// Verify that projects with "test-agent" partner got {1:4} mapping
+				// with non-overridden placements added to the mapping {1:4, 2:4}
 				testAgentProjects := []uuid.UUID{user1Project.PublicID, user3Project.PublicID}
 				for _, publicID := range testAgentProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
 					require.EqualValues(t, entitlements.PlacementProductMappings{
-						1: 4,
+						1: 4, 2: 4,
 					}, features.PlacementProductMappings)
 				}
 			})

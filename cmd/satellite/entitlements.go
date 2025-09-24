@@ -250,13 +250,15 @@ func processProject(ctx context.Context, project console.Project, args processin
 			if project.UserAgent != nil {
 				partner = string(project.UserAgent)
 			}
-			mapping := args.defaultPartnerMap[partner]
-			if mapping == nil {
-				mapping = args.defaultPartnerMap[""] // fallback to default mapping
-			}
 			placementProductMap = entitlements.PlacementProductMappings{}
-			for placement, productID := range mapping {
+			for placement, productID := range args.defaultPartnerMap[partner] {
 				placementProductMap[storj.PlacementConstraint(placement)] = productID
+			}
+			// add mappings for default ("") partner that are missing in the specific partner mappings
+			for placement, productID := range args.defaultPartnerMap[""] {
+				if _, ok := placementProductMap[storj.PlacementConstraint(placement)]; !ok {
+					placementProductMap[storj.PlacementConstraint(placement)] = productID
+				}
 			}
 		}
 

@@ -709,6 +709,21 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, pro
 	}
 }
 
+// GetPlacementProductMappings returns the placement to product ID mappings for a partner
+// and the default mappings.
+func (accounts *accounts) GetPlacementProductMappings(partner string) (partnerMap payments.PlacementProductIdMap, defaultMap payments.PlacementProductIdMap) {
+	partnerMap = make(payments.PlacementProductIdMap)
+	for placement, productID := range accounts.service.pricingConfig.PartnerPlacementMap[partner] {
+		partnerMap[placement] = productID
+	}
+
+	defaultMap = make(payments.PlacementProductIdMap)
+	for placement, productID := range accounts.service.pricingConfig.PlacementProductMap {
+		defaultMap[placement] = productID
+	}
+	return partnerMap, defaultMap
+}
+
 // GetPartnerNames returns the partners relevant to billing.
 func (accounts *accounts) GetPartnerNames() []string {
 	return accounts.service.partnerNames
