@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -143,7 +144,7 @@ func TestPlacementConstraintArray(t *testing.T) {
 // database) and runs a test callback for each type of test database available.
 func withUniqueDB(t *testing.T, namePrefix string, cb func(ctx *testcontext.Context, t *testing.T, db *dbutil.TempDatabase)) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connStr string) {
-		db, err := tempdb.OpenUnique(ctx, connStr, namePrefix, nil)
+		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connStr, namePrefix, nil)
 		if err != nil {
 			t.Fatalf("encountered error: %v", err)
 		}

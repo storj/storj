@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/dbutil"
@@ -23,7 +24,7 @@ func TestTempCockroachDB(t *testing.T) {
 	defer ctx.Cleanup()
 
 	prefix := "name#spaced/Test/DB"
-	testDB, err := tempdb.OpenUnique(ctx, connstr, prefix, nil)
+	testDB, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, prefix, nil)
 	require.NoError(t, err)
 
 	require.Equal(t, "cockroach", testDB.Driver)

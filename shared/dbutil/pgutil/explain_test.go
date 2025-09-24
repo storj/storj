@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
@@ -18,7 +19,7 @@ import (
 
 func TestExplain(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "explain", nil)
+		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, "explain", nil)
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 

@@ -157,7 +157,7 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 	schema := SchemaName(name, category, index, schemaSuffix)
 
 	extraStatements := slices.Clone(dbInfo.ExtraStatements)
-	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema, extraStatements)
+	tempDB, err := tempdb.OpenUnique(ctx, log, dbInfo.URL, schema, extraStatements)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func CreateTempDB(ctx context.Context, log *zap.Logger, tcfg TempDBSchemaConfig,
 
 	schema := SchemaName(tcfg.Name, tcfg.Category, tcfg.Index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema, dbInfo.ExtraStatements)
+	tempDB, err := tempdb.OpenUnique(ctx, log, dbInfo.URL, schema, dbInfo.ExtraStatements)
 	if err != nil {
 		return nil, err
 	}

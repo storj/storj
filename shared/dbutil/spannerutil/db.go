@@ -14,6 +14,7 @@ import (
 	_ "github.com/googleapis/go-sql-spanner" // register the spanner driver
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
 	"storj.io/storj/shared/dbutil"
@@ -37,7 +38,7 @@ var rxInsertQuery = regexp.MustCompile(`(?i)^\s*insert\s+into\b`)
 // OpenUnique opens a spanner database with a temporary unique schema, which will be cleaned up
 // when closed. It is expected that this should normally be used by way of
 // "storj.io/storj/shared/dbutil/tempdb".OpenUnique() instead of calling it directly.
-func OpenUnique(ctx context.Context, connstr string, databasePrefix string, extraStatements []string) (*dbutil.TempDatabase, error) {
+func OpenUnique(ctx context.Context, log *zap.Logger, connstr string, databasePrefix string, extraStatements []string) (*dbutil.TempDatabase, error) {
 	// separate DDL and DML queries
 	// TODO(spanner): this only handles insert queries, which is sufficient for tests, but it's not a general solution.
 	insertStatements := []string{}

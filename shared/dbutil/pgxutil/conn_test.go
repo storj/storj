@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/dbutil/dbtest"
@@ -18,7 +19,7 @@ import (
 
 func TestConn(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "pgutil-query", nil)
+		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, "pgutil-query", nil)
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 

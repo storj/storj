@@ -40,7 +40,7 @@ import (
 const maxMigrationsToTest = 10
 
 // loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
-func loadSnapshots(ctx context.Context, connstr string, schema []string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
+func loadSnapshots(ctx context.Context, log *zap.Logger, connstr string, schema []string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
 	glob := "testdata/postgres.*"
@@ -88,7 +88,7 @@ func loadSnapshots(ctx context.Context, connstr string, schema []string, maxSnap
 				return errs.New("could not read testdata file for version %d: %v", version, err)
 			}
 
-			snapshot, err := loadSnapshotFromSQL(ctx, connstr, string(scriptData))
+			snapshot, err := loadSnapshotFromSQL(ctx, log.Named("snapshot"), connstr, string(scriptData))
 			if err != nil {
 				var pgErr *pgconn.PgError
 				if errors.As(err, &pgErr) {
@@ -105,7 +105,7 @@ func loadSnapshots(ctx context.Context, connstr string, schema []string, maxSnap
 	var dbschema *dbschema.Schema
 	group.Go(func() error {
 		var err error
-		dbschema, err = loadSchemaFromSQL(ctx, connstr, dbxscript)
+		dbschema, err = loadSchemaFromSQL(ctx, log.Named("schema"), connstr, dbxscript)
 		return err
 	})
 	if err := group.Wait(); err != nil {
@@ -134,8 +134,8 @@ func parseTestdataVersion(path string) int {
 }
 
 // loadSnapshotFromSQL inserts script into connstr and loads schema.
-func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbschema.Snapshot, err error) {
-	db, _, err := openUniqueDB(ctx, connstr, "load-schema")
+func loadSnapshotFromSQL(ctx context.Context, log *zap.Logger, connstr, script string) (_ *dbschema.Snapshot, err error) {
+	db, _, err := openUniqueDB(ctx, log, connstr, "load-schema")
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +169,8 @@ func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbsche
 }
 
 // loadSchemaFromSQL inserts script into connstr and loads schema.
-func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema.Schema, err error) {
-	db, _, err := openUniqueDB(ctx, connstr, "load-schema")
+func loadSchemaFromSQL(ctx context.Context, log *zap.Logger, connstr, script string) (_ *dbschema.Schema, err error) {
+	db, _, err := openUniqueDB(ctx, log, connstr, "load-schema")
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func migrateTest(t *testing.T, connStr string) {
 	log := zaptest.NewLogger(t)
 
 	// create tempDB
-	tempDB, tempConnStr, err := openUniqueDB(ctx, connStr, "migrate")
+	tempDB, tempConnStr, err := openUniqueDB(ctx, log, connStr, "migrate")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
@@ -231,7 +231,7 @@ func migrateTest(t *testing.T, connStr string) {
 	}
 
 	loadingStart := time.Now()
-	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, db.Testing().Schema(), maxMigrationsToTest)
+	snapshots, dbxschema, err := loadSnapshots(ctx, log.Named("load"), connStr, db.Testing().Schema(), maxMigrationsToTest)
 	require.NoError(t, err)
 	t.Logf("snapshot loading %v", time.Since(loadingStart))
 
@@ -331,7 +331,7 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, connStr string,
 	// create tempDB
 	log := zaptest.NewLogger(t)
 
-	tempDB, tempConnStr, err := openUniqueDB(ctx, connStr, "migrate")
+	tempDB, tempConnStr, err := openUniqueDB(ctx, log, connStr, "migrate")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
@@ -378,7 +378,7 @@ func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 			log := zap.NewNop()
 
 			// create tempDB
-			tempDB, tempConnStr, err := openUniqueDB(ctx, connStr, "migrate")
+			tempDB, tempConnStr, err := openUniqueDB(ctx, log, connStr, "migrate")
 			require.NoError(b, err)
 			defer func() { require.NoError(b, tempDB.Close()) }()
 
@@ -419,8 +419,8 @@ func queryData(ctx context.Context, db tagsql.DB, schema *dbschema.Schema) (*dbs
 	return pgutil.QueryData(ctx, db, schema)
 }
 
-func openUniqueDB(ctx context.Context, connStr string, name string) (db tagsql.DB, tempConnstr string, err error) {
-	tempDB, err := tempdb.OpenUnique(ctx, connStr, name, nil)
+func openUniqueDB(ctx context.Context, log *zap.Logger, connStr string, name string) (db tagsql.DB, tempConnstr string, err error) {
+	tempDB, err := tempdb.OpenUnique(ctx, log, connStr, name, nil)
 	if err != nil {
 		return nil, "", err
 	}

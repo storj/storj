@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
@@ -24,7 +25,7 @@ func TestQueryRetry(t *testing.T) {
 	// this will t.Skip() if no spanner database is configured via test settings
 	connURL := dbtest.PickSpanner(t)
 	ctx := testcontext.New(t)
-	db, err := tempdb.OpenUnique(ctx, connURL, "testqueryretry", nil)
+	db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connURL, "testqueryretry", nil)
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/migrate"
@@ -47,7 +48,7 @@ func TestBasicMigrationSqlite(t *testing.T) {
 
 func TestBasicMigration(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, connstr, "create-", nil)
+		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, "create-", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +63,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
 	/* #nosec G306 */ // This is a test besides the file contains just test data.
-	err := os.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
+	err := os.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0o644)
 	require.NoError(t, err)
 	m := migrate.Migration{
 		Table: dbName,

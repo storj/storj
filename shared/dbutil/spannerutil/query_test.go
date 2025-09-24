@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/dbutil/dbschema"
 	"storj.io/storj/shared/dbutil/dbtest"
 )
 
-var (
-	dbSetup = `
+var dbSetup = `
 		CREATE TABLE speakers (
 			id INT64 NOT NULL,
 			name STRING(MAX) NOT NULL,
@@ -55,13 +55,12 @@ var (
 			FOREIGN KEY (added_at) REFERENCES languages(added_at)
 		) PRIMARY KEY (added_at, event, admin);
 	`
-)
 
 func TestQuerySchema(t *testing.T) {
 	ctx := testcontext.New(t)
 
 	connstr := dbtest.PickSpanner(t)
-	db, err := OpenUnique(ctx, connstr, t.Name(), MustSplitSQLStatements(dbSetup))
+	db, err := OpenUnique(ctx, zaptest.NewLogger(t), connstr, t.Name(), MustSplitSQLStatements(dbSetup))
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 

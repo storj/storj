@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/cockroachutil"
@@ -17,7 +18,7 @@ import (
 
 // OpenUnique opens a temporary, uniquely named database (or isolated database schema)
 // for scratch work. When closed, this database or schema will be cleaned up and destroyed.
-func OpenUnique(ctx context.Context, connURL string, namePrefix string, spannerExtraStatements []string) (*dbutil.TempDatabase, error) {
+func OpenUnique(ctx context.Context, log *zap.Logger, connURL string, namePrefix string, spannerExtraStatements []string) (*dbutil.TempDatabase, error) {
 	if strings.HasPrefix(connURL, "postgres://") || strings.HasPrefix(connURL, "postgresql://") {
 		return pgutil.OpenUnique(ctx, connURL, namePrefix)
 	}
@@ -25,7 +26,7 @@ func OpenUnique(ctx context.Context, connURL string, namePrefix string, spannerE
 		return cockroachutil.OpenUnique(ctx, connURL, namePrefix)
 	}
 	if strings.HasPrefix(connURL, "spanner://") {
-		return spannerutil.OpenUnique(ctx, connURL, namePrefix, spannerExtraStatements)
+		return spannerutil.OpenUnique(ctx, log, connURL, namePrefix, spannerExtraStatements)
 	}
 	return nil, errs.New("OpenUnique does not yet support the db type for %q", connURL)
 }
