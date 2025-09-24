@@ -257,6 +257,28 @@ func (accounts *accounts) ChangeEmail(ctx context.Context, userID uuid.UUID, ema
 	return nil
 }
 
+// ChangeCustomerEmail changes a customer's email address given the customer ID. This is meant for use
+// for methods that run in a transaction to avoid ChangeEmail's non-tx DB lookup. Callers are expected
+// to have retrieved customer ID from DB already.
+func (accounts *accounts) ChangeCustomerEmail(ctx context.Context, userID uuid.UUID, cusID, email string) (err error) {
+	defer mon.Task()(&ctx, userID, email)(&err)
+
+	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+		Email:  stripe.String(email),
+	}
+	_, err = accounts.service.stripeClient.Customers().Update(cusID, params)
+	if err != nil {
+		stripeErr := &stripe.Error{}
+		if errors.As(err, &stripeErr) {
+			err = errs.Wrap(errors.New(stripeErr.Msg))
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // SaveBillingAddress saves billing address for a user and returns the updated billing information.
 func (accounts *accounts) SaveBillingAddress(ctx context.Context, userID uuid.UUID, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)

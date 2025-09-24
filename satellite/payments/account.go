@@ -73,6 +73,11 @@ type Accounts interface {
 	// ChangeEmail changes a customer's email address.
 	ChangeEmail(ctx context.Context, userID uuid.UUID, email string) error
 
+	// ChangeCustomerEmail changes a customer's email address given the customer ID. This is meant for use
+	// for methods that run in a transaction to avoid ChangeEmail's non-tx DB lookup. Callers are expected
+	// to have retrieved customer ID from DB already.
+	ChangeCustomerEmail(ctx context.Context, userID uuid.UUID, cusID, email string) (err error)
+
 	// GetPackageInfo returns the package plan and time of purchase for a user.
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
 

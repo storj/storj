@@ -75,6 +75,8 @@ type Users interface {
 	GetUpgradeTime(ctx context.Context, userID uuid.UUID) (*time.Time, error)
 	// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
 	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
+	// GetCustomerID returns the customer ID for a given user ID.
+	GetCustomerID(ctx context.Context, id uuid.UUID) (_ string, err error)
 	// SetStatusPendingDeletion set the user to pending deletion status safely to potentially reduce
 	// mistakes the data deletion process of valid accounts. The method must automatically verify:
 	//

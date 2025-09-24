@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -263,6 +264,7 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 
 // UpdateUser updates a user's information.
 // Limit updates will cascade to all projects owned by the user.
+// Email updates will also update the email in the payment and analytics systems.
 func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -342,9 +344,8 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 	}
 
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
-		projectsDB := tx.Projects()
-
-		err = tx.Users().Update(ctx, userID, console.UpdateUserRequest{
+		usersDB := tx.Users()
+		err = usersDB.Update(ctx, userID, console.UpdateUserRequest{
 			Email:                 request.Email,
 			FullName:              request.Name,
 			Kind:                  request.Kind,
@@ -361,10 +362,25 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 			return err
 		}
 
+		if request.Email != nil && *request.Email != user.Email {
+			// update email in analytics and payment system
+			s.analytics.ChangeContactEmail(user.ID, user.Email, *request.Email)
+			cusID, err := usersDB.GetCustomerID(ctx, user.ID)
+			if err != nil {
+				return err
+			}
+
+			if err = s.payments.ChangeCustomerEmail(ctx, user.ID, cusID, *request.Email); err != nil {
+				s.log.Error("Failed to update customer email on stripe", zap.Stringer("userId", user.ID), zap.Error(err))
+				return err
+			}
+		}
+
 		if request.StorageLimit == nil && request.BandwidthLimit == nil && request.SegmentLimit == nil {
 			return nil
 		}
 
+		projectsDB := tx.Projects()
 		projects, err := projectsDB.GetOwn(ctx, userID)
 		if err != nil {
 			return err

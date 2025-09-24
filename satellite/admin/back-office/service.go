@@ -9,8 +9,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/payments"
 )
 
 // Defaults contains default values for limits which are not stored in the DB.
@@ -30,6 +32,8 @@ type Service struct {
 
 	accountFreeze *console.AccountFreezeService
 	accounting    *accounting.Service
+	analytics     *analytics.Service
+	payments      payments.Accounts
 
 	placement nodeselection.PlacementDefinitions
 	defaults  Defaults
@@ -47,6 +51,8 @@ func NewService(
 	accounting *accounting.Service,
 	authorizer *Authorizer,
 	accountFreeze *console.AccountFreezeService,
+	analytics *analytics.Service,
+	payments payments.Accounts,
 	placement nodeselection.PlacementDefinitions,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
@@ -56,10 +62,12 @@ func NewService(
 	return &Service{
 		log:           log,
 		consoleDB:     consoleDB,
+		analytics:     analytics,
 		accountingDB:  accountingDB,
 		accounting:    accounting,
 		accountFreeze: accountFreeze,
 		authorizer:    authorizer,
+		payments:      payments,
 		placement:     placement,
 		defaults: Defaults{
 			MaxBuckets: defaultMaxBuckets,

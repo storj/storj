@@ -768,6 +768,17 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	return err
 }
 
+// GetCustomerID returns the customer ID for a given user ID.
+func (users *users) GetCustomerID(ctx context.Context, id uuid.UUID) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	idRow, err := users.db.Get_StripeCustomer_CustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(id[:]))
+	if err != nil {
+		return "", err
+	}
+
+	return idRow.CustomerId, nil
+}
+
 // SetStatusPendingDeletion set the user to "pending deletion" status safely. It is implemented as
 // documented in the corresponding Users interface method that implements.
 func (users *users) SetStatusPendingDeletion(
