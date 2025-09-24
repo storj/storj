@@ -139,8 +139,8 @@
 
                             <v-list-item link rounded="lg">
                                 <!-- <template v-slot:prepend>
-                        <img src="@/assets/icon-check-color.svg" alt="Selected Project">
-                        </template> -->
+        <img src="@/assets/icon-check-color.svg" alt="Selected Project">
+        </template> -->
                                 <v-list-item-title class="text-body-2 ml-7">
                                     Europe (EU1)
                                 </v-list-item-title>
@@ -148,8 +148,8 @@
 
                             <v-list-item link rounded="lg">
                                 <!-- <template v-slot:prepend>
-                        <img src="@/assets/icon-check-color.svg" alt="Selected Project">
-                        </template> -->
+        <img src="@/assets/icon-check-color.svg" alt="Selected Project">
+        </template> -->
                                 <v-list-item-title class="text-body-2 ml-7">
                                     Asia-Pacific (AP1)
                                 </v-list-item-title>

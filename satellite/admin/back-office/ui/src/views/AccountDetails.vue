@@ -37,6 +37,7 @@
                         :user="userAccount"
                         @update="updateAccountDialogEnabled = true"
                         @update-limits="updateLimitsDialogEnabled = true"
+                        @delete="deleteAccountDialogEnabled = true"
                         @toggle-freeze="toggleFreeze"
                     />
                 </v-btn>
@@ -75,6 +76,7 @@
                                 :user="userAccount"
                                 @update="updateAccountDialogEnabled = true"
                                 @update-limits="updateLimitsDialogEnabled = true"
+                                @delete="deleteAccountDialogEnabled = true"
                                 @toggle-freeze="toggleFreeze"
                             />
                         </v-btn>
@@ -217,6 +219,7 @@
     <AccountFreezeDialog v-if="userAccount" v-model="freezeDialogEnabled" :account="userAccount" />
     <AccountUpdateDialog v-if="userAccount" v-model="updateAccountDialogEnabled" :account="userAccount" />
     <AccountUpdateLimitsDialog v-if="userAccount" v-model="updateLimitsDialogEnabled" :account="userAccount" />
+    <AccountDeleteDialog v-if="userAccount" v-model="deleteAccountDialogEnabled" :account="userAccount" />
 </template>
 
 <script setup lang="ts">
@@ -257,6 +260,7 @@ import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import AccountFreezeDialog from '@/components/AccountFreezeDialog.vue';
 import AccountUpdateDialog from '@/components/AccountUpdateDialog.vue';
 import AccountUpdateLimitsDialog from '@/components/AccountUpdateLimitsDialog.vue';
+import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -272,6 +276,7 @@ const unfreezing = ref<boolean>(false);
 const freezeDialogEnabled = ref<boolean>(false);
 const updateAccountDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
+const deleteAccountDialogEnabled = ref<boolean>(false);
 
 const statusColor = computed(() => {
     if (!userAccount.value) {

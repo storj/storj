@@ -35,13 +35,16 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     // Update the current user stored in the state.
-    async function updateCurrentUser(user: string | UserAccount): Promise<UserAccount> {
+    async function updateCurrentUser(user: string | UserAccount): Promise<void> {
         if (typeof user === 'string') {
             state.currentAccount = await getUser(user);
-            return state.currentAccount;
+            return;
         }
         state.currentAccount = user;
-        return state.currentAccount;
+    }
+
+    function clearCurrentUser(): void {
+        state.currentAccount = null;
     }
 
     async function getAccountFreezeTypes(): Promise<void> {
@@ -77,15 +80,21 @@ export const useUsersStore = defineStore('users', () => {
         return await userApi.updateUser(request, userID);
     }
 
+    async function deleteUser(userID: string): Promise<void> {
+        await userApi.deleteUser(userID);
+    }
+
     return {
         state,
         getUserByEmail,
         updateCurrentUser,
+        clearCurrentUser,
         getAccountFreezeTypes,
         freezeUser,
         unfreezeUser,
         getUserKinds,
         getUserStatuses,
         updateUser,
+        deleteUser,
     };
 });
