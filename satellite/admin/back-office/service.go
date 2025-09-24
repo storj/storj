@@ -4,6 +4,8 @@
 package admin
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/satellite/accounting"
@@ -19,15 +21,22 @@ type Defaults struct {
 
 // Service provides functionality for administrating satellites.
 type Service struct {
-	log           *zap.Logger
-	consoleDB     console.DB
-	accountFreeze *console.AccountFreezeService
-	accountingDB  accounting.ProjectAccounting
-	accounting    *accounting.Service
-	placement     nodeselection.PlacementDefinitions
-	defaults      Defaults
+	log *zap.Logger
 
 	authorizer *Authorizer
+
+	accountingDB accounting.ProjectAccounting
+	consoleDB    console.DB
+
+	accountFreeze *console.AccountFreezeService
+	accounting    *accounting.Service
+
+	placement nodeselection.PlacementDefinitions
+	defaults  Defaults
+
+	consoleConfig console.Config
+
+	nowFn func() time.Time
 }
 
 // NewService creates a new satellite administration service.
@@ -41,6 +50,8 @@ func NewService(
 	placement nodeselection.PlacementDefinitions,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
+	consoleConfig console.Config,
+	nowFn func() time.Time,
 ) *Service {
 	return &Service{
 		log:           log,
@@ -54,6 +65,8 @@ func NewService(
 			MaxBuckets: defaultMaxBuckets,
 			RateLimit:  int(defaultRateLimit),
 		},
+		consoleConfig: consoleConfig,
+		nowFn:         nowFn,
 	}
 }
 
@@ -65,4 +78,9 @@ func (s *Service) TestSetBypassAuth(bypass bool) {
 // TestSetAllowedHost sets the allowed host for oauth. This is only for testing purposes.
 func (s *Service) TestSetAllowedHost(host string) {
 	s.authorizer.allowedHost = host
+}
+
+// TestSetNowFn sets the function to get the current time. This is only for testing purposes.
+func (s *Service) TestSetNowFn(nowFn func() time.Time) {
+	s.nowFn = nowFn
 }

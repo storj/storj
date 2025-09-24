@@ -40,21 +40,23 @@ type FeatureFlags struct {
 
 // AccountFlags are the feature flags related to user's accounts.
 type AccountFlags struct {
-	Create                 bool `json:"create"`
-	Delete                 bool `json:"delete"`
-	History                bool `json:"history"`
-	List                   bool `json:"list"`
-	Projects               bool `json:"projects"`
-	Search                 bool `json:"search"`
-	Suspend                bool `json:"suspend"`
-	Unsuspend              bool `json:"unsuspend"`
-	ResetMFA               bool `json:"resetMFA"`
-	UpdateInfo             bool `json:"updateInfo"`
-	UpdateLimits           bool `json:"updateLimits"`
-	UpdatePlacement        bool `json:"updatePlacement"`
-	UpdateStatus           bool `json:"updateStatus"`
-	UpdateValueAttribution bool `json:"updateValueAttribution"`
-	View                   bool `json:"view"`
+	Create          bool `json:"create"`
+	Delete          bool `json:"delete"`
+	History         bool `json:"history"`
+	List            bool `json:"list"`
+	Projects        bool `json:"projects"`
+	Search          bool `json:"search"`
+	Suspend         bool `json:"suspend"`
+	Unsuspend       bool `json:"unsuspend"`
+	ResetMFA        bool `json:"resetMFA"`
+	UpdateLimits    bool `json:"updateLimits"`
+	UpdatePlacement bool `json:"updatePlacement"`
+	UpdateStatus    bool `json:"updateStatus"`
+	UpdateEmail     bool `json:"updateEmail"`
+	UpdateKind      bool `json:"updateKind"`
+	UpdateName      bool `json:"updateName"`
+	UpdateUserAgent bool `json:"updateUserAgent"`
+	View            bool `json:"view"`
 }
 
 // ProjectFlags are the feature flags related to projects.
@@ -95,11 +97,29 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 			settings.Admin.Features.Account.Search = true
 			settings.Admin.Features.Account.Projects = true
 		}
-		if s.authorizer.HasPermissions(g, PermAccountSuspendTemporary) || s.authorizer.HasPermissions(g, PermAccountSuspendPermanently) {
+		if s.authorizer.HasPermissions(g, PermAccountSuspendTemporary, PermAccountSuspendPermanently) {
 			settings.Admin.Features.Account.Suspend = true
 		}
-		if s.authorizer.HasPermissions(g, PermAccountReActivateTemporary) || s.authorizer.HasPermissions(g, PermAccountReActivatePermanently) {
+		if s.authorizer.HasPermissions(g, PermAccountReActivateTemporary, PermAccountReActivatePermanently) {
 			settings.Admin.Features.Account.Unsuspend = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeName) {
+			settings.Admin.Features.Account.UpdateName = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeKind) {
+			settings.Admin.Features.Account.UpdateKind = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountSetUserAgent) {
+			settings.Admin.Features.Account.UpdateUserAgent = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeStatus) {
+			settings.Admin.Features.Account.UpdateStatus = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeLimits) {
+			settings.Admin.Features.Account.UpdateLimits = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeEmail) {
+			settings.Admin.Features.Account.UpdateEmail = true
 		}
 
 		// project permission features

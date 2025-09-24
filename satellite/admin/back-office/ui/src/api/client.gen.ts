@@ -14,11 +14,13 @@ export class AccountFlags {
     suspend: boolean;
     unsuspend: boolean;
     resetMFA: boolean;
-    updateInfo: boolean;
     updateLimits: boolean;
     updatePlacement: boolean;
     updateStatus: boolean;
-    updateValueAttribution: boolean;
+    updateEmail: boolean;
+    updateKind: boolean;
+    updateName: boolean;
+    updateUserAgent: boolean;
     view: boolean;
 }
 
@@ -112,6 +114,19 @@ export class Settings {
 
 export class SettingsAdmin {
     features: FeatureFlags;
+}
+
+export class UpdateUserRequest {
+    email: string | null;
+    name: string | null;
+    kind: number | null;
+    status: number | null;
+    trialExpiration: Time | null;
+    userAgent: string | null;
+    projectLimit: number | null;
+    storageLimit: number | null;
+    bandwidthLimit: number | null;
+    segmentLimit: number | null;
 }
 
 export class User {
@@ -241,6 +256,16 @@ export class UserManagementHttpApiV1 {
     public async getUser(userID: UUID): Promise<UserAccount> {
         const fullPath = `${this.ROOT_PATH}/${userID}`;
         const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateUser(request: UpdateUserRequest, userID: UUID): Promise<UserAccount> {
+        const fullPath = `${this.ROOT_PATH}/${userID}`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);
         }

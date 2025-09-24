@@ -14,6 +14,7 @@
   * [Get user statuses](#usermanagement-get-user-statuses)
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
+  * [Update user](#usermanagement-update-user)
   * [Freeze User](#usermanagement-freeze-user)
   * [Unfreeze User](#usermanagement-unfreeze-user)
 * ProjectManagement
@@ -42,11 +43,13 @@ Gets the settings of the service and relevant Storj services settings
 				suspend: boolean
 				unsuspend: boolean
 				resetMFA: boolean
-				updateInfo: boolean
 				updateLimits: boolean
 				updatePlacement: boolean
 				updateStatus: boolean
-				updateValueAttribution: boolean
+				updateEmail: boolean
+				updateKind: boolean
+				updateName: boolean
+				updateUserAgent: boolean
 				view: boolean
 			}
 
@@ -234,6 +237,82 @@ Gets user by ID
 | name | type | elaboration |
 |---|---|---|
 | `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	fullName: string
+	email: string
+	kind: 	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	status: 	{
+		name: string
+		value: number
+	}
+
+	userAgent: string
+	defaultPlacement: number
+	projects: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			name: string
+			bandwidthLimit: number
+			bandwidthUsed: number
+			storageLimit: number
+			storageUsed: number
+			segmentLimit: number
+			segmentUsed: number
+		}
+
+	]
+
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	freezeStatus: unknown
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+}
+
+```
+
+<h3 id='usermanagement-update-user'>Update user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates user info by ID. Limit updates will cascade to all projects of the user.Updating user kind to NFR or Paid without providing limits will set the limits to kind defaults.
+
+`PATCH /back-office/api/v1/users/{userID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	email: string
+	name: string
+	kind: number
+	status: number
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	userAgent: string
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+}
+
+```
 
 **Response body:**
 

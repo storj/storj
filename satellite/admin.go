@@ -307,6 +307,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			placement,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,
+			config.Console.Config,
+			time.Now,
 		)
 
 		adminConfig := config.Admin

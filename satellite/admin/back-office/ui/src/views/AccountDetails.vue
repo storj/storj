@@ -77,7 +77,7 @@
                             </template>
                             {{ userAccount.freezeStatus?.name }}
                         </v-chip>
-                        <template v-if="featureFlags.account.updateInfo">
+                        <template v-if="featureFlags.account.updateName">
                             <v-divider class="my-4" />
                             <v-btn variant="outlined" size="small" color="default">
                                 Edit Account Information
@@ -112,7 +112,7 @@
                         <v-chip :variant="userAccount.userAgent ? 'tonal' : 'text'" class="mr-2">
                             {{ userAccount.userAgent || 'None' }}
                         </v-chip>
-                        <template v-if="featureFlags.account.updateValueAttribution">
+                        <template v-if="featureFlags.account.updateUserAgent">
                             <v-divider class="my-4" />
                             <v-btn variant="outlined" size="small" color="default">
                                 Set Value Attribution

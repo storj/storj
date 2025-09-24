@@ -18,6 +18,9 @@ import (
 const (
 	PermAccountView Permission = 1 << iota
 	PermAccountChangeEmail
+	PermAccountChangeName
+	PermAccountChangeKind
+	PermAccountChangeStatus
 	PermAccountDisableMFA
 	PermAccountChangeLimits
 	PermAccountSetDataPlacement
@@ -46,6 +49,7 @@ const (
 const (
 	RoleAdmin = Authorization(
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
+			PermAccountChangeName | PermAccountChangeKind | PermAccountChangeStatus |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
 			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountSuspendPermanently |
 			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData |

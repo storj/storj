@@ -10,10 +10,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
 // User holds the user's information.
@@ -39,6 +42,20 @@ type UserAccount struct {
 	SegmentLimit     int64                     `json:"segmentLimit"`
 	FreezeStatus     *FreezeEventType          `json:"freezeStatus"`
 	TrialExpiration  *time.Time                `json:"trialExpiration"`
+}
+
+// UpdateUserRequest represents a request to update a user.
+type UpdateUserRequest struct {
+	Email           *string             `json:"email"`
+	Name            *string             `json:"name"`
+	Kind            *console.UserKind   `json:"kind"`
+	Status          *console.UserStatus `json:"status"`
+	TrialExpiration *time.Time          `json:"trialExpiration"`
+	UserAgent       *string             `json:"userAgent"`
+	ProjectLimit    *int                `json:"projectLimit"`
+	StorageLimit    *int64              `json:"storageLimit"`
+	BandwidthLimit  *int64              `json:"bandwidthLimit"`
+	SegmentLimit    *int64              `json:"segmentLimit"`
 }
 
 // UserProject is project owned by a user with  basic information, usage, and limits.
@@ -242,4 +259,265 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 	}
 
 	return usageLimits, freezeStatus, api.HTTPError{}
+}
+
+// UpdateUser updates a user's information.
+// Limit updates will cascade to all projects owned by the user.
+func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		e := Error.Wrap(err)
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			e = Error.New("user not found")
+		}
+		return nil, api.HTTPError{Status: status, Err: e}
+	}
+
+	apiErr := s.validateUpdateRequest(ctx, authInfo, user, request)
+	if apiErr.Err != nil {
+		return nil, apiErr
+	}
+
+	var userAgent []byte
+	if request.UserAgent != nil {
+		userAgent = []byte(*request.UserAgent)
+	}
+
+	var upgradeTime *time.Time
+	trialExpiration := new(*time.Time)
+	*trialExpiration = request.TrialExpiration
+	if request.Kind != nil && *request.Kind != user.Kind {
+		now := s.nowFn()
+		if *request.Kind == console.PaidUser {
+			upgradeTime = &now
+			*trialExpiration = nil
+		}
+		if *request.Kind == console.FreeUser {
+			if request.TrialExpiration == nil {
+				if s.consoleConfig.FreeTrialDuration != 0 {
+					expiration := now.Add(s.consoleConfig.FreeTrialDuration)
+					*trialExpiration = &expiration
+				}
+			}
+		} else {
+			ptrInt := func(i int64) *int64 { return &i }
+			limits := map[string]map[console.UserKind]any{
+				"project": {
+					console.PaidUser: &s.consoleConfig.UsageLimits.Project.Paid,
+					console.NFRUser:  &s.consoleConfig.UsageLimits.Project.Nfr,
+				},
+				"storage": {
+					console.PaidUser: ptrInt(s.consoleConfig.UsageLimits.Storage.Paid.Int64()),
+					console.NFRUser:  ptrInt(s.consoleConfig.UsageLimits.Storage.Nfr.Int64()),
+				},
+				"bandwidth": {
+					console.PaidUser: ptrInt(s.consoleConfig.UsageLimits.Bandwidth.Paid.Int64()),
+					console.NFRUser:  ptrInt(s.consoleConfig.UsageLimits.Bandwidth.Nfr.Int64()),
+				},
+				"segment": {
+					console.PaidUser: &s.consoleConfig.UsageLimits.Segment.Paid,
+					console.NFRUser:  &s.consoleConfig.UsageLimits.Segment.Nfr,
+				},
+			}
+
+			// admin set limits take precedence over kind defaults
+			if request.ProjectLimit == nil {
+				request.ProjectLimit = limits["project"][*request.Kind].(*int)
+			}
+			if request.StorageLimit == nil {
+				request.StorageLimit = limits["storage"][*request.Kind].(*int64)
+			}
+			if request.BandwidthLimit == nil {
+				request.BandwidthLimit = limits["bandwidth"][*request.Kind].(*int64)
+			}
+			if request.SegmentLimit == nil {
+				request.SegmentLimit = limits["segment"][*request.Kind].(*int64)
+			}
+		}
+	}
+
+	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		projectsDB := tx.Projects()
+
+		err = tx.Users().Update(ctx, userID, console.UpdateUserRequest{
+			Email:                 request.Email,
+			FullName:              request.Name,
+			Kind:                  request.Kind,
+			UpgradeTime:           upgradeTime,
+			TrialExpiration:       trialExpiration,
+			Status:                request.Status,
+			UserAgent:             userAgent,
+			ProjectLimit:          request.ProjectLimit,
+			ProjectStorageLimit:   request.StorageLimit,
+			ProjectBandwidthLimit: request.BandwidthLimit,
+			ProjectSegmentLimit:   request.SegmentLimit,
+		})
+		if err != nil {
+			return err
+		}
+
+		if request.StorageLimit == nil && request.BandwidthLimit == nil && request.SegmentLimit == nil {
+			return nil
+		}
+
+		projects, err := projectsDB.GetOwn(ctx, userID)
+		if err != nil {
+			return err
+		}
+		for _, p := range projects {
+			var toUpdate []console.Limit
+			if request.StorageLimit != nil {
+				toUpdate = append(toUpdate, console.Limit{
+					Kind: console.StorageLimit, Value: request.StorageLimit,
+				})
+			}
+			if request.BandwidthLimit != nil {
+				toUpdate = append(toUpdate, console.Limit{
+					Kind: console.BandwidthLimit, Value: request.BandwidthLimit,
+				})
+			}
+			if request.SegmentLimit != nil {
+				toUpdate = append(toUpdate, console.Limit{
+					Kind: console.SegmentLimit, Value: request.SegmentLimit,
+				})
+			}
+			if err = projectsDB.UpdateLimitsGeneric(ctx, p.ID, toUpdate); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return s.GetUser(ctx, userID)
+}
+
+func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo, user *console.User, request UpdateUserRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) api.HTTPError {
+		return api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	if authInfo == nil || len(authInfo.Groups) == 0 {
+		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	}
+
+	groups := authInfo.Groups
+	hasPerm := func(perm Permission) bool {
+		for _, g := range groups {
+			if s.authorizer.HasPermissions(g, perm) {
+				return true
+			}
+		}
+		return false
+	}
+
+	valid := false
+	var errGroup errs.Group
+	if request.Status != nil {
+		if !hasPerm(PermAccountChangeStatus) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change user status"))
+		}
+		for _, us := range console.UserStatuses {
+			if *request.Status == us {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			errGroup = append(errGroup, errs.New("invalid user status %d", *request.Status))
+		}
+	}
+
+	if request.Kind != nil {
+		if !hasPerm(PermAccountChangeKind) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change user kind"))
+		}
+		for _, k := range console.UserKinds {
+			if *request.Kind == k {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			errGroup = append(errGroup, errs.New("invalid user kind %d", *request.Kind))
+		}
+	}
+	if request.TrialExpiration != nil {
+		if !hasPerm(PermAccountChangeKind) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change trial expiration"))
+		}
+		if request.TrialExpiration.Before(s.nowFn()) {
+			errGroup = append(errGroup, errs.New("trial expiration must be in the future"))
+		}
+		if request.Kind != nil && *request.Kind != console.FreeUser {
+			errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
+		} else if request.Kind == nil && user.Kind != console.FreeUser {
+			errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
+		}
+	}
+
+	if request.Name != nil {
+		if !hasPerm(PermAccountChangeName) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change user name"))
+		}
+		if *request.Name == "" {
+			errGroup = append(errGroup, errs.New("name cannot be empty"))
+		}
+	}
+
+	if request.UserAgent != nil && !hasPerm(PermAccountSetUserAgent) {
+		return apiError(http.StatusForbidden, errs.New("not authorized to set user agent"))
+	}
+
+	if request.ProjectLimit != nil || request.StorageLimit != nil || request.BandwidthLimit != nil || request.SegmentLimit != nil {
+		if !hasPerm(PermAccountChangeLimits) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change user limits"))
+		}
+		if request.ProjectLimit != nil && *request.ProjectLimit < 0 {
+			errGroup = append(errGroup, errs.New("project limit cannot be negative"))
+		}
+		if request.StorageLimit != nil && *request.StorageLimit < 0 {
+			errGroup = append(errGroup, errs.New("storage limit cannot be negative"))
+		}
+		if request.BandwidthLimit != nil && *request.BandwidthLimit < 0 {
+			errGroup = append(errGroup, errs.New("bandwidth limit cannot be negative"))
+		}
+		if request.SegmentLimit != nil && *request.SegmentLimit < 0 {
+			errGroup = append(errGroup, errs.New("segment limit cannot be negative"))
+		}
+	}
+	if errGroup != nil {
+		return apiError(http.StatusBadRequest, errGroup.Err())
+	}
+
+	if request.Email != nil && *request.Email != user.Email {
+		if !utils.ValidateEmail(*request.Email) {
+			return apiError(http.StatusBadRequest, errs.New("invalid email format"))
+		}
+		existing, err := s.consoleDB.Users().GetByEmail(ctx, *request.Email)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return apiError(http.StatusInternalServerError, err)
+		}
+		if existing != nil {
+			return apiError(http.StatusConflict, errs.New("email %q is already in use", *request.Email))
+		}
+	}
+
+	return api.HTTPError{}
 }

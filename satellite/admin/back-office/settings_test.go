@@ -35,11 +35,17 @@ func TestGetSettings(t *testing.T) {
 			Admin: backoffice.SettingsAdmin{
 				Features: backoffice.FeatureFlags{
 					Account: backoffice.AccountFlags{
-						View:      true,
-						Search:    true,
-						Projects:  true,
-						Suspend:   true,
-						Unsuspend: true,
+						View:            true,
+						Search:          true,
+						Projects:        true,
+						Suspend:         true,
+						Unsuspend:       true,
+						UpdateKind:      true,
+						UpdateName:      true,
+						UpdateEmail:     true,
+						UpdateStatus:    true,
+						UpdateLimits:    true,
+						UpdateUserAgent: true,
 					},
 					Project: backoffice.ProjectFlags{
 						View:         true,

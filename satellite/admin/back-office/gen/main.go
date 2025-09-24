@@ -119,6 +119,25 @@ func main() {
 		},
 	})
 
+	group.Patch("/{userID}", &apigen.Endpoint{
+		Name: "Update user",
+		Description: "Updates user info by ID. Limit updates will cascade to all projects of the user." +
+			"Updating user kind to NFR or Paid without providing limits will set the limits to kind defaults.",
+		GoName:         "UpdateUser",
+		TypeScriptName: "updateUser",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request:  backoffice.UpdateUserRequest{},
+		Response: backoffice.UserAccount{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{
+				/* permissions are validated dynamically in UpdateUser */
+			},
+			passAuthParamKey: true,
+		},
+	})
+
 	group.Post("/{userID}/freeze-events", &apigen.Endpoint{
 		Name:           "Freeze User",
 		Description:    "Freeze a user account",

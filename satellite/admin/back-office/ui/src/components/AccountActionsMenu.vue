@@ -10,9 +10,9 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-divider v-if="featureFlags.account.updateInfo || featureFlags.account.updateStatus || featureFlags.account.updateValueAttribution || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
+            <v-divider v-if="featureFlags.account.updateName || featureFlags.account.updateStatus || featureFlags.account.updateUserAgent || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
 
-            <v-list-item v-if="featureFlags.account.updateInfo" density="comfortable" link rounded="lg">
+            <v-list-item v-if="featureFlags.account.updateName" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Edit Account
                     <AccountInformationDialog />
@@ -26,7 +26,7 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.updateValueAttribution" density="comfortable" link rounded="lg">
+            <v-list-item v-if="featureFlags.account.updateUserAgent" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Value
                     <AccountUserAgentsDialog />

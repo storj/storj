@@ -199,3 +199,180 @@ func TestGetUser(t *testing.T) {
 		testProjectsFields(user)
 	})
 }
+
+func TestUpdateUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Console.Config.FreeTrialDuration = 10 * 24 * time.Hour
+				config.Admin.BackOffice.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		timeStamp := time.Now().Truncate(time.Hour).UTC()
+		service.TestSetNowFn(func() time.Time { return timeStamp })
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "test@test.test",
+		}, 1)
+		require.NoError(t, err)
+		user.Status = console.Inactive
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &user.Status}))
+
+		user2, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "test2@test.test",
+		}, 1)
+		require.NoError(t, err)
+
+		limit := int64(100)
+		projectLimit := 2
+		p, err := sat.AddProject(ctx, user.ID, "Project")
+		require.NoError(t, err)
+		require.NotEqual(t, limit, p.StorageLimit.Int64())
+		require.NotEqual(t, limit, p.BandwidthLimit.Int64())
+		require.NotEqual(t, limit, *p.SegmentLimit)
+
+		newName := "new name"
+		newUserAgent := "new agent"
+		newKind := console.PaidUser
+		newStatus := console.Active
+		newEmail := "test@test.testing"
+		req := backoffice.UpdateUserRequest{
+			Name: &newName, Email: &newEmail,
+			UserAgent: &newUserAgent,
+			Kind:      &newKind, Status: &newStatus,
+			ProjectLimit: &projectLimit, StorageLimit: &limit,
+			BandwidthLimit: &limit, SegmentLimit: &limit,
+		}
+
+		testFailAuth := func(groups []string) {
+			_, apiErr := service.UpdateUser(ctx, &backoffice.AuthInfo{Groups: groups}, user.ID, req)
+			require.True(t, apiErr.Status == http.StatusUnauthorized || apiErr.Status == http.StatusForbidden)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "not authorized")
+		}
+
+		testFailAuth(nil)
+		testFailAuth([]string{})
+		testFailAuth([]string{"viewer"}) // insufficient permissions
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
+
+		_, apiErr := service.UpdateUser(ctx, authInfo, testrand.UUID(), req)
+		require.Equal(t, http.StatusNotFound, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		u, apiErr := service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.Equal(t, newName, u.FullName)
+		require.Equal(t, newEmail, u.Email)
+		require.Equal(t, newUserAgent, u.UserAgent)
+		require.Equal(t, newKind.Info(), u.Kind)
+		require.NotNil(t, u.UpgradeTime)
+		require.WithinDuration(t, timeStamp, *u.UpgradeTime, time.Second)
+		require.Equal(t, newStatus.Info(), u.Status)
+		// since we provided custom limits, paid kind defaults are ignored
+		require.Equal(t, projectLimit, u.ProjectLimit)
+		require.Equal(t, limit, u.StorageLimit)
+		require.Equal(t, limit, u.BandwidthLimit)
+		require.Equal(t, limit, u.SegmentLimit)
+
+		p, err = sat.DB.Console().Projects().Get(ctx, p.ID)
+		require.NoError(t, err)
+		require.Equal(t, limit, p.StorageLimit.Int64())
+		require.Equal(t, limit, p.BandwidthLimit.Int64())
+		require.Equal(t, limit, *p.SegmentLimit)
+
+		// test setting default paid or NFR limits
+		usageLimits := sat.Config.Console.UsageLimits
+		newKind = console.NFRUser
+		req = backoffice.UpdateUserRequest{Kind: &newKind}
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.Equal(t, usageLimits.Project.Nfr, u.ProjectLimit)
+		require.Equal(t, usageLimits.Storage.Nfr.Int64(), u.StorageLimit)
+		require.Equal(t, usageLimits.Bandwidth.Nfr.Int64(), u.BandwidthLimit)
+		require.Equal(t, usageLimits.Segment.Nfr, u.SegmentLimit)
+
+		p, err = sat.DB.Console().Projects().Get(ctx, p.ID)
+		require.NoError(t, err)
+		require.Equal(t, usageLimits.Storage.Nfr.Int64(), p.StorageLimit.Int64())
+		require.Equal(t, usageLimits.Bandwidth.Nfr.Int64(), p.BandwidthLimit.Int64())
+		require.Equal(t, usageLimits.Segment.Nfr, *p.SegmentLimit)
+
+		newKind = console.PaidUser
+		req = backoffice.UpdateUserRequest{Kind: &newKind}
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.Equal(t, usageLimits.Project.Paid, u.ProjectLimit)
+		require.Equal(t, usageLimits.Storage.Paid.Int64(), u.StorageLimit)
+		require.Equal(t, usageLimits.Bandwidth.Paid.Int64(), u.BandwidthLimit)
+		require.Equal(t, usageLimits.Segment.Paid, u.SegmentLimit)
+
+		// trial expiration
+		require.Nil(t, u.TrialExpiration)
+		newKind = console.FreeUser
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind})
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, u.TrialExpiration)
+
+		// validation
+		newKind = console.UserKind(100)
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		newStatus = console.UserStatus(100)
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Status: &newStatus})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Email: &user2.Email})
+		require.Equal(t, http.StatusConflict, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Name: new(string)})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		req = backoffice.UpdateUserRequest{TrialExpiration: new(time.Time)}
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "must be in the future")
+
+		*req.TrialExpiration = timeStamp.Add(254 * time.Hour)
+		newKind = console.PaidUser
+		req.Kind = &newKind
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "for free users")
+
+		// make user paid again
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind})
+		require.NoError(t, apiErr.Err)
+		require.Equal(t, console.PaidUser.Info(), u.Kind)
+		require.Nil(t, u.TrialExpiration)
+
+		*req.TrialExpiration = timeStamp.Add(254 * time.Hour)
+		req.Kind = nil
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "for free users")
+
+		limit = -1
+		req.StorageLimit = &limit
+		req.BandwidthLimit = &limit
+		req.SegmentLimit = &limit
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Error(t, apiErr.Err)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+	})
+}
