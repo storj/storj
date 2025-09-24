@@ -72,6 +72,11 @@ type UpdateUserRequest struct {
 	SegmentLimit    *int64              `json:"segmentLimit"`
 }
 
+// CreateRestKeyRequest represents a request to create rest key.
+type CreateRestKeyRequest struct {
+	Expiration time.Time `json:"expiration"`
+}
+
 // UserProject is project owned by a user with  basic information, usage, and limits.
 type UserProject struct {
 	ID     uuid.UUID `json:"id"` // This is the public ID
@@ -733,4 +738,48 @@ func (s *Service) DisableMFA(ctx context.Context, userID uuid.UUID) api.HTTPErro
 	}
 
 	return api.HTTPError{}
+}
+
+// CreateRestKey creates a new REST API key for a user.
+func (s *Service) CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errors.New("user not found")
+		}
+		return nil, api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	if request.Expiration.IsZero() {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("expiration is required"),
+		}
+	}
+
+	expiration := time.Until(request.Expiration)
+	if expiration < 0 {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("expiration must be in the future"),
+		}
+	}
+
+	apiKey, _, err := s.restKeys.CreateNoAuth(ctx, user.ID, &expiration)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return &apiKey, api.HTTPError{}
 }

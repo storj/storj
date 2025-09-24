@@ -41,6 +41,7 @@ type FeatureFlags struct {
 // AccountFlags are the feature flags related to user's accounts.
 type AccountFlags struct {
 	Create          bool `json:"create"`
+	CreateRestKey   bool `json:"createRestKey"`
 	Delete          bool `json:"delete"`
 	History         bool `json:"history"`
 	List            bool `json:"list"`
@@ -126,6 +127,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermAccountDisableMFA) {
 			settings.Admin.Features.Account.DisableMFA = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountCreateRestKey) {
+			settings.Admin.Features.Account.CreateRestKey = true
 		}
 
 		// project permission features

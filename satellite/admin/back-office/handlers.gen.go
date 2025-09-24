@@ -43,6 +43,7 @@ type UserManagementService interface {
 	FreezeUser(ctx context.Context, userID uuid.UUID, request FreezeUserRequest) api.HTTPError
 	UnfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError
 	DisableMFA(ctx context.Context, userID uuid.UUID) api.HTTPError
+	CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
 }
 
 type ProjectManagementService interface {
@@ -128,6 +129,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleFreezeUser).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleUnfreezeUser).Methods("DELETE")
 	usersRouter.HandleFunc("/mfa/{userID}", handler.handleDisableMFA).Methods("DELETE")
+	usersRouter.HandleFunc("/rest-keys/{userID}", handler.handleCreateRestKey).Methods("POST")
 
 	return handler
 }
@@ -574,6 +576,52 @@ func (h *UserManagementHandler) handleDisableMFA(w http.ResponseWriter, r *http.
 	}
 }
 
+func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := CreateRestKeyRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 32768) {
+		return
+	}
+
+	retVal, httpErr := h.service.CreateRestKey(ctx, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json CreateRestKey response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
 func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -598,7 +646,7 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 65536) {
+	if h.auth.IsRejected(w, r, 131072) {
 		return
 	}
 
@@ -644,7 +692,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072) {
+	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 

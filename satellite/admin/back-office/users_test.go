@@ -496,3 +496,48 @@ func TestDisableMFA(t *testing.T) {
 		require.Empty(t, user.MFARecoveryCodes)
 	})
 }
+
+func TestCreateRestKey(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "test@test.io",
+		}, 1)
+		require.NoError(t, err)
+
+		request := backoffice.CreateRestKeyRequest{
+			Expiration: time.Now().Add(24 * time.Hour),
+		}
+		t.Run("Success - create REST key with expiration", func(t *testing.T) {
+			key, apiErr := service.CreateRestKey(ctx, user.ID, request)
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, key)
+		})
+
+		t.Run("Error - user not found", func(t *testing.T) {
+			_, apiErr := service.CreateRestKey(ctx, testrand.UUID(), request)
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("Error - missing expiration", func(t *testing.T) {
+			request = backoffice.CreateRestKeyRequest{}
+			_, apiErr := service.CreateRestKey(ctx, user.ID, request)
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "expiration is required")
+		})
+
+		t.Run("Error - expiration in the past", func(t *testing.T) {
+			request.Expiration = time.Now().Add(-1 * time.Hour)
+			_, apiErr := service.CreateRestKey(ctx, user.ID, request)
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "expiration must be in the future")
+		})
+	})
+}

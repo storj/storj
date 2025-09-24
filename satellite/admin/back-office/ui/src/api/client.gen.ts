@@ -6,6 +6,7 @@ import { Time, UUID } from '@/types/common';
 
 export class AccountFlags {
     create: boolean;
+    createRestKey: boolean;
     delete: boolean;
     history: boolean;
     list: boolean;
@@ -42,6 +43,10 @@ export class BucketFlags {
     updatePlacement: boolean;
     updateValueAttribution: boolean;
     view: boolean;
+}
+
+export class CreateRestKeyRequest {
+    expiration: Time;
 }
 
 export class FeatureFlags {
@@ -332,6 +337,16 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.delete(fullPath);
         if (response.ok) {
             return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async createRestKey(request: CreateRestKeyRequest, userID: UUID): Promise<string> {
+        const fullPath = `${this.ROOT_PATH}/rest-keys/${userID}`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as string);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

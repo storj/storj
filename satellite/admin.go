@@ -306,6 +306,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.FreezeAccounts.Service,
 			peer.Analytics.Service,
 			peer.Payments.Accounts,
+			peer.REST.Keys,
 			placement,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,

@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
 )
@@ -29,6 +30,7 @@ type Service struct {
 
 	accountingDB accounting.ProjectAccounting
 	consoleDB    console.DB
+	restKeys     restapikeys.Service
 
 	accountFreeze *console.AccountFreezeService
 	accounting    *accounting.Service
@@ -53,6 +55,7 @@ func NewService(
 	accountFreeze *console.AccountFreezeService,
 	analytics *analytics.Service,
 	payments payments.Accounts,
+	restKeys restapikeys.Service,
 	placement nodeselection.PlacementDefinitions,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
@@ -62,6 +65,7 @@ func NewService(
 	return &Service{
 		log:           log,
 		consoleDB:     consoleDB,
+		restKeys:      restKeys,
 		analytics:     analytics,
 		accountingDB:  accountingDB,
 		accounting:    accounting,

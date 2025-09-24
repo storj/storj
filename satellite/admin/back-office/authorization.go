@@ -31,6 +31,7 @@ const (
 	PermAccountSuspendPermanently
 	PermAccountReActivatePermanently
 	PermAccountDeleteNoData
+	PermAccountCreateRestKey
 	PermAccountDeleteWithData
 	PermProjectView
 	PermProjectSetLimits
@@ -49,7 +50,7 @@ const (
 const (
 	RoleAdmin = Authorization(
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
-			PermAccountChangeName | PermAccountChangeKind | PermAccountChangeStatus |
+			PermAccountChangeName | PermAccountChangeKind | PermAccountChangeStatus | PermAccountCreateRestKey |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
 			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountSuspendPermanently |
 			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData |

@@ -20,6 +20,7 @@
   * [Freeze User](#usermanagement-freeze-user)
   * [Unfreeze User](#usermanagement-unfreeze-user)
   * [Disable MFA](#usermanagement-disable-mfa)
+  * [Create Rest Key](#usermanagement-create-rest-key)
 * ProjectManagement
   * [Get project](#projectmanagement-get-project)
   * [Update project limits](#projectmanagement-update-project-limits)
@@ -38,6 +39,7 @@ Gets the settings of the service and relevant Storj services settings
 		features: 		{
 			account: 			{
 				create: boolean
+				createRestKey: boolean
 				delete: boolean
 				history: boolean
 				list: boolean
@@ -466,6 +468,33 @@ Disables MFA for a user
 | name | type | elaboration |
 |---|---|---|
 | `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+<h3 id='usermanagement-create-rest-key'>Create Rest Key (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Creates a rest API key a user
+
+`POST /back-office/api/v1/users/rest-keys/{userID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	expiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+}
+
+```
+
+**Response body:**
+
+```typescript
+string
+```
 
 <h3 id='projectmanagement-get-project'>Get project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

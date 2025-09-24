@@ -206,6 +206,21 @@ func main() {
 		},
 	})
 
+	group.Post("/rest-keys/{userID}", &apigen.Endpoint{
+		Name:           "Create Rest Key",
+		Description:    "Creates a rest API key a user",
+		GoName:         "CreateRestKey",
+		TypeScriptName: "createRestKey",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request:  backoffice.CreateRestKeyRequest{},
+		Response: "",
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountCreateRestKey},
+		},
+	})
+
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 

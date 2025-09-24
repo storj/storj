@@ -35,6 +35,7 @@ func TestGetSettings(t *testing.T) {
 			Admin: backoffice.SettingsAdmin{
 				Features: backoffice.FeatureFlags{
 					Account: backoffice.AccountFlags{
+						CreateRestKey:   true,
 						Delete:          true,
 						DisableMFA:      true,
 						View:            true,
