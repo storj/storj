@@ -36,9 +36,8 @@ func TestFullMigration(t *testing.T) {
 	migration := func(ctx context.Context, db *metabase.DB) error {
 		return db.MigrateToLatest(ctx)
 	}
-	metabasetest.RunWithConfigAndMigration(t, metabase.Config{
-		ApplicationName: "test-full-migration",
-	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+
+	metabasetest.RunWithMigration(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		sysnow := time.Now()
 		now, err := db.Now(ctx)
 		require.NoError(t, err)

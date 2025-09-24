@@ -51,6 +51,11 @@ func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontex
 func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, variations ...ConfigVariation) {
 	t.Parallel()
 
+	if config.TestingSpannerMinOpenedSessions == nil {
+		zero := 0
+		config.TestingSpannerMinOpenedSessions = &zero
+	}
+
 	for _, dbinfo := range satellitedbtest.Databases() {
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
@@ -115,6 +120,25 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	}, fn, variations...)
 }
 
+// RunWithMigration runs test with specific migration.
+func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, variations ...ConfigVariation) {
+	var config metainfo.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
+		cfgstruct.UseTestDefaults(),
+	)
+
+	RunWithConfigAndMigration(t, metabase.Config{
+		ApplicationName:            "satellite-metabase-test",
+		MinPartSize:                config.MinPartSize,
+		MaxNumberOfParts:           config.MaxNumberOfParts,
+		ServerSideCopy:             config.ServerSideCopy,
+		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
+		TestingUniqueUnversioned:   true,
+		TestingTimestampVersioning: config.TestingTimestampVersioning,
+		TestingTwoRoundtripCommit:  config.TestingTwoRoundtripCommit,
+	}, fn, migration, variations...)
+}
+
 // Bench runs benchmark for all configured databases.
 func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *metabase.DB)) {
 	for _, dbinfo := range satellitedbtest.Databases() {
@@ -123,10 +147,12 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 			tctx := testcontext.New(b)
 			defer tctx.Cleanup()
 
+			zero := 0
 			db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(b), b.Name(), "M", 0, dbinfo.MetabaseDB, metabase.Config{
-				ApplicationName:  "satellite-bench",
-				MinPartSize:      5 * memory.MiB,
-				MaxNumberOfParts: 10000,
+				ApplicationName:                 "satellite-bench",
+				MinPartSize:                     5 * memory.MiB,
+				MaxNumberOfParts:                10000,
+				TestingSpannerMinOpenedSessions: &zero,
 			})
 			require.NoError(b, err)
 			defer tctx.Check(db.Close)

@@ -54,6 +54,8 @@ type Config struct {
 	// TestingTimestampVersioning uses timestamps for assigning version numbers.
 	TestingTimestampVersioning bool
 	TestingTwoRoundtripCommit  bool
+	// TestingSpannerMinOpenedSessions allows to override the minimum number of sessions that client tries to keep open.
+	TestingSpannerMinOpenedSessions *int
 
 	Compression string
 
@@ -139,11 +141,20 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				},
 			}
 		case dbutil.Spanner:
+			minOpenedSessions := uint64(100)
+			if config.TestingSpannerMinOpenedSessions != nil {
+				minOpenedSessions = uint64(*config.TestingSpannerMinOpenedSessions)
+			}
 			adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
 				Database:                   source,
 				ApplicationName:            config.ApplicationName,
 				Compression:                config.Compression,
 				TestingTimestampVersioning: config.TestingTimestampVersioning,
+
+				HealthCheckWorkers:  10,
+				HealthCheckInterval: 50 * time.Minute,
+				MinOpenedSesssions:  minOpenedSessions,
+				TrackSessionHandles: false,
 			}, log, config.FlightRecorder)
 			if err != nil {
 				return nil, err

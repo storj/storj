@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
+	sqlspanner "github.com/googleapis/go-sql-spanner"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/api/option"
@@ -28,7 +29,9 @@ type SpannerConfig struct {
 	Compression     string `help:"Compression type to be used in spanner client for gRPC calls (gzip)"`
 
 	HealthCheckWorkers  int           `hidden:"true" help:"Number of workers used by health checker for the connection pool." default:"10" testDefault:"1"`
-	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50ms" testDefault:"200ms"`
+	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50m"`
+	MinOpenedSesssions  uint64        `hidden:"true" help:"Minimum number of sessions that client tries to keep open." default:"100"`
+	TrackSessionHandles bool          `hidden:"true" help:"Track session handles." default:"false" testDefault:"true"`
 
 	TestingTimestampVersioning bool `hidden:"true" help:"Use timestamps for assigning version numbers instead of strictly incrementing integers." default:"false"`
 }
@@ -63,8 +66,10 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 	log = log.Named("spanner")
 
 	poolConfig := spanner.DefaultSessionPoolConfig
+	poolConfig.MinOpened = cfg.MinOpenedSesssions
 	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
 	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
+	poolConfig.TrackSessionHandles = cfg.TrackSessionHandles
 
 	rawClient, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
@@ -80,10 +85,26 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 
 	client := recordeddb.WrapSpannerClient(rawClient, recorder)
 
-	sqlClient, err := sql.Open("spanner", params.GoSqlSpannerConnStr())
+	sqlconfig, err := sqlspanner.ExtractConnectorConfig(params.GoSqlSpannerConnStr())
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
+	sqlconfig.Configurator = func(config *spanner.ClientConfig, opts *[]option.ClientOption) {
+		config.Logger = zap.NewStdLog(log.Named("sqllog"))
+		config.Compression = cfg.Compression
+		config.SessionPoolConfig = poolConfig
+		config.DisableRouteToLeader = false
+		config.UserAgent = cfg.ApplicationName
+	}
+
+	connector, err := sqlspanner.CreateConnector(sqlconfig)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	sqlClient := sql.OpenDB(connector)
+
 	return &SpannerAdapter{
 		client:      client,
 		connParams:  params,

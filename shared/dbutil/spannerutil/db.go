@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"regexp"
 
-	_ "github.com/googleapis/go-sql-spanner" // register the spanner driver
+	"cloud.google.com/go/spanner"
+	sqlspanner "github.com/googleapis/go-sql-spanner"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"google.golang.org/api/option"
 
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/dbschema"
@@ -55,13 +57,32 @@ func OpenUnique(ctx context.Context, log *zap.Logger, connstr string, databasePr
 		return nil, errs.New("failed to create database: %w", err)
 	}
 
-	db, err := tagsql.Open(ctx, "spanner", ephemeral.Params.GoSqlSpannerConnStr(), nil)
+	connectorConfig, err := sqlspanner.ExtractConnectorConfig(ephemeral.Params.GoSqlSpannerConnStr())
+	if err != nil {
+		return nil, errs.New("failed to parse connector config: %w", err)
+	}
+
+	connectorConfig.Configurator = func(config *spanner.ClientConfig, opts *[]option.ClientOption) {
+		config.Logger = zap.NewStdLog(log)
+		if ephemeral.Params.Emulator {
+			config.SessionPoolConfig.MinOpened = 100
+		}
+	}
+
+	connector, err := sqlspanner.CreateConnector(connectorConfig)
+	if err != nil {
+		return nil, errs.New("failed to create connector: %w", err)
+	}
+	db := tagsql.Wrap(sql.OpenDB(connector))
 	if err == nil {
 		// check that connection actually worked before trying createSchema, to make
 		// troubleshooting (lots) easier
 		err = db.PingContext(ctx)
 	}
 	if err != nil {
+		if db != nil {
+			_ = db.Close()
+		}
 		_ = ephemeral.Close(ctx)
 		return nil, errs.New("failed to connect to %q with driver spanner: %w", connstr, err)
 	}

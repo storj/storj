@@ -113,5 +113,10 @@ func (d SpannerTestDatabase) Close() error {
 func NewTestSpannerConfig(database SpannerTestDatabase) SpannerConfig {
 	return SpannerConfig{
 		Database: database.ephemeral.Params.ConnStr(),
+
+		HealthCheckWorkers:  2,
+		HealthCheckInterval: 50 * time.Minute,
+		MinOpenedSesssions:  100,
+		TrackSessionHandles: true,
 	}
 }
