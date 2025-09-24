@@ -7,13 +7,18 @@ import { reactive } from 'vue';
 import {
     FreezeEventType,
     FreezeUserRequest,
+    KindInfo,
+    UpdateUserRequest,
     UserAccount,
     UserManagementHttpApiV1,
+    UserStatusInfo,
 } from '@/api/client.gen';
 
 class UsersState {
-    public userAccount: UserAccount | null = null;
+    public currentAccount: UserAccount | null = null;
     public freezeTypes: FreezeEventType[] = [];
+    public userKinds: KindInfo[] = [];
+    public userStatuses: UserStatusInfo[] = [];
 }
 
 export const useUsersStore = defineStore('users', () => {
@@ -22,9 +27,21 @@ export const useUsersStore = defineStore('users', () => {
     const userApi = new UserManagementHttpApiV1();
 
     async function getUserByEmail(email: string): Promise<UserAccount> {
-        state.userAccount = await userApi.getUserByEmail(email);
+        return await userApi.getUserByEmail(email);
+    }
 
-        return state.userAccount;
+    async function getUser(userID: string): Promise<UserAccount> {
+        return await userApi.getUser(userID);
+    }
+
+    // Update the current user stored in the state.
+    async function updateCurrentUser(user: string | UserAccount): Promise<UserAccount> {
+        if (typeof user === 'string') {
+            state.currentAccount = await getUser(user);
+            return state.currentAccount;
+        }
+        state.currentAccount = user;
+        return state.currentAccount;
     }
 
     async function getAccountFreezeTypes(): Promise<void> {
@@ -41,11 +58,34 @@ export const useUsersStore = defineStore('users', () => {
         await userApi.unfreezeUser(userID);
     }
 
+    async function getUserKinds(): Promise<void> {
+        if (state.userKinds.length) {
+            return;
+        }
+        state.userKinds = await userApi.getUserKinds();
+    }
+
+    async function getUserStatuses(): Promise<void> {
+        if (state.userStatuses.length) {
+            return;
+        }
+        state.userStatuses = await userApi.getUserStatuses();
+    }
+
+    // Update a specified user.
+    async function updateUser(userID: string, request: UpdateUserRequest): Promise<UserAccount> {
+        return await userApi.updateUser(request, userID);
+    }
+
     return {
         state,
         getUserByEmail,
+        updateCurrentUser,
         getAccountFreezeTypes,
         freezeUser,
         unfreezeUser,
+        getUserKinds,
+        getUserStatuses,
+        updateUser,
     };
 });

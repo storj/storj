@@ -259,7 +259,7 @@ const updateLimitsDialog = ref<boolean>(false);
 
 const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
 
-const userAccount = computed<UserAccount>(() => usersStore.state.userAccount as UserAccount);
+const userAccount = computed<UserAccount>(() => usersStore.state.currentAccount as UserAccount);
 const project = computed(() => projectsStore.state.currentProject);
 
 const placementText = computed<string>(() => {
@@ -278,17 +278,17 @@ async function onUpdateLimitsClicked() {
 }
 
 function goToAccount() {
-    router.push({ name: ROUTES.Account.name, params: { email: userAccount.value.email } });
+    router.push({ name: ROUTES.Account.name, params: { userID: userAccount.value.id } });
 }
 
 onMounted(async () => {
-    const projectID = router.currentRoute.value.params.id as string;
-    const userEmail = router.currentRoute.value.params.email as string;
+    const projectID = router.currentRoute.value.params.projectID as string;
+    const userID = router.currentRoute.value.params.userID as string;
 
     try {
         await Promise.all([
             projectsStore.updateCurrentProject(projectID),
-            usersStore.getUserByEmail(userEmail),
+            usersStore.updateCurrentUser(userID),
         ]);
     } catch (error) {
         notify.notifyError('Failed to load project details. ' + error.message);

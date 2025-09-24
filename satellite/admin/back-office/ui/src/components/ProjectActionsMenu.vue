@@ -108,7 +108,7 @@ function viewProject() {
     if (router.currentRoute.value.name === ROUTES.Account.name) {
         router.push({
             name: ROUTES.AccountProject.name,
-            params: { email: props.owner.email, id: props.projectId },
+            params: { userID: props.owner.id, projectID: props.projectId },
         });
     }
 }

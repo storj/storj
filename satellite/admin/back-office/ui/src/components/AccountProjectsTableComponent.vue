@@ -254,14 +254,14 @@ async function onUpdateLimitsClicked(projectId: string) {
 function selectProject(id: string):void {
     router.push({
         name: ROUTES.AccountProject.name,
-        params: { email: props.account?.email, id },
+        params: { userID: props.account?.id, projectID: id },
     });
 }
 
 function getPercentColor(percent: number) {
-    if (percent >= 99) {
+    if (percent > 80) {
         return 'error';
-    } else if (percent >= 80) {
+    } else if (percent > 60) {
         return 'warning';
     } else {
         return 'success';

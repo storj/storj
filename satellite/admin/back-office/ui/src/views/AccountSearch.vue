@@ -94,7 +94,8 @@ async function goToUser(): Promise<void> {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
             const user = await usersStore.getUserByEmail(email.value);
-            router.push({ name: ROUTES.Account.name, params: { email: user.email } });
+            await usersStore.updateCurrentUser(user);
+            router.push({ name: ROUTES.Account.name, params: { userID: user.id } });
             isLoading.value = false;
             return;
         } catch (error) {

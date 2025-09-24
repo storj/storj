@@ -14,12 +14,7 @@
                         This account
                     </v-tooltip>
                     <template #prepend>
-                        <svg class="mr-1" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M12.1271 6C14.1058 6 15.7099 7.60408 15.7099 9.58281C15.7099 10.7701 15.1324 11.8226 14.2429 12.4745C16.0273 13.1299 17.4328 14.5717 18.0402 16.3804C18.059 16.4363 18.077 16.4925 18.0942 16.5491L18.1195 16.6342C18.2377 17.0429 18.0022 17.4701 17.5934 17.5883C17.5239 17.6084 17.4518 17.6186 17.3794 17.6186H6.764C6.34206 17.6186 6 17.2765 6 16.8545C6 16.7951 6.00695 16.7358 6.02069 16.678L6.02974 16.6434C6.05458 16.5571 6.08121 16.4714 6.10959 16.3866C6.7237 14.5517 8.15871 13.0936 9.97792 12.4495C9.10744 11.7961 8.54432 10.7552 8.54432 9.58281C8.54432 7.60408 10.1484 6 12.1271 6ZM12.076 13.2168C9.95096 13.2168 8.07382 14.5138 7.29168 16.4355L7.26883 16.4925H16.8831L16.8826 16.4916C16.1224 14.5593 14.2607 13.2444 12.1429 13.2173L12.076 13.2168ZM12.1271 7.12603C10.7703 7.12603 9.67035 8.22596 9.67035 9.58281C9.67035 10.9397 10.7703 12.0396 12.1271 12.0396C13.4839 12.0396 14.5839 10.9397 14.5839 9.58281C14.5839 8.22596 13.4839 7.12603 12.1271 7.12603Z"
-                                fill="currentColor"
-                            />
-                        </svg>
+                        <v-icon class="mr-1" :icon="User" />
                     </template>
                     {{ userAccount.email }}
                 </v-chip>
@@ -38,7 +33,11 @@
                         <v-icon :icon="ChevronDown" />
                     </template>
                     Account Actions
-                    <AccountActionsMenu :user="userAccount" @toggle-freeze="toggleFreeze" />
+                    <AccountActionsMenu
+                        :user="userAccount"
+                        @update="updateAccountDialogEnabled = true"
+                        @toggle-freeze="toggleFreeze"
+                    />
                 </v-btn>
             </v-col>
         </v-row>
@@ -57,7 +56,27 @@
 
         <v-row>
             <v-col cols="12" sm="6" md="3">
-                <v-card title="Account" :subtitle="userAccount.fullName" variant="flat" :border="true" rounded="xlg">
+                <v-card :title="userAccount.fullName" :subtitle="kindDetails" variant="flat" :border="true" rounded="xlg">
+                    <template #subtitle>
+                        <span v-if="kindDetails">{{ kindDetails }}</span>
+                        <span v-else>&nbsp;</span>
+                    </template>
+                    <template #append>
+                        <v-btn
+                            icon
+                            variant="outlined"
+                            size="small"
+                            color="default"
+                            density="comfortable"
+                        >
+                            <v-icon :icon="MoreHorizontal" />
+                            <AccountActionsMenu
+                                :user="userAccount"
+                                @update="updateAccountDialogEnabled = true"
+                                @toggle-freeze="toggleFreeze"
+                            />
+                        </v-btn>
+                    </template>
                     <v-card-text>
                         <v-chip
                             :color="userIsPaid(userAccount) ? 'success' : userIsNFR(userAccount) ? 'warning' : 'info'"
@@ -71,54 +90,44 @@
                             variant="tonal"
                             class="mr-2 font-weight-bold"
                         >
-                            <template v-if="featureFlags.account.unsuspend" #append>
-                                <v-progress-circular v-if="unfreezing" class="ml-1" size="x-small" width="1" indeterminate />
-                                <v-icon v-else icon="$close" @click="unfreezeAccount" />
-                            </template>
                             {{ userAccount.freezeStatus?.name }}
                         </v-chip>
-                        <template v-if="featureFlags.account.updateName">
-                            <v-divider class="my-4" />
-                            <v-btn variant="outlined" size="small" color="default">
-                                Edit Account Information
-                                <AccountInformationDialog />
-                            </v-btn>
-                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
 
             <v-col cols="12" sm="6" md="3">
                 <v-card title="Status" subtitle="Account" variant="flat" :border="true" rounded="xlg">
+                    <template v-if="featureFlags.account.updateStatus && !userAccount.freezeStatus" #append>
+                        <v-btn
+                            :icon="UserPen"
+                            variant="outlined" size="small"
+                            density="comfortable" color="default"
+                            @click="updateAccountDialogEnabled = true"
+                        />
+                    </template>
                     <v-card-text>
                         <v-chip :color="statusColor" variant="tonal" class="mr-2 font-weight-bold">
-                            {{ userAccount.status }}
+                            {{ userAccount.status.name }}
                         </v-chip>
-                        <template v-if="featureFlags.account.updateStatus">
-                            <v-divider class="my-4" />
-                            <v-btn variant="outlined" size="small" color="default">
-                                Set Account Status
-                                <AccountStatusDialog />
-                            </v-btn>
-                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
 
             <v-col cols="12" sm="6" md="3">
-                <v-card title="Value" subtitle="Attribution" variant="flat" :border="true" rounded="xlg" class="mb-3">
+                <v-card title="Attribution" subtitle="User agent" variant="flat" :border="true" rounded="xlg" class="mb-3">
+                    <template v-if="featureFlags.account.updateUserAgent" #append>
+                        <v-btn
+                            :icon="UserPen"
+                            variant="outlined" size="small"
+                            density="comfortable" color="default"
+                            @click="updateAccountDialogEnabled = true"
+                        />
+                    </template>
                     <v-card-text>
-                        <!-- <p class="mb-3">Attribution</p> -->
-                        <v-chip :variant="userAccount.userAgent ? 'tonal' : 'text'" class="mr-2">
+                        <v-chip variant="tonal" class="mr-2">
                             {{ userAccount.userAgent || 'None' }}
                         </v-chip>
-                        <template v-if="featureFlags.account.updateUserAgent">
-                            <v-divider class="my-4" />
-                            <v-btn variant="outlined" size="small" color="default">
-                                Set Value Attribution
-                                <AccountUserAgentsDialog />
-                            </v-btn>
-                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -189,6 +198,7 @@
         </v-row>
     </v-container>
     <AccountFreezeDialog v-if="userAccount" v-model="freezeDialogEnabled" :account="userAccount" />
+    <AccountUpdateDialog v-if="userAccount" v-model="updateAccountDialogEnabled" :account="userAccount" />
 </template>
 
 <script setup lang="ts">
@@ -206,30 +216,28 @@ import {
     VIcon,
     VRow,
     VSkeletonLoader,
-    VProgressCircular,
     VTooltip,
 } from 'vuetify/components';
-import { AlertCircle, ChevronDown } from 'lucide-vue-next';
+import { AlertCircle, ChevronDown, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
+import { useDate } from 'vuetify';
 
 import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
-import { sizeToBase10String } from '@/utils/memory';
-import { userIsNFR, userIsPaid } from '@/types/user';
+import { userIsFree, userIsNFR, userIsPaid } from '@/types/user';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
+import { sizeToBase10String } from '@/utils/memory';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
 import LogsTableComponent from '@/components/LogsTableComponent.vue';
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
-import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
-import AccountInformationDialog from '@/components/AccountInformationDialog.vue';
-import AccountStatusDialog from '@/components/AccountStatusDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import AccountFreezeDialog from '@/components/AccountFreezeDialog.vue';
+import AccountUpdateDialog from '@/components/AccountUpdateDialog.vue';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -239,9 +247,11 @@ const router = useRouter();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
+const date = useDate();
 
 const unfreezing = ref<boolean>(false);
 const freezeDialogEnabled = ref<boolean>(false);
+const updateAccountDialogEnabled = ref<boolean>(false);
 
 const statusColor = computed(() => {
     if (!userAccount.value) {
@@ -266,12 +276,29 @@ const featureFlags = computed(() => appStore.state.settings.admin.features as Fe
 /**
  * Returns user account info from store.
  */
-const userAccount = computed<UserAccount>(() => usersStore.state.userAccount as UserAccount);
+const userAccount = computed<UserAccount>(() => usersStore.state.currentAccount as UserAccount);
 
 /**
  * Returns the date that the user was created.
  */
 const createdAt = computed<Date>(() => new Date(userAccount.value.createdAt));
+
+const kindDetails = computed<string>(() => {
+    if (!userAccount.value || userIsNFR(userAccount.value)) {
+        return '';
+    }
+    if (userIsPaid(userAccount.value)) {
+        if (!userAccount.value.upgradeTime)
+            return '';
+        return `Upgraded on ${date.format(userAccount.value.upgradeTime, 'fullDate')}`;
+    }
+    if (userIsFree(userAccount.value)) {
+        if (!userAccount.value.trialExpiration)
+            return '';
+        return `Expires on ${date.format(userAccount.value.trialExpiration, 'fullDate')}`;
+    }
+    return '';
+});
 
 type Usage = {
     storage: number | null;
@@ -329,6 +356,7 @@ function toggleFreeze() {
 }
 
 async function unfreezeAccount() {
+    if (unfreezing.value) return;
     if (!userAccount.value.freezeStatus) {
         notify.error('Account is not frozen.');
         return;
@@ -338,7 +366,7 @@ async function unfreezeAccount() {
         await usersStore.unfreezeUser(userAccount.value.id);
         notify.success('Account unfrozen successfully.');
 
-        await usersStore.getUserByEmail(userAccount.value.email);
+        await usersStore.updateCurrentUser(userAccount.value.id);
     } catch (error) {
         notify.error(`Failed to toggle account freeze status. ${error.message}`);
         return;
@@ -353,9 +381,10 @@ onBeforeMount(() => {
     }
     withLoading(async () => {
         try {
-            const email = router.currentRoute.value.params.email as string;
-            await usersStore.getUserByEmail(email);
-        } catch {
+            const userID = router.currentRoute.value.params.userID as string;
+            await usersStore.updateCurrentUser(userID);
+        } catch (error) {
+            notify.error(`Failed to get account details. ${error.message}`);
             router.push({ name: ROUTES.AccountSearch.name });
         }
     });

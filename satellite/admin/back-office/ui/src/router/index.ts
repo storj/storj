@@ -9,8 +9,8 @@ import { NavigationLink } from '@/router/navigation';
 export abstract class ROUTES {
     public static AccountSearch = new NavigationLink('/account-search', 'Account Search');
     public static Accounts = new NavigationLink('/accounts', 'Accounts');
-    public static Account = new NavigationLink(':email', 'Account');
-    public static AccountProject = new NavigationLink('projects/:id', 'Account Project');
+    public static Account = new NavigationLink(':userID', 'Account');
+    public static AccountProject = new NavigationLink('projects/:projectID', 'Account Project');
 
     public static Projects = new NavigationLink('/projects', 'Projects');
     public static ProjectDetail = new NavigationLink('/projects-details', 'Project Details');

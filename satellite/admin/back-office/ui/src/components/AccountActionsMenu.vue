@@ -10,26 +10,14 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-divider v-if="featureFlags.account.updateName || featureFlags.account.updateStatus || featureFlags.account.updateUserAgent || featureFlags.account.updatePlacement || featureFlags.account.updateLimits || featureFlags.project.create " class="my-2" />
-
-            <v-list-item v-if="featureFlags.account.updateName" density="comfortable" link rounded="lg">
+            <v-list-item
+                v-if="hasAnyUpdateFlags"
+                density="comfortable" link
+                rounded="lg"
+                @click="emit('update', user)"
+            >
                 <v-list-item-title class="text-body-2 font-weight-medium">
-                    Edit Account
-                    <AccountInformationDialog />
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.account.updateStatus" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Set Status
-                    <AccountStatusDialog />
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.account.updateUserAgent" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Set Value
-                    <AccountUserAgentsDialog />
+                    Update Account
                 </v-list-item-title>
             </v-list-item>
 
@@ -40,7 +28,11 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.updateLimits" density="comfortable" link rounded="lg">
+            <v-list-item
+                v-if="featureFlags.account.updateLimits"
+                density="comfortable"
+                link rounded="lg"
+            >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Change Limits
                     <AccountLimitsDialog />
@@ -53,8 +45,6 @@
                     <AccountNewProjectDialog />
                 </v-list-item-title>
             </v-list-item>
-
-            <v-divider v-if="featureFlags.account.resetMFA || featureFlags.account.suspend || featureFlags.account.delete" class="my-2" />
 
             <v-list-item v-if="featureFlags.account.resetMFA" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
@@ -83,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { VMenu, VList, VListItem, VListItemTitle, VDivider } from 'vuetify/components';
+import { VMenu, VList, VListItem, VListItemTitle } from 'vuetify/components';
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -91,13 +81,10 @@ import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 
-import AccountInformationDialog from '@/components/AccountInformationDialog.vue';
-import AccountStatusDialog from '@/components/AccountStatusDialog.vue';
 import AccountResetMFADialog from '@/components/AccountResetMFADialog.vue';
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
-import AccountUserAgentsDialog from '@/components/AccountUserAgentsDialog.vue';
 import AccountLimitsDialog from '@/components/AccountLimitsDialog.vue';
 
 const appStore = useAppStore();
@@ -109,15 +96,24 @@ const props = defineProps<{
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 
+const hasAnyUpdateFlags = computed(() => {
+    return featureFlags.value.account.updateName ||
+      featureFlags.value.account.updateEmail ||
+      featureFlags.value.account.updateKind ||
+      featureFlags.value.account.updateStatus ||
+      featureFlags.value.account.updateUserAgent;
+});
+
 const isCurrentRouteViewAccount = computed(() => {
     return router.currentRoute.value.name === ROUTES.Account.name;
 });
 
 const emit = defineEmits<{
     (e: 'toggleFreeze', user: UserAccount): void;
+    (e: 'update', user: UserAccount): void;
 }>();
 
 function viewAccount() {
-    router.push({ name: ROUTES.Account.name, params: { email: props.user.email } });
+    router.push({ name: ROUTES.Account.name, params: { userID: props.user.id } });
 }
 </script>
