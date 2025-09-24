@@ -20,7 +20,7 @@
 
             <v-divider />
 
-            <v-form v-model="valid" class="pa-7">
+            <v-form class="pa-7">
                 <v-row>
                     <v-col cols="12">
                         <p>Please enter the reason for deleting this bucket.</p>
@@ -66,7 +66,7 @@
                         <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="error" variant="flat" block :loading="loading" @click="onButtonClick">Delete Bucket</v-btn>
+                        <v-btn color="error" variant="flat" block @click="onButtonClick">Delete Bucket</v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>

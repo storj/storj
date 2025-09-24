@@ -143,6 +143,7 @@ import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';
 import { DataTableHeader, SortItem } from '@/types/common';
 import { UserAccount } from '@/api/client.gen';
+import { ROUTES } from '@/router';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 

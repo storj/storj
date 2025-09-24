@@ -9,7 +9,7 @@
         />
 
         <v-data-table
-            v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="users" :search="search"
+            v-model="selected" :sort-by="sortBy" :headers="headers" :items="users" :search="search"
             density="comfortable" hover
         >
             <template #item.email="{ item }">
@@ -18,7 +18,7 @@
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
                         width="24" height="24"
                     >
-                        <AccountActionsMenu />
+                        <!--                        <AccountActionsMenu />-->
                         <v-icon icon="mdi-dots-horizontal" />
                     </v-btn>
                     <v-chip
@@ -34,47 +34,47 @@
                                 />
                             </svg>
                         </template>
-                        {{ item.columns.email }}
+                        {{ item.email }}
                     </v-chip>
                 </div>
             </template>
 
             <template #item.type="{ item }">
                 <v-chip
-                    :color="getColor(item.raw.type)" variant="tonal" size="small" class="font-weight-bold"
-                    @click="setSearch(item.raw.type)"
+                    :color="getColor(item.type)" variant="tonal" size="small" class="font-weight-bold"
+                    @click="setSearch(item.type)"
                 >
-                    {{ item.raw.type }}
+                    {{ item.type }}
                 </v-chip>
             </template>
 
             <template #item.status="{ item }">
                 <v-chip
-                    :color="getColor(item.raw.status)" variant="tonal" size="small" class="font-weight-medium"
-                    @click="setSearch(item.raw.status)"
+                    :color="getColor(item.status)" variant="tonal" size="small" class="font-weight-medium"
+                    @click="setSearch(item.status)"
                 >
-                    {{ item.raw.status }}
+                    {{ item.status }}
                 </v-chip>
             </template>
 
             <template #item.agent="{ item }">
-                <v-chip variant="tonal" color="default" size="small" @click="setSearch(item.raw.agent)">
-                    {{ item.raw.agent }}
+                <v-chip variant="tonal" color="default" size="small" @click="setSearch(item.agent)">
+                    {{ item.agent }}
                 </v-chip>
             </template>
 
             <template #item.placement="{ item }">
                 <v-chip
                     variant="tonal" color="default" size="small" rounded="lg" class="text-capitalize"
-                    @click="setSearch(item.raw.placement)"
+                    @click="setSearch(item.placement)"
                 >
-                    {{ item.raw.placement }}
+                    {{ item.placement }}
                 </v-chip>
             </template>
 
             <template #item.date="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.raw.date }}
+                    {{ item.date }}
                 </span>
             </template>
         </v-data-table>
@@ -85,13 +85,13 @@
 import { ref } from 'vue';
 import { VCard, VTextField, VDataTable, VBtn, VIcon, VChip } from 'vuetify/components';
 
-import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
+import { DataTableHeader, SortItem } from '@/types/common';
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);
-const sortBy = ref([{ key: 'email', order: 'asc' }]);
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
-const headers = [
+const headers: DataTableHeader[] = [
     { title: 'Account', key: 'email' },
     { title: 'Type', key: 'type' },
     // { title: 'Name', key: 'name' },

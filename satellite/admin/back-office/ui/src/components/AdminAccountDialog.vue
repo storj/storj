@@ -20,7 +20,7 @@
 
             <v-divider />
 
-            <v-form v-model="valid" class="pa-7">
+            <v-form class="pa-7">
                 <v-row>
                     <v-col>
                         <p class="pb-2">Admin name and email.</p>

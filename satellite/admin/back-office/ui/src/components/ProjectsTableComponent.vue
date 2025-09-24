@@ -9,8 +9,8 @@
         />
 
         <v-data-table
-            v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="files" :search="search"
-            class="elevation-1" density="comfortable" hover @item-click="handleItemClick"
+            v-model="selected" :sort-by="sortBy" :headers="headers" :items="files" :search="search"
+            class="elevation-1" density="comfortable" hover
         >
             <template #item.projectid="{ item }">
                 <div class="text-no-wrap">
@@ -34,48 +34,48 @@
                                 />
                             </svg>
                         </template>
-                        {{ item.columns.projectid }}
+                        {{ item.projectid }}
                     </v-chip>
                 </div>
             </template>
 
             <template #item.name="{ item }">
-                {{ item.raw.name }}
+                {{ item.name }}
             </template>
 
             <template #item.email="{ item }">
-                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.raw.email)">
-                    {{ item.raw.email }}
+                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.email)">
+                    {{ item.email }}
                 </v-chip>
             </template>
 
             <template #item.agent="{ item }">
-                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.raw.agent)">
-                    {{ item.raw.agent }}
+                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.agent)">
+                    {{ item.agent }}
                 </v-chip>
             </template>
 
             <template #item.placement="{ item }">
-                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.raw.placement)">
-                    {{ item.raw.placement }}
+                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.placement)">
+                    {{ item.placement }}
                 </v-chip>
             </template>
 
             <template #item.storagepercent="{ item }">
                 <v-chip
-                    variant="tonal" :color="getPercentColor(item.raw.storagepercent)" size="small" rounded="lg"
+                    variant="tonal" :color="getPercentColor(item.storagepercent)" size="small" rounded="lg"
                     class="font-weight-bold"
                 >
-                    {{ item.raw.storagepercent }}&percnt;
+                    {{ item.storagepercent }}&percnt;
                 </v-chip>
             </template>
 
             <template #item.downloadpercent="{ item }">
                 <v-chip
-                    variant="tonal" :color="getPercentColor(item.raw.downloadpercent)" size="small" rounded="lg"
+                    variant="tonal" :color="getPercentColor(item.downloadpercent)" size="small" rounded="lg"
                     class="font-weight-bold"
                 >
-                    {{ item.raw.downloadpercent }}&percnt;
+                    {{ item.downloadpercent }}&percnt;
                 </v-chip>
             </template>
 
@@ -83,10 +83,10 @@
                 <v-tooltip text="430,000 / 1,000,000">
                     <template #activator="{ props }">
                         <v-chip
-                            v-bind="props" variant="tonal" :color="getPercentColor(item.raw.segmentpercent)" size="small"
+                            v-bind="props" variant="tonal" :color="getPercentColor(item.segmentpercent)" size="small"
                             rounded="lg" class="font-weight-bold"
                         >
-                            {{ item.raw.segmentpercent }}&percnt;
+                            {{ item.segmentpercent }}&percnt;
                         </v-chip>
                     </template>
                 </v-tooltip>
@@ -94,7 +94,7 @@
 
             <template #item.date="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.raw.date }}
+                    {{ item.date }}
                 </span>
             </template>
         </v-data-table>
@@ -113,13 +113,15 @@ import {
     VDataTable,
 } from 'vuetify/components';
 
+import { DataTableHeader, SortItem } from '@/types/common';
+
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);
-const sortBy = ref([{ key: 'name', order: 'asc' }]);
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
-const headers = [
+const headers: DataTableHeader[] = [
     { title: 'Project ID', key: 'projectid', align: 'start' },
     // { title: 'Name', key: 'name'},
     { title: 'Account', key: 'email' },
@@ -291,7 +293,12 @@ function setSearch(searchText: string) {
     search.value = searchText;
 }
 
-function getPercentColor(percent: number) {
+function getPercentColor(p: number | string) {
+    let percent = 0;
+    if (typeof p === 'string')
+        percent = parseInt(p, 10);
+    else
+        percent = p;
     if (percent >= 99) {
         return 'error';
     } else if (percent >= 80) {

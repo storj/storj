@@ -50,18 +50,7 @@ export default defineConfig(({ mode }) => {
 
     return {
         base: isDev ? '/' : backOfficeBaseURL + '/static/dist',
-        plugins: [
-            vue({
-                template: { transformAssetUrls },
-            }),
-            // https://github.com/vuetifyjs/vuetify-loader/tree/next/packages/vite-plugin
-            vuetify({
-                autoImport: true,
-                styles: {
-                    configFile: 'src/styles/settings.scss',
-                },
-            }),
-        ],
+        plugins: plugins,
         define: {
             global: 'globalThis',
             'process.env': {

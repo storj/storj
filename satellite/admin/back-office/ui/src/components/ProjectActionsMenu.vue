@@ -26,7 +26,7 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.project.upatePlacement" density="comfortable" link rounded="lg">
+            <v-list-item v-if="featureFlags.project.updatePlacement" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Placement
                     <ProjectGeofenceDialog />

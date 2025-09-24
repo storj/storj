@@ -56,21 +56,21 @@ const notifications = computed((): DelayedNotification[] => {
 /**
  * Forces notification to stay on page on mouse over it.
  */
-function onMouseOver(id: symbol): void {
+function onMouseOver(id: string): void {
     notificationsStore.pauseNotification(id);
 }
 
 /**
  * Resume notification flow when mouse leaves notification.
  */
-function onMouseLeave(id: symbol): void {
+function onMouseLeave(id: string): void {
     notificationsStore.resumeNotification(id);
 }
 
 /**
  * Removes notification when the close button is clicked.
  */
-function onCloseClick(id: symbol): void {
+function onCloseClick(id: string): void {
     notificationsStore.deleteNotification(id);
 }
 </script>

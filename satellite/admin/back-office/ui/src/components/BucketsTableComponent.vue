@@ -9,8 +9,8 @@
         />
 
         <v-data-table
-            v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="files" :search="search"
-            class="elevation-1" item-key="path" density="comfortable" hover @item-click="handleItemClick"
+            v-model="selected" :sort-by="sortBy" :headers="headers" :items="files" :search="search"
+            class="elevation-1" item-key="path" density="comfortable" hover
         >
             <template #item.name="{ item }">
                 <div class="text-no-wrap">
@@ -32,26 +32,26 @@
                                 />
                             </svg>
                         </template>
-                        {{ item.raw.name }}
+                        {{ item.name }}
                     </v-chip>
                 </div>
             </template>
 
             <template #item.placement="{ item }">
                 <v-chip variant="tonal" color="default" size="small" rounded="lg" class="text-capitalize">
-                    {{ item.raw.placement }}
+                    {{ item.placement }}
                 </v-chip>
             </template>
 
             <template #item.agent="{ item }">
-                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.raw.agent)">
-                    {{ item.raw.agent }}
+                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.agent)">
+                    {{ item.agent }}
                 </v-chip>
             </template>
 
             <template #item.date="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.raw.date }}
+                    {{ item.date }}
                 </span>
             </template>
         </v-data-table>
@@ -62,13 +62,15 @@
 import { ref } from 'vue';
 import { VCard, VTextField, VDataTable, VBtn, VIcon, VChip } from 'vuetify/components';
 
+import { DataTableHeader, SortItem } from '@/types/common';
+
 import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
 
 const search = ref<string>('');
 const selected = ref<string[]>([]);
-const sortBy = ref([{ key: 'name', order: 'asc' }]);
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
-const headers = [
+const headers: DataTableHeader[] = [
     { title: 'Bucket', key: 'name' },
     { title: 'Storage', key: 'storage' },
     { title: 'Download', key: 'download' },

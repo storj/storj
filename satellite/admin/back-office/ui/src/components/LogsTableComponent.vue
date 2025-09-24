@@ -9,38 +9,38 @@
         />
 
         <v-data-table
-            v-model="selected" v-model:sort-by="sortBy" :headers="headers" :items="files" :search="search"
-            class="elevation-1" item-key="path" density="comfortable" show-expand hover @item-click="handleItemClick"
+            v-model="selected" :sort-by="sortBy" :headers="headers" :items="files" :search="search"
+            class="elevation-1" item-key="path" density="comfortable" show-expand hover
         >
             <template #expanded-row="{ columns, item }">
                 <tr>
                     <td :colspan="columns.length">
-                        More info about {{ item.raw.name }} change.
+                        More info about {{ item.name }} change.
                     </td>
                 </tr>
             </template>
 
             <template #item.operation="{ item }">
-                <v-chip variant="tonal" size="small" rounded="lg" @click="setSearch(item.raw.operation)">
-                    {{ item.raw.operation }}
+                <v-chip variant="tonal" size="small" rounded="lg" @click="setSearch(item.operation)">
+                    {{ item.operation }}
                 </v-chip>
             </template>
 
             <template #item.name="{ item }">
                 <v-list-item class="rounded-lg pl-1" link router-link to="/dashboard">
-                    {{ item.columns.name }}
+                    {{ item.name }}
                 </v-list-item>
             </template>
 
             <template #item.email="{ item }">
-                <v-chip variant="tonal" size="small" rounded="lg" @click="setSearch(item.raw.email)">
-                    {{ item.raw.email }}
+                <v-chip variant="tonal" size="small" rounded="lg" @click="setSearch(item.email)">
+                    {{ item.email }}
                 </v-chip>
             </template>
 
             <template #item.date="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.raw.date }}
+                    {{ item.date }}
                 </span>
             </template>
         </v-data-table>
@@ -51,11 +51,13 @@
 import { ref } from 'vue';
 import { VCard, VTextField, VDataTable, VChip, VListItem } from 'vuetify/components';
 
+import { DataTableHeader, SortItem } from '@/types/common';
+
 const search = ref<string>('');
 const selected = ref<string[]>([]);
-const sortBy = ref([{ key: 'date', order: 'asc' }]);
+const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
-const headers = [
+const headers: DataTableHeader[] = [
     { title: 'Date', key: 'date' },
     { title: 'Change', key: 'name' },
     { title: 'Operation', key: 'operation' },

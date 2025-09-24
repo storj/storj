@@ -45,6 +45,7 @@
     "vite": "7.1.6",
     "vite-plugin-checker": "0.10.3",
     "vite-plugin-compression2": "2.2.1",
-    "vite-plugin-vuetify": "2.1.2"
+    "vite-plugin-vuetify": "2.1.2",
+    "vue-tsc": "3.0.8"
   }
 }
