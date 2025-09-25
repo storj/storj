@@ -47,6 +47,52 @@ const (
 	RateLimitPutNoError LimitKind = 19
 )
 
+// String returns a string representation of the LimitKind.
+func (k LimitKind) String() string {
+	switch k {
+	case StorageLimit:
+		return "Storage"
+	case BandwidthLimit:
+		return "Bandwidth"
+	case UserSetStorageLimit:
+		return "UserSetStorage"
+	case UserSetBandwidthLimit:
+		return "UserSetBandwidth"
+	case SegmentLimit:
+		return "Segment"
+	case BucketsLimit:
+		return "Buckets"
+	case RateLimit:
+		return "Rate"
+	case BurstLimit:
+		return "Burst"
+	case RateLimitHead:
+		return "RateHead"
+	case BurstLimitHead:
+		return "BurstHead"
+	case RateLimitGet:
+		return "RateGet"
+	case BurstLimitGet:
+		return "BurstGet"
+	case RateLimitPut:
+		return "RatePut"
+	case BurstLimitPut:
+		return "BurstPut"
+	case RateLimitList:
+		return "RateList"
+	case BurstLimitList:
+		return "BurstList"
+	case RateLimitDelete:
+		return "RateDelete"
+	case BurstLimitDelete:
+		return "BurstDelete"
+	case RateLimitPutNoError:
+		return "RatePutNoError"
+	default:
+		return "Unknown"
+	}
+}
+
 // Limit is a generic representation of a limit and its value.
 type Limit struct {
 	Kind  LimitKind

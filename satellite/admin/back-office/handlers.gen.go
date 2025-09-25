@@ -48,7 +48,7 @@ type UserManagementService interface {
 
 type ProjectManagementService interface {
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
-	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdate) api.HTTPError
+	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -144,7 +144,7 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 
 	projectsRouter := router.PathPrefix("/back-office/api/v1/projects").Subrouter()
 	projectsRouter.HandleFunc("/{publicID}", handler.handleGetProject).Methods("GET")
-	projectsRouter.HandleFunc("/limits/{publicID}", handler.handleUpdateProjectLimits).Methods("PUT")
+	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PUT")
 
 	return handler
 }
@@ -681,7 +681,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	payload := ProjectLimitsUpdate{}
+	payload := ProjectLimitsUpdateRequest{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -696,8 +696,14 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	httpErr := h.service.UpdateProjectLimits(ctx, publicID, payload)
+	retVal, httpErr := h.service.UpdateProjectLimits(ctx, publicID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateProjectLimits response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }

@@ -10,12 +10,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/console"
 )
 
 // Project contains the information and configurations of a project.
@@ -31,7 +34,17 @@ type Project struct {
 	// RateLimit is `nil` when satellite applies the configured default rate limit.
 	RateLimit *int `json:"rateLimit"`
 	// BurstLimit is `nil` when satellite applies the configured default burst limit.
-	BurstLimit *int `json:"burstLimit"`
+	BurstLimit       *int `json:"burstLimit"`
+	RateLimitHead    *int `json:"rateLimitHead"`
+	BurstLimitHead   *int `json:"burstLimitHead"`
+	RateLimitGet     *int `json:"rateLimitGet"`
+	BurstLimitGet    *int `json:"burstLimitGet"`
+	RateLimitPut     *int `json:"rateLimitPut"`
+	BurstLimitPut    *int `json:"burstLimitPut"`
+	RateLimitDelete  *int `json:"rateLimitDelete"`
+	BurstLimitDelete *int `json:"burstLimitDelete"`
+	RateLimitList    *int `json:"rateLimitList"`
+	BurstLimitList   *int `json:"burstLimitList"`
 	// Maxbuckets is `nil` when satellite applies the configured default max buckets.
 	MaxBuckets *int `json:"maxBuckets"`
 	ProjectUsageLimits[*int64]
@@ -43,25 +56,41 @@ type Project struct {
 // StorageUsed and SegmentUsed are nil if there was an error connecting to the Redis
 // live accounting cache.
 type ProjectUsageLimits[T ~int64 | *int64] struct {
-	BandwidthLimit T      `json:"bandwidthLimit"`
-	BandwidthUsed  int64  `json:"bandwidthUsed"`
-	StorageLimit   T      `json:"storageLimit"`
-	StorageUsed    *int64 `json:"storageUsed"`
-	SegmentLimit   T      `json:"segmentLimit"`
-	SegmentUsed    *int64 `json:"segmentUsed"`
+	BandwidthLimit        T      `json:"bandwidthLimit"`
+	UserSetBandwidthLimit *int64 `json:"userSetBandwidthLimit"`
+	BandwidthUsed         int64  `json:"bandwidthUsed"`
+	StorageLimit          T      `json:"storageLimit"`
+	UserSetStorageLimit   *int64 `json:"userSetStorageLimit"`
+	StorageUsed           *int64 `json:"storageUsed"`
+	SegmentLimit          T      `json:"segmentLimit"`
+	SegmentUsed           *int64 `json:"segmentUsed"`
 }
 
-// ProjectLimitsUpdate contains all limit values to be updated.
-type ProjectLimitsUpdate struct {
-	MaxBuckets     int   `json:"maxBuckets"`
-	StorageLimit   int64 `json:"storageLimit"`
-	BandwidthLimit int64 `json:"bandwidthLimit"`
-	SegmentLimit   int64 `json:"segmentLimit"`
-	RateLimit      int   `json:"rateLimit"`
-	BurstLimit     int   `json:"burstLimit"`
+// ProjectLimitsUpdateRequest contains all limit values to be updated.
+type ProjectLimitsUpdateRequest struct {
+	MaxBuckets     *int   `json:"maxBuckets"`
+	StorageLimit   *int64 `json:"storageLimit"`
+	BandwidthLimit *int64 `json:"bandwidthLimit"`
+	SegmentLimit   *int64 `json:"segmentLimit"`
+	RateLimit      *int   `json:"rateLimit"`
+	BurstLimit     *int   `json:"burstLimit"`
+	// the following limits are nullable; setting them to 0
+	// sets them to null in the DB
+	UserSetStorageLimit   *int64 `json:"userSetStorageLimit"`
+	UserSetBandwidthLimit *int64 `json:"userSetBandwidthLimit"`
+	RateLimitHead         *int   `json:"rateLimitHead"`
+	BurstLimitHead        *int   `json:"burstLimitHead"`
+	RateLimitGet          *int   `json:"rateLimitGet"`
+	BurstLimitGet         *int   `json:"burstLimitGet"`
+	RateLimitPut          *int   `json:"rateLimitPut"`
+	BurstLimitPut         *int   `json:"burstLimitPut"`
+	RateLimitDelete       *int   `json:"rateLimitDelete"`
+	BurstLimitDelete      *int   `json:"burstLimitDelete"`
+	RateLimitList         *int   `json:"rateLimitList"`
+	BurstLimitList        *int   `json:"burstLimitList"`
 }
 
-// GetProject gets the project info.
+// GetProject gets the project info by public ID.
 func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -71,6 +100,7 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		status := http.StatusInternalServerError
 		if errors.Is(err, sql.ErrNoRows) {
 			status = http.StatusNotFound
+			err = errs.New("project not found")
 		}
 		return nil, api.HTTPError{
 			Status: status,
@@ -112,6 +142,16 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		l := p.StorageLimit.Int64()
 		storagel = &l
 	}
+	var userStoragel *int64
+	if p.UserSpecifiedStorageLimit != nil {
+		l := p.UserSpecifiedStorageLimit.Int64()
+		userStoragel = &l
+	}
+	var userBandwidthl *int64
+	if p.UserSpecifiedBandwidthLimit != nil {
+		l := p.UserSpecifiedBandwidthLimit.Int64()
+		userBandwidthl = &l
+	}
 
 	maxBuckets := &s.defaults.MaxBuckets
 	if p.MaxBuckets != nil {
@@ -142,14 +182,26 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		DefaultPlacement: p.DefaultPlacement,
 		RateLimit:        rate,
 		BurstLimit:       burst,
+		RateLimitList:    p.RateLimitList,
+		BurstLimitList:   p.BurstLimitList,
+		RateLimitHead:    p.RateLimitHead,
+		BurstLimitHead:   p.BurstLimitHead,
+		RateLimitGet:     p.RateLimitGet,
+		BurstLimitGet:    p.BurstLimitGet,
+		RateLimitPut:     p.RateLimitPut,
+		BurstLimitPut:    p.BurstLimitPut,
+		RateLimitDelete:  p.RateLimitDelete,
+		BurstLimitDelete: p.BurstLimitDelete,
 		MaxBuckets:       maxBuckets,
 		ProjectUsageLimits: ProjectUsageLimits[*int64]{
-			BandwidthLimit: bandwidthl,
-			BandwidthUsed:  bandwidthu,
-			StorageLimit:   storagel,
-			StorageUsed:    storageu,
-			SegmentLimit:   p.SegmentLimit,
-			SegmentUsed:    segmentu,
+			BandwidthLimit:        bandwidthl,
+			UserSetBandwidthLimit: userBandwidthl,
+			BandwidthUsed:         bandwidthu,
+			StorageLimit:          storagel,
+			UserSetStorageLimit:   userStoragel,
+			StorageUsed:           storageu,
+			SegmentLimit:          p.SegmentLimit,
+			SegmentUsed:           segmentu,
 		},
 	}, api.HTTPError{}
 }
@@ -253,7 +305,7 @@ func (s *Service) getProjectUsage(
 }
 
 // UpdateProjectLimits updates the project's max buckets, storage, bandwidth, segment, rate, and burst limits.
-func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req ProjectLimitsUpdate) api.HTTPError {
+func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req ProjectLimitsUpdateRequest) (*Project, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -262,39 +314,162 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req Pro
 		status := http.StatusInternalServerError
 		if errors.Is(err, sql.ErrNoRows) {
 			status = http.StatusNotFound
+			err = errs.New("project not found")
 		}
-		return api.HTTPError{
+		return nil, api.HTTPError{
 			Status: status,
 			Err:    Error.Wrap(err),
 		}
 	}
 
-	buckets := &req.MaxBuckets
-	if req.MaxBuckets == s.defaults.MaxBuckets {
-		buckets = nil
-	}
-	rate := &req.RateLimit
-	if req.RateLimit == s.defaults.RateLimit {
-		rate = nil
-	}
-	burst := &req.BurstLimit
-	if req.BurstLimit == s.defaults.RateLimit {
-		burst = nil
-	}
-
-	// Note: usage_limit (storage), bandwidth_limit, and segment_limit columns are also nullable, but are never actually null in production.
-
-	err = s.consoleDB.Projects().UpdateAllLimits(ctx, p.ID, &req.StorageLimit, &req.BandwidthLimit, &req.SegmentLimit, buckets, rate, burst)
+	toUpdate, err := s.validateProjectLimitRequest(p, req)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-		}
-		return api.HTTPError{
-			Status: status,
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
 			Err:    Error.Wrap(err),
 		}
 	}
 
-	return api.HTTPError{}
+	err = s.consoleDB.Projects().UpdateLimitsGeneric(ctx, p.ID, toUpdate)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return s.GetProject(ctx, id)
+}
+
+func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLimitsUpdateRequest) (toUpdate []console.Limit, err error) {
+	var errGroup errs.Group
+	intTo64 := func(i *int) *int64 {
+		if i == nil {
+			return nil
+		}
+		v := int64(*i)
+		return &v
+	}
+	sizeTo64 := func(i *memory.Size) *int64 {
+		if i == nil {
+			return nil
+		}
+		i64 := i.Int64()
+		return &i64
+	}
+
+	limits := []struct {
+		requestValue *int64
+		currentValue *int64
+		limitKind    console.LimitKind
+		allowsNull   bool
+	}{
+		{
+			requestValue: req.StorageLimit,
+			currentValue: sizeTo64(p.StorageLimit),
+			limitKind:    console.StorageLimit,
+		}, {
+			requestValue: req.BandwidthLimit,
+			currentValue: sizeTo64(p.BandwidthLimit),
+			limitKind:    console.BandwidthLimit,
+		}, {
+			requestValue: req.SegmentLimit,
+			currentValue: p.SegmentLimit,
+			limitKind:    console.SegmentLimit,
+		}, {
+			requestValue: intTo64(req.MaxBuckets),
+			currentValue: intTo64(p.MaxBuckets),
+			limitKind:    console.BucketsLimit,
+		}, {
+			requestValue: intTo64(req.RateLimit),
+			currentValue: intTo64(p.RateLimit),
+			limitKind:    console.RateLimit,
+		}, {
+			requestValue: intTo64(req.BurstLimit),
+			currentValue: intTo64(p.BurstLimit),
+			limitKind:    console.BurstLimit,
+		}, {
+			requestValue: req.UserSetStorageLimit,
+			currentValue: sizeTo64(p.UserSpecifiedStorageLimit),
+			limitKind:    console.UserSetStorageLimit,
+			allowsNull:   true,
+		}, {
+			requestValue: req.UserSetBandwidthLimit,
+			currentValue: sizeTo64(p.UserSpecifiedBandwidthLimit),
+			limitKind:    console.UserSetBandwidthLimit,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.RateLimitHead),
+			currentValue: intTo64(p.RateLimitHead),
+			limitKind:    console.RateLimitHead,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.BurstLimitHead),
+			currentValue: intTo64(p.BurstLimitHead),
+			limitKind:    console.BurstLimitHead,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.RateLimitGet),
+			currentValue: intTo64(p.RateLimitGet),
+			limitKind:    console.RateLimitGet,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.BurstLimitGet),
+			currentValue: intTo64(p.BurstLimitGet),
+			limitKind:    console.BurstLimitGet,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.RateLimitPut),
+			currentValue: intTo64(p.RateLimitPut),
+			limitKind:    console.RateLimitPut,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.BurstLimitPut),
+			currentValue: intTo64(p.BurstLimitPut),
+			limitKind:    console.BurstLimitPut,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.RateLimitDelete),
+			currentValue: intTo64(p.RateLimitDelete),
+			limitKind:    console.RateLimitDelete,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.BurstLimitDelete),
+			currentValue: intTo64(p.BurstLimitDelete),
+			limitKind:    console.BurstLimitDelete,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.RateLimitList),
+			currentValue: intTo64(p.RateLimitList),
+			limitKind:    console.RateLimitList,
+			allowsNull:   true,
+		}, {
+			requestValue: intTo64(req.BurstLimitList),
+			currentValue: intTo64(p.BurstLimitList),
+			limitKind:    console.BurstLimitList,
+			allowsNull:   true,
+		},
+	}
+	for _, limit := range limits {
+		if limit.requestValue == nil {
+			continue
+		}
+		if *limit.requestValue < 0 {
+			errGroup = append(errGroup, errs.New("%s cannot be negative", limit.limitKind))
+			continue
+		}
+		if limit.allowsNull && *limit.requestValue == 0 && limit.currentValue != nil {
+			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: nil})
+			continue
+		}
+		if limit.currentValue == nil || *limit.requestValue != *limit.currentValue {
+			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: limit.requestValue})
+		}
+	}
+
+	if err = errGroup.Err(); err != nil {
+		return nil, err
+	}
+
+	return toUpdate, nil
 }

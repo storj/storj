@@ -251,8 +251,10 @@ Gets user by email address
 			name: string
 			active: boolean
 			bandwidthLimit: number
+			userSetBandwidthLimit: number
 			bandwidthUsed: number
 			storageLimit: number
+			userSetStorageLimit: number
 			storageUsed: number
 			segmentLimit: number
 			segmentUsed: number
@@ -312,8 +314,10 @@ Gets user by ID
 			name: string
 			active: boolean
 			bandwidthLimit: number
+			userSetBandwidthLimit: number
 			bandwidthUsed: number
 			storageLimit: number
+			userSetStorageLimit: number
 			storageUsed: number
 			segmentLimit: number
 			segmentUsed: number
@@ -391,8 +395,10 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 			name: string
 			active: boolean
 			bandwidthLimit: number
+			userSetBandwidthLimit: number
 			bandwidthUsed: number
 			storageLimit: number
+			userSetStorageLimit: number
 			storageUsed: number
 			segmentLimit: number
 			segmentUsed: number
@@ -526,10 +532,22 @@ Gets project by ID
 	defaultPlacement: number
 	rateLimit: number
 	burstLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitDelete: number
+	burstLimitDelete: number
+	rateLimitList: number
+	burstLimitList: number
 	maxBuckets: number
 	bandwidthLimit: number
+	userSetBandwidthLimit: number
 	bandwidthUsed: number
 	storageLimit: number
+	userSetStorageLimit: number
 	storageUsed: number
 	segmentLimit: number
 	segmentUsed: number
@@ -541,7 +559,7 @@ Gets project by ID
 
 Updates project limits by ID
 
-`PUT /back-office/api/v1/projects/limits/{publicID}`
+`PUT /back-office/api/v1/projects/{publicID}/limits`
 
 **Path Params:**
 
@@ -559,6 +577,59 @@ Updates project limits by ID
 	segmentLimit: number
 	rateLimit: number
 	burstLimit: number
+	userSetStorageLimit: number
+	userSetBandwidthLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitDelete: number
+	burstLimitDelete: number
+	rateLimitList: number
+	burstLimitList: number
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	name: string
+	description: string
+	userAgent: string
+	owner: 	{
+		id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+		fullName: string
+		email: string
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	defaultPlacement: number
+	rateLimit: number
+	burstLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitDelete: number
+	burstLimitDelete: number
+	rateLimitList: number
+	burstLimitList: number
+	maxBuckets: number
+	bandwidthLimit: number
+	userSetBandwidthLimit: number
+	bandwidthUsed: number
+	storageLimit: number
+	userSetStorageLimit: number
+	storageUsed: number
+	segmentLimit: number
+	segmentUsed: number
 }
 
 ```

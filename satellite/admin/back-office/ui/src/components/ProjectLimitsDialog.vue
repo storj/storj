@@ -112,7 +112,7 @@ import {
 
 import { useNotificationsStore } from '@/store/notifications';
 import { RequiredRule, ValidationRule } from '@/types/common';
-import { Project } from '@/api/client.gen';
+import { Project, ProjectLimitsUpdateRequest } from '@/api/client.gen';
 import { useProjectsStore } from '@/store/projects';
 
 const valid = ref<boolean>(false);
@@ -160,7 +160,7 @@ async function updateLimits() {
             burstLimit: Number(burst.value),
         };
 
-        await projectsStore.updateProjectLimits(props.project.id, updateReq);
+        await projectsStore.updateProjectLimits(props.project.id, updateReq as ProjectLimitsUpdateRequest);
         if (projectsStore.state.currentProject?.id === props.project.id) {
             await projectsStore.updateCurrentProject(props.project.id);
         }

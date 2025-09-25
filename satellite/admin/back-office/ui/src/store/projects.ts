@@ -6,7 +6,7 @@ import { defineStore } from 'pinia';
 
 import {
     Project,
-    ProjectLimitsUpdate,
+    ProjectLimitsUpdateRequest,
     ProjectManagementHttpApiV1,
 } from '@/api/client.gen';
 
@@ -31,7 +31,7 @@ export const useProjectsStore = defineStore('projects', () => {
         return await projectApi.getProject(id);
     }
 
-    async function updateProjectLimits(id: string, limits: ProjectLimitsUpdate): Promise<void> {
+    async function updateProjectLimits(id: string, limits: ProjectLimitsUpdateRequest): Promise<void> {
         await projectApi.updateProjectLimits(limits, id);
     }
 

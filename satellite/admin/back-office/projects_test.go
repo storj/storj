@@ -194,12 +194,12 @@ func TestUpdateProjectLimits(t *testing.T) {
 			sat := planet.Satellites[0]
 
 			service := sat.Admin.Admin.Service
-			apiErr := service.UpdateProjectLimits(ctx, testrand.UUID(), admin.ProjectLimitsUpdate{})
+			_, apiErr := service.UpdateProjectLimits(ctx, testrand.UUID(), admin.ProjectLimitsUpdateRequest{})
 			require.Error(t, apiErr.Err)
 			assert.Equal(t, http.StatusNotFound, apiErr.Status)
 		})
 
-		t.Run("existing user", func(t *testing.T) {
+		t.Run("existing project", func(t *testing.T) {
 			consoleUser := &console.User{
 				ID:               testrand.UUID(),
 				FullName:         "Test User",
@@ -249,9 +249,8 @@ func TestUpdateProjectLimits(t *testing.T) {
 			projPublicID := consoleProject.PublicID
 
 			service := sat.Admin.Admin.Service
-			project, err := sat.API.DB.Console().Projects().Get(ctx, projID)
-			require.NoError(t, err)
-
+			project, apiErr := service.GetProject(ctx, projPublicID)
+			require.NoError(t, apiErr.Err)
 			require.NotNil(t, project.RateLimit)
 			assert.Equal(t, *consoleProject.RateLimit, *project.RateLimit)
 			require.NotNil(t, project.BurstLimit)
@@ -263,94 +262,150 @@ func TestUpdateProjectLimits(t *testing.T) {
 			assert.EqualValues(t, consoleProject.StorageLimit, project.StorageLimit)
 			assert.EqualValues(t, consoleProject.SegmentLimit, project.SegmentLimit)
 
-			// basic test
-			expectStorage := project.StorageLimit.Int64() * 2
-			expectBandwidth := project.BandwidthLimit.Int64() * 2
+			intPtr := func(v int) *int { return &v }
+			int64Ptr := func(v int64) *int64 { return &v }
+
+			expectStorage := *project.StorageLimit * 2
+			expectBandwidth := *project.BandwidthLimit * 2
 			expectSegment := *project.SegmentLimit * 2
 			expectBuckets := 100
 			expectRate := 2000
 			expectBurst := 500
-			apiErr := service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdate{
-				MaxBuckets:     expectBuckets,
-				StorageLimit:   expectStorage,
-				BandwidthLimit: expectBandwidth,
-				SegmentLimit:   expectSegment,
-				RateLimit:      expectRate,
-				BurstLimit:     expectBurst,
+			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+				MaxBuckets:     intPtr(expectBuckets),
+				StorageLimit:   int64Ptr(expectStorage),
+				BandwidthLimit: int64Ptr(expectBandwidth),
+				SegmentLimit:   int64Ptr(expectSegment),
+				RateLimit:      intPtr(expectRate),
+				BurstLimit:     intPtr(expectBurst),
 			})
 			require.NoError(t, apiErr.Err)
-
-			project, err = sat.API.DB.Console().Projects().Get(ctx, projID)
-			require.NoError(t, err)
-
-			require.NotNil(t, project.MaxBuckets)
-			require.Equal(t, expectBuckets, *project.MaxBuckets)
-			require.NotNil(t, project.StorageLimit)
-			require.Equal(t, expectStorage, project.StorageLimit.Int64())
-			require.NotNil(t, project.BandwidthLimit)
-			require.Equal(t, expectBandwidth, project.BandwidthLimit.Int64())
-			require.NotNil(t, project.SegmentLimit)
-			require.Equal(t, expectSegment, *project.SegmentLimit)
-			require.NotNil(t, project.RateLimit)
-			require.Equal(t, expectRate, *project.RateLimit)
-			require.NotNil(t, project.BurstLimit)
-			require.Equal(t, expectBurst, *project.BurstLimit)
-
-			// test updating max buckets, rate, and burst limits to default value sets null in DB.
-			// Storage, BW, and segment are still set explicitly even if default.
-			defaultStorage := sat.Config.Console.UsageLimits.Storage.Free.Int64()
-			defaultBandwidth := sat.Config.Console.UsageLimits.Bandwidth.Free.Int64()
-			defaultSegment := sat.Config.Console.UsageLimits.Segment.Free
-
-			apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdate{
-				MaxBuckets:     sat.Config.Metainfo.ProjectLimits.MaxBuckets,
-				RateLimit:      int(sat.Config.Metainfo.RateLimiter.Rate),
-				BurstLimit:     int(sat.Config.Metainfo.RateLimiter.Rate),
-				StorageLimit:   defaultStorage,
-				BandwidthLimit: defaultBandwidth,
-				SegmentLimit:   defaultSegment,
-			})
-			require.NoError(t, apiErr.Err)
-
-			project, err = sat.API.DB.Console().Projects().Get(ctx, projID)
-			require.NoError(t, err)
-
-			require.Nil(t, project.MaxBuckets)
-			require.Nil(t, project.RateLimit)
-			require.Nil(t, project.BurstLimit)
-			require.NotNil(t, project.StorageLimit)
-			require.Equal(t, defaultStorage, project.StorageLimit.Int64())
-			require.NotNil(t, project.BandwidthLimit)
-			require.Equal(t, defaultBandwidth, project.BandwidthLimit.Int64())
-			require.NotNil(t, project.SegmentLimit)
-			require.Equal(t, defaultSegment, *project.SegmentLimit)
+			require.Equal(t, intPtr(expectBuckets), project.MaxBuckets)
+			require.Equal(t, int64Ptr(expectStorage), project.StorageLimit)
+			require.Equal(t, int64Ptr(expectBandwidth), project.BandwidthLimit)
+			require.Equal(t, int64Ptr(expectSegment), project.SegmentLimit)
+			require.Equal(t, intPtr(expectRate), project.RateLimit)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimit)
+			require.Nil(t, project.UserSetBandwidthLimit)
+			require.Nil(t, project.UserSetStorageLimit)
+			require.Nil(t, project.RateLimitList)
 
 			// test setting to zero.
-			apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdate{
-				MaxBuckets:     0,
-				RateLimit:      0,
-				BurstLimit:     0,
-				StorageLimit:   0,
-				BandwidthLimit: 0,
-				SegmentLimit:   0,
+			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+				MaxBuckets:     intPtr(0),
+				StorageLimit:   int64Ptr(0),
+				BandwidthLimit: int64Ptr(0),
+				SegmentLimit:   int64Ptr(0),
+				RateLimit:      intPtr(0),
+				BurstLimit:     intPtr(0),
+			})
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, intPtr(0), project.MaxBuckets)
+			require.Equal(t, int64Ptr(0), project.StorageLimit)
+			require.Equal(t, int64Ptr(0), project.BandwidthLimit)
+			require.Equal(t, int64Ptr(0), project.SegmentLimit)
+			require.Equal(t, intPtr(0), project.RateLimit)
+			require.Equal(t, intPtr(0), project.BurstLimit)
+
+			// revert
+			_, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+				MaxBuckets:     intPtr(expectBuckets),
+				StorageLimit:   int64Ptr(expectStorage),
+				BandwidthLimit: int64Ptr(expectBandwidth),
+				SegmentLimit:   int64Ptr(expectSegment),
+				RateLimit:      intPtr(expectRate),
+				BurstLimit:     intPtr(expectBurst),
 			})
 			require.NoError(t, apiErr.Err)
 
-			project, err = sat.API.DB.Console().Projects().Get(ctx, projID)
-			require.NoError(t, err)
+			// test setting nullable limits to 0 which should make them null in DB
+			// first set all nullable fields to non-zero values
+			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+				UserSetStorageLimit:   int64Ptr(expectStorage),
+				UserSetBandwidthLimit: int64Ptr(expectBandwidth),
+				RateLimitHead:         intPtr(expectRate),
+				BurstLimitHead:        intPtr(expectBurst),
+				RateLimitGet:          intPtr(expectRate),
+				BurstLimitGet:         intPtr(expectBurst),
+				RateLimitPut:          intPtr(expectRate),
+				BurstLimitPut:         intPtr(expectBurst),
+				RateLimitDelete:       intPtr(expectRate),
+				BurstLimitDelete:      intPtr(expectBurst),
+				RateLimitList:         intPtr(expectRate),
+				BurstLimitList:        intPtr(expectBurst),
+			})
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, int64Ptr(expectStorage), project.UserSetStorageLimit)
+			require.Equal(t, int64Ptr(expectBandwidth), project.UserSetBandwidthLimit)
+			require.Equal(t, intPtr(expectRate), project.RateLimitHead)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimitHead)
+			require.Equal(t, intPtr(expectRate), project.RateLimitGet)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimitGet)
+			require.Equal(t, intPtr(expectRate), project.RateLimitPut)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimitPut)
+			require.Equal(t, intPtr(expectRate), project.RateLimitDelete)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimitDelete)
+			require.Equal(t, intPtr(expectRate), project.RateLimitList)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimitList)
+			// check that non-nullable values remain unchanged
+			require.Equal(t, intPtr(expectBuckets), project.MaxBuckets)
+			require.Equal(t, int64Ptr(expectStorage), project.StorageLimit)
+			require.Equal(t, int64Ptr(expectBandwidth), project.BandwidthLimit)
+			require.Equal(t, int64Ptr(expectSegment), project.SegmentLimit)
+			require.Equal(t, intPtr(expectRate), project.RateLimit)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimit)
 
-			require.NotNil(t, project.MaxBuckets)
-			require.Zero(t, *project.MaxBuckets)
-			require.NotNil(t, project.RateLimit)
-			require.Zero(t, *project.RateLimit)
-			require.NotNil(t, project.BurstLimit)
-			require.Zero(t, *project.BurstLimit)
-			require.NotNil(t, project.StorageLimit)
-			require.Zero(t, *project.StorageLimit)
-			require.NotNil(t, project.BandwidthLimit)
-			require.Zero(t, *project.BandwidthLimit)
-			require.NotNil(t, project.SegmentLimit)
-			require.Zero(t, *project.SegmentLimit)
+			// now set all nullable fields to 0 to make them null
+			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+				UserSetStorageLimit:   int64Ptr(0),
+				UserSetBandwidthLimit: int64Ptr(0),
+				RateLimitHead:         intPtr(0),
+				BurstLimitHead:        intPtr(0),
+				RateLimitGet:          intPtr(0),
+				BurstLimitGet:         intPtr(0),
+				RateLimitPut:          intPtr(0),
+				BurstLimitPut:         intPtr(0),
+				RateLimitDelete:       intPtr(0),
+				BurstLimitDelete:      intPtr(0),
+				RateLimitList:         intPtr(0),
+				BurstLimitList:        intPtr(0),
+			})
+			require.NoError(t, apiErr.Err)
+			require.Nil(t, project.UserSetStorageLimit)
+			require.Nil(t, project.UserSetBandwidthLimit)
+			require.Nil(t, project.RateLimitHead)
+			require.Nil(t, project.BurstLimitHead)
+			require.Nil(t, project.RateLimitGet)
+			require.Nil(t, project.BurstLimitGet)
+			require.Nil(t, project.RateLimitPut)
+			require.Nil(t, project.BurstLimitPut)
+			require.Nil(t, project.RateLimitDelete)
+			require.Nil(t, project.BurstLimitDelete)
+			require.Nil(t, project.RateLimitList)
+			require.Nil(t, project.BurstLimitList)
+			// check that non-nullable values remain unchanged
+			require.Equal(t, intPtr(expectBuckets), project.MaxBuckets)
+			require.Equal(t, int64Ptr(expectStorage), project.StorageLimit)
+			require.Equal(t, int64Ptr(expectBandwidth), project.BandwidthLimit)
+			require.Equal(t, int64Ptr(expectSegment), project.SegmentLimit)
+			require.Equal(t, intPtr(expectRate), project.RateLimit)
+			require.Equal(t, intPtr(expectBurst), project.BurstLimit)
+
+			_, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+				MaxBuckets:          intPtr(-1),
+				StorageLimit:        int64Ptr(-1),
+				UserSetStorageLimit: int64Ptr(-1),
+				RateLimit:           intPtr(-1),
+				RateLimitList:       intPtr(-1),
+			})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "cannot be negative")
+			require.Contains(t, apiErr.Err.Error(), console.BucketsLimit.String())
+			require.Contains(t, apiErr.Err.Error(), console.StorageLimit.String())
+			require.Contains(t, apiErr.Err.Error(), console.UserSetStorageLimit.String())
+			require.Contains(t, apiErr.Err.Error(), console.RateLimitList.String())
+			require.Contains(t, apiErr.Err.Error(), console.RateLimit.String())
 		})
 	})
 }

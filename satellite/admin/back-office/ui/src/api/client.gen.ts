@@ -89,10 +89,22 @@ export class Project {
     defaultPlacement: number;
     rateLimit: number | null;
     burstLimit: number | null;
+    rateLimitHead: number | null;
+    burstLimitHead: number | null;
+    rateLimitGet: number | null;
+    burstLimitGet: number | null;
+    rateLimitPut: number | null;
+    burstLimitPut: number | null;
+    rateLimitDelete: number | null;
+    burstLimitDelete: number | null;
+    rateLimitList: number | null;
+    burstLimitList: number | null;
     maxBuckets: number | null;
     bandwidthLimit: number | null;
+    userSetBandwidthLimit: number | null;
     bandwidthUsed: number;
     storageLimit: number | null;
+    userSetStorageLimit: number | null;
     storageUsed: number | null;
     segmentLimit: number | null;
     segmentUsed: number | null;
@@ -113,13 +125,25 @@ export class ProjectFlags {
     memberRemove: boolean;
 }
 
-export class ProjectLimitsUpdate {
-    maxBuckets: number;
-    storageLimit: number;
-    bandwidthLimit: number;
-    segmentLimit: number;
-    rateLimit: number;
-    burstLimit: number;
+export class ProjectLimitsUpdateRequest {
+    maxBuckets: number | null;
+    storageLimit: number | null;
+    bandwidthLimit: number | null;
+    segmentLimit: number | null;
+    rateLimit: number | null;
+    burstLimit: number | null;
+    userSetStorageLimit: number | null;
+    userSetBandwidthLimit: number | null;
+    rateLimitHead: number | null;
+    burstLimitHead: number | null;
+    rateLimitGet: number | null;
+    burstLimitGet: number | null;
+    rateLimitPut: number | null;
+    burstLimitPut: number | null;
+    rateLimitDelete: number | null;
+    burstLimitDelete: number | null;
+    rateLimitList: number | null;
+    burstLimitList: number | null;
 }
 
 export class Settings {
@@ -175,8 +199,10 @@ export class UserProject {
     name: string;
     active: boolean;
     bandwidthLimit: number;
+    userSetBandwidthLimit: number | null;
     bandwidthUsed: number;
     storageLimit: number;
+    userSetStorageLimit: number | null;
     storageUsed: number | null;
     segmentLimit: number;
     segmentUsed: number | null;
@@ -367,11 +393,11 @@ export class ProjectManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async updateProjectLimits(request: ProjectLimitsUpdate, publicID: UUID): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/limits/${publicID}`;
+    public async updateProjectLimits(request: ProjectLimitsUpdateRequest, publicID: UUID): Promise<Project> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}/limits`;
         const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
-            return;
+            return response.json().then((body) => body as Project);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

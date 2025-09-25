@@ -238,7 +238,7 @@ func main() {
 		},
 	})
 
-	group.Put("/limits/{publicID}", &apigen.Endpoint{
+	group.Put("/{publicID}/limits", &apigen.Endpoint{
 		Name:           "Update project limits",
 		Description:    "Updates project limits by ID",
 		GoName:         "UpdateProjectLimits",
@@ -246,7 +246,8 @@ func main() {
 		PathParams: []apigen.Param{
 			apigen.NewParam("publicID", uuid.UUID{}),
 		},
-		Request: backoffice.ProjectLimitsUpdate{},
+		Request:  backoffice.ProjectLimitsUpdateRequest{},
+		Response: backoffice.Project{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermProjectSetLimits},
 		},
