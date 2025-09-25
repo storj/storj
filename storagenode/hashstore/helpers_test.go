@@ -24,6 +24,11 @@ import (
 	"storj.io/storj/storagenode/hashstore/platform"
 )
 
+func init() {
+	// enable checking log file size and offset
+	test_Log_CheckSizeAndOffset = true
+}
+
 func TestClampTTL(t *testing.T) {
 	assert.Equal(t, clampDate(0), 0)
 	assert.Equal(t, clampDate(-1), 1)
@@ -159,10 +164,6 @@ func TestRewrittenIndex(t *testing.T) {
 // test helpers
 //
 
-var (
-	compaction_ExpiresDays = uint32(7)
-)
-
 func forAllTables[T interface {
 	Run(string, func(T)) bool
 }](t T, fn func(T, Config)) {
@@ -232,6 +233,7 @@ func newMemoryLogger() *zap.Logger {
 type testTbl struct {
 	t testing.TB
 	Tbl
+
 	cfg Config
 }
 
@@ -301,6 +303,7 @@ func (tbl *testTbl) AssertLookupMiss(k Key) {
 type testHashTbl struct {
 	t testing.TB
 	*HashTbl
+
 	cfg MmapCfg
 }
 
@@ -370,6 +373,7 @@ func (th *testHashTbl) AssertLookupMiss(k Key) {
 type testMemTbl struct {
 	t testing.TB
 	*MemTbl
+
 	cfg MmapCfg
 }
 
@@ -439,15 +443,15 @@ func (tm *testMemTbl) AssertLookupMiss(k Key) {
 type testStore struct {
 	t testing.TB
 	*Store
+
 	today uint32
-	cfg   *Config
 }
 
 func newTestStore(t testing.TB, cfg Config) *testStore {
 	s, err := NewStore(t.Context(), cfg, t.TempDir(), "", newMemoryLogger())
 	assert.NoError(t, err)
 
-	ts := &testStore{t: t, Store: s, today: s.today(), cfg: &cfg}
+	ts := &testStore{t: t, Store: s, today: s.today()}
 
 	s.today = func() uint32 { return ts.today }
 
@@ -459,7 +463,7 @@ func (ts *testStore) Close() { ts.Store.Close() }
 func (ts *testStore) AssertReopen() {
 	ts.Store.Close()
 
-	s, err := NewStore(ts.t.Context(), *ts.cfg, ts.logsPath, ts.tablePath, ts.log)
+	s, err := NewStore(ts.t.Context(), ts.cfg, ts.logsPath, ts.tablePath, ts.log)
 	assert.NoError(ts.t, err)
 
 	s.today = func() uint32 { return ts.today }
@@ -549,9 +553,10 @@ func (ts *testStore) LogFile(key Key) uint64 {
 //
 
 type testDB struct {
-	t   testing.TB
-	cfg Config
+	t testing.TB
 	*DB
+
+	cfg Config
 }
 
 func newTestDB(

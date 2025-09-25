@@ -180,7 +180,7 @@ func testStore_ReadFromCompactedFile(t *testing.T, cfg Config) {
 	assert.That(t, before.Log < after.Log)
 
 	// move to the future so that compaction deletes the record.
-	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
+	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(alwaysTrash, time.Time{})
 
 	// we should be able to read the data still because the open handle should retain a reference to
@@ -207,7 +207,7 @@ func testStore_CompactionEventuallyDeletes(t *testing.T, cfg Config) {
 	// compact a bunch of times, every day incrementing by one. we need to do two extra days because
 	// the first compaction flags it to be deleted after ExpiresDays, we then need to wait that many
 	// days, and then the next compaction will actually delete it.
-	for i := uint32(0); i < 1+compaction_ExpiresDays+1; i++ {
+	for i := uint32(0); i < 1+uint32(s.cfg.Compaction.ExpiresDays)+1; i++ {
 		s.AssertCompact(alwaysTrash, time.Time{})
 		s.today++
 	}
@@ -249,7 +249,7 @@ func testStore_DeleteTrashImmediately_ExistingTrash(t *testing.T, cfg Config) {
 	s.AssertExist(key)
 
 	// go forward in time but not enough to expire the key and compact again. it should still exist.
-	s.today += compaction_ExpiresDays / 2
+	s.today += uint32(s.cfg.Compaction.ExpiresDays) / 2
 	s.AssertCompact(alwaysTrash, time.Time{})
 	s.AssertExist(key)
 
@@ -278,7 +278,7 @@ func testStore_CompactionRespectsRestoreTime(t *testing.T, cfg Config) {
 	restore := DateToTime(s.today)
 
 	// compact again far enough ahead to ensure it would be deleted if not for restore.
-	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
+	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, restore)
 
 	// grab a reader for the key. it should still exist.
@@ -345,13 +345,13 @@ func testStore_CompactionWithTTLTakesShorterTime(t *testing.T, cfg Config) {
 		defer s.Close()
 
 		// add an entry to the store that will expire way in the future.
-		key := s.AssertCreate(WithTTL(time.Now().Add(24 * time.Hour * 10 * time.Duration(compaction_ExpiresDays))))
+		key := s.AssertCreate(WithTTL(time.Now().AddDate(0, 0, 10*int(s.cfg.Compaction.ExpiresDays))))
 
 		// flag the key as trash.
 		s.AssertCompact(alwaysTrash, time.Time{})
 
 		// bump time to the minimum necessary to expire the key.
-		s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
+		s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
 		s.AssertCompact(nil, time.Time{})
 
 		// the key should not exist.
@@ -382,8 +382,8 @@ func TestStore_CompactLogFile(t *testing.T) {
 		forAllTables(t, testStore_CompactLogFile)
 	})
 	t.Run("ignoreRewriteIndex=true", func(t *testing.T) {
-		store_TestIgnoreRewrittenIndex = true
-		defer func() { store_TestIgnoreRewrittenIndex = false }()
+		test_Store_IgnoreRewrittenIndex = true
+		defer func() { test_Store_IgnoreRewrittenIndex = false }()
 		forAllTables(t, testStore_CompactLogFile)
 	})
 }
@@ -416,7 +416,7 @@ func testStore_CompactLogFile(t *testing.T, cfg Config) {
 	}
 
 	// compact the store so that the expired keys are deleted.
-	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
+	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, time.Time{})
 
 	// all the expired keys should be deleted.
@@ -534,7 +534,7 @@ func testStore_ReadRevivesTrash(t *testing.T, cfg Config) {
 	// add an entry to the store that does not expire.
 	key := s.AssertCreate()
 
-	for i := uint32(0); i < 5*compaction_ExpiresDays; i++ {
+	for i := uint32(0); i < 5*uint32(s.cfg.Compaction.ExpiresDays); i++ {
 		// flag the key as trash.
 		s.AssertCompact(alwaysTrash, time.Time{})
 
@@ -633,7 +633,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	s.AssertCompact(nil, time.Time{})
 
 	// bump the day so that if it were to delete k1, it would have.
-	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
+	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, time.Time{})
 
 	// k1 should still be reachable.
@@ -703,7 +703,7 @@ func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
 		s.AssertRead(key, AssertTrash(false))
 	}
 
-	t.Run("Dead", func(t *testing.T) { run(t, compaction_ExpiresDays+1) })
+	t.Run("Dead", func(t *testing.T) { run(t, uint32(cfg.Compaction.ExpiresDays)+1) })
 	t.Run("Alive", func(t *testing.T) { run(t, 0) })
 }
 
@@ -912,15 +912,13 @@ func testStore_LogContainsDataToReconstruct(t *testing.T, cfg Config) {
 		assert.NoError(t, <-done)
 	}
 
-	// add a canceled record to the end of some log file to ensure that we can still reconstruct
-	// the table.
-	w, err := s.Create(ctx, newKey(), time.Time{})
-	assert.NoError(t, err)
-	buf := make([]byte, 128)
-	_, _ = mwc.Rand().Read(buf)
-	_, err = w.Write(buf)
-	assert.NoError(t, err)
-	w.Cancel()
+	// add some garbage data to the end of the log files to ensure that doesn't break anything.
+	assert.NoError(t, s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
+		buf := make([]byte, mwc.Intn(128))
+		_, _ = mwc.Rand().Read(buf)
+		_, err := lf.fh.Write(buf)
+		return true, err
+	}))
 
 	// collect all of the records from the log files.
 	collectRecords := func(lf *logFile) (recs []Record) {
@@ -1049,7 +1047,7 @@ func testStore_CompactionMakesForwardProgress(t *testing.T, cfg Config) {
 	}, time.Time{})
 
 	// compact the store so that the expired key is deleted.
-	s.today += compaction_ExpiresDays + 1 // 1 more just in case the test is running near midnight.
+	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
 	s.AssertCompact(nil, time.Time{})
 }
 

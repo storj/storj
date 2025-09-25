@@ -31,9 +31,7 @@ import (
 
 var (
 	// if set to true, the store pretends to not find values in the rewritten index during compaction.
-	store_TestIgnoreRewrittenIndex = false
-	// if set to true, the store does extra checks to ensure log file sizes match their seek offset.
-	store_TestLogSizeAndOffset = false
+	test_Store_IgnoreRewrittenIndex = false
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -1054,7 +1052,7 @@ func (s *Store) compactOnce(
 			// rewritten one. otherwise, we have to rewrite it now. note that the above code may
 			// have changed some fields, so we only want to update the log and offset fields. the
 			// earlier loop ensures that only the log and offset fields are different.
-			if i, ok := ri.findKey(rec.Key); ok && !store_TestIgnoreRewrittenIndex {
+			if i, ok := ri.findKey(rec.Key); ok && !test_Store_IgnoreRewrittenIndex {
 				rec.Log, rec.Offset = ri.records[i].Log, ri.records[i].Offset
 			} else {
 				rewrittenRec, err := s.rewriteRecord(ctx, rec, rewriteCandidates)

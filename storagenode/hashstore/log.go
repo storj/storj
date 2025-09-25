@@ -16,6 +16,11 @@ import (
 	"github.com/zeebo/errs"
 )
 
+var (
+	// if set to true, the store does extra checks to ensure log file sizes match their seek offset.
+	test_Log_CheckSizeAndOffset = false
+)
+
 // logFile represents a ref-counted handle to a log file that stores piece data.
 type logFile struct {
 	// immutable fields
@@ -303,7 +308,7 @@ func (h *Writer) Close() (err error) {
 	}
 
 	// if we're testing the size and offset, ensure they match.
-	if store_TestLogSizeAndOffset {
+	if test_Log_CheckSizeAndOffset {
 		if size := lf.size.Load(); size != uint64(offset) {
 			panic(fmt.Sprintf("log file size=%d and offset=%d mismatch for %s",
 				size, offset, lf.fh.Name()))

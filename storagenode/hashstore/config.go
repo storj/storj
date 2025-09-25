@@ -115,7 +115,7 @@ func CreateDefaultConfig(kind TableKind, mmap bool) Config {
 			ProbabilityPower:       2.0,
 			RewriteMultiple:        10,
 			DeleteTrashImmediately: false,
-			OrderedRewrite:         false,
+			OrderedRewrite:         true,
 		},
 		Hashtbl: MmapCfg{
 			Mmap:  mmap,
