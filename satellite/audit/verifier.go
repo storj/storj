@@ -276,7 +276,6 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	mon.Counter("not_enough_shares_for_audit").Inc(0)      //mon:locked
 	mon.Counter("audit_not_enough_nodes_online").Inc(0)    //mon:locked
 	mon.Counter("audit_not_enough_shares_acquired").Inc(0) //mon:locked
-	mon.Counter("could_not_verify_audit_shares").Inc(0)    //mon:locked
 	mon.Counter("audit_suspected_network_problem").Inc(0)  //mon:locked
 
 	pieceNums, _, err := auditShares(ctx, required, total, sharesToAudit)
@@ -290,6 +289,9 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			Unknown:  unknownNodes,
 		}, err
 	}
+
+	// ensure we get values, even if only zero values, so that redash can have an alert based on these
+	mon.Counter("could_not_verify_audit_shares").Inc(0) //mon:locked
 
 	for _, pieceNum := range pieceNums {
 		verifier.log.Info("Verify: share data altered (audit failed)",
