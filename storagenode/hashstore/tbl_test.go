@@ -262,14 +262,14 @@ func testTable_ConstructorAPIAfterClose(t *testing.T, cfg Config) {
 
 	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, TableKind_HashTbl, cfg)
 	assert.NoError(t, err)
-	defer cons.Close()
+	defer cons.Cancel()
 
 	ok, err := cons.Append(ctx, newRecord(newKey()))
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
-	// after closne, append and done should now error.
-	cons.Close()
+	// after cancel, append and done should now error.
+	cons.Cancel()
 
 	ok, err = cons.Append(ctx, newRecord(newKey()))
 	assert.Error(t, err)
@@ -292,7 +292,7 @@ func testTable_ConstructorAPIAfterDone(t *testing.T, cfg Config) {
 
 	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, TableKind_HashTbl, cfg)
 	assert.NoError(t, err)
-	defer cons.Close()
+	defer cons.Cancel()
 
 	ok, err := cons.Append(ctx, newRecord(newKey()))
 	assert.NoError(t, err)
@@ -302,7 +302,7 @@ func testTable_ConstructorAPIAfterDone(t *testing.T, cfg Config) {
 	tbl, err := cons.Done(ctx)
 	assert.NoError(t, err)
 	assert.NotNil(t, tbl)
-	defer tbl.Close()
+	defer assertClose(t, tbl)
 
 	ok, err = cons.Append(ctx, newRecord(newKey()))
 	assert.Error(t, err)

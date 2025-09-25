@@ -58,14 +58,14 @@ type Tbl interface {
 	Insert(context.Context, Record) (bool, error)
 	Lookup(context.Context, Key) (Record, bool, error)
 	Sync(context.Context) error
-	Close()
+	Close() error
 }
 
 // TblConstructor is a constructor for a hash table.
 type TblConstructor interface {
 	Append(context.Context, Record) (bool, error)
 	Done(context.Context) (Tbl, error)
-	Close()
+	Cancel()
 }
 
 // TblStats contains statistics about a hash table.

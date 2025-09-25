@@ -1461,7 +1461,6 @@ func TestStore_OpenFailsWithLogFilesButNoTable(t *testing.T) {
 	forAllTables(t, testStore_OpenFailsWithLogFilesButNoTable)
 }
 func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T, cfg Config) {
-	ctx := context.Background()
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -1470,7 +1469,7 @@ func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T, cfg Config) {
 
 	assert.NoError(t, os.Remove(filepath.Join(s.tablePath, "hashtbl")))
 
-	_, err := NewStore(ctx, cfg, s.logsPath, s.tablePath, s.log)
+	_, err := NewStore(t.Context(), cfg, s.logsPath, s.tablePath, s.log)
 	assert.Error(t, err)
 }
 

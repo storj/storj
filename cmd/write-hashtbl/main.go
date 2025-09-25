@@ -102,7 +102,7 @@ func (c *cmdRoot) Execute(ctx context.Context) (err error) {
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	defer tcons.Close()
+	defer tcons.Cancel()
 
 	for _, file := range files {
 		_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Processing %s...\n", file)
@@ -124,9 +124,7 @@ func (c *cmdRoot) Execute(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	tbl.Close()
-
-	return nil
+	return tbl.Close()
 }
 
 func isLogFile(path string) (uint64, bool) {

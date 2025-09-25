@@ -31,6 +31,7 @@ type HashTbl struct {
 	opMu rwMutex // protects operations
 
 	closed drpcsignal.Signal // closed state
+	cloErr error             // close error
 	cloMu  sync.Mutex        // synchronizes closing
 
 	buffer *rwBigPageCache // buffer for inserts
@@ -148,6 +149,12 @@ func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, err
 		slotMask: 1<<logSlots - 1,
 		header:   header,
 	}
+	defer func() {
+		if err != nil {
+			h.fh = nil // don't close the file handle if we're returning an error
+			_ = h.Close()
+		}
+	}()
 
 	if cfg.Mmap && platform.MmapSupported {
 		data, err := platform.Mmap(fh, int(size))
@@ -210,12 +217,12 @@ func (h *HashTbl) Header() TblHeader { return h.header }
 func (h *HashTbl) Handle() *os.File { return h.fh }
 
 // Close closes the hash table and returns when no more operations are running.
-func (h *HashTbl) Close() {
+func (h *HashTbl) Close() error {
 	h.cloMu.Lock()
 	defer h.cloMu.Unlock()
 
 	if !h.closed.Set(Error.New("hashtbl closed")) {
-		return
+		return h.cloErr
 	}
 
 	// grab the lock to ensure all operations have finished before closing the file handle.
@@ -227,7 +234,11 @@ func (h *HashTbl) Close() {
 		h.mmap = nil
 	}
 
-	_ = h.fh.Close()
+	if h.fh != nil {
+		h.cloErr = h.fh.Close()
+	}
+
+	return h.cloErr
 }
 
 // slotForKey computes the slot for the given key.
@@ -568,10 +579,10 @@ func (c *HashTblConstructor) valid() error {
 	return nil
 }
 
-// Close signals that we're done with the HashTblConstructor. It should always be called.
-func (c *HashTblConstructor) Close() {
+// Cancel signals that we're done with the HashTblConstructor. It should always be called.
+func (c *HashTblConstructor) Cancel() {
 	if c.h != nil {
-		c.h.Close()
+		_ = c.h.Close()
 		c.h = nil
 	}
 }

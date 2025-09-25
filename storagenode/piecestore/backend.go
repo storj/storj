@@ -140,10 +140,11 @@ func (hsb *HashStoreBackend) Close() error {
 	hsb.mu.Lock()
 	defer hsb.mu.Unlock()
 
+	var eg errs.Group
 	for _, db := range hsb.dbs {
-		db.Close()
+		eg.Add(db.Close())
 	}
-	return nil
+	return eg.Err()
 }
 
 func (hsb *HashStoreBackend) dbsCopy() map[storj.NodeID]*hashstore.DB {
@@ -204,7 +205,7 @@ func (hsb *HashStoreBackend) ForgetSatellite(ctx context.Context, satellite stor
 	}
 	delete(hsb.dbs, satellite)
 
-	db.Close()
+	_ = db.Close()
 
 	err = os.RemoveAll(filepath.Join(hsb.logsPath, satellite.String()))
 	if err != nil {

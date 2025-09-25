@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -61,7 +62,7 @@ func testDB_BasicOperation(t *testing.T, cfg Config) {
 	assert.Error(t, err)
 	assert.That(t, errors.Is(err, fs.ErrNotExist))
 
-	// create and read should fail after close.
+	// create, read and compact should fail after close.
 	db.Close()
 
 	_, err = db.Read(ctx, newKey())
@@ -69,6 +70,59 @@ func testDB_BasicOperation(t *testing.T, cfg Config) {
 
 	_, err = db.Create(ctx, newKey(), time.Time{})
 	assert.Error(t, err)
+
+	err = db.Compact(ctx)
+	assert.Error(t, err)
+}
+
+func TestDB_ConcurrentOperation(t *testing.T) {
+	forAllTables(t, testDB_ConcurrentOperation)
+}
+func testDB_ConcurrentOperation(t *testing.T, cfg Config) {
+	cfg.Compaction.MaxLogSize = 1 << 10 // 1KiB
+
+	db := newTestDB(t, cfg, nil, nil)
+	defer db.Close()
+
+	procs := runtime.GOMAXPROCS(-1)
+	keysCh := make(chan []Key, procs)
+	for range procs {
+		go func() {
+			var keys []Key
+			for i := 0; ; i++ {
+				// stop when we have ~100 log files and, if not short, compaction has happened
+				stats, _, _ := db.Stats()
+				if stats.NumLogs >= 100 && (testing.Short() || stats.Compactions > 0) {
+					break
+				}
+
+				keys = append(keys, db.AssertCreate())
+
+				// add about 10% concurrent reads
+				if mwc.Intn(10) == 0 {
+					db.AssertRead(keys[mwc.Intn(len(keys))])
+				}
+			}
+			keysCh <- keys
+		}()
+	}
+
+	// collect all the keys created by the goroutines.
+	var allKeys []Key
+	for range procs {
+		allKeys = append(allKeys, <-keysCh...)
+	}
+
+	// ensure we can read all the keys back.
+	for _, key := range allKeys {
+		db.AssertRead(key)
+	}
+
+	// ensure we can still read all the keys back after reopen.
+	db.AssertReopen()
+	for _, key := range allKeys {
+		db.AssertRead(key)
+	}
 }
 
 func TestDB_TrashStats(t *testing.T) {
@@ -420,7 +474,7 @@ func benchmarkDB(b *testing.B, cfg Config) {
 
 		db, err := New(ctx, cfg, b.TempDir(), "", nil, nil, nil)
 		assert.NoError(b, err)
-		defer db.Close()
+		defer assertClose(b, db)
 
 		b.SetBytes(int64(size))
 		b.ReportAllocs()
@@ -446,7 +500,7 @@ func benchmarkDB(b *testing.B, cfg Config) {
 
 		db, err := New(ctx, cfg, b.TempDir(), "", nil, nil, nil)
 		assert.NoError(b, err)
-		defer db.Close()
+		defer assertClose(b, db)
 
 		// write at most ~100MB of keys or 1000 keys, whichever is smaller. this keeps the benchmark
 		// time reasonable.

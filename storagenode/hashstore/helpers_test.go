@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/zeebo/assert"
+	"github.com/zeebo/errs"
 	"github.com/zeebo/mwc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -160,9 +162,268 @@ func TestRewrittenIndex(t *testing.T) {
 	}
 }
 
+func TestAtomicMap(t *testing.T) {
+	var am atomicMap[int, string]
+
+	val, ok := am.Lookup(1)
+	assert.Equal(t, val, "")
+	assert.False(t, ok)
+
+	assert.True(t, am.Empty())
+	am.Set(1, "one")
+	assert.False(t, am.Empty())
+
+	val, ok = am.Lookup(1)
+	assert.Equal(t, val, "one")
+	assert.True(t, ok)
+
+	val, ok = am.LoadAndDelete(2)
+	assert.Equal(t, val, "")
+	assert.False(t, ok)
+
+	val, ok = am.LoadAndDelete(1)
+	assert.Equal(t, val, "one")
+	assert.True(t, ok)
+
+	val, ok = am.Lookup(1)
+	assert.Equal(t, val, "")
+	assert.False(t, ok)
+
+	assert.True(t, am.Empty())
+}
+
+func TestMultiLRUCache_Basic(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](3)
+	defer cache.Clear()
+
+	// Test Get with make function when cache is empty
+	tc1 := &testCloser{}
+	val, err := cache.Get("key1", returnConstant(tc1))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc1)
+	assert.False(t, tc1.closed)
+
+	// Test Put
+	tc2 := &testCloser{}
+	cache.Put("key1", tc2)
+
+	// Test Get returns cached value (most recently added)
+	val, err = cache.Get("key1", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc2)
+	assert.False(t, tc2.closed)
+
+	// Put another value for the same key
+	tc3 := &testCloser{}
+	cache.Put("key1", tc3)
+
+	// Get should return the most recently added value
+	val, err = cache.Get("key1", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc3)
+	assert.False(t, tc3.closed)
+}
+
+func TestMultiLRUCache_Capacity(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](2)
+	defer cache.Clear()
+
+	// Add items up to capacity
+	tc1 := &testCloser{}
+	tc2 := &testCloser{}
+	cache.Put("key1", tc1)
+	cache.Put("key2", tc2)
+
+	// Add a third item - should evict the oldest (tc1)
+	tc3 := &testCloser{}
+	cache.Put("key3", tc3)
+	assert.True(t, tc1.closed) // tc1 should be closed due to eviction
+
+	// key1 should no longer be cached
+	tc1New := &testCloser{}
+	val, err := cache.Get("key1", returnConstant(tc1New))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc1New)
+
+	// key2 and key3 should still be available
+	val, err = cache.Get("key2", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc2)
+
+	val, err = cache.Get("key3", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc3)
+}
+
+func TestMultiLRUCache_MultipleValuesPerKey(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](5)
+	defer cache.Clear()
+
+	// Add multiple values for the same key
+	tc1 := &testCloser{}
+	tc2 := &testCloser{}
+	tc3 := &testCloser{}
+
+	cache.Put("key1", tc1)
+	cache.Put("key1", tc2)
+	cache.Put("key1", tc3)
+
+	// Get should return the most recently added (LIFO order)
+	val, err := cache.Get("key1", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc3)
+
+	// Get again should return the second most recent
+	val, err = cache.Get("key1", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc2)
+
+	// Get again should return the first
+	val, err = cache.Get("key1", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc1)
+
+	// Key should be removed from cache now
+	tcNew := &testCloser{}
+	val, err = cache.Get("key1", returnConstant(tcNew))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tcNew)
+}
+
+func TestMultiLRUCache_EvictionWithMultipleValues(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](3)
+	defer cache.Clear()
+
+	// Add multiple values for key1
+	tc1a := &testCloser{}
+	tc1b := &testCloser{}
+	cache.Put("key1", tc1a)
+	cache.Put("key1", tc1b)
+
+	// Add one value for key2
+	tc2 := &testCloser{}
+	cache.Put("key2", tc2)
+
+	// Add one more value for key3 - should trigger eviction of oldest from key1
+	tc3 := &testCloser{}
+	cache.Put("key3", tc3)
+	assert.True(t, tc1a.closed) // oldest value from key1 should be evicted
+
+	// key1 should still have one value left
+	val, err := cache.Get("key1", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc1b)
+	assert.False(t, tc1b.closed)
+}
+
+func TestMultiLRUCache_Close(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](3)
+
+	tc1 := &testCloser{}
+	tc2 := &testCloser{}
+	tc3 := &testCloser{}
+
+	cache.Put("key1", tc1)
+	cache.Put("key2", tc2)
+	cache.Put("key1", tc3) // multiple values for key1
+
+	assert.False(t, tc1.closed)
+	assert.False(t, tc2.closed)
+	assert.False(t, tc3.closed)
+
+	cache.Clear()
+
+	// All cached items should be closed
+	assert.True(t, tc1.closed)
+	assert.True(t, tc2.closed)
+	assert.True(t, tc3.closed)
+}
+
+func TestMultiLRUCache_LRUOrdering(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](4)
+	defer cache.Clear()
+
+	tc1 := &testCloser{}
+	tc2 := &testCloser{}
+	tc3 := &testCloser{}
+	tc4 := &testCloser{}
+	tc5 := &testCloser{}
+
+	// Fill cache
+	cache.Put("key1", tc1)
+	cache.Put("key2", tc2)
+	cache.Put("key3", tc3)
+	cache.Put("key4", tc4)
+
+	// Access key1 to remove it and cause key2 to be the oldest
+	val, err := cache.Get("key1", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc1)
+
+	// Put it back so that the cache is full again
+	cache.Put("key1", tc1)
+
+	// Add a new item - should evict key2 (oldest accessed)
+	cache.Put("key5", tc5)
+	assert.True(t, tc2.closed)
+	assert.False(t, tc1.closed) // key1 was accessed recently, so not evicted
+}
+
+func TestMultiLRUCache_MakeError(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](3)
+	defer cache.Clear()
+
+	// Test Get with make function that returns an error
+	expectedErr := errs.New("sentinel")
+	val, err := cache.Get("key1", returnError(expectedErr))
+	assert.Error(t, err)
+	assert.Equal(t, err, expectedErr)
+	assert.Nil(t, val)
+}
+
+func TestMultiLRUCache_ZeroCapacity(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](0)
+	defer cache.Clear()
+
+	tc1 := &testCloser{}
+	cache.Put("key1", tc1)
+
+	// With zero capacity, item should be immediately closed
+	assert.True(t, tc1.closed)
+
+	// Get should always call make function
+	tc2 := &testCloser{}
+	val, err := cache.Get("key1", returnConstant(tc2))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc2)
+}
+
+func TestMultiLRUCache_SingleCapacity(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](1)
+	defer cache.Clear()
+
+	tc1 := &testCloser{}
+	tc2 := &testCloser{}
+
+	cache.Put("key1", tc1)
+	assert.False(t, tc1.closed)
+
+	// Adding second item should evict first
+	cache.Put("key2", tc2)
+	assert.True(t, tc1.closed)
+	assert.False(t, tc2.closed)
+
+	// Verify key2 is cached
+	val, err := cache.Get("key2", returnFailure(t))
+	assert.NoError(t, err)
+	assert.Equal(t, val, tc2)
+}
+
 //
 // test helpers
 //
+
+func assertClose(t testing.TB, cl io.Closer) { assert.NoError(t, cl.Close()) }
 
 func forAllTables[T interface {
 	Run(string, func(T)) bool
@@ -226,6 +487,31 @@ func newMemoryLogger() *zap.Logger {
 	))
 }
 
+type testCloser struct {
+	closed bool
+}
+
+func (tc *testCloser) Close() error {
+	tc.closed = true
+	return nil
+}
+
+func returnConstant(val *testCloser) func(string) (*testCloser, error) {
+	return func(string) (*testCloser, error) { return val, nil }
+}
+
+func returnError(err error) func(string) (*testCloser, error) {
+	return func(string) (*testCloser, error) { return nil, err }
+}
+
+func returnFailure(t testing.TB) func(string) (*testCloser, error) {
+	return func(string) (*testCloser, error) {
+		t.Helper()
+		t.Fatal("should not be called")
+		return nil, nil
+	}
+}
+
 //
 // generic table
 //
@@ -244,7 +530,7 @@ func newTestTbl(t testing.TB, cfg Config, lrec uint64, opts ...any) *testTbl {
 
 	cons, err := CreateTable(t.Context(), fh, lrec, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.NoError(t, err)
-	defer cons.Close()
+	defer cons.Cancel()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	tbl, err := cons.Done(t.Context())
 	assert.NoError(t, err)
@@ -252,10 +538,10 @@ func newTestTbl(t testing.TB, cfg Config, lrec uint64, opts ...any) *testTbl {
 	return &testTbl{t: t, Tbl: tbl, cfg: cfg}
 }
 
-func (tbl *testTbl) Close() { tbl.Tbl.Close() }
+func (tbl *testTbl) Close() { assert.NoError(tbl.t, tbl.Tbl.Close()) }
 
 func (tbl *testTbl) AssertReopen() {
-	tbl.Tbl.Close()
+	assert.NoError(tbl.t, tbl.Tbl.Close())
 
 	fh, err := os.OpenFile(tbl.Handle().Name(), os.O_RDWR, 0)
 	assert.NoError(tbl.t, err)
@@ -314,7 +600,7 @@ func newTestHashTbl(t testing.TB, cfg MmapCfg, lrec uint64, opts ...any) *testHa
 
 	cons, err := CreateHashTbl(t.Context(), fh, lrec, 0, cfg)
 	assert.NoError(t, err)
-	defer cons.Close()
+	defer cons.Cancel()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	h, err := cons.Done(t.Context())
 	assert.NoError(t, err)
@@ -322,10 +608,10 @@ func newTestHashTbl(t testing.TB, cfg MmapCfg, lrec uint64, opts ...any) *testHa
 	return &testHashTbl{t: t, HashTbl: h.(*HashTbl), cfg: cfg}
 }
 
-func (th *testHashTbl) Close() { th.HashTbl.Close() }
+func (th *testHashTbl) Close() { assert.NoError(th.t, th.HashTbl.Close()) }
 
 func (th *testHashTbl) AssertReopen() {
-	th.HashTbl.Close()
+	assert.NoError(th.t, th.HashTbl.Close())
 
 	fh, err := os.OpenFile(th.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(th.t, err)
@@ -384,7 +670,7 @@ func newTestMemTbl(t testing.TB, cfg MmapCfg, lrec uint64, opts ...any) *testMem
 
 	cons, err := CreateMemTbl(t.Context(), fh, lrec, 0, cfg)
 	assert.NoError(t, err)
-	defer cons.Close()
+	defer cons.Cancel()
 	checkOptions(opts, func(tc WithConstructor) { tc(cons) })
 	m, err := cons.Done(t.Context())
 	assert.NoError(t, err)
@@ -392,10 +678,10 @@ func newTestMemTbl(t testing.TB, cfg MmapCfg, lrec uint64, opts ...any) *testMem
 	return &testMemTbl{t: t, MemTbl: m.(*MemTbl), cfg: cfg}
 }
 
-func (tm *testMemTbl) Close() { tm.MemTbl.Close() }
+func (tm *testMemTbl) Close() { assert.NoError(tm.t, tm.MemTbl.Close()) }
 
 func (tm *testMemTbl) AssertReopen() {
-	tm.MemTbl.Close()
+	assert.NoError(tm.t, tm.MemTbl.Close())
 
 	fh, err := os.OpenFile(tm.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(tm.t, err)
@@ -458,10 +744,10 @@ func newTestStore(t testing.TB, cfg Config) *testStore {
 	return ts
 }
 
-func (ts *testStore) Close() { ts.Store.Close() }
+func (ts *testStore) Close() { assert.NoError(ts.t, ts.Store.Close()) }
 
 func (ts *testStore) AssertReopen() {
-	ts.Store.Close()
+	assert.NoError(ts.t, ts.Store.Close())
 
 	s, err := NewStore(ts.t.Context(), ts.cfg, ts.logsPath, ts.tablePath, ts.log)
 	assert.NoError(ts.t, err)
@@ -573,10 +859,10 @@ func newTestDB(
 	return td
 }
 
-func (td *testDB) Close() { td.DB.Close() }
+func (td *testDB) Close() { assert.NoError(td.t, td.DB.Close()) }
 
 func (td *testDB) AssertReopen() {
-	td.DB.Close()
+	assert.NoError(td.t, td.DB.Close())
 
 	db, err := New(td.t.Context(), td.cfg, td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
 	assert.NoError(td.t, err)

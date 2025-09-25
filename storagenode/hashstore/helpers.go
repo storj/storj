@@ -4,6 +4,7 @@
 package hashstore
 
 import (
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -133,6 +134,15 @@ func (f *flag) set() (old bool) {
 type atomicMap[K comparable, V any] struct {
 	_ [0]func() (*K, *V) // prevent equality and unsound conversions
 	m sync.Map
+}
+
+func (a *atomicMap[K, V]) Empty() (empty bool) {
+	empty = true
+	a.m.Range(func(_, _ any) bool {
+		empty = false
+		return false
+	})
+	return empty
 }
 
 func (a *atomicMap[K, V]) Delete(k K)   { a.m.Delete(k) }
@@ -306,4 +316,139 @@ func (ri *rewrittenIndex) findKey(key Key) (int, bool) {
 		return i, true
 	}
 	return -1, false
+}
+
+//
+// multi-valued lru cache for read-only file handles so we can ignore close errors.
+//
+
+type multiLRUCache[K comparable, V io.Closer] struct {
+	cap int
+
+	mu     sync.Mutex
+	cached map[K]*linkedList[K, V] // map of path to file handles
+	order  linkedList[K, V]        // eviction order (head is next to evict)
+}
+
+func newMultiLRUCache[K comparable, V io.Closer](cap int) *multiLRUCache[K, V] {
+	return &multiLRUCache[K, V]{
+		cap: cap,
+
+		cached: make(map[K]*linkedList[K, V]),
+	}
+}
+
+func (m *multiLRUCache[K, V]) Clear() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for m.order.head != nil {
+		_ = m.order.head.value.Close()
+		m.order.removeEntry(m.order.head, (*listEntry[K, V]).orderList)
+	}
+	clear(m.cached)
+}
+
+func (m *multiLRUCache[K, V]) Get(key K, mk func(K) (V, error)) (V, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	keyed := m.cached[key]
+	if keyed == nil {
+		return mk(key)
+	}
+	ent := keyed.head
+
+	keyed.removeEntry(ent, (*listEntry[K, V]).keyedList)
+	m.order.removeEntry(ent, (*listEntry[K, V]).orderList)
+
+	if keyed.count == 0 {
+		delete(m.cached, key)
+	}
+
+	return ent.value, nil
+}
+
+func (m *multiLRUCache[K, V]) Put(key K, fh V) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	keyed := m.cached[key]
+	if keyed == nil {
+		keyed = new(linkedList[K, V])
+		m.cached[key] = keyed
+	}
+
+	ent := &listEntry[K, V]{key: key, value: fh}
+	keyed.appendEntry(ent, (*listEntry[K, V]).keyedList)
+	m.order.appendEntry(ent, (*listEntry[K, V]).orderList)
+
+	for m.order.count > m.cap {
+		ent := m.order.head
+		keyed := m.cached[ent.key]
+
+		keyed.removeEntry(ent, (*listEntry[K, V]).keyedList)
+		m.order.removeEntry(ent, (*listEntry[K, V]).orderList)
+
+		if keyed.count == 0 {
+			delete(m.cached, ent.key)
+		}
+
+		_ = ent.value.Close()
+	}
+}
+
+//
+// doubly-linked double-list
+//
+
+type linkedList[K, V any] struct {
+	head  *listEntry[K, V]
+	tail  *listEntry[K, V]
+	count int
+}
+
+type listEntry[K, V any] struct {
+	key   K
+	value V
+
+	order listNode[K, V] // entry in the eviction order list
+	keyed listNode[K, V] // entry in the per-key list
+}
+
+type listNode[K, V any] struct {
+	next *listEntry[K, V]
+	prev *listEntry[K, V]
+}
+
+func (e *listEntry[K, V]) orderList() *listNode[K, V] { return &e.order }
+func (e *listEntry[K, V]) keyedList() *listNode[K, V] { return &e.keyed }
+
+func (l *linkedList[K, V]) appendEntry(ent *listEntry[K, V], node func(*listEntry[K, V]) *listNode[K, V]) {
+	if l.head == nil {
+		l.head = ent
+	}
+	if l.tail != nil {
+		node(l.tail).next = ent
+		node(ent).prev = l.tail
+	}
+	l.tail = ent
+	l.count++
+}
+
+func (l *linkedList[K, V]) removeEntry(ent *listEntry[K, V], node func(*listEntry[K, V]) *listNode[K, V]) {
+	n := node(ent)
+	if l.head == ent {
+		l.head = n.next
+	}
+	if n.next != nil {
+		node(n.next).prev = n.prev
+	}
+	if l.tail == ent {
+		l.tail = n.prev
+	}
+	if n.prev != nil {
+		node(n.prev).next = n.next
+	}
+	l.count--
 }

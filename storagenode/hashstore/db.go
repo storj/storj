@@ -46,8 +46,10 @@ type DB struct {
 	lastRestore func(context.Context) time.Time
 
 	closed drpcsignal.Signal // closed state
+	cloErr error             // close error
 	cloMu  sync.Mutex        // synchronizes closing
-	wg     sync.WaitGroup    // waitgroup for background goroutines
+
+	wg sync.WaitGroup // waitgroup for background goroutines
 
 	mu      sync.Mutex    // protects the following fields
 	compact *compactState // set if compaction is in progress
@@ -86,7 +88,7 @@ func New(
 	}
 	defer func() {
 		if err != nil {
-			d.Close()
+			_ = d.Close()
 		}
 	}()
 
@@ -212,12 +214,12 @@ func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 }
 
 // Close closes down the database and blocks until all background processes have stopped.
-func (d *DB) Close() {
+func (d *DB) Close() error {
 	d.cloMu.Lock()
 	defer d.cloMu.Unlock()
 
 	if !d.closed.Set(Error.New("db closed")) {
-		return
+		return d.cloErr
 	}
 
 	d.mu.Lock()
@@ -231,15 +233,19 @@ func (d *DB) Close() {
 	}
 
 	// close down the stores now that compaction is finished.
+	var eg errs.Group
 	if d.active != nil {
-		d.active.Close()
+		eg.Add(d.active.Close())
 	}
 	if d.passive != nil {
-		d.passive.Close()
+		eg.Add(d.passive.Close())
 	}
 
 	// wait for any background goroutines to finish.
 	d.wg.Wait()
+
+	d.cloErr = eg.Err()
+	return d.cloErr
 }
 
 // Create adds an entry to the database with the given key and expiration time. Close or Cancel
