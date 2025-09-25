@@ -31,8 +31,8 @@ export const useProjectsStore = defineStore('projects', () => {
         return await projectApi.getProject(id);
     }
 
-    async function updateProjectLimits(id: string, limits: ProjectLimitsUpdateRequest): Promise<void> {
-        await projectApi.updateProjectLimits(limits, id);
+    async function updateProjectLimits(id: string, limits: ProjectLimitsUpdateRequest): Promise<Project> {
+        return await projectApi.updateProjectLimits(limits, id);
     }
 
     return {
