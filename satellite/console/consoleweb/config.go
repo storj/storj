@@ -98,6 +98,7 @@ type FrontendConfig struct {
 	UseGeneratedPrivateAPI            bool                        `json:"useGeneratedPrivateAPI"`
 	Announcement                      console.AnnouncementConfig  `json:"announcement"`
 	ComputeUIEnabled                  bool                        `json:"computeUIEnabled"`
+	ShowNewPricingTiers               bool                        `json:"showNewPricingTiers"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

@@ -101,6 +101,7 @@ export class FrontendConfig {
     useGeneratedPrivateAPI: boolean;
     announcement: AnnouncementConfig;
     computeUIEnabled: boolean;
+    showNewPricingTiers: boolean;
 }
 
 export class MinimumChargeConfig {

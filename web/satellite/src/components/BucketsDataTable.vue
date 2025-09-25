@@ -331,6 +331,8 @@ type SortItem = {
     order: boolean | 'asc' | 'desc';
 };
 
+const showNewPricingTiers = computed<boolean>(() => configStore.state.config.showNewPricingTiers);
+
 const userEmail = computed<string>(() => userStore.state.user.email);
 
 const projectRole = computed<ProjectRole>(() => projectsStore.state.selectedProjectConfig.role);
@@ -387,7 +389,7 @@ const headers = computed<DataTableHeader[]>(() => {
     );
 
     if (showRegionTag.value) {
-        hdrs.push({ title: 'Location', key: 'location', sortable: isTableSortable.value });
+        hdrs.push({ title: showNewPricingTiers.value ? 'Storage Tier' : 'Location', key: 'location', sortable: isTableSortable.value });
     }
 
     if (versioningUIEnabled.value) {

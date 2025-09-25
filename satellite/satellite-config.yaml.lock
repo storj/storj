@@ -628,6 +628,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates whether remaining session time is shown for debugging
 # console.session.inactivity-timer-viewer-enabled: false
 
+# whether to show new pricing tiers in the UI
+# console.show-new-pricing-tiers: false
+
 # indicates whether the whether account activation is done using activation code
 # console.signup-activation-code-enabled: true
 

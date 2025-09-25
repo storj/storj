@@ -87,9 +87,12 @@
                             <v-row>
                                 <v-col cols="12">
                                     <p class="font-weight-bold mb-2">
-                                        Choose Data Location
+                                        Choose {{ showNewPricingTiers ? 'Storage Tier' : 'Data Location' }}
                                     </p>
-                                    <p>
+                                    <p v-if="showNewPricingTiers">
+                                        Choose the storage type that matches your needs.
+                                    </p>
+                                    <p v-else>
                                         Allows you to select the whole world, or specific regions to store the data you upload in this
                                         bucket.
                                     </p>
@@ -121,18 +124,23 @@
                                                 </div>
                                             </template>
                                         </template>
-                                        <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
-                                            {{ formatToGBDollars(pricingForLocation.storageMBMonthCents) }}/GB-month stored
-                                            <template v-if="isGettingPricing" #prepend>
-                                                <v-progress-circular indeterminate :size="20" />
-                                            </template>
-                                        </v-chip>
-                                        <v-chip v-if="pricingForLocation" variant="tonal">
-                                            {{ formatToGBDollars(pricingForLocation.egressMBCents) }}/GB download
-                                            <template v-if="isGettingPricing" #prepend>
-                                                <v-progress-circular indeterminate :size="20" />
-                                            </template>
-                                        </v-chip>
+                                        <a v-if="showNewPricingTiers" href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">
+                                            View Pricing
+                                        </a>
+                                        <template v-else>
+                                            <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
+                                                {{ formatToGBDollars(pricingForLocation.storageMBMonthCents) }}/GB-month stored
+                                                <template v-if="isGettingPricing" #prepend>
+                                                    <v-progress-circular indeterminate :size="20" />
+                                                </template>
+                                            </v-chip>
+                                            <v-chip v-if="pricingForLocation" variant="tonal">
+                                                {{ formatToGBDollars(pricingForLocation.egressMBCents) }}/GB download
+                                                <template v-if="isGettingPricing" #prepend>
+                                                    <v-progress-circular indeterminate :size="20" />
+                                                </template>
+                                            </v-chip>
+                                        </template>
 
                                         <template v-if="selectedPlacement?.pending">
                                             <v-alert color="info" variant="tonal" density="comfortable" class="my-3">
@@ -300,7 +308,8 @@
                                     </v-chip>
 
                                     <template v-if="selfPlacementEnabled">
-                                        <p>Location:</p>
+                                        <p v-if="showNewPricingTiers">Storage Tier:</p>
+                                        <p v-else>Location:</p>
                                         <v-chip
                                             variant="tonal"
                                             value="Disabled"
@@ -607,6 +616,8 @@ const defaultRetPeriodResult = computed<string>(() => {
     return `${defaultRetentionPeriod.value} ${unit}`;
 });
 
+const showNewPricingTiers = computed<boolean>(() => configStore.state.config.showNewPricingTiers);
+
 const selfPlacementEnabled = computed<boolean>(() => {
     return configStore.state.config.selfServePlacementSelectEnabled && !project.value.placement;
 });
@@ -669,7 +680,7 @@ const stepName = computed<string>(() => {
     case CreateStep.Name:
         return 'Name';
     case CreateStep.Location:
-        return 'Data Location';
+        return showNewPricingTiers.value ? 'Storage Tier' : 'Data Location';
     case CreateStep.ObjectLock:
         return 'Object Lock';
     case CreateStep.Versioning:
