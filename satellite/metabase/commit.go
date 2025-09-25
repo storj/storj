@@ -1219,17 +1219,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	return object, nil
 }
 
-// verifyObjectLockAndRetention checks that constraints for object lock and retention are correctly set.
-func (object *Object) verifyObjectLockAndRetention() error {
-	if err := object.Retention.Verify(); err != nil {
-		return err
-	}
-	if object.ExpiresAt != nil && (object.LegalHold || object.Retention.Enabled()) {
-		return Error.New("object expiration must not be set if Object Lock configuration is set")
-	}
-	return nil
-}
-
 func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

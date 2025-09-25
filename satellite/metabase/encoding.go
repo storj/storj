@@ -181,15 +181,6 @@ func (pieces *Pieces) Scan(value interface{}) error {
 	return nil
 }
 
-// columnRetentionMode is a helper for creating the correct wrapper for databases
-// for scanning "retention_mode" column.
-func (object *Object) columnRetentionMode() lockModeWrapper {
-	return lockModeWrapper{
-		retentionMode: &object.Retention.Mode,
-		legalHold:     &object.LegalHold,
-	}
-}
-
 type lockModeWrapper struct {
 	retentionMode *storj.RetentionMode
 	legalHold     *bool
@@ -266,12 +257,6 @@ func (r lockModeWrapper) DecodeSpanner(val interface{}) error {
 		return nil
 	}
 	return r.Scan(val)
-}
-
-// columnRetainUntil is a helper for creating the correct wrapper for databases
-// for scanning "retain_until" column.
-func (object *Object) columnRetainUntil() timeWrapper {
-	return timeWrapper{&object.Retention.RetainUntil}
 }
 
 type timeWrapper struct {
