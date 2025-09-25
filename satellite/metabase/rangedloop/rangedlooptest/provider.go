@@ -67,13 +67,6 @@ func (m *SegmentProvider) Iterate(ctx context.Context, fn func([]rangedloop.Segm
 	return nil
 }
 
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
 func streamsFromSegments(segments []rangedloop.Segment) [][]rangedloop.Segment {
 	// Duplicate and sort the segments by stream ID
 	segments = append([]rangedloop.Segment(nil), segments...)

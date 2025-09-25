@@ -28,13 +28,6 @@ const (
 	emptyTimeField = "            "
 )
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // NewPrefixWriter creates a writer than can prefix all lines written to it.
 func NewPrefixWriter(defaultPrefix string, maxLineLen int, dst io.Writer) *PrefixWriter {
 	writer := &PrefixWriter{
