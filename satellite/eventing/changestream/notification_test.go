@@ -13,7 +13,15 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+)
+
+var (
+	TestBucket = metabase.BucketLocation{
+		ProjectID:  uuid.UUID([16]byte{0xd0, 0xfe, 0xe6, 0xc4, 0x12, 0x37, 0x42, 0x24, 0x96, 0x48, 0xcf, 0xab, 0xe3, 0x1f, 0x6e, 0x6f}),
+		BucketName: metabase.BucketName("bucket1"),
+	}
 )
 
 func TestConvertModsToEvent_Delete(t *testing.T) {
@@ -24,6 +32,7 @@ func TestConvertModsToEvent_Delete(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
+	require.Equal(t, TestBucket, event.Bucket)
 	require.Len(t, event.Records, 1)
 	record := event.Records[0]
 	require.Equal(t, "2.1", record.EventVersion)
@@ -47,6 +56,7 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
+	require.Equal(t, TestBucket, event.Bucket)
 	require.Len(t, event.Records, 1)
 	record := event.Records[0]
 	require.Equal(t, "2.1", record.EventVersion)
@@ -70,6 +80,7 @@ func TestConvertModsToEvent_Update(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
+	require.Equal(t, TestBucket, event.Bucket)
 	require.Len(t, event.Records, 1)
 	record := event.Records[0]
 	require.Equal(t, "2.1", record.EventVersion)

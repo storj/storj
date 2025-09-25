@@ -13,35 +13,50 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/metabase"
 )
 
 // Config holds configuration for the changestream service.
 type Config struct {
-	Feedname string `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
+	Feedname           string                            `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
+	Buckets            eventing.BucketLocationTopicIDMap `help:"defines which buckets are monitored for events (comma separated list of \"project_id:bucket_name:topic_id\")" default:""`
+	TestNewPublisherFn func() (EventPublisher, error)
 }
 
 // Service implements a changestream processing service.
 type Service struct {
-	db        metabase.ChangeStreamAdapter
-	log       *zap.Logger
-	cfg       Config
-	publisher EventPublisher
+	db         metabase.ChangeStreamAdapter
+	log        *zap.Logger
+	cfg        Config
+	publishers map[metabase.BucketLocation]EventPublisher
+	mu         sync.RWMutex
 }
 
 // NewService creates a new changestream service.
-func NewService(db metabase.Adapter, log *zap.Logger, cfg Config, publisher EventPublisher) (*Service, error) {
+func NewService(db metabase.Adapter, log *zap.Logger, cfg Config) (*Service, error) {
 	sdb, ok := db.(metabase.ChangeStreamAdapter)
 
 	if !ok {
 		return nil, errs.New("changestream service requires spanner adapter")
 	}
-	return &Service{
-		log:       log,
-		db:        sdb,
-		cfg:       cfg,
-		publisher: publisher,
-	}, nil
+
+	service := &Service{
+		log:        log,
+		db:         sdb,
+		cfg:        cfg,
+		publishers: make(map[metabase.BucketLocation]EventPublisher, len(cfg.Buckets)),
+	}
+
+	// Validate configured topic names
+	for _, topicName := range cfg.Buckets {
+		_, _, err := ParseTopicName(topicName)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return service, nil
 }
 
 // Run starts the changestream processing loop.
@@ -50,7 +65,7 @@ func (s *Service) Run(ctx context.Context) error {
 	start := time.Now()
 	return Processor(ctx, s.db, s.cfg.Feedname, start, func(record metabase.DataChangeRecord) error {
 		for _, mod := range record.Mods {
-			s.log.Debug("received change record",
+			s.log.Debug("Received change record",
 				zap.String("table", record.TableName),
 				zap.Time("commit_timestamp", record.CommitTimestamp),
 				zap.String("mod_type", record.ModType),
@@ -61,24 +76,102 @@ func (s *Service) Run(ctx context.Context) error {
 				zap.Stringer("new_values", mod.NewValues))
 		}
 
-		event, err := ConvertModsToEvent(record)
-		if err != nil {
-			s.log.Error("failed to convert mods to event", zap.Error(err))
-			return nil
-		}
+		// Ignore errors here, they are logged inside ProcessRecord
+		_ = s.ProcessRecord(ctx, record)
 
-		if len(event.Records) == 0 {
-			// Nothing to publish
-			return nil
-		}
-
-		err = s.publisher.Publish(ctx, event)
-		if err != nil {
-			s.log.Error("failed to publish event", zap.Error(err))
-			return nil
-		}
 		return nil
 	})
+}
+
+// ProcessRecord processes a single change stream record.
+func (s *Service) ProcessRecord(ctx context.Context, record metabase.DataChangeRecord) error {
+	event, err := ConvertModsToEvent(record)
+	if err != nil {
+		s.log.Error("Failed to convert mods to event", zap.Error(err))
+		return err
+	}
+
+	if len(event.Records) == 0 {
+		s.log.Debug("Nothing to publish")
+		return nil
+	}
+
+	publisher, err := s.GetPublisher(ctx, event.Bucket)
+	if err != nil {
+		s.log.Error("Failed to get publisher for bucket",
+			zap.Stringer("Project ID", event.Bucket.ProjectID),
+			zap.Stringer("Bucket", event.Bucket.BucketName))
+		return err
+	}
+
+	err = publisher.Publish(ctx, event)
+	if err != nil {
+		s.log.Error("Failed to publish event",
+			zap.Stringer("Project ID", event.Bucket.ProjectID),
+			zap.Stringer("Bucket", event.Bucket.BucketName),
+			zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
+// GetPublisher returns an EventPublisher for the given bucket location, initializing it if necessary.
+func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocation) (EventPublisher, error) {
+	s.mu.RLock()
+	if publisher, ok := s.publishers[bucket]; ok {
+		s.mu.RUnlock()
+		return publisher, nil
+	}
+	s.mu.RUnlock()
+
+	// Upgrade to write lock to create new publisher
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Double-check in case another goroutine created it while we were waiting for the write lock
+	if publisher, ok := s.publishers[bucket]; ok {
+		return publisher, nil
+	}
+
+	topicName, ok := s.cfg.Buckets[bucket]
+	if !ok {
+		return nil, errs.New("no topic configured for bucket")
+	}
+
+	projectID, topicID, err := ParseTopicName(topicName)
+	if err != nil {
+		return nil, err
+	}
+
+	var publisher EventPublisher
+	if s.cfg.TestNewPublisherFn != nil {
+		publisher, err = s.cfg.TestNewPublisherFn()
+	} else {
+		publisher, err = NewPubSubPublisher(ctx, PubSubConfig{
+			ProjectID: projectID,
+			TopicID:   topicID,
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	s.publishers[bucket] = publisher
+
+	return publisher, nil
+}
+
+// Close closes resources.
+func (s *Service) Close() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var err error
+	for _, publisher := range s.publishers {
+		err = errs.Combine(err, publisher.Close())
+	}
+	return err
 }
 
 // Processor processes change stream records in batches (parallel). This contains the logic to follow child partitions.

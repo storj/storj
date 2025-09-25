@@ -4,18 +4,22 @@
 package changestream
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strconv"
 
 	"cloud.google.com/go/spanner"
+	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
 // Event contains one or more event records.
 type Event struct {
-	Records []EventRecord `json:"Records,omitempty"`
+	Bucket  metabase.BucketLocation `json:"-"`
+	Records []EventRecord           `json:"Records,omitempty"`
 }
 
 // EventRecord represents a change of a database record. Modeled to be compatible with similar events from AWS.
@@ -95,6 +99,22 @@ func ConvertModsToEvent(dataRecord metabase.DataChangeRecord) (event Event, err 
 		if bucketName, ok := extractString(keys, "bucket_name"); ok {
 			record.S3.Bucket.Name = bucketName
 			record.S3.Bucket.Arn = fmt.Sprintf("arn:storj:s3:::%s", bucketName)
+			// TODO: what if mods span multiple buckets?
+			event.Bucket.BucketName = metabase.BucketName(bucketName)
+		}
+
+		if projectID, ok := extractString(keys, "project_id"); ok {
+			projectIDBytes, err := base64.StdEncoding.DecodeString(projectID)
+			if err != nil {
+				return Event{}, errs.New("invalid base64 project_id: %w", err)
+			}
+			// TODO: what if mods span multiple projects?
+			event.Bucket.ProjectID, err = uuid.FromBytes(projectIDBytes)
+			if err != nil {
+				return Event{}, errs.New("invalid project_id uuid: %w", err)
+			}
+			// TODO: look up the public project ID and set it as the bucket owner
+			// record.S3.Bucket.OwnerIdentity.PrincipalId = publicProjectID
 		}
 
 		if objectKey, ok := extractString(keys, "object_key"); ok {
@@ -132,7 +152,7 @@ func parseNullJSONMap(nj spanner.NullJSON, what string) (map[string]interface{},
 			return nil, nil
 		}
 		if err := json.Unmarshal([]byte(v), &out); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal %s: %w", what, err)
+			return nil, errs.New("failed to unmarshal %s: %w", what, err)
 		}
 		return out, nil
 	case map[string]interface{}:
@@ -141,10 +161,10 @@ func parseNullJSONMap(nj spanner.NullJSON, what string) (map[string]interface{},
 		// Best-effort: marshal then unmarshal to map
 		b, err := json.Marshal(v)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal %s: %w", what, err)
+			return nil, errs.New("failed to marshal %s: %w", what, err)
 		}
 		if err := json.Unmarshal(b, &out); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal %s: %w", what, err)
+			return nil, errs.New("failed to unmarshal %s: %w", what, err)
 		}
 		return out, nil
 	}
