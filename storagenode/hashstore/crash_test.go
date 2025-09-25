@@ -46,13 +46,13 @@ func runCrashServer(ctx context.Context) error {
 	if err != nil {
 		return errs.Wrap(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// launch a goroutine to try to read from stdin so that if the parent
 	// process dies, we close the db and eventually exit.
 	go func() {
 		_, _ = os.Stdin.Read(make([]byte, 1))
-		db.Close()
+		_ = db.Close()
 	}()
 
 	mu := new(sync.Mutex) // protects writing to stdout
@@ -187,7 +187,7 @@ func TestCorrectDuringCrashes(t *testing.T) {
 	// open the database and ensure every key that was printed is readable.
 	db, err := New(ctx, CreateDefaultConfig(TableKind_HashTbl, false), dir, "", nil, nil, nil)
 	assert.NoError(t, err)
-	defer db.Close()
+	defer assertClose(t, db)
 
 	for _, key := range keys {
 		r, err := db.Read(ctx, key)

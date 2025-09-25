@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/zeebo/errs"
 	"github.com/zeebo/mwc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -37,15 +38,18 @@ var (
 // Store is a hash table based key-value store with compaction.
 type Store struct {
 	// immutable data
-	cfg       Config         // configuration for the store
-	logsPath  string         // directory containing log files
-	tablePath string         // directory containing meta files (lock + hashtbl)
-	log       *zap.Logger    // logger for unhandleable errors
-	today     func() uint32  // hook for getting the current timestamp
-	lock      *os.File       // lock file to prevent multiple processes from using the same store
-	lfc       *logCollection // collection of log files ready to be written into
+	cfg       Config        // configuration for the store
+	logsPath  string        // directory containing log files
+	tablePath string        // directory containing meta files (lock + hashtbl)
+	log       *zap.Logger   // logger for unhandleable errors
+	today     func() uint32 // hook for getting the current timestamp
+	lock      *os.File      // lock file to prevent multiple processes from using the same store
+
+	lfc *logCollection                   // collection of log files ready to be written into
+	lru *multiLRUCache[string, *os.File] // cache of open file handles
 
 	closed drpcsignal.Signal // closed state
+	cloErr error             // close error
 	cloMu  sync.Mutex        // synchronizes closing
 
 	flushMu   *rwMutex // semaphore of active flushes to log files
@@ -99,7 +103,8 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 		tablePath: tablePath,
 		log:       log,
 		today:     func() uint32 { return TimeToDateDown(time.Now()) },
-		lfc:       newLogCollection(cfg),
+		lfc:       newLogCollection(),
+		lru:       newMultiLRUCache[string, *os.File](cfg.Store.OpenFileCache),
 
 		flushMu:   newRWMutex(cfg.Store.FlushSemaphore, cfg.SyncLifo),
 		compactMu: newMutex(),
@@ -110,7 +115,7 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 	// prepared to operate on a partially initialized store.
 	defer func() {
 		if err != nil {
-			s.Close()
+			_ = s.Close()
 		}
 	}()
 
@@ -180,8 +185,16 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 				s.maxLog.Store(id)
 			}
 
-			lf := newLogFile(fh, id, ttl, uint64(size))
+			lf := newLogFile(path, id, ttl, fh, uint64(size))
 			s.lfs.Set(id, lf)
+
+			// if the size is over the max size, close the file handle.
+			if lf.size.Load() >= s.cfg.Compaction.MaxLogSize {
+				if err := lf.Close(); err != nil {
+					return nil, Error.New("error closing log file that was over max size: %w", err)
+				}
+			}
+
 			s.lfc.Include(lf)
 		}
 	}
@@ -220,7 +233,7 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 		if os.IsNotExist(err) {
 			// file did not exist, so try to create it with an initial hashtbl but only if we have
 			// no log files which is a good indicator that the store is actually empty.
-			if !s.lfc.Empty() {
+			if !s.lfs.Empty() {
 				return nil, Error.New("missing hashtbl when log files exist")
 			}
 			err = func() error {
@@ -238,9 +251,15 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				defer tbl.Close()
+				defer func() { _ = tbl.Close() }()
 
-				return af.Commit()
+				if err := af.Commit(); err != nil {
+					return Error.Wrap(err)
+				}
+				if err := tbl.Close(); err != nil {
+					return Error.Wrap(err)
+				}
+				return nil
 			}()
 			if err != nil {
 				return nil, err
@@ -382,7 +401,7 @@ func (s *Store) createLogFile(ttl uint32) (*logFile, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	lf := newLogFile(fh, id, ttl, 0)
+	lf := newLogFile(path, id, ttl, fh, 0)
 	s.lfs.Set(id, lf)
 	return lf, nil
 }
@@ -429,12 +448,12 @@ func (s *Store) Load() float64 {
 }
 
 // Close interrupts any compactions and closes the store.
-func (s *Store) Close() {
+func (s *Store) Close() error {
 	s.cloMu.Lock()
 	defer s.cloMu.Unlock()
 
 	if !s.closed.Set(Error.New("store closed")) {
-		return
+		return s.cloErr
 	}
 
 	// acquire the compaction lock to ensure no compactions are in progress. setting s.closed should
@@ -447,20 +466,25 @@ func (s *Store) Close() {
 	defer s.flushMu.Unlock()
 
 	// we can now close all of the resources.
+	var eg errs.Group
 	_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
 		s.lfs.Delete(id)
-		lf.Close()
+		eg.Add(lf.Close())
 		return true, nil
 	})
 	s.lfc.Clear()
+	s.lru.Clear()
 
 	if s.tbl != nil {
-		s.tbl.Close()
+		eg.Add(s.tbl.Close())
 	}
 
 	if s.lock != nil {
 		_ = s.lock.Close()
 	}
+
+	s.cloErr = eg.Err()
+	return s.cloErr
 }
 
 // Create returns a Handle that writes data to the store. The error on Close must be checked.
@@ -515,14 +539,19 @@ func (s *Store) readerForRecord(ctx context.Context, rec Record) (_ *Reader, err
 	lf, ok := s.lfs.Lookup(rec.Log)
 	if !ok {
 		return nil, Error.New("record points to unknown log file rec=%v", rec)
-	} else if !lf.Acquire() {
-		return nil, Error.New("unable to acquire log file for reading rec=%v", rec)
 	}
 
-	return newLogReader(s, lf, rec), nil
+	fh, err := s.lru.Get(lf.path, func(path string) (*os.File, error) {
+		return os.OpenFile(path, os.O_RDONLY, 0)
+	})
+	if err != nil {
+		return nil, Error.New("unable to open log file=%q: %w", lf.path, err)
+	}
+
+	return newLogReader(s, lf.path, fh, rec), nil
 }
 
-func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err error) {
+func (s *Store) reviveRecord(ctx context.Context, fh *os.File, rec Record) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// we don't want to respect cancelling if the reader for the trashed piece goes away. we know it
@@ -570,7 +599,7 @@ func (s *Store) reviveRecord(ctx context.Context, lf *logFile, rec Record) (err 
 	// to rewrite it. note that we purposefully do not close the log reader because after this
 	// function exits, a log reader will be created and returned to the user using the same log
 	// file.
-	_, err = io.Copy(w, newLogReader(s, lf, rec))
+	_, err = io.Copy(w, io.NewSectionReader(fh, int64(rec.Offset), int64(rec.Length)))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -898,7 +927,7 @@ func (s *Store) compactOnce(
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
-	defer cons.Close()
+	defer cons.Cancel()
 
 	// keep track of statistics about some events that can happen to records during the compaction.
 	totalRecords := uint64(0)
@@ -1120,17 +1149,20 @@ func (s *Store) compactOnce(
 	// underlying file handle until the last reader is finished. we have to strip the .tmp suffix on
 	// the hashtbl file name because the file handles were potentially created with .tmp before
 	// being renamed in place, which does not update their name.
-	otbl.Close()
+	_ = otbl.Close()
 	_ = os.Remove(strings.TrimSuffix(otbl.Handle().Name(), ".tmp"))
 
 	for _, lf := range toRemove {
-		lf.Close()
-		lf.Remove()
+		// these errors are ok to ignore because the only error from close could be an error
+		// flushing data to disk but we're about to delete it because no records point into it.
+		_ = lf.Close()
+		_ = os.Remove(lf.path)
 
-		s.stats.dataReclaimed.Add(lf.size.Load())
+		size := lf.size.Load()
+		s.stats.dataReclaimed.Add(size)
 
 		reclaimedLogs++
-		reclaimedBytes += lf.size.Load()
+		reclaimedBytes += size
 	}
 
 	// best effort sync the directories now that we are done with mutations.
@@ -1180,18 +1212,14 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	}
 	defer r.Release() // same as r.Close() but no error to worry about.
 
-	// WARNING! this is subtle, but what we do is take the log file directly out of the reader, seek
-	// it to the appropriate place, and use an io.LimitReader so that the go stdlib using io.Copy
-	// will do copy_file_range if available avoiding the copy into userspace. it would be a problem
-	// if multiple concurrent readers or writers were using the file pos at the same time. in the
-	// case of this code it's safe to use Seek because rewriteRecord is only called during
-	// compaction which means there are no writers and compaction does not call it in parallel so
-	// there is only one reader that uses the pos and it must be us. additionally, all of our log
-	// write operations seek to the end of the file before doing any writing to ensure that any
-	// pos updates that happen here are not a problem.
+	// WARNING! this is subtle, but what we do is take the file handle directly out of the reader,
+	// seek it to the appropriate place, and use an io.LimitReader so that the go stdlib using
+	// io.Copy will do copy_file_range if available avoiding the copy into userspace. it would be a
+	// problem if multiple concurrent readers or writers were using the file pos at the same time,
+	// but readerForRecord returns a distinct file handle every time.
 	var from io.Reader = r
-	if _, err := r.lf.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
-		from = r.lf.fh // we use io.CopyN below so it will be limited by the length.
+	if _, err := r.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
+		from = r.fh // we use io.CopyN below so it will be limited by the length.
 	}
 
 	// acquire a log file to write the entry into. if we're rewriting that log file or the record is
@@ -1237,6 +1265,13 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// increase our in-memory estimate of the size of the log file for sorting. we use store to
 	// ensure that it maintains correctness if there were some errors in the past.
 	into.size.Store(uint64(offset) + uint64(rec.Length) + uint64(len(buf)))
+
+	// if the size is over the max size, close the file handle.
+	if into.size.Load() >= s.cfg.Compaction.MaxLogSize {
+		if err := into.Close(); err != nil {
+			return rec, Error.Wrap(err)
+		}
+	}
 
 	// return the updated record.
 	return rec, nil

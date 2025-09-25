@@ -48,6 +48,7 @@ type MemTbl struct {
 	remap bool
 
 	closed drpcsignal.Signal // closed state
+	cloErr error             // close error
 	cloMu  sync.Mutex        // synchronizes closing
 
 	buffer []byte
@@ -129,7 +130,8 @@ func OpenMemTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *MemTbl, err e
 	}
 	defer func() {
 		if err != nil {
-			m.Close()
+			m.fh = nil // don't close the file handle if we're returning an error
+			_ = m.Close()
 		}
 	}()
 
@@ -345,12 +347,12 @@ func (m *MemTbl) lookupLocked(ctx context.Context, key Key) (rec Record, ok bool
 }
 
 // Close closes the mem table and returns when no more operations are running.
-func (m *MemTbl) Close() {
+func (m *MemTbl) Close() error {
 	m.cloMu.Lock()
 	defer m.cloMu.Unlock()
 
 	if !m.closed.Set(Error.New("memtbl closed")) {
-		return
+		return m.cloErr
 	}
 
 	// grab the lock to ensure all operations have finished before closing the file handle.
@@ -362,7 +364,11 @@ func (m *MemTbl) Close() {
 		m.mmap = nil
 	}
 
-	_ = m.fh.Close()
+	if m.fh != nil {
+		m.cloErr = m.fh.Close()
+	}
+
+	return m.cloErr
 }
 
 // LogSlots returns the logSlots the table was created with.
@@ -685,10 +691,10 @@ func (c *MemTblConstructor) valid() error {
 	return nil
 }
 
-// Close signals that we're done with the MemTblConstructor. It should always be called.
-func (c *MemTblConstructor) Close() {
+// Cancel signals that we're done with the MemTblConstructor. It should always be called.
+func (c *MemTblConstructor) Cancel() {
 	if m := c.m; m != nil {
-		m.Close()
+		_ = m.Close()
 		c.m = nil
 	}
 }

@@ -24,77 +24,33 @@ var (
 // logFile represents a ref-counted handle to a log file that stores piece data.
 type logFile struct {
 	// immutable fields
-	fh  *os.File
-	id  uint64
-	ttl uint32
+	path string
+	id   uint64
+	ttl  uint32
+	fh   *os.File
 
-	// atomic fields
-	size atomic.Uint64
-
-	// mutable and synchronized fields
-	mu      sync.Mutex // protects the following fields
-	refs    uint32     // refcount of acquired handles to the log file
-	close   bool       // intent to close the file when refs == 0
-	closed  flag       // set when the file has been closed
-	removed flag       // set when the file has been removed
+	// mutable fields
+	size   atomic.Uint64
+	closed flag
+	err    error // saved error from fh.Close
 }
 
-func newLogFile(fh *os.File, id uint64, ttl uint32, size uint64) *logFile {
-	lf := &logFile{fh: fh, id: id, ttl: ttl}
+func newLogFile(path string, id uint64, ttl uint32, fh *os.File, size uint64) *logFile {
+	lf := &logFile{
+		path: path,
+		id:   id,
+		ttl:  ttl,
+		fh:   fh,
+	}
 	lf.size.Store(size)
 	return lf
 }
 
-// performIntents handles any resource cleanup when the ref count reaches zero.
-func (l *logFile) performIntents() {
-	if l.refs != 0 {
-		return
+func (lf *logFile) Close() error {
+	if !lf.closed.set() {
+		lf.err = lf.fh.Close()
 	}
-	if l.close && !l.closed.set() {
-		_ = l.fh.Close()
-	}
-}
-
-// Close flags the log file to be closed when the ref count reaches zero.
-func (l *logFile) Close() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	l.close = true
-	l.performIntents()
-}
-
-// Remove unlinks the file from the filesystem.
-func (l *logFile) Remove() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if !l.removed.set() {
-		_ = os.Remove(l.fh.Name())
-	}
-}
-
-// Acquire increases the ref count if the log file is still available (not Closed) and returns
-// true if it was able.
-func (l *logFile) Acquire() bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.close {
-		return false
-	}
-
-	l.refs++
-	return true
-}
-
-// Release decreases the ref count after an Acquire and you are done operating on the log file.
-func (l *logFile) Release() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	l.refs--
-	l.performIntents()
+	return lf.err
 }
 
 //
@@ -119,45 +75,29 @@ func (h *logHeap) Pop() any {
 //
 
 type logCollection struct {
-	cfg Config
 	mu  sync.Mutex
 	lfs map[uint32]*logHeap
 }
 
-func newLogCollection(cfg Config) *logCollection {
+func newLogCollection() *logCollection {
 	return &logCollection{
-		cfg: cfg,
 		lfs: make(map[uint32]*logHeap),
 	}
-}
-
-func (l *logCollection) Empty() bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	for _, lfh := range l.lfs {
-		if lfh.Len() > 0 {
-			return false
-		}
-	}
-	return true
 }
 
 func (l *logCollection) Clear() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	for ttl := range l.lfs {
-		delete(l.lfs, ttl)
-	}
+	clear(l.lfs)
 }
 
 func (l *logCollection) Include(lf *logFile) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// if the log is over the max log size, don't include it.
-	if lf.size.Load() >= l.cfg.Compaction.MaxLogSize {
+	// if the log has been closed, we can't write to it so don't include it.
+	if lf.closed.get() {
 		return
 	}
 
@@ -187,18 +127,20 @@ func (l *logCollection) Acquire(ttl uint32) *logFile {
 
 // Reader is a type that reads a section from a log file.
 type Reader struct {
-	s   *Store
-	r   *io.SectionReader
-	lf  *logFile
-	rec Record
+	s    *Store
+	r    *io.SectionReader
+	path string
+	fh   *os.File
+	rec  Record
 }
 
-func newLogReader(s *Store, lf *logFile, rec Record) *Reader {
+func newLogReader(s *Store, path string, fh *os.File, rec Record) *Reader {
 	return &Reader{
-		s:   s,
-		r:   io.NewSectionReader(lf.fh, int64(rec.Offset), int64(rec.Length)),
-		lf:  lf,
-		rec: rec,
+		s:    s,
+		r:    io.NewSectionReader(fh, int64(rec.Offset), int64(rec.Length)),
+		path: path,
+		fh:   fh,
+		rec:  rec,
 	}
 }
 
@@ -207,7 +149,7 @@ func (l *Reader) Revive(ctx context.Context) error {
 	if !l.Trash() {
 		return nil
 	}
-	return l.s.reviveRecord(ctx, l.lf, l.rec)
+	return l.s.reviveRecord(ctx, l.fh, l.rec)
 }
 
 // Key returns the key of thereader.
@@ -229,10 +171,10 @@ func (l *Reader) ReadAt(p []byte, off int64) (int, error) { return l.r.ReadAt(p,
 func (l *Reader) Read(p []byte) (int, error) { return l.r.Read(p) }
 
 // Release returns the resources associated with the reader. It must be called when done.
-func (l *Reader) Release() { l.lf.Release() }
+func (l *Reader) Release() { _ = l.Close() }
 
 // Close is like Release but implements io.Closer. The returned error is always nil.
-func (l *Reader) Close() error { l.lf.Release(); return nil }
+func (l *Reader) Close() error { l.s.lru.Put(l.path, l.fh); return nil }
 
 //
 // Writer
@@ -310,8 +252,8 @@ func (h *Writer) Close() (err error) {
 	// if we're testing the size and offset, ensure they match.
 	if test_Log_CheckSizeAndOffset {
 		if size := lf.size.Load(); size != uint64(offset) {
-			panic(fmt.Sprintf("log file size=%d and offset=%d mismatch for %s",
-				size, offset, lf.fh.Name()))
+			panic(fmt.Sprintf("log file size=%d and offset=%d mismatch for %q",
+				size, offset, lf.path))
 		}
 	}
 
@@ -357,6 +299,13 @@ func (h *Writer) Close() (err error) {
 		)
 		if err != nil {
 			return err
+		}
+	}
+
+	// if the size is over the max size, close the file handle.
+	if lf.size.Load() >= h.store.cfg.Compaction.MaxLogSize {
+		if err := lf.Close(); err != nil {
+			return Error.Wrap(err)
 		}
 	}
 
