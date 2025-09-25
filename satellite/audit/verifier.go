@@ -150,6 +150,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	for id, info := range cachedNodesInfo {
 		cachedNodesReputation[id] = info.Reputation
 	}
+	// Assigned to the end report, instead of having to set it in all of the following returns.
 	defer func() { report.NodesReputation = cachedNodesReputation }()
 
 	// NOTE offlineNodes will include disqualified nodes because they aren't in
@@ -255,17 +256,21 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		// if we have reached this point, most likely something went wrong
 		// like a network problem or a forgotten delete. Don't fail nodes.
 		// We have an alert on this. Check the logs and see what happened.
+		var errMsgDetails string
 		if len(offlineNodes)+len(containedNodes) > len(sharesToAudit)+len(failedNodes)+len(unknownNodes) {
 			mon.Counter("audit_suspected_network_problem").Inc(1) //mon:locked
+			errMsgDetails = "(suspected network problem). "
 		} else {
 			mon.Counter("audit_not_enough_shares_acquired").Inc(1) //mon:locked
 		}
+
+		// The audit couldn't be performed, so we don't report failed nodes.
 		report := Report{
 			Offlines: offlineNodes,
 			Unknown:  unknownNodes,
 		}
-		return report, ErrNotEnoughShares.New("got: %d, required: %d, failed: %d, offline: %d, unknown: %d, contained: %d",
-			len(sharesToAudit), required, len(failedNodes), len(offlineNodes), len(unknownNodes), len(containedNodes))
+		return report, ErrNotEnoughShares.New("%sgot: %d, required: %d, failed: %d, offline: %d, unknown: %d, contained: %d",
+			errMsgDetails, len(sharesToAudit), required, len(failedNodes), len(offlineNodes), len(unknownNodes), len(containedNodes))
 	}
 	// ensure we get values, even if only zero values, so that redash can have an alert based on these
 	mon.Counter("not_enough_shares_for_audit").Inc(0)      //mon:locked
