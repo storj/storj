@@ -1045,14 +1045,6 @@ func (endpoint *Endpoint) TestLiveRequestCount() int32 {
 	return atomic.LoadInt32(&endpoint.liveRequests)
 }
 
-// min finds the min of two values.
-func min(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // speedEstimation monitors state of incoming traffic. It would signal slow-speed
 // client in non-congested traffic condition.
 type speedEstimation struct {

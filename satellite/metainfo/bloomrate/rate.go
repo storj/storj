@@ -75,10 +75,3 @@ func (r *Rate) Allow(now time.Time, limit rate.Limit, burst int) bool {
 	(*atomic.Uint64)(r).Store(uint64(tokens-2) | ((uint64(expiry.UnixNano()) << 1) & timeMask))
 	return true
 }
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
