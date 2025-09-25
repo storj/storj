@@ -43,7 +43,7 @@ func TestConvertModsToEvent_Delete(t *testing.T) {
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	require.Equal(t, "bucket1", record.S3.Bucket.Name)
 	require.Equal(t, "arn:storj:s3:::bucket1", record.S3.Bucket.Arn)
-	require.Equal(t, "Aty6AiyVFSbBYzAjR2rY52KiD85CsiRJPIBSnhvHVFs=", record.S3.Object.Key)
+	require.Equal(t, "object1", record.S3.Object.Key)
 	require.Equal(t, "99", record.S3.Object.VersionId)
 	require.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
 }
@@ -67,7 +67,7 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	require.Equal(t, "bucket1", record.S3.Bucket.Name)
 	require.Equal(t, "arn:storj:s3:::bucket1", record.S3.Bucket.Arn)
-	require.Equal(t, "Aty6AiyVFSbBYzAjR2rY52KiD85CsiRJPIBSnhvHVFs=", record.S3.Object.Key)
+	require.Equal(t, "object1", record.S3.Object.Key)
 	require.Equal(t, "100", record.S3.Object.VersionId)
 	require.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
 }
@@ -91,7 +91,7 @@ func TestConvertModsToEvent_Update(t *testing.T) {
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	require.Equal(t, "bucket1", record.S3.Bucket.Name)
 	require.Equal(t, "arn:storj:s3:::bucket1", record.S3.Bucket.Arn)
-	require.Equal(t, "Aty6AiyVFSbBYzAjR2rY52KiD85CsiRJPIBSnhvHVFs=", record.S3.Object.Key)
+	require.Equal(t, "object1", record.S3.Object.Key)
 	require.Equal(t, "100", record.S3.Object.VersionId)
 	require.Equal(t, "18682C0B37F170B8", record.S3.Object.Sequencer)
 }
@@ -115,7 +115,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "test-bucket",
-							"object_key":  "test/object.txt",
+							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
 							"version":     float64(1),
 						},
 						Valid: true,
@@ -152,7 +152,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "test-bucket",
-							"object_key":  "test/object.txt",
+							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
 							"version":     float64(2),
 						},
 						Valid: true,
@@ -193,7 +193,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "test-bucket",
-							"object_key":  "test/object.txt",
+							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
 							"version":     float64(1),
 						},
 						Valid: true,
@@ -237,7 +237,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "test-bucket",
-							"object_key":  "test/object.txt",
+							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
 							"version":     float64(2),
 						},
 						Valid: true,
@@ -278,7 +278,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "test-bucket",
-							"object_key":  "test/deleted-object.txt",
+							"object_key":  "dGVzdC9kZWxldGVkLW9iamVjdC50eHQ=", // base64: test/deleted-object.txt
 							"version":     float64(3),
 						},
 						Valid: true,
@@ -318,7 +318,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "test-bucket",
-							"object_key":  "test/deleted-object.txt",
+							"object_key":  "dGVzdC9kZWxldGVkLW9iamVjdC50eHQ=", // base64: test/deleted-object.txt
 						},
 						Valid: true,
 					},
@@ -349,7 +349,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "test-bucket",
-							"object_key":  "test/deleted-object.txt",
+							"object_key":  "dGVzdC9kZWxldGVkLW9iamVjdC50eHQ=", // base64: test/deleted-object.txt
 							"version":     float64(1),
 						},
 						Valid: true,
@@ -385,7 +385,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "bucket1",
-							"object_key":  "object1.txt",
+							"object_key":  "b2JqZWN0MS50eHQ=", // base64: object1.txt
 							"version":     float64(1),
 						},
 						Valid: true,
@@ -402,7 +402,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
 							"bucket_name": "bucket2",
-							"object_key":  "object2.txt",
+							"object_key":  "b2JqZWN0Mi50eHQ=", // base64: object2.txt
 							"version":     float64(2),
 						},
 						Valid: true,
@@ -456,8 +456,8 @@ func TestConvertModsToEvent(t *testing.T) {
 	t.Run("Unknown event type is skipped", func(t *testing.T) {
 		newValues := map[string]interface{}{
 			"bucket_name": "test-bucket",
-			"object_key":  "test/object.txt",
-			"status":      float64(1), // Pending - should be skipped
+			"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
+			"status":      float64(1),             // Pending - should be skipped
 		}
 		newValuesJSON, _ := json.Marshal(newValues)
 

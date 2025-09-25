@@ -118,7 +118,11 @@ func ConvertModsToEvent(dataRecord metabase.DataChangeRecord) (event Event, err 
 		}
 
 		if objectKey, ok := extractString(keys, "object_key"); ok {
-			record.S3.Object.Key = objectKey
+			objectKeyBytes, err := base64.StdEncoding.DecodeString(objectKey)
+			if err != nil {
+				return Event{}, errs.New("invalid base64 object_key: %w", err)
+			}
+			record.S3.Object.Key = string(objectKeyBytes)
 		}
 
 		if totalPlainSize, ok := extractInt64(newValues, "total_plain_size"); ok {
