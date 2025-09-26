@@ -21,6 +21,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/storj/private/emptyfs"
+	"storj.io/storj/satellite/admin/back-office/auditlogger"
 )
 
 // Assets contains either the built admin/back-office/ui or it is nil.
@@ -49,6 +50,8 @@ type Config struct {
 	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`
 	UserGroupsRoleCustomerSupport []string `help:"the list of groups whose users has the customer support role" releaseDefault:"" devDefault:""`
 	UserGroupsRoleFinanceManager  []string `help:"the list of groups whose users has the finance manager role"  releaseDefault:"" devDefault:""`
+
+	AuditLogger auditlogger.Config
 }
 
 // Server serves the API endpoints and the web application to allow preforming satellite

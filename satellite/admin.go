@@ -296,7 +296,10 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, err
 		}
 
-		config.Admin.BackOffice.AllowedOauthHost = config.Admin.AllowedOauthHost
+		adminConfig := config.Admin
+		adminConfig.AuthorizationToken = config.Console.AuthToken
+		adminConfig.BackOffice.AllowedOauthHost = adminConfig.AllowedOauthHost
+
 		peer.Admin.Service = backoffice.NewService(
 			log.Named("back-office:service"),
 			peer.DB.Console(),
@@ -310,12 +313,10 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			placement,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,
+			config.Admin.BackOffice.AuditLogger,
 			config.Console.Config,
 			time.Now,
 		)
-
-		adminConfig := config.Admin
-		adminConfig.AuthorizationToken = config.Console.AuthToken
 
 		peer.Admin.Server = admin.NewServer(
 			log.Named("admin"),

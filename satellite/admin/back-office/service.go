@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restapikeys"
@@ -40,7 +41,8 @@ type Service struct {
 	placement nodeselection.PlacementDefinitions
 	defaults  Defaults
 
-	consoleConfig console.Config
+	auditLoggerConfig auditlogger.Config
+	consoleConfig     console.Config
 
 	nowFn func() time.Time
 }
@@ -59,6 +61,7 @@ func NewService(
 	placement nodeselection.PlacementDefinitions,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
+	auditLoggerConfig auditlogger.Config,
 	consoleConfig console.Config,
 	nowFn func() time.Time,
 ) *Service {
@@ -77,8 +80,9 @@ func NewService(
 			MaxBuckets: defaultMaxBuckets,
 			RateLimit:  int(defaultRateLimit),
 		},
-		consoleConfig: consoleConfig,
-		nowFn:         nowFn,
+		auditLoggerConfig: auditLoggerConfig,
+		consoleConfig:     consoleConfig,
+		nowFn:             nowFn,
 	}
 }
 

@@ -139,6 +139,7 @@ const (
 	eventJoinCunoFSBetaSubmitted          = "Join CunoFS Beta Form Submitted"
 	eventJoinPlacementWaitlistSubmitted   = "Join Placement Waitlist Form Submitted"
 	eventObjectMountConsultationSubmitted = "Object Mount Consultation Submitted"
+	eventAdmitAudit                       = "Admin Audit Event"
 	// EventUserFeedbackSubmitted is an event for user feedback submission.
 	// Exported to be reused in other packages.
 	EventUserFeedbackSubmitted = "User Feedback Submitted"
@@ -1170,6 +1171,24 @@ func (service *Service) TrackUserUpgraded(userID uuid.UUID, email string, expira
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventUserUpgraded,
+		Properties: props,
+	})
+}
+
+// TrackAdminAuditEvent sends an admin audit event to Segment with structured properties.
+func (service *Service) TrackAdminAuditEvent(userID uuid.UUID, customProps map[string]interface{}) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := service.newPropertiesWithOpts(nil)
+	for key, value := range customProps {
+		props.Set(key, value)
+	}
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventAdmitAudit,
 		Properties: props,
 	})
 }
