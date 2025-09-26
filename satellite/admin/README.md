@@ -7,6 +7,7 @@ Requires setting `Authorization` header for requests.
 <!-- Auto-generate this ToC with https://github.com/ycd/toc -->
 <!-- toc -->
 - [satellite/admin](#satelliteadmin)
+    * [Setting up the admin UI to use the OAuth2 proxy](#setting-up-the-admin-ui-to-use-the-oauth2-proxy)
     * [API design](#api-design)
         * [Successful responses](#successful-responses)
         * [Error responses](#error-responses)
@@ -47,8 +48,8 @@ Requires setting `Authorization` header for requests.
             * [GET /api/projects/{project}/apikeys](#get-apiprojectsprojectapikeys)
             * [POST /api/projects/{project}/apikeys](#post-apiprojectsprojectapikeys)
             * [DELETE /api/projects/{project}/apikeys?name={value}](#delete-apiprojectsprojectapikeysnamevalue)
-            * [PATCH /api/projects/{project-id}/compute-access-token](#patch-apiprojectsproject-idcompute-access-token)
             * [GET /api/projects/{project-id}/usage](#get-apiprojectsproject-idusage)
+            * [PATCH /api/projects/{project-id}/compute-access-token](#patch-apiprojectsproject-idcompute-access-token)
             * [GET /api/projects/{project-id}/limit - DEPRECATED](#get-apiprojectsproject-idlimit---deprecated)
             * [Update limits](#update-limits)
                 * [PUT /api/projects/{project-id}/limit?usage={value} - DEPRECATED](#put-apiprojectsproject-idlimitusagevalue---deprecated)
@@ -72,13 +73,26 @@ Requires setting `Authorization` header for requests.
 
 <!-- tocstop -->
 
+## Setting up the admin UI to use the OAuth2 proxy
+The admin UI can simply be accessed by adding the `satellite-admin` service to your `docker-compose.yml` file using
+`storj-up add admin`. By default, the admin UI will be accessible at `http://localhost:9080`.
+
+To access the admin UI via the OAuth2 proxy, you will need to set up the OAuth2 proxy as described in the [back-office README](./back-office/README.md).
+Then, you add the following environment variables to the `satellite-admin` service in your `docker-compose.yml` file:
+
+```yaml
+  STORJ_ADMIN_GROUPS_LIMIT_UPDATE: "limit-updaters@test.test,updaters@test.test"
+  STORJ_ADMIN_ALLOWED_OAUTH_HOST: "localhost:4180"
+```
+
+## API design
+
 **NOTE** The API has endpoints which are deprecated in favor of using
 [storj-admin](https://github.com/storj/storj-admin/), but they are keep it because we have tooling
 that may use them. The deprecated endpoints are marked with a `DEPRECATED` in this document.
 
 The deprecated endpoints are not accessible through the Web UI.
 
-## API design
 
 ### Successful responses
 
