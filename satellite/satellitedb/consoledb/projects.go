@@ -229,6 +229,18 @@ func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID)
 	return ProjectFromDBX(ctx, project)
 }
 
+// GetPublicID returns the public project ID for a given project ID.
+func (projects *projects) GetPublicID(ctx context.Context, id uuid.UUID) (_ uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	publicID, err := projects.db.Get_Project_PublicId_By_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	return uuid.FromBytes(publicID.PublicId)
+}
+
 // Insert is a method for inserting project into the database.
 func (projects *projects) Insert(ctx context.Context, project *console.Project) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)

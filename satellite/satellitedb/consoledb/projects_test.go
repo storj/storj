@@ -40,6 +40,23 @@ func TestProjectsGetByPublicID(t *testing.T) {
 	})
 }
 
+func TestProjectsGetPublicID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projects := db.Console().Projects()
+
+		prj, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, prj)
+
+		publicID, err := projects.GetPublicID(ctx, prj.ID)
+		require.NoError(t, err)
+		require.Equal(t, prj.PublicID, publicID)
+	})
+}
+
 func TestProjectsGetSalt(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		projects := db.Console().Projects()
