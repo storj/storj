@@ -286,6 +286,7 @@ func TestWithOAuth(t *testing.T) {
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/back-office/api/v1/settings/", nil)
 				require.NoError(t, err)
 				req.Header.Set("X-Forwarded-Groups", "LimitUpdate")
+				req.Header.Add("X-Forwarded-Email", "test@example.com")
 
 				response, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)

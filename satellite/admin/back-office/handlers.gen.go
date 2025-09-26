@@ -162,7 +162,7 @@ func (h *SettingsHandler) handleGetSettings(w http.ResponseWriter, r *http.Reque
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -417,7 +417,7 @@ func (h *UserManagementHandler) handleUpdateUser(w http.ResponseWriter, r *http.
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}

@@ -165,6 +165,7 @@ func TestAuthorizer(t *testing.T) {
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 				require.NoError(t, err)
 				req.Header.Add("X-Forwarded-Groups", c.group)
+				req.Header.Add("X-Forwarded-Email", "test@example.com")
 				w := httptest.NewRecorder()
 				wbuff := &bytes.Buffer{}
 				w.Body = wbuff
@@ -191,6 +192,7 @@ func TestAuthorizer(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		req.Header.Add("X-Forwarded-Groups", "everyone-else,super")
+		req.Header.Add("X-Forwarded-Email", "test@example.com")
 		w := httptest.NewRecorder()
 		wbuff := &bytes.Buffer{}
 		w.Body = wbuff
@@ -210,6 +212,7 @@ func TestAuthorizer(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		req.Header.Add("X-Forwarded-Groups", "customers-troubleshooter,everyone-else")
+		req.Header.Add("X-Forwarded-Email", "test@example.com")
 		w := httptest.NewRecorder()
 		wbuff := &bytes.Buffer{}
 		w.Body = wbuff
@@ -230,6 +233,7 @@ func TestAuthorizer(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		req.Header.Add("X-Forwarded-Groups", "engineering")
+		req.Header.Add("X-Forwarded-Email", "test@example.com")
 		w := httptest.NewRecorder()
 		wbuff := &bytes.Buffer{}
 		w.Body = wbuff

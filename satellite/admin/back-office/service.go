@@ -27,7 +27,8 @@ type Defaults struct {
 type Service struct {
 	log *zap.Logger
 
-	authorizer *Authorizer
+	authorizer  *Authorizer
+	auditLogger *auditlogger.Logger
 
 	accountingDB accounting.ProjectAccounting
 	consoleDB    console.DB
@@ -41,8 +42,7 @@ type Service struct {
 	placement nodeselection.PlacementDefinitions
 	defaults  Defaults
 
-	auditLoggerConfig auditlogger.Config
-	consoleConfig     console.Config
+	consoleConfig console.Config
 
 	nowFn func() time.Time
 }
@@ -74,15 +74,15 @@ func NewService(
 		accounting:    accounting,
 		accountFreeze: accountFreeze,
 		authorizer:    authorizer,
+		auditLogger:   auditlogger.New(log.Named("audit-logger"), analytics, auditLoggerConfig),
 		payments:      payments,
 		placement:     placement,
 		defaults: Defaults{
 			MaxBuckets: defaultMaxBuckets,
 			RateLimit:  int(defaultRateLimit),
 		},
-		auditLoggerConfig: auditLoggerConfig,
-		consoleConfig:     consoleConfig,
-		nowFn:             nowFn,
+		consoleConfig: consoleConfig,
+		nowFn:         nowFn,
 	}
 }
 

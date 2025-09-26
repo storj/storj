@@ -274,7 +274,7 @@ func (a authMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *api
 	if apigen.LoadSetting(passAuthParamKey, ep, false) {
 		format += `
 			authInfo := h.auth.GetAuthInfo(r)
-			if authInfo == nil || len(authInfo.Groups) == 0 {
+			if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
 				api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 				return
 			}

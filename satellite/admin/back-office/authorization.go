@@ -100,6 +100,7 @@ func (auth Authorization) Has(perms ...Permission) bool {
 // AuthInfo is the structure that holds information about the authenticated user.
 type AuthInfo struct {
 	Groups []string
+	Email  string
 }
 
 // Authorizer checks if a group has certain permissions.
@@ -165,14 +166,20 @@ func (auth *Authorizer) HasPermissions(group string, perms ...Permission) bool {
 // GetAuthInfo returns the information about the authenticated user from the request.
 func (auth *Authorizer) GetAuthInfo(r *http.Request) *AuthInfo {
 	if !auth.enabled {
-		return &AuthInfo{Groups: []string{"bypass-auth"}}
+		return &AuthInfo{Groups: []string{"bypass-auth"}, Email: "bypass@example.com"}
 	}
 	groups := r.Header.Get("X-Forwarded-Groups")
 	if groups == "" {
 		return nil
 	}
 
-	return &AuthInfo{Groups: strings.Split(groups, ",")}
+	// Extract admin email from auth headers.
+	email := r.Header.Get("X-Forwarded-Email")
+	if email == "" {
+		email = r.Header.Get("X-Auth-Request-Email")
+	}
+
+	return &AuthInfo{Groups: strings.Split(groups, ","), Email: email}
 }
 
 // IsRejected verifies that r is from a user who belongs to a group that has all perms and returns
@@ -189,6 +196,11 @@ func (auth *Authorizer) IsRejected(w http.ResponseWriter, r *http.Request, perms
 	authInfo := auth.GetAuthInfo(r)
 	if authInfo == nil || len(authInfo.Groups) == 0 {
 		err := Error.Wrap(ErrAuthorizer.New("You do not belong to any group"))
+		api.ServeError(auth.log, w, http.StatusUnauthorized, err)
+		return true
+	}
+	if authInfo.Email == "" {
+		err := Error.Wrap(ErrAuthorizer.New("missing user email"))
 		api.ServeError(auth.log, w, http.StatusUnauthorized, err)
 		return true
 	}

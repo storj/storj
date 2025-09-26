@@ -169,7 +169,7 @@ func TestGetUser(t *testing.T) {
 			for i, info := range user.Projects {
 				proj := projects[i]
 				name := proj.Name
-				require.Equal(t, proj.PublicID, info.ID, name)
+				require.Equal(t, proj.PublicID, info.PublicID, name)
 				require.Equal(t, name, info.Name, name)
 				require.EqualValues(t, *proj.StorageLimit, info.StorageLimit, name)
 				require.EqualValues(t, *proj.BandwidthLimit, info.BandwidthLimit, name)

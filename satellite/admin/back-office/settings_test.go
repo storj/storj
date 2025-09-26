@@ -117,6 +117,7 @@ func TestGetSettings(t *testing.T) {
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, settingsUrl, nil)
 				require.NoError(t, err)
 				req.Header.Add("X-Forwarded-Groups", strings.Join(tc.groups, ","))
+				req.Header.Add("X-Forwarded-Email", "test@example.com")
 
 				var res *http.Response
 				defer func() {

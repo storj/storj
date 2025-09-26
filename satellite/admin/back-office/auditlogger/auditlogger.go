@@ -28,38 +28,47 @@ const (
 
 // Event represents an audit event for an admin operation.
 type Event struct {
-	Action     string         // e.g., "update_user", "freeze_account"
-	AdminEmail string         // Who performed the action
-	ItemType   ItemType       // e.g., "User", "Project", "Bucket"
-	ItemID     uuid.UUID      // ID of the affected item
-	Reason     string         // Why the change was made
-	Changes    map[string]any // Before/after values
+	Action     string    // e.g., "update_user", "freeze_account"
+	AdminEmail string    // Who performed the action
+	ItemType   ItemType  // e.g., "User", "Project", "Bucket"
+	ItemID     uuid.UUID // ID of the affected item
+	Reason     string    // Why the change was made
+	Before     any       // Previous values
+	After      any       // New values
 	Timestamp  time.Time
 }
 
-// AuditLogger implements AuditLogger using Segment analytics service.
-type AuditLogger struct {
+// Logger implements Logger using Segment analytics service.
+type Logger struct {
 	log       *zap.Logger
 	analytics *analytics.Service
+	config    Config
 }
 
-// NewAuditLogger creates a new AuditLogger.
-func NewAuditLogger(log *zap.Logger, analytics *analytics.Service) *AuditLogger {
-	return &AuditLogger{
+// New creates a new Logger.
+func New(log *zap.Logger, analytics *analytics.Service, config Config) *Logger {
+	return &Logger{
 		log:       log,
 		analytics: analytics,
+		config:    config,
 	}
 }
 
 // LogChangeEvent logs an admin change event to Segment.
-func (s *AuditLogger) LogChangeEvent(userID uuid.UUID, event Event) {
+func (s *Logger) LogChangeEvent(userID uuid.UUID, event Event) {
+	if !s.config.Enabled {
+		return
+	}
+
+	changes := BuildChangeSet(event.Before, event.After, s.config.Caps)
+
 	s.analytics.TrackAdminAuditEvent(userID, map[string]any{
 		"action":      event.Action,
 		"admin_email": event.AdminEmail,
 		"item_type":   string(event.ItemType),
 		"item_id":     event.ItemID.String(),
 		"reason":      event.Reason,
-		"changes":     event.Changes,
+		"changes":     changes,
 		"timestamp":   event.Timestamp,
 	})
 
@@ -68,6 +77,6 @@ func (s *AuditLogger) LogChangeEvent(userID uuid.UUID, event Event) {
 		zap.String("admin_email", event.AdminEmail),
 		zap.String("item_type", string(event.ItemType)),
 		zap.String("item_id", event.ItemID.String()),
-		zap.Int("changes_count", len(event.Changes)),
+		zap.Int("changes_count", len(changes)),
 	)
 }
