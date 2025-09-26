@@ -60,8 +60,6 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
-var hoursPerMonth = decimal.NewFromInt(24 * 30)
-
 func TestService(t *testing.T) {
 	placements := make(map[int]string)
 	for i := 0; i < 4; i++ {
@@ -1895,13 +1893,6 @@ func TestGetUsageReport(t *testing.T) {
 				}
 			}
 
-			gbToMb := func(gig float64) decimal.Decimal {
-				return decimal.NewFromFloat(gig).Shift(-3)
-			}
-			hoursToMonth := func(hours decimal.Decimal) decimal.Decimal {
-				return hours.Div(hoursPerMonth).Round(0)
-			}
-
 			testCosts := func(item accounting.ProjectReportItem, rollup accounting.BucketUsageRollup) {
 				_, priceModel := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
 					string(project.UserAgent), item.Placement)
@@ -1910,9 +1901,21 @@ func TestGetUsageReport(t *testing.T) {
 				require.Equal(t, priceModel.SegmentSKU, item.SegmentSKU)
 				require.Equal(t, priceModel.ProductName, item.ProductName)
 
-				expectedStorageCost, _ := priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(rollup.TotalStoredData))).Round(0).Float64()
-				expectedEgressCost, _ := priceModel.EgressMBCents.Mul(gbToMb(rollup.GetEgress).Round(0)).Round(0).Float64()
-				expectedSegmentCost, _ := priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(rollup.TotalSegments))).Round(0).Float64()
+				// egress and storage are in GB, convert to bytes
+				storageBytes, _ := decimal.NewFromFloat(rollup.TotalStoredData).Shift(9).Float64()
+				egressBytes, _ := decimal.NewFromFloat(rollup.GetEgress).Shift(9).Float64()
+
+				usage := accounting.ProjectUsage{
+					Storage:      storageBytes,
+					Egress:       int64(egressBytes),
+					ObjectCount:  rollup.ObjectCount,
+					SegmentCount: rollup.TotalSegments,
+				}
+				usageCost := sat.API.Payments.Accounts.CalculateProjectUsagePrice(usage, priceModel.ProjectUsagePriceModel)
+
+				expectedStorageCost, _ := usageCost.Storage.Float64()
+				expectedEgressCost, _ := usageCost.Egress.Float64()
+				expectedSegmentCost, _ := usageCost.Segment.Float64()
 				expectedTotalCost := expectedStorageCost + expectedEgressCost + expectedSegmentCost
 
 				require.Equal(t, expectedStorageCost, item.StorageCost)

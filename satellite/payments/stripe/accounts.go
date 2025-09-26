@@ -584,6 +584,18 @@ func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) 
 	return
 }
 
+// CalculateProjectUsagePrice calculates the price for given project usage and price model.
+func (accounts *accounts) CalculateProjectUsagePrice(usage payments.ProjectUsage, priceModel payments.ProjectUsagePriceModel) payments.UsageCost {
+	usage.Egress = applyEgressDiscount(usage, priceModel)
+	pricing := accounts.service.calculateProjectUsagePrice(usage, priceModel)
+
+	return payments.UsageCost{
+		Storage: pricing.Storage,
+		Egress:  pricing.Egress,
+		Segment: pricing.Segments,
+	}
+}
+
 // ProductCharges returns how much money current user will be charged for each project split by product.
 func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProductChargesResponse, err error) {
 	defer mon.Task()(&ctx, userID, since, before)(&err)

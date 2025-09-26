@@ -5556,25 +5556,24 @@ func (s *Service) transformProjectReportItem(ctx context.Context, item accountin
 	}
 
 	if addCost {
-		item.Egress -= math.Round(item.Storage / float64(hoursPerMonth) * priceModel.EgressDiscountRatio)
-		if item.Egress < 0 {
-			item.Egress = 0
+		// storage and egress are in GB, convert to bytes
+		storageBytes, _ := decimal.NewFromFloat(item.Storage).Shift(9).Float64()
+		egressBytes, _ := decimal.NewFromFloat(item.Egress).Shift(9).Float64()
+		usage := accounting.ProjectUsage{
+			Storage:      storageBytes,
+			Egress:       int64(egressBytes),
+			ObjectCount:  item.ObjectCount,
+			SegmentCount: item.SegmentCount,
 		}
 
-		gbToMb := func(gig float64) decimal.Decimal {
-			return decimal.NewFromFloat(gig).Shift(-3)
-		}
-		hoursToMonth := func(hours decimal.Decimal) decimal.Decimal {
-			return hours.Div(hoursPerMonthDecimal).Round(0)
-		}
-
-		item.EgressCost, _ = priceModel.EgressMBCents.Mul(gbToMb(item.Egress).Round(0)).Round(0).Float64()
-		item.StorageCost, _ = priceModel.StorageMBMonthCents.Mul(hoursToMonth(gbToMb(item.Storage))).Round(0).Float64()
-		item.SegmentCost, _ = priceModel.SegmentMonthCents.Mul(hoursToMonth(decimal.NewFromFloat(item.SegmentCount))).Round(0).Float64()
+		usageCost := s.accounts.CalculateProjectUsagePrice(usage, priceModel.ProjectUsagePriceModel)
+		item.EgressCost, _ = usageCost.Egress.Float64()
+		item.StorageCost, _ = usageCost.Storage.Float64()
+		item.SegmentCost, _ = usageCost.Segment.Float64()
 		item.TotalCost = item.EgressCost + item.StorageCost + item.SegmentCost
 	}
-	item.EgressTb, _ = decimal.NewFromFloat(item.Egress).Shift(3).Float64()
-	item.StorageTbMonth, _ = decimal.NewFromFloat(item.Storage).Shift(3).Div(hoursPerMonthDecimal).Float64()
+	item.EgressTb, _ = decimal.NewFromFloat(item.Egress).Shift(-3).Float64()
+	item.StorageTbMonth, _ = decimal.NewFromFloat(item.Storage).Shift(-3).Div(hoursPerMonthDecimal).Float64()
 	item.SegmentCountMonth, _ = decimal.NewFromFloat(item.SegmentCount).Div(hoursPerMonthDecimal).Float64()
 
 	return item, nil

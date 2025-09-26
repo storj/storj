@@ -57,6 +57,16 @@ type ProjectUsagePriceModel struct {
 	EgressDiscountRatio float64         `json:"egressDiscountRatio"`
 }
 
+// UsageCost contains the cost in cents for some usage.
+type UsageCost struct {
+	Storage decimal.Decimal
+	Egress  decimal.Decimal
+	Segment decimal.Decimal
+}
+
+// ProjectUsage is an alias for accounting.ProjectUsage to avoid import cycles.
+type ProjectUsage = accounting.ProjectUsage
+
 // ProductUsagePriceModel represents price model for product ID and usage price.
 type ProductUsagePriceModel struct {
 	ProductID                int32           `json:"productID"`

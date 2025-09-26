@@ -87,6 +87,9 @@ type Accounts interface {
 	// ProductCharges returns how much money current user will be charged for each project split by product.
 	ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProductChargesResponse, error)
 
+	// CalculateProjectUsagePrice calculates the price for given project usage and price model.
+	CalculateProjectUsagePrice(usage ProjectUsage, priceModel ProjectUsagePriceModel) UsageCost
+
 	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
 	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
 
