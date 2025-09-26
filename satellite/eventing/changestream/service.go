@@ -19,22 +19,22 @@ import (
 
 // Config holds configuration for the changestream service.
 type Config struct {
-	Feedname           string                            `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
-	Buckets            eventing.BucketLocationTopicIDMap `help:"defines which buckets are monitored for events (comma separated list of \"project_id:bucket_name:topic_id\")" default:""`
+	Feedname           string `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
 	TestNewPublisherFn func() (EventPublisher, error)
 }
 
 // Service implements a changestream processing service.
 type Service struct {
-	db         metabase.ChangeStreamAdapter
-	log        *zap.Logger
-	cfg        Config
-	publishers map[metabase.BucketLocation]EventPublisher
-	mu         sync.RWMutex
+	db          metabase.ChangeStreamAdapter
+	log         *zap.Logger
+	eventingCfg eventing.Config
+	cfg         Config
+	publishers  map[metabase.BucketLocation]EventPublisher
+	mu          sync.RWMutex
 }
 
 // NewService creates a new changestream service.
-func NewService(db metabase.Adapter, log *zap.Logger, cfg Config) (*Service, error) {
+func NewService(db metabase.Adapter, log *zap.Logger, eventingCfg eventing.Config, cfg Config) (*Service, error) {
 	sdb, ok := db.(metabase.ChangeStreamAdapter)
 
 	if !ok {
@@ -42,14 +42,15 @@ func NewService(db metabase.Adapter, log *zap.Logger, cfg Config) (*Service, err
 	}
 
 	service := &Service{
-		log:        log,
-		db:         sdb,
-		cfg:        cfg,
-		publishers: make(map[metabase.BucketLocation]EventPublisher, len(cfg.Buckets)),
+		log:         log,
+		db:          sdb,
+		eventingCfg: eventingCfg,
+		cfg:         cfg,
+		publishers:  make(map[metabase.BucketLocation]EventPublisher, len(eventingCfg.Buckets)),
 	}
 
 	// Validate configured topic names
-	for _, topicName := range cfg.Buckets {
+	for _, topicName := range eventingCfg.Buckets {
 		_, _, err := ParseTopicName(topicName)
 		if err != nil {
 			return nil, err
@@ -134,7 +135,7 @@ func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocati
 		return publisher, nil
 	}
 
-	topicName, ok := s.cfg.Buckets[bucket]
+	topicName, ok := s.eventingCfg.Buckets[bucket]
 	if !ok {
 		return nil, errs.New("no topic configured for bucket")
 	}

@@ -40,10 +40,11 @@ func TestProcessRecord(t *testing.T) {
 		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 		observedLogger := zap.New(observedZapCore).Named("publisher")
 
-		service, err := changestream.NewService(adapter, testplanet.NewLogger(t), changestream.Config{
+		service, err := changestream.NewService(adapter, testplanet.NewLogger(t), eventing.Config{
 			Buckets: eventing.BucketLocationTopicIDMap{
 				changestream.TestBucket: "projects/testproject/topics/testtopic",
 			},
+		}, changestream.Config{
 			TestNewPublisherFn: func() (changestream.EventPublisher, error) {
 				return changestream.NewLogPublisher(observedLogger), nil
 			},
@@ -74,13 +75,14 @@ func TestProcessRecord_NoMatchingBucket(t *testing.T) {
 		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 		observedLogger := zap.New(observedZapCore).Named("eventing")
 
-		service, err := changestream.NewService(adapter, observedLogger, changestream.Config{
+		service, err := changestream.NewService(adapter, observedLogger, eventing.Config{
 			Buckets: eventing.BucketLocationTopicIDMap{
 				metabase.BucketLocation{
 					ProjectID:  testrand.UUID(),
 					BucketName: metabase.BucketName(testrand.BucketName()),
 				}: "projects/testproject/topics/testtopic",
 			},
+		}, changestream.Config{
 			TestNewPublisherFn: func() (changestream.EventPublisher, error) {
 				return changestream.NewLogPublisher(observedLogger), nil
 			},
@@ -103,11 +105,11 @@ func TestProcessRecord_InvalidTopicName(t *testing.T) {
 
 		adapter := db.ChooseAdapter(testrand.UUID())
 
-		_, err := changestream.NewService(adapter, testplanet.NewLogger(t), changestream.Config{
+		_, err := changestream.NewService(adapter, testplanet.NewLogger(t), eventing.Config{
 			Buckets: eventing.BucketLocationTopicIDMap{
 				changestream.TestBucket: "invalid/topic/name",
 			},
-		})
+		}, changestream.Config{})
 		require.Error(t, err)
 	})
 }
