@@ -527,6 +527,124 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		})
 	})
 }
+func TestCommitObject_TimestampVersioning(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("commit without version change", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// When committing an there is no newer version, we should keep the same version
+			// to avoid changing the primary key unnecessarily.
+			objectStream := metabasetest.RandObjectStream()
+			objectStream.Version = metabase.NextVersion
+			object1 := metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			require.Greater(t, object1.Version, int64(0))
+
+			committed := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: object1.ObjectStream,
+				},
+				ExpectVersion: object1.Version,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: metabasetest.ObjectsToRaw(committed),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with version change", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// When committing an there are newer version, we should create a new version
+			// to ensure correct ordering.
+			objectStream := metabasetest.RandObjectStream()
+			objectStream.Version = metabase.NextVersion
+
+			object1 := metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			assert.Greater(t, object1.Version, int64(0))
+
+			objectStream2 := objectStream
+			objectStream2.StreamID = testrand.UUID()
+			object2 := metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream2,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			assert.Greater(t, object2.Version, object1.Version)
+
+			committed1 := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: object1.ObjectStream,
+				},
+			}.Check(ctx, t, db)
+			assert.Greater(t, committed1.Version, object2.Version)
+
+			metabasetest.Verify{
+				Objects: metabasetest.ObjectsToRaw(committed1, object2),
+			}.Check(ctx, t, db)
+		})
+		t.Run("commit inline object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// When committing an there are newer version, we should create a new version
+			// to ensure correct ordering.
+			objectStream := metabasetest.RandObjectStream()
+			objectStream.Version = metabase.NextVersion
+
+			object1 := metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			assert.Greater(t, object1.Version, int64(0))
+
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(24)
+			inlineData := []byte{1, 2, 3, 4}
+
+			objectStream2 := objectStream
+			objectStream2.StreamID = testrand.UUID()
+			object2 := metabasetest.CommitInlineObject{Opts: metabase.CommitInlineObject{
+				ObjectStream: objectStream2,
+				Encryption:   metabasetest.DefaultEncryption,
+				CommitInlineSegment: metabase.CommitInlineSegment{
+					ObjectStream:      objectStream2,
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+					PlainSize:         4,
+					InlineData:        inlineData,
+				},
+			}}.Check(ctx, t, db)
+			assert.Greater(t, object2.Version, object1.Version)
+
+			metabasetest.Verify{
+				Objects: metabasetest.ObjectsToRaw(object1, object2),
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:          object2.StreamID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+						CreatedAt:         object2.CreatedAt,
+						PlainSize:         4,
+						EncryptedSize:     int32(len(inlineData)),
+						InlineData:        inlineData,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	}, metabasetest.WithTimestampVersioning)
+}
 
 func TestBeginObjectExactVersion(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {

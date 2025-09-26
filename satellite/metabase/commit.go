@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -145,14 +146,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 				retention_mode, retain_until
 			) VALUES (
-				$1, $2, $3,
-					coalesce((
-						SELECT version + 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-						ORDER BY version DESC
-						LIMIT 1
-					), 1),
+				$1, $2, $3, `+p.generateVersion()+`,
 				$4, $5, $6,
 				$7,
 				$8, $9, $10, $11,
@@ -187,13 +181,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					retention_mode, retain_until
 				) VALUES (
 					@project_id, @bucket_name, @object_key,
-					coalesce(
-						(SELECT version + 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-						ORDER BY version DESC
-						LIMIT 1)
-					,1),
+					` + s.generateVersion() + `,
 					@stream_id, @expires_at,
 					@encryption, @zombie_deletion_deadline,
 					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
@@ -1198,7 +1186,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		object.ProjectID = opts.ProjectID
 		object.BucketName = opts.BucketName
 		object.ObjectKey = opts.ObjectKey
-		object.Version = nextVersion
 		object.Status = nextStatus
 		object.SegmentCount = int32(len(segments))
 		object.TotalPlainSize = totalPlainSize
@@ -1222,7 +1209,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	args := []interface{}{
+	args := []any{
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		nextStatus,
 		len(finalSegments),
@@ -1231,8 +1218,6 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		fixedSegmentSize,
 		encryptionParameters{&opts.Encryption},
 	}
-
-	args = append(args, nextVersion)
 
 	metadataColumns := ""
 	if opts.OverrideEncryptedMetadata {
@@ -1243,15 +1228,24 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 			opts.EncryptedETag,
 		)
 		metadataColumns = `,
-				encrypted_metadata_nonce         = $13,
-				encrypted_metadata               = $14,
-				encrypted_metadata_encrypted_key = $15,
-				encrypted_etag                   = $16
+				encrypted_metadata_nonce         = $12,
+				encrypted_metadata               = $13,
+				encrypted_metadata_encrypted_key = $14,
+				encrypted_etag                   = $15
 			`
 	}
+
+	var versionQueryArgument string
+	if ptx.postgresAdapter.testingTimestampVersioning && opts.Version != nextVersion {
+		versionQueryArgument = postgresGenerateTimestampVersion
+	} else {
+		args = append(args, nextVersion)
+		versionQueryArgument = "$" + strconv.Itoa(len(args))
+	}
+
 	err = ptx.tx.QueryRowContext(ctx, `
 			UPDATE objects SET
-				version = $12,
+				version = `+versionQueryArgument+`,
 				status = $6,
 				segment_count = $7,
 
@@ -1270,19 +1264,16 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
 				status       = `+statusPending+`
 			RETURNING
-				created_at, expires_at,
+				version, created_at, expires_at,
 				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,
 				encryption,
 				retention_mode, retain_until
 			`, args...).Scan(
-		&object.CreatedAt, &object.ExpiresAt,
+		&object.Version, &object.CreatedAt, &object.ExpiresAt,
 		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce, &object.EncryptedETag,
 		encryptionParameters{&object.Encryption},
-		lockModeWrapper{
-			retentionMode: &object.Retention.Mode,
-			legalHold:     &object.LegalHold,
-		},
-		timeWrapper{&object.Retention.RetainUntil},
+		object.columnRetentionMode(),
+		object.columnRetainUntil(),
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1392,31 +1383,38 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			return Error.New("failed to update object: %w", err)
 		}
 
+		object.Version = nextVersion
 		return nil
 	}
 
 	var deleted bool
+	var generateVersion Version
+	var generateVersionQuery string
+	if stx.spannerAdapter.testingTimestampVersioning {
+		generateVersionQuery = ", " + spannerGenerateTimestampVersion + " AS next_version"
+	}
 
 	// We can not simply UPDATE the row, because we are changing the 'version' column,
 	// which is part of the primary key. Spanner does not allow changing a primary key
 	// column on an existing row. We must DELETE then INSERT a new row.
 	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
-				DELETE FROM objects
-				WHERE
-					project_id      = @project_id
-					AND bucket_name = @bucket_name
-					AND object_key  = @object_key
-					AND version     = @version
-					AND stream_id   = @stream_id
-					AND status      = ` + statusPending + `
-				THEN RETURN
-					created_at, expires_at,
-					encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,
-					encryption,
-					retention_mode,
-					retain_until
-			`,
+			DELETE FROM objects
+			WHERE
+				project_id      = @project_id
+				AND bucket_name = @bucket_name
+				AND object_key  = @object_key
+				AND version     = @version
+				AND stream_id   = @stream_id
+				AND status      = ` + statusPending + `
+			THEN RETURN
+				created_at, expires_at,
+				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,
+				encryption,
+				retention_mode,
+				retain_until
+				` + generateVersionQuery + `
+		`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
@@ -1426,13 +1424,19 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		},
 	}, spanner.QueryOptions{RequestTag: "finalize-object-commit"}).Do(func(row *spanner.Row) error {
 		deleted = true
-		return Error.Wrap(row.Columns(
+
+		args := []any{
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.EncryptedUserData.EncryptedMetadata, &object.EncryptedUserData.EncryptedMetadataEncryptedKey, &object.EncryptedUserData.EncryptedMetadataNonce, &object.EncryptedUserData.EncryptedETag,
 			encryptionParameters{&object.Encryption},
 			object.columnRetentionMode(),
 			object.columnRetainUntil(),
-		))
+		}
+		if stx.spannerAdapter.testingTimestampVersioning {
+			args = append(args, &generateVersion)
+		}
+
+		return Error.Wrap(row.Columns(args...))
 	})
 	if err != nil {
 		return Error.New("failed to delete old object row: %w", err)
@@ -1455,6 +1459,11 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	}
 	if opts.OverrideEncryptedMetadata {
 		object.EncryptedUserData = opts.EncryptedUserData
+	}
+
+	if stx.spannerAdapter.testingTimestampVersioning {
+		// instead use the generated version from the database
+		nextVersion = generateVersion
 	}
 
 	// Create insert mutation for objects table
@@ -1485,6 +1494,8 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		}
 		return Error.New("failed to update object: %w", err)
 	}
+
+	object.Version = nextVersion
 
 	return nil
 }
@@ -1650,6 +1661,23 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	args := []any{
+		object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
+		object.Status, object.SegmentCount, object.ExpiresAt, encryptionParameters{&object.Encryption},
+		object.TotalPlainSize, object.TotalEncryptedSize,
+		nil,
+		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey, object.EncryptedETag,
+		object.columnRetentionMode(), object.columnRetainUntil(),
+	}
+
+	var versionArgument string
+	if ptx.postgresAdapter.testingTimestampVersioning {
+		versionArgument = postgresGenerateTimestampVersion
+	} else {
+		versionArgument = "$18"
+		args = append(args, object.Version)
+	}
+
 	// TODO should we put this into single query
 	err = ptx.tx.QueryRowContext(ctx, `
 		INSERT INTO objects (
@@ -1660,24 +1688,16 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 			retention_mode, retain_until
 		) VALUES (
-			$1, $2, $3, $4, $5,
-			$6, $7, $8, $9,
-			$10, $11,
-			$12,
-			$13, $14, $15, $16,
-			$17, $18
+			$1, $2, $3, `+versionArgument+`, $4,
+			$5, $6, $7, $8,
+			$9, $10,
+			$11,
+			$12, $13, $14, $15,
+			$16, $17
 		)
-		RETURNING created_at`,
-		object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
-		object.Status, object.SegmentCount, object.ExpiresAt, encryptionParameters{&object.Encryption},
-		object.TotalPlainSize, object.TotalEncryptedSize,
-		nil,
-		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey, object.EncryptedETag,
-		lockModeWrapper{
-			retentionMode: &object.Retention.Mode,
-			legalHold:     &object.LegalHold,
-		}, timeWrapper{&object.Retention.RetainUntil},
-	).Scan(&object.CreatedAt)
+		RETURNING version, created_at`,
+		args...,
+	).Scan(&object.Version, &object.CreatedAt)
 	if err != nil {
 		return Error.New("failed to create object: %w", err)
 	}
@@ -1712,6 +1732,34 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(spanner) should we perform these two inserts as a Migration
+	params := map[string]interface{}{
+		"project_id":                       object.ProjectID,
+		"bucket_name":                      object.BucketName,
+		"object_key":                       []byte(object.ObjectKey),
+		"stream_id":                        object.StreamID,
+		"status":                           object.Status,
+		"segment_count":                    int64(object.SegmentCount),
+		"expires_at":                       object.ExpiresAt,
+		"encryption_parameters":            encryptionParameters{&object.Encryption},
+		"total_plain_size":                 object.TotalPlainSize,
+		"total_encrypted_size":             object.TotalEncryptedSize,
+		"zombie_deletion_deadline":         nil,
+		"encrypted_metadata":               object.EncryptedMetadata,
+		"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
+		"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
+		"encrypted_etag":                   object.EncryptedETag,
+		"retention_mode":                   object.columnRetentionMode(),
+		"retain_until":                     object.columnRetainUntil(),
+	}
+
+	var versionQueryArgument string
+	if stx.spannerAdapter.testingTimestampVersioning {
+		versionQueryArgument = spannerGenerateTimestampVersion
+	} else {
+		versionQueryArgument = "@version"
+		params["version"] = object.Version
+	}
+
 	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
@@ -1722,40 +1770,18 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 				retention_mode, retain_until
 			) VALUES (
-				@project_id, @bucket_name, @object_key, @version, @stream_id,
+				@project_id, @bucket_name, @object_key, ` + versionQueryArgument + `, @stream_id,
 				@status, @segment_count, @expires_at, @encryption_parameters,
 				@total_plain_size, @total_encrypted_size,
 				@zombie_deletion_deadline,
 				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@retention_mode, @retain_until
 			)
-			THEN RETURN created_at
+			THEN RETURN version, created_at
 		`,
-		Params: map[string]interface{}{
-			"project_id":                       object.ProjectID,
-			"bucket_name":                      object.BucketName,
-			"object_key":                       []byte(object.ObjectKey),
-			"version":                          object.Version,
-			"stream_id":                        object.StreamID,
-			"status":                           object.Status,
-			"segment_count":                    int64(object.SegmentCount),
-			"expires_at":                       object.ExpiresAt,
-			"encryption_parameters":            encryptionParameters{&object.Encryption},
-			"total_plain_size":                 object.TotalPlainSize,
-			"total_encrypted_size":             object.TotalEncryptedSize,
-			"zombie_deletion_deadline":         nil,
-			"encrypted_metadata":               object.EncryptedMetadata,
-			"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
-			"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
-			"encrypted_etag":                   object.EncryptedETag,
-			"retention_mode": lockModeWrapper{
-				retentionMode: &object.Retention.Mode,
-				legalHold:     &object.LegalHold,
-			},
-			"retain_until": timeWrapper{&object.Retention.RetainUntil},
-		},
+		Params: params,
 	}, spanner.QueryOptions{RequestTag: "finalize-inline-object-commit"}).Do(func(row *spanner.Row) error {
-		err := row.Columns(&object.CreatedAt)
+		err := row.Columns(&object.Version, &object.CreatedAt)
 		if err != nil {
 			return Error.New("failed to read object created_at: %w", err)
 		}

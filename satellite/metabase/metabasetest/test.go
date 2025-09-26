@@ -35,7 +35,9 @@ func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB,
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	if step.ErrClass == nil {
-		require.Equal(t, step.Version, got.Version)
+		if step.Version != 0 {
+			require.Equal(t, step.Version, got.Version)
+		}
 		require.WithinDuration(t, time.Now(), got.CreatedAt, 5*time.Second)
 
 		require.Equal(t, step.Opts.ObjectStream.ProjectID, got.ObjectStream.ProjectID)
@@ -100,7 +102,10 @@ func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db 
 	object, err := db.CommitObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
-		if step.ExpectVersion != 0 {
+		if step.ExpectVersion == 0 {
+			// ignore the version check when not specified
+			step.Opts.ObjectStream.Version = object.Version
+		} else {
 			step.Opts.ObjectStream.Version = step.ExpectVersion
 		}
 		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
@@ -143,7 +148,10 @@ func (step CommitInlineObject) Check(ctx *testcontext.Context, t require.Testing
 	object, err := db.CommitInlineObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
-		if step.ExpectVersion != 0 {
+		if step.ExpectVersion == 0 {
+			// Ignore version check when not specified.
+			step.Opts.ObjectStream.Version = object.Version
+		} else {
 			step.Opts.ObjectStream.Version = step.ExpectVersion
 		}
 		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
