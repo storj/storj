@@ -222,10 +222,13 @@ func (repairer *SegmentRepairer) Run(ctx context.Context) error {
 // note that shouldDelete is used even in the case where err is not null
 // note that it will update audit status as failed for nodes that failed piece hash verification during repair downloading.
 func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.InjuredSegment) (shouldDelete bool, err error) {
-	defer mon.Task()(&ctx, queueSegment.StreamID.String(), queueSegment.Position.Encode())(&err)
+	defer mon.Task()(&ctx, queueSegment.StreamID.String(), queueSegment.Position.Encode(), queueSegment.Placement)(&err)
 
-	log := repairer.log.With(zap.Stringer("Stream ID", queueSegment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()),
-		zap.Uint16("Placement", uint16(queueSegment.Placement)))
+	log := repairer.log.With(
+		zap.Stringer("Stream ID", queueSegment.StreamID),
+		zap.Uint64("Position", queueSegment.Position.Encode()),
+		zap.Uint16("Placement", uint16(queueSegment.Placement)),
+	)
 
 	segment, err := repairer.metabase.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
 		StreamID: queueSegment.StreamID,
@@ -233,8 +236,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	})
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
-			mon.Meter("repair_unnecessary").Mark(1)            //mon:locked
-			mon.Meter("segment_deleted_before_repair").Mark(1) //mon:locked
+			p := monkit.SeriesTag{Key: "placement", Val: strconv.FormatUint(uint64(queueSegment.Placement), 10)}
+			mon.Meter("repair_unnecessary", p).Mark(1)
+			mon.Meter("segment_deleted_before_repair", p).Mark(1)
 			log.Info("segment was deleted")
 			return true, nil
 		}
@@ -245,19 +249,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		return true, invalidRepairError.New("cannot repair inline segment")
 	}
 
+	stats := repairer.getStats(segment.Redundancy, segment.Placement)
 	// ignore segment if expired
 	if segment.Expired(repairer.nowFn()) {
-		mon.Meter("repair_unnecessary").Mark(1)
-		mon.Meter("segment_expired_before_repair").Mark(1)
+		stats.repairUnnecessary.Mark(1)
+		stats.segmentExpiredBeforeRepair.Mark(1)
 		log.Info("segment has expired")
 		return true, nil
 	}
 
-	stats := repairer.getStatsByRS(segment.Redundancy)
-
-	mon.Meter("repair_attempts").Mark(1) //mon:locked
 	stats.repairAttempts.Mark(1)
-	mon.IntVal("repair_segment_size").Observe(int64(segment.EncryptedSize)) //mon:locked
 	stats.repairSegmentSize.Observe(int64(segment.EncryptedSize))
 
 	allNodeIDs := make([]storj.NodeID, len(segment.Pieces))
@@ -281,15 +282,12 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 
 	// irreparable segment
 	if piecesCheck.Retrievable.Count() < int(newRedundancy.RequiredShares) {
-		mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
 		stats.repairerSegmentsBelowMinReq.Inc(1)
-		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
-		stats.repairerNodesUnavailable.Mark(1)
+		stats.repairerNodesUnavailable.Mark(1) //mon::locked
 
 		log.Warn("irreparable segment",
 			zap.Int("Pieces Available", piecesCheck.Retrievable.Count()),
 			zap.Int16("Pieces Required", newRedundancy.RequiredShares),
-			zap.Uint16("Placement", uint16(segment.Placement)),
 		)
 		tags := make([]eventkit.Tag, 0, 18)
 		tags = append(tags,
@@ -322,7 +320,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	}
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
-	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
 	stats.repairerSegmentsBelowMinReq.Inc(0)
 
 	if piecesCheck.Healthy.Count() > int(newRedundancy.RepairShares) {
@@ -357,11 +354,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 					return false, metainfoPutError.Wrap(err)
 				}
 
-				mon.Meter("dropped_undesirable_pieces_without_repair").Mark(len(dropPieces))
+				stats.droppedUndesirablePiecesWithoutRepiar.Mark(len(dropPieces))
 			}
 		}
 
-		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		stats.repairUnnecessary.Mark(1)
 		log.Info("segment above repair threshold",
 			zap.Int("numHealthy", piecesCheck.Healthy.Count()),
@@ -379,7 +375,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	if segment.Redundancy.TotalShares != 0 {
 		healthyRatioBeforeRepair = float64(piecesCheck.Healthy.Count()) / float64(segment.Redundancy.TotalShares)
 	}
-	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair) //mon:locked
 	stats.healthyRatioBeforeRepair.Observe(healthyRatioBeforeRepair)
 
 	// Create the order limits for the GET_REPAIR action
@@ -394,15 +389,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-			mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
 			stats.repairerSegmentsBelowMinReq.Inc(1)
-			mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
+			mon.Meter("repair_nodes_unavailable").Mark(1)
 			stats.repairerNodesUnavailable.Mark(1)
 
 			log.Warn("irreparable segment: too many nodes offline",
 				zap.Int("Pieces Available", len(retrievablePieces)),
 				zap.Int16("Pieces Required", segment.Redundancy.RequiredShares),
-				zap.Uint16("Placement", uint16(segment.Placement)),
 				zap.Error(err),
 			)
 		}
@@ -437,19 +430,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		alreadySelected = append(alreadySelected, &selectedNodes[i])
 	}
 
-	{
-		// we should download at least segment.Redundancy.RequiredShares, but sometimes it's enough to download unhealthy but retrievable pieces
-		// here we estimate the benefit of using a direct download approach
-		placementTag := monkit.NewSeriesTag("placement", fmt.Sprintf("%d", segment.Placement))
-		if requestCount <= piecesCheck.UnhealthyRetrievable.Count() && // we have enough unhealthy-retrievable, to use them without segment recreation
-			requestCount < int(segment.Redundancy.RequiredShares) { // it's better to download unhealthy-retrievable, as it causes fewer downloads
-			// we can use unhealthy retrievable pieces, instead of reconstruct segments.
+	// we should download at least segment.Redundancy.RequiredShares, but sometimes it's enough to download unhealthy but retrievable pieces
+	// here we estimate the benefit of using a direct download approach
+	if requestCount <= piecesCheck.UnhealthyRetrievable.Count() && // we have enough unhealthy-retrievable, to use them without segment recreation
+		requestCount < int(segment.Redundancy.RequiredShares) { // it's better to download unhealthy-retrievable, as it causes fewer downloads
+		// we can use unhealthy retrievable pieces, instead of reconstruct segments.
 
-			// instead of required_shares, we would download only the requestCount
-			mon.Counter("repairer_unnecessary_downloads", placementTag).Inc(int64(segment.Redundancy.RequiredShares) - int64(requestCount))
-		}
-		mon.Counter("repairer_required_downloads", placementTag).Inc(int64(requestCount))
+		// instead of required_shares, we would download only the requestCount
+		stats.repairerUnnecessaryDownloads.Inc(int64(segment.Redundancy.RequiredShares) - int64(requestCount))
 	}
+	stats.repairerRequiredDownloads.Inc(int64(requestCount))
 
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
@@ -483,9 +473,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	segmentReader, piecesReport, err := repairer.ec.Get(ctx, log, getOrderLimits, cachedNodesInfo, getPrivateKey, oldRedundancyStrategy, int64(segment.EncryptedSize))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
-	mon.Meter("repair_too_many_nodes_failed").Mark(0)     //mon:locked
-	mon.Meter("repair_suspected_network_problem").Mark(0) //mon:locked
 	stats.repairTooManyNodesFailed.Mark(0)
+	stats.repairSuspectedNetworkProblem.Mark(0)
 
 	if repairer.OnTestingPiecesReportHook != nil {
 		repairer.OnTestingPiecesReportHook(piecesReport)
@@ -495,12 +484,10 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	checkSegmentError := repairer.checkIfSegmentAltered(ctx, segment)
 	if checkSegmentError != nil {
 		if segmentDeletedError.Has(checkSegmentError) {
-			// mon.Meter("segment_deleted_during_repair").Mark(1) //mon:locked
 			log.Info("segment deleted during Repair")
 			return true, nil
 		}
 		if segmentModifiedError.Has(checkSegmentError) {
-			// mon.Meter("segment_modified_during_repair").Mark(1) //mon:locked
 			log.Info("segment modified during Repair")
 			return true, nil
 		}
@@ -541,9 +528,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			// In a network failure scenario, we expect more than half of the outcomes
 			// will be in Offline or Contained.
 			if len(piecesReport.Offline)+len(piecesReport.Contained) > len(piecesReport.Successful)+len(piecesReport.Failed)+len(piecesReport.Unknown) {
-				mon.Meter("repair_suspected_network_problem").Mark(1) //mon:locked
+				stats.repairSuspectedNetworkProblem.Mark(1)
 			} else {
-				mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
+				stats.repairTooManyNodesFailed.Mark(1)
 			}
 			stats.repairTooManyNodesFailed.Mark(1)
 
@@ -759,12 +746,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		repairedMap[uint16(i)] = true
 	}
 
-	mon.Meter("repair_bytes_uploaded").Mark64(bytesRepaired) //mon:locked
+	stats.repairBytesUploaded.Mark64(bytesRepaired)
 
 	healthyAfterRepair := piecesCheck.Healthy.Count() + len(repairedPieces)
 	switch {
 	case healthyAfterRepair >= int(newRedundancy.OptimalShares):
-		mon.Meter("repair_success").Mark(1) //mon:locked
 		stats.repairSuccess.Mark(1)
 	case healthyAfterRepair <= int(newRedundancy.RepairShares):
 		// Important: this indicates a failure to PUT enough pieces to the network to pass
@@ -772,10 +758,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		// put at least one piece, else ec.Repair() would have returned an error. So the
 		// repair "succeeded" in that the segment is now healthier than it was, but it is
 		// not as healthy as we want it to be.
-		mon.Meter("repair_failed").Mark(1) //mon:locked
 		stats.repairFailed.Mark(1)
 	default:
-		mon.Meter("repair_partial").Mark(1) //mon:locked
 		stats.repairPartial.Mark(1)
 	}
 
@@ -784,7 +768,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		healthyRatioAfterRepair = float64(healthyAfterRepair) / float64(newRedundancy.TotalShares)
 	}
 
-	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair) //mon:locked
 	stats.healthyRatioAfterRepair.Observe(healthyRatioAfterRepair)
 
 	toRemove := make(map[uint16]metabase.Piece, piecesCheck.Unhealthy.Count())
@@ -861,7 +844,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		segmentAge = time.Since(segment.CreatedAt)
 	}
 
-	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
 	stats.segmentTimeUntilRepair.Observe(int64(segmentAge.Seconds()))
 
 	log.Info("repaired segment",
@@ -904,8 +886,8 @@ func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldS
 	return nil
 }
 
-func (repairer *SegmentRepairer) getStatsByRS(redundancy storj.RedundancyScheme) *stats {
-	return repairer.statsCollector.getStatsByRS(getRSString(redundancy))
+func (repairer *SegmentRepairer) getStats(r storj.RedundancyScheme, p storj.PlacementConstraint) *stats {
+	return repairer.statsCollector.getStats(getRSString(r), getPlacementString(p))
 }
 
 // SetNow allows tests to have the server act as if the current time is whatever they want.
