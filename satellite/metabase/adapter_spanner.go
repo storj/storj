@@ -29,6 +29,8 @@ type SpannerConfig struct {
 
 	HealthCheckWorkers  int           `hidden:"true" help:"Number of workers used by health checker for the connection pool." default:"10" testDefault:"1"`
 	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50ms" testDefault:"200ms"`
+
+	TestingTimestampVersioning bool `hidden:"true" help:"Use timestamps for assigning version numbers instead of strictly incrementing integers." default:"false"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -39,6 +41,8 @@ type SpannerAdapter struct {
 	sqlClient   tagsql.DB
 
 	connParams spannerutil.ConnParams
+
+	testingTimestampVersioning bool
 }
 
 // NewSpannerAdapter creates a new Spanner adapter.
@@ -95,6 +99,8 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 		adminClient: adminClient,
 		sqlClient:   tagsql.WrapWithRecorder(sqlClient, recorder),
 		log:         log,
+
+		testingTimestampVersioning: cfg.TestingTimestampVersioning,
 	}, nil
 }
 

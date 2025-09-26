@@ -24,20 +24,28 @@ import (
 	"storj.io/storj/shared/mud"
 )
 
+// ConfigVariation is a function that modifies metabase configuration.
+type ConfigVariation func(config *metabase.Config) (name string)
+
+// WithTimestampVersioning modifies metabase configuration to use timestamp versioning.
+func WithTimestampVersioning(config *metabase.Config) (name string) {
+	config.TestingTimestampVersioning = true
+	return "tsver"
+}
+
 // RunWithConfig runs tests with specific metabase configuration.
-func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...interface{}) {
+func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), variations ...ConfigVariation) {
 	migration := func(ctx context.Context, db *metabase.DB) error {
 		return db.TestMigrateToLatest(ctx)
 	}
-	RunWithConfigAndMigration(t, config, fn, migration, flags...)
+	RunWithConfigAndMigration(t, config, fn, migration, variations...)
 }
 
 // RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
-func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, flags ...interface{}) {
+func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, variations ...ConfigVariation) {
 	t.Parallel()
 
 	for _, dbinfo := range satellitedbtest.Databases() {
-		dbinfo := dbinfo
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -55,26 +63,49 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 
 				fn(tctx, t, db)
 			})
-
 		})
+
+		for _, variation := range variations {
+			varConfig := config
+			name := variation(&varConfig)
+			t.Run(dbinfo.Name+"-"+name, func(t *testing.T) {
+				t.Parallel()
+
+				testmonkit.Run(t.Context(), t, func(ctx context.Context) {
+					tctx := testcontext.NewWithContext(ctx, t)
+					defer tctx.Cleanup()
+
+					db, err := satellitedbtest.CreateMetabaseDB(tctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, varConfig)
+					require.NoError(t, err)
+					defer tctx.Check(db.Close)
+
+					if err := migration(tctx, db); err != nil {
+						t.Fatal(err)
+					}
+
+					fn(tctx, t, db)
+				})
+			})
+		}
 	}
 }
 
 // Run runs tests against all configured databases.
-func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...interface{}) {
+func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), variations ...ConfigVariation) {
 	var config metainfo.Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
 		cfgstruct.UseTestDefaults(),
 	)
 
 	RunWithConfig(t, metabase.Config{
-		ApplicationName:          "satellite-metabase-test",
-		MinPartSize:              config.MinPartSize,
-		MaxNumberOfParts:         config.MaxNumberOfParts,
-		ServerSideCopy:           config.ServerSideCopy,
-		ServerSideCopyDisabled:   config.ServerSideCopyDisabled,
-		TestingUniqueUnversioned: true,
-	}, fn, flags...)
+		ApplicationName:            "satellite-metabase-test",
+		MinPartSize:                config.MinPartSize,
+		MaxNumberOfParts:           config.MaxNumberOfParts,
+		ServerSideCopy:             config.ServerSideCopy,
+		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
+		TestingUniqueUnversioned:   true,
+		TestingTimestampVersioning: config.TestingTimestampVersioning,
+	}, fn, variations...)
 }
 
 // Bench runs benchmark for all configured databases.

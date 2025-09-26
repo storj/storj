@@ -254,6 +254,7 @@ type Config struct {
 	TestOptimizedInlineObjectUpload bool      `default:"false" help:"enables optimization for uploading objects with single inline segment"`
 	TestingSpannerProjects          UUIDsFlag `default:""  help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 	TestingMigrationMode            bool      `default:"false"  help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
+	TestingTimestampVersioning      bool      `default:"false"  help:"use timestamps for assigning version numbers" hidden:"true"`
 
 	TestingProjectsWithCommitDelay   UUIDsFlag     `default:""  help:"list of project IDs for which commit delay is enabled" hidden:"true"`
 	TestingMaxCommitDelay            time.Duration `default:"20ms"  help:"max commit delay that will be used when commit delay is enabled for project" hidden:"true"`
@@ -270,13 +271,14 @@ type Config struct {
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
 func (c Config) Metabase(applicationName string) metabase.Config {
 	return metabase.Config{
-		ApplicationName:           applicationName,
-		MinPartSize:               c.MinPartSize,
-		MaxNumberOfParts:          c.MaxNumberOfParts,
-		ServerSideCopy:            c.ServerSideCopy,
-		NodeAliasCacheFullRefresh: c.NodeAliasCacheFullRefresh,
-		TestingSpannerProjects:    c.TestingSpannerProjects,
-		Compression:               c.MetabaseCompression,
+		ApplicationName:            applicationName,
+		MinPartSize:                c.MinPartSize,
+		MaxNumberOfParts:           c.MaxNumberOfParts,
+		ServerSideCopy:             c.ServerSideCopy,
+		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
+		TestingSpannerProjects:     c.TestingSpannerProjects,
+		TestingTimestampVersioning: c.TestingTimestampVersioning,
+		Compression:                c.MetabaseCompression,
 	}
 }
 

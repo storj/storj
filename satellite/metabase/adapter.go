@@ -119,11 +119,12 @@ type Adapter interface {
 
 // PostgresAdapter uses Cockroach related SQL queries.
 type PostgresAdapter struct {
-	log                      *zap.Logger
-	db                       tagsql.DB
-	impl                     dbutil.Implementation
-	connstr                  string
-	testingUniqueUnversioned bool
+	log                        *zap.Logger
+	db                         tagsql.DB
+	impl                       dbutil.Implementation
+	connstr                    string
+	testingUniqueUnversioned   bool
+	testingTimestampVersioning bool
 }
 
 // Name returns the name of the adapter.

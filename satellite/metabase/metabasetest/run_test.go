@@ -21,5 +21,5 @@ func TestSetup(t *testing.T) {
 
 		_, err = db.TestingGetState(ctx)
 		require.NoError(t, err)
-	})
+	}, metabasetest.WithTimestampVersioning)
 }
