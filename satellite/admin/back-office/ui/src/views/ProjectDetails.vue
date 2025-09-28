@@ -2,10 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="!project || !userAccount" class="d-flex justify-center align-center" style="height: calc(100vh - 150px);">
-        <v-skeleton-loader width="300" height="200" type="article" />
-    </div>
-    <v-container v-else>
+    <v-container v-if="project && userAccount">
         <div class="d-flex ga-2 flex-wrap justify-space-between align-center mb-5">
             <div>
                 <PageTitleComponent title="Project Details" />
@@ -249,18 +246,7 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue';
-import {
-    VAlert,
-    VBtn,
-    VCard,
-    VCardText,
-    VChip,
-    VCol,
-    VContainer,
-    VIcon,
-    VRow,
-    VSkeletonLoader,
-} from 'vuetify/components';
+import { VAlert, VBtn, VCard, VCardText, VChip, VCol, VContainer, VIcon, VRow } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 import { Box, ChevronDown, ChevronLeft, ChevronRight, FilePen } from 'lucide-vue-next';
 import { useDisplay } from 'vuetify';
@@ -325,7 +311,7 @@ function copyProjectID() {
     });
 }
 
-watch(() => router.currentRoute.value.params.projectID as string, async (projectID) => {
+watch(() => router.currentRoute.value.params.projectID as string, (projectID) => {
     if (!projectID) {
         return;
     }
@@ -334,12 +320,14 @@ watch(() => router.currentRoute.value.params.projectID as string, async (project
     if (!userAccount.value || userAccount.value.id !== userID) promises.push(usersStore.updateCurrentUser(userID));
     if (!project.value || project.value.id !== projectID) promises.push(projectsStore.updateCurrentProject(projectID));
 
-    try {
-        await Promise.all(promises);
-    } catch (error) {
-        notify.notifyError('Failed to load project details. ' + error.message);
-        router.push({ name: ROUTES.Accounts.name });
-    }
+    appStore.load(async () => {
+        try {
+            await Promise.all(promises);
+        } catch (error) {
+            notify.notifyError('Failed to load project details. ' + error.message);
+            router.push({ name: ROUTES.Accounts.name });
+        }
+    });
 }, { immediate: true });
 
 onUnmounted(() => projectsStore.clearCurrentProject());

@@ -2,73 +2,28 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" width="700" transition="fade-transition">
-        <v-card rounded="xlg">
-            <template #title>
-                Project Limits
-            </template>
-            <template #subtitle>
-                Enter limits for this project
-            </template>
-            <template #append>
-                <v-btn
-                    :icon="X" :disabled="isLoading"
-                    variant="text" size="small" color="default" @click="model = false"
-                />
-            </template>
-
-            <v-form v-model="valid" :disableed="isLoading" @submit.prevent="updateLimits">
-                <div class="pa-6">
-                    <DynamicFormBuilder
-                        ref="formBuilder"
-                        :config="formConfig"
-                        :initial-data="initialFormData"
-                    />
-                </div>
-
-                <v-card-actions class="pa-6">
-                    <v-row>
-                        <v-col>
-                            <v-btn
-                                variant="outlined" color="default"
-                                :disabled="isLoading"
-                                block @click="model = false"
-                            >
-                                Cancel
-                            </v-btn>
-                        </v-col>
-                        <v-col>
-                            <v-btn
-                                color="primary" variant="flat"
-                                :loading="isLoading"
-                                :disabled="!valid || !hasFormChanged"
-                                type="submit"
-                                block
-                                @click="updateLimits"
-                            >
-                                Save
-                            </v-btn>
-                        </v-col>
-                    </v-row>
-                </v-card-actions>
-            </v-form>
-        </v-card>
-    </v-dialog>
+    <RequireReasonFormDialog
+        v-model="model"
+        :loading="isLoading"
+        :initial-form-data="initialFormData"
+        :form-config="formConfig"
+        title="Update Project Limits"
+        subtitle="Enter limits for this project"
+        width="600"
+        overflow
+        @submit="update"
+    />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { VBtn, VCard, VCardActions, VCol, VDialog, VForm, VRow } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 import { useNotificationsStore } from '@/store/notifications';
 import { Project, ProjectLimitsUpdateRequest, UserProject } from '@/api/client.gen';
 import { useProjectsStore } from '@/store/projects';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/users';
-import {
-    FieldType,
-    FormBuilderExpose,
+import { FieldType,
     FormConfig,
     NULLABLE_FIELD_VALUE,
     nullableNumberField,
@@ -76,7 +31,7 @@ import {
     terabyteFormField,
 } from '@/types/forms';
 
-import DynamicFormBuilder from '@/components/form-builder/DynamicFormBuilder.vue';
+import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
 
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
@@ -89,9 +44,6 @@ const model = defineModel<boolean>({ required: true });
 const props = defineProps<{
     project: Project;
 }>();
-
-const valid = ref<boolean>(false);
-const formBuilder = ref<FormBuilderExpose>();
 
 const initialFormData = computed(() => ({
     maxBuckets: props.project?.maxBuckets ?? NULLABLE_FIELD_VALUE,
@@ -212,28 +164,10 @@ const formConfig = computed((): FormConfig => {
     };
 });
 
-const hasFormChanged = computed(() => {
-    const formData = formBuilder.value?.getData() as Record<string, unknown> | undefined;
-    if (!formData) return false;
-
-    for (const key in initialFormData.value) {
-        if (formData[key] !== initialFormData.value[key]) {
-            return true;
-        }
-    }
-    return false;
-});
-
-function updateLimits() {
-    if (!valid.value) {
-        return;
-    }
+function update(formData: Record<string, unknown>) {
     withLoading(async () => {
         try {
             const request = new ProjectLimitsUpdateRequest();
-            const formData = formBuilder.value?.getData() || {};
-            if (!formData) return;
-
             for (const key in request) {
                 if (!Object.hasOwn(formData, key)) continue;
                 // set only changed fields
@@ -267,9 +201,4 @@ function updateLimits() {
         }
     });
 }
-
-watch(model, (shown) => {
-    if (!shown) return;
-    formBuilder.value?.reset();
-});
 </script>

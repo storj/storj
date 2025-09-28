@@ -37,7 +37,6 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function updateProjectLimits(id: string, limits: ProjectLimitsUpdateRequest): Promise<Project> {
-        limits.reason = 'TBD';
         return await projectApi.updateProjectLimits(limits, id);
     }
 

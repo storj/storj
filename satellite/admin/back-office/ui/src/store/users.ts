@@ -55,10 +55,13 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function getAccountFreezeTypes(): Promise<void> {
+        if (state.freezeTypes.length) {
+            return;
+        }
         state.freezeTypes = await userApi.getFreezeEventTypes();
     }
 
-    async function freezeUser(userID: string, eventType: number, reason = 'TBD'): Promise<void> {
+    async function freezeUser(userID: string, eventType: number, reason: string): Promise<void> {
         const request = new ToggleFreezeUserRequest();
         request.action = 'freeze';
         request.type = eventType;
@@ -66,7 +69,7 @@ export const useUsersStore = defineStore('users', () => {
         await userApi.toggleFreezeUser(request, userID);
     }
 
-    async function unfreezeUser(userID: string, reason = 'TBD'): Promise<void> {
+    async function unfreezeUser(userID: string, reason: string): Promise<void> {
         const request = new ToggleFreezeUserRequest();
         request.action = 'unfreeze';
         request.reason = reason;
@@ -89,23 +92,22 @@ export const useUsersStore = defineStore('users', () => {
 
     // Update a specified user.
     async function updateUser(userID: string, request: UpdateUserRequest): Promise<UserAccount> {
-        request.reason = 'TBD';
         return await userApi.updateUser(request, userID);
     }
 
-    async function deleteUser(userID: string, reason = 'TBD'): Promise<void> {
+    async function deleteUser(userID: string, reason: string): Promise<void> {
         const request = new DisableUserRequest();
         request.reason = reason;
         await userApi.disableUser(request, userID);
     }
 
-    async function disableMFA(userID: string, reason = 'TBD'): Promise<void> {
+    async function disableMFA(userID: string, reason: string): Promise<void> {
         const request = new ToggleMfaRequest();
         request.reason = reason;
         await userApi.toggleMFA(request, userID);
     }
 
-    async function createRestKey(userID: string, expirationDate: Date, reason = 'TBD'): Promise<string> {
+    async function createRestKey(userID: string, expirationDate: Date, reason: string): Promise<string> {
         const request = new CreateRestKeyRequest();
         request.reason = reason;
         request.expiration = expirationDate.toISOString();
