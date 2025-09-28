@@ -17,72 +17,14 @@
                 />
             </template>
 
-            <v-form v-model="valid" @submit.prevent="update">
-                <v-row class="px-6 pt-6">
-                    <v-col>
-                        <v-number-input
-                            v-model="projectLimit"
-                            label="Total projects"
-                            :rules="[RequiredRule, PositiveNumberRule]"
-                            :disabled="isLoading"
-                            hide-details="auto"
-                            control-variant="stacked"
-                            variant="solo-filled" flat
-                        />
-                    </v-col>
-                    <v-col>
-                        <v-number-input
-                            v-model="segmentLimit"
-                            label="Segments / project"
-                            :rules="[RequiredRule, PositiveNumberRule]"
-                            :disabled="isLoading"
-                            hide-details="auto"
-                            control-variant="stacked"
-                            variant="solo-filled" flat
-                            :step="5000"
-                        />
-                    </v-col>
-                </v-row>
-                <v-row class="px-6">
-                    <v-col>
-                        <v-number-input
-                            v-model="storageLimitTB"
-                            label="Storage / project"
-                            suffix="TB"
-                            :messages="[`Bytes: ${storageLimit}`]"
-                            :precision="4" :step="0.5"
-                            :rules="[RequiredRule, PositiveNumberRule, BytesMustBeWholeRule]"
-                            :disabled="isLoading"
-                            hide-details="auto"
-                            control-variant="stacked"
-                            variant="solo-filled" flat
-                        />
-                    </v-col>
-                    <v-col>
-                        <v-number-input
-                            v-model="bandwidthLimitTB"
-                            label="Download / month / project"
-                            suffix="TB"
-                            :messages="[`Bytes: ${bandwidthLimit}`]"
-                            :precision="4" :step="0.5"
-                            :rules="[RequiredRule, PositiveNumberRule, BytesMustBeWholeRule]"
-                            :disabled="isLoading"
-                            hide-details="auto"
-                            control-variant="stacked"
-                            variant="solo-filled" flat
-                        />
-                    </v-col>
-                </v-row>
-                <v-row class="px-6 pb-6">
-                    <v-col cols="12">
-                        <v-text-field
-                            :model-value="account.email" label="Account Email"
-                            variant="solo-filled" flat readonly
-                            :disabled="isLoading"
-                            hide-details="auto"
-                        />
-                    </v-col>
-                </v-row>
+            <v-form v-model="valid" :disabled="isLoading" @submit.prevent="update">
+                <div class="pa-6">
+                    <DynamicFormBuilder
+                        ref="formBuilder"
+                        :config="formConfig"
+                        :initial-data="initialFormData"
+                    />
+                </div>
 
                 <v-card-actions class="pa-6">
                     <v-row>
@@ -102,7 +44,7 @@
                                 variant="flat"
                                 block
                                 type="submit"
-                                :disabled="!valid"
+                                :disabled="!valid || !hasFormChanged"
                                 :loading="isLoading"
                                 @click="update"
                             >
@@ -118,25 +60,16 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import {
-    VBtn,
-    VCard,
-    VCardActions,
-    VCol,
-    VDialog,
-    VForm,
-    VNumberInput,
-    VRow,
-    VTextField,
-} from 'vuetify/components';
+import { VBtn, VCard, VDialog, VForm, VRow, VCol, VCardActions } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/users';
 import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { UpdateUserRequest, UserAccount } from '@/api/client.gen';
-import { BytesMustBeWholeRule, PositiveNumberRule, RequiredRule } from '@/types/common';
-import { Memory } from '@/utils/bytesSize';
+import { FieldType, FormBuilderExpose, FormConfig, rawNumberField, terabyteFormField } from '@/types/forms';
+
+import DynamicFormBuilder from '@/components/form-builder/DynamicFormBuilder.vue';
 
 const usersStore = useUsersStore();
 const notify = useNotify();
@@ -149,19 +82,67 @@ const props = defineProps<{
 }>();
 
 const valid = ref(false);
-const projectLimit = ref(props.account.projectLimit);
-const storageLimit = ref(props.account.storageLimit);
-const bandwidthLimit = ref(props.account.bandwidthLimit);
-const segmentLimit = ref(props.account.segmentLimit);
 
-const storageLimitTB = computed({
-    get: () => storageLimit.value / Memory.TB,
-    set: (val: number) => storageLimit.value = val * Memory.TB,
+const formBuilder = ref<FormBuilderExpose>();
+
+const initialFormData = computed(() => ({
+    projectLimit: props.account?.projectLimit ?? 0,
+    segmentLimit: props.account?.segmentLimit ?? 0,
+    storageLimit: props.account?.storageLimit ?? 0,
+    bandwidthLimit: props.account?.bandwidthLimit ?? 0,
+    email: props.account?.email ?? 0,
+}));
+
+const formConfig = computed((): FormConfig => {
+    return {
+        sections: [
+            {
+                rows: [
+                    {
+                        fields: [
+                            rawNumberField({ key: 'projectLimit', label: 'Total projects',
+                                cols:{ default: 12, sm: 6 },
+                            }),
+                            rawNumberField({ key: 'segmentLimit', label: 'Segments / project',
+                                step: 5000,
+                                cols:{ default: 12, sm: 6 },
+                            }),
+                        ],
+                    }, {
+                        fields: [
+                            terabyteFormField({ key: 'storageLimit', label: 'Storage (TB) / project',
+                                cols: { default: 12, sm: 6 },
+                            }),
+                            terabyteFormField({ key: 'bandwidthLimit', label: 'Download (TB) / month / project',
+                                cols: { default: 12, sm: 6 },
+                            }),
+                        ],
+                    }, {
+                        fields: [
+                            {
+                                key: 'email',
+                                type: FieldType.Text,
+                                label: 'Account Email',
+                                readonly: true,
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    };
 });
 
-const bandwidthLimitTB = computed({
-    get: () => bandwidthLimit.value / Memory.TB,
-    set: (val: number) => bandwidthLimit.value = val * Memory.TB,
+const hasFormChanged = computed(() => {
+    const formData = formBuilder.value?.getData() as Record<string, unknown> | undefined;
+    if (!formData) return false;
+
+    for (const key in initialFormData.value) {
+        if (formData[key] !== initialFormData.value[key]) {
+            return true;
+        }
+    }
+    return false;
 });
 
 function update() {
@@ -171,13 +152,18 @@ function update() {
 
     withLoading(async () => {
         const request = new UpdateUserRequest();
-        request.projectLimit = projectLimit.value;
-        request.storageLimit = storageLimit.value;
-        request.bandwidthLimit = bandwidthLimit.value;
-        request.segmentLimit = segmentLimit.value;
+        const formData = formBuilder.value?.getData() || {};
+        if (!formData) return;
+
+        for (const key in request) {
+            if (!Object.hasOwn(formData, key)) continue;
+            // set only changed fields
+            if (formData[key] === initialFormData.value[key]) continue;
+            request[key] = formData[key];
+        }
 
         try {
-            const account = await usersStore.updateUser(props.account.id,request);
+            const account = await usersStore.updateUser(props.account.id, request);
             await usersStore.updateCurrentUser(account);
 
             model.value = false;
@@ -188,10 +174,8 @@ function update() {
     });
 }
 
-watch(model, (_) => {
-    projectLimit.value = props.account.projectLimit;
-    storageLimit.value = props.account.storageLimit;
-    bandwidthLimit.value = props.account.bandwidthLimit;
-    segmentLimit.value = props.account.segmentLimit;
+watch(model, (shown) => {
+    if (!shown) return;
+    formBuilder.value?.reset();
 });
 </script>

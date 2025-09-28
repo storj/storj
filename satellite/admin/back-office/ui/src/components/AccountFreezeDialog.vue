@@ -14,21 +14,14 @@
                 <v-btn :icon="X" variant="text" size="small" color="default" @click="model = false" />
             </template>
 
-            <v-form class="pa-6">
-                <v-row>
-                    <v-col cols="12">
-                        <v-select
-                            v-model="freezeType"
-                            label="Freeze type" placeholder="Select freeze type"
-                            :items="freezeTypes"
-                            :disabled="isLoading"
-                            item-title="name" item-value="value"
-                            hide-details="auto"
-                            variant="solo-filled"
-                            flat required
-                        />
-                    </v-col>
-                </v-row>
+            <v-form v-model="valid" :disabled="isLoading" @submit.prevent="freezeAccount">
+                <div class="pa-6">
+                    <DynamicFormBuilder
+                        ref="formBuilder"
+                        :config="formConfig"
+                        :initial-data="initialFormData"
+                    />
+                </div>
             </v-form>
 
             <v-card-actions class="pa-6">
@@ -47,7 +40,7 @@
                         <v-btn
                             color="warning" variant="flat"
                             :loading="isLoading"
-                            :disabled="freezeType === undefined"
+                            :disabled="!valid"
                             block
                             @click="freezeAccount"
                         >
@@ -62,29 +55,22 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import {
-    VDialog,
-    VCard,
-    VBtn,
-    VForm,
-    VRow,
-    VCol,
-    VSelect,
-    VCardActions,
-} from 'vuetify/components';
+import { VBtn, VCard, VCardActions, VCol, VDialog, VForm, VRow } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
 
 import { UserAccount } from '@/api/client.gen';
 import { useUsersStore } from '@/store/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
+import { FieldType, FormBuilderExpose, FormConfig } from '@/types/forms';
+import { RequiredRule } from '@/types/common';
+
+import DynamicFormBuilder from '@/components/form-builder/DynamicFormBuilder.vue';
 
 const usersStore = useUsersStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
-
-const freezeType = ref<number>();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -92,15 +78,43 @@ const props = defineProps<{
     account: UserAccount;
 }>();
 
+const valid = ref(false);
+const formBuilder = ref<FormBuilderExpose>();
+
 const freezeTypes = computed(() => usersStore.state.freezeTypes);
+
+const initialFormData = computed(() => ({ freezeType: null }));
+
+const formConfig = computed((): FormConfig => {
+    return {
+        sections: [
+            {
+                rows: [
+                    {
+                        fields: [
+                            {
+                                key: 'freezeType',
+                                type: FieldType.Select,
+                                label: 'Freeze type',
+                                placeholder: 'Select freeze type',
+                                items: freezeTypes.value,
+                                itemTitle: 'name',
+                                itemValue: 'value',
+                                rules: [RequiredRule],
+                                required: true,
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    };
+});
 
 function freezeAccount() {
     withLoading(async () => {
-        if (freezeType.value === undefined) {
-            return;
-        }
         try {
-            await usersStore.freezeUser(props.account.id, freezeType.value);
+            await usersStore.freezeUser(props.account.id, formBuilder.value?.getData().freezeType as number);
             await usersStore.updateCurrentUser(props.account.id);
             notify.success('Account frozen successfully.');
             model.value = false;
@@ -112,8 +126,7 @@ function freezeAccount() {
 }
 
 watch(() => model.value, (newVal) => {
-    if (!newVal) {
-        freezeType.value = undefined;
-    }
+    if (!newVal) return;
+    formBuilder.value?.reset();
 });
 </script>

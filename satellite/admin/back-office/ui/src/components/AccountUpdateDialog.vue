@@ -17,88 +17,14 @@
                 />
             </template>
 
-            <v-form v-model="valid" @submit.prevent="update">
-                <v-row class="px-6 pt-6">
-                    <v-col v-if="featureFlags.updateEmail">
-                        <v-text-field
-                            v-model="email"
-                            :error-messages="emailErrorMsg"
-                            label="Account Email"
-                            variant="solo-filled" flat
-                            :rules="[RequiredRule, EmailRule]"
-                            :disabled="isLoading"
-                            hide-details="auto"
-                            @update:model-value="onEmailChange"
-                        />
-                    </v-col>
-                    <v-col v-if="featureFlags.updateName">
-                        <v-text-field
-                            v-model="name"
-                            label="Account Name"
-                            variant="solo-filled" flat
-                            :rules="[RequiredRule]"
-                            :disabled="isLoading"
-                            hide-details="auto"
-                        />
-                    </v-col>
-                </v-row>
-
-                <v-row class="px-6">
-                    <v-col v-if="featureFlags.updateKind && !account.freezeStatus">
-                        <v-select
-                            v-model="kind"
-                            label="User kind"
-                            placeholder="Select user kind"
-                            :items="userKinds"
-                            item-title="name"
-                            item-value="value"
-                            :rules="[RequiredRule]"
-                            :disabled="isLoading"
-                            variant="solo-filled"
-                            flat required
-                            hide-details="auto"
-                        />
-                    </v-col>
-                    <v-col v-if="featureFlags.updateStatus && !account.freezeStatus">
-                        <v-select
-                            v-model="status"
-                            label="User Status"
-                            placeholder="Select user status"
-                            :items="userStatuses"
-                            item-title="name" item-value="value"
-                            :rules="[RequiredRule]"
-                            :disabled="isLoading"
-                            variant="solo-filled"
-                            flat required
-                            hide-details="auto"
-                        />
-                    </v-col>
-                </v-row>
-
-                <v-row class="px-6 pb-6" justify="center">
-                    <v-col v-if="featureFlags.updateKind && kind === UserKind.Free && !account.freezeStatus">
-                        <v-date-input
-                            v-model="trialExpiration"
-                            label="Trial Expiration Date"
-                            prepend-icon=""
-                            variant="solo-filled"
-                            hide-details="auto"
-                            flat clearable
-                            :min="useDate().addDays(new Date(), 1)"
-                            :disabled="isLoading"
-                        />
-                    </v-col>
-                    <v-col v-if="featureFlags.updateUserAgent">
-                        <v-text-field
-                            v-model="userAgent"
-                            label="Useragent"
-                            hide-details="auto"
-                            variant="solo-filled"
-                            :disabled="isLoading"
-                            flat clearable
-                        />
-                    </v-col>
-                </v-row>
+            <v-form v-model="valid" :disabled="isLoading" @submit.prevent="update">
+                <div class="pa-6">
+                    <DynamicFormBuilder
+                        ref="formBuilder"
+                        :config="formConfig"
+                        :initial-data="initialFormData"
+                    />
+                </div>
 
                 <v-card-actions class="pa-6">
                     <v-row>
@@ -117,7 +43,7 @@
                                 variant="flat"
                                 type="submit"
                                 block
-                                :disabled="!valid"
+                                :disabled="!valid || !hasFormChanged"
                                 :loading="isLoading"
                                 @click="update"
                             >
@@ -132,20 +58,9 @@
 </template>
 
 <script setup lang="ts">
-import {
-    VBtn,
-    VCard,
-    VCardActions,
-    VCol,
-    VDialog,
-    VForm,
-    VRow,
-    VSelect,
-    VTextField,
-} from 'vuetify/components';
-import { VDateInput } from 'vuetify/labs/VDateInput';
-import { useDate } from 'vuetify';
+import { VBtn, VCard, VCardActions, VCol, VDialog, VForm, VRow } from 'vuetify/components';
 import { computed, ref, watch } from 'vue';
+import { useDate } from 'vuetify/framework';
 
 import { UpdateUserRequest, UserAccount } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
@@ -154,11 +69,15 @@ import { EmailRule, RequiredRule } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/app';
 import { UserKind } from '@/types/user';
+import { FieldType, FormBuilderExpose, FormConfig, FormField } from '@/types/forms';
+
+import DynamicFormBuilder from '@/components/form-builder/DynamicFormBuilder.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
+const date = useDate();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -166,13 +85,8 @@ const props = defineProps<{
     account: UserAccount;
 }>();
 
-const name = ref(props.account.fullName);
-const email = ref(props.account.email);
-const kind = ref(props.account.kind.value);
-const trialExpiration = ref(props.account.trialExpiration ? new Date(props.account.trialExpiration) : null);
-const status = ref(props.account.status.value);
-const userAgent = ref(props.account.userAgent);
 const valid = ref(false);
+const formBuilder = ref<FormBuilderExpose>();
 
 const emailErrorMsg = ref<string>();
 let emailCheckTimer: ReturnType<typeof setTimeout> | undefined;
@@ -181,21 +95,120 @@ const userStatuses = computed(() => usersStore.state.userStatuses);
 const userKinds = computed(() => usersStore.state.userKinds);
 const featureFlags = computed(() => appStore.state.settings.admin.features.account);
 
+const initialFormData = computed(() => ({
+    email: props.account?.email ?? '',
+    name: props.account?.fullName ?? '',
+    kind: props.account?.kind?.value ?? UserKind.Free.valueOf(),
+    status: props.account?.status?.value ?? 0,
+    trialExpiration: props.account?.trialExpiration ? new Date(props.account.trialExpiration) : null,
+    userAgent: props.account?.userAgent ?? '',
+}));
+
+const formConfig = computed((): FormConfig => {
+    const config: FormConfig = {
+        sections: [{ rows: [] }],
+    };
+
+    const firstRowFields: FormField[] = [];
+    if (featureFlags.value.updateEmail) firstRowFields.push({
+        key: 'email',
+        type: FieldType.Text,
+        label: 'Account Email',
+        rules: [RequiredRule, EmailRule],
+        errorMessages: () => emailErrorMsg.value,
+        onUpdate: (value) => onEmailChange(value as string),
+    });
+    if (featureFlags.value.updateName) firstRowFields.push({
+        key: 'name',
+        type: FieldType.Text,
+        label: 'Account Name',
+        rules: [RequiredRule],
+    });
+    if (firstRowFields.length > 0) config.sections[0].rows.push({ fields: firstRowFields });
+
+    const secondRowFields: FormField[] = [];
+    if (featureFlags.value.updateKind && !props.account?.freezeStatus)
+        secondRowFields.push({
+            key: 'kind',
+            type: FieldType.Select,
+            label: 'User kind',
+            placeholder: 'Select user kind',
+            items: userKinds.value,
+            itemTitle: 'name',
+            itemValue: 'value',
+            rules: [RequiredRule],
+            required: true,
+        });
+    if (featureFlags.value.updateStatus && !props.account?.freezeStatus)
+        secondRowFields.push({
+            key: 'status',
+            type: FieldType.Select,
+            label: 'User Status',
+            placeholder: 'Select user status',
+            items: userStatuses.value,
+            itemTitle: 'name',
+            itemValue: 'value',
+            rules: [RequiredRule],
+            required: true,
+        });
+    if (secondRowFields.length > 0) config.sections[0].rows.push({ fields: secondRowFields });
+
+    const thirdRowFields: FormField[] = [];
+    if (featureFlags.value.updateKind && !props.account?.freezeStatus)
+        thirdRowFields.push({
+            key: 'trialExpiration',
+            type: FieldType.Date,
+            label: 'Trial Expiration Date',
+            clearable: true,
+            prependIcon: '',
+            min: date.addDays(new Date(), 1) as Date,
+            visible: (formData) => (formData as { kind: UserKind }).kind === UserKind.Free,
+        });
+    if (featureFlags.value.updateUserAgent) thirdRowFields.push({
+        key: 'userAgent',
+        type: FieldType.Text,
+        label: 'Useragent',
+        clearable: true,
+        transform: {
+            back: (value) => value ?? '',
+        },
+    });
+    if (thirdRowFields.length > 0) config.sections[0].rows.push({ fields: thirdRowFields });
+
+    return config;
+});
+
+const hasFormChanged = computed(() => {
+    const formData = formBuilder.value?.getData() as Record<string, unknown> | undefined;
+    if (!formData) return false;
+
+    for (const key in initialFormData.value) {
+        if (formData[key] !== initialFormData.value[key]) {
+            return true;
+        }
+    }
+    return false;
+});
+
 function update() {
-    if (!valid.value || isLoading.value)
+    if (!valid.value)
         return;
 
-    const request = new UpdateUserRequest();
-    if (featureFlags.value.updateUserAgent) request.userAgent = userAgent.value ?? '';
-    if (featureFlags.value.updateName) request.name = name.value;
-    if (featureFlags.value.updateKind && !props.account.freezeStatus) {
-        request.kind = kind.value;
-        if (kind.value === UserKind.Free) request.trialExpiration = trialExpiration.value?.toISOString() ?? null;
-    }
-    if (featureFlags.value.updateStatus && !props.account.freezeStatus) request.status = status.value;
-    if (featureFlags.value.updateEmail) request.email = email.value;
-
     withLoading(async () => {
+        const request = new UpdateUserRequest();
+        const formData = formBuilder.value?.getData() as UpdateUserRequest & { trialExpiration: Date } | undefined;
+        if (!formData) return;
+
+        for (const key in request) {
+            if (!Object.hasOwn(formData, key)) continue;
+            if (formData[key] === initialFormData.value[key]) continue;
+            // set only changed fields
+            if (key === 'trialExpiration' && formData.trialExpiration && formData.kind === UserKind.Free) {
+                request.trialExpiration = (date.date(formData.trialExpiration) as Date).toISOString();
+            }
+            request[key] = formData[key];
+        }
+
         try {
             const account = await usersStore.updateUser(props.account.id, request);
             await usersStore.updateCurrentUser(account);
@@ -235,12 +248,7 @@ watch(model, (newValue) => {
     usersStore.getUserStatuses();
 
     if (!newValue) return;
-    name.value = props.account.fullName;
-    email.value = props.account.email;
-    kind.value = props.account.kind.value;
-    trialExpiration.value = props.account.trialExpiration ? new Date(props.account.trialExpiration) : null;
-    status.value = props.account.status.value;
-    userAgent.value = props.account.userAgent;
+    formBuilder.value?.reset();
     emailErrorMsg.value = undefined;
 });
 </script>

@@ -7,20 +7,25 @@ export type ValidationRule<T> = string | boolean | ((value: T) => string | boole
 export function RequiredRule(value: unknown): string | boolean {
     return (Array.isArray(value) ? !!value.length : !!value || typeof value === 'number') || 'Required';
 }
-export function BytesMustBeWholeRule(tb: number): string | boolean {
-    if (isNaN(tb)) {
+export function BytesMustBeWholeRule(tb: unknown): string | boolean {
+    const num = Number(tb);
+    if (isNaN(num)) {
         return 'Must be a valid number';
     }
-    const bytes = tb * Memory.TB;
+    const bytes = num * Memory.TB;
     return Number.isInteger(bytes) || `Bytes ${bytes} is not whole.`;
 }
-export function PositiveNumberRule(value: number): string | boolean {
-    if (isNaN(value)) {
+export function PositiveNumberRule(value: unknown): string | boolean {
+    const num = Number(value);
+    if (isNaN(num)) {
         return 'Must be a valid number';
     }
-    return value > -1 || 'Must be a positive number';
+    return num >= 0 || 'Must be a positive number';
 }
-export function EmailRule(value: string): string | boolean {
+export function EmailRule(value: unknown): string | boolean {
+    if (typeof value !== 'string') {
+        return 'Email must be valid.';
+    }
     // This regular expression fulfills our needs to validate international emails.
     // It was built according to RFC 5322 and then extended to include international characters using these resources
     // https://emailregex.com/
