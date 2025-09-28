@@ -92,6 +92,8 @@ type ProjectLimitsUpdateRequest struct {
 	BurstLimitDelete      *int   `json:"burstLimitDelete"`
 	RateLimitList         *int   `json:"rateLimitList"`
 	BurstLimitList        *int   `json:"burstLimitList"`
+
+	Reason string `json:"reason"` // reason for audit log
 }
 
 // GetProject gets the project info by either private or public ID.
@@ -298,6 +300,13 @@ func (s *Service) getProjectUsage(
 func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req ProjectLimitsUpdateRequest) (*Project, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if req.Reason == "" {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("reason is required"),
+		}
+	}
 
 	p, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
 	if err != nil {

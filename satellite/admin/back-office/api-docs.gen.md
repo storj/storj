@@ -16,10 +16,9 @@
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
-  * [Delete user](#usermanagement-delete-user)
-  * [Freeze User](#usermanagement-freeze-user)
-  * [Unfreeze User](#usermanagement-unfreeze-user)
-  * [Disable MFA](#usermanagement-disable-mfa)
+  * [Disable user](#usermanagement-disable-user)
+  * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
+  * [Toggle MFA](#usermanagement-toggle-mfa)
   * [Create Rest Key](#usermanagement-create-rest-key)
 * ProjectManagement
   * [Get project](#projectmanagement-get-project)
@@ -359,12 +358,13 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	name: string
 	kind: number
 	status: number
-	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	trialExpiration: string
 	userAgent: string
 	projectLimit: number
 	storageLimit: number
 	bandwidthLimit: number
 	segmentLimit: number
+	reason: string
 }
 
 ```
@@ -420,23 +420,11 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 
 ```
 
-<h3 id='usermanagement-delete-user'>Delete user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='usermanagement-disable-user'>Disable user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Deletes user by ID. User can only be deleted if they have no active projects and pending invoices.
+Disables user by ID. User can only be disabled if they have no active projects and pending invoices.
 
-`DELETE /back-office/api/v1/users/{userID}`
-
-**Path Params:**
-
-| name | type | elaboration |
-|---|---|---|
-| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
-
-<h3 id='usermanagement-freeze-user'>Freeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
-
-Freeze a user account
-
-`POST /back-office/api/v1/users/{userID}/freeze-events`
+`PUT /back-office/api/v1/users/{userID}`
 
 **Path Params:**
 
@@ -448,16 +436,39 @@ Freeze a user account
 
 ```typescript
 {
-	type: number
+	reason: string
 }
 
 ```
 
-<h3 id='usermanagement-unfreeze-user'>Unfreeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='usermanagement-freezeunfreeze-user'>Freeze/Unfreeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Unfreeze a user account
+Freeze or unfreeze a user account
 
-`DELETE /back-office/api/v1/users/{userID}/freeze-events`
+`PUT /back-office/api/v1/users/{userID}/freeze-events`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	action: string
+	type: number
+	reason: string
+}
+
+```
+
+<h3 id='usermanagement-toggle-mfa'>Toggle MFA (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Toggles MFA for a user. Only disabling is supported.
+
+`PUT /back-office/api/v1/users/{userID}/mfa`
 
 **Path Params:**
 
@@ -465,17 +476,14 @@ Unfreeze a user account
 |---|---|---|
 | `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
-<h3 id='usermanagement-disable-mfa'>Disable MFA (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+**Request body:**
 
-Disables MFA for a user
+```typescript
+{
+	reason: string
+}
 
-`DELETE /back-office/api/v1/users/mfa/{userID}`
-
-**Path Params:**
-
-| name | type | elaboration |
-|---|---|---|
-| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+```
 
 <h3 id='usermanagement-create-rest-key'>Create Rest Key (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -494,6 +502,7 @@ Creates a rest API key a user
 ```typescript
 {
 	expiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	reason: string
 }
 
 ```
@@ -591,6 +600,7 @@ Updates project limits by ID
 	burstLimitDelete: number
 	rateLimitList: number
 	burstLimitList: number
+	reason: string
 }
 
 ```

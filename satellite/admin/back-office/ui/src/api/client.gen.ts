@@ -47,6 +47,11 @@ export class BucketFlags {
 
 export class CreateRestKeyRequest {
     expiration: Time;
+    reason: string;
+}
+
+export class DisableUserRequest {
+    reason: string;
 }
 
 export class FeatureFlags {
@@ -62,10 +67,6 @@ export class FeatureFlags {
 export class FreezeEventType {
     name: string;
     value: number;
-}
-
-export class FreezeUserRequest {
-    type: number;
 }
 
 export class KindInfo {
@@ -144,6 +145,7 @@ export class ProjectLimitsUpdateRequest {
     burstLimitDelete: number | null;
     rateLimitList: number | null;
     burstLimitList: number | null;
+    reason: string;
 }
 
 export class SearchResult {
@@ -159,17 +161,28 @@ export class SettingsAdmin {
     features: FeatureFlags;
 }
 
+export class ToggleFreezeUserRequest {
+    action: string;
+    type: number;
+    reason: string;
+}
+
+export class ToggleMfaRequest {
+    reason: string;
+}
+
 export class UpdateUserRequest {
     email: string | null;
     name: string | null;
     kind: number | null;
     status: number | null;
-    trialExpiration: Time | null;
+    trialExpiration: string | null;
     userAgent: string | null;
     projectLimit: number | null;
     storageLimit: number | null;
     bandwidthLimit: number | null;
     segmentLimit: number | null;
+    reason: string;
 }
 
 export class User {
@@ -333,9 +346,9 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async deleteUser(userID: UUID): Promise<void> {
+    public async disableUser(request: DisableUserRequest, userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}`;
-        const response = await this.http.delete(fullPath);
+        const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }
@@ -343,9 +356,9 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async freezeUser(request: FreezeUserRequest, userID: UUID): Promise<void> {
+    public async toggleFreezeUser(request: ToggleFreezeUserRequest, userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
-        const response = await this.http.post(fullPath, JSON.stringify(request));
+        const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }
@@ -353,19 +366,9 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async unfreezeUser(userID: UUID): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
-        const response = await this.http.delete(fullPath);
-        if (response.ok) {
-            return;
-        }
-        const err = await response.json();
-        throw new APIError(err.error, response.status);
-    }
-
-    public async disableMFA(userID: UUID): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/mfa/${userID}`;
-        const response = await this.http.delete(fullPath);
+    public async toggleMFA(request: ToggleMfaRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/mfa`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }

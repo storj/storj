@@ -152,55 +152,47 @@ func main() {
 		},
 	})
 
-	group.Delete("/{userID}", &apigen.Endpoint{
-		Name: "Delete user",
-		Description: "Deletes user by ID. User can only be deleted if they have no active projects" +
+	group.Put("/{userID}", &apigen.Endpoint{
+		Name: "Disable user",
+		Description: "Disables user by ID. User can only be disabled if they have no active projects" +
 			" and pending invoices.",
-		GoName:         "DeleteUser",
-		TypeScriptName: "deleteUser",
+		GoName:         "DisableUser",
+		TypeScriptName: "disableUser",
 		PathParams: []apigen.Param{
 			apigen.NewParam("userID", uuid.UUID{}),
 		},
+		Request: backoffice.DisableUserRequest{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermAccountDeleteNoData},
 		},
 	})
 
-	group.Post("/{userID}/freeze-events", &apigen.Endpoint{
-		Name:           "Freeze User",
-		Description:    "Freeze a user account",
-		GoName:         "FreezeUser",
-		TypeScriptName: "freezeUser",
+	group.Put("/{userID}/freeze-events", &apigen.Endpoint{
+		Name:           "Freeze/Unfreeze User",
+		Description:    "Freeze or unfreeze a user account",
+		GoName:         "ToggleFreezeUser",
+		TypeScriptName: "toggleFreezeUser",
 		PathParams: []apigen.Param{
 			apigen.NewParam("userID", uuid.UUID{}),
 		},
-		Request: backoffice.FreezeUserRequest{},
+		Request: backoffice.ToggleFreezeUserRequest{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountSuspendTemporary},
+			authPermsKey: []backoffice.Permission{
+				/* permissions are validated dynamically in FreezeUser */
+			},
+			passAuthParamKey: true,
 		},
 	})
 
-	group.Delete("/{userID}/freeze-events", &apigen.Endpoint{
-		Name:           "Unfreeze User",
-		Description:    "Unfreeze a user account",
-		GoName:         "UnfreezeUser",
-		TypeScriptName: "unfreezeUser",
+	group.Put("/{userID}/mfa", &apigen.Endpoint{
+		Name:           "Toggle MFA",
+		Description:    "Toggles MFA for a user. Only disabling is supported.",
+		GoName:         "ToggleMFA",
+		TypeScriptName: "toggleMFA",
 		PathParams: []apigen.Param{
 			apigen.NewParam("userID", uuid.UUID{}),
 		},
-		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountReActivateTemporary},
-		},
-	})
-
-	group.Delete("/mfa/{userID}", &apigen.Endpoint{
-		Name:           "Disable MFA",
-		Description:    "Disables MFA for a user",
-		GoName:         "DisableMFA",
-		TypeScriptName: "disableMFA",
-		PathParams: []apigen.Param{
-			apigen.NewParam("userID", uuid.UUID{}),
-		},
+		Request: backoffice.ToggleMfaRequest{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermAccountDisableMFA},
 		},

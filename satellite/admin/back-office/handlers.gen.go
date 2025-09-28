@@ -40,10 +40,9 @@ type UserManagementService interface {
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
-	DeleteUser(ctx context.Context, userID uuid.UUID) api.HTTPError
-	FreezeUser(ctx context.Context, userID uuid.UUID, request FreezeUserRequest) api.HTTPError
-	UnfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError
-	DisableMFA(ctx context.Context, userID uuid.UUID) api.HTTPError
+	DisableUser(ctx context.Context, userID uuid.UUID, request DisableUserRequest) api.HTTPError
+	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
+	ToggleMFA(ctx context.Context, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
 	CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
 }
 
@@ -138,10 +137,9 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/email/{email}", handler.handleGetUserByEmail).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
-	usersRouter.HandleFunc("/{userID}", handler.handleDeleteUser).Methods("DELETE")
-	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleFreezeUser).Methods("POST")
-	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleUnfreezeUser).Methods("DELETE")
-	usersRouter.HandleFunc("/mfa/{userID}", handler.handleDisableMFA).Methods("DELETE")
+	usersRouter.HandleFunc("/{userID}", handler.handleDisableUser).Methods("PUT")
+	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
+	usersRouter.HandleFunc("/{userID}/mfa", handler.handleToggleMFA).Methods("PUT")
 	usersRouter.HandleFunc("/rest-keys/{userID}", handler.handleCreateRestKey).Methods("POST")
 
 	return handler
@@ -461,7 +459,7 @@ func (h *UserManagementHandler) handleUpdateUser(w http.ResponseWriter, r *http.
 	}
 }
 
-func (h *UserManagementHandler) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserManagementHandler) handleDisableUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -476,6 +474,12 @@ func (h *UserManagementHandler) handleDeleteUser(w http.ResponseWriter, r *http.
 
 	userID, err := uuid.FromString(userIDParam)
 	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := DisableUserRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
@@ -489,13 +493,13 @@ func (h *UserManagementHandler) handleDeleteUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	httpErr := h.service.DeleteUser(ctx, userID)
+	httpErr := h.service.DisableUser(ctx, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 
-func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserManagementHandler) handleToggleFreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -514,7 +518,7 @@ func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	payload := FreezeUserRequest{}
+	payload := ToggleFreezeUserRequest{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -525,17 +529,19 @@ func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1024) {
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	httpErr := h.service.FreezeUser(ctx, userID, payload)
+	httpErr := h.service.ToggleFreezeUser(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 
-func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserManagementHandler) handleToggleMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -554,36 +560,8 @@ func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if err = h.auth.VerifyHost(r); err != nil {
-		api.ServeError(h.log, w, http.StatusForbidden, err)
-		return
-	}
-
-	if h.auth.IsRejected(w, r, 2048) {
-		return
-	}
-
-	httpErr := h.service.UnfreezeUser(ctx, userID)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-	}
-}
-
-func (h *UserManagementHandler) handleDisableMFA(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer h.mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	userIDParam, ok := mux.Vars(r)["userID"]
-	if !ok {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
-		return
-	}
-
-	userID, err := uuid.FromString(userIDParam)
-	if err != nil {
+	payload := ToggleMfaRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
@@ -597,7 +575,7 @@ func (h *UserManagementHandler) handleDisableMFA(w http.ResponseWriter, r *http.
 		return
 	}
 
-	httpErr := h.service.DisableMFA(ctx, userID)
+	httpErr := h.service.ToggleMFA(ctx, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

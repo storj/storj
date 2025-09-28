@@ -100,7 +100,7 @@ const initialFormData = computed(() => ({
     name: props.account?.fullName ?? '',
     kind: props.account?.kind?.value ?? UserKind.Free.valueOf(),
     status: props.account?.status?.value ?? 0,
-    trialExpiration: props.account?.trialExpiration ? new Date(props.account.trialExpiration) : null,
+    trialExpiration: props.account?.trialExpiration,
     userAgent: props.account?.userAgent ?? '',
 }));
 
@@ -163,6 +163,12 @@ const formConfig = computed((): FormConfig => {
             prependIcon: '',
             min: date.addDays(new Date(), 1) as Date,
             visible: (formData) => (formData as { kind: UserKind }).kind === UserKind.Free,
+            transform: {
+                forward: (value) => value ? date.date(value): null,
+                back: (value) => {
+                    return value ? (date.date(value) as Date).toISOString() : '';
+                },
+            },
         });
     if (featureFlags.value.updateUserAgent) thirdRowFields.push({
         key: 'userAgent',
@@ -196,16 +202,13 @@ function update() {
 
     withLoading(async () => {
         const request = new UpdateUserRequest();
-        const formData = formBuilder.value?.getData() as UpdateUserRequest & { trialExpiration: Date } | undefined;
+        const formData = formBuilder.value?.getData();
         if (!formData) return;
 
         for (const key in request) {
             if (!Object.hasOwn(formData, key)) continue;
             if (formData[key] === initialFormData.value[key]) continue;
             // set only changed fields
-            if (key === 'trialExpiration' && formData.trialExpiration && formData.kind === UserKind.Free) {
-                request.trialExpiration = (date.date(formData.trialExpiration) as Date).toISOString();
-            }
             request[key] = formData[key];
         }
 

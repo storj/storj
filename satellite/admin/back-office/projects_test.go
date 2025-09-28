@@ -186,9 +186,16 @@ func TestUpdateProjectLimits(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		t.Run("unexisting project", func(t *testing.T) {
 			sat := planet.Satellites[0]
-
 			service := sat.Admin.Admin.Service
+
 			_, apiErr := service.UpdateProjectLimits(ctx, testrand.UUID(), admin.ProjectLimitsUpdateRequest{})
+			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "reason is required")
+
+			_, apiErr = service.UpdateProjectLimits(ctx, testrand.UUID(), admin.ProjectLimitsUpdateRequest{
+				Reason: "reason",
+			})
 			require.Error(t, apiErr.Err)
 			assert.Equal(t, http.StatusNotFound, apiErr.Status)
 		})
@@ -272,6 +279,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 				SegmentLimit:   int64Ptr(expectSegment),
 				RateLimit:      intPtr(expectRate),
 				BurstLimit:     intPtr(expectBurst),
+				Reason:         "reason",
 			})
 			require.NoError(t, apiErr.Err)
 			require.Equal(t, intPtr(expectBuckets), project.MaxBuckets)
@@ -292,6 +300,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 				SegmentLimit:   int64Ptr(0),
 				RateLimit:      intPtr(0),
 				BurstLimit:     intPtr(0),
+				Reason:         "reason",
 			})
 			require.NoError(t, apiErr.Err)
 			require.Equal(t, intPtr(0), project.MaxBuckets)
@@ -309,6 +318,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 				SegmentLimit:   int64Ptr(expectSegment),
 				RateLimit:      intPtr(expectRate),
 				BurstLimit:     intPtr(expectBurst),
+				Reason:         "reason",
 			})
 			require.NoError(t, apiErr.Err)
 
@@ -327,6 +337,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 				BurstLimitDelete:      intPtr(expectBurst),
 				RateLimitList:         intPtr(expectRate),
 				BurstLimitList:        intPtr(expectBurst),
+				Reason:                "reason",
 			})
 			require.NoError(t, apiErr.Err)
 			require.Equal(t, int64Ptr(expectStorage), project.UserSetStorageLimit)
@@ -363,6 +374,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 				BurstLimitDelete:      intPtr(admin.NullableLimitValue),
 				RateLimitList:         intPtr(admin.NullableLimitValue),
 				BurstLimitList:        intPtr(admin.NullableLimitValue),
+				Reason:                "reason",
 			})
 			require.NoError(t, apiErr.Err)
 			require.Nil(t, project.UserSetStorageLimit)
@@ -391,6 +403,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 				UserSetStorageLimit: int64Ptr(-2),
 				RateLimit:           intPtr(-2),
 				RateLimitList:       intPtr(-2),
+				Reason:              "reason",
 			})
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Error(t, apiErr.Err)
