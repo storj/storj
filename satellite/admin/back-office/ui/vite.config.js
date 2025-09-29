@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
     }
 
     return {
-        base: isDev ? '/' : backOfficeBaseURL + '/static/dist',
+        base: isDev ? '/' : backOfficeBaseURL + '/static/build',
         plugins: plugins,
         define: {
             global: 'globalThis',
@@ -84,7 +84,7 @@ export default defineConfig(({ mode }) => {
             ],
         },
         build: {
-            outDir: resolve(__dirname, 'dist'),
+            outDir: resolve(__dirname, 'build'),
             emptyOutDir: true,
             reportCompressedSize: isProd,
             rollupOptions: {

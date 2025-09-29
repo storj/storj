@@ -101,7 +101,7 @@ func NewServer(
 		header.Set("X-Content-Type-Options", "nosniff")
 		header.Set("Referrer-Policy", "same-origin")
 
-		indexPath := filepath.Join(server.config.StaticDir, "dist", "index.html")
+		indexPath := filepath.Join(server.config.StaticDir, "build", "index.html")
 		file, err := os.Open(indexPath)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
