@@ -14,6 +14,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metabase/avrometabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 )
@@ -32,8 +33,8 @@ func TestAvro(t *testing.T) {
 			BatchSize:   batchSize,
 		}
 
-		segmentsAvroIterator := rangedloop.NewAvroFileIterator("./testdata/*segments.avro*")
-		nodeAliasesAvroIterator := rangedloop.NewAvroFileIterator("./testdata/*node_aliases.avro*")
+		segmentsAvroIterator := avrometabase.NewFileIterator("./testdata/*segments.avro*")
+		nodeAliasesAvroIterator := avrometabase.NewFileIterator("./testdata/*node_aliases.avro*")
 
 		splitter := rangedloop.NewAvroSegmentsSplitter(segmentsAvroIterator, nodeAliasesAvroIterator)
 
