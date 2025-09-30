@@ -7,6 +7,8 @@ import { defineStore } from 'pinia';
 import {
     PlacementInfo,
     PlacementManagementHttpApiV1,
+    SearchHttpApiV1,
+    SearchResult,
     Settings,
     SettingsHttpApiV1,
 } from '@/api/client.gen';
@@ -21,6 +23,7 @@ export const useAppStore = defineStore('app', () => {
 
     const placementApi = new PlacementManagementHttpApiV1();
     const settingsApi = new SettingsHttpApiV1();
+    const searchApi = new SearchHttpApiV1();
 
     async function getPlacements(): Promise<void> {
         state.placements = await placementApi.getPlacements();
@@ -42,10 +45,15 @@ export const useAppStore = defineStore('app', () => {
         state.settings = await settingsApi.get();
     }
 
+    async function search(query: string): Promise<SearchResult> {
+        return await searchApi.searchUsersOrProjects(query);
+    }
+
     return {
         state,
         getPlacements,
         getPlacementText,
         getSettings,
+        search,
     };
 });

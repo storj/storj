@@ -248,7 +248,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 import {
     VAlert,
     VBtn,
@@ -325,18 +325,22 @@ function copyProjectID() {
     });
 }
 
-onMounted(async () => {
-    const projectID = router.currentRoute.value.params.projectID as string;
+watch(() => router.currentRoute.value.params.projectID as string, async (projectID) => {
+    if (!projectID) {
+        return;
+    }
     const userID = router.currentRoute.value.params.userID as string;
+    const promises: Promise<void>[] = [];
+    if (!userAccount.value || userAccount.value.id !== userID) promises.push(usersStore.updateCurrentUser(userID));
+    if (!project.value || project.value.id !== projectID) promises.push(projectsStore.updateCurrentProject(projectID));
 
     try {
-        await Promise.all([
-            projectsStore.updateCurrentProject(projectID),
-            usersStore.updateCurrentUser(userID),
-        ]);
+        await Promise.all(promises);
     } catch (error) {
         notify.notifyError('Failed to load project details. ' + error.message);
         router.push({ name: ROUTES.Accounts.name });
     }
-});
+}, { immediate: true });
+
+onUnmounted(() => projectsStore.clearCurrentProject());
 </script>

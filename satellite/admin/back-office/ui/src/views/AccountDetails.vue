@@ -222,7 +222,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VAlert,
@@ -398,18 +398,17 @@ function unfreezeAccount() {
     });
 }
 
-onBeforeMount(() => {
-    if (userAccount.value) {
+watch(() => router.currentRoute.value.params.userID as string, (userID) => {
+    if (!userID || (userAccount.value && userAccount.value.id === userID)) {
         return;
     }
     withLoading(async () => {
         try {
-            const userID = router.currentRoute.value.params.userID as string;
             await usersStore.updateCurrentUser(userID);
         } catch (error) {
             notify.error(`Failed to get account details. ${error.message}`);
             router.push({ name: ROUTES.Accounts.name });
         }
     });
-});
+}, { immediate: true });
 </script>
