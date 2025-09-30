@@ -102,6 +102,7 @@ export class FrontendConfig {
     announcement: AnnouncementConfig;
     computeUIEnabled: boolean;
     showNewPricingTiers: boolean;
+    computeGatewayURL: string;
 }
 
 export class MinimumChargeConfig {

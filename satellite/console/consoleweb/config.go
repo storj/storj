@@ -99,6 +99,7 @@ type FrontendConfig struct {
 	Announcement                      console.AnnouncementConfig  `json:"announcement"`
 	ComputeUIEnabled                  bool                        `json:"computeUIEnabled"`
 	ShowNewPricingTiers               bool                        `json:"showNewPricingTiers"`
+	ComputeGatewayURL                 string                      `json:"computeGatewayURL"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
