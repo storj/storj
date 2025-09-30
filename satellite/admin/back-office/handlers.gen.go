@@ -22,6 +22,7 @@ var ErrSettingsAPI = errs.Class("admin settings api")
 var ErrPlacementsAPI = errs.Class("admin placements api")
 var ErrUsersAPI = errs.Class("admin users api")
 var ErrProjectsAPI = errs.Class("admin projects api")
+var ErrSearchAPI = errs.Class("admin search api")
 
 type SettingsService interface {
 	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
@@ -49,6 +50,10 @@ type UserManagementService interface {
 type ProjectManagementService interface {
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
 	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
+}
+
+type SearchService interface {
+	SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo, term string) (*SearchResult, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -79,6 +84,14 @@ type ProjectManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service ProjectManagementService
+	auth    *Authorizer
+}
+
+// SearchHandler is an api handler that implements all Search API endpoints functionality.
+type SearchHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service SearchService
 	auth    *Authorizer
 }
 
@@ -145,6 +158,20 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 	projectsRouter := router.PathPrefix("/back-office/api/v1/projects").Subrouter()
 	projectsRouter.HandleFunc("/{publicID}", handler.handleGetProject).Methods("GET")
 	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PUT")
+
+	return handler
+}
+
+func NewSearch(log *zap.Logger, mon *monkit.Scope, service SearchService, router *mux.Router, auth *Authorizer) *SearchHandler {
+	handler := &SearchHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	searchRouter := router.PathPrefix("/back-office/api/v1/search").Subrouter()
+	searchRouter.HandleFunc("/", handler.handleSearchUsersOrProjects).Methods("GET")
 
 	return handler
 }
@@ -705,5 +732,41 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json UpdateProjectLimits response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *SearchHandler) handleSearchUsersOrProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	term := r.URL.Query().Get("term")
+	if term == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'term' can't be empty"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	retVal, httpErr := h.service.SearchUsersOrProjects(ctx, authInfo, term)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json SearchUsersOrProjects response", zap.Error(ErrSearchAPI.Wrap(err)))
 	}
 }
