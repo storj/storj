@@ -759,6 +759,11 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	result, err := db.FinishCopyObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
+	// ignore version checking if it's not provided.
+	if step.Result.Version == 0 {
+		step.Result.Version = result.Version
+	}
+
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 	return result

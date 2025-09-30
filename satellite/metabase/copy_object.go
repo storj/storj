@@ -458,14 +458,7 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 				zombie_deletion_deadline,
 				retention_mode, retain_until
 			) VALUES (
-				$1, $2, $3,
-					coalesce((
-						SELECT version + 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-						ORDER BY version DESC
-						LIMIT 1
-					), 1), $4,
+				$1, $2, $3,`+p.generateVersion()+`, $4,
 				$5, $6, $7,
 				$8,
 				$9, $10, $11, $12,
@@ -558,13 +551,7 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 					zombie_deletion_deadline,
 					retention_mode, retain_until
 				) VALUES (
-					@project_id, @bucket_name, @object_key, coalesce(
-						(SELECT version + 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-						ORDER BY version DESC
-						LIMIT 1)
-					,1), @stream_id,
+					@project_id, @bucket_name, @object_key, ` + s.generateVersion() + `, @stream_id,
 					@status, @expires_at, @segment_count,
 					@encryption,
 					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
@@ -633,20 +620,36 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Conte
 	}
 
 	// When there was an insert during finish copy object we need to also update the version.
-
-	object.Version = highestVersion + 1
-	_, err = ptx.tx.ExecContext(ctx, `
-			UPDATE objects SET
-				status = $6,
-				version = $7,
-				zombie_deletion_deadline = NULL
-			WHERE
-				(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
-				status       = `+statusPending,
-		object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
-		object.Status,
-		object.Version,
-	)
+	if !ptx.postgresAdapter.testingTimestampVersioning {
+		oldVersion := object.Version
+		object.Version = highestVersion + 1
+		_, err = ptx.tx.ExecContext(ctx, `
+				UPDATE objects SET
+					status = $6,
+					version = $7,
+					zombie_deletion_deadline = NULL
+				WHERE
+					(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+					status       = `+statusPending,
+			object.ProjectID, object.BucketName, object.ObjectKey, oldVersion, object.StreamID,
+			object.Status,
+			object.Version,
+		)
+	} else {
+		err = ptx.tx.QueryRowContext(ctx, `
+				UPDATE objects SET
+					status = $6,
+					version = `+postgresGenerateTimestampVersion+`,
+					zombie_deletion_deadline = NULL
+				WHERE
+					(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+					status       = `+statusPending+`
+				RETURNING version
+			`,
+			object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
+			object.Status,
+		).Scan(&object.Version)
+	}
 	if err != nil {
 		return Error.New("unable to copy object: %w", err)
 	}
@@ -672,8 +675,30 @@ func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Contex
 	}
 
 	// When there was an insert during finish copy object we need to also update the version.
+	//
+	// We can not simply UPDATE the row, because we are changing the 'version' column,
+	// which is part of the primary key. Spanner does not allow changing a primary key
+	// column on an existing row. We must DELETE then INSERT a new row.
+
 	oldVersion := object.Version
-	object.Version = highestVersion + 1
+	if !stx.spannerAdapter.testingTimestampVersioning {
+		object.Version = highestVersion + 1
+	} else {
+		// TODO: should we generate the timestamp version on satellite side and use it instead?
+		// This would reduce the communication to the database.
+		//
+		// Alternatively, we could do the use "highestVersion + 1" even in the timestamp
+		// versioning mode. The primary guarantee would still hold -- although, we may not be able to
+		// get rid of querying the highest version.
+		err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
+			SQL: `SELECT ` + spannerGenerateTimestampVersion + "AS version",
+		}, spanner.QueryOptions{RequestTag: "copy-object-request-version"}).Do(func(row *spanner.Row) error {
+			return Error.Wrap(row.Columns(&object.Version))
+		})
+		if err != nil {
+			return Error.New("failed to request timestamp: %w", err)
+		}
+	}
 
 	err = stx.tx.BufferWrite([]*spanner.Mutation{
 		spanner.Delete("objects", spanner.Key{
