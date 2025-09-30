@@ -586,7 +586,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 
 			now := time.Now()
 			marker := obj
-			marker.Version = 1
+			marker.Version = 0
 
 			result := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
@@ -603,6 +603,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 					},
 				},
 			}.Check(ctx, t, db)
+			require.NotZero(t, result.Markers[0].Version)
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -623,7 +624,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 
 			now := time.Now()
 			marker := obj
-			marker.Version = pending.Version + 1
+			marker.Version = 0
 
 			result := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
@@ -641,6 +642,8 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			require.Greater(t, result.Markers[0].Version, pending.Version)
+
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(pending),
@@ -649,7 +652,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			marker2 := marker
-			marker2.Version = marker.Version + 1
+			marker2.Version = 0
 			result2 := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
@@ -665,6 +668,8 @@ func TestDeleteObjectVersioning(t *testing.T) {
 					},
 				},
 			}.Check(ctx, t, db)
+
+			require.Greater(t, result2.Markers[0].Version, result.Markers[0].Version)
 
 			// Not quite sure whether this is the appropriate behavior,
 			// but let's leave the pending object in place and not insert a deletion marker.
@@ -687,10 +692,10 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Run(ctx, t, db, obj, 0)
 
 			marker := committed.ObjectStream
-			marker.Version = committed.Version + 1
+			marker.Version = 0
 
 			now := time.Now()
-			metabasetest.DeleteObjectLastCommitted{
+			result := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
 					Versioned:      true,
@@ -706,6 +711,9 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
+
+			require.Greater(t, result.Markers[0].Version, committed.Version)
+			marker.Version = result.Markers[0].Version
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -734,10 +742,10 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Run(ctx, t, db, obj, 0)
 
 			marker := committed.ObjectStream
-			marker.Version = committed.Version + 1
+			marker.Version = 0 // ignore version check
 
 			now := time.Now()
-			metabasetest.DeleteObjectLastCommitted{
+			result1 := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
 					Versioned:      true,
@@ -754,9 +762,12 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
 
+			require.Greater(t, result1.Markers[0].Version, committed.Version)
+			marker.Version = result1.Markers[0].Version
+
 			marker2 := marker
-			marker2.Version = marker.Version + 1
-			metabasetest.DeleteObjectLastCommitted{
+			marker2.Version = 0 // ignore version check
+			result2 := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: location,
 					Versioned:      true,
@@ -772,6 +783,9 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 				OutputMarkerStreamID: &marker2.StreamID,
 			}.Check(ctx, t, db)
+
+			require.Greater(t, result2.Markers[0].Version, result1.Markers[0].Version)
+			marker2.Version = result2.Markers[0].Version
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -808,13 +822,13 @@ func TestDeleteObjectVersioning(t *testing.T) {
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
 					ObjectKey:  obj.ObjectKey,
-					Version:    obj.Version + 1,
+					Version:    0,
 				},
 				Status:    metabase.DeleteMarkerUnversioned,
 				CreatedAt: now,
 			}
 
-			metabasetest.DeleteObjectLastCommitted{
+			result := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: metabase.ObjectLocation{
 						ProjectID:  obj.ProjectID,
@@ -832,6 +846,9 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
+
+			require.Greater(t, result.Markers[0].Version, object.Version)
+			marker.ObjectStream.Version = result.Markers[0].Version
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -853,13 +870,13 @@ func TestDeleteObjectVersioning(t *testing.T) {
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
 					ObjectKey:  obj.ObjectKey,
-					Version:    obj.Version + 1,
+					Version:    0,
 				},
 				Status:    metabase.DeleteMarkerUnversioned,
 				CreatedAt: now,
 			}
 
-			metabasetest.DeleteObjectLastCommitted{
+			result := metabasetest.DeleteObjectLastCommitted{
 				Opts: metabase.DeleteObjectLastCommitted{
 					ObjectLocation: metabase.ObjectLocation{
 						ProjectID:  obj.ProjectID,
@@ -874,6 +891,9 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 				OutputMarkerStreamID: &marker.StreamID,
 			}.Check(ctx, t, db)
+
+			require.Greater(t, result.Markers[0].Version, initial.Version)
+			marker.ObjectStream.Version = result.Markers[0].Version
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -914,7 +934,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTimestampVersioning)
 }
 
 func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
@@ -1302,7 +1322,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 					}.Run(ctx, t, db, obj, 1)
 
 					markerObjStream := obj
-					markerObjStream.Version++
+					markerObjStream.Version = 0
 
 					deleted := metabasetest.DeleteObjectLastCommitted{
 						Opts: metabase.DeleteObjectLastCommitted{
@@ -1321,6 +1341,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 							}},
 						},
 					}.Check(ctx, t, db)
+
+					require.Greater(t, deleted.Markers[0].Version, object.Version)
 
 					metabasetest.Verify{
 						Objects:  metabasetest.ObjectsToRaw(object, deleted.Markers[0]),
@@ -1379,7 +1401,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 						object, _ := metabasetest.CreateObjectWithRetention(ctx, t, db, obj, 1, testCase.Retention)
 
 						markerObjStream := obj
-						markerObjStream.Version++
+						markerObjStream.Version = 0
 
 						deleted := metabasetest.DeleteObjectLastCommitted{
 							Opts: metabase.DeleteObjectLastCommitted{
@@ -1400,6 +1422,8 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 								DeletedSegmentCount: 1,
 							},
 						}.Check(ctx, t, db)
+
+						require.Greater(t, deleted.Markers[0].Version, object.Version)
 
 						metabasetest.Verify{
 							Objects: []metabase.RawObject{metabase.RawObject(deleted.Markers[0])},
@@ -1471,5 +1495,5 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				}.Run(t)
 			})
 		})
-	})
+	}, metabasetest.WithTimestampVersioning)
 }

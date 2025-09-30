@@ -481,6 +481,13 @@ func compareDeleteObjectResult(t testing.TB, got, exp metabase.DeleteObjectResul
 		for i := range got.Markers {
 			exp.Markers[i].StreamID = got.Markers[i].StreamID
 		}
+
+		// ignore version checking if it's not provided.
+		for i := range got.Markers {
+			if exp.Markers[i].Version == 0 {
+				exp.Markers[i].Version = got.Markers[i].Version
+			}
+		}
 	}
 
 	sortObjects(got.Removed)

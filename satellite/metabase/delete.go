@@ -1036,7 +1036,9 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context
 		result.Removed = precommit.Deleted
 		result.DeletedSegmentCount = precommit.DeletedSegmentCount
 
-		row := tx.(*postgresTransactionAdapter).tx.QueryRowContext(ctx, `
+		var row *sql.Row
+		if !p.testingTimestampVersioning {
+			row = tx.(*postgresTransactionAdapter).tx.QueryRowContext(ctx, `
 				INSERT INTO objects (
 					project_id, bucket_name, object_key, version, stream_id,
 					status,
@@ -1050,6 +1052,22 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context
 					version,
 					created_at
 			`, opts.ProjectID, opts.BucketName, opts.ObjectKey, precommit.HighestVersion+1, deleterMarkerStreamID)
+		} else {
+			row = tx.(*postgresTransactionAdapter).tx.QueryRowContext(ctx, `
+				INSERT INTO objects (
+					project_id, bucket_name, object_key, version, stream_id,
+					status,
+					zombie_deletion_deadline
+				)
+				SELECT
+					$1, $2, $3, `+postgresGenerateTimestampVersion+`, $4,
+					`+statusDeleteMarkerUnversioned+`,
+					NULL
+				RETURNING
+					version,
+					created_at
+			`, opts.ProjectID, opts.BucketName, opts.ObjectKey, deleterMarkerStreamID)
+		}
 
 		return errs.Wrap(row.Scan(&marker.Version, &marker.CreatedAt))
 	})
@@ -1100,31 +1118,59 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context,
 		result.Removed = precommit.Deleted
 		result.DeletedSegmentCount = precommit.DeletedSegmentCount
 
-		err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				INSERT INTO objects (
-					project_id, bucket_name, object_key, version, stream_id,
-					status,
-					zombie_deletion_deadline
-				) VALUES (
-					@project_id, @bucket_name, @object_key, @version, @marker,
-					` + statusDeleteMarkerUnversioned + `,
-					NULL
-				)
-				THEN RETURN
-					version,
-					created_at
-			`,
-			Params: map[string]interface{}{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"version":     precommit.HighestVersion + 1,
-				"marker":      deleterMarkerStreamID,
-			},
-		}, spanner.QueryOptions{RequestTag: "delete-object-last-committed-suspended"}).Do(func(row *spanner.Row) error {
-			return errs.Wrap(row.Columns(&marker.Version, &marker.CreatedAt))
-		})
+		if !stx.spannerAdapter.testingTimestampVersioning {
+			err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
+				SQL: `
+					INSERT INTO objects (
+						project_id, bucket_name, object_key, version, stream_id,
+						status,
+						zombie_deletion_deadline
+					) VALUES (
+						@project_id, @bucket_name, @object_key, @version, @marker,
+						` + statusDeleteMarkerUnversioned + `,
+						NULL
+					)
+					THEN RETURN
+						version,
+						created_at
+				`,
+				Params: map[string]interface{}{
+					"project_id":  opts.ProjectID,
+					"bucket_name": opts.BucketName,
+					"object_key":  opts.ObjectKey,
+					"version":     precommit.HighestVersion + 1,
+					"marker":      deleterMarkerStreamID,
+				},
+			}, spanner.QueryOptions{RequestTag: "delete-object-last-committed-suspended"}).Do(func(row *spanner.Row) error {
+				return errs.Wrap(row.Columns(&marker.Version, &marker.CreatedAt))
+			})
+		} else {
+			err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
+				SQL: `
+					INSERT INTO objects (
+						project_id, bucket_name, object_key, version, stream_id,
+						status,
+						zombie_deletion_deadline
+					) VALUES (
+						@project_id, @bucket_name, @object_key, ` + spannerGenerateTimestampVersion + `, @marker,
+						` + statusDeleteMarkerUnversioned + `,
+						NULL
+					)
+					THEN RETURN
+						version,
+						created_at
+				`,
+				Params: map[string]interface{}{
+					"project_id":  opts.ProjectID,
+					"bucket_name": opts.BucketName,
+					"object_key":  opts.ObjectKey,
+					"marker":      deleterMarkerStreamID,
+				},
+			}, spanner.QueryOptions{RequestTag: "delete-object-last-committed-suspended"}).Do(func(row *spanner.Row) error {
+				return errs.Wrap(row.Columns(&marker.Version, &marker.CreatedAt))
+			})
+		}
+
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				return errs.New("could not insert deletion marker: %w", err)
@@ -1156,14 +1202,7 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 				zombie_deletion_deadline
 			)
 			SELECT
-				$1, $2, $3,
-					coalesce((
-						SELECT version + 1
-						FROM objects
-						WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-						ORDER BY version DESC
-						LIMIT 1
-					), 1),
+				$1, $2, $3, `+p.generateVersion()+`,
 				$4,
 				`+statusDeleteMarkerVersioned+`,
 				NULL
@@ -1200,14 +1239,7 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context,
 						zombie_deletion_deadline
 					)
 					SELECT
-						@project_id, @bucket_name, @object_key,
-							coalesce((
-								SELECT version + 1
-								FROM objects
-								WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-								ORDER BY version DESC
-								LIMIT 1
-							), 1),
+						@project_id, @bucket_name, @object_key, ` + s.generateVersion() + `,
 						@marker,
 						` + statusDeleteMarkerVersioned + `,
 						NULL
