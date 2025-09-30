@@ -17,6 +17,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	backoffice "storj.io/storj/satellite/admin/back-office"
@@ -193,6 +194,26 @@ func TestGetUser(t *testing.T) {
 		require.NotNil(t, user)
 		require.Len(t, user.Projects, len(projects))
 		testProjectsFields(user)
+	})
+}
+
+func TestSearchUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		consoleUser, err := consoleDB.Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Test User",
+			Email:        "test@storj.io",
+			Status:       console.Active,
+			PasswordHash: make([]byte, 0),
+		})
+		require.NoError(t, err)
+		require.NoError(t, sat.DB.StripeCoinPayments().Customers().Insert(ctx, consoleUser.ID, "cus_random_customer_id"))
 
 		users, apiErr := service.SearchUsers(ctx, consoleUser.Email)
 		require.NoError(t, apiErr.Err)
@@ -215,6 +236,34 @@ func TestGetUser(t *testing.T) {
 
 		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
 		users, apiErr = service.SearchUsers(ctx, "nothing")
+		require.NoError(t, apiErr.Err)
+		require.Empty(t, users)
+
+		// search by ID
+		users, apiErr = service.SearchUsers(ctx, consoleUser.ID.String())
+		require.NoError(t, apiErr.Err)
+		require.Len(t, users, 1)
+		require.Equal(t, consoleUser.ID, users[0].ID)
+		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+
+		// searching by invalid ID should return no results
+		users, apiErr = service.SearchUsers(ctx, uuid.UUID{}.String())
+		require.NoError(t, apiErr.Err)
+		require.Empty(t, users)
+
+		customerID, err := consoleDB.Users().GetCustomerID(ctx, consoleUser.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, customerID)
+
+		// search by customer ID
+		users, apiErr = service.SearchUsers(ctx, customerID)
+		require.NoError(t, apiErr.Err)
+		require.Len(t, users, 1)
+		require.Equal(t, consoleUser.ID, users[0].ID)
+		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+
+		// unknown customer ID returns no results
+		users, apiErr = service.SearchUsers(ctx, customerID+"who")
 		require.NoError(t, apiErr.Err)
 		require.Empty(t, users)
 

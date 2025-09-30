@@ -109,6 +109,28 @@ func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err
 	return UserFromDBX(ctx, user)
 }
 
+// GetByCustomerID returns the user with the given customer ID.
+func (users *users) GetByCustomerID(ctx context.Context, customerID string) (_ *console.UserInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `
+		SELECT u.id, u.full_name, u.email, u.status, u.kind, u.created_at
+		FROM users AS u
+		WHERE u.id = (SELECT user_id FROM stripe_customers WHERE customer_id = ?);
+	`
+	row := users.db.QueryRowContext(ctx, users.db.Rebind(query), customerID)
+	if row.Err() != nil {
+		return nil, Error.Wrap(row.Err())
+	}
+	var usr console.UserInfo
+	err = row.Scan(&usr.ID, &usr.FullName, &usr.Email, &usr.Status, &usr.Kind, &usr.CreatedAt)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &usr, nil
+}
+
 // GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
 // AND have not been frozen.
 func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]console.User, error) {

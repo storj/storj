@@ -16,11 +16,17 @@
         </v-row>
         <v-row align="center" justify="center" class="search-area">
             <v-col cols="12" md="10" lg="8" xl="6">
-                <v-card :loading="isLoading" title="Find Account" subtitle="This searches by email or name" variant="flat" rounded="xlg" border>
+                <v-card
+                    :loading="isLoading"
+                    title="Find Account"
+                    subtitle="Search by ID, email, name or Stripe customer ID"
+                    variant="flat" rounded="xlg" border
+                >
                     <v-data-table
                         :loading="isLoading"
                         :headers="headers"
                         :items="results ?? []"
+                        :height="results.length > 10 ? 520 : 'auto'"
                         class="border-0"
                         hide-default-header
                     >
@@ -30,7 +36,7 @@
                         <template #loading>
                             Searching...
                         </template>
-                        <template #bottom>
+                        <template v-if="results.length <= 10" #bottom>
                             <v-container class="v-data-table-footer" />
                         </template>
                         <template #top>

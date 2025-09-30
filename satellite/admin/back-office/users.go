@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -111,7 +112,7 @@ func (s *Service) GetUserStatuses(ctx context.Context) ([]console.UserStatusInfo
 	return statuses, api.HTTPError{}
 }
 
-// SearchUsers searches for users by a search term in their name or email.
+// SearchUsers searches for users by a search term in their name, email, customer ID or by their ID.
 func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -123,6 +124,51 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 		}
 	}
 
+	// check if the term is a valid UUID
+	if id, err := uuid.FromString(term); err == nil {
+		user, err := s.consoleDB.Users().Get(ctx, id)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		if user != nil {
+			return []AccountMin{{
+				ID:        user.ID,
+				FullName:  user.FullName,
+				Email:     user.Email,
+				Kind:      user.Kind.Info(),
+				Status:    user.Status.Info(),
+				CreatedAt: user.CreatedAt,
+			}}, api.HTTPError{}
+		}
+		return make([]AccountMin, 0), api.HTTPError{}
+	}
+
+	// check whether the term is a stripe customer ID
+	if strings.HasPrefix(term, "cus_") {
+		user, err := s.consoleDB.Users().GetByCustomerID(ctx, term)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		if user != nil {
+			return []AccountMin{{
+				ID:        user.ID,
+				FullName:  user.FullName,
+				Email:     user.Email,
+				Kind:      user.Kind.Info(),
+				Status:    user.Status.Info(),
+				CreatedAt: user.CreatedAt,
+			}}, api.HTTPError{}
+		}
+		return make([]AccountMin, 0), api.HTTPError{}
+	}
+
+	// search by name or email
 	uPage, err := s.consoleDB.Users().Search(ctx, term)
 	if err != nil {
 		return nil, api.HTTPError{
