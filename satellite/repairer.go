@@ -223,6 +223,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			config.Repairer.DownloadTimeout,
 			config.Repairer.InMemoryRepair,
 			config.Repairer.InMemoryUpload,
+			config.Repairer.DownloadLongTail,
 		)
 
 		if len(config.Repairer.RepairExcludedCountryCodes) == 0 {
