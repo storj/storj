@@ -527,6 +527,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		})
 	})
 }
+
 func TestCommitObject_TimestampVersioning(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("commit without version change", func(t *testing.T) {
@@ -4087,9 +4088,6 @@ func TestCommitObjectVersioned(t *testing.T) {
 		t.Run("Commit large number mixed versioned and unversioned", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieExpiration := now.Add(24 * time.Hour)
-
 			// half the commits are versioned half are unversioned
 			numCommits := 1000
 
@@ -4102,6 +4100,8 @@ func TestCommitObjectVersioned(t *testing.T) {
 			for i := 0; i < numCommits; i++ {
 				v := obj
 				objs[i] = &v
+
+				zombieExpiration := time.Now().Add(24 * time.Hour)
 				metabasetest.BeginObjectNextVersion{
 					Opts: metabase.BeginObjectNextVersion{
 						ObjectStream:           v,
@@ -4131,7 +4131,7 @@ func TestCommitObjectVersioned(t *testing.T) {
 				if versioned {
 					rawObjects = append(rawObjects, metabase.RawObject{
 						ObjectStream: *objs[i],
-						CreatedAt:    now,
+						CreatedAt:    time.Now(),
 						Status:       metabase.CommittedVersioned,
 						Encryption:   metabasetest.DefaultEncryption,
 					})
@@ -4142,7 +4142,7 @@ func TestCommitObjectVersioned(t *testing.T) {
 			// so the result should only contain a single unversioned commit.
 			rawObjects = append(rawObjects, metabase.RawObject{
 				ObjectStream: *objs[len(objs)-1],
-				CreatedAt:    now,
+				CreatedAt:    time.Now(),
 				Status:       metabase.CommittedUnversioned,
 				Encryption:   metabasetest.DefaultEncryption,
 			})
