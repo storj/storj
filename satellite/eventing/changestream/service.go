@@ -19,8 +19,9 @@ import (
 
 // Config holds configuration for the changestream service.
 type Config struct {
-	Feedname           string `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
-	TestNewPublisherFn func() (EventPublisher, error)
+	Feedname string `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
+
+	TestNewPublisherFn func() (EventPublisher, error) `noflag:"true"`
 }
 
 // Service implements a changestream processing service.
