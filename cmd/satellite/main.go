@@ -139,12 +139,12 @@ var (
 	}
 	runGCCmd = &cobra.Command{
 		Use:   "garbage-collection",
-		Short: "Run the satellite garbage collection process",
+		Short: "Run the satellite garbage collection process to send generated bloom filters to storage nodes",
 		RunE:  cmdGCRun,
 	}
 	runGCBloomFilterCmd = &cobra.Command{
 		Use:   "garbage-collection-bloom-filters",
-		Short: "Run the satellite process which collects nodes bloom filters for garbage collection",
+		Short: "Run the satellite garbage collection process which creates a bloom filter for each node",
 		RunE:  cmdGCBloomFilterRun,
 	}
 	runRangedLoopCmd = &cobra.Command{
