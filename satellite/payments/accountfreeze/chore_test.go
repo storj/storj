@@ -62,15 +62,6 @@ func TestAutoFreezeChore(t *testing.T) {
 		chore.Loop.Pause()
 		chore.TestSetFreezeService(service)
 
-		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "user@mail.test",
-		}, 1)
-		require.NoError(t, err)
-
-		cus1, err := customerDB.GetCustomerID(ctx, user.ID)
-		require.NoError(t, err)
-
 		amount := int64(100)
 		curr := string(stripe.CurrencyUSD)
 
@@ -246,7 +237,17 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("No billing freeze event for paid invoice", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
-			_, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
 				Params:   stripe.Params{Context: ctx},
 				Amount:   &amount,
 				Currency: &curr,
@@ -301,6 +302,15 @@ func TestAutoFreezeChore(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
 			chore.TestSetNow(time.Now)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user2@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
+			require.NoError(t, err)
 
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 				Params:   stripe.Params{Context: ctx},
@@ -413,6 +423,15 @@ func TestAutoFreezeChore(t *testing.T) {
 			// reset chore clock
 			chore.TestSetNow(time.Now)
 
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user3@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
+			require.NoError(t, err)
+
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 				Params:               stripe.Params{Context: ctx},
 				Customer:             &cus1,
@@ -441,7 +460,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
 			require.True(t, inv.Attempted)
 
-			failed, err := invoicesDB.ListFailed(ctx, nil)
+			failed, err := invoicesDB.ListFailed(ctx, &user.ID)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(failed))
 			require.Equal(t, inv.ID, failed[0].ID)
@@ -472,6 +491,15 @@ func TestAutoFreezeChore(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
 			chore.TestSetNow(time.Now)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user4@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
+			require.NoError(t, err)
 
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 				Params:               stripe.Params{Context: ctx},
@@ -526,9 +554,15 @@ func TestAutoFreezeChore(t *testing.T) {
 			// reset chore clock
 			chore.TestSetNow(time.Now)
 
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user5@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
 			user2, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
-				Email:    "user2@mail.test",
+				Email:    "user6@mail.test",
 			}, 1)
 			require.NoError(t, err)
 
@@ -807,6 +841,15 @@ func TestAutoFreezeChore(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
 			chore.TestSetNow(time.Now)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user7@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
+			require.NoError(t, err)
 
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
 				Params:   stripe.Params{Context: ctx},
