@@ -21,8 +21,7 @@ import (
 // Module is a mud module definition.
 func Module(ball *mud.Ball) {
 	mud.Provide[*ECRepairer](ball, func(dialer rpc.Dialer, satelliteSignee signing.Signee, cfg Config) *ECRepairer {
-		return NewECRepairer(dialer, satelliteSignee, cfg.DialTimeout, cfg.DownloadTimeout, cfg.InMemoryRepair, cfg.InMemoryUpload)
-
+		return NewECRepairer(dialer, satelliteSignee, cfg.DialTimeout, cfg.DownloadTimeout, cfg.InMemoryRepair, cfg.InMemoryUpload, cfg.DownloadLongTail)
 	})
 	mud.Provide[*SegmentRepairer](ball, func(log *zap.Logger, metabase *metabase.DB, orders *orders.Service, overlay *overlay.Service, reporter audit.Reporter, ecRepairer *ECRepairer, placements nodeselection.PlacementDefinitions, config Config, checkerConfig checker.Config) (*SegmentRepairer, error) {
 		return NewSegmentRepairer(log, metabase, orders, overlay, reporter, ecRepairer, placements, checkerConfig.RepairThresholdOverrides, checkerConfig.RepairTargetOverrides, config)

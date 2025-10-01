@@ -1649,6 +1649,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repair pieces out of segment placement
 # repairer.do-placement-check: true
 
+# number of extra concurrent downloads beyond required count for faster repairs
+# repairer.download-long-tail: 0
+
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 

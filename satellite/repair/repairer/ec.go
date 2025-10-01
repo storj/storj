@@ -52,6 +52,7 @@ type ECRepairer struct {
 	downloadTimeout  time.Duration
 	inmemoryDownload bool
 	inmemoryUpload   bool
+	downloadLongTail int
 
 	// used only in tests, where we expect failures and want to wait for them
 	minFailures int
@@ -59,7 +60,7 @@ type ECRepairer struct {
 
 // NewECRepairer creates a new repairer for interfacing with storagenodes.
 func NewECRepairer(dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeout time.Duration, downloadTimeout time.Duration,
-	inmemoryDownload, inmemoryUpload bool) *ECRepairer {
+	inmemoryDownload, inmemoryUpload bool, downloadLongTail int) *ECRepairer {
 	return &ECRepairer{
 		dialer:           dialer,
 		satelliteSignee:  satelliteSignee,
@@ -67,6 +68,7 @@ func NewECRepairer(dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeou
 		downloadTimeout:  downloadTimeout,
 		inmemoryDownload: inmemoryDownload,
 		inmemoryUpload:   inmemoryUpload,
+		downloadLongTail: downloadLongTail,
 	}
 }
 
@@ -118,8 +120,13 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 	pieceReaders := make(map[int]io.ReadCloser)
 	var pieces FetchResultReport
 
-	limiter := sync2.NewLimiter(es.RequiredCount())
+	// Allow more concurrent downloads than required for racing
+	downloadConcurrency := min(es.RequiredCount()+ec.downloadLongTail, nonNilLimits)
+	limiter := sync2.NewLimiter(downloadConcurrency)
 	cond := sync.NewCond(&sync.Mutex{})
+
+	// Track download contexts for cancellation
+	downloadCtxs := make(map[int]context.CancelFunc)
 
 	for currentLimitIndex, limit := range limits {
 		if limit == nil {
@@ -135,6 +142,11 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 			for {
 				if successfulPieces >= es.RequiredCount() && errorCount >= ec.minFailures {
 					// already downloaded required number of pieces
+
+					// Cancel all remaining downloads
+					for _, cancelFunc := range downloadCtxs {
+						cancelFunc()
+					}
 					cond.Broadcast()
 					return
 				}
@@ -158,6 +170,13 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 
 				unusedLimits--
 				inProgress++
+
+				// Create a cancellable context for this download
+				var downloadCtx context.Context
+				var downloadCancel context.CancelFunc
+				downloadCtx, downloadCancel = context.WithCancel(ctx)
+				downloadCtxs[currentLimitIndex] = downloadCancel
+
 				cond.L.Unlock()
 
 				info := cachedNodesInfo[limit.GetLimit().StorageNodeId]
@@ -176,15 +195,17 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 					zap.String("last_ip_port", info.LastIPPort),
 					zap.Binary("serial", limit.Limit.SerialNumber[:]))
 
-				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
+				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(downloadCtx, limit, address, privateKey, "", pieceSize)
 				// if piecestore dial with last ip:port failed try again with node address
 				if triedLastIPPort && ErrDialFailed.Has(err) {
 					if pieceReadCloser != nil {
 						_ = pieceReadCloser.Close()
 					}
 					log.Info("repair get failed; retrying with specified hostname", zap.Error(err), zap.String("last_ip_port", info.LastIPPort), zap.String("hostname", limit.GetStorageNodeAddress().GetAddress()))
-					pieceReadCloser, _, _, err = ec.downloadAndVerifyPiece(ctx, limit, limit.GetStorageNodeAddress().GetAddress(), privateKey, "", pieceSize)
+					pieceReadCloser, _, _, err = ec.downloadAndVerifyPiece(downloadCtx, limit, limit.GetStorageNodeAddress().GetAddress(), privateKey, "", pieceSize)
 				}
+
+				downloadCancel()
 
 				cond.L.Lock()
 				inProgress--
@@ -196,6 +217,14 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 				if err != nil {
 					if pieceReadCloser != nil {
 						_ = pieceReadCloser.Close()
+					}
+
+					// If download was canceled due to racing (we already have enough pieces), just return
+					if errors.Is(err, context.Canceled) && downloadCtx.Err() != nil {
+						log.Debug("Download canceled due to racing",
+							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
+							zap.Stringer("Piece ID", limit.Limit.PieceId))
+						return
 					}
 
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
@@ -351,12 +380,12 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	var downloadedPieceSize int64
 
 	if ec.inmemoryDownload {
-		pieceBytes, err := io.ReadAll(downloadReader)
+		writer := bytes.NewBuffer(make([]byte, 0, pieceSize))
+		downloadedPieceSize, err = sync2.Copy(ctx, writer, downloadReader)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		downloadedPieceSize = int64(len(pieceBytes))
-		pieceReadCloser = io.NopCloser(bytes.NewReader(pieceBytes))
+		pieceReadCloser = io.NopCloser(writer)
 	} else {
 		tempfile, err := tmpfile.New(tmpDir, "satellite-repair-*")
 		if err != nil {
@@ -366,7 +395,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		// the file, even if an error results (the caller might want the data
 		// even if there is a verification error).
 
-		downloadedPieceSize, err = io.Copy(tempfile, downloadReader)
+		downloadedPieceSize, err = sync2.Copy(ctx, tempfile, downloadReader)
 		if err != nil {
 			return tempfile, nil, nil, err
 		}

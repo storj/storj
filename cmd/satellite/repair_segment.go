@@ -97,7 +97,8 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		signing.SigneeFromPeerIdentity(identity.PeerIdentity()),
 		config.Repairer.DialTimeout,
 		config.Repairer.DownloadTimeout,
-		true, true) // force inmemory download and upload of pieces
+		true, true, // force inmemory download and upload of pieces
+		config.Repairer.DownloadLongTail)
 
 	segmentRepairer, err := repairer.NewSegmentRepairer(
 		log.Named("segment-repair"),
