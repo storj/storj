@@ -332,13 +332,32 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 }
 
 func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasMetadataOrETag bool, streamID uuid.UUID, info lockInfo, err error) {
+	args := []any{
+		opts.NewBucket,
+		opts.NewEncryptedObjectKey,
+		opts.NewEncryptedMetadataEncryptedKey,
+		opts.NewEncryptedMetadataNonce,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+		newStatus,
+		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
+		timeWrapper{&opts.Retention.RetainUntil},
+	}
+
+	var versionArg string
+	if !ptx.postgresAdapter.testingTimestampVersioning {
+		versionArg = "$12"
+		args = append(args, nextVersion)
+	} else {
+		versionArg = postgresGenerateTimestampVersion
+	}
+
 	err = ptx.tx.QueryRowContext(ctx, `
 			WITH
 			new AS (
 				UPDATE objects SET
 					bucket_name = $1,
 					object_key = $2,
-					version = $10,
+					version = `+versionArg+`,
 					status = $9,
 					encrypted_metadata_encrypted_key =
 						CASE WHEN encrypted_metadata IS NOT NULL
@@ -350,8 +369,8 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 							THEN $4
 							ELSE encrypted_metadata_nonce
 						END,
-					retention_mode = $11,
-					retain_until = $12
+					retention_mode = $10,
+					retain_until = $11
 				WHERE
 					(project_id, bucket_name, object_key, version) = ($5, $6, $7, $8)
 				RETURNING
@@ -375,15 +394,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 					old.retain_until
 				FROM old, new;
 		`,
-		opts.NewBucket,
-		opts.NewEncryptedObjectKey,
-		opts.NewEncryptedMetadataEncryptedKey,
-		opts.NewEncryptedMetadataNonce,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
-		newStatus,
-		nextVersion,
-		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
-		timeWrapper{&opts.Retention.RetainUntil},
+		args...,
 	).Scan(
 		&oldStatus,
 		&segmentsCount,
@@ -478,6 +489,37 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		encryptedMetadataNonce = opts.NewEncryptedMetadataNonce[:]
 	}
 
+	params := map[string]any{
+		"project_id":                       opts.ProjectID,
+		"bucket_name":                      opts.NewBucket,
+		"object_key":                       opts.NewEncryptedObjectKey,
+		"stream_id":                        streamID,
+		"created_at":                       createdAt,
+		"expires_at":                       expiresAt,
+		"status":                           newStatus,
+		"segment_count":                    segmentsCount,
+		"encrypted_metadata_nonce":         encryptedMetadataNonce,
+		"encrypted_metadata":               encryptedMetadata,
+		"encrypted_metadata_encrypted_key": encryptedMetadataEncryptedKey,
+		"encrypted_etag":                   encryptedETag,
+		"total_plain_size":                 totalPlainSize,
+		"total_encrypted_size":             totalEncryptedSize,
+		"fixed_segment_size":               fixedSegmentSize,
+		"encryption":                       encryptionParameters{&encryption},
+		"zombie_deletion_deadline":         zombieDeletionDeadline,
+		"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
+		"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
+	}
+
+	var versionArg string
+	if !stx.spannerAdapter.testingTimestampVersioning {
+		versionArg = "@version"
+		params["version"] = nextVersion
+
+	} else {
+		versionArg = spannerGenerateTimestampVersion
+	}
+
 	_, err = stx.tx.UpdateWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
@@ -489,7 +531,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 				zombie_deletion_deadline,
 				retention_mode, retain_until
 			) VALUES (
-				@project_id, @bucket_name, @object_key, @version,
+				@project_id, @bucket_name, @object_key, ` + versionArg + `,
 				@stream_id, @created_at, @expires_at, @status, @segment_count,
 				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
@@ -498,28 +540,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 				@retention_mode, @retain_until
 			)
 		`,
-		Params: map[string]interface{}{
-			"project_id":                       opts.ProjectID,
-			"bucket_name":                      opts.NewBucket,
-			"object_key":                       opts.NewEncryptedObjectKey,
-			"version":                          nextVersion,
-			"stream_id":                        streamID,
-			"created_at":                       createdAt,
-			"expires_at":                       expiresAt,
-			"status":                           newStatus,
-			"segment_count":                    segmentsCount,
-			"encrypted_metadata_nonce":         encryptedMetadataNonce,
-			"encrypted_metadata":               encryptedMetadata,
-			"encrypted_metadata_encrypted_key": encryptedMetadataEncryptedKey,
-			"encrypted_etag":                   encryptedETag,
-			"total_plain_size":                 totalPlainSize,
-			"total_encrypted_size":             totalEncryptedSize,
-			"fixed_segment_size":               fixedSegmentSize,
-			"encryption":                       encryptionParameters{&encryption},
-			"zombie_deletion_deadline":         zombieDeletionDeadline,
-			"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
-			"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
-		},
+		Params: params,
 	}, spanner.QueryOptions{RequestTag: "object-move-insert"})
 	if err != nil {
 		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to create new object record: %w", err)

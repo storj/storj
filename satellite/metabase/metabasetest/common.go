@@ -44,14 +44,30 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	state, err := db.TestingGetState(ctx)
 	require.NoError(t, err)
 
+	// Don't check version numbers when they are not specified.
+	for i := range step.Objects {
+		ax := &step.Objects[i]
+		if ax.Version == 0 {
+			for k := range state.Objects {
+				bx := &state.Objects[k]
+				if ax.Location() == bx.Location() && ax.StreamID == bx.StreamID {
+					ax.Version = bx.Version
+					break
+				}
+			}
+		}
+	}
+
 	sortRawObjects(state.Objects)
 	sortRawObjects(step.Objects)
+
 	sortRawSegments(state.Segments)
 	sortRawSegments(step.Segments)
 
 	diff := cmp.Diff(metabase.RawState(step), *state,
 		DefaultTimeDiff(),
-		cmpopts.EquateEmpty())
+		cmpopts.EquateEmpty(),
+	)
 	require.Zero(t, diff)
 }
 

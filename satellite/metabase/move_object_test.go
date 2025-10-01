@@ -299,7 +299,7 @@ func TestFinishMoveObject(t *testing.T) {
 							BucketName: conflictObjStream.BucketName,
 							ObjectKey:  conflictObjStream.ObjectKey,
 							StreamID:   initialObject.StreamID,
-							Version:    conflictObjStream.Version + 1,
+							Version:    0,
 						},
 						CreatedAt:  now,
 						Status:     metabase.CommittedUnversioned,
@@ -548,7 +548,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 				object.ObjectKey = newObjectKey
 				object.BucketName = newBucketName
-				object.Version = 1 // there are no overwritten object, hence it should start from 1
+				object.Version = 0
 
 				expectedRawObjects = append(expectedRawObjects, metabase.RawObject(object))
 			}
@@ -615,7 +615,7 @@ func TestFinishMoveObject(t *testing.T) {
 
 			newObj.ObjectKey = newObjectKey
 			newObj.BucketName = newBucketName
-			newObj.Version = 1
+			newObj.Version = 0
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -693,7 +693,7 @@ func TestFinishMoveObject(t *testing.T) {
 			movedObject.ObjectStream.ProjectID = obj.ProjectID
 			movedObject.ObjectStream.BucketName = obj.BucketName
 			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
-			movedObject.ObjectStream.Version = 13001
+			movedObject.ObjectStream.Version = 0
 			movedObject.Status = metabase.CommittedVersioned
 
 			// versioned copy should leave everything else as is
@@ -733,7 +733,7 @@ func TestFinishMoveObject(t *testing.T) {
 			movedObject.ObjectStream.ProjectID = obj.ProjectID
 			movedObject.ObjectStream.BucketName = obj.BucketName
 			movedObject.ObjectStream.ObjectKey = obj.ObjectKey
-			movedObject.ObjectStream.Version = 13001
+			movedObject.ObjectStream.Version = 0
 			movedObject.Status = metabase.CommittedUnversioned
 
 			// unversioned copy should only delete the unversioned object
@@ -781,7 +781,7 @@ func TestFinishMoveObject(t *testing.T) {
 								BucketName: sourceObject.BucketName,
 								ObjectKey:  sourceObject.ObjectKey,
 								StreamID:   sourceStream.StreamID,
-								Version:    12346,
+								Version:    0,
 							},
 							Status:    metabase.DeleteMarkerUnversioned,
 							CreatedAt: time.Now(),
@@ -839,7 +839,7 @@ func TestFinishMoveObject(t *testing.T) {
 								BucketName: sourceObject.BucketName,
 								ObjectKey:  sourceObject.ObjectKey,
 								StreamID:   sourceStream.StreamID,
-								Version:    13002,
+								Version:    0,
 							},
 							Status:    metabase.DeleteMarkerVersioned,
 							CreatedAt: time.Now(),
@@ -1052,7 +1052,7 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			unversionedObject.ObjectKey = newEncryptedObjectKey
-			unversionedObject.Version = 1
+			unversionedObject.Version = 0
 			unversionedObject.Status = metabase.CommittedVersioned
 			unversionedObject.Retention = expectedRetention
 			unversionedObject.LegalHold = expectedLegalHold
@@ -1096,7 +1096,7 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			obj2.Version = 4
+			obj2.Version = 0
 			obj2.Retention = expectedRetention
 			obj2.LegalHold = expectedLegalHold
 
@@ -1138,7 +1138,7 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			withExpiredLock.ObjectKey = newEncryptedObjectKey
-			withExpiredLock.Version = 1
+			withExpiredLock.Version = 0
 			withExpiredLock.Retention = metabase.Retention{}
 
 			metabasetest.FinishMoveObject{
@@ -1188,5 +1188,5 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTimestampVersioning)
 }
