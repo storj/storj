@@ -60,4 +60,15 @@ export class Validator {
         const rgx = /^\+?\d{1,15}(?:[\s.-]?\d{1,15})*$/;
         return rgx.test(value);
     }
+
+    /**
+     * Checks string to see if it is a valid SSH public key (only 'ssh-rsa' and 'ssh-ed25519' types are supported).
+     */
+    public static publicSSHKey(value: string): boolean {
+        if (!value.startsWith('ssh-rsa') && !value.startsWith('ssh-ed25519')) return false;
+
+        // TODO: implement more thorough validation if needed.
+
+        return true;
+    }
 }

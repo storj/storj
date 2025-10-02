@@ -82,6 +82,7 @@ export type DataTableHeader = {
     align?: 'start' | 'end' | 'center';
     sortable?: boolean;
     width?: number | string;
+    maxWidth?: number | string;
 };
 
 export type SortItem = {
@@ -117,6 +118,10 @@ export function MaxNameLengthRule(value: string): string | boolean {
 
 export function PhoneNumberRule(value: string): string | boolean {
     return Validator.phoneNumber(value) || 'Phone number must be valid.';
+}
+
+export function PublicSSHKeyRule(value: string): string | boolean {
+    return Validator.publicSSHKey(value) || 'SSH public key must be valid.';
 }
 
 export interface IDialogFlowStep {

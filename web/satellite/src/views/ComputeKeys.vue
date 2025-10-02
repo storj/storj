@@ -11,7 +11,7 @@
 
         <v-col>
             <v-row class="mt-2 mb-4">
-                <v-btn :prepend-icon="PlusCircle">
+                <v-btn :prepend-icon="PlusCircle" @click="isAddKeyDialogShown = true">
                     New SSH Key
                 </v-btn>
             </v-row>
@@ -19,9 +19,12 @@
 
         <ComputeKeysTableComponent />
     </v-container>
+
+    <add-compute-s-s-h-key-dialog v-model="isAddKeyDialogShown" />
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import {
     VContainer,
     VCol,
@@ -33,4 +36,7 @@ import { PlusCircle } from 'lucide-vue-next';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ComputeKeysTableComponent from '@/components/ComputeKeysTableComponent.vue';
+import AddComputeSSHKeyDialog from '@/components/dialogs/AddComputeSSHKeyDialog.vue';
+
+const isAddKeyDialogShown = ref<boolean>(false);
 </script>

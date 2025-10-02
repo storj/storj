@@ -131,6 +131,8 @@ export enum AnalyticsErrorEventSource {
     DOWNLOAD_PREFIX_DIALOG = 'Download Prefix Dialog',
     APPLICATION_BAR = 'Application bar',
     ANNOUNCEMENT_BANNER = 'Announcement Banner',
+    ADD_COMPUTE_SSH_KEY_MODAL = 'Add Compute SSH Key Modal',
+    COMPUTE_SSH_KEYS_TABLE = 'Compute SSH Keys Table',
 }
 
 export enum PageVisitSource {

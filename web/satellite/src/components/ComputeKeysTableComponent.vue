@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" :border="true" rounded="xlg">
+    <v-card variant="outlined" border rounded="xlg">
         <v-text-field
             v-model="search"
             label="Search"
-            prepend-inner-icon="mdi-magnify"
+            :prepend-inner-icon="Search"
             single-line
             variant="solo-filled"
             flat
@@ -18,12 +18,11 @@
         />
 
         <v-data-table
-            v-model="selected"
             :headers="headers"
-            :items="accesses"
+            :items="keys"
             :search="search"
-            item-value="name"
-            show-select
+            :loading="isLoading"
+            no-data-text="No results found"
             hover
         >
             <template #item.name="{ item }">
@@ -31,10 +30,15 @@
                     {{ item.name }}
                 </v-list-item>
             </template>
-            <template #item.fingerprint="{ item }">
-                <v-chip variant="tonal" size="small" rounded="xl" class="font-weight-bold">
-                    {{ item.fingerprint }}
+            <template #item.publicKey="{ item }">
+                <v-chip variant="tonal" size="small" rounded="xl" :title="item.publicKey" class="font-weight-bold ellipsis">
+                    {{ item.publicKey }}
                 </v-chip>
+            </template>
+            <template #item.created="{ item }">
+                <span class="text-no-wrap">
+                    {{ Time.formattedDate(item.created) }}
+                </span>
             </template>
             <template #item.actions>
                 <v-btn
@@ -50,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     VCard,
     VTextField,
@@ -59,8 +63,20 @@ import {
     VChip,
     VBtn,
 } from 'vuetify/components';
+import { Search } from 'lucide-vue-next';
 
 import { DataTableHeader } from '@/types/common';
+import { useComputeStore } from '@/store/modules/computeStore';
+import { SSHKey } from '@/types/compute';
+import { Time } from '@/utils/time';
+import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/composables/useNotify';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+
+const computeStore = useComputeStore();
+
+const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
 
 const headers: DataTableHeader[] = [
     {
@@ -68,32 +84,35 @@ const headers: DataTableHeader[] = [
         align: 'start',
         key: 'name',
     },
-    { title: 'Fingerprint', key: 'fingerprint' },
-    { title: 'Type', key: 'type' },
-    { title: 'Date Created', key: 'date' },
+    { title: 'Public Key', key: 'publicKey', maxWidth: '600px' },
+    { title: 'Date Created', key: 'created' },
     { title: '', key: 'actions', align: 'end', sortable: false },
-];
-const accesses = [
-    {
-        name: 'Test',
-        fingerprint: 'SHA256:AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
-        date: '02 Mar 2023',
-        type: 'Generated',
-    },
-    {
-        name: 'New Key',
-        fingerprint: 'SHA256:BcDeFgHiJkLmNoPqRsTuVwXyZ1234567890a',
-        date: '03 Mar 2023',
-        type: 'Generated',
-    },
-    {
-        name: '2415',
-        fingerprint: 'SHA256:CdEfGhIjKlMnOpQrStUvWxYz1234567890ab',
-        date: '04 Mar 2023',
-        type: 'Uploaded',
-    },
 ];
 
 const search = ref<string>('');
-const selected = ref([]);
+
+const keys = computed<SSHKey[]>(() => computeStore.state.sshKeys);
+
+function fetch(): void {
+    withLoading(async () => {
+        try {
+            await computeStore.getSSHKeys();
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.COMPUTE_SSH_KEYS_TABLE);
+        }
+    });
+}
+
+onMounted(() => {
+    fetch();
+});
 </script>
+
+<style scoped lang="scss">
+:deep(.v-chip__content) {
+    display: inline-block !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
