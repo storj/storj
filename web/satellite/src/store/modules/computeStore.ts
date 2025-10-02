@@ -1,15 +1,22 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { CreateSSHKeyRequest, IComputeAPI, SSHKey } from '@/types/compute';
+import {
+    CreateInstanceRequest,
+    CreateSSHKeyRequest,
+    IComputeAPI,
+    Instance,
+    SSHKey,
+} from '@/types/compute';
 import { ComputeAPI } from '@/api/compute';
 import { useConfigStore } from '@/store/modules/configStore';
 
 export class ComputeState {
     public sshKeys: SSHKey[] = [];
+    public instances: Instance[] = [];
 }
 
 export const useComputeStore = defineStore('compute', () => {
@@ -18,9 +25,10 @@ export const useComputeStore = defineStore('compute', () => {
     const api: IComputeAPI = new ComputeAPI();
 
     const configStore = useConfigStore();
+    const computeGatewayURL = computed<string>(() => configStore.state.config.computeGatewayURL);
 
     async function createSSHKey(req: CreateSSHKeyRequest): Promise<SSHKey> {
-        const key = await api.createSSHKey(configStore.state.config.computeGatewayURL, req);
+        const key = await api.createSSHKey(computeGatewayURL.value, req);
 
         state.sshKeys.push(key);
 
@@ -28,7 +36,7 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function getSSHKeys(): Promise<SSHKey[]> {
-        const keys = await api.getSSHKeys(configStore.state.config.computeGatewayURL);
+        const keys = await api.getSSHKeys(computeGatewayURL.value);
 
         state.sshKeys = keys;
 
@@ -36,9 +44,62 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function deleteSSHKey(id: string): Promise<void> {
-        await api.deleteSSHKey(configStore.state.config.computeGatewayURL, id);
+        await api.deleteSSHKey(computeGatewayURL.value, id);
 
         state.sshKeys = state.sshKeys.filter(key => key.id !== id);
+    }
+
+    async function createInstance(req: CreateInstanceRequest): Promise<Instance> {
+        const instance = await api.createInstance(computeGatewayURL.value, req);
+
+        state.instances.push(instance);
+
+        return instance;
+    }
+
+    async function getInstances(): Promise<Instance[]> {
+        const instances = await api.getInstances(computeGatewayURL.value);
+
+        state.instances = instances;
+
+        return instances;
+    }
+
+    async function getInstance(id: string): Promise<Instance> {
+        const instance = await api.getInstance(computeGatewayURL.value, id);
+
+        const index = state.instances.findIndex(i => i.id === id);
+        if (index !== -1) {
+            state.instances[index] = instance;
+        } else {
+            state.instances.push(instance);
+        }
+
+        return instance;
+    }
+
+    async function updateInstanceType(id: string, instanceType: string): Promise<Instance> {
+        const instance = await api.updateInstanceType(computeGatewayURL.value, id, instanceType);
+
+        const index = state.instances.findIndex(i => i.id === id);
+        if (index !== -1) {
+            state.instances[index] = instance;
+        } else {
+            state.instances.push(instance);
+        }
+
+        return instance;
+    }
+
+    async function deleteInstance(id: string): Promise<void> {
+        await api.deleteInstance(computeGatewayURL.value, id);
+
+        state.instances = state.instances.filter(i => i.id !== id);
+    }
+
+    async function clear() {
+        state.sshKeys = [];
+        state.instances = [];
     }
 
     return {
@@ -46,5 +107,11 @@ export const useComputeStore = defineStore('compute', () => {
         createSSHKey,
         getSSHKeys,
         deleteSSHKey,
+        createInstance,
+        getInstances,
+        getInstance,
+        updateInstanceType,
+        deleteInstance,
+        clear,
     };
 });

@@ -8,6 +8,12 @@ export interface IComputeAPI {
     createSSHKey(baseURL: string, request: CreateSSHKeyRequest): Promise<SSHKey>;
     getSSHKeys(baseURL: string): Promise<SSHKey[]>;
     deleteSSHKey(baseURL: string, id: string): Promise<void>;
+
+    createInstance(baseURL: string, request: CreateInstanceRequest): Promise<Instance>;
+    getInstance(baseURL: string, id: string): Promise<Instance>;
+    getInstances(baseURL: string): Promise<Instance[]>;
+    updateInstanceType(baseURL: string, id: string, instanceType: string): Promise<Instance>;
+    deleteInstance(baseURL: string, id: string): Promise<void>;
 }
 
 export interface CreateSSHKeyRequest {
@@ -17,9 +23,44 @@ export interface CreateSSHKeyRequest {
 
 export class SSHKey {
     constructor(
-        public id: string,
-        public name: string,
-        public publicKey: string,
-        public created: Date,
+        public id: string = '',
+        public name: string = '',
+        public publicKey: string = '',
+        public created: Date = new Date(),
+    ) { }
+}
+
+export interface CreateInstanceRequest {
+    name: string;
+    hostname: string;
+    instanceType: string;
+    bootDiskSizeGB: string;
+    image: string;
+    location: string;
+    sshKeys: string[];
+}
+
+export interface Remote {
+    type: string;
+    ipv4Address: string;
+    port: number;
+}
+
+export class Instance {
+    constructor(
+        public id: string = '',
+        public name: string = '',
+        public status: string = '',
+        public hostname: string = '',
+        public ipv4Address: string = '',
+        public created: Date = new Date(),
+        public updated: Date = new Date(),
+        public remote: Remote = {
+            type: '',
+            ipv4Address: '',
+            port: 0,
+        },
+        public password: string = '',
+        public deleting: boolean = false,
     ) { }
 }
