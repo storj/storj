@@ -186,6 +186,7 @@ export class ProjectConfig {
         public salt: string = '',
         public membersCount: number = 0,
         public availablePlacements: PlacementDetails[] = [],
+        public computeAuthToken: string = '',
     ) {}
 
     public get role(): ProjectItemRole {

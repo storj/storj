@@ -13,6 +13,7 @@ import {
 } from '@/types/compute';
 import { ComputeAPI } from '@/api/compute';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 export class ComputeState {
     public sshKeys: SSHKey[] = [];
@@ -26,9 +27,11 @@ export const useComputeStore = defineStore('compute', () => {
 
     const configStore = useConfigStore();
     const computeGatewayURL = computed<string>(() => configStore.state.config.computeGatewayURL);
+    const projectsStore = useProjectsStore();
+    const computeAuthToken = computed<string>(() => projectsStore.state.selectedProjectConfig.computeAuthToken);
 
     async function createSSHKey(req: CreateSSHKeyRequest): Promise<SSHKey> {
-        const key = await api.createSSHKey(computeGatewayURL.value, req);
+        const key = await api.createSSHKey(computeGatewayURL.value, computeAuthToken.value, req);
 
         state.sshKeys.push(key);
 
@@ -36,7 +39,7 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function getSSHKeys(): Promise<SSHKey[]> {
-        const keys = await api.getSSHKeys(computeGatewayURL.value);
+        const keys = await api.getSSHKeys(computeGatewayURL.value, computeAuthToken.value);
 
         state.sshKeys = keys;
 
@@ -44,13 +47,13 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function deleteSSHKey(id: string): Promise<void> {
-        await api.deleteSSHKey(computeGatewayURL.value, id);
+        await api.deleteSSHKey(computeGatewayURL.value, computeAuthToken.value, id);
 
         state.sshKeys = state.sshKeys.filter(key => key.id !== id);
     }
 
     async function createInstance(req: CreateInstanceRequest): Promise<Instance> {
-        const instance = await api.createInstance(computeGatewayURL.value, req);
+        const instance = await api.createInstance(computeGatewayURL.value, computeAuthToken.value, req);
 
         state.instances.push(instance);
 
@@ -58,7 +61,7 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function getInstances(): Promise<Instance[]> {
-        const instances = await api.getInstances(computeGatewayURL.value);
+        const instances = await api.getInstances(computeGatewayURL.value, computeAuthToken.value);
 
         state.instances = instances;
 
@@ -66,7 +69,7 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function getInstance(id: string): Promise<Instance> {
-        const instance = await api.getInstance(computeGatewayURL.value, id);
+        const instance = await api.getInstance(computeGatewayURL.value, computeAuthToken.value, id);
 
         const index = state.instances.findIndex(i => i.id === id);
         if (index !== -1) {
@@ -79,7 +82,7 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function updateInstanceType(id: string, instanceType: string): Promise<Instance> {
-        const instance = await api.updateInstanceType(computeGatewayURL.value, id, instanceType);
+        const instance = await api.updateInstanceType(computeGatewayURL.value, computeAuthToken.value, id, instanceType);
 
         const index = state.instances.findIndex(i => i.id === id);
         if (index !== -1) {
@@ -92,7 +95,7 @@ export const useComputeStore = defineStore('compute', () => {
     }
 
     async function deleteInstance(id: string): Promise<void> {
-        await api.deleteInstance(computeGatewayURL.value, id);
+        await api.deleteInstance(computeGatewayURL.value, computeAuthToken.value, id);
 
         state.instances = state.instances.filter(i => i.id !== id);
     }

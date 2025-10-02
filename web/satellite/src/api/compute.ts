@@ -14,9 +14,9 @@ import { APIError } from '@/utils/error';
 export class ComputeAPI implements IComputeAPI {
     private readonly http: HttpClient = new HttpClient();
 
-    public async createSSHKey(baseURL: string, request: CreateSSHKeyRequest): Promise<SSHKey> {
+    public async createSSHKey(baseURL: string, authToken: string, request: CreateSSHKeyRequest): Promise<SSHKey> {
         const path = `${baseURL}/api/v1/ssh-key`;
-        const response = await this.http.post(path, JSON.stringify(request));
+        const response = await this.http.post(path, JSON.stringify(request), { authToken });
         const result = await response.json();
 
         if (!response.ok) {
@@ -30,9 +30,9 @@ export class ComputeAPI implements IComputeAPI {
         return new SSHKey(result.id, result.name, result.publicKey, new Date(result.created));
     }
 
-    public async getSSHKeys(baseURL: string): Promise<SSHKey[]> {
+    public async getSSHKeys(baseURL: string, authToken: string): Promise<SSHKey[]> {
         const path = `${baseURL}/api/v1/ssh-key`;
-        const response = await this.http.get(path);
+        const response = await this.http.get(path, { authToken });
         const result = await response.json();
 
         if (!response.ok) {
@@ -51,9 +51,9 @@ export class ComputeAPI implements IComputeAPI {
         ));
     }
 
-    public async deleteSSHKey(baseURL: string, id: string): Promise<void> {
+    public async deleteSSHKey(baseURL: string, authToken: string, id: string): Promise<void> {
         const path = `${baseURL}/api/v1/ssh-key/${id}`;
-        const response = await this.http.delete(path);
+        const response = await this.http.delete(path, null, { authToken });
         const result = await response.json();
 
         if (response.status !== 204) {
@@ -65,9 +65,9 @@ export class ComputeAPI implements IComputeAPI {
         }
     }
 
-    public async createInstance(baseURL: string, request: CreateInstanceRequest): Promise<Instance> {
+    public async createInstance(baseURL: string, authToken: string, request: CreateInstanceRequest): Promise<Instance> {
         const path = `${baseURL}/api/v1/instance`;
-        const response = await this.http.post(path, JSON.stringify(request));
+        const response = await this.http.post(path, JSON.stringify(request), { authToken });
         const result = await response.json();
 
         if (response.status !== 201) {
@@ -81,9 +81,9 @@ export class ComputeAPI implements IComputeAPI {
         return this.instanceFromJSON(result);
     }
 
-    public async getInstance(baseURL: string, id: string): Promise<Instance> {
+    public async getInstance(baseURL: string, authToken: string, id: string): Promise<Instance> {
         const path = `${baseURL}/api/v1/instance/${id}`;
-        const response = await this.http.get(path);
+        const response = await this.http.get(path, { authToken });
         const result = await response.json();
 
         if (!response.ok) {
@@ -97,9 +97,9 @@ export class ComputeAPI implements IComputeAPI {
         return this.instanceFromJSON(result);
     }
 
-    public async getInstances(baseURL: string): Promise<Instance[]> {
+    public async getInstances(baseURL: string, authToken: string): Promise<Instance[]> {
         const path = `${baseURL}/api/v1/instance`;
-        const response = await this.http.get(path);
+        const response = await this.http.get(path, { authToken });
         const result = await response.json();
 
         if (!response.ok) {
@@ -113,9 +113,9 @@ export class ComputeAPI implements IComputeAPI {
         return (result ?? []).map((instance: Record<string, never>) => this.instanceFromJSON(instance));
     }
 
-    public async updateInstanceType(baseURL: string, id: string, instanceType: string): Promise<Instance> {
+    public async updateInstanceType(baseURL: string, authToken: string, id: string, instanceType: string): Promise<Instance> {
         const path = `${baseURL}/api/v1/instance/${id}`;
-        const response = await this.http.patch(path, JSON.stringify({ instanceType }));
+        const response = await this.http.patch(path, JSON.stringify({ instanceType }), { authToken });
         const result = await response.json();
 
         if (!response.ok) {
@@ -129,9 +129,9 @@ export class ComputeAPI implements IComputeAPI {
         return this.instanceFromJSON(result);
     }
 
-    public async deleteInstance(baseURL: string, id: string): Promise<void> {
+    public async deleteInstance(baseURL: string, authToken: string, id: string): Promise<void> {
         const path = `${baseURL}/api/v1/instance/${id}`;
-        const response = await this.http.delete(path);
+        const response = await this.http.delete(path, null, { authToken });
         const result = await response.json();
 
         if (response.status !== 204) {

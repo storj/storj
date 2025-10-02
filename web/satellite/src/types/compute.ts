@@ -5,15 +5,15 @@
  * Exposes all compute related functionality.
  */
 export interface IComputeAPI {
-    createSSHKey(baseURL: string, request: CreateSSHKeyRequest): Promise<SSHKey>;
-    getSSHKeys(baseURL: string): Promise<SSHKey[]>;
-    deleteSSHKey(baseURL: string, id: string): Promise<void>;
+    createSSHKey(baseURL: string, authToken: string, request: CreateSSHKeyRequest): Promise<SSHKey>;
+    getSSHKeys(baseURL: string, authToken: string): Promise<SSHKey[]>;
+    deleteSSHKey(baseURL: string, authToken: string, id: string): Promise<void>;
 
-    createInstance(baseURL: string, request: CreateInstanceRequest): Promise<Instance>;
-    getInstance(baseURL: string, id: string): Promise<Instance>;
-    getInstances(baseURL: string): Promise<Instance[]>;
-    updateInstanceType(baseURL: string, id: string, instanceType: string): Promise<Instance>;
-    deleteInstance(baseURL: string, id: string): Promise<void>;
+    createInstance(baseURL: string, authToken: string, request: CreateInstanceRequest): Promise<Instance>;
+    getInstance(baseURL: string, authToken: string, id: string): Promise<Instance>;
+    getInstances(baseURL: string, authToken: string): Promise<Instance[]>;
+    updateInstanceType(baseURL: string, authToken: string, id: string, instanceType: string): Promise<Instance>;
+    deleteInstance(baseURL: string, authToken: string, id: string): Promise<void>;
 }
 
 export interface CreateSSHKeyRequest {

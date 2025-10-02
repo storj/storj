@@ -6,6 +6,7 @@ import { ROUTES } from '@/router';
 
 interface AdditionalHeaders {
     csrfProtectionToken?: string;
+    authToken?: string;
 }
 
 /**
@@ -14,6 +15,7 @@ interface AdditionalHeaders {
  */
 export class HttpClient {
     private readonly csrfHeader: string = 'X-CSRF-Token';
+    private readonly authHeader: string = 'Authorization';
 
     /**
      *
@@ -34,6 +36,9 @@ export class HttpClient {
         if (additionalHeaders && request.headers) {
             if (additionalHeaders.csrfProtectionToken) {
                 request.headers[this.csrfHeader] = additionalHeaders.csrfProtectionToken;
+            }
+            if (additionalHeaders.authToken) {
+                request.headers[this.authHeader] = `Bearer ${additionalHeaders.authToken}`;
             }
         }
 
@@ -79,9 +84,10 @@ export class HttpClient {
     /**
      * Performs GET http request.
      * @param path
+     * @param additionalHeaders custom headers used for a request
      */
-    public async get(path: string): Promise<Response> {
-        return this.sendJSON('GET', path, null);
+    public async get(path: string, additionalHeaders?: AdditionalHeaders): Promise<Response> {
+        return this.sendJSON('GET', path, null, additionalHeaders);
     }
 
     /**
