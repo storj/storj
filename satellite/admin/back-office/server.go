@@ -20,7 +20,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/storj/private/emptyfs"
 )
+
+// Assets contains either the built admin/back-office/ui or it is nil.
+var Assets fs.FS = emptyfs.FS{}
 
 // PathPrefix is the path that will be prefixed to the router passed to the NewServer constructor.
 // This is temporary until this server will replace the storj.io/storj/satellite/admin/server.go.
@@ -90,45 +94,70 @@ func NewServer(
 	// Static assets for the web interface.
 	// This handler must be the last one because it uses the root as prefix, otherwise, it will serve
 	// all the paths defined by the handlers set after this one.
-	staticPath := path.Join(PathPrefix, "static")
-	staticHandler := http.StripPrefix(staticPath, http.FileServer(http.Dir(config.StaticDir)))
+
+	var staticPath string
+	var fileSystem http.FileSystem
+	if config.StaticDir == "" {
+		fileSystem = http.FS(Assets)
+		staticPath = path.Join(PathPrefix, "static/build")
+	} else {
+		fileSystem = http.Dir(config.StaticDir)
+		staticPath = path.Join(PathPrefix, "static")
+	}
+	staticHandler := http.StripPrefix(staticPath, http.FileServer(fileSystem))
 	root.PathPrefix("/static/").Handler(staticHandler)
 
-	appHandler := func(w http.ResponseWriter, r *http.Request) {
-		header := w.Header()
-
-		header.Set("Content-Type", "text/html; charset=UTF-8")
-		header.Set("X-Content-Type-Options", "nosniff")
-		header.Set("Referrer-Policy", "same-origin")
-
-		indexPath := filepath.Join(server.config.StaticDir, "build", "index.html")
-		file, err := os.Open(indexPath)
-		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				server.log.Error("index.html was not generated. run 'npm run build' in the "+server.config.StaticDir+" directory", zap.Error(err))
-			} else {
-				server.log.Error("error loading index.html", zap.String("path", indexPath), zap.Error(err))
-			}
-			return
-		}
-
-		defer func() {
-			if err := file.Close(); err != nil {
-				server.log.Error("error closing index.html", zap.String("path", indexPath), zap.Error(err))
-			}
-		}()
-
-		info, err := file.Stat()
-		if err != nil {
-			server.log.Error("failed to retrieve index.html file info", zap.Error(err))
-			return
-		}
-
-		http.ServeContent(w, r, indexPath, info.ModTime(), file)
-	}
-	root.PathPrefix("").Handler(http.HandlerFunc(appHandler))
+	root.PathPrefix("").Handler(http.HandlerFunc(server.uiHandler))
 
 	return server
+}
+
+func (server *Server) uiHandler(w http.ResponseWriter, r *http.Request) {
+	header := w.Header()
+
+	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin")
+
+	if server.config.StaticDir == "" {
+		content, err := fs.ReadFile(Assets, "index.html")
+		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				server.log.Error("back-office UI was not embedded", zap.Error(err))
+			} else {
+				server.log.Error("error loading index.html", zap.String("path", "index.html"), zap.Error(err))
+			}
+			return
+		}
+
+		_, _ = w.Write(content)
+		return
+	}
+
+	indexPath := filepath.Join(server.config.StaticDir, "build", "index.html")
+	file, err := os.Open(indexPath)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			server.log.Error("index.html was not generated. run 'npm run build' in the "+server.config.StaticDir+" directory", zap.Error(err))
+		} else {
+			server.log.Error("error loading index.html", zap.String("path", indexPath), zap.Error(err))
+		}
+		return
+	}
+
+	defer func() {
+		if err := file.Close(); err != nil {
+			server.log.Error("error closing index.html", zap.String("path", indexPath), zap.Error(err))
+		}
+	}()
+
+	info, err := file.Stat()
+	if err != nil {
+		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
+		return
+	}
+
+	http.ServeContent(w, r, indexPath, info.ModTime(), file)
 }
 
 // Run starts the administration HTTP server using the provided listener.
