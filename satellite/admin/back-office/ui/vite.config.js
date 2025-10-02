@@ -3,6 +3,7 @@
 
 // Plugins
 import { resolve } from 'path';
+import { existsSync, writeFileSync } from 'fs';
 
 import vue from '@vitejs/plugin-vue';
 import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
@@ -13,6 +14,15 @@ import viteCompression from 'vite-plugin-compression2';
 const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
 
 const plugins = [
+    {
+        name: 'add-git-keep',
+        closeBundle() {
+            const file = resolve(__dirname, 'build/.keep');
+            if (!existsSync(file)) {
+                writeFileSync(file, '');
+            }
+        },
+    },
     vue({
         template: { transformAssetUrls },
     }),
