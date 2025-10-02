@@ -40,17 +40,20 @@
                     {{ Time.formattedDate(item.created) }}
                 </span>
             </template>
-            <template #item.actions>
+            <template #item.actions="{ item }">
                 <v-btn
                     size="small"
                     variant="outlined"
                     color="default"
+                    @click="onDelete(item)"
                 >
                     Remove
                 </v-btn>
             </template>
         </v-data-table>
     </v-card>
+
+    <delete-compute-s-s-h-key-dialog v-model="isDeleteDialog" :ssh-key="keyToDelete" />
 </template>
 
 <script setup lang="ts">
@@ -73,6 +76,8 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
+import DeleteComputeSSHKeyDialog from '@/components/dialogs/DeleteComputeSSHKeyDialog.vue';
+
 const computeStore = useComputeStore();
 
 const { isLoading, withLoading } = useLoading();
@@ -89,6 +94,8 @@ const headers: DataTableHeader[] = [
     { title: '', key: 'actions', align: 'end', sortable: false },
 ];
 
+const isDeleteDialog = ref<boolean>(false);
+const keyToDelete = ref<SSHKey>(new SSHKey());
 const search = ref<string>('');
 
 const keys = computed<SSHKey[]>(() => computeStore.state.sshKeys);
@@ -101,6 +108,11 @@ function fetch(): void {
             notify.notifyError(error, AnalyticsErrorEventSource.COMPUTE_SSH_KEYS_TABLE);
         }
     });
+}
+
+function onDelete(key: SSHKey): void {
+    keyToDelete.value = key;
+    isDeleteDialog.value = true;
 }
 
 onMounted(() => {

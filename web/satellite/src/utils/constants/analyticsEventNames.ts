@@ -79,6 +79,7 @@ export enum AnalyticsErrorEventSource {
     SETUP_ACCESS_MODAL = 'Setup access modal',
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
     CONFIRM_DELETE_DOMAIN_MODAL = 'Confirm delete domain modal',
+    CONFIRM_DELETE_COMPUTE_SSH_KEY_MODAL = 'Confirm delete compute ssh key modal',
     FILE_BROWSER_LIST_CALL = 'File browser - list API call',
     FILE_BROWSER_ENTRY = 'File browser entry',
     FILE_BROWSER = 'File browser',

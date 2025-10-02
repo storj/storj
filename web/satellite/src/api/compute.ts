@@ -54,9 +54,10 @@ export class ComputeAPI implements IComputeAPI {
     public async deleteSSHKey(baseURL: string, authToken: string, id: string): Promise<void> {
         const path = `${baseURL}/api/v1/ssh-key/${id}`;
         const response = await this.http.delete(path, null, { authToken });
-        const result = await response.json();
 
         if (response.status !== 204) {
+            const result = await response.json();
+
             throw new APIError({
                 status: response.status,
                 message: result.message || 'Can not delete SSH Key',
