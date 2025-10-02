@@ -17,6 +17,13 @@ import (
 	"storj.io/storj/satellite/metabase/changestream"
 )
 
+// S3ObjectEvent represents various event types triggered by S3 object operations.
+const (
+	S3ObjectCreatedPut                 = "s3:ObjectCreated:Put"
+	S3ObjectRemovedDelete              = "s3:ObjectRemoved:Delete"
+	S3ObjectRemovedDeleteMarkerCreated = "s3:ObjectRemoved:DeleteMarkerCreated"
+)
+
 // Event contains one or more event records.
 type Event struct {
 	Records []EventRecord `json:"Records,omitempty"`
@@ -176,9 +183,9 @@ func determineEventName(modType string, newValues, oldValues map[string]interfac
 		if newStatus, ok := extractInt64(newValues, "status"); ok {
 			switch metabase.ObjectStatus(newStatus) {
 			case metabase.CommittedUnversioned, metabase.CommittedVersioned:
-				return "ObjectCreated:Put"
+				return S3ObjectCreatedPut
 			case metabase.DeleteMarkerVersioned, metabase.DeleteMarkerUnversioned:
-				return "ObjectRemoved:DeleteMarkerCreated"
+				return S3ObjectRemovedDeleteMarkerCreated
 			}
 		}
 	case "UPDATE":
@@ -186,7 +193,7 @@ func determineEventName(modType string, newValues, oldValues map[string]interfac
 			if oldStatus, ok := extractInt64(oldValues, "status"); ok && metabase.ObjectStatus(oldStatus) == metabase.Pending {
 				switch metabase.ObjectStatus(newStatus) {
 				case metabase.CommittedUnversioned, metabase.CommittedVersioned:
-					return "ObjectCreated:Put"
+					return S3ObjectCreatedPut
 				}
 			}
 		}
@@ -195,7 +202,7 @@ func determineEventName(modType string, newValues, oldValues map[string]interfac
 			switch metabase.ObjectStatus(oldStatus) {
 			case metabase.CommittedUnversioned, metabase.CommittedVersioned,
 				metabase.DeleteMarkerVersioned, metabase.DeleteMarkerUnversioned:
-				return "ObjectRemoved:Delete"
+				return S3ObjectRemovedDelete
 			}
 		}
 	}

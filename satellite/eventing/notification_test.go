@@ -35,7 +35,7 @@ func TestConvertModsToEvent_Delete(t *testing.T) {
 	require.Equal(t, "2.1", record.EventVersion)
 	require.Equal(t, "storj:s3", record.EventSource)
 	require.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	require.Equal(t, "ObjectRemoved:Delete", record.EventName)
+	require.Equal(t, S3ObjectRemovedDelete, record.EventName)
 	require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	require.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -59,7 +59,7 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	require.Equal(t, "2.1", record.EventVersion)
 	require.Equal(t, "storj:s3", record.EventSource)
 	require.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	require.Equal(t, "ObjectCreated:Put", record.EventName)
+	require.Equal(t, S3ObjectCreatedPut, record.EventName)
 	require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	require.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -83,7 +83,7 @@ func TestConvertModsToEvent_Update(t *testing.T) {
 	require.Equal(t, "2.1", record.EventVersion)
 	require.Equal(t, "storj:s3", record.EventSource)
 	require.Equal(t, "2025-09-24T08:54:41.183Z", record.EventTime)
-	require.Equal(t, "ObjectCreated:Put", record.EventName)
+	require.Equal(t, S3ObjectCreatedPut, record.EventName)
 	require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	require.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -130,7 +130,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.Equal(t, "2.1", record.EventVersion)
 		require.Equal(t, "storj:s3", record.EventSource)
 		require.Equal(t, "2024-01-01T12:00:00.000Z", record.EventTime)
-		require.Equal(t, "ObjectCreated:Put", record.EventName)
+		require.Equal(t, S3ObjectCreatedPut, record.EventName)
 		require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 		require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 		require.Equal(t, "test-bucket", record.S3.Bucket.Name)
@@ -171,7 +171,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.Len(t, event.Records, 1)
 
 		record := event.Records[0]
-		require.Equal(t, "ObjectCreated:Put", record.EventName)
+		require.Equal(t, S3ObjectCreatedPut, record.EventName)
 		require.Equal(t, int64(2048), record.S3.Object.Size)
 	})
 
@@ -215,7 +215,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.Equal(t, "2.1", record.EventVersion)
 		require.Equal(t, "storj:s3", record.EventSource)
 		require.Equal(t, "2024-01-01T12:00:00.000Z", record.EventTime)
-		require.Equal(t, "ObjectCreated:Put", record.EventName)
+		require.Equal(t, S3ObjectCreatedPut, record.EventName)
 		require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 		require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 		require.Equal(t, "test-bucket", record.S3.Bucket.Name)
@@ -263,7 +263,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.Len(t, event.Records, 1)
 
 		record := event.Records[0]
-		require.Equal(t, "ObjectCreated:Put", record.EventName)
+		require.Equal(t, S3ObjectCreatedPut, record.EventName)
 		require.Equal(t, int64(2048), record.S3.Object.Size)
 	})
 
@@ -296,7 +296,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.Len(t, event.Records, 1)
 
 		record := event.Records[0]
-		require.Equal(t, "ObjectRemoved:DeleteMarkerCreated", record.EventName)
+		require.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
 		require.Equal(t, "test/deleted-object.txt", record.S3.Object.Key)
 		require.Equal(t, "3", record.S3.Object.VersionId)
 	})
@@ -329,7 +329,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.Len(t, event.Records, 1)
 
 		record := event.Records[0]
-		require.Equal(t, "ObjectRemoved:DeleteMarkerCreated", record.EventName)
+		require.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
 	})
 
 	t.Run("ObjectRemoved:Delete for DELETE operation", func(t *testing.T) {
@@ -361,7 +361,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.Len(t, event.Records, 1)
 
 		record := event.Records[0]
-		require.Equal(t, "ObjectRemoved:Delete", record.EventName)
+		require.Equal(t, S3ObjectRemovedDelete, record.EventName)
 		require.Equal(t, "test-bucket", record.S3.Bucket.Name)
 		require.Equal(t, "test/deleted-object.txt", record.S3.Object.Key)
 		require.Equal(t, "1", record.S3.Object.VersionId)
@@ -496,27 +496,27 @@ func TestDetermineEventName(t *testing.T) {
 	t.Run("INSERT with CommittedUnversioned", func(t *testing.T) {
 		newValues := map[string]interface{}{"status": float64(3)}
 		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, "ObjectCreated:Put", eventName)
+		require.Equal(t, S3ObjectCreatedPut, eventName)
 	})
 
 	t.Run("INSERT with CommittedVersioned", func(t *testing.T) {
 		newValues := map[string]interface{}{"status": float64(4)}
 		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, "ObjectCreated:Put", eventName)
+		require.Equal(t, S3ObjectCreatedPut, eventName)
 	})
 
 	t.Run("UPDATE with CommittedUnversioned", func(t *testing.T) {
 		oldValues := map[string]interface{}{"status": float64(1)}
 		newValues := map[string]interface{}{"status": float64(3)}
 		eventName := determineEventName("UPDATE", newValues, oldValues)
-		require.Equal(t, "ObjectCreated:Put", eventName)
+		require.Equal(t, S3ObjectCreatedPut, eventName)
 	})
 
 	t.Run("UPDATE with CommittedVersioned", func(t *testing.T) {
 		oldValues := map[string]interface{}{"status": float64(1)}
 		newValues := map[string]interface{}{"status": float64(4)}
 		eventName := determineEventName("UPDATE", newValues, oldValues)
-		require.Equal(t, "ObjectCreated:Put", eventName)
+		require.Equal(t, S3ObjectCreatedPut, eventName)
 	})
 
 	t.Run("UPDATE with no pending status change returns empty", func(t *testing.T) {
@@ -542,37 +542,37 @@ func TestDetermineEventName(t *testing.T) {
 	t.Run("INSERT with DeleteMarkerVersioned", func(t *testing.T) {
 		newValues := map[string]interface{}{"status": float64(5)}
 		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, "ObjectRemoved:DeleteMarkerCreated", eventName)
+		require.Equal(t, S3ObjectRemovedDeleteMarkerCreated, eventName)
 	})
 
 	t.Run("INSERT with DeleteMarkerUnversioned", func(t *testing.T) {
 		newValues := map[string]interface{}{"status": float64(6)}
 		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, "ObjectRemoved:DeleteMarkerCreated", eventName)
+		require.Equal(t, S3ObjectRemovedDeleteMarkerCreated, eventName)
 	})
 
 	t.Run("DELETE with CommittedUnversioned", func(t *testing.T) {
 		oldValues := map[string]interface{}{"status": float64(3)}
 		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, "ObjectRemoved:Delete", eventName)
+		require.Equal(t, S3ObjectRemovedDelete, eventName)
 	})
 
 	t.Run("DELETE with CommittedVersioned", func(t *testing.T) {
 		oldValues := map[string]interface{}{"status": float64(4)}
 		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, "ObjectRemoved:Delete", eventName)
+		require.Equal(t, S3ObjectRemovedDelete, eventName)
 	})
 
 	t.Run("DELETE with DeleteMarkerVersioned", func(t *testing.T) {
 		oldValues := map[string]interface{}{"status": float64(5)}
 		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, "ObjectRemoved:Delete", eventName)
+		require.Equal(t, S3ObjectRemovedDelete, eventName)
 	})
 
 	t.Run("DELETE with DeleteMarkerUnversioned", func(t *testing.T) {
 		oldValues := map[string]interface{}{"status": float64(6)}
 		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, "ObjectRemoved:Delete", eventName)
+		require.Equal(t, S3ObjectRemovedDelete, eventName)
 	})
 
 	t.Run("Unknown mod type returns empty", func(t *testing.T) {
