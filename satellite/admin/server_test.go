@@ -63,7 +63,7 @@ func TestBasic(t *testing.T) {
 				require.NoError(t, err)
 				response, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 				require.Equal(t, "text/html; charset=UTF-8", response.Header.Get("Content-Type"))
 				require.NoError(t, response.Body.Close())
 
@@ -71,7 +71,7 @@ func TestBasic(t *testing.T) {
 				require.NoError(t, err)
 				response, err = http.DefaultClient.Do(req)
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, response.StatusCode)
+				require.Equal(t, http.StatusInternalServerError, response.StatusCode)
 				require.Equal(t, "text/html; charset=UTF-8", response.Header.Get("Content-Type"))
 				require.NoError(t, response.Body.Close())
 

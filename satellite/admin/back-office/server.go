@@ -108,7 +108,6 @@ func NewServer(
 	root.PathPrefix("/static/").Handler(staticHandler)
 
 	root.PathPrefix("").Handler(http.HandlerFunc(server.uiHandler))
-
 	return server
 }
 
@@ -127,6 +126,8 @@ func (server *Server) uiHandler(w http.ResponseWriter, r *http.Request) {
 			} else {
 				server.log.Error("error loading index.html", zap.String("path", "index.html"), zap.Error(err))
 			}
+
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -142,6 +143,8 @@ func (server *Server) uiHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			server.log.Error("error loading index.html", zap.String("path", indexPath), zap.Error(err))
 		}
+
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -154,6 +157,7 @@ func (server *Server) uiHandler(w http.ResponseWriter, r *http.Request) {
 	info, err := file.Stat()
 	if err != nil {
 		server.log.Error("failed to retrieve index.html file info", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
