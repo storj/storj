@@ -313,6 +313,7 @@ type ProjectConfig struct {
 	Salt                 string            `json:"salt"`
 	MembersCount         uint64            `json:"membersCount"`
 	AvailablePlacements  []PlacementDetail `json:"availablePlacements"`
+	ComputeAuthToken     string            `json:"computeAuthToken,omitempty"`
 }
 
 // DeleteProjectInfo holds data for project deletion UI flow.

@@ -3595,6 +3595,16 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		placementDetails = make([]PlacementDetail, 0)
 	}
 
+	var computeAuthToken string
+	if s.entitlementsConfig.Enabled && s.config.ComputeUiEnabled && isMember.membership.Role == RoleAdmin {
+		features, err := s.entitlementsService.Projects().GetByPublicID(ctx, project.PublicID)
+		if err != nil {
+			s.log.Error("failed to get project entitlements", zap.Error(err))
+		} else if features.ComputeAccessToken != nil {
+			computeAuthToken = string(features.ComputeAccessToken)
+		}
+	}
+
 	return &ProjectConfig{
 		HasManagedPassphrase: hasManagedPassphrase,
 		EncryptPath:          pathEncryptionEnabled,
@@ -3605,6 +3615,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 		MembersCount:         membersCount,
 		AvailablePlacements:  placementDetails,
+		ComputeAuthToken:     computeAuthToken,
 	}, nil
 }
 

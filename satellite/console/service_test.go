@@ -79,6 +79,8 @@ func TestService(t *testing.T) {
 				config.Console.VarPartners = []string{"partner1"}
 				config.Console.DeleteProjectEnabled = true
 				config.Metainfo.UseBucketLevelObjectVersioning = true
+				config.Entitlements.Enabled = true
+				config.Console.ComputeUiEnabled = true
 			},
 		},
 	},
@@ -1729,6 +1731,22 @@ func TestService(t *testing.T) {
 				// nfr user has paid privileges
 				require.True(t, config.HasPaidPrivileges)
 				require.EqualValues(t, 2, config.MembersCount)
+
+				token := "test-token"
+				feats := entitlements.ProjectFeatures{ComputeAccessToken: []byte(token)}
+				featBytes, err := json.Marshal(feats)
+				require.NoError(t, err)
+
+				_, err = sat.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+					Scope:    entitlements.ConvertPublicIDToProjectScope(pr.PublicID),
+					Features: featBytes,
+				})
+				require.NoError(t, err)
+
+				config, err = service.GetProjectConfig(userCtx1, pr.ID)
+				require.NoError(t, err)
+				require.NotNil(t, config)
+				require.Equal(t, token, config.ComputeAuthToken)
 
 				_, err = service.GetProjectConfig(userCtx1, disabledProject.ID)
 				require.True(t, console.ErrUnauthorized.Has(err))
