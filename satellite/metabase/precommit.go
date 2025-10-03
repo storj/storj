@@ -39,8 +39,6 @@ type PrecommitConstraint struct {
 
 // PrecommitConstraintResult returns the result of enforcing precommit constraint.
 type PrecommitConstraintResult struct {
-	Deleted []Object
-
 	// DeletedObjectCount returns how many objects were deleted.
 	DeletedObjectCount int
 	// DeletedSegmentCount returns how many segments were deleted.
@@ -465,10 +463,6 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
-	if result.DeletedObjectCount > 0 {
-		result.Deleted = append(result.Deleted, deleted)
-	}
-
 	return result, nil
 }
 
@@ -509,7 +503,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 		return result, nil
 	}
 
-	result.Deleted, err = collectDeletedObjectsSpanner(ctx, loc, stx.tx.QueryWithOptions(ctx, spanner.Statement{
+	deletedObjects, err := spannerutil.CollectRows(stx.tx.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			DELETE FROM objects
 			WHERE
@@ -517,37 +511,51 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 				AND bucket_name = @bucket_name
 				AND object_key  = @object_key
 				AND status IN ` + statusesUnversioned + `
-			THEN RETURN ` + collectDeletedObjectsSpannerFields,
+			THEN RETURN stream_id, retention_mode, retain_until`,
 		Params: map[string]any{
 			"project_id":  loc.ProjectID,
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
 		},
-	}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned"}))
+	}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned"}),
+		func(row *spanner.Row, object *Object) error {
+			err := row.Columns(
+				&object.StreamID,
+				object.columnRetentionMode(),
+				object.columnRetainUntil(),
+			)
+			if err != nil {
+				return Error.New("unable to delete object: %w", err)
+			}
+			return nil
+		})
+	if err != nil {
+		return result, Error.Wrap(err)
+	}
 
 	if err != nil {
 		return result, Error.Wrap(err)
 	}
-	result.DeletedObjectCount = len(result.Deleted)
+	result.DeletedObjectCount = len(deletedObjects)
 
-	if len(result.Deleted) > 1 {
+	if len(deletedObjects) > 1 {
 		stx.spannerAdapter.log.Error("object with multiple committed versions were found!",
 			zap.Stringer("Project ID", loc.ProjectID), zap.Stringer("Bucket Name", loc.BucketName),
-			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", len(result.Deleted)))
+			zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))), zap.Int("deleted", len(deletedObjects)))
 
 		mon.Meter("multiple_committed_versions").Mark(1)
 
 		return result, Error.New(multipleCommittedVersionsErrMsg)
 	}
 
-	if len(result.Deleted) == 1 {
+	if len(deletedObjects) == 1 {
 		// Avoid deleting if Object Lock restrictions are imposed.
 		// This should never occur unless we have a bug allowing
 		// such settings to exist on unversioned objects.
 		switch {
-		case result.Deleted[0].LegalHold:
+		case deletedObjects[0].LegalHold:
 			return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
-		case result.Deleted[0].Retention.ActiveNow():
+		case deletedObjects[0].Retention.ActiveNow():
 			return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
 		}
 
@@ -557,7 +565,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 				WHERE segments.stream_id = @stream_id
 			`,
 			Params: map[string]interface{}{
-				"stream_id": result.Deleted[0].StreamID,
+				"stream_id": deletedObjects[0].StreamID,
 			},
 		}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-segments"})
 		if err != nil {
