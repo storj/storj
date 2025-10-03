@@ -5478,7 +5478,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	row = append(row, fmt.Sprintf("%f", reportItem.Storage))
 	row = append(row, fmt.Sprintf("%f", reportItem.StorageTbMonth))
 	if param.IncludeCost {
-		row = append(row, fmt.Sprintf("%f", reportItem.StorageCost))
+		row = append(row, fmt.Sprintf("%.2f", reportItem.StorageCost/100))
 	}
 	if s.config.SkuEnabled {
 		row = append(row, reportItem.EgressSKU)
@@ -5486,7 +5486,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	row = append(row, fmt.Sprintf("%f", reportItem.Egress))
 	row = append(row, fmt.Sprintf("%f", reportItem.EgressTb))
 	if param.IncludeCost {
-		row = append(row, fmt.Sprintf("%f", reportItem.EgressCost))
+		row = append(row, fmt.Sprintf("%.2f", reportItem.EgressCost/100))
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.ObjectCount))
 	if s.config.SkuEnabled {
@@ -5495,8 +5495,8 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCount))
 	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCountMonth))
 	if param.IncludeCost {
-		row = append(row, fmt.Sprintf("%f", reportItem.SegmentCost))
-		row = append(row, fmt.Sprintf("%f", reportItem.TotalCost))
+		row = append(row, fmt.Sprintf("%.2f", reportItem.SegmentCost/100))
+		row = append(row, fmt.Sprintf("%.2f", reportItem.TotalCost/100))
 	}
 	row = append(row, reportItem.Since.String())
 	row = append(row, reportItem.Before.String())
@@ -5515,9 +5515,9 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 	}
 	headers = []string{
 		"ProjectName", "ProjectID", "BucketName", "Storage SKU", "Storage GB-hour", "Storage TB-months",
-		"Storage Price (Estimated)", "Egress SKU", "Egress GB", "Egress TB", "Egress Price (Estimated)",
+		"Estimated Storage Price ($)", "Egress SKU", "Egress GB", "Egress TB", "Estimated Egress Price ($)",
 		"ObjectCount objects-hour", "Segment SKU", "SegmentCount segments-hour", "Segment Months",
-		"Segment Price (Estimated)", "Estimated Total Amount", "Since", "Before",
+		"Estimated Segment Price ($)", "Estimated Total Amount ($)", "Since", "Before",
 	}
 
 	if !s.config.SkuEnabled {

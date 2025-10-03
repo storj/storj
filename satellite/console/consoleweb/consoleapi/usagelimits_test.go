@@ -202,14 +202,15 @@ func TestTotalUsageReport(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var (
-			satelliteSys     = planet.Satellites[0]
-			service          = satelliteSys.API.Console.Service
-			now              = time.Now()
-			inFiveMinutes    = now.Add(5 * time.Minute)
-			inAnHour         = now.Add(1 * time.Hour)
-			since            = strconv.FormatInt(now.Unix(), 10)
-			notAllowedBefore = strconv.FormatInt(now.Add(satelliteSys.Config.Console.AllowedUsageReportDateRange+1*time.Second).Unix(), 10)
-			expectedCSVValue = fmt.Sprintf("%f", float64(0))
+			satelliteSys      = planet.Satellites[0]
+			service           = satelliteSys.API.Console.Service
+			now               = time.Now()
+			inFiveMinutes     = now.Add(5 * time.Minute)
+			inAnHour          = now.Add(1 * time.Hour)
+			since             = strconv.FormatInt(now.Unix(), 10)
+			notAllowedBefore  = strconv.FormatInt(now.Add(satelliteSys.Config.Console.AllowedUsageReportDateRange+1*time.Second).Unix(), 10)
+			expectedCSVValue  = fmt.Sprintf("%f", 0.0)
+			expectedCSVValue2 = fmt.Sprintf("%.2f", 0.0)
 		)
 
 		newUser := console.CreateUser{
@@ -343,7 +344,8 @@ func TestTotalUsageReport(t *testing.T) {
 				startIndex = 2
 			}
 			for i := startIndex; i < len(expectedHeaders)-3; i++ {
-				require.Equal(t, expectedCSVValue, records[disclaimerIndex+2][i])
+				value := records[disclaimerIndex+2][i]
+				require.True(t, expectedCSVValue == value || expectedCSVValue2 == value)
 			}
 		}
 

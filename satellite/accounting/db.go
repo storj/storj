@@ -234,6 +234,7 @@ type ProjectReportItem struct {
 	SegmentCountMonth float64
 	ObjectCount       float64
 
+	// Costs in cents
 	StorageCost float64
 	EgressCost  float64
 	SegmentCost float64
