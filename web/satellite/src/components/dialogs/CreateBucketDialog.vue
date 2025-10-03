@@ -602,6 +602,7 @@ const pricingForLocation = ref<UsagePriceModel>();
 const selectSubmitting = ref(false);
 const selectStorageNeeds = ref<string>();
 const selectStorageOptions = ['< 1TB', '1-10TB', '10-50TB', '50-100TB', '> 100TB'];
+const placementDetails = ref<PlacementDetails[]>([]);
 
 const project = computed(() => projectsStore.state.selectedProject);
 
@@ -620,10 +621,6 @@ const showNewPricingTiers = computed<boolean>(() => configStore.state.config.sho
 
 const selfPlacementEnabled = computed<boolean>(() => {
     return configStore.state.config.selfServePlacementSelectEnabled && !project.value.placement;
-});
-
-const placementDetails = computed<PlacementDetails[]>(() => {
-    return bucketsStore.state.placementDetails;
 });
 
 const selectedPlacement = computed<PlacementDetails | null>(() => {
@@ -967,31 +964,35 @@ watch(bucketLocation, async (value) => {
     isGettingPricing.value = false;
 }, { immediate: true });
 
-watch(innerContent, newContent => {
-    if (newContent) {
-        withLoading(async () => {
-            try {
-                const promises = [bucketsStore.getAllBucketsNames(project.value.id)];
-                if (selfPlacementEnabled.value) {
-                    promises.push(
-                        bucketsStore.getPlacementDetails(project.value.id).then(() => {
-                            if (!placementDetails.value.length) {
-                                notify.notifyError(new Error('Could not get available placements.'), AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-                            }
-                            const globalIndex = placementDetails.value.findIndex(p => p.id === 0);
-                            if (globalIndex !== -1) {
-                                bucketLocation.value = placementDetails.value[globalIndex].idName;
-                            }
-                        }),
-                    );
-                }
-                await Promise.all(promises);
-            } catch (error) {
-                notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
-            }
-        });
-        return;
+watch(project, (newProject) => {
+    if (!newProject) return;
+    const promises = [bucketsStore.getAllBucketsNames(newProject.id)];
+    if (selfPlacementEnabled.value) {
+        promises.push(
+            bucketsStore.getPlacementDetails(newProject.id)
+                .then((details) => {
+                    if (!details.length) {
+                        notify.notifyError(new Error('Could not get available placements.'), AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+                        return;
+                    }
+                    let defaultIndex = details.findIndex(p => p.id === newProject.placement);
+                    defaultIndex = defaultIndex === -1 ? 0 : defaultIndex;
+                    bucketLocation.value = details[defaultIndex].idName;
+                    placementDetails.value = details;
+                }),
+        );
     }
+    withLoading(async () => {
+        try {
+            await Promise.all(promises);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.CREATE_BUCKET_MODAL);
+        }
+    });
+}, { immediate: true });
+
+watch(innerContent, newContent => {
+    if (newContent) return;
     // dialog has been closed
     bucketName.value = '';
     bucketLocation.value = '';

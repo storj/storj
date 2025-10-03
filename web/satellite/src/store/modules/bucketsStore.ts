@@ -46,7 +46,6 @@ export enum ClientType {
 export class BucketsState {
     public allBucketNames: string[] = [];
     public allBucketMetadata: BucketMetadata[] = [];
-    public placementDetails: PlacementDetails[] = [];
     public cursor: BucketCursor = { limit: DEFAULT_PAGE_LIMIT, search: '', page: FIRST_PAGE };
     public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: DEFAULT_PAGE_LIMIT, search: '', totalCount: 0 };
     public edgeCredentials: EdgeCredentials = new EdgeCredentials();
@@ -124,11 +123,8 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.allBucketMetadata = await api.getAllBucketMetadata(projectID);
     }
 
-    async function getPlacementDetails(projectID: string): Promise<void> {
-        if (state.placementDetails.length) {
-            return;
-        }
-        state.placementDetails = await api.getPlacementDetails(projectID);
+    async function getPlacementDetails(projectID: string): Promise<PlacementDetails[]> {
+        return await api.getPlacementDetails(projectID);
     }
 
     function setPromptForPassphrase(value: boolean): void {
@@ -435,7 +431,6 @@ export const useBucketsStore = defineStore('buckets', () => {
 
     function clear(): void {
         state.allBucketNames = [];
-        state.placementDetails = [];
         state.cursor = new BucketCursor('', DEFAULT_PAGE_LIMIT, FIRST_PAGE);
         state.page = new BucketPage([], '', DEFAULT_PAGE_LIMIT, 0, 1, 1, 0);
         state.enterPassphraseCallback = null;
