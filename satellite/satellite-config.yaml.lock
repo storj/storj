@@ -980,6 +980,9 @@ contact.external-address: ""
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false
 
+# number of concurrent zip compression and uploads of bloom filters
+# garbage-collection-bf.upload-pack-concurrency: 4
+
 # whether to use test GC SyncObserver with ranged loop
 # garbage-collection-bf.use-sync-observer: true
 

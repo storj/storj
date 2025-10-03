@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -17,6 +18,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/uplink"
 )
@@ -98,10 +100,32 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 		return nil
 	}
 
-	infos := make([]internalpb.RetainInfo, 0, bfu.config.ZipBatchSize)
+	var limiter *sync2.Limiter
+	if l := bfu.config.UploadPackConcurrency; l <= 0 {
+		limiter = sync2.NewLimiter(1)
+	} else {
+		limiter = sync2.NewLimiter(l)
+	}
+
+	batches := sync.Pool{
+		New: func() any {
+			s := make([]internalpb.RetainInfo, 0, bfu.config.ZipBatchSize)
+			return &s
+		},
+	}
+
+	rangeCtx, rangeCancel := context.WithCancelCause(ctx)
+	defer rangeCancel(nil)
+
+	infos := batches.Get().(*[]internalpb.RetainInfo)
 	batchNumber := 0
 	retainInfos.Range(func(nodeID storj.NodeID, info *RetainInfo) bool {
-		infos = append(infos, internalpb.RetainInfo{
+		if rerr := rangeCtx.Err(); rerr != nil {
+			err = rerr
+			return false
+		}
+
+		*infos = append(*infos, internalpb.RetainInfo{
 			Filter: info.Filter.Bytes(),
 			// because bloom filters should be created from immutable database
 			// snapshot we are using latest segment creation date
@@ -110,24 +134,36 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 			StorageNodeId: nodeID,
 		})
 
-		if len(infos) == bfu.config.ZipBatchSize {
-			err = bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, infos)
-			if err != nil {
-				return false
-			}
-
-			infos = infos[:0]
+		if len(*infos) == bfu.config.ZipBatchSize {
+			bNum := batchNumber
 			batchNumber++
+
+			batch := infos
+			infos = batches.Get().(*[]internalpb.RetainInfo)
+			*infos = (*infos)[:0]
+			return limiter.Go(rangeCtx, func() {
+				defer func() {
+					batches.Put(batch)
+				}()
+
+				err := bfu.uploadPack(rangeCtx, project, prefix, bNum, expirationTime, *batch)
+				if err != nil {
+					rangeCancel(err)
+					return
+				}
+			})
 		}
 
 		return true
 	})
+
+	limiter.Wait()
 	if err != nil {
 		return err
 	}
 
 	// upload rest of infos if any
-	if err := bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, infos); err != nil {
+	if err := bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, *infos); err != nil {
 		return err
 	}
 

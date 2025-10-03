@@ -30,4 +30,5 @@ type Config struct {
 
 	CollectNodesPieceIDs    storj.NodeIDList `help:"list of node IDs for which we will collect raw list of piece IDs" default:""`
 	NodesPieceIDsBufferSize int              `help:"buffer size of piece IDs before will be uploaded" default:"1000000" devDefault:"100"`
+	UploadPackConcurrency   int              `help:"number of concurrent zip compression and uploads of bloom filters" default:"4"`
 }
