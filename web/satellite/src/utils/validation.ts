@@ -47,6 +47,16 @@ export class Validator {
     }
 
     /**
+     * Checks string to satisfy hostname rules.
+     */
+    public static hostname(hostname: string): boolean {
+        if (hostname.length > 253) return false;
+
+        const rgx = /^(?=.{1,253}$)(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))*$/;
+        return rgx.test(hostname);
+    }
+
+    /**
      * Checks if value string is less than or equal to max possible length.
      */
     public static nameLength(value: string, maxLength: number): boolean {

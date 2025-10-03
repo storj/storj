@@ -7,6 +7,7 @@
         max-width="400px"
         min-width="400px"
         transition="fade-transition"
+        :persistent="isLoading"
     >
         <v-card rounded="xlg">
             <v-sheet>
@@ -142,6 +143,7 @@ function submit(): void {
                 publicKey: publicKey.value,
             });
 
+            notify.success('SSH Key added successfully');
             model.value = false;
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ADD_COMPUTE_SSH_KEY_MODAL);

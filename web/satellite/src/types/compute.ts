@@ -34,7 +34,7 @@ export interface CreateInstanceRequest {
     name: string;
     hostname: string;
     instanceType: string;
-    bootDiskSizeGB: string;
+    bootDiskSizeGB: number;
     image: string;
     location: string;
     sshKeys: string[];

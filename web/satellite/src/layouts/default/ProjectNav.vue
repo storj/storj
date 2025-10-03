@@ -182,11 +182,11 @@
                         </v-list-item>
                     </template>
 
-                    <navigation-item :title="ROUTES.ComputeOverview.name" :to="computeOverviewURL" @click="closeDrawer">
-                        <template #prepend>
-                            <component :is="LayoutDashboard" :size="18" />
-                        </template>
-                    </navigation-item>
+                    <!--<navigation-item :title="ROUTES.ComputeOverview.name" :to="computeOverviewURL" @click="closeDrawer">-->
+                    <!--    <template #prepend>-->
+                    <!--        <component :is="LayoutDashboard" :size="18" />-->
+                    <!--    </template>-->
+                    <!--</navigation-item>-->
 
                     <navigation-item :title="ROUTES.ComputeInstances.name" :to="computeInstancesURL" @click="closeDrawer">
                         <template #prepend>
@@ -408,7 +408,7 @@ const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.pa
 
 const appsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Applications.path}`);
 
-const computeOverviewURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeOverview.path}`);
+// const computeOverviewURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeOverview.path}`);
 
 const computeInstancesURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeInstances.path}`);
 
