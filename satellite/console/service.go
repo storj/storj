@@ -3912,6 +3912,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			SegmentLimit:     &newProjectLimits.Segment,
 			DefaultPlacement: user.DefaultPlacement,
 		}
+
+		if s.entitlementsConfig.Enabled && len(s.config.Placement.AllowedPlacementIdsForNewProjects) > 0 {
+			newProject.DefaultPlacement = s.config.Placement.AllowedPlacementIdsForNewProjects[0]
+		}
+
 		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase && s.kmsService != nil {
 			encPassphrase, keyID, err := s.kmsService.GenerateEncryptedPassphrase(ctx)
 			if err != nil {

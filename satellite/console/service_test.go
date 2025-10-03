@@ -2449,6 +2449,7 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 
 		p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test-project"})
 		require.NoError(t, err)
+		require.Contains(t, sat.Config.Console.Placement.AllowedPlacementIdsForNewProjects, p.DefaultPlacement)
 
 		feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
 		require.NoError(t, err)

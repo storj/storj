@@ -306,13 +306,10 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 
 	var exists bool
 	if endpoint.config.SelfServePlacementSelectEnabled && req.Placement != nil {
-		if project.DefaultPlacement != storj.DefaultPlacement {
-			return nil, rpcstatus.Error(rpcstatus.PlacementConflictingValues, "conflicting placement values")
-		}
 		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
 			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
 		}
-		if err = endpoint.validateSelfServePlacement(ctx, project.PublicID, bucketReq.Placement); err != nil {
+		if err = endpoint.validateSelfServePlacement(ctx, project, bucketReq.Placement); err != nil {
 			return nil, err
 		}
 	} else {

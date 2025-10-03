@@ -704,7 +704,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, _ int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
@@ -718,11 +718,23 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		project := planet.Uplinks[0].Projects[0]
-		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
 		endpoint := sat.API.Metainfo.Endpoint
 
-		require.NoError(t, sat.API.DB.Console().Projects().UpdateDefaultPlacement(ctx, project.ID, storj.DefaultPlacement))
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Ent User",
+			Email:    "test@test.test",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		project, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test project"})
+		require.NoError(t, err)
+		require.Contains(t, sat.Config.Console.Placement.AllowedPlacementIdsForNewProjects, project.DefaultPlacement)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "ent-key", macaroon.APIKeyVersionMin)
+		require.NoError(t, err)
 
 		mkReq := func(name, placement string) *pb.CreateBucketRequest {
 			var p []byte
@@ -737,18 +749,29 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 		}
 
 		tests := []struct {
-			name          string
-			feats         *entitlements.ProjectFeatures // nil => delete row (NotFound)
-			placementName string
-			want          rpcstatus.StatusCode
+			name                  string
+			feats                 *entitlements.ProjectFeatures // nil => delete row (NotFound)
+			placementName         string
+			want                  rpcstatus.StatusCode
+			expectBucketPlacement *storj.PlacementConstraint
 		}{
+			{
+				name: "no placement (default) → allowed",
+				feats: &entitlements.ProjectFeatures{
+					NewBucketPlacements: allowedPlacements,
+				},
+				placementName:         "",
+				want:                  rpcstatus.OK,
+				expectBucketPlacement: &project.DefaultPlacement,
+			},
 			{
 				name: "explicit allowlist includes placement → allowed",
 				feats: &entitlements.ProjectFeatures{
 					NewBucketPlacements: []storj.PlacementConstraint{plPoland},
 				},
-				placementName: "poland",
-				want:          rpcstatus.OK,
+				placementName:         "poland",
+				want:                  rpcstatus.OK,
+				expectBucketPlacement: &plPoland,
 			},
 			{
 				name: "explicit allowlist excludes placement (non-empty) → denied",
@@ -793,6 +816,12 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 					require.NoError(t, err)
 				default:
 					require.True(t, errs2.IsRPC(err, tc.want))
+				}
+
+				if tc.expectBucketPlacement != nil {
+					pl, err := sat.API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucketName), project.ID)
+					require.NoError(t, err)
+					require.Equal(t, *tc.expectBucketPlacement, pl)
 				}
 			})
 		}

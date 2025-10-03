@@ -510,11 +510,15 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p := console.Project{
+		Name:    input.ProjectName,
+		OwnerID: input.OwnerID,
+	}
+	if server.entitlementsCfg.Enabled && len(server.console.Placement.AllowedPlacementIdsForNewProjects) > 0 {
+		p.DefaultPlacement = server.console.Placement.AllowedPlacementIdsForNewProjects[0]
+	}
 	err = server.db.Console().WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
-		project, err := tx.Projects().Insert(ctx, &console.Project{
-			Name:    input.ProjectName,
-			OwnerID: input.OwnerID,
-		})
+		project, err := tx.Projects().Insert(ctx, &p)
 		if err != nil {
 			return err
 		}

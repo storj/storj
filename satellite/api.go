@@ -920,6 +920,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 
+			consoleConfig.EntitlementsEnabled = config.Entitlements.Enabled
+
 			peer.Console.Endpoint = consoleweb.NewServer(
 				peer.Log.Named("console:endpoint"),
 				consoleConfig,

@@ -703,6 +703,7 @@ func TestProjectAdd(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "Test Project With Entitlements", project.Name)
 			require.Equal(t, userID.ID, project.OwnerID)
+			require.Contains(t, sat.Config.Console.Placement.AllowedPlacementIdsForNewProjects, project.DefaultPlacement)
 
 			page, err := sat.DB.Console().ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, output.ProjectID, console.ProjectMembersCursor{Limit: 10, Page: 1})
 			require.NoError(t, err)

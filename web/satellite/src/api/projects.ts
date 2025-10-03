@@ -23,6 +23,7 @@ import { Time } from '@/utils/time';
 import { APIError } from '@/utils/error';
 import { getVersioning } from '@/types/versioning';
 import { DeleteProjectStep } from '@/types/accountActions';
+import { PlacementDetails } from '@/types/buckets';
 
 export class ProjectsHttpApi implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
@@ -156,6 +157,14 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.role,
                 result.salt,
                 result.membersCount,
+                result.availablePlacements?.map(detail => new PlacementDetails(
+                    detail.id,
+                    detail.idName,
+                    detail.name,
+                    detail.title,
+                    detail.description,
+                    detail.pending,
+                )) || [],
             );
         }
 

@@ -4,6 +4,7 @@
 import { ProjectRole } from '@/types/projectMembers';
 import { Versioning } from '@/types/versioning';
 import { DeleteProjectStep } from '@/types/accountActions';
+import { PlacementDetails } from '@/types/buckets';
 
 /**
  * Exposes all project-related functionality.
@@ -184,6 +185,7 @@ export class ProjectConfig {
         public _role: number = 1,
         public salt: string = '',
         public membersCount: number = 0,
+        public availablePlacements: PlacementDetails[] = [],
     ) {}
 
     public get role(): ProjectItemRole {
