@@ -15,6 +15,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -40,6 +41,21 @@ type Config struct {
 	SmallObjectRemainder bool          `help:"whether to enable small object remainder accounting" default:"false"`
 }
 
+// ProductUsagePriceModel is defined to avoid import cycles.
+type ProductUsagePriceModel struct {
+	ProductID             int32
+	StorageRemainderBytes int64
+}
+
+// PlacementProductMap is a global mapping of placement to product ID.
+type PlacementProductMap map[int]int32
+
+// GetProductByPlacement returns the product ID for a placement.
+func (p PlacementProductMap) GetProductByPlacement(placement int) (int32, bool) {
+	productID, ok := p[placement]
+	return productID, ok
+}
+
 // Service is the tally service for data stored on each storage node.
 //
 // architecture: Chore
@@ -53,11 +69,13 @@ type Service struct {
 	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
+	productPrices           map[int32]ProductUsagePriceModel
+	globalPlacementMap      PlacementProductMap
 	nowFn                   func() time.Time
 }
 
 // New creates a new tally Service.
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metabase *metabase.DB, bucketsDB buckets.DB, config Config) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metabase *metabase.DB, bucketsDB buckets.DB, config Config, productPrices map[int32]ProductUsagePriceModel, globalPlacementMap PlacementProductMap) *Service {
 	return &Service{
 		log:    log,
 		config: config,
@@ -68,6 +86,8 @@ func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.P
 		liveAccounting:          liveAccounting,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
+		productPrices:           productPrices,
+		globalPlacementMap:      globalPlacementMap,
 		nowFn:                   time.Now,
 	}
 }
@@ -188,7 +208,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// add up all buckets
-	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.bucketsDB, service.projectAccountingDB, service.config)
+	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.bucketsDB, service.projectAccountingDB, service.productPrices, service.globalPlacementMap, service.config)
 	err = collector.Run(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -283,12 +303,14 @@ type BucketTallyCollector struct {
 	metabase            *metabase.DB
 	bucketsDB           buckets.DB
 	projectAccountingDB accounting.ProjectAccounting
+	productPrices       map[int32]ProductUsagePriceModel
+	globalPlacementMap  PlacementProductMap
 	config              Config
 }
 
 // NewBucketTallyCollector returns a collector that adds up totals for buckets.
 // The now argument controls when the collector considers objects to be expired.
-func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bucketsDB buckets.DB, projectAccountingDB accounting.ProjectAccounting, config Config) *BucketTallyCollector {
+func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bucketsDB buckets.DB, projectAccountingDB accounting.ProjectAccounting, productPrices map[int32]ProductUsagePriceModel, globalPlacementMap PlacementProductMap, config Config) *BucketTallyCollector {
 	return &BucketTallyCollector{
 		Now:    now,
 		Log:    log,
@@ -297,6 +319,8 @@ func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bu
 		metabase:            db,
 		bucketsDB:           bucketsDB,
 		projectAccountingDB: projectAccountingDB,
+		productPrices:       productPrices,
+		globalPlacementMap:  globalPlacementMap,
 		config:              config,
 	}
 }
@@ -351,8 +375,8 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 	// IterateBucketLocations and get two pages of 5 buckets each. The first
 	// page will give us apivorous to indomitable, and the second page will give
 	// us moatlike to steelmaking. So if we then call
-	// `GetPreviouslyNonEmptyTallyBucketsInRage` with these ranges (apivorous
-	// through indomitable, moatlike through steelmaking), we will
+	// `GetPreviouslyNonEmptyTallyBucketsInRange` or `GetBucketsWithEntitlementsInRange`
+	// with these ranges (apivorous through indomitable, moatlike through steelmaking), we will
 	// get cowishness and scientarium, but we will *not* pick up acanthoperan,
 	// jargoner, or yokeableness. acanthoperan is before the first range,
 	// jargoner is between the two ranges, and yokeableness is after the last
@@ -365,7 +389,7 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 	//
 	// A great question to ask (I'm asking myself right now!) is whether we
 	// should even use IterateBucketLocations at all! Why not just make
-	// GetPreviouslyNonEmptyTallyBucketsInRange page?
+	// GetPreviouslyNonEmptyTallyBucketsInRange or GetBucketsWithEntitlementsInRange page?
 
 	// we're going to start with the maxBucket we've seen so far to be the min
 	// bucket possible.
@@ -384,33 +408,43 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 		// since they're not reached when iterating over objects in the metainfo DB.
 		// We only do this for buckets whose last tally is non-empty because only one empty tally is
 		// required for us to know that a bucket was empty the last time we checked.
-		locs, err := observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
-		if err != nil {
-			return err
-		}
-		for _, loc := range locs {
-			observer.Bucket[loc] = &accounting.BucketTally{BucketLocation: loc}
-		}
+		//
+		// When SmallObjectRemainder is enabled, all unique remainder values in the range are collected
+		// and passed to CollectBucketTallies, which calculates all remainder variants in a single query.
+		if observer.config.SmallObjectRemainder {
+			err = observer.fillTalliesWithStorageRemainder(ctx, fromBucket, toBucket, startTime)
+			if err != nil {
+				return err
+			}
+		} else {
+			locs, err := observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
+			if err != nil {
+				return err
+			}
+			for _, loc := range locs {
+				observer.Bucket[loc] = &accounting.BucketTally{BucketLocation: loc}
+			}
 
-		tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
-			From:               fromBucket,
-			To:                 toBucket,
-			AsOfSystemTime:     startTime,
-			AsOfSystemInterval: observer.config.AsOfSystemInterval,
-			Now:                observer.Now,
-			UsePartitionQuery:  observer.config.UsePartitionQuery,
-		})
-		if err != nil {
-			return err
-		}
+			tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From:               fromBucket,
+				To:                 toBucket,
+				AsOfSystemTime:     startTime,
+				AsOfSystemInterval: observer.config.AsOfSystemInterval,
+				Now:                observer.Now,
+				UsePartitionQuery:  observer.config.UsePartitionQuery,
+			})
+			if err != nil {
+				return err
+			}
 
-		for _, tally := range tallies {
-			bucket := observer.ensureBucket(tally.BucketLocation)
-			bucket.TotalSegments = tally.TotalSegments
-			bucket.TotalBytes = tally.TotalBytes
-			bucket.MetadataSize = tally.MetadataSize
-			bucket.ObjectCount = tally.ObjectCount
-			bucket.PendingObjectCount = tally.PendingObjectCount
+			for _, tally := range tallies {
+				bucket := observer.ensureBucket(tally.BucketLocation)
+				bucket.TotalSegments = tally.TotalSegments
+				bucket.TotalBytes = tally.TotalBytes
+				bucket.MetadataSize = tally.MetadataSize
+				bucket.ObjectCount = tally.ObjectCount
+				bucket.PendingObjectCount = tally.PendingObjectCount
+			}
 		}
 
 		return nil
@@ -431,6 +465,94 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 			// keyspace.
 			BucketName: "",
 		}})
+}
+
+// fillTalliesWithStorageRemainder collects bucket tallies with storage remainder accounting.
+// It uses a single query that calculates all remainder values simultaneously.
+func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx context.Context, fromBucket, toBucket metabase.BucketLocation, startTime time.Time) error {
+	// Get ALL buckets in range (both with and without previous tallies) along with their placement/entitlements.
+	bucketsWithEntitlements, err := observer.projectAccountingDB.GetBucketsWithEntitlementsInRange(ctx, fromBucket, toBucket, entitlements.ProjectScopePrefix)
+	if err != nil {
+		return err
+	}
+
+	// Map each bucket to its remainder value based on placement and entitlements.
+	bucketToRemainder := make(map[metabase.BucketLocation]int64)
+	uniqueRemainders := make(map[int64]bool)
+
+	for _, bucket := range bucketsWithEntitlements {
+		// Only prepopulate buckets that had objects in a previous tally.
+		// This matches the behavior of the non-SmallObjectRemainder path.
+		if bucket.HasPreviousTally {
+			observer.Bucket[bucket.Location] = &accounting.BucketTally{BucketLocation: bucket.Location}
+		}
+
+		// Resolve product ID from placement.
+		var productID int32
+		if bucket.ProjectFeatures.PlacementProductMappings != nil {
+			// Check project-specific entitlements first.
+			if pid, ok := bucket.ProjectFeatures.PlacementProductMappings[bucket.Placement]; ok {
+				productID = pid
+			} else if observer.globalPlacementMap != nil {
+				// Fall back to global placement map.
+				productID, _ = observer.globalPlacementMap.GetProductByPlacement(int(bucket.Placement))
+			}
+		} else if observer.globalPlacementMap != nil {
+			// No entitlements, use global placement map.
+			productID, _ = observer.globalPlacementMap.GetProductByPlacement(int(bucket.Placement))
+		}
+
+		// Get remainder for this product.
+		remainder := int64(0)
+		if product, ok := observer.productPrices[productID]; ok {
+			remainder = product.StorageRemainderBytes
+		}
+
+		bucketToRemainder[bucket.Location] = remainder
+		uniqueRemainders[remainder] = true
+	}
+
+	// Convert unique remainders map to slice.
+	var remainders []int64
+	for remainder := range uniqueRemainders {
+		remainders = append(remainders, remainder)
+	}
+
+	// Call CollectBucketTallies once with all remainder values.
+	// This calculates all remainder variants in a single query.
+	tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+		From:               fromBucket,
+		To:                 toBucket,
+		AsOfSystemTime:     startTime,
+		AsOfSystemInterval: observer.config.AsOfSystemInterval,
+		Now:                observer.Now,
+		UsePartitionQuery:  observer.config.UsePartitionQuery,
+		StorageRemainders:  remainders,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Apply the correct remainder value to each bucket.
+	for _, tally := range tallies {
+		remainder, ok := bucketToRemainder[tally.BucketLocation]
+		if !ok {
+			// Bucket not in our entitlements list, skip it.
+			// This should not happen.
+			continue
+		}
+
+		bucket := observer.ensureBucket(tally.BucketLocation)
+		bucket.TotalSegments = tally.TotalSegments
+		bucket.MetadataSize = tally.MetadataSize
+		bucket.ObjectCount = tally.ObjectCount
+		bucket.PendingObjectCount = tally.PendingObjectCount
+
+		// Get the bytes value for this bucket's remainder from the map
+		bucket.TotalBytes = tally.BytesByRemainder[remainder]
+	}
+
+	return nil
 }
 
 // ensureBucket returns bucket corresponding to the passed in path.
