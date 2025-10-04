@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"gopkg.in/yaml.v3"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/storj/satellite/nodeselection"
@@ -214,6 +215,7 @@ type ProductUsagePrice struct {
 	MinimumRetentionFeeSKU string
 	EgressOverageMode      bool
 	IncludedEgressSKU      string
+	StorageRemainder       string
 	ProductSKUs
 	ProjectUsagePrice
 }
@@ -249,6 +251,7 @@ type ProductUsagePriceYaml struct {
 	MinimumRetentionFeeSKU string `yaml:"minimum-retention-fee-sku" json:"-"`
 	EgressOverageMode      bool   `yaml:"egress-overage-mode" json:"-"`
 	IncludedEgressSKU      string `yaml:"included-egress-sku" json:"-"`
+	StorageRemainder       string `yaml:"storage-remainder" json:"-"`
 }
 
 // String returns the YAML string representation of the price overrides.
@@ -275,6 +278,7 @@ func (p *ProductPriceOverrides) String() string {
 			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
 			EgressOverageMode:      price.EgressOverageMode,
 			IncludedEgressSKU:      price.IncludedEgressSKU,
+			StorageRemainder:       price.StorageRemainder,
 		}
 	}
 	prices, err := yaml.Marshal(pricesConv)
@@ -345,6 +349,7 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
 			EgressOverageMode:      price.EgressOverageMode,
 			IncludedEgressSKU:      price.IncludedEgressSKU,
+			StorageRemainder:       price.StorageRemainder,
 		}
 	}
 	*p = prices
@@ -389,6 +394,16 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			}
 		}
 
+		var storageRemainderBytes int64
+		if prices.StorageRemainder != "" {
+			var storageRemainder memory.Size
+			err = storageRemainder.Set(prices.StorageRemainder)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			storageRemainderBytes = storageRemainder.Int64()
+		}
+
 		models[prices.ID] = payments.ProductUsagePriceModel{
 			ProductID:                prices.ID,
 			ProductName:              prices.Name,
@@ -402,6 +417,7 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			MinimumRetentionFeeSKU:   prices.MinimumRetentionFeeSKU,
 			EgressOverageMode:        prices.EgressOverageMode,
 			IncludedEgressSKU:        prices.IncludedEgressSKU,
+			StorageRemainderBytes:    storageRemainderBytes,
 		}
 	}
 	return models, nil
