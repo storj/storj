@@ -81,5 +81,8 @@ type ProductUsagePriceModel struct {
 	// EgressOverageMode when true, we show both included egress and overage egress in the invoice.
 	EgressOverageMode bool   `json:"egressOverageMode"`
 	IncludedEgressSKU string `json:"-"`
+	// StorageRemainderBytes is the minimum size in bytes that objects should be counted as.
+	// Objects smaller than this value will be counted as this value for billing purposes.
+	StorageRemainderBytes int64 `json:"-"`
 	ProjectUsagePriceModel
 }

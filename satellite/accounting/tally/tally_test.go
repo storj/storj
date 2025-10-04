@@ -141,6 +141,8 @@ func TestOnlyInline(t *testing.T) {
 				planet.Satellites[0].Metabase.DB,
 				planet.Satellites[0].DB.Buckets(),
 				planet.Satellites[0].DB.ProjectAccounting(),
+				nil, // productPrices
+				nil, // globalPlacementMap
 				planet.Satellites[0].Config.Tally,
 			)
 			err := collector.Run(ctx)
@@ -223,6 +225,8 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 			satellite.Metabase.DB,
 			planet.Satellites[0].DB.Buckets(),
 			planet.Satellites[0].DB.ProjectAccounting(),
+			nil, // productPrices
+			nil, // globalPlacementMap
 			planet.Satellites[0].Config.Tally,
 		)
 		err = collector.Run(ctx)
@@ -248,6 +252,8 @@ func TestIgnoresExpiredSegments(t *testing.T) {
 			satellite.Metabase.DB,
 			planet.Satellites[0].DB.Buckets(),
 			planet.Satellites[0].DB.ProjectAccounting(),
+			nil, // productPrices
+			nil, // globalPlacementMap
 			planet.Satellites[0].Config.Tally,
 		)
 		require.NoError(t, collector.Run(ctx))
@@ -473,6 +479,8 @@ func TestBucketTallyCollectorListLimit(t *testing.T) {
 				planet.Satellites[0].Metabase.DB,
 				planet.Satellites[0].DB.Buckets(),
 				planet.Satellites[0].DB.ProjectAccounting(),
+				nil, // productPrices
+				nil, // globalPlacementMap
 				tally.Config{
 					Interval:           1 * time.Hour,
 					ListLimit:          batchSize,
@@ -528,7 +536,10 @@ func TestTallySaveTalliesBatchSize(t *testing.T) {
 			config.SaveTalliesBatchSize = batchSize
 
 			tally := tally.New(zaptest.NewLogger(t), satellite.DB.StoragenodeAccounting(), satellite.DB.ProjectAccounting(),
-				satellite.LiveAccounting.Cache, satellite.Metabase.DB, satellite.DB.Buckets(), config)
+				satellite.LiveAccounting.Cache, satellite.Metabase.DB, satellite.DB.Buckets(), config,
+				nil, // productPrices
+				nil, // globalPlacementMap
+			)
 
 			// collect and store tallies in DB
 			err := tally.Tally(ctx)
@@ -601,5 +612,212 @@ func TestTallyPurge(t *testing.T) {
 		postPurge, err := satellite.DB.ProjectAccounting().GetTallies(ctx)
 		require.NoError(t, err)
 		require.ElementsMatch(t, []accounting.BucketTally{tallyAt, tallyAfter}, postPurge)
+	})
+}
+
+func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 3,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Tally.SmallObjectRemainder = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		sat.Accounting.Tally.Loop.Pause()
+
+		t.Run("single remainder", func(t *testing.T) {
+			projectID := planet.Uplinks[0].Projects[0].ID
+
+			// Upload objects of various sizes to test remainder logic.
+			err := planet.Uplinks[0].Upload(ctx, sat, "bucket-small", "object1", testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, sat, "bucket-medium", "object2", testrand.Bytes(30*memory.KiB))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, sat, "bucket-large", "object3", testrand.Bytes(100*memory.KiB))
+			require.NoError(t, err)
+
+			// Set remainder to 50KB - objects smaller than this should be counted as 50KB.
+			remainder := int64(50 * memory.KiB)
+			productPrices := map[int32]tally.ProductUsagePriceModel{
+				0: {
+					ProductID:             0,
+					StorageRemainderBytes: remainder,
+				},
+			}
+			globalPlacementMap := tally.PlacementProductMap{0: 0}
+
+			collector := tally.NewBucketTallyCollector(
+				sat.Log.Named("bucket tally remainder"),
+				time.Now(),
+				sat.Metabase.DB,
+				sat.DB.Buckets(),
+				sat.DB.ProjectAccounting(),
+				productPrices,
+				globalPlacementMap,
+				sat.Config.Tally,
+			)
+			err = collector.Run(ctx)
+			require.NoError(t, err)
+
+			// Verify all buckets were collected.
+			require.GreaterOrEqual(t, len(collector.Bucket), 3, "should have at least 3 buckets")
+
+			bucketSmall := collector.Bucket[metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: "bucket-small",
+			}]
+			bucketMedium := collector.Bucket[metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: "bucket-medium",
+			}]
+			bucketLarge := collector.Bucket[metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: "bucket-large",
+			}]
+
+			require.NotNil(t, bucketSmall, "bucket-small should exist")
+			require.NotNil(t, bucketMedium, "bucket-medium should exist")
+			require.NotNil(t, bucketLarge, "bucket-large should exist")
+
+			// Verify remainder is applied correctly:
+			// Small bucket (5KB) should be counted as 50KB (remainder applies).
+			require.Equal(t, bucketSmall.TotalBytes, remainder,
+				"Small object (5KB) size should be equal to remainder size (50KB)")
+			require.EqualValues(t, 1, bucketSmall.ObjectCount, "should have 1 object")
+
+			// Medium bucket (30KB) should be counted as 50KB (remainder applies).
+			require.Equal(t, bucketMedium.TotalBytes, remainder,
+				"Medium object (30KB) size should be equal to remainder size (50KB)")
+			require.EqualValues(t, 1, bucketMedium.ObjectCount, "should have 1 object")
+
+			// Large bucket (100KB) should be counted at actual size (already larger than remainder).
+			// The actual bytes will be > 100KB due to encoding overhead, so just verify it's reasonable.
+			require.Greater(t, bucketLarge.TotalBytes, remainder,
+				"Large object (100KB) should be larger than remainder (50KB)")
+			require.Greater(t, bucketLarge.TotalBytes, int64(100*memory.KiB),
+				"Large object should be at least 100KB")
+			require.EqualValues(t, 1, bucketLarge.ObjectCount, "should have 1 object")
+
+			// Verify size ordering: small = medium < large (since small and medium both get remainder).
+			require.Equal(t, bucketSmall.TotalBytes, bucketMedium.TotalBytes,
+				"Small and medium buckets should have equal sizes (both at remainder)")
+			require.Greater(t, bucketLarge.TotalBytes, bucketMedium.TotalBytes,
+				"Large bucket should have more bytes than medium bucket")
+		})
+
+		t.Run("multiple remainders", func(t *testing.T) {
+			projectID := planet.Uplinks[1].Projects[0].ID
+
+			// Upload objects to different buckets.
+			err := planet.Uplinks[1].Upload(ctx, sat, "bucket-no-remainder", "object", testrand.Bytes(30*memory.KiB))
+			require.NoError(t, err)
+
+			// Configure different remainders for different product IDs.
+			// In reality, different buckets would have different product IDs via entitlements.
+			productPrices := map[int32]tally.ProductUsagePriceModel{
+				0: {ProductID: 0, StorageRemainderBytes: 0},          // No remainder
+				1: {ProductID: 1, StorageRemainderBytes: 50 * 1024},  // 50KB
+				2: {ProductID: 2, StorageRemainderBytes: 100 * 1024}, // 100KB
+			}
+
+			globalPlacementMap := tally.PlacementProductMap{
+				0: 0, // Default placement → product 0 (no remainder).
+			}
+
+			collector := tally.NewBucketTallyCollector(
+				sat.Log.Named("bucket tally"),
+				time.Now(),
+				sat.Metabase.DB,
+				sat.DB.Buckets(),
+				sat.DB.ProjectAccounting(),
+				productPrices,
+				globalPlacementMap,
+				sat.Config.Tally,
+			)
+			err = collector.Run(ctx)
+			require.NoError(t, err)
+
+			require.GreaterOrEqual(t, len(collector.Bucket), 1)
+
+			// Verify the bucket exists.
+			bucket := collector.Bucket[metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: "bucket-no-remainder",
+			}]
+			require.NotNil(t, bucket, "bucket-no-remainder should exist")
+			require.EqualValues(t, 1, bucket.ObjectCount, "should have 1 object")
+		})
+
+		t.Run("empty buckets", func(t *testing.T) {
+			projectID := planet.Uplinks[2].Projects[0].ID
+
+			// Test that emptied buckets (objects deleted but bucket still exists) get empty tallies.
+			err := planet.Uplinks[2].Upload(ctx, sat, "bucket-to-empty", "object", testrand.Bytes(30*memory.KiB))
+			require.NoError(t, err)
+
+			remainder := int64(50 * memory.KiB)
+			productPrices := map[int32]tally.ProductUsagePriceModel{
+				0: {ProductID: 0, StorageRemainderBytes: remainder},
+			}
+			globalPlacementMap := tally.PlacementProductMap{0: 0}
+
+			// Run collector and save tally (this creates a previous non-empty tally).
+			collector := tally.NewBucketTallyCollector(
+				sat.Log.Named("bucket tally"),
+				time.Now(),
+				sat.Metabase.DB,
+				sat.DB.Buckets(),
+				sat.DB.ProjectAccounting(),
+				productPrices,
+				globalPlacementMap,
+				sat.Config.Tally,
+			)
+			err = collector.Run(ctx)
+			require.NoError(t, err)
+
+			bucketLoc := metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: "bucket-to-empty",
+			}
+
+			// Verify the bucket has data.
+			bucket := collector.Bucket[bucketLoc]
+			require.NotNil(t, bucket, "bucket should exist")
+			require.Greater(t, bucket.TotalBytes, int64(0), "bucket should have data")
+			require.EqualValues(t, 1, bucket.ObjectCount, "should have 1 object")
+
+			// Save this tally so it becomes a "previous tally".
+			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), collector.Bucket)
+			require.NoError(t, err)
+
+			// Delete the object from the bucket (bucket still exists in bucket_metainfos).
+			err = planet.Uplinks[2].DeleteObject(ctx, sat, "bucket-to-empty", "object")
+			require.NoError(t, err)
+
+			// Run collector again - emptied bucket should still be present with empty tally.
+			collector2 := tally.NewBucketTallyCollector(
+				sat.Log.Named("bucket tally"),
+				time.Now(),
+				sat.Metabase.DB,
+				sat.DB.Buckets(),
+				sat.DB.ProjectAccounting(),
+				productPrices,
+				globalPlacementMap,
+				sat.Config.Tally,
+			)
+			err = collector2.Run(ctx)
+			require.NoError(t, err)
+
+			// The emptied bucket should appear with zero tally (to mark it as now empty).
+			emptiedBucket := collector2.Bucket[bucketLoc]
+			require.NotNil(t, emptiedBucket, "emptied bucket should still appear in tally")
+			require.EqualValues(t, 0, emptiedBucket.TotalBytes, "emptied bucket should have zero bytes")
+			require.EqualValues(t, 0, emptiedBucket.ObjectCount, "emptied bucket should have zero objects")
+			require.EqualValues(t, 0, emptiedBucket.TotalSegments, "emptied bucket should have zero segments")
+		})
 	})
 }

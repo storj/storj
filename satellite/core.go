@@ -420,8 +420,39 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			debug.Cycle("Zombie Objects Chore", peer.ZombieDeletion.Chore.Loop))
 	}
 
+	// Parse product prices early for use in tally service
+	productPrices, err := config.Payments.Products.ToModels()
+	if err != nil {
+		return nil, errs.Combine(err, peer.Close())
+	}
+
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Metabase, peer.DB.Buckets(), config.Tally)
+		// Convert product prices to tally-compatible format.
+		tallyProductPrices := make(map[int32]tally.ProductUsagePriceModel)
+		for id, price := range productPrices {
+			tallyProductPrices[id] = tally.ProductUsagePriceModel{
+				ProductID:             price.ProductID,
+				StorageRemainderBytes: price.StorageRemainderBytes,
+			}
+		}
+
+		// Convert global placement map.
+		globalPlacementMap := make(tally.PlacementProductMap)
+		for placement, productID := range config.Payments.PlacementPriceOverrides.ToMap() {
+			globalPlacementMap[placement] = productID
+		}
+
+		peer.Accounting.Tally = tally.New(
+			peer.Log.Named("accounting:tally"),
+			peer.DB.StoragenodeAccounting(),
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Cache,
+			peer.Metainfo.Metabase,
+			peer.DB.Buckets(),
+			config.Tally,
+			tallyProductPrices,
+			globalPlacementMap,
+		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:tally",
 			Run:   peer.Accounting.Tally.Run,
@@ -500,10 +531,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		productPrices, err := pc.Products.ToModels()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		// productPrices already parsed earlier for tally service
 
 		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 		if err != nil {
