@@ -126,3 +126,12 @@ read all (
 	select storagenode_storage_tally
 	where storagenode_storage_tally.interval_end_time >= ?
 )
+
+read first (
+	select storagenode_storage_tally.interval_end_time
+	orderby asc storagenode_storage_tally.interval_end_time
+)
+
+delete storagenode_storage_tally (
+	where storagenode_storage_tally.interval_end_time < ?
+)

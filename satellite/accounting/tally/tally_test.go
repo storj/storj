@@ -27,40 +27,76 @@ import (
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
-	tests := []struct {
-		eraseBefore  time.Time
-		expectedRaws int
-	}{
-		{
-			eraseBefore:  time.Now(),
-			expectedRaws: 3,
-		},
-		{
-			eraseBefore:  time.Now().Add(24 * time.Hour),
-			expectedRaws: 0,
-		},
-	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeIDs := []storj.NodeID{{1}, {2}, {3}}
+		nodeBWAmounts := []float64{1000, 1000, 1000}
 
-	for i, test := range tests {
-		t.Run(fmt.Sprint(i), func(t *testing.T) {
-			testplanet.Run(t, testplanet.Config{
-				SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-				nodeIDs := []storj.NodeID{{1}, {2}, {3}}
-				nodeBWAmounts := []float64{1000, 1000, 1000}
+		tests := []struct {
+			name         string
+			tallyTimes   []time.Duration // relative to base time
+			eraseBefore  time.Duration   // relative to base time
+			expectedRaws int
+		}{
+			{
+				name:         "delete nothing when before is earlier than all tallies",
+				tallyTimes:   []time.Duration{0, 12 * time.Hour, 36 * time.Hour},
+				eraseBefore:  -24 * time.Hour,
+				expectedRaws: 9, // 3 nodes * 3 tallies
+			},
+			{
+				name:         "delete first 24h chunk",
+				tallyTimes:   []time.Duration{0, 12 * time.Hour, 36 * time.Hour},
+				eraseBefore:  24 * time.Hour,
+				expectedRaws: 3, // only tallies at 36h remain
+			},
+			{
+				name:         "delete across multiple 24h chunks",
+				tallyTimes:   []time.Duration{0, 25 * time.Hour, 50 * time.Hour, 75 * time.Hour},
+				eraseBefore:  72 * time.Hour,
+				expectedRaws: 3, // only tallies at 75h remain
+			},
+			{
+				name:         "delete all tallies",
+				tallyTimes:   []time.Duration{0, 12 * time.Hour, 36 * time.Hour},
+				eraseBefore:  100 * time.Hour,
+				expectedRaws: 0,
+			},
+			{
+				name:         "delete at chunk boundary",
+				tallyTimes:   []time.Duration{0, 24 * time.Hour, 48 * time.Hour},
+				eraseBefore:  48 * time.Hour,
+				expectedRaws: 3, // tallies at exactly 48h remain
+			},
+		}
 
-				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeIDs, nodeBWAmounts)
-				require.NoError(t, err)
+		for _, test := range tests {
+			t.Run(test.name, func(t *testing.T) {
+				baseTime := time.Now()
 
-				err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore, 1)
+				// Create tallies at different times spanning multiple 24h periods
+				for _, tallyTime := range test.tallyTimes {
+					err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, baseTime.Add(tallyTime), nodeIDs, nodeBWAmounts)
+					require.NoError(t, err)
+				}
+
+				// Delete tallies using 24h chunk deletion
+				err := planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, baseTime.Add(test.eraseBefore), 1)
 				require.NoError(t, err)
 
 				raws, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 				assert.Len(t, raws, test.expectedRaws)
+
+				// cleanup state for next test if needed
+				if len(raws) > 0 {
+					err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, baseTime.Add(7*24*time.Hour), 1)
+					require.NoError(t, err)
+				}
 			})
-		})
-	}
+		}
+	})
 }
 
 func TestOnlyInline(t *testing.T) {

@@ -616,82 +616,56 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, before time.Time, batchSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if batchSize <= 0 {
-		batchSize = 10000
+	// Find the earliest record to determine the start point
+	row, err := db.db.First_StoragenodeStorageTally_IntervalEndTime_OrderBy_Asc_IntervalEndTime(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if row == nil {
+		return nil
 	}
 
-	switch db.db.impl {
-	case dbutil.Cockroach:
-		query := `
-			DELETE FROM storagenode_storage_tallies
-			WHERE interval_end_time < ?
-			LIMIT ?`
-		query = db.db.Rebind(query)
-		for {
-			res, err := db.db.DB.ExecContext(ctx, query, before.UTC(), batchSize)
-			if err != nil {
-				if errs.Is(err, sql.ErrNoRows) {
-					return nil
-				}
-				return Error.Wrap(err)
-			}
+	// Delete in 24-hour chunks
+	chunkDuration := 24 * time.Hour
+	currentBefore := row.IntervalEndTime
 
-			affected, err := res.RowsAffected()
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			if affected == 0 {
-				return nil
-			}
+	for currentBefore.Before(before) {
+		currentEnd := currentBefore.Add(chunkDuration)
+		if currentEnd.After(before) {
+			currentEnd = before
 		}
 
-	case dbutil.Postgres:
-		query := `
-			DELETE FROM storagenode_storage_tallies
-			WHERE ctid IN (
-				SELECT ctid
-				FROM storagenode_storage_tallies
-				WHERE interval_end_time < ?
-				ORDER BY interval_end_time
-				LIMIT ?
-			)`
-		query = db.db.Rebind(query)
-		for {
-			res, err := db.db.DB.ExecContext(ctx, query, before.UTC(), batchSize)
+		switch db.db.impl {
+		case dbutil.Cockroach, dbutil.Postgres:
+			_, err := db.db.Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(currentEnd))
 			if err != nil {
-				if errs.Is(err, sql.ErrNoRows) {
-					return nil
+				return Error.Wrap(err)
+			}
+		case dbutil.Spanner:
+			err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
+				statement := spanner.Statement{
+					SQL: `DELETE FROM storagenode_storage_tallies
+						WHERE interval_end_time < @before`,
+					Params: map[string]any{
+						"before": currentEnd.UTC(),
+					},
 				}
-				return Error.Wrap(err)
-			}
-
-			affected, err := res.RowsAffected()
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			if affected == 0 {
-				return nil
-			}
-		}
-
-	case dbutil.Spanner:
-		err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
-			statement := spanner.Statement{
-				SQL: `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < @before`,
-				Params: map[string]any{
-					"before": before.UTC(),
-				},
-			}
-			var err error
-			_, err = client.PartitionedUpdateWithOptions(ctx, statement, spanner.QueryOptions{
-				Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+				_, err := client.PartitionedUpdateWithOptions(ctx, statement, spanner.QueryOptions{
+					Priority: spannerpb.RequestOptions_PRIORITY_LOW,
+				})
+				return err
 			})
-			return err
-		})
-	default:
-		err = Error.New("unsupported database: %v", db.db.impl)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		default:
+			return Error.New("unsupported database: %v", db.db.impl)
+		}
+
+		currentBefore = currentEnd
 	}
-	return err
+
+	return nil
 }
 
 // ArchiveRollupsBefore archives rollups older than a given time.

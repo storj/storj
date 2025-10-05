@@ -14963,6 +14963,10 @@ type Id_Row struct {
 	Id []byte
 }
 
+type IntervalEndTime_Row struct {
+	IntervalEndTime time.Time
+}
+
 type Kind_Row struct {
 	Kind int
 }
@@ -17333,6 +17337,51 @@ func (obj *pgxImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqua
 			return nil, obj.makeErr(err)
 		}
 		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) First_StoragenodeStorageTally_IntervalEndTime_OrderBy_Asc_IntervalEndTime(ctx context.Context) (
+	row *IntervalEndTime_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.interval_end_time FROM storagenode_storage_tallies ORDER BY storagenode_storage_tallies.interval_end_time LIMIT 1 OFFSET 0")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *IntervalEndTime_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, nil
+			}
+
+			row = &IntervalEndTime_Row{}
+			err = __rows.Scan(&row.IntervalEndTime)
+			if err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
 	}
 
 }
@@ -24272,6 +24321,36 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxImpl) Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx context.Context,
+	storagenode_storage_tally_interval_end_time_less StoragenodeStorageTally_IntervalEndTime_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time < ?")
+
+	var __values []any
+	__values = append(__values, storagenode_storage_tally_interval_end_time_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
 	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
 	count int64, err error) {
@@ -27835,6 +27914,51 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Grea
 			return nil, obj.makeErr(err)
 		}
 		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) First_StoragenodeStorageTally_IntervalEndTime_OrderBy_Asc_IntervalEndTime(ctx context.Context) (
+	row *IntervalEndTime_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.interval_end_time FROM storagenode_storage_tallies ORDER BY storagenode_storage_tallies.interval_end_time LIMIT 1 OFFSET 0")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *IntervalEndTime_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, nil
+			}
+
+			row = &IntervalEndTime_Row{}
+			err = __rows.Scan(&row.IntervalEndTime)
+			if err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
 	}
 
 }
@@ -34774,6 +34898,36 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *pgxcockroachImpl) Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx context.Context,
+	storagenode_storage_tally_interval_end_time_less StoragenodeStorageTally_IntervalEndTime_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time < ?")
+
+	var __values []any
+	__values = append(__values, storagenode_storage_tally_interval_end_time_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
 	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
 	count int64, err error) {
@@ -38614,6 +38768,51 @@ func (obj *spannerImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOr
 			return nil, obj.makeErr(err)
 		}
 		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) First_StoragenodeStorageTally_IntervalEndTime_OrderBy_Asc_IntervalEndTime(ctx context.Context) (
+	row *IntervalEndTime_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_storage_tallies.interval_end_time FROM storagenode_storage_tallies ORDER BY storagenode_storage_tallies.interval_end_time LIMIT 1 OFFSET 0")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		row, err = func() (row *IntervalEndTime_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, nil
+			}
+
+			row = &IntervalEndTime_Row{}
+			err = __rows.Scan(&row.IntervalEndTime)
+			if err != nil {
+				return nil, err
+			}
+
+			return row, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return row, nil
 	}
 
 }
@@ -45287,6 +45486,36 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	return user_settings, nil
 }
 
+func (obj *spannerImpl) Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx context.Context,
+	storagenode_storage_tally_interval_end_time_less StoragenodeStorageTally_IntervalEndTime_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM storagenode_storage_tallies WHERE storagenode_storage_tallies.interval_end_time < ?")
+
+	var __values []any
+	__values = append(__values, storagenode_storage_tally_interval_end_time_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
 	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
 	count int64, err error) {
@@ -47118,6 +47347,10 @@ type Methods interface {
 		reverification_audits_position ReverificationAudits_Position_Field) (
 		deleted bool, err error)
 
+	Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx context.Context,
+		storagenode_storage_tally_interval_end_time_less StoragenodeStorageTally_IntervalEndTime_Field) (
+		count int64, err error)
+
 	Delete_StorjscanPayment_By_Status(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field) (
 		count int64, err error)
@@ -47161,6 +47394,9 @@ type Methods interface {
 	First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
 		reverification_audits_node_id ReverificationAudits_NodeId_Field) (
 		reverification_audits *ReverificationAudits, err error)
+
+	First_StoragenodeStorageTally_IntervalEndTime_OrderBy_Asc_IntervalEndTime(ctx context.Context) (
+		row *IntervalEndTime_Row, err error)
 
 	First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field,
