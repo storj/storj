@@ -1394,6 +1394,18 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		generateVersionQuery = ", " + spannerGenerateTimestampVersion + " AS next_version"
 	}
 
+	// Build the THEN RETURN fields conditionally to reduce the amount of data read from Spanner
+	// and potentially locks between transactions.
+	returnFields := "created_at, expires_at,"
+	if !opts.OverrideEncryptedMetadata {
+		returnFields += `
+				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,`
+	}
+	returnFields += `
+				encryption,
+				retention_mode,
+				retain_until`
+
 	// We can not simply UPDATE the row, because we are changing the 'version' column,
 	// which is part of the primary key. Spanner does not allow changing a primary key
 	// column on an existing row. We must DELETE then INSERT a new row.
@@ -1408,11 +1420,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 				AND stream_id   = @stream_id
 				AND status      = ` + statusPending + `
 			THEN RETURN
-				created_at, expires_at,
-				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce, encrypted_etag,
-				encryption,
-				retention_mode,
-				retain_until
+				` + returnFields + `
 				` + generateVersionQuery + `
 		`,
 		Params: map[string]interface{}{
@@ -1427,11 +1435,17 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 
 		args := []any{
 			&object.CreatedAt, &object.ExpiresAt,
-			&object.EncryptedUserData.EncryptedMetadata, &object.EncryptedUserData.EncryptedMetadataEncryptedKey, &object.EncryptedUserData.EncryptedMetadataNonce, &object.EncryptedUserData.EncryptedETag,
+		}
+		if !opts.OverrideEncryptedMetadata {
+			args = append(args,
+				&object.EncryptedUserData.EncryptedMetadata, &object.EncryptedUserData.EncryptedMetadataEncryptedKey, &object.EncryptedUserData.EncryptedMetadataNonce, &object.EncryptedUserData.EncryptedETag,
+			)
+		}
+		args = append(args,
 			encryptionParameters{&object.Encryption},
 			object.columnRetentionMode(),
 			object.columnRetainUntil(),
-		}
+		)
 		if stx.spannerAdapter.testingTimestampVersioning {
 			args = append(args, &generateVersion)
 		}
