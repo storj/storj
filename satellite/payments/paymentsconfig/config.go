@@ -218,6 +218,7 @@ type ProductUsagePrice struct {
 	StorageRemainder       string
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string
+	UseGBUnits   bool
 	ProductSKUs
 	ProjectUsagePrice
 }
@@ -256,6 +257,7 @@ type ProductUsagePriceYaml struct {
 	StorageRemainder       string `yaml:"storage-remainder" json:"-"`
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string `yaml:"price-summary" json:"-"`
+	UseGBUnits   bool   `yaml:"use-gb-units" json:"-"`
 }
 
 // String returns the YAML string representation of the price overrides.
@@ -283,6 +285,7 @@ func (p *ProductPriceOverrides) String() string {
 			EgressOverageMode:      price.EgressOverageMode,
 			IncludedEgressSKU:      price.IncludedEgressSKU,
 			StorageRemainder:       price.StorageRemainder,
+			UseGBUnits:             price.UseGBUnits,
 		}
 	}
 	prices, err := yaml.Marshal(pricesConv)
@@ -355,6 +358,7 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			IncludedEgressSKU:      price.IncludedEgressSKU,
 			StorageRemainder:       price.StorageRemainder,
 			PriceSummary:           price.PriceSummary,
+			UseGBUnits:             price.UseGBUnits,
 		}
 	}
 	*p = prices
@@ -423,6 +427,7 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			EgressOverageMode:        prices.EgressOverageMode,
 			IncludedEgressSKU:        prices.IncludedEgressSKU,
 			StorageRemainderBytes:    storageRemainderBytes,
+			UseGBUnits:               prices.UseGBUnits,
 		}
 	}
 	return models, nil

@@ -774,6 +774,576 @@ func TestEgressOverageFunctionality(t *testing.T) {
 	}
 }
 
+func TestUnitsAdjustment_WithRoundingUp(t *testing.T) {
+	basePrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "4",
+		EgressTB:  "7",
+		Segment:   "1",
+	}
+
+	// Legacy product without GB units.
+	legacyProduct := paymentsconfig.ProductUsagePrice{
+		ID:                1,
+		Name:              "Legacy Product",
+		UseGBUnits:        false, // Use MB units (legacy behavior).
+		ProjectUsagePrice: basePrice,
+	}
+	// New product with GB units.
+	newProduct := paymentsconfig.ProductUsagePrice{
+		ID:                2,
+		Name:              "New Product",
+		UseGBUnits:        true, // Use GB units instead of MB.
+		ProjectUsagePrice: basePrice,
+	}
+
+	var productOverrides paymentsconfig.ProductPriceOverrides
+	productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+		1: legacyProduct,
+		2: newProduct,
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");10:annotation("location", "newproduct")`,
+				}
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					0:  1,
+					10: 2,
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				config.Payments.Products = productOverrides
+				config.Payments.StripeCoinPayments.RoundUpInvoiceUsage = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		stripeService := sat.API.Payments.StripeService
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		period := time.Date(2025, 10, 15, 0, 0, 0, 0, time.UTC) // Fixed date for consistent testing.
+		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
+		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
+
+		legacyPlacement := storj.DefaultPlacement
+		newPlacement := storj.PlacementConstraint(10)
+
+		testCases := []struct {
+			name                    string
+			egressBytes             int64
+			storageBytes            int64
+			expectedNewEgressGB     int64
+			expectedNewStorageGB    int64
+			expectedLegacyEgressMB  int64
+			expectedLegacyStorageMB int64
+		}{
+			{
+				name:                    "1 byte should round up to 1 GB",
+				egressBytes:             1,
+				storageBytes:            1,
+				expectedNewEgressGB:     1,
+				expectedNewStorageGB:    1,
+				expectedLegacyEgressMB:  0, // Less than 1 MB
+				expectedLegacyStorageMB: 0,
+			},
+			{
+				name:                    "500 MB should round up to 1 GB",
+				egressBytes:             int64(500 * memory.MB),
+				storageBytes:            int64(100 * memory.MB),
+				expectedNewEgressGB:     1,
+				expectedNewStorageGB:    1,
+				expectedLegacyEgressMB:  500,
+				expectedLegacyStorageMB: 100,
+			},
+			{
+				name:                    "2005 MB should round up to 3 GB",
+				egressBytes:             int64(2005 * memory.MB),
+				storageBytes:            int64(2005 * memory.MB),
+				expectedNewEgressGB:     3, // 2005 MB egress -> 2.005 GB -> rounds up to 3 GB
+				expectedNewStorageGB:    3, // Storage byte-hours converted to GB-Month -> ~2.002 GB (tallies time inconsistencies) -> rounds up to 3 GB
+				expectedLegacyEgressMB:  2005,
+				expectedLegacyStorageMB: 2002,
+			},
+			{
+				name:                    "Exactly 2 GB should stay 2 GB",
+				egressBytes:             int64(2 * memory.GB),
+				storageBytes:            int64(2 * memory.GB),
+				expectedNewEgressGB:     2, // 2000 MB egress -> exactly 2 GB
+				expectedNewStorageGB:    2, // ~1997 MB storage (tallies time inconsistencies) -> rounds up to 2 GB
+				expectedLegacyEgressMB:  2000,
+				expectedLegacyStorageMB: 1997,
+			},
+		}
+
+		for i, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: fmt.Sprintf("test project %d", i)})
+				require.NoError(t, err)
+
+				legacyBucketName := fmt.Sprintf("legacy-bucket-%d", i)
+				newBucketName := fmt.Sprintf("new-bucket-%d", i)
+
+				legacyBucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      legacyBucketName,
+					ProjectID: project.ID,
+					Placement: legacyPlacement,
+				})
+				require.NoError(t, err)
+
+				newBucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      newBucketName,
+					ProjectID: project.ID,
+					Placement: newPlacement,
+				})
+				require.NoError(t, err)
+
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(legacyBucket.Name),
+					Placement:  &legacyPlacement,
+				})
+				require.NoError(t, err)
+
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(newBucket.Name),
+					Placement:  &newPlacement,
+				})
+				require.NoError(t, err)
+
+				productUsages := make(map[int32]accounting.ProjectUsage)
+				productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+				generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, legacyBucket.Name, tc.egressBytes, tc.storageBytes, 1000)
+				generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, newBucket.Name, tc.egressBytes, tc.storageBytes, 1000)
+
+				start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+				end := start.AddDate(0, 1, 0)
+
+				record := stripe.ProjectRecord{ProjectID: project.ID, Storage: 1}
+				_, err = stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+				require.NoError(t, err)
+
+				invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+				var legacyStorageItem, legacyEgressItem, legacySegmentItem, newStorageItem, newEgressItem, newSegmentItem *stripeSDK.InvoiceItemParams
+
+				for _, item := range invoiceItems {
+					desc := *item.Description
+					if strings.Contains(desc, "Legacy Product") {
+						if strings.Contains(desc, "Storage") {
+							legacyStorageItem = item
+						} else if strings.Contains(desc, "Egress") {
+							legacyEgressItem = item
+						} else if strings.Contains(desc, "Segment") {
+							legacySegmentItem = item
+						}
+					} else if strings.Contains(desc, "New Product") {
+						if strings.Contains(desc, "Storage") {
+							newStorageItem = item
+						} else if strings.Contains(desc, "Egress") {
+							newEgressItem = item
+						} else if strings.Contains(desc, "Segment") {
+							newSegmentItem = item
+						}
+					}
+				}
+
+				// Verify legacy product uses MB units.
+				require.NotNil(t, legacyStorageItem)
+				require.Contains(t, *legacyStorageItem.Description, "MB-Month")
+				require.NotNil(t, legacyEgressItem)
+				require.Contains(t, *legacyEgressItem.Description, "MB")
+
+				// Verify new product uses GB units with rounding UP.
+				require.NotNil(t, newStorageItem)
+				require.Contains(t, *newStorageItem.Description, "GB-Month")
+				require.Equal(t, tc.expectedNewStorageGB, *newStorageItem.Quantity, "Storage quantity mismatch")
+
+				require.NotNil(t, newEgressItem)
+				require.Contains(t, *newEgressItem.Description, "GB")
+				require.Equal(t, tc.expectedNewEgressGB, *newEgressItem.Quantity, "Egress quantity mismatch")
+
+				// Verify legacy quantities (MB units, no rounding).
+				if tc.expectedLegacyStorageMB > 0 {
+					require.Equal(t, tc.expectedLegacyStorageMB, *legacyStorageItem.Quantity, "Legacy storage quantity mismatch")
+				}
+				if tc.expectedLegacyEgressMB > 0 {
+					require.Equal(t, tc.expectedLegacyEgressMB, *legacyEgressItem.Quantity, "Legacy egress quantity mismatch")
+				}
+
+				// Verify pricing is consistent across all test cases.
+				// $4/TB = $0.004/GB = $0.000004/MB = 0.0004 cents/MB
+				legacyStoragePrice := *legacyStorageItem.UnitAmountDecimal
+				require.Equal(t, 0.0004, legacyStoragePrice) // 0.0004 cents per MB-Month
+
+				// 0.0004 cents/MB * 1000 = 0.4 cents/GB
+				newStoragePrice := *newStorageItem.UnitAmountDecimal
+				require.Equal(t, 0.4, newStoragePrice) // 0.4 cents per GB-Month
+
+				// $7/TB = $0.007/GB = $0.000007/MB = 0.0007 cents/MB
+				legacyEgressPrice := *legacyEgressItem.UnitAmountDecimal
+				require.Equal(t, 0.0007, legacyEgressPrice) // 0.0007 cents per MB
+
+				// 0.0007 cents/MB * 1000 = 0.7 cents/GB
+				newEgressPrice := *newEgressItem.UnitAmountDecimal
+				require.Equal(t, 0.7, newEgressPrice) // 0.7 cents per GB
+
+				// Verify segment line items are NOT affected by units adjustment.
+				require.NotNil(t, legacySegmentItem)
+				require.Contains(t, *legacySegmentItem.Description, "Segment-Month")
+				require.Equal(t, 100.0, *legacySegmentItem.UnitAmountDecimal)
+				require.NotNil(t, newSegmentItem)
+				require.Contains(t, *newSegmentItem.Description, "Segment-Month")
+				require.Equal(t, 100.0, *newSegmentItem.UnitAmountDecimal)
+
+				// Verify segment quantities are identical (no rounding applied).
+				require.Equal(t, *legacySegmentItem.Quantity, *newSegmentItem.Quantity, "Segment quantities should be identical")
+			})
+		}
+	})
+}
+
+func TestUnitsAdjustment_WithoutRoundingUp(t *testing.T) {
+	basePrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "4",
+		EgressTB:  "7",
+		Segment:   "1",
+	}
+
+	// Legacy product without GB units.
+	legacyProduct := paymentsconfig.ProductUsagePrice{
+		ID:                1,
+		Name:              "Legacy Product",
+		UseGBUnits:        false, // Use MB units (legacy behavior).
+		ProjectUsagePrice: basePrice,
+	}
+	// New product with GB units.
+	newProduct := paymentsconfig.ProductUsagePrice{
+		ID:                2,
+		Name:              "New Product",
+		UseGBUnits:        true, // Use GB units instead of MB.
+		ProjectUsagePrice: basePrice,
+	}
+
+	var productOverrides paymentsconfig.ProductPriceOverrides
+	productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+		1: legacyProduct,
+		2: newProduct,
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");10:annotation("location", "newproduct")`,
+				}
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					0:  1,
+					10: 2,
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				config.Payments.Products = productOverrides
+				config.Payments.StripeCoinPayments.RoundUpInvoiceUsage = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		stripeService := sat.API.Payments.StripeService
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		period := time.Date(2025, 10, 15, 0, 0, 0, 0, time.UTC) // Fixed date for consistent testing.
+		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
+		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
+
+		legacyPlacement := storj.DefaultPlacement
+		newPlacement := storj.PlacementConstraint(10)
+
+		testCases := []struct {
+			name                    string
+			egressBytes             int64
+			storageBytes            int64
+			expectedNewEgressGB     int64
+			expectedNewStorageGB    int64
+			expectedLegacyEgressMB  int64
+			expectedLegacyStorageMB int64
+		}{
+			{
+				name:                    "1 byte rounds to 0 GB (not 1)",
+				egressBytes:             1,
+				storageBytes:            1,
+				expectedNewEgressGB:     0, // Rounds to 0 with round-to-nearest
+				expectedNewStorageGB:    0, // Rounds to 0 with round-to-nearest
+				expectedLegacyEgressMB:  0, // Less than 1 MB
+				expectedLegacyStorageMB: 0,
+			},
+			{
+				name:                    "500 MB (0.5 GB) rounds to 1 GB with Round(0)",
+				egressBytes:             int64(500 * memory.MB),
+				storageBytes:            int64(100 * memory.MB),
+				expectedNewEgressGB:     1, // 0.5 rounds to 1 with Round(0) (rounds 0.5 up)
+				expectedNewStorageGB:    0, // 0.1 rounds to 0 with round-to-nearest
+				expectedLegacyEgressMB:  500,
+				expectedLegacyStorageMB: 100,
+			},
+			{
+				name:                    "2005 MB (2.005 GB) rounds to 2 GB (not 3)",
+				egressBytes:             int64(2005 * memory.MB),
+				storageBytes:            int64(2005 * memory.MB),
+				expectedNewEgressGB:     2, // 2.005 rounds to 2 with round-to-nearest
+				expectedNewStorageGB:    2, // ~2.002 rounds to 2 with round-to-nearest
+				expectedLegacyEgressMB:  2005,
+				expectedLegacyStorageMB: 2002,
+			},
+			{
+				name:                    "Exactly 2 GB stays 2 GB",
+				egressBytes:             int64(2 * memory.GB),
+				storageBytes:            int64(2 * memory.GB),
+				expectedNewEgressGB:     2, // 2000 MB egress -> exactly 2 GB
+				expectedNewStorageGB:    2, // ~1997 MB storage -> rounds to 2 GB
+				expectedLegacyEgressMB:  2000,
+				expectedLegacyStorageMB: 1997,
+			},
+		}
+
+		for i, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: fmt.Sprintf("test project %d", i)})
+				require.NoError(t, err)
+
+				legacyBucketName := fmt.Sprintf("legacy-bucket-%d", i)
+				newBucketName := fmt.Sprintf("new-bucket-%d", i)
+
+				legacyBucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      legacyBucketName,
+					ProjectID: project.ID,
+					Placement: legacyPlacement,
+				})
+				require.NoError(t, err)
+
+				newBucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+					ID:        testrand.UUID(),
+					Name:      newBucketName,
+					ProjectID: project.ID,
+					Placement: newPlacement,
+				})
+				require.NoError(t, err)
+
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(legacyBucket.Name),
+					Placement:  &legacyPlacement,
+				})
+				require.NoError(t, err)
+
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(newBucket.Name),
+					Placement:  &newPlacement,
+				})
+				require.NoError(t, err)
+
+				productUsages := make(map[int32]accounting.ProjectUsage)
+				productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+				generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, legacyBucket.Name, tc.egressBytes, tc.storageBytes, 1000)
+				generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, newBucket.Name, tc.egressBytes, tc.storageBytes, 1000)
+
+				start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+				end := start.AddDate(0, 1, 0)
+
+				record := stripe.ProjectRecord{ProjectID: project.ID, Storage: 1}
+				_, err = stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+				require.NoError(t, err)
+
+				invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+				var legacyStorageItem, legacyEgressItem, newStorageItem, newEgressItem *stripeSDK.InvoiceItemParams
+
+				for _, item := range invoiceItems {
+					desc := *item.Description
+					if strings.Contains(desc, "Legacy Product") {
+						if strings.Contains(desc, "Storage") {
+							legacyStorageItem = item
+						} else if strings.Contains(desc, "Egress") {
+							legacyEgressItem = item
+						}
+					} else if strings.Contains(desc, "New Product") {
+						if strings.Contains(desc, "Storage") {
+							newStorageItem = item
+						} else if strings.Contains(desc, "Egress") {
+							newEgressItem = item
+						}
+					}
+				}
+
+				// Verify new product uses GB units with round-to-NEAREST.
+				require.NotNil(t, newStorageItem)
+				require.Contains(t, *newStorageItem.Description, "GB-Month")
+				require.Equal(t, tc.expectedNewStorageGB, *newStorageItem.Quantity, "Storage quantity mismatch")
+
+				require.NotNil(t, newEgressItem)
+				require.Contains(t, *newEgressItem.Description, "GB")
+				require.Equal(t, tc.expectedNewEgressGB, *newEgressItem.Quantity, "Egress quantity mismatch")
+
+				// Verify legacy quantities (MB units, round to nearest).
+				if tc.expectedLegacyStorageMB > 0 {
+					require.Equal(t, tc.expectedLegacyStorageMB, *legacyStorageItem.Quantity, "Legacy storage quantity mismatch")
+				}
+				if tc.expectedLegacyEgressMB > 0 {
+					require.Equal(t, tc.expectedLegacyEgressMB, *legacyEgressItem.Quantity, "Legacy egress quantity mismatch")
+				}
+			})
+		}
+	})
+}
+
+func TestUnitsAdjustment_WithEgressOverageMode(t *testing.T) {
+	basePrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB:           "4", // $4 per TB
+		EgressTB:            "7", // $7 per TB
+		Segment:             "1",
+		EgressDiscountRatio: 3.0, // 3X included egress
+	}
+
+	// Product with egress overage mode enabled and GB units.
+	overageProduct := paymentsconfig.ProductUsagePrice{
+		ID:                3,
+		Name:              "Overage Product",
+		UseGBUnits:        true, // Use GB units instead of MB.
+		ProjectUsagePrice: basePrice,
+		EgressOverageMode: true,
+	}
+
+	var productOverrides paymentsconfig.ProductPriceOverrides
+	productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+		3: overageProduct,
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `20:annotation("location", "overage")`,
+				}
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					20: 3,
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		stripeService := sat.API.Payments.StripeService
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		period := time.Date(2025, 10, 15, 0, 0, 0, 0, time.UTC) // Fixed date for consistent testing.
+		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
+		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
+
+		overagePlacement := storj.PlacementConstraint(20)
+
+		project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: "overage test project"})
+		require.NoError(t, err)
+
+		bucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "overage-bucket",
+			ProjectID: project.ID,
+			Placement: overagePlacement,
+		})
+		require.NoError(t, err)
+
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucket.Name),
+			Placement:  &overagePlacement,
+		})
+		require.NoError(t, err)
+
+		egressBytes := int64(7000 * memory.MB)
+		storageBytes := int64(2100 * memory.MB)
+
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket.Name, egressBytes, storageBytes, 1000)
+
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
+
+		record := stripe.ProjectRecord{ProjectID: project.ID, Storage: 1}
+		_, err = stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+		require.NoError(t, err)
+
+		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+		// Find included egress and additional (overage) egress items.
+		var storageItem, includedEgressItem, additionalEgressItem, segmentItem *stripeSDK.InvoiceItemParams
+
+		for _, item := range invoiceItems {
+			desc := *item.Description
+			if strings.Contains(desc, "Storage") {
+				storageItem = item
+			} else if strings.Contains(desc, "Included Egress") {
+				includedEgressItem = item
+			} else if strings.Contains(desc, "Additional Egress") {
+				additionalEgressItem = item
+			} else if strings.Contains(desc, "Segment") {
+				segmentItem = item
+			}
+		}
+
+		// Verify storage uses GB units with rounding UP.
+		require.NotNil(t, storageItem)
+		require.Contains(t, *storageItem.Description, "GB-Month")
+		require.Equal(t, int64(3), *storageItem.Quantity)
+		require.Equal(t, 0.4, *storageItem.UnitAmountDecimal) // 0.0004 * 1000 = 0.4 cents/GB
+
+		// Verify included egress item exists with GB units and $0 price.
+		require.NotNil(t, includedEgressItem)
+		require.Contains(t, *includedEgressItem.Description, "3X Included Egress (GB)")
+		require.Equal(t, int64(6), *includedEgressItem.Quantity)
+		require.Equal(t, 0.0, *includedEgressItem.UnitAmountDecimal)
+
+		// Verify additional egress item may exist.
+		require.Contains(t, *additionalEgressItem.Description, "Additional Egress (GB)")
+		require.GreaterOrEqual(t, int64(1), *additionalEgressItem.Quantity)
+		require.Equal(t, 0.7, *additionalEgressItem.UnitAmountDecimal) // 0.0007 * 1000 = 0.7 cents/GB
+
+		// Verify segment item exists but is not affected by units adjustment.
+		require.NotNil(t, segmentItem)
+		require.Contains(t, *segmentItem.Description, "Segment-Month")
+		require.Equal(t, 100.0, *segmentItem.UnitAmountDecimal)
+	})
+}
+
 func generateProjectUsage(ctx context.Context, tb testing.TB, db satellite.DB, projectID uuid.UUID, start, end time.Time, bucket string, egress, totalBytes, totalSegments int64) {
 	err := db.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(bucket),
 		pb.PieceAction_GET, egress, 0, start)
