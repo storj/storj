@@ -61,15 +61,47 @@
                                     </td>
                                 </tr>
 
-                                <tr>
+                                <template v-if="charge.priceModel.egressOverageMode">
+                                    <tr v-if="charge.includedEgress > 0">
+                                        <td>
+                                            <p>Included Egress <span class="d-none d-md-inline">({{ charge.priceModel.egressDiscountRatio }}X of storage)</span></p>
+                                        </td>
+                                        <td class="d-none d-md-table-cell">
+                                            <p>{{ getPeriod(charge) }}</p>
+                                        </td>
+                                        <td class="d-none d-sm-table-cell">
+                                            <p>{{ getEgressAmountAndDimension(charge.includedEgress) }}</p>
+                                        </td>
+                                        <td class="text-right">
+                                            <p>$0</p>
+                                        </td>
+                                    </tr>
+
+                                    <tr v-if="charge.egress > 0">
+                                        <td>
+                                            <p>Overage Egress <span class="d-none d-md-inline">({{ getEgressPrice(productID) }} per GB)</span></p>
+                                        </td>
+                                        <td class="d-none d-md-table-cell">
+                                            <p>{{ getPeriod(charge) }}</p>
+                                        </td>
+                                        <td class="d-none d-sm-table-cell">
+                                            <p>{{ getEgressAmountAndDimension(charge.egress) }}</p>
+                                        </td>
+                                        <td class="text-right">
+                                            <p>{{ centsToDollars(charge.egressPrice) }}</p>
+                                        </td>
+                                    </tr>
+                                </template>
+
+                                <tr v-else>
                                     <td>
-                                        <p>Download <span class="d-none d-md-inline">({{ getEgressPrice(productID) }} per GB)</span></p>
+                                        <p>Egress <span class="d-none d-md-inline">({{ getEgressPrice(productID) }} per GB)</span></p>
                                     </td>
                                     <td class="d-none d-md-table-cell">
                                         <p>{{ getPeriod(charge) }}</p>
                                     </td>
                                     <td class="d-none d-sm-table-cell">
-                                        <p>{{ getEgressAmountAndDimension(charge) }}</p>
+                                        <p>{{ getEgressAmountAndDimension(charge.egress) }}</p>
                                     </td>
                                     <td class="text-right">
                                         <p>{{ centsToDollars(charge.egressPrice) }}</p>
@@ -88,6 +120,36 @@
                                     </td>
                                     <td class="text-right">
                                         <p>{{ centsToDollars(charge.segmentPrice) }}</p>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="parseFloat(charge.priceModel.smallObjectFeeCents) > 0">
+                                    <td>
+                                        <p>Minimum Object Size Remainder</p>
+                                    </td>
+                                    <td class="d-none d-md-table-cell">
+                                        <p>{{ getPeriod(charge) }}</p>
+                                    </td>
+                                    <td class="d-none d-sm-table-cell">
+                                        <p>MB-month</p>
+                                    </td>
+                                    <td class="text-right">
+                                        <p>$0</p>
+                                    </td>
+                                </tr>
+
+                                <tr v-if="parseFloat(charge.priceModel.minimumRetentionFeeCents) > 0">
+                                    <td>
+                                        <p>Minimum Storage Retention Remainder</p>
+                                    </td>
+                                    <td class="d-none d-md-table-cell">
+                                        <p>{{ getPeriod(charge) }}</p>
+                                    </td>
+                                    <td class="d-none d-sm-table-cell">
+                                        <p>MB-month</p>
+                                    </td>
+                                    <td class="text-right">
+                                        <p>$0</p>
                                     </td>
                                 </tr>
                             </tbody>
@@ -197,8 +259,8 @@ function getPeriod(charge: ProjectCharge): string {
 /**
  * Returns formatted egress depending on amount of bytes.
  */
-function egressFormatted(charge: ProjectCharge): Size {
-    return new Size(charge.egress, 2);
+function egressFormatted(egress: number): Size {
+    return new Size(egress, 2);
 }
 
 /**
@@ -241,8 +303,8 @@ function getSegmentPrice(productID: number): string {
 /**
  * Returns string of egress amount and dimension.
  */
-function getEgressAmountAndDimension(charge: ProjectCharge): string {
-    const egress = egressFormatted(charge);
-    return `${egress.formattedBytes} ${egress.label}`;
+function getEgressAmountAndDimension(egress: number): string {
+    const formatted = egressFormatted(egress);
+    return `${formatted.formattedBytes} ${formatted.label}`;
 }
 </script>
