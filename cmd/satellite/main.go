@@ -436,10 +436,10 @@ var (
 		Long: "From the list of users accounts it redacts the users' personal information and marks " +
 			"their accounts as deleted, deactivate their projects, and delete their API keys.\n The " +
 			"accounts must be on 'pending deletion' status, otherwise they are logged with an info " +
-			"message and skipped. The accounts must not have data, othersise they are logged as an " +
+			"message and skipped. The accounts must not have data, otherwise they are logged as an " +
 			"error message and skipped. Unexisting accounts are logged with a debug  message and " +
 			"skipped.\nSystem errors exit the process with an error message.\nThe command can operate " +
-			"on one account or on multiple accounts; when the passed possitional argmuent is a string " +
+			"on one account or on multiple accounts; when the passed positional argument is a string " +
 			"that contains '@', the command considers that's the email address of the user to delete " +
 			"its data, otherwise it considers a path to a CSV file where the first column contains the " +
 			"email of the user's account and if the first row doesn't contain '@' is considered the " +
