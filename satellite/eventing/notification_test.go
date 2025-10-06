@@ -14,15 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
 )
 
 var (
-	TestBucket = metabase.BucketLocation{
-		ProjectID:  uuid.UUID([16]byte{0xd0, 0xfe, 0xe6, 0xc4, 0x12, 0x37, 0x42, 0x24, 0x96, 0x48, 0xcf, 0xab, 0xe3, 0x1f, 0x6e, 0x6f}),
-		BucketName: metabase.BucketName("bucket1"),
-	}
+	TestProjectID = uuid.UUID([16]byte{0xd0, 0xfe, 0xe6, 0xc4, 0x12, 0x37, 0x42, 0x24, 0x96, 0x48, 0xcf, 0xab, 0xe3, 0x1f, 0x6e, 0x6f})
+	TestBucket    = "bucket1"
 )
 
 func TestConvertModsToEvent_Delete(t *testing.T) {
@@ -33,7 +30,6 @@ func TestConvertModsToEvent_Delete(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
-	require.Equal(t, TestBucket, event.Bucket)
 	require.Len(t, event.Records, 1)
 	record := event.Records[0]
 	require.Equal(t, "2.1", record.EventVersion)
@@ -42,8 +38,9 @@ func TestConvertModsToEvent_Delete(t *testing.T) {
 	require.Equal(t, "ObjectRemoved:Delete", record.EventName)
 	require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
-	require.Equal(t, "bucket1", record.S3.Bucket.Name)
-	require.Equal(t, "arn:storj:s3:::bucket1", record.S3.Bucket.Arn)
+	require.Equal(t, TestBucket, record.S3.Bucket.Name)
+	require.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	require.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
 	require.Equal(t, "object1", record.S3.Object.Key)
 	require.Equal(t, "99", record.S3.Object.VersionId)
 	require.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
@@ -57,7 +54,6 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
-	require.Equal(t, TestBucket, event.Bucket)
 	require.Len(t, event.Records, 1)
 	record := event.Records[0]
 	require.Equal(t, "2.1", record.EventVersion)
@@ -66,8 +62,9 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	require.Equal(t, "ObjectCreated:Put", record.EventName)
 	require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
-	require.Equal(t, "bucket1", record.S3.Bucket.Name)
-	require.Equal(t, "arn:storj:s3:::bucket1", record.S3.Bucket.Arn)
+	require.Equal(t, TestBucket, record.S3.Bucket.Name)
+	require.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	require.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
 	require.Equal(t, "object1", record.S3.Object.Key)
 	require.Equal(t, "100", record.S3.Object.VersionId)
 	require.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
@@ -81,7 +78,6 @@ func TestConvertModsToEvent_Update(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
-	require.Equal(t, TestBucket, event.Bucket)
 	require.Len(t, event.Records, 1)
 	record := event.Records[0]
 	require.Equal(t, "2.1", record.EventVersion)
@@ -90,8 +86,9 @@ func TestConvertModsToEvent_Update(t *testing.T) {
 	require.Equal(t, "ObjectCreated:Put", record.EventName)
 	require.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	require.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
-	require.Equal(t, "bucket1", record.S3.Bucket.Name)
-	require.Equal(t, "arn:storj:s3:::bucket1", record.S3.Bucket.Arn)
+	require.Equal(t, TestBucket, record.S3.Bucket.Name)
+	require.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	require.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
 	require.Equal(t, "object1", record.S3.Object.Key)
 	require.Equal(t, "100", record.S3.Object.VersionId)
 	require.Equal(t, "18682C0B37F170B8", record.S3.Object.Sequencer)
@@ -385,7 +382,7 @@ func TestConvertModsToEvent(t *testing.T) {
 					},
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
-							"bucket_name": "bucket1",
+							"bucket_name": TestBucket,
 							"object_key":  "b2JqZWN0MS50eHQ=", // base64: object1.txt
 							"version":     float64(1),
 						},
@@ -416,7 +413,7 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, event.Records, 2)
 
-		require.Equal(t, "bucket1", event.Records[0].S3.Bucket.Name)
+		require.Equal(t, TestBucket, event.Records[0].S3.Bucket.Name)
 		require.Equal(t, "object1.txt", event.Records[0].S3.Object.Key)
 		require.Equal(t, "bucket2", event.Records[1].S3.Bucket.Name)
 		require.Equal(t, "object2.txt", event.Records[1].S3.Object.Key)

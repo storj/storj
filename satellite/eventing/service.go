@@ -5,12 +5,14 @@ package eventing
 
 import (
 	"context"
+	"encoding/base64"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
@@ -23,10 +25,17 @@ type Config struct {
 	TestNewPublisherFn func() (EventPublisher, error) `noflag:"true"`
 }
 
+// PublicProjectIDer is an interface for looking up public project IDs.
+type PublicProjectIDer interface {
+	// GetPublicID returns the public project ID for a given project ID.
+	GetPublicID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+}
+
 // Service implements a changestream processing service.
 type Service struct {
-	db         changestream.Adapter
 	log        *zap.Logger
+	db         changestream.Adapter
+	projects   PublicProjectIDer
 	enabled    eventingconfig.Config
 	cfg        Config
 	publishers map[metabase.BucketLocation]EventPublisher
@@ -34,16 +43,11 @@ type Service struct {
 }
 
 // NewService creates a new changestream service.
-func NewService(db metabase.Adapter, log *zap.Logger, enabled eventingconfig.Config, cfg Config) (*Service, error) {
-	sdb, ok := db.(changestream.Adapter)
-
-	if !ok {
-		return nil, errs.New("changestream service requires spanner adapter")
-	}
-
+func NewService(log *zap.Logger, sdb changestream.Adapter, projects PublicProjectIDer, enabled eventingconfig.Config, cfg Config) (*Service, error) {
 	service := &Service{
 		log:        log,
 		db:         sdb,
+		projects:   projects,
 		enabled:    enabled,
 		cfg:        cfg,
 		publishers: make(map[metabase.BucketLocation]EventPublisher, len(enabled.Buckets)),
@@ -65,27 +69,35 @@ func (s *Service) Run(ctx context.Context) error {
 	// TODO: we need to persist the last processed timestamp, time to time
 	start := time.Now()
 	return changestream.Processor(ctx, s.db, s.cfg.Feedname, start, func(record changestream.DataChangeRecord) error {
-		for _, mod := range record.Mods {
-			s.log.Debug("Received change record",
-				zap.String("table", record.TableName),
-				zap.Time("commit_timestamp", record.CommitTimestamp),
-				zap.String("mod_type", record.ModType),
-				zap.String("record_sequence", record.RecordSequence),
-				zap.String("transaction_tag", record.TransactionTag),
-				zap.Stringer("keys", mod.Keys),
-				zap.Stringer("old_values", mod.OldValues),
-				zap.Stringer("new_values", mod.NewValues))
-		}
-
 		// Ignore errors here, they are logged inside ProcessRecord
 		_ = s.ProcessRecord(ctx, record)
-
 		return nil
 	})
 }
 
 // ProcessRecord processes a single change stream record.
 func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) error {
+	// Replace private project ID with public project ID in the record
+	privateID, err := s.ReplaceProjectID(ctx, record)
+	if err != nil {
+		s.log.Error("Failed to replace project ID in record", zap.Error(err))
+		return err
+	}
+
+	// Log the record for debugging purposes
+	for _, mod := range record.Mods {
+		s.log.Debug("Received change record",
+			zap.String("table", record.TableName),
+			zap.Time("commit_timestamp", record.CommitTimestamp),
+			zap.String("mod_type", record.ModType),
+			zap.String("record_sequence", record.RecordSequence),
+			zap.String("transaction_tag", record.TransactionTag),
+			zap.Stringer("keys", mod.Keys),
+			zap.Stringer("old_values", mod.OldValues),
+			zap.Stringer("new_values", mod.NewValues))
+	}
+
+	// Convert the change stream record to an S3 event
 	event, err := ConvertModsToEvent(record)
 	if err != nil {
 		s.log.Error("Failed to convert mods to event", zap.Error(err))
@@ -97,24 +109,67 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 		return nil
 	}
 
-	publisher, err := s.GetPublisher(ctx, event.Bucket)
+	// Get the publisher for the bucket
+	publisher, err := s.GetPublisher(ctx, metabase.BucketLocation{
+		ProjectID:  privateID,
+		BucketName: metabase.BucketName(event.Records[0].S3.Bucket.Name),
+	})
 	if err != nil {
 		s.log.Error("Failed to get publisher for bucket",
-			zap.Stringer("Project ID", event.Bucket.ProjectID),
-			zap.Stringer("Bucket", event.Bucket.BucketName))
-		return err
-	}
-
-	err = publisher.Publish(ctx, event)
-	if err != nil {
-		s.log.Error("Failed to publish event",
-			zap.Stringer("Project ID", event.Bucket.ProjectID),
-			zap.Stringer("Bucket", event.Bucket.BucketName),
+			zap.String("Project Public ID", event.Records[0].S3.Bucket.OwnerIdentity.PrincipalId),
+			zap.String("Bucket", event.Records[0].S3.Bucket.Name),
 			zap.Error(err))
 		return err
 	}
 
+	// Publish the event
+	err = publisher.Publish(ctx, event)
+	if err != nil {
+		s.log.Error("Failed to publish event",
+			zap.String("Project Public ID", event.Records[0].S3.Bucket.OwnerIdentity.PrincipalId),
+			zap.String("Bucket", event.Records[0].S3.Bucket.Name),
+			zap.Error(err))
+		return err
+	}
+	s.log.Debug("Published event", zap.Any("Event", event))
+
 	return nil
+}
+
+// ReplaceProjectID replaces the private project ID in the record with the corresponding public project ID.
+func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.DataChangeRecord) (replaced uuid.UUID, err error) {
+	for _, mod := range record.Mods {
+		keys, err := parseNullJSONMap(mod.Keys, "keys")
+		if err != nil {
+			return uuid.UUID{}, errs.New("failed to parse keys: %w", err)
+		}
+
+		if projectID, ok := keys["project_id"]; ok {
+			projectIDString, ok := projectID.(string)
+			if !ok {
+				return uuid.UUID{}, errs.New("project_id is not a string")
+			}
+
+			projectIDBytes, err := base64.StdEncoding.DecodeString(projectIDString)
+			if err != nil {
+				return uuid.UUID{}, errs.New("invalid base64 project_id: %w", err)
+			}
+
+			// TODO: what if mods span multiple projects?
+			replaced, err = uuid.FromBytes(projectIDBytes)
+			if err != nil {
+				return uuid.UUID{}, errs.New("invalid project_id uuid: %w", err)
+			}
+
+			publicID, err := s.projects.GetPublicID(ctx, replaced)
+			if err != nil {
+				return uuid.UUID{}, errs.New("failed to get public project ID: %w", err)
+			}
+
+			keys["project_id"] = base64.StdEncoding.EncodeToString(publicID.Bytes())
+		}
+	}
+	return replaced, nil
 }
 
 // GetPublisher returns an EventPublisher for the given bucket location, initializing it if necessary.

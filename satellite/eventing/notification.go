@@ -19,8 +19,7 @@ import (
 
 // Event contains one or more event records.
 type Event struct {
-	Bucket  metabase.BucketLocation `json:"-"`
-	Records []EventRecord           `json:"Records,omitempty"`
+	Records []EventRecord `json:"Records,omitempty"`
 }
 
 // EventRecord represents a change of a database record. Modeled to be compatible with similar events from AWS.
@@ -100,8 +99,6 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 		if bucketName, ok := extractString(keys, "bucket_name"); ok {
 			record.S3.Bucket.Name = bucketName
 			record.S3.Bucket.Arn = fmt.Sprintf("arn:storj:s3:::%s", bucketName)
-			// TODO: what if mods span multiple buckets?
-			event.Bucket.BucketName = metabase.BucketName(bucketName)
 		}
 
 		if projectID, ok := extractString(keys, "project_id"); ok {
@@ -109,13 +106,11 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 			if err != nil {
 				return Event{}, errs.New("invalid base64 project_id: %w", err)
 			}
-			// TODO: what if mods span multiple projects?
-			event.Bucket.ProjectID, err = uuid.FromBytes(projectIDBytes)
+			projectID, err := uuid.FromBytes(projectIDBytes)
 			if err != nil {
 				return Event{}, errs.New("invalid project_id uuid: %w", err)
 			}
-			// TODO: look up the public project ID and set it as the bucket owner
-			// record.S3.Bucket.OwnerIdentity.PrincipalId = publicProjectID
+			record.S3.Bucket.OwnerIdentity.PrincipalId = projectID.String()
 		}
 
 		if objectKey, ok := extractString(keys, "object_key"); ok {

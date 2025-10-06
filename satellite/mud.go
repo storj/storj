@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeevents"
@@ -160,6 +161,14 @@ func Module(ball *mud.Ball) {
 	jobq.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
 	eventing.Module(ball)
+
+	mud.View[metabase.Adapter, changestream.Adapter](ball, func(adapter metabase.Adapter) changestream.Adapter {
+		csAdapter, ok := adapter.(changestream.Adapter)
+		if !ok {
+			panic("changestream service requires spanner adapter")
+		}
+		return csAdapter
+	})
 
 }
 
