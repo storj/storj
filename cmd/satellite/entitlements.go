@@ -73,8 +73,20 @@ func cmdSetNewBucketPlacements(cmd *cobra.Command, _ []string) error {
 	if newPlacements == nil {
 		log.Info("Setting new bucket placements to default values")
 	} else {
+		placements, err := runCfg.Placement.Parse(runCfg.Overlay.Node.CreateDefaultPlacement, nil)
+		if err != nil {
+			return err
+		}
+
 		for _, placementID := range newPlacements {
-			if _, ok := runCfg.Console.Placement.SelfServeDetails.Get(placementID); !ok {
+			placementValid := false
+			for constraint := range placements {
+				if constraint == placementID {
+					placementValid = true
+					break
+				}
+			}
+			if !placementValid {
 				return errs.New("invalid placement ID: %d", placementID)
 			}
 		}
@@ -167,12 +179,25 @@ func setPlacementProductMap(ctx context.Context, log *zap.Logger, satDB satellit
 			return errs.New("error converting product prices: %+v", err)
 		}
 
-		for placement, productID := range mappings {
-			if _, ok := runCfg.Console.Placement.SelfServeDetails.Get(placement); !ok {
-				return errs.New("invalid placement ID: %d", placement)
-			}
+		placements, err := runCfg.Placement.Parse(runCfg.Overlay.Node.CreateDefaultPlacement, nil)
+		if err != nil {
+			return err
+		}
+
+		for placementID, productID := range mappings {
 			if _, ok := productPrices[productID]; !ok {
 				return errs.New("invalid product ID: %d", productID)
+			}
+
+			placementValid := false
+			for constraint := range placements {
+				if constraint == placementID {
+					placementValid = true
+					break
+				}
+			}
+			if !placementValid {
+				return errs.New("invalid placement ID: %d", placementID)
 			}
 		}
 

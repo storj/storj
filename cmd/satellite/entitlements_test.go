@@ -772,10 +772,10 @@ func TestSetEntitlement_Validation(t *testing.T) {
 			t.Run("InvalidMappingsAndPlacement", func(t *testing.T) {
 
 				t.Run("SetNewBucketPlacements", func(t *testing.T) {
-					entitlementJSON = `[3]`
+					entitlementJSON = `[20]`
 					err := cmdSetNewBucketPlacements(nil, nil)
 					require.Error(t, err)
-					require.Contains(t, err.Error(), "invalid placement ID: 3")
+					require.Contains(t, err.Error(), "invalid placement ID: 20")
 				})
 
 				t.Run("SetPlacementProductMap", func(t *testing.T) {
@@ -784,10 +784,10 @@ func TestSetEntitlement_Validation(t *testing.T) {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), "invalid product ID: 3")
 
-					entitlementJSON = `{"1": 1}`
+					entitlementJSON = `{"20": 1}`
 					err = setPlacementProductMap(ctx, testplanet.NewLogger(t), sat.DB)
 					require.Error(t, err)
-					require.Contains(t, err.Error(), "invalid placement ID: 1")
+					require.Contains(t, err.Error(), "invalid placement ID: 20")
 				})
 			})
 
