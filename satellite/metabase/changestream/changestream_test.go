@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metabase_test
+package changestream_test
 
 import (
 	"context"
@@ -14,13 +14,13 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/eventing/changestream"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/shared/dbutil"
 )
 
-func TestChangestream(t *testing.T) {
+func TestChangeStream(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		streamId := metabasetest.RandObjectStream()
 		adapter := db.ChooseAdapter(streamId.ProjectID)
@@ -30,11 +30,11 @@ func TestChangestream(t *testing.T) {
 			t.Skip("test requires Spanner adapter")
 		}
 
-		// Verify that SpannerAdapter implements ChangeStreamAdapter interface
+		// Verify that SpannerAdapter implements Adapter interface
 		spannerAdapter, ok := adapter.(*metabase.SpannerAdapter)
 		require.True(t, ok, "adapter should be SpannerAdapter")
 
-		changeStreamAdapter := metabase.ChangeStreamAdapter(spannerAdapter)
+		changeStreamAdapter := changestream.Adapter(spannerAdapter)
 
 		changefeedName := "test_interface_changefeed"
 
@@ -44,10 +44,10 @@ func TestChangestream(t *testing.T) {
 		startTime := time.Now()
 
 		feedCtx, cancel := context.WithCancel(ctx)
-		changes := make(chan metabase.DataChangeRecord)
+		changes := make(chan changestream.DataChangeRecord)
 		feedErr := make(chan error)
 		go func() {
-			err = changestream.Processor(feedCtx, spannerAdapter, changefeedName, startTime, func(record metabase.DataChangeRecord) error {
+			err = changestream.Processor(feedCtx, spannerAdapter, changefeedName, startTime, func(record changestream.DataChangeRecord) error {
 				changes <- record
 				return nil
 			})

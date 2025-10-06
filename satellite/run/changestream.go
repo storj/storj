@@ -4,7 +4,7 @@
 package root
 
 import (
-	"storj.io/storj/satellite/eventing/changestream"
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/shared/debug"
 	"storj.io/storj/shared/mud"
 )
@@ -17,5 +17,5 @@ type ChangeStream struct {
 func (a *ChangeStream) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),
-		mud.Select[*changestream.Service](ball))
+		mud.Select[*eventing.Service](ball))
 }

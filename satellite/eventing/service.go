@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package changestream
+package eventing
 
 import (
 	"context"
@@ -11,8 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/satellite/eventing"
+	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/changestream"
 )
 
 // Config holds configuration for the changestream service.
@@ -24,32 +25,32 @@ type Config struct {
 
 // Service implements a changestream processing service.
 type Service struct {
-	db          metabase.ChangeStreamAdapter
-	log         *zap.Logger
-	eventingCfg eventing.Config
-	cfg         Config
-	publishers  map[metabase.BucketLocation]EventPublisher
-	mu          sync.RWMutex
+	db         changestream.Adapter
+	log        *zap.Logger
+	enabled    eventingconfig.Config
+	cfg        Config
+	publishers map[metabase.BucketLocation]EventPublisher
+	mu         sync.RWMutex
 }
 
 // NewService creates a new changestream service.
-func NewService(db metabase.Adapter, log *zap.Logger, eventingCfg eventing.Config, cfg Config) (*Service, error) {
-	sdb, ok := db.(metabase.ChangeStreamAdapter)
+func NewService(db metabase.Adapter, log *zap.Logger, enabled eventingconfig.Config, cfg Config) (*Service, error) {
+	sdb, ok := db.(changestream.Adapter)
 
 	if !ok {
 		return nil, errs.New("changestream service requires spanner adapter")
 	}
 
 	service := &Service{
-		log:         log,
-		db:          sdb,
-		eventingCfg: eventingCfg,
-		cfg:         cfg,
-		publishers:  make(map[metabase.BucketLocation]EventPublisher, len(eventingCfg.Buckets)),
+		log:        log,
+		db:         sdb,
+		enabled:    enabled,
+		cfg:        cfg,
+		publishers: make(map[metabase.BucketLocation]EventPublisher, len(enabled.Buckets)),
 	}
 
 	// Validate configured topic names
-	for _, topicName := range eventingCfg.Buckets {
+	for _, topicName := range enabled.Buckets {
 		_, _, err := ParseTopicName(topicName)
 		if err != nil {
 			return nil, err
@@ -63,7 +64,7 @@ func NewService(db metabase.Adapter, log *zap.Logger, eventingCfg eventing.Confi
 func (s *Service) Run(ctx context.Context) error {
 	// TODO: we need to persist the last processed timestamp, time to time
 	start := time.Now()
-	return Processor(ctx, s.db, s.cfg.Feedname, start, func(record metabase.DataChangeRecord) error {
+	return changestream.Processor(ctx, s.db, s.cfg.Feedname, start, func(record changestream.DataChangeRecord) error {
 		for _, mod := range record.Mods {
 			s.log.Debug("Received change record",
 				zap.String("table", record.TableName),
@@ -84,7 +85,7 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // ProcessRecord processes a single change stream record.
-func (s *Service) ProcessRecord(ctx context.Context, record metabase.DataChangeRecord) error {
+func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) error {
 	event, err := ConvertModsToEvent(record)
 	if err != nil {
 		s.log.Error("Failed to convert mods to event", zap.Error(err))
@@ -134,7 +135,7 @@ func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocati
 		return publisher, nil
 	}
 
-	topicName, ok := s.eventingCfg.Buckets[bucket]
+	topicName, ok := s.enabled.Buckets[bucket]
 	if !ok {
 		return nil, errs.New("no topic configured for bucket")
 	}

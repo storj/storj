@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package changestream
+package eventing
 
 import (
 	"encoding/base64"
@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/changestream"
 )
 
 // Event contains one or more event records.
@@ -63,7 +64,7 @@ type EventRecord struct {
 const ISO8601 = "2006-01-02T15:04:05.000Z"
 
 // ConvertModsToEvent converts a DataChangeRecord into an Event containing EventRecords.
-func ConvertModsToEvent(dataRecord metabase.DataChangeRecord) (event Event, err error) {
+func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, err error) {
 	for _, mod := range dataRecord.Mods {
 		record := EventRecord{}
 

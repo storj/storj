@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package changestream
+package eventing
 
 import (
 	"encoding/json"
@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/changestream"
 )
 
 var (
@@ -25,7 +26,7 @@ var (
 )
 
 func TestConvertModsToEvent_Delete(t *testing.T) {
-	var r metabase.DataChangeRecord
+	var r changestream.DataChangeRecord
 	raw, err := os.ReadFile("./testdata/delete.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
@@ -49,7 +50,7 @@ func TestConvertModsToEvent_Delete(t *testing.T) {
 }
 
 func TestConvertModsToEvent_Insert(t *testing.T) {
-	var r metabase.DataChangeRecord
+	var r changestream.DataChangeRecord
 	raw, err := os.ReadFile("./testdata/insert.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
@@ -73,7 +74,7 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 }
 
 func TestConvertModsToEvent_Update(t *testing.T) {
-	var r metabase.DataChangeRecord
+	var r changestream.DataChangeRecord
 	raw, err := os.ReadFile("./testdata/update.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
@@ -100,10 +101,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
 	t.Run("ObjectCreated:Put for CommittedUnversioned", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -144,10 +145,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("ObjectCreated:Put for CommittedVersioned", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -178,10 +179,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("ObjectCreated:Put for CommittedUnversioned with update", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "UPDATE",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -229,10 +230,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("ObjectCreated:Put for CommittedVersioned with update", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "UPDATE",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -270,10 +271,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("ObjectRemoved:DeleteMarkerCreated for DeleteMarkerVersioned", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					Keys: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -304,10 +305,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("ObjectRemoved:DeleteMarkerCreated for DeleteMarkerUnversioned", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -335,10 +336,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("ObjectRemoved:Delete for DELETE operation", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "DELETE",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					OldValues: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -370,10 +371,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("Multiple mods in single record", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{
 						Value: map[string]interface{}{
@@ -422,10 +423,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("Invalid JSON in NewValues returns error", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{Value: "invalid json", Valid: true},
 				},
@@ -438,10 +439,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("Invalid JSON in OldValues returns error", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "DELETE",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					OldValues: spanner.NullJSON{Value: "invalid json", Valid: true},
 				},
@@ -461,10 +462,10 @@ func TestConvertModsToEvent(t *testing.T) {
 		}
 		newValuesJSON, _ := json.Marshal(newValues)
 
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{Value: string(newValuesJSON), Valid: true},
 				},
@@ -477,10 +478,10 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("No valid JSON values", func(t *testing.T) {
-		dataRecord := metabase.DataChangeRecord{
+		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
 			ModType:         "INSERT",
-			Mods: []*metabase.Mods{
+			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{Valid: false},
 					OldValues: spanner.NullJSON{Valid: false},

@@ -9,12 +9,10 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-
-	"storj.io/storj/satellite/metabase"
 )
 
 // Processor processes change stream records in batches (parallel). This contains the logic to follow child partitions.
-func Processor(ctx context.Context, adapter metabase.ChangeStreamAdapter, feedName string, startTime time.Time, fn func(record metabase.DataChangeRecord) error) error {
+func Processor(ctx context.Context, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) error {
 	tracker := &Tracker{
 		todo:    make(map[string]Todo),
 		status:  make(map[string]TodoStatus),
@@ -30,7 +28,7 @@ func Processor(ctx context.Context, adapter metabase.ChangeStreamAdapter, feedNa
 				return ctx.Err()
 			case todoItem := <-tracker.receive:
 				eg.Go(func() error {
-					partitions, err := adapter.ChangeStream(childCtx, feedName, todoItem.Token, todoItem.StarTimestamp, func(record metabase.DataChangeRecord) error {
+					partitions, err := adapter.ChangeStream(childCtx, feedName, todoItem.Token, todoItem.StarTimestamp, func(record DataChangeRecord) error {
 						return fn(record)
 					})
 					if err != nil {

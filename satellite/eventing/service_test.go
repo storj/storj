@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package changestream_test
+package eventing_test
 
 import (
 	"encoding/json"
@@ -16,14 +16,15 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/eventing/changestream"
+	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/shared/dbutil"
 )
 
 func TestProcessRecord(t *testing.T) {
-	var r metabase.DataChangeRecord
+	var r changestream.DataChangeRecord
 	raw, err := os.ReadFile("./testdata/insert.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
@@ -40,13 +41,13 @@ func TestProcessRecord(t *testing.T) {
 		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 		observedLogger := zap.New(observedZapCore).Named("publisher")
 
-		service, err := changestream.NewService(adapter, testplanet.NewLogger(t), eventing.Config{
-			Buckets: eventing.BucketLocationTopicIDMap{
-				changestream.TestBucket: "projects/testproject/topics/testtopic",
+		service, err := eventing.NewService(adapter, testplanet.NewLogger(t), eventingconfig.Config{
+			Buckets: eventingconfig.BucketLocationTopicIDMap{
+				eventing.TestBucket: "projects/testproject/topics/testtopic",
 			},
-		}, changestream.Config{
-			TestNewPublisherFn: func() (changestream.EventPublisher, error) {
-				return changestream.NewLogPublisher(observedLogger), nil
+		}, eventing.Config{
+			TestNewPublisherFn: func() (eventing.EventPublisher, error) {
+				return eventing.NewLogPublisher(observedLogger), nil
 			},
 		})
 		require.NoError(t, err)
@@ -58,7 +59,7 @@ func TestProcessRecord(t *testing.T) {
 }
 
 func TestProcessRecord_NoMatchingBucket(t *testing.T) {
-	var r metabase.DataChangeRecord
+	var r changestream.DataChangeRecord
 	raw, err := os.ReadFile("./testdata/insert.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
@@ -75,16 +76,16 @@ func TestProcessRecord_NoMatchingBucket(t *testing.T) {
 		observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 		observedLogger := zap.New(observedZapCore).Named("eventing")
 
-		service, err := changestream.NewService(adapter, observedLogger, eventing.Config{
-			Buckets: eventing.BucketLocationTopicIDMap{
+		service, err := eventing.NewService(adapter, observedLogger, eventingconfig.Config{
+			Buckets: eventingconfig.BucketLocationTopicIDMap{
 				metabase.BucketLocation{
 					ProjectID:  testrand.UUID(),
 					BucketName: metabase.BucketName(testrand.BucketName()),
 				}: "projects/testproject/topics/testtopic",
 			},
-		}, changestream.Config{
-			TestNewPublisherFn: func() (changestream.EventPublisher, error) {
-				return changestream.NewLogPublisher(observedLogger), nil
+		}, eventing.Config{
+			TestNewPublisherFn: func() (eventing.EventPublisher, error) {
+				return eventing.NewLogPublisher(observedLogger), nil
 			},
 		})
 		require.NoError(t, err)
@@ -105,11 +106,11 @@ func TestProcessRecord_InvalidTopicName(t *testing.T) {
 
 		adapter := db.ChooseAdapter(testrand.UUID())
 
-		_, err := changestream.NewService(adapter, testplanet.NewLogger(t), eventing.Config{
-			Buckets: eventing.BucketLocationTopicIDMap{
-				changestream.TestBucket: "invalid/topic/name",
+		_, err := eventing.NewService(adapter, testplanet.NewLogger(t), eventingconfig.Config{
+			Buckets: eventingconfig.BucketLocationTopicIDMap{
+				eventing.TestBucket: "invalid/topic/name",
 			},
-		}, changestream.Config{})
+		}, eventing.Config{})
 		require.Error(t, err)
 	})
 }

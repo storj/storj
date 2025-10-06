@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
-package eventing_test
+package eventingconfig_test
 
 import (
 	"testing"
@@ -9,13 +9,13 @@ import (
 
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/eventing"
+	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/metabase"
 )
 
 func TestBucketLocationTopicIDMap(t *testing.T) {
 	t.Run("invalid inputs", func(t *testing.T) {
-		var m eventing.BucketLocationTopicIDMap
+		var m eventingconfig.BucketLocationTopicIDMap
 
 		// Not enough parts
 		err := m.Set("invalidtuple")
@@ -38,7 +38,7 @@ func TestBucketLocationTopicIDMap(t *testing.T) {
 
 		// Valid input
 		validStr := idA.String() + ":bucketA:valueA," + idB.String() + ":bucketB:valueB"
-		var m eventing.BucketLocationTopicIDMap
+		var m eventingconfig.BucketLocationTopicIDMap
 		err := m.Set(validStr)
 		require.NoError(t, err)
 		require.Len(t, m, 2)
@@ -90,7 +90,7 @@ func TestBucketLocationTopicIDMap(t *testing.T) {
 		topic1 := "topicA"
 		topic2 := "topicB"
 
-		m := eventing.BucketLocationTopicIDMap{
+		m := eventingconfig.BucketLocationTopicIDMap{
 			metabase.BucketLocation{
 				ProjectID:  projectID1,
 				BucketName: metabase.BucketName(bucketName1),
@@ -111,7 +111,7 @@ func TestBucketLocationTopicIDMap(t *testing.T) {
 		projectID1 := testrand.UUID()
 		projectID2 := testrand.UUID()
 
-		bucketMap := eventing.BucketLocationTopicIDMap{
+		bucketMap := eventingconfig.BucketLocationTopicIDMap{
 			metabase.BucketLocation{
 				ProjectID:  projectID1,
 				BucketName: "bucketA",

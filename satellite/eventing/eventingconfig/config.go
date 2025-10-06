@@ -1,6 +1,6 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
-package eventing
+package eventingconfig
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-// Config is the configuration for bucket eventing.
+// Config specifies the buckets with enabled eventing and their destinations.
 type Config struct {
 	Buckets BucketLocationTopicIDMap `help:"defines which buckets are monitored for events (comma separated list of \"project_id:bucket_name:topic_id\")" default:""`
 }

@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/eventing/changestream"
+	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -81,7 +81,7 @@ func Module(ball *mud.Ball) {
 	rangedloop.Module(ball)
 	metainfo.Module(ball)
 	metabase.Module(ball)
-	eventing.Module(ball)
+	eventingconfig.Module(ball)
 
 	{
 		orders.Module(ball)
@@ -129,7 +129,7 @@ func Module(ball *mud.Ball) {
 	}
 
 	mud.Provide[*metainfo.MigrationModeFlagExtension](ball, metainfo.NewMigrationModeFlagExtension)
-	mud.Provide[eventing.BucketLocationTopicIDMap](ball, func(config eventing.Config) eventing.BucketLocationTopicIDMap {
+	mud.Provide[eventingconfig.BucketLocationTopicIDMap](ball, func(config eventingconfig.Config) eventingconfig.BucketLocationTopicIDMap {
 		return config.Buckets
 	})
 	mud.Provide[*EndpointRegistration](ball, func(srv *server.Server, metainfoEndpoint *metainfo.Endpoint) (*EndpointRegistration, error) {
@@ -159,7 +159,7 @@ func Module(ball *mud.Ball) {
 	reputation.Module(ball)
 	jobq.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
-	changestream.Module(ball)
+	eventing.Module(ball)
 
 }
 

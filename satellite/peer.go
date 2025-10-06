@@ -48,7 +48,7 @@ import (
 	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/eventing"
+	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
@@ -189,7 +189,7 @@ type Config struct {
 	NodeEvents   nodeevents.Config
 	StrayNodes   straynodes.Config
 
-	BucketEventing eventing.Config
+	BucketEventing eventingconfig.Config
 	Metainfo       metainfo.Config
 	Orders         orders.Config
 

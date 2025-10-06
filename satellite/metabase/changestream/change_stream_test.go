@@ -1,7 +1,7 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metabase_test
+package changestream_test
 
 import (
 	"context"
@@ -18,14 +18,14 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/eventing/changestream"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/shared/dbutil"
 )
 
 func TestSpannerChangeStreamMessageGeneration(t *testing.T) {
-	t.Skip("Skipping change stream tests in CI, for now - testing this with emulator is very slow (20-25 delay between events might be possible)")
+	//	t.Skip("Skipping change stream tests in CI, for now - testing this with emulator is very slow (20-25 delay between events might be possible)")
 	// Run test only on Spanner since change streams are Spanner-specific
 	metabasetest.RunWithConfig(t, metabase.Config{
 		ApplicationName:  "test-change-stream",
@@ -337,7 +337,7 @@ func testNoEventsForNonTrackedColumns(ctx context.Context, t *testing.T, db *met
 // Helper function to set up change stream reader and basic test objects
 func setupChangeStreamTest(ctx context.Context, t *testing.T, db *metabase.DB) (
 	projectID uuid.UUID, bucketName metabase.BucketName, adapter *metabase.SpannerAdapter,
-	eventCh <-chan metabase.DataChangeRecord, errCh <-chan error, cleanup func()) {
+	eventCh <-chan changestream.DataChangeRecord, errCh <-chan error, cleanup func()) {
 
 	projectID = testrand.UUID()
 	bucketName = metabase.BucketName(testrand.BucketName())
@@ -357,8 +357,8 @@ func setupChangeStreamTest(ctx context.Context, t *testing.T, db *metabase.DB) (
 }
 
 // Helper function to collect events with timeout
-func collectChangeStreamEvents(t *testing.T, eventCh <-chan metabase.DataChangeRecord, errCh <-chan error, timeout time.Duration) []metabase.DataChangeRecord {
-	var events []metabase.DataChangeRecord
+func collectChangeStreamEvents(t *testing.T, eventCh <-chan changestream.DataChangeRecord, errCh <-chan error, timeout time.Duration) []changestream.DataChangeRecord {
+	var events []changestream.DataChangeRecord
 	overallTimeout := time.After(timeout)
 	eventTimeout := time.After(20 * time.Second) // Wait at least 20 seconds for events
 
@@ -392,9 +392,9 @@ func collectChangeStreamEvents(t *testing.T, eventCh <-chan metabase.DataChangeR
 }
 
 // Helper function to verify events match expected criteria
-func verifyExpectedEvents(t *testing.T, events []metabase.DataChangeRecord, expectedCount int, afterTime time.Time) {
+func verifyExpectedEvents(t *testing.T, events []changestream.DataChangeRecord, expectedCount int, afterTime time.Time) {
 	// Look for events related to our test operations
-	var relevantEvents []metabase.DataChangeRecord
+	var relevantEvents []changestream.DataChangeRecord
 	for _, event := range events {
 		if event.TableName == "objects" && event.CommitTimestamp.After(afterTime.Add(-1*time.Second)) {
 			relevantEvents = append(relevantEvents, event)
@@ -418,8 +418,8 @@ func verifyExpectedEvents(t *testing.T, events []metabase.DataChangeRecord, expe
 }
 
 // Helper function to filter events by time
-func filterRelevantEvents(events []metabase.DataChangeRecord, afterTime time.Time) []metabase.DataChangeRecord {
-	var relevantEvents []metabase.DataChangeRecord
+func filterRelevantEvents(events []changestream.DataChangeRecord, afterTime time.Time) []changestream.DataChangeRecord {
+	var relevantEvents []changestream.DataChangeRecord
 	for _, event := range events {
 		if event.TableName == "objects" && event.CommitTimestamp.After(afterTime.Add(-1*time.Second)) {
 			relevantEvents = append(relevantEvents, event)
@@ -461,8 +461,8 @@ func verifyChangeStreamExists(ctx context.Context, adapter *metabase.SpannerAdap
 
 // startChangeStreamReader starts reading change stream events in the background
 // and returns a channel that will receive events as they occur
-func startChangeStreamReader(ctx context.Context, adapter *metabase.SpannerAdapter, streamName string) (<-chan metabase.DataChangeRecord, <-chan error, func()) {
-	eventCh := make(chan metabase.DataChangeRecord, 100) // Buffer to avoid blocking
+func startChangeStreamReader(ctx context.Context, adapter *metabase.SpannerAdapter, streamName string) (<-chan changestream.DataChangeRecord, <-chan error, func()) {
+	eventCh := make(chan changestream.DataChangeRecord, 100) // Buffer to avoid blocking
 	errCh := make(chan error, 1)
 
 	// Create a cancellable context for the processor
@@ -475,7 +475,7 @@ func startChangeStreamReader(ctx context.Context, adapter *metabase.SpannerAdapt
 
 		startTime := time.Now()
 
-		err := changestream.Processor(processorCtx, adapter, streamName, startTime, func(record metabase.DataChangeRecord) error {
+		err := changestream.Processor(processorCtx, adapter, streamName, startTime, func(record changestream.DataChangeRecord) error {
 			select {
 			case eventCh <- record:
 			case <-processorCtx.Done():
