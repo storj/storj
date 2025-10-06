@@ -18,9 +18,17 @@ STORJ_PAYMENTS_PRODUCTS: |
     storage-sku: "storage_sku_value"
     egress: "price_per_TB"
     egress-sku: "egress_sku_value"
+    included-egress-sku: "included_egress_sku_value"
+    egress-discount-ratio: ratio_value
+    egress-overage-mode: boolean_value
     segment: "price_per_segment_per_month"
     segment-sku: "segment_sku_value"
-    egress-discount-ratio: ratio_value
+    small-object-fee: "fee_per_TB"
+    small-object-fee-sku: "small_object_sku_value"
+    minimum-retention-fee: "fee_per_TB_per_month"
+    minimum-retention-fee-sku: "minimum_retention_sku_value"
+    use-gb-units: boolean_value
+    storage-remainder: integer_value
 ```
 
 ### Fields
@@ -30,9 +38,17 @@ STORJ_PAYMENTS_PRODUCTS: |
 - `storage-sku`: SKU for storage
 - `egress`: Price for egress in dollars/TB
 - `egress-sku`: SKU for egress
+- `included-egress-sku`: SKU for included egress
+- `egress-overage-mode`: Boolean indicating if egress overage mode is enabled
+- `egress-discount-ratio`: Ratio of free egress per unit-month of storage
 - `segment`: Price for segments stored on network per month in dollars/segment
 - `segment-sku`: SKU for segment storage
-- `egress-discount-ratio`: Ratio of free egress per unit-month of storage
+- `small-object-fee`: Fee for small objects per TB
+- `small-object-fee-sku`: SKU for small object fee
+- `minimum-retention-fee`: Minimum retention fee per TB per month
+- `minimum-retention-fee-sku`: SKU for minimum retention fee
+- `use-gb-units`: Boolean flag to use GB units instead of MB units on invoices (true for GB, false for MB)
+- `storage-remainder`: Remainder storage in bytes
 
 ### Example Configuration
 
@@ -65,6 +81,22 @@ STORJ_PAYMENTS_PRODUCTS: |
     segment: "0.0000066"
     segment-sku: "segment_sku_value_3"
     egress-discount-ratio: 0.0
+  4:
+    name: "Global Collaboration"
+    storage: 15
+    storage-sku: "storage_sku_value_4"
+    egress: 20
+    egress-sku: "egress_sku_value_4"
+    egress-discount-ratio: 1
+    included-egress-sku: "included_egress_sku_value_4"
+    segment: 0
+    small-object-fee: 15
+    small-object-fee-sku: "small_object_sku_value_4"
+    minimum-retention-fee: 15
+    minimum-retention-fee-sku: "minimum_retention_sku_value_4"
+    egress-overage-mode: true
+    use-gb-units: true
+    storage-remainder: 50000
 ```
 
 ## PlacementPriceOverrides
