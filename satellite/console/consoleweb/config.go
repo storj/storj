@@ -98,6 +98,7 @@ type FrontendConfig struct {
 	UseGeneratedPrivateAPI            bool                        `json:"useGeneratedPrivateAPI"`
 	Announcement                      console.AnnouncementConfig  `json:"announcement"`
 	ComputeUIEnabled                  bool                        `json:"computeUIEnabled"`
+	EntitlementsEnabled               bool                        `json:"entitlementsEnabled"`
 	ShowNewPricingTiers               bool                        `json:"showNewPricingTiers"`
 	ComputeGatewayURL                 string                      `json:"computeGatewayURL"`
 }

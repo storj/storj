@@ -440,7 +440,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-placements", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
+
+	// This endpoint is deprecated. A project's available placement details are now added to the project config endpoint.
+	// N.B. Keep this endpoint for some time to avoid errors in old console UI builds.
 	bucketsRouter.HandleFunc("/placement-details", bucketsController.GetPlacementDetails).Methods(http.MethodGet, http.MethodOptions)
+
 	bucketsRouter.HandleFunc("/bucket-metadata", bucketsController.GetBucketMetadata).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/usage-totals", bucketsController.GetBucketTotals).Methods(http.MethodGet, http.MethodOptions)
 	bucketsRouter.HandleFunc("/bucket-totals", bucketsController.GetSingleBucketTotals).Methods(http.MethodGet, http.MethodOptions)
@@ -1136,6 +1140,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,
 		Announcement:                      server.config.Announcement,
 		ComputeUIEnabled:                  server.config.ComputeUiEnabled,
+		EntitlementsEnabled:               server.config.EntitlementsEnabled,
 		ShowNewPricingTiers:               server.config.ShowNewPricingTiers,
 		ComputeGatewayURL:                 server.config.ComputeGatewayURL,
 		MinimumCharge: console.MinimumChargeConfig{

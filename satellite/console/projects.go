@@ -312,6 +312,7 @@ type ProjectConfig struct {
 	Role                 ProjectMemberRole `json:"role"`
 	Salt                 string            `json:"salt"`
 	MembersCount         uint64            `json:"membersCount"`
+	AvailablePlacements  []PlacementDetail `json:"availablePlacements"`
 }
 
 // DeleteProjectInfo holds data for project deletion UI flow.

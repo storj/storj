@@ -58,6 +58,7 @@ type Config struct {
 	ValidAnnouncementNames            []string                  `help:"list of valid announcement names that can be used in the UI" default:"[]"`
 	ComputeUiEnabled                  bool                      `help:"whether the compute UI is enabled" default:"false"`
 	ShowNewPricingTiers               bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
+	EntitlementsEnabled               bool                      `help:"whether entitlements are enabled" default:"false" hidden:"true"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig

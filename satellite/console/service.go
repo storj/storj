@@ -3584,6 +3584,17 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
 
+	placementDetails, entitlementsHasPlacements, err := s.getPlacementDetails(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.entitlementsConfig.Enabled && !entitlementsHasPlacements && project.DefaultPlacement != storj.DefaultPlacement {
+		// this project is configured to be only able to create buckets with the default placement,
+		// so it should not have any other available placements.
+		placementDetails = make([]PlacementDetail, 0)
+	}
+
 	return &ProjectConfig{
 		HasManagedPassphrase: hasManagedPassphrase,
 		EncryptPath:          pathEncryptionEnabled,
@@ -3593,6 +3604,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 		MembersCount:         membersCount,
+		AvailablePlacements:  placementDetails,
 	}, nil
 }
 
@@ -5300,21 +5312,27 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 }
 
 // GetPlacementDetails retrieves all placement with human-readable details available to a project's user agent.
-func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) (_ []PlacementDetail, err error) {
+// It also returns whether the project's entitlement has any new bucket placements configured. This return is
+// mainly to be tested to ensure (s *Service) getPlacementDetails is correct.
+func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) (_ []PlacementDetail, entitlementsHasPlacements bool, err error) {
 	user, err := GetUser(ctx)
 	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
+		return nil, false, ErrUnauthorized.Wrap(err)
 	}
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, ErrUnauthorized.Wrap(err)
+		return nil, false, ErrUnauthorized.Wrap(err)
 	}
 
 	project := isMember.project
 
-	placements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(isMember.project.UserAgent))
+	return s.getPlacementDetails(ctx, project)
+}
+
+func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]PlacementDetail, bool, error) {
+	placements, entitlementsHasPlacements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(project.UserAgent))
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, false, err
 	}
 
 	details := make([]PlacementDetail, 0)
@@ -5323,7 +5341,7 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 			details = append(details, detail)
 		}
 	}
-	return details, nil
+	return details, entitlementsHasPlacements, nil
 }
 
 // GetUsageReportParam contains parameters for GetUsageReport method.

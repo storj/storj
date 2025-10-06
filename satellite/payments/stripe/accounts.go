@@ -739,18 +739,21 @@ func (accounts *accounts) ProductIdAndPriceForUsageKey(ctx context.Context, proj
 // project on the entitlements level or those allowed globally for the partner if entitlements are disabled.
 // In the case of disabled entitlements, it also includes the placements for the default product price
 // config that have not been overridden for the partner.
-func (accounts *accounts) GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) ([]storj.PlacementConstraint, error) {
+// It also returns a boolean, entitlementHasPlacement, indicating if the project's entitlement has any new buckets
+// placements defined.
+func (accounts *accounts) GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) (_ []storj.PlacementConstraint, entitlementHasPlacement bool, _ error) {
 	placements := make([]storj.PlacementConstraint, 0)
 
 	if accounts.service.config.EntitlementsEnabled {
 		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
 		switch {
 		case err == nil:
+			entitlementHasPlacement = len(feats.NewBucketPlacements) > 0
 			placements = append(placements, feats.NewBucketPlacements...)
 			sort.SliceStable(placements, func(i, j int) bool {
 				return placements[i] < placements[j]
 			})
-			return placements, nil
+			return placements, entitlementHasPlacement, nil
 		case entitlements.ErrNotFound.Has(err):
 			// fall through to global level partner placements
 			// log at info level, as this is not an error case
@@ -758,7 +761,7 @@ func (accounts *accounts) GetPartnerPlacements(ctx context.Context, projectPubli
 				"no entitlements found for project, falling back to partner placements",
 				zap.String("partner", partner), zap.String("projectPublicID", projectPublicID.String()))
 		default:
-			return nil, err
+			return nil, false, err
 		}
 	}
 
@@ -778,7 +781,7 @@ func (accounts *accounts) GetPartnerPlacements(ctx context.Context, projectPubli
 		return placements[i] < placements[j]
 	})
 
-	return placements, nil
+	return placements, false, nil
 }
 
 // CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
