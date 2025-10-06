@@ -134,7 +134,18 @@ func (s *SpannerAdapter) ChangeStream(ctx context.Context, name string, partitio
 				}
 			}
 			for _, partition := range record.ChildPartitionsRecord {
+				for _, child := range partition.ChildPartitions {
+					s.log.Debug("Received child partition",
+						zap.Time("start_timestamp", partition.StartTimestamp),
+						zap.String("record_sequence", partition.RecordSequence),
+						zap.String("token", partitionToken),
+						zap.String("child_token", child.Token),
+						zap.Strings("parent_token", child.ParentPartitionTokens))
+				}
 				childPartitions = append(childPartitions, *partition)
+			}
+			for _, hb := range record.HeartbeatRecord {
+				s.log.Debug("Received heartbeat", zap.String("token", partitionToken), zap.Time("timestamp", hb.Timestamp))
 			}
 		}
 		return nil
