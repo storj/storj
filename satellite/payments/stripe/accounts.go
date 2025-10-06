@@ -624,11 +624,17 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 			usage := productUsages[productID]
 			info := productInfos[productID]
 
-			usage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
-			price := accounts.service.calculateProjectUsagePrice(usage, info.ProjectUsagePriceModel)
+			discountedUsage := usage.Clone() // make a copy to avoid modifying the original usage.
+			discountedUsage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
+
+			if info.EgressOverageMode {
+				discountedUsage.IncludedEgress = usage.Egress - discountedUsage.Egress
+			}
+
+			price := accounts.service.calculateProjectUsagePrice(discountedUsage, info.ProjectUsagePriceModel)
 
 			productCharges[productID] = payments.ProductCharge{
-				ProjectUsage: usage,
+				ProjectUsage: discountedUsage,
 
 				ProductUsagePriceModel: info,
 

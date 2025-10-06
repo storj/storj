@@ -732,7 +732,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		productIDStr := strconv.Itoa(int(productID))
 
 		// Calculate egress discount.
-		discountedUsage := usage
+		discountedUsage := usage.Clone()
 		discountedUsage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
 
 		// Create storage invoice item.

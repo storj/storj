@@ -4,6 +4,7 @@
 package stripe_test
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -302,9 +303,10 @@ func TestProductCharges(t *testing.T) {
 		Segment:   "400",
 	}
 	partnerPrice := paymentsconfig.ProjectUsagePrice{
-		StorageTB: "500",
-		EgressTB:  "600",
-		Segment:   "700",
+		StorageTB:           "500",
+		EgressTB:            "600",
+		Segment:             "700",
+		EgressDiscountRatio: 0.25, // 25% discount = 75% charged, 25% included.
 	}
 
 	// Set up products with prices.
@@ -315,6 +317,7 @@ func TestProductCharges(t *testing.T) {
 	partnerProduct := paymentsconfig.ProductUsagePrice{
 		Name:              "Partner Product",
 		ProjectUsagePrice: partnerPrice,
+		EgressOverageMode: true,
 	}
 
 	// Set up product ID mappings.
@@ -451,10 +454,24 @@ func TestProductCharges(t *testing.T) {
 					require.Equal(t, "Standard Product", charge.ProductName, "Product ID 1 should have correct name")
 					product1Charge = &charge
 
+					// Verify standard product does not have egress overage mode.
+					require.False(t, charge.EgressOverageMode, "Product 1 should not have egress overage mode")
+					require.Equal(t, int64(0), charge.ProjectUsage.IncludedEgress, "Included egress should be 0 when egress overage mode is disabled")
+
 				case 2:
 					foundProduct2 = true
 					require.Equal(t, "Partner Product", charge.ProductName, "Product ID 2 should have correct name")
 					product2Charge = &charge
+
+					// Verify egress overage mode fields.
+					require.True(t, charge.EgressOverageMode, "Product 2 should have egress overage mode enabled")
+					require.Greater(t, charge.ProjectUsage.IncludedEgress, int64(0), "Included egress should be positive for egress overage mode")
+					// Verify that included egress is calculated based on storage usage.
+					// The formula is: IncludedEgress = Storage / hoursPerMonth * EgressDiscountRatio.
+					const hoursPerMonth = 720
+					expectedIncluded := int64(math.Round(charge.ProjectUsage.Storage / hoursPerMonth * 0.25))
+					require.Equal(t, expectedIncluded, charge.ProjectUsage.IncludedEgress,
+						"Included egress should equal storage-based discount (Storage/720 * 0.25)")
 
 				default:
 					require.FailNow(t, "Unexpected product ID found", "Got product ID %d, expected only 1 or 2", productID)

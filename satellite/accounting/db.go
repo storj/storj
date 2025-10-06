@@ -91,13 +91,29 @@ type NodePaymentInfo struct {
 // ProjectUsage consist of period total storage, egress
 // and objects count per hour for certain Project in bytes.
 type ProjectUsage struct {
-	Storage      float64 `json:"storage"`
-	Egress       int64   `json:"egress"`
-	SegmentCount float64 `json:"segmentCount"`
-	ObjectCount  float64 `json:"objectCount"`
+	Storage float64 `json:"storage"`
+	// IncludedEgress is the amount of egress included as free in the tier/product.
+	// It should be calculated if the product/tier has egress overage mode enabled.
+	IncludedEgress int64   `json:"includedEgress"`
+	Egress         int64   `json:"egress"`
+	SegmentCount   float64 `json:"segmentCount"`
+	ObjectCount    float64 `json:"objectCount"`
 
 	Since  time.Time `json:"since"`
 	Before time.Time `json:"before"`
+}
+
+// Clone creates a copy of ProjectUsage.
+func (pu *ProjectUsage) Clone() (usage ProjectUsage) {
+	usage.Storage = pu.Storage
+	usage.IncludedEgress = pu.IncludedEgress
+	usage.Egress = pu.Egress
+	usage.SegmentCount = pu.SegmentCount
+	usage.ObjectCount = pu.ObjectCount
+	usage.Since = pu.Since
+	usage.Before = pu.Before
+
+	return usage
 }
 
 // ProjectObjectsSegments consist of period total objects and segments count for certain Project.
