@@ -5,12 +5,12 @@ package changestream
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/satellite/eventing"
@@ -141,22 +141,28 @@ func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocati
 		return nil, errs.New("no topic configured for bucket")
 	}
 
-	projectID, topicID, err := ParseTopicName(topicName)
-	if err != nil {
-		return nil, err
-	}
-
 	var publisher EventPublisher
 	if s.cfg.TestNewPublisherFn != nil {
+		var err error
 		publisher, err = s.cfg.TestNewPublisherFn()
+		if err != nil {
+			return nil, err
+		}
+	} else if topicName == "@log" {
+		publisher = NewLogPublisher(s.log)
 	} else {
+		projectID, topicID, err := ParseTopicName(topicName)
+		if err != nil {
+			return nil, err
+		}
+
 		publisher, err = NewPubSubPublisher(ctx, PubSubConfig{
 			ProjectID: projectID,
 			TopicID:   topicID,
 		})
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	s.publishers[bucket] = publisher

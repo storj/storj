@@ -97,6 +97,9 @@ var _ EventPublisher = &LogPublisher{}
 
 // ParseTopicName parses a fully-qualified Pub/Sub topic name into project ID and topic ID.
 func ParseTopicName(fullyQualifiedName string) (projectID, topicID string, err error) {
+	if fullyQualifiedName == "@log" {
+		return "", "", nil
+	}
 	// The expected format is "projects/PROJECT_ID/topics/TOPIC_ID"
 	parts := strings.Split(fullyQualifiedName, "/")
 	if len(parts) != 4 {
