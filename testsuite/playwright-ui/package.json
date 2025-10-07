@@ -32,6 +32,6 @@
     "uuid": "9.0.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.55.0-alpha-1755516433000"
+    "@playwright/test": "1.56.0"
   }
 }
