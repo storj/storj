@@ -674,6 +674,9 @@ const (
 	retentionModeComplianceAndGovernanceMask = "3"
 	retentionModeLegalHold                   = "4"
 	retentionModesComplianceAndGovernance    = "(" + retentionModeCompliance + "," + retentionModeGovernance + ")"
+
+	// DefaultStatus is the default status for new objects.
+	DefaultStatus = Pending
 )
 
 func committedWhereVersioned(versioned bool) ObjectStatus {

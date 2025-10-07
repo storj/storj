@@ -119,6 +119,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 			ObjectKey:  opts.ObjectKey,
 			StreamID:   opts.StreamID,
 		},
+		Status:                 DefaultStatus,
 		ExpiresAt:              opts.ExpiresAt,
 		Encryption:             opts.Encryption,
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
@@ -152,7 +153,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 				$8, $9, $10, $11,
 				$12, $13
 			)
-			RETURNING status, version, created_at
+			RETURNING version, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
@@ -161,7 +162,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 			retentionMode: &opts.Retention.Mode,
 			legalHold:     &opts.LegalHold,
 		}, timeWrapper{&opts.Retention.RetainUntil},
-	).Scan(&object.Status, &object.Version, &object.CreatedAt)
+	).Scan(&object.Version, &object.CreatedAt)
 }
 
 // BeginObjectNextVersion implements Adapter.
@@ -187,7 +188,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 					@retention_mode, @retain_until
 				)
-				THEN RETURN status,version,created_at`,
+				THEN RETURN version, created_at`,
 			Params: map[string]interface{}{
 				"project_id":                       opts.ProjectID.Bytes(),
 				"bucket_name":                      opts.BucketName,
@@ -207,7 +208,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 				"retain_until": timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
-			return Error.Wrap(row.Columns(&object.Status, &object.Version, &object.CreatedAt))
+			return Error.Wrap(row.Columns(&object.Version, &object.CreatedAt))
 		}))
 	}, spanner.TransactionOptions{
 		CommitOptions: spanner.CommitOptions{
@@ -295,6 +296,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 			Version:    opts.Version,
 			StreamID:   opts.StreamID,
 		},
+		Status:                 DefaultStatus,
 		ExpiresAt:              opts.ExpiresAt,
 		Encryption:             opts.Encryption,
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
@@ -331,7 +333,7 @@ func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts Begi
 			$9, $10, $11, $12,
 			$13, $14
 		)
-		RETURNING status, created_at
+		RETURNING created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
@@ -341,7 +343,7 @@ func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts Begi
 			legalHold:     &opts.LegalHold,
 		}, timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(
-		&object.Status, &object.CreatedAt,
+		&object.CreatedAt,
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
@@ -367,7 +369,7 @@ func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts Begin
 				@zombie_deletion_deadline,
 				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@retention_mode, @retain_until
-			) THEN RETURN status, created_at`,
+			) THEN RETURN created_at`,
 			Params: map[string]interface{}{
 				"project_id":                       opts.ProjectID,
 				"bucket_name":                      opts.BucketName,
@@ -388,7 +390,7 @@ func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts Begin
 				"retain_until": timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
-			return Error.Wrap(row.Columns(&object.Status, &object.CreatedAt))
+			return Error.Wrap(row.Columns(&object.CreatedAt))
 		})
 
 		if err != nil {
