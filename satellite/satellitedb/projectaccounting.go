@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -331,6 +332,178 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 	}
 
 	return result, nil
+}
+
+// GetBucketsWithEntitlementsInRange returns all buckets in a given range with their entitlements.
+func (db *ProjectAccounting) GetBucketsWithEntitlementsInRange(
+	ctx context.Context,
+	from, to metabase.BucketLocation,
+	projectScopePrefix string,
+) ([]accounting.BucketLocationWithEntitlements, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		return db.getBucketsWithEntitlementsPostgres(ctx, from, to, projectScopePrefix)
+	case dbutil.Spanner:
+		return db.getBucketsWithEntitlementsSpanner(ctx, from, to, projectScopePrefix)
+	default:
+		return nil, Error.New("unsupported database dialect: %s", db.db.impl)
+	}
+}
+
+func (db *ProjectAccounting) getBucketsWithEntitlementsPostgres(
+	ctx context.Context,
+	from, to metabase.BucketLocation,
+	projectScopePrefix string,
+) (result []accounting.BucketLocationWithEntitlements, err error) {
+	query := `
+		SELECT
+			bm.project_id,
+			bm.name,
+			bm.placement,
+			e.features,
+			COALESCE(latest_tally.object_count, 0) > 0 AS has_previous_tally
+		FROM bucket_metainfos bm
+		LEFT JOIN (
+			SELECT DISTINCT ON (bst.project_id, bst.bucket_name)
+				bst.project_id,
+				bst.bucket_name,
+				bst.object_count
+			FROM bucket_storage_tallies bst
+			WHERE (bst.project_id, bst.bucket_name) BETWEEN ($1, $2) AND ($3, $4)
+			ORDER BY bst.project_id, bst.bucket_name, bst.interval_start DESC
+		) latest_tally
+			ON bm.project_id = latest_tally.project_id
+			AND bm.name = latest_tally.bucket_name
+		INNER JOIN projects p
+			ON bm.project_id = p.id
+		LEFT JOIN entitlements e
+			ON e.scope = $5::bytea || p.public_id
+		WHERE (bm.project_id, bm.name) BETWEEN ($1, $2) AND ($3, $4)
+	`
+
+	rows, err := db.db.QueryContext(ctx, query,
+		from.ProjectID, []byte(from.BucketName),
+		to.ProjectID, []byte(to.BucketName),
+		[]byte(projectScopePrefix))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var b accounting.BucketLocationWithEntitlements
+			var features sql.NullString
+			if err := rows.Scan(
+				&b.Location.ProjectID,
+				&b.Location.BucketName,
+				&b.Placement,
+				&features,
+				&b.HasPreviousTally,
+			); err != nil {
+				return Error.Wrap(err)
+			}
+			if features.Valid {
+				if err = json.Unmarshal([]byte(features.String), &b.ProjectFeatures); err != nil {
+					return Error.Wrap(err)
+				}
+			}
+			result = append(result, b)
+		}
+		return nil
+	})
+
+	return result, Error.Wrap(err)
+}
+
+func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
+	ctx context.Context,
+	from, to metabase.BucketLocation,
+	projectScopePrefix string,
+) (result []accounting.BucketLocationWithEntitlements, err error) {
+	fromTupleTally, err := spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	toTupleTally, err := spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	fromTupleBucket, err := spannerutil.TupleGreaterThanSQL([]string{"bm.project_id", "bm.name"}, []string{"@from_project_id", "@from_name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	toTupleBucket, err := spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"bm.project_id", "bm.name"}, true)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	query := `
+		SELECT
+			bm.project_id,
+			bm.name,
+			bm.placement,
+			TO_JSON_STRING(e.features) AS features_json,
+			COALESCE(bucket_info.last_object_count, 0) > 0 AS has_previous_tally
+		FROM bucket_metainfos bm
+		LEFT JOIN (
+			SELECT
+				project_id,
+				bucket_name,
+				ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
+			FROM bucket_storage_tallies
+			WHERE ` + fromTupleTally + ` AND ` + toTupleTally + `
+			GROUP BY project_id, bucket_name
+		) bucket_info
+			ON bm.project_id = bucket_info.project_id
+			AND bm.name = bucket_info.bucket_name
+		INNER JOIN projects p
+			ON bm.project_id = p.id
+		LEFT JOIN entitlements e
+			ON e.scope = CONCAT(@project_scope_prefix, p.public_id)
+		WHERE ` + fromTupleBucket + ` AND ` + toTupleBucket + `
+	`
+
+	rows, err := db.db.QueryContext(ctx, query,
+		sql.Named("from_project_id", from.ProjectID),
+		sql.Named("from_name", []byte(from.BucketName)),
+		sql.Named("to_project_id", to.ProjectID),
+		sql.Named("to_name", []byte(to.BucketName)),
+		sql.Named("project_scope_prefix", []byte(projectScopePrefix)))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var b accounting.BucketLocationWithEntitlements
+			var featuresJSON sql.NullString
+
+			if err = rows.Scan(
+				&b.Location.ProjectID,
+				&b.Location.BucketName,
+				&b.Placement,
+				&featuresJSON,
+				&b.HasPreviousTally,
+			); err != nil {
+				return Error.Wrap(err)
+			}
+
+			if raw, ok := hackyResolveSpannerJSONColumn(featuresJSON); ok && len(raw) > 0 {
+				if err = json.Unmarshal(raw, &b.ProjectFeatures); err != nil {
+					return Error.Wrap(err)
+				}
+			}
+
+			result = append(result, b)
+		}
+		return nil
+	})
+
+	return result, Error.Wrap(err)
 }
 
 // GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.

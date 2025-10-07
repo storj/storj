@@ -12,6 +12,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 )
@@ -266,6 +267,14 @@ type Usage struct {
 	Segments int64
 }
 
+// BucketLocationWithEntitlements represents a bucket location with its placement and project entitlements.
+type BucketLocationWithEntitlements struct {
+	Location         metabase.BucketLocation
+	Placement        storj.PlacementConstraint
+	ProjectFeatures  entitlements.ProjectFeatures
+	HasPreviousTally bool
+}
+
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
 //
 // architecture: Database
@@ -315,6 +324,9 @@ type ProjectAccounting interface {
 	// GetPreviouslyNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 	// whose most recent tally does not represent empty usage.
 	GetPreviouslyNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) ([]metabase.BucketLocation, error)
+	// GetBucketsWithEntitlementsInRange returns all bucket locations within the given range along with their placement and entitlements.
+	// The HasPreviousTally field indicates whether each bucket had a non-empty tally in the past.
+	GetBucketsWithEntitlementsInRange(ctx context.Context, from, to metabase.BucketLocation, projectScopePrefix string) ([]BucketLocationWithEntitlements, error)
 	// GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
 	GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error)
 	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.

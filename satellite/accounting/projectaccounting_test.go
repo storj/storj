@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -1102,5 +1103,271 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 				return string(loc.BucketName) == bucketName
 			}),
 			"bucket should not be found in non-empty buckets after deletion")
+	})
+}
+
+func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		pauseAccountingChores(planet)
+
+		sat := planet.Satellites[0]
+
+		t.Run("with entitlements and different placements", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "test user",
+				Email:    "test@example.com",
+				Password: "password",
+			}, 1)
+			require.NoError(t, err)
+			project, err := sat.AddProject(ctx, user.ID, "testproject1")
+			require.NoError(t, err)
+
+			newMapping := entitlements.PlacementProductMappings{
+				storj.DefaultPlacement: 1,
+				1:                      2,
+			}
+			err = sat.API.Entitlements.Service.Projects().SetPlacementProductMappingsByPublicID(ctx, project.PublicID, newMapping)
+			require.NoError(t, err)
+
+			bucket1Name := "test1-bucket-placement-0"
+			bucket2Name := "test1-bucket-placement-1"
+
+			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucket1Name,
+				ProjectID: project.ID,
+				Placement: storj.DefaultPlacement,
+			})
+			require.NoError(t, err)
+			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucket2Name,
+				ProjectID: project.ID,
+				Placement: 1,
+			})
+			require.NoError(t, err)
+
+			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
+				{ProjectID: project.ID, BucketName: metabase.BucketName(bucket1Name)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project.ID, BucketName: metabase.BucketName(bucket1Name)},
+					ObjectCount:    1,
+					TotalBytes:     5 * memory.KiB.Int64(),
+				},
+				{ProjectID: project.ID, BucketName: metabase.BucketName(bucket2Name)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project.ID, BucketName: metabase.BucketName(bucket2Name)},
+					ObjectCount:    1,
+					TotalBytes:     5 * memory.KiB.Int64(),
+				},
+			})
+			require.NoError(t, err)
+
+			from := metabase.BucketLocation{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucket1Name),
+			}
+			to := metabase.BucketLocation{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucket2Name),
+			}
+
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			require.NoError(t, err)
+			require.Len(t, locs, 2)
+
+			var bucket1 *accounting.BucketLocationWithEntitlements
+			for i := range locs {
+				if string(locs[i].Location.BucketName) == bucket1Name {
+					bucket1 = &locs[i]
+					break
+				}
+			}
+			require.NotNil(t, bucket1)
+			require.Equal(t, project.ID, bucket1.Location.ProjectID)
+			require.Equal(t, storj.PlacementConstraint(0), bucket1.Placement)
+			require.NotEmpty(t, bucket1.ProjectFeatures)
+			require.NotNil(t, bucket1.ProjectFeatures.PlacementProductMappings)
+			require.Equal(t, newMapping, bucket1.ProjectFeatures.PlacementProductMappings)
+			require.True(t, bucket1.HasPreviousTally)
+
+			var bucket2 *accounting.BucketLocationWithEntitlements
+			for i := range locs {
+				if string(locs[i].Location.BucketName) == bucket2Name {
+					bucket2 = &locs[i]
+					break
+				}
+			}
+			require.NotNil(t, bucket2)
+			require.Equal(t, project.ID, bucket2.Location.ProjectID)
+			require.Equal(t, storj.PlacementConstraint(1), bucket2.Placement)
+			require.NotEmpty(t, bucket1.ProjectFeatures)
+			require.NotNil(t, bucket1.ProjectFeatures.PlacementProductMappings)
+			require.Equal(t, newMapping, bucket1.ProjectFeatures.PlacementProductMappings)
+		})
+
+		t.Run("without entitlements", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "test user 2",
+				Email:    "test2@example.com",
+				Password: "password",
+			}, 1)
+			require.NoError(t, err)
+			project, err := sat.AddProject(ctx, user.ID, "testproject2")
+			require.NoError(t, err)
+
+			bucketName := "bucket-no-entitlements"
+
+			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucketName,
+				ProjectID: project.ID,
+				Placement: storj.DefaultPlacement,
+			})
+			require.NoError(t, err)
+			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
+				{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)},
+					ObjectCount:    1,
+					TotalBytes:     5 * memory.KiB.Int64(),
+				},
+			})
+			require.NoError(t, err)
+
+			from := metabase.BucketLocation{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucketName),
+			}
+			to := metabase.BucketLocation{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucketName),
+			}
+
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			require.NoError(t, err)
+			require.Len(t, locs, 1)
+			require.Equal(t, project.ID, locs[0].Location.ProjectID)
+			require.Equal(t, bucketName, string(locs[0].Location.BucketName))
+			require.Empty(t, locs[0].ProjectFeatures)
+			require.True(t, locs[0].HasPreviousTally)
+		})
+
+		t.Run("empty buckets with previous tally", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "test user 3",
+				Email:    "test3@example.com",
+				Password: "password",
+			}, 1)
+			require.NoError(t, err)
+			project, err := sat.AddProject(ctx, user.ID, "testproject3")
+			require.NoError(t, err)
+
+			bucketName := "bucket-will-be-empty"
+
+			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucketName,
+				ProjectID: project.ID,
+				Placement: storj.DefaultPlacement,
+			})
+			require.NoError(t, err)
+			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
+				{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)},
+					ObjectCount:    1,
+					TotalBytes:     5 * memory.KiB.Int64(),
+				},
+			})
+			require.NoError(t, err)
+
+			from := metabase.BucketLocation{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucketName),
+			}
+			to := metabase.BucketLocation{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucketName),
+			}
+
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			require.NoError(t, err)
+			require.Len(t, locs, 1)
+			require.True(t, locs[0].HasPreviousTally)
+
+			// Now insert tally data with zero content (empty bucket)
+			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now().Add(time.Minute), map[metabase.BucketLocation]*accounting.BucketTally{
+				{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)},
+					ObjectCount:    0,
+					TotalBytes:     0,
+				},
+			})
+			require.NoError(t, err)
+
+			locs, err = sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			require.NoError(t, err)
+			require.Len(t, locs, 1)
+			require.False(t, locs[0].HasPreviousTally)
+		})
+
+		t.Run("multiple projects filtered correctly", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "test user 4",
+				Email:    "test4@example.com",
+				Password: "password",
+			}, 2)
+			require.NoError(t, err)
+			project1, err := sat.AddProject(ctx, user.ID, "testproject4")
+			require.NoError(t, err)
+			project2, err := sat.AddProject(ctx, user.ID, "testproject5")
+			require.NoError(t, err)
+
+			bucket1Name := "project1-bucket"
+			bucket2Name := "project2-bucket"
+
+			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucket1Name,
+				ProjectID: project1.ID,
+				Placement: storj.DefaultPlacement,
+			})
+			require.NoError(t, err)
+			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucket2Name,
+				ProjectID: project2.ID,
+				Placement: storj.DefaultPlacement,
+			})
+			require.NoError(t, err)
+
+			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
+				{ProjectID: project1.ID, BucketName: metabase.BucketName(bucket1Name)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project1.ID, BucketName: metabase.BucketName(bucket1Name)},
+					ObjectCount:    1,
+					TotalBytes:     5 * memory.KiB.Int64(),
+				},
+				{ProjectID: project2.ID, BucketName: metabase.BucketName(bucket2Name)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project2.ID, BucketName: metabase.BucketName(bucket2Name)},
+					ObjectCount:    1,
+					TotalBytes:     5 * memory.KiB.Int64(),
+				},
+			})
+			require.NoError(t, err)
+
+			from := metabase.BucketLocation{
+				ProjectID:  project1.ID,
+				BucketName: metabase.BucketName(bucket1Name),
+			}
+			to := metabase.BucketLocation{
+				ProjectID:  project1.ID,
+				BucketName: metabase.BucketName(bucket1Name),
+			}
+
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			require.NoError(t, err)
+			require.Len(t, locs, 1)
+			require.Equal(t, project1.ID, locs[0].Location.ProjectID)
+			require.Equal(t, bucket1Name, string(locs[0].Location.BucketName))
+		})
 	})
 }
