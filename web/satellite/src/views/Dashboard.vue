@@ -298,7 +298,6 @@
     </v-container>
 
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
-    <create-bucket-dialog v-model="isCreateBucketDialogShown" />
     <CreateBucketDialog v-model="isCreateBucketDialogOpen" />
 </template>
 
@@ -381,7 +380,6 @@ const chartWidth = ref<number>(0);
 const chartContainer = ref<ComponentPublicInstance>();
 const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
-const isCreateBucketDialogShown = ref<boolean>(false);
 const isCreateBucketDialogOpen = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
 
@@ -482,7 +480,7 @@ const isPaidTier = computed((): boolean => {
  * Whether project members passphrase banner should be shown.
  */
 const isTeamPassphraseBanner = computed<boolean>(() => {
-    return !usersStore.state.settings.noticeDismissal.projectMembersPassphrase && teamSize.value > 1;
+    return !usersStore.state.settings.noticeDismissal.projectMembersPassphrase && teamSize.value > 1 && !hasManagedPassphrase.value;
 });
 
 /**
@@ -518,6 +516,8 @@ const segmentUsedPercent = computed((): number => {
  * Returns whether the owner of this project has paid privileges
  */
 const ownerHasPaidPrivileges = computed(() => projectsStore.selectedProjectConfig.hasPaidPrivileges);
+
+const hasManagedPassphrase = computed<boolean>(() => projectsStore.selectedProjectConfig.hasManagedPassphrase);
 
 /**
  * Returns whether this project is owned by the current user
