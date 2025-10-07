@@ -380,12 +380,14 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	var downloadedPieceSize int64
 
 	if ec.inmemoryDownload {
-		writer := bytes.NewBuffer(make([]byte, 0, pieceSize))
-		downloadedPieceSize, err = sync2.Copy(ctx, writer, downloadReader)
+		// allocate whole buffer in advance
+		buffer := make([]byte, pieceSize)
+		n, err := io.ReadFull(downloadReader, buffer)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		pieceReadCloser = io.NopCloser(writer)
+		downloadedPieceSize = int64(n)
+		pieceReadCloser = io.NopCloser(bytes.NewReader(buffer[:n]))
 	} else {
 		tempfile, err := tmpfile.New(tmpDir, "satellite-repair-*")
 		if err != nil {
