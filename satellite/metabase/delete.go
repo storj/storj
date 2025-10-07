@@ -538,6 +538,7 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
 		TransactionTag:              "delete-pending-object",
+		CommitPriority:              spannerpb.RequestOptions_PRIORITY_MEDIUM,
 		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
