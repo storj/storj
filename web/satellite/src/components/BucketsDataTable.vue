@@ -367,6 +367,14 @@ const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
 
+/**
+ * Whether this project has new pricing.
+ */
+const newPricingEnabled = computed<boolean>(() => {
+    if (!configStore.getBillingEnabled(userStore.state.user)) return false;
+    return configStore.getProjectHasNewPricing(projectsStore.state.selectedProject.createdAt);
+});
+
 const headers = computed<DataTableHeader[]>(() => {
     const hdrs: DataTableHeader[] = [
         {
@@ -383,7 +391,14 @@ const headers = computed<DataTableHeader[]>(() => {
 
     hdrs.push(
         { title: 'Objects', key: 'objectCount', sortable: isTableSortable.value },
-        { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
+    );
+
+    if (!newPricingEnabled.value)
+        hdrs.push(
+            { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
+        );
+
+    hdrs.push(
         { title: 'Storage', key: 'storage', sortable: isTableSortable.value },
         { title: 'Download', key: 'egress', sortable: isTableSortable.value },
     );
