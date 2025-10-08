@@ -44,12 +44,29 @@ export const useConfigStore = defineStore('config', () => {
         return state.config.billingFeaturesEnabled && !user.hasVarPartner && !user.isNFR;
     }
 
+    /**
+     * Determines if a project has the new pricing based on its creation date.
+     * @param projectCreatedAt
+     */
+    function getProjectHasNewPricing(projectCreatedAt: string | null): boolean {
+        if (!projectCreatedAt) {
+            return false;
+        }
+        if (!state.config.newPricingStartDate) {
+            return false;
+        }
+        const projectCreatedDate = new Date(projectCreatedAt);
+        const newPricingDate = new Date(state.config.newPricingStartDate);
+        return projectCreatedDate >= newPricingDate;
+    }
+
     return {
         state,
         minimumCharge,
         minimumChargeBannerDismissed,
         getConfig,
         getBillingEnabled,
+        getProjectHasNewPricing,
     };
 });
 
