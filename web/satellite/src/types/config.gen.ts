@@ -104,6 +104,7 @@ export class FrontendConfig {
     entitlementsEnabled: boolean;
     showNewPricingTiers: boolean;
     computeGatewayURL: string;
+    newPricingStartDate: Time | null;
 }
 
 export class MinimumChargeConfig {

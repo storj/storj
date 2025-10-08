@@ -1058,6 +1058,18 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	var newPricingStartDate *time.Time
+	if server.config.NewPricingStartDate != "" {
+		date, err := time.Parse("2006-01-02", server.config.NewPricingStartDate)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			server.log.Error("failed to get new pricing date", zap.Error(err))
+			return
+		}
+
+		newPricingStartDate = &date
+	}
+
 	cfg := FrontendConfig{
 		ExternalAddress:                   server.config.ExternalAddress,
 		SatelliteName:                     server.config.SatelliteName,
@@ -1143,6 +1155,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EntitlementsEnabled:               server.config.EntitlementsEnabled,
 		ShowNewPricingTiers:               server.config.ShowNewPricingTiers,
 		ComputeGatewayURL:                 server.config.ComputeGatewayURL,
+		NewPricingStartDate:               newPricingStartDate,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

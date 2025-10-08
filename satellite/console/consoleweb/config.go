@@ -101,6 +101,7 @@ type FrontendConfig struct {
 	EntitlementsEnabled               bool                        `json:"entitlementsEnabled"`
 	ShowNewPricingTiers               bool                        `json:"showNewPricingTiers"`
 	ComputeGatewayURL                 string                      `json:"computeGatewayURL"`
+	NewPricingStartDate               *time.Time                  `json:"newPricingStartDate"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

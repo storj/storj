@@ -225,6 +225,13 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		if config.Console.NewPricingStartDate != "" {
+			_, err = time.Parse("2006-01-02", config.Console.NewPricingStartDate)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+		}
+
 		peer.Payments.Service, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,

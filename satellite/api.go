@@ -13,6 +13,7 @@ import (
 	"os"
 	"runtime/pprof"
 	"strings"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -848,6 +849,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			minimumChargeDate, err := config.Payments.MinimumCharge.GetEffectiveDate()
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
+			}
+
+			if consoleConfig.NewPricingStartDate != "" {
+				_, err = time.Parse("2006-01-02", consoleConfig.NewPricingStartDate)
+				if err != nil {
+					return nil, errs.Combine(err, peer.Close())
+				}
 			}
 
 			consoleConfig.Config.SupportURL = consoleConfig.GeneralRequestURL

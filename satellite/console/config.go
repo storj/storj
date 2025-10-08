@@ -59,6 +59,7 @@ type Config struct {
 	ComputeUiEnabled                  bool                      `help:"whether the compute UI is enabled" default:"false"`
 	ShowNewPricingTiers               bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
 	EntitlementsEnabled               bool                      `help:"whether entitlements are enabled" default:"false" hidden:"true"`
+	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig
