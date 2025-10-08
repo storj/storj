@@ -6372,7 +6372,7 @@ func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, in
 			PaymentMethodID: card.ID,
 			Price:           int64(payment.service.config.UpgradePayUpfrontAmount),
 			Credit:          int64(payment.service.config.UpgradePayUpfrontAmount),
-			Description:     "upgrade to paid account",
+			Description:     "Upgrade account - $" + strconv.Itoa(payment.service.config.UpgradePayUpfrontAmount/100) + " credits added to your account balance.",
 		})
 		if err != nil {
 			removeErr := payment.service.accounts.CreditCards().Remove(ctx, user.ID, card.ID, true)
