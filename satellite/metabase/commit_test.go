@@ -525,7 +525,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }
 
 func TestCommitObject_TimestampVersioning(t *testing.T) {
@@ -1171,7 +1171,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }
 
 func TestBeginSegment(t *testing.T) {
@@ -5163,9 +5163,11 @@ func TestOverwriteLockedObject(t *testing.T) {
 					RetainUntil: time.Now().Add(-time.Minute),
 				})
 
+				objStream2 := objStream
+				objStream2.StreamID = testrand.UUID()
 				inlineObj := metabasetest.CommitInlineObject{
 					Opts: metabase.CommitInlineObject{
-						ObjectStream:        objStream,
+						ObjectStream:        objStream2,
 						Encryption:          metabasetest.DefaultEncryption,
 						CommitInlineSegment: commitInlineSeg,
 					},
@@ -5178,12 +5180,12 @@ func TestOverwriteLockedObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }
 
 func TestConditionalWrites(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		commitObject := func(objStream metabase.ObjectStream, versioned bool, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) metabase.Object {
+		commitObject := func(t *testing.T, objStream metabase.ObjectStream, versioned bool, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) metabase.Object {
 			return metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: objStream,
@@ -5195,12 +5197,12 @@ func TestConditionalWrites(t *testing.T) {
 			}.Check(ctx, t, db)
 		}
 
-		createObject := func(objStream metabase.ObjectStream, versioned bool, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) metabase.Object {
+		createObject := func(t *testing.T, objStream metabase.ObjectStream, versioned bool, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) metabase.Object {
 			metabasetest.CreatePendingObject(ctx, t, db, objStream, 0)
-			return commitObject(objStream, versioned, ifNoneMatch, expectedErrClass, expectedErrText)
+			return commitObject(t, objStream, versioned, ifNoneMatch, expectedErrClass, expectedErrText)
 		}
 
-		commitInlineObject := func(objStream metabase.ObjectStream, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) {
+		commitInlineObject := func(t *testing.T, objStream metabase.ObjectStream, ifNoneMatch []string, expectedErrClass *errs.Class, expectedErrText string) {
 			metabasetest.CommitInlineObject{
 				Opts: metabase.CommitInlineObject{
 					ObjectStream: objStream,
@@ -5222,7 +5224,7 @@ func TestConditionalWrites(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := metabasetest.RandObjectStream()
-			createObject(objStream, false, []string{"somethingelse"}, &metabase.ErrUnimplemented, "IfNoneMatch only supports a single value of '*'")
+			createObject(t, objStream, false, []string{"somethingelse"}, &metabase.ErrUnimplemented, "IfNoneMatch only supports a single value of '*'")
 		})
 
 		t.Run("CommitInlineObject not implemented", func(t *testing.T) {
@@ -5231,19 +5233,24 @@ func TestConditionalWrites(t *testing.T) {
 			objStream := metabasetest.RandObjectStream()
 
 			metabasetest.CreatePendingObject(ctx, t, db, objStream, 0)
-			commitInlineObject(objStream, []string{"somethingelse"}, &metabase.ErrUnimplemented, "IfNoneMatch only supports a single value of '*'")
+			commitInlineObject(t, objStream, []string{"somethingelse"}, &metabase.ErrUnimplemented, "IfNoneMatch only supports a single value of '*'")
 		})
 
 		t.Run("CommitObject", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := metabasetest.RandObjectStream()
-			object := createObject(objStream, false, []string{"*"}, nil, "")
-			commitObject(objStream, false, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
+			object := createObject(t, objStream, false, []string{"*"}, nil, "")
+
+			objStream2 := objStream
+			objStream2.Version++
+			pending := metabasetest.CreatePendingObject(ctx, t, db, objStream2, 0)
+			commitObject(t, objStream2, false, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(object),
+					metabase.RawObject(pending),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -5252,15 +5259,16 @@ func TestConditionalWrites(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := metabasetest.RandObjectStream()
-			object := createObject(objStream, true, []string{"*"}, nil, "")
+			object := createObject(t, objStream, true, []string{"*"}, nil, "")
 
-			objStream.Version = object.Version + 1
-			pendingObject := metabasetest.CreatePendingObject(ctx, t, db, objStream, 0)
-			commitObject(objStream, true, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
+			objStream2 := objStream
+			objStream2.Version = object.Version + 1
+			pending := metabasetest.CreatePendingObject(ctx, t, db, objStream2, 0)
+			commitObject(t, objStream2, true, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
-					metabase.RawObject(pendingObject),
+					metabase.RawObject(pending),
 					metabase.RawObject(object),
 				},
 			}.Check(ctx, t, db)
@@ -5270,11 +5278,15 @@ func TestConditionalWrites(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := metabasetest.RandObjectStream()
-			object := createObject(objStream, false, []string{"*"}, nil, "")
+			object := createObject(t, objStream, false, []string{"*"}, nil, "")
+
+			objStream2 := objStream
+			objStream2.Version = object.Version + 1
+			pending := metabasetest.CreatePendingObject(ctx, t, db, objStream2, 0)
 
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream:   objStream,
+					ObjectStream:   objStream2,
 					DisallowDelete: true,
 					IfNoneMatch:    []string{"*"},
 				},
@@ -5285,6 +5297,7 @@ func TestConditionalWrites(t *testing.T) {
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(object),
+					metabase.RawObject(pending),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -5293,7 +5306,7 @@ func TestConditionalWrites(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := metabasetest.RandObjectStream()
-			object := createObject(objStream, true, []string{"*"}, nil, "")
+			object := createObject(t, objStream, true, []string{"*"}, nil, "")
 
 			now := time.Now()
 
@@ -5319,7 +5332,7 @@ func TestConditionalWrites(t *testing.T) {
 
 			newObjStream := objStream
 			newObjStream.Version = marker.Version + 1
-			object2 := createObject(newObjStream, true, []string{"*"}, nil, "")
+			object2 := createObject(t, newObjStream, true, []string{"*"}, nil, "")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -5348,8 +5361,8 @@ func TestConditionalWrites(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			objStream := metabasetest.RandObjectStream()
-			object := createObject(objStream, false, []string{"*"}, nil, "")
-			commitInlineObject(objStream, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
+			object := createObject(t, objStream, false, []string{"*"}, nil, "")
+			commitInlineObject(t, objStream, []string{"*"}, &metabase.ErrFailedPrecondition, "object already exists")
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -5365,11 +5378,11 @@ func TestConditionalWrites(t *testing.T) {
 
 			srcObjStream := metabasetest.RandObjectStream()
 			srcObjStream.ProjectID = projectID
-			srcObject := createObject(srcObjStream, false, nil, nil, "")
+			srcObject := createObject(t, srcObjStream, false, nil, nil, "")
 
 			dstObjStream := metabasetest.RandObjectStream()
 			dstObjStream.ProjectID = projectID
-			dstObject := createObject(dstObjStream, false, nil, nil, "")
+			dstObject := createObject(t, dstObjStream, false, nil, nil, "")
 
 			metabasetest.FinishCopyObject{
 				Opts: metabase.FinishCopyObject{
@@ -5449,5 +5462,5 @@ func TestConditionalWrites(t *testing.T) {
 			assert.Equal(t, 1, success)
 			assert.Equal(t, requests-1, failed)
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }

@@ -20,7 +20,7 @@ import (
 )
 
 type commitObjectWithSegmentsTransactionAdapter interface {
-	fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error)
+	fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error)
 	finalizeObjectCommitWithSegments(ctx context.Context, opts CommitObjectWithSegments, nextStatus ObjectStatus, finalSegments []segmentToCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, nextVersion Version, object *Object) error
 	deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error)
 
@@ -314,8 +314,8 @@ func verifySegmentOrder(positions []SegmentPosition) error {
 	return nil
 }
 
-// segmentInfoForCommit is database state prior to deleting objects.
-type segmentInfoForCommit struct {
+// PrecommitSegment is segment state before committing the object.
+type PrecommitSegment struct {
 	Position      SegmentPosition
 	EncryptedSize int32
 	PlainOffset   int64
@@ -323,7 +323,7 @@ type segmentInfoForCommit struct {
 }
 
 // fetchSegmentsForCommit loads information necessary for validating segment existence and offsets.
-func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
+func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = withRows(ptx.tx.QueryContext(ctx, `
@@ -333,7 +333,7 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 		ORDER BY position
 	`, streamID))(func(rows tagsql.Rows) error {
 		for rows.Next() {
-			var segment segmentInfoForCommit
+			var segment PrecommitSegment
 			err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)
@@ -348,7 +348,7 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 	return segments, nil
 }
 
-func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
+func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	const maxPosition = int64(math.MaxInt64)
@@ -362,7 +362,7 @@ func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context
 	segments, err = spannerutil.CollectRows(stx.tx.ReadWithOptions(ctx, "segments", keyRange,
 		[]string{"position", "encrypted_size", "plain_offset", "plain_size"},
 		&spanner.ReadOptions{RequestTag: "fetch-segments-for-commit"},
-	), func(row *spanner.Row, segment *segmentInfoForCommit) error {
+	), func(row *spanner.Row, segment *PrecommitSegment) error {
 		return Error.Wrap(row.Columns(
 			&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
 		))
@@ -379,11 +379,11 @@ type segmentToCommit struct {
 }
 
 // determineCommitActions detects how should the database be updated and which segments should be deleted.
-func determineCommitActions(segments []SegmentPosition, segmentsInDatabase []segmentInfoForCommit) (commit []segmentToCommit, toDelete []SegmentPosition, err error) {
+func determineCommitActions(segments []SegmentPosition, segmentsInDatabase []PrecommitSegment) (commit []segmentToCommit, toDelete []SegmentPosition, err error) {
 	var invalidSegments errs.Group
 
 	commit = make([]segmentToCommit, 0, len(segments))
-	diffSegmentsWithDatabase(segments, segmentsInDatabase, func(a *SegmentPosition, b *segmentInfoForCommit) {
+	diffSegmentsWithDatabase(segments, segmentsInDatabase, func(a *SegmentPosition, b *PrecommitSegment) {
 		// If we do not have an appropriate segment in the database it means
 		// either the segment was deleted before commit finished or the
 		// segment was not uploaded. Either way we need to fail the commit.
@@ -414,8 +414,8 @@ func determineCommitActions(segments []SegmentPosition, segmentsInDatabase []seg
 	return commit, toDelete, nil
 }
 
-// convertToFinalSegments converts segmentInfoForCommit to segmentToCommit.
-func convertToFinalSegments(segmentsInDatabase []segmentInfoForCommit) (commit []segmentToCommit) {
+// convertToFinalSegments converts PrecommitSegment to segmentToCommit.
+func convertToFinalSegments(segmentsInDatabase []PrecommitSegment) (commit []segmentToCommit) {
 	commit = make([]segmentToCommit, 0, len(segmentsInDatabase))
 	for _, seg := range segmentsInDatabase {
 		commit = append(commit, segmentToCommit{
@@ -567,7 +567,7 @@ func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Cont
 }
 
 // diffSegmentsWithDatabase matches up segment positions with their database information.
-func diffSegmentsWithDatabase(as []SegmentPosition, bs []segmentInfoForCommit, cb func(a *SegmentPosition, b *segmentInfoForCommit)) {
+func diffSegmentsWithDatabase(as []SegmentPosition, bs []PrecommitSegment, cb func(a *SegmentPosition, b *PrecommitSegment)) {
 	for len(as) > 0 && len(bs) > 0 {
 		if as[0] == bs[0].Position {
 			cb(&as[0], &bs[0])

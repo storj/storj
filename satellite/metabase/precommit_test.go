@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
@@ -138,6 +140,245 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 				}, result)
 			},
 		}.Run(t)
+	})
+}
+
+func TestPrecommitQuery(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		precommit := func(query metabase.PrecommitQuery) (metabase.PrecommitInfo, error) {
+			adapter := db.ChooseAdapter(query.ObjectStream.ProjectID)
+			var info metabase.PrecommitInfo
+			err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, tx metabase.TransactionAdapter) error {
+				var err error
+				info, err = db.PrecommitQuery(ctx, query, tx)
+				return err
+			})
+			return info, err
+		}
+
+		for _, unversioned := range []bool{false, true} {
+			for _, highestVisible := range []bool{false, true} {
+				name := fmt.Sprintf("Missing/Unversioned:%v,HighestVisible:%v", unversioned, highestVisible)
+				t.Run(name, func(t *testing.T) {
+					obj := metabasetest.RandObjectStream()
+
+					info, err := precommit(metabase.PrecommitQuery{
+						ObjectStream:   obj,
+						Unversioned:    unversioned,
+						HighestVisible: highestVisible,
+					})
+					require.ErrorContains(t, err, "object with specified version and pending status is missing")
+
+					expect := metabase.PrecommitInfo{
+						TimestampVersion: info.TimestampVersion, // this is dynamically created
+					}
+					require.Equal(t, expect, info)
+				})
+			}
+		}
+
+		t.Run("positive-pending", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+
+			expiration := time.Now().Add(48 * time.Hour)
+			encryptedUserData := metabasetest.RandEncryptedUserData()
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					ExpiresAt:    &expiration,
+					Retention:    metabase.Retention{},
+					LegalHold:    false,
+
+					EncryptedUserData: encryptedUserData,
+					Encryption:        metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			info, err := precommit(metabase.PrecommitQuery{
+				ObjectStream:   obj,
+				Unversioned:    true,
+				HighestVisible: true,
+			})
+			require.NoError(t, err)
+
+			expect := metabase.PrecommitInfo{
+				HighestVersion:   pending.Version,
+				TimestampVersion: info.TimestampVersion,
+				Pending: metabase.PrecommitPendingObject{
+					CreatedAt:                     pending.CreatedAt,
+					ExpiresAt:                     pending.ExpiresAt,
+					Encryption:                    pending.Encryption,
+					EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
+					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
+					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
+					EncryptedETag:                 encryptedUserData.EncryptedETag,
+				},
+				Segments:       []metabase.PrecommitSegment{},
+				HighestVisible: 0,
+				Unversioned:    nil,
+			}
+
+			require.EqualExportedValues(t, expect, info)
+		})
+
+		t.Run("negative-pending", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			obj.Version = -12345
+
+			expiration := time.Now().Add(48 * time.Hour)
+			encryptedUserData := metabasetest.RandEncryptedUserData()
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					ExpiresAt:    &expiration,
+					Retention:    metabase.Retention{},
+					LegalHold:    false,
+
+					EncryptedUserData: encryptedUserData,
+					Encryption:        metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			info, err := precommit(metabase.PrecommitQuery{
+				ObjectStream:   obj,
+				Unversioned:    true,
+				HighestVisible: true,
+			})
+			require.NoError(t, err)
+
+			expect := metabase.PrecommitInfo{
+				HighestVersion:   0, // we don't return negative versions
+				TimestampVersion: info.TimestampVersion,
+				Pending: metabase.PrecommitPendingObject{
+					CreatedAt:                     pending.CreatedAt,
+					ExpiresAt:                     pending.ExpiresAt,
+					Encryption:                    pending.Encryption,
+					EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
+					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
+					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
+					EncryptedETag:                 encryptedUserData.EncryptedETag,
+				},
+				Segments:       []metabase.PrecommitSegment{},
+				HighestVisible: 0,
+				Unversioned:    nil,
+			}
+
+			require.EqualExportedValues(t, expect, info)
+		})
+
+		t.Run("existing-unversioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+
+			expiration := time.Now().Add(48 * time.Hour)
+			encryptedUserData := metabasetest.RandEncryptedUserData()
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					ExpiresAt:    &expiration,
+					Retention:    metabase.Retention{},
+					LegalHold:    false,
+
+					EncryptedUserData: encryptedUserData,
+					Encryption:        metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			objCommitted := obj
+			objCommitted.StreamID = testrand.UUID()
+			objCommitted.Version = 20000
+			objectCommitted := metabasetest.CreateObject(ctx, t, db, objCommitted, 2)
+
+			info, err := precommit(metabase.PrecommitQuery{
+				ObjectStream:   obj,
+				Unversioned:    true,
+				HighestVisible: true,
+			})
+			require.NoError(t, err)
+
+			expect := metabase.PrecommitInfo{
+				HighestVersion:   20000,
+				TimestampVersion: info.TimestampVersion,
+				Pending: metabase.PrecommitPendingObject{
+					CreatedAt:                     pending.CreatedAt,
+					ExpiresAt:                     pending.ExpiresAt,
+					Encryption:                    pending.Encryption,
+					EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
+					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
+					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
+					EncryptedETag:                 encryptedUserData.EncryptedETag,
+				},
+				Segments:       []metabase.PrecommitSegment{},
+				HighestVisible: metabase.CommittedUnversioned,
+				Unversioned: &metabase.PrecommitUnversionedObject{
+					Version:      objectCommitted.Version,
+					StreamID:     objectCommitted.StreamID,
+					SegmentCount: 2,
+				},
+			}
+
+			require.EqualExportedValues(t, expect, info)
+		})
+
+		t.Run("existing-versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+
+			expiration := time.Now().Add(48 * time.Hour)
+			encryptedUserData := metabasetest.RandEncryptedUserData()
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					ExpiresAt:    &expiration,
+					Retention:    metabase.Retention{},
+					LegalHold:    false,
+
+					EncryptedUserData: encryptedUserData,
+					Encryption:        metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			objCommitted := obj
+			objCommitted.StreamID = testrand.UUID()
+			objCommitted.Version = 20000
+			metabasetest.CreateObjectVersioned(ctx, t, db, objCommitted, 2)
+
+			info, err := precommit(metabase.PrecommitQuery{
+				ObjectStream:   obj,
+				Unversioned:    true,
+				HighestVisible: true,
+			})
+			require.NoError(t, err)
+
+			expect := metabase.PrecommitInfo{
+				HighestVersion:   20000,
+				TimestampVersion: info.TimestampVersion,
+				Pending: metabase.PrecommitPendingObject{
+					CreatedAt:                     pending.CreatedAt,
+					ExpiresAt:                     pending.ExpiresAt,
+					Encryption:                    pending.Encryption,
+					EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
+					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
+					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
+					EncryptedETag:                 encryptedUserData.EncryptedETag,
+				},
+				Segments:       []metabase.PrecommitSegment{},
+				HighestVisible: metabase.CommittedVersioned,
+				Unversioned:    nil,
+			}
+
+			require.EqualExportedValues(t, expect, info)
+		})
 	})
 }
 

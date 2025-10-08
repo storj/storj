@@ -131,6 +131,78 @@ func (pieces *Pieces) Scan(value interface{}) error {
 	return nil
 }
 
+// RetentionMode implements scanning for retention_mode column.
+type RetentionMode struct {
+	Mode      storj.RetentionMode
+	LegalHold bool
+}
+
+// Value implements the sql/driver.Valuer interface.
+func (r RetentionMode) Value() (driver.Value, error) {
+	if int64(r.Mode)&retentionModeMask != int64(r.Mode) {
+		return nil, Error.New("invalid retention mode")
+	}
+
+	val := int64(r.Mode)
+	if r.LegalHold {
+		val |= legalHoldFlag
+	}
+
+	return val, nil
+}
+
+func (r *RetentionMode) set(v int64) {
+	r.Mode = storj.RetentionMode(v & retentionModeMask)
+	r.LegalHold = v&legalHoldFlag != 0
+}
+
+// Scan implements the sql.Scanner interface.
+func (r *RetentionMode) Scan(val interface{}) error {
+	if val == nil {
+		*r = RetentionMode{}
+		return nil
+	}
+	if v, ok := val.(int64); ok {
+		r.set(v)
+		return nil
+	}
+	return Error.New("unable to scan %T", val)
+}
+
+// EncodeSpanner implements the spanner.Encoder interface.
+func (r RetentionMode) EncodeSpanner() (interface{}, error) {
+	return r.Value()
+}
+
+// DecodeSpanner implements the spanner.Decoder interface.
+func (r *RetentionMode) DecodeSpanner(val interface{}) error {
+	switch v := val.(type) {
+	case *string:
+		if v == nil {
+			*r = RetentionMode{}
+			return nil
+		}
+		iVal, err := strconv.ParseInt(*v, 10, 64)
+		if err != nil {
+			return Error.New("unable to parse %q as int64: %w", *v, err)
+		}
+		r.set(iVal)
+		return nil
+	case string:
+		iVal, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return Error.New("unable to parse %q as int64: %w", v, err)
+		}
+		r.set(iVal)
+		return nil
+	case int64:
+		r.set(v)
+		return nil
+	default:
+		return r.Scan(val)
+	}
+}
+
 type lockModeWrapper struct {
 	retentionMode *storj.RetentionMode
 	legalHold     *bool
@@ -151,24 +223,34 @@ func (r lockModeWrapper) Value() (driver.Value, error) {
 	return val, nil
 }
 
+// Clear resets to the default values.
+func (r lockModeWrapper) Clear() {
+	if r.retentionMode != nil {
+		*r.retentionMode = storj.NoRetention
+	}
+	if r.legalHold != nil {
+		*r.legalHold = false
+	}
+}
+
+// Set from am encoded value.
+func (r lockModeWrapper) Set(val int64) {
+	if r.retentionMode != nil {
+		*r.retentionMode = storj.RetentionMode(val & retentionModeMask)
+	}
+	if r.legalHold != nil {
+		*r.legalHold = val&legalHoldFlag != 0
+	}
+}
+
 // Scan implements the sql.Scanner interface.
 func (r lockModeWrapper) Scan(val interface{}) error {
 	if val == nil {
-		if r.retentionMode != nil {
-			*r.retentionMode = storj.NoRetention
-		}
-		if r.legalHold != nil {
-			*r.legalHold = false
-		}
+		r.Clear()
 		return nil
 	}
 	if v, ok := val.(int64); ok {
-		if r.retentionMode != nil {
-			*r.retentionMode = storj.RetentionMode(v & retentionModeMask)
-		}
-		if r.legalHold != nil {
-			*r.legalHold = v&legalHoldFlag != 0
-		}
+		r.Set(v)
 		return nil
 	}
 	return Error.New("unable to scan %T", val)
@@ -183,12 +265,7 @@ func (r lockModeWrapper) EncodeSpanner() (interface{}, error) {
 func (r lockModeWrapper) DecodeSpanner(val interface{}) error {
 	if strPtrVal, ok := val.(*string); ok {
 		if strPtrVal == nil {
-			if r.retentionMode != nil {
-				*r.retentionMode = storj.NoRetention
-			}
-			if r.legalHold != nil {
-				*r.legalHold = false
-			}
+			r.Clear()
 			return nil
 		}
 		val = strPtrVal
@@ -198,12 +275,7 @@ func (r lockModeWrapper) DecodeSpanner(val interface{}) error {
 		if err != nil {
 			return Error.New("unable to parse %q as int64: %w", strVal, err)
 		}
-		if r.retentionMode != nil {
-			*r.retentionMode = storj.RetentionMode(iVal & retentionModeMask)
-		}
-		if r.legalHold != nil {
-			*r.legalHold = iVal&legalHoldFlag != 0
-		}
+		r.Set(iVal)
 		return nil
 	}
 	return r.Scan(val)

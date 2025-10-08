@@ -22,6 +22,8 @@ import (
 )
 
 type precommitTransactionAdapter interface {
+	precommitQuery(ctx context.Context, params PrecommitQuery) (PrecommitInfo, error)
+
 	precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error)
 	precommitQueryHighestAndStatusUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, committedStatus ObjectStatus, err error)
 	precommitQueryHighestAndStatusVersioned(ctx context.Context, loc ObjectLocation) (highest Version, committedStatus ObjectStatus, err error)
@@ -1151,5 +1153,351 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 	result.DeletedObjectCount = 1
 	result.DeletedSegmentCount = int(segmentsDeleted)
 
+	return result, nil
+}
+
+// PrecommitQuery is used for querying precommit info.
+type PrecommitQuery struct {
+	ObjectStream
+	// Unversioned returns the unversioned object at the location.
+	Unversioned bool
+	// HighestVisible returns the highest committed object or delete marker at the location.
+	HighestVisible bool
+}
+
+// PrecommitInfo is the information necessary for committing objects.
+type PrecommitInfo struct {
+	// TimestampVersion is used for timestamp versioning.
+	//
+	// This is used when timestamp versioning is enabled and we need to change version.
+	// We request it from the database to have a consistent source of time.
+	TimestampVersion Version
+	// HighestVersion is the highest object version in the database.
+	//
+	// This is needed to determine whether the current pending object is the
+	// latest and we can avoid changing the primary key. If it's not the newest
+	// we can use it to generate the new version, when not using timestamp versioning.
+	HighestVersion Version
+	// Pending contains all the fields for the object to be committed.
+	// This is used to reinsert the object when primary key cannot be changed.
+	//
+	// Encrypted fields are also necessary to verify when updating encrypted metadata.
+	//
+	// TODO: the amount of data transferred can probably reduced by doing a conditional
+	// query.
+	Pending PrecommitPendingObject
+	// Segments contains all the segments for the given object.
+	Segments []PrecommitSegment
+	// HighestVisible returns the status of the highest version that's either committed
+	// or a delete marker.
+	//
+	// This is used to handle "IfNoneMatch" query. We need to know whether
+	// the we consider the object to exist or not.
+	HighestVisible ObjectStatus
+	// Unversioned is the unversioned object at the given location. It is only
+	// returned when params.Unversioned is true.
+	//
+	// This is used to delete the previous unversioned object at the location,
+	// which ensures that there's only one unversioned object at a given location.
+	Unversioned *PrecommitUnversionedObject
+}
+
+// PrecommitUnversionedObject is information necessary to delete unversioned object
+// at a given location.
+type PrecommitUnversionedObject struct {
+	Version       Version          `spanner:"version"`
+	StreamID      uuid.UUID        `spanner:"stream_id"`
+	SegmentCount  int64            `spanner:"segment_count"`
+	RetentionMode RetentionMode    `spanner:"retention_mode"`
+	RetainUntil   spanner.NullTime `spanner:"retain_until"`
+}
+
+// PrecommitPendingObject is information about the object to be committed.
+type PrecommitPendingObject struct {
+	CreatedAt                     time.Time                  `spanner:"created_at"`
+	ExpiresAt                     *time.Time                 `spanner:"expires_at"`
+	EncryptedMetadata             []byte                     `spanner:"encrypted_metadata"`
+	EncryptedMetadataNonce        []byte                     `spanner:"encrypted_metadata_nonce"`
+	EncryptedMetadataEncryptedKey []byte                     `spanner:"encrypted_metadata_encrypted_key"`
+	EncryptedETag                 []byte                     `spanner:"encrypted_etag"`
+	Encryption                    storj.EncryptionParameters `spanner:"encryption"`
+	RetentionMode                 RetentionMode              `spanner:"retention_mode"`
+	RetainUntil                   spanner.NullTime           `spanner:"retain_until"`
+}
+
+// PrecommitQuery queries all information about the object so it can be committed.
+func (db *DB) PrecommitQuery(ctx context.Context, opts PrecommitQuery, adapter precommitTransactionAdapter) (result PrecommitInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.ObjectStream.Verify(); err != nil {
+		return result, Error.Wrap(err)
+	}
+
+	return adapter.precommitQuery(ctx, opts)
+}
+
+func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (PrecommitInfo, error) {
+	var info PrecommitInfo
+	// database timestamp
+	err := ptx.tx.QueryRowContext(ctx, "SELECT "+postgresGenerateTimestampVersion).Scan(&info.TimestampVersion)
+	if err != nil {
+		return info, Error.Wrap(err)
+	}
+
+	// highest version
+	err = ptx.tx.QueryRowContext(ctx, `
+		SELECT version
+		FROM objects
+		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+			AND version > 0
+		ORDER BY version DESC
+		LIMIT 1
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey).Scan(&info.HighestVersion)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return info, Error.Wrap(err)
+	}
+
+	// pending object
+	err = ptx.tx.QueryRowContext(ctx, `
+		SELECT created_at,
+			expires_at,
+			encrypted_metadata,
+			encrypted_metadata_nonce,
+			encrypted_metadata_encrypted_key,
+			encrypted_etag,
+			encryption,
+			retention_mode,
+			retain_until
+		FROM objects
+		WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+			AND stream_id = $5
+			AND status = `+statusPending+`
+		ORDER BY version DESC
+		LIMIT 1
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID).
+		Scan(&info.Pending.CreatedAt, &info.Pending.ExpiresAt,
+			&info.Pending.EncryptedMetadata, &info.Pending.EncryptedMetadataNonce, &info.Pending.EncryptedMetadataEncryptedKey, &info.Pending.EncryptedETag,
+			&info.Pending.Encryption, &info.Pending.RetentionMode, &info.Pending.RetainUntil)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		// TODO: should we return different error when the object is already committed?
+		return info, ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+	}
+	if err != nil {
+		return info, Error.Wrap(err)
+	}
+
+	// segments
+	err = withRows(ptx.tx.QueryContext(ctx, `
+		SELECT position, encrypted_size, plain_offset, plain_size
+		FROM segments
+		WHERE stream_id = $1
+		ORDER BY position
+	`, opts.StreamID))(func(rows tagsql.Rows) error {
+		info.Segments = []PrecommitSegment{}
+		for rows.Next() {
+			var segment PrecommitSegment
+			if err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize); err != nil {
+				return Error.Wrap(err)
+			}
+			info.Segments = append(info.Segments, segment)
+		}
+		return nil
+	})
+	if err != nil {
+		return info, Error.Wrap(err)
+	}
+
+	// highest visible
+	if opts.HighestVisible {
+		err := ptx.tx.QueryRowContext(ctx, `
+			SELECT status
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND version > 0
+				AND status IN `+statusesVisible+`
+			ORDER BY version DESC
+			LIMIT 1
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey).Scan(&info.HighestVisible)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return info, Error.Wrap(err)
+		}
+	}
+
+	// unversioned
+	if opts.Unversioned {
+		err := withRows(ptx.tx.QueryContext(ctx, `
+			SELECT version, stream_id, segment_count, retention_mode, retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND version > 0
+				AND status IN `+statusesUnversioned+`
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey))(func(rows tagsql.Rows) error {
+			for rows.Next() {
+				var unversioned PrecommitUnversionedObject
+				if err := rows.Scan(&unversioned.Version, &unversioned.StreamID, &unversioned.SegmentCount, &unversioned.RetentionMode, &unversioned.RetainUntil); err != nil {
+					return Error.Wrap(err)
+				}
+				if info.Unversioned != nil {
+					logMultipleCommittedVersionsError(ptx.postgresAdapter.log, opts.ObjectStream.Location())
+					return Error.New(multipleCommittedVersionsErrMsg)
+				}
+				info.Unversioned = &unversioned
+			}
+			return nil
+		})
+		if err != nil {
+			return info, Error.Wrap(err)
+		}
+	}
+	return info, err
+}
+
+func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (result PrecommitInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := spanner.Statement{
+		SQL: `WITH objects_at_location AS (
+			SELECT version, stream_id,
+				status,
+				segment_count,
+				retention_mode, retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				AND version > 0
+		) SELECT
+			(` + spannerGenerateTimestampVersion + `),
+			(SELECT version FROM objects_at_location  ORDER BY version DESC LIMIT 1),
+			(SELECT ARRAY(
+				SELECT AS STRUCT
+					created_at,
+					expires_at,
+					encrypted_metadata,
+					encrypted_metadata_nonce,
+					encrypted_metadata_encrypted_key,
+					encrypted_etag,
+					encryption,
+					retention_mode,
+					retain_until
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+					AND stream_id = @stream_id
+					AND status = ` + statusPending + `
+			)),
+			(SELECT ARRAY(
+				SELECT AS STRUCT position, encrypted_size, plain_offset, plain_size
+				FROM segments
+				WHERE stream_id = @stream_id
+				ORDER BY position
+			))
+		`,
+		Params: map[string]any{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+			"stream_id":   opts.StreamID,
+		},
+	}
+
+	if opts.HighestVisible {
+		stmt.SQL += `,(SELECT status
+				FROM objects_at_location
+				WHERE status IN ` + statusesVisible + `
+				ORDER BY version DESC
+				LIMIT 1
+			)`
+	}
+
+	if opts.Unversioned {
+		stmt.SQL += `,(SELECT ARRAY(
+				SELECT AS STRUCT version, stream_id, segment_count, retention_mode, retain_until
+				FROM objects_at_location
+				WHERE status IN ` + statusesUnversioned + `
+			))`
+	}
+
+	err = stx.tx.QueryWithOptions(ctx, stmt, spanner.QueryOptions{
+		RequestTag: `precommit-query`,
+	}).Do(func(row *spanner.Row) error {
+		if err := row.Column(0, &result.TimestampVersion); err != nil {
+			return Error.Wrap(err)
+		}
+
+		var highestVersion *int64
+		if err := row.Column(1, &highestVersion); err != nil {
+			return Error.Wrap(err)
+		}
+		if highestVersion != nil {
+			result.HighestVersion = Version(*highestVersion)
+		}
+
+		var pending []*PrecommitPendingObject
+		if err := row.Column(2, &pending); err != nil {
+			return Error.Wrap(err)
+		}
+		if len(pending) > 1 {
+			return Error.New("internal error: multiple pending objects with the same key")
+		}
+		if len(pending) == 0 {
+			// TODO: should we return different error when the object is already committed?
+			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+		}
+		result.Pending = *pending[0]
+
+		var segments []*struct {
+			Position      SegmentPosition `spanner:"position"`
+			EncryptedSize int64           `spanner:"encrypted_size"`
+			PlainOffset   int64           `spanner:"plain_offset"`
+			PlainSize     int64           `spanner:"plain_size"`
+		}
+		if err := row.Column(3, &segments); err != nil {
+			return Error.Wrap(err)
+		}
+		result.Segments = make([]PrecommitSegment, len(segments))
+		for i, v := range segments {
+			if v == nil {
+				return Error.New("internal error: null segment returned")
+			}
+			result.Segments[i] = PrecommitSegment{
+				Position:      v.Position,
+				EncryptedSize: int32(v.EncryptedSize),
+				PlainOffset:   v.PlainOffset,
+				PlainSize:     int32(v.PlainSize),
+			}
+		}
+
+		column := 4
+		if opts.HighestVisible {
+			var highestVisible *int64
+			if err := row.Column(column, &highestVisible); err != nil {
+				return Error.Wrap(err)
+			}
+			column++
+			if highestVisible != nil {
+				result.HighestVisible = ObjectStatus(*highestVisible)
+			}
+		}
+
+		if opts.Unversioned {
+			var unversioned []*PrecommitUnversionedObject
+			if err := row.Column(column, &unversioned); err != nil {
+				return Error.Wrap(err)
+			}
+
+			if len(unversioned) > 1 {
+				logMultipleCommittedVersionsError(stx.spannerAdapter.log, opts.Location())
+				return Error.New(multipleCommittedVersionsErrMsg)
+			}
+			if len(unversioned) == 1 {
+				result.Unversioned = unversioned[0]
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return result, err
+	}
 	return result, nil
 }
