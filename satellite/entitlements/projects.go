@@ -12,6 +12,9 @@ import (
 	"storj.io/common/uuid"
 )
 
+// ProjectScopePrefix is the prefix used for project scopes in the database.
+const ProjectScopePrefix = "proj_id:"
+
 // PlacementProductMappings maps placements to their corresponding product IDs.
 type PlacementProductMappings map[storj.PlacementConstraint]int32
 
@@ -150,5 +153,5 @@ func (p *Projects) upsertNewEntitlement(ctx context.Context, ent *Entitlement, f
 
 // ConvertPublicIDToProjectScope converts a public project ID to a database project scope.
 func ConvertPublicIDToProjectScope(publicID uuid.UUID) []byte {
-	return []byte("proj_id:" + publicID.String())
+	return append([]byte(ProjectScopePrefix), publicID[:]...)
 }
