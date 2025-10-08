@@ -108,7 +108,7 @@
                                     </td>
                                 </tr>
 
-                                <tr>
+                                <tr v-if="!newPricingEnabled">
                                     <td>
                                         <p>Segments <span class="d-none d-md-inline">({{ getSegmentPrice(productID) }} per Segment-Month)</span></p>
                                     </td>
@@ -187,6 +187,8 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
 
@@ -205,7 +207,9 @@ const props = withDefaults(defineProps<{
 });
 
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
+const userStore = useUsersStore();
 
 /**
  * An array of tuples containing the partner name and usage charge for the specified project ID.
@@ -218,19 +222,31 @@ const charges = computed((): [productID: number, charge: ProductCharge][] => {
 });
 
 /**
+ * project returns project with ID props.projectID.
+ */
+const project = computed<Project | null>(() => {
+    return projectsStore.state.projects.find(project => project.id === props.projectID) || null;
+});
+
+/**
  * projectName returns project name.
  */
 const projectName = computed((): string => {
-    const projects: Project[] = projectsStore.state.projects;
-    const project: Project | undefined = projects.find(project => project.id === props.projectID);
-
-    return project?.name || '';
+    return project.value?.name || '';
 });
 
 /**
  * Returns product usage price model from store.
  */
 const productCharges = computed<ProductCharges>(() => billingStore.state.productCharges as ProductCharges);
+
+/**
+ * Whether this project has new pricing.
+ */
+const newPricingEnabled = computed<boolean>(() => {
+    if (!configStore.getBillingEnabled(userStore.state.user)) return false;
+    return configStore.getProjectHasNewPricing(project.value?.createdAt || null);
+});
 
 /**
  * Returns product name by product ID.
