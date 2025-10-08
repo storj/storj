@@ -667,6 +667,7 @@ const (
 	statusesDeleteMarker          = "(" + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
 	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
 	statusesVersioned             = "(" + statusCommittedVersioned + "," + statusDeleteMarkerVersioned + ")"
+	statusesVisible               = "(" + statusCommittedUnversioned + "," + statusCommittedVersioned + "," + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
 
 	retentionModeNone                        = "0"
 	retentionModeCompliance                  = "1"

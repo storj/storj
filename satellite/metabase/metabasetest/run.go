@@ -33,6 +33,12 @@ func WithTimestampVersioning(config *metabase.Config) (name string) {
 	return "tsver"
 }
 
+// WithOldCommitObject modifies metabase configuration to test with old commit object.
+func WithOldCommitObject(config *metabase.Config) (name string) {
+	config.TestingTwoRoundtripCommit = false
+	return "old-commit"
+}
+
 // RunWithConfig runs tests with specific metabase configuration.
 func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), variations ...ConfigVariation) {
 	migration := func(ctx context.Context, db *metabase.DB) error {
@@ -105,6 +111,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
 		TestingUniqueUnversioned:   true,
 		TestingTimestampVersioning: config.TestingTimestampVersioning,
+		TestingTwoRoundtripCommit:  config.TestingTwoRoundtripCommit,
 	}, fn, variations...)
 }
 

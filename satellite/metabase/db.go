@@ -53,6 +53,7 @@ type Config struct {
 	TestingWrapAdapter       func(Adapter) Adapter
 	// TestingTimestampVersioning uses timestamps for assigning version numbers.
 	TestingTimestampVersioning bool
+	TestingTwoRoundtripCommit  bool
 
 	Compression string
 
