@@ -75,3 +75,6 @@ placements:
         filter(country("EU"),random),
         case(requestor("126fuL2fPdYYvAJwgEjF4NwBDkfGRoRwBT8JcXpjF9QmUMgLuVe"),filter(country("US"),random))
       )
+  - id: 20
+    name: combined-invariant
+    invariant: maxcontrol("country",5) && filter(tag("$SIGNER_ZERO","dc","dc1"))

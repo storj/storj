@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"math"
+	"strconv"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
@@ -28,7 +29,7 @@ func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 20)
+	require.Len(t, config, 21)
 
 	{
 		// checking filters
@@ -193,6 +194,43 @@ func TestParsedConfig(t *testing.T) {
 		}
 	})
 
+	t.Run("combined-invariant", func(t *testing.T) {
+		piece := func(ix int, nodeIx int) metabase.Piece {
+			return metabase.Piece{
+				Number: uint16(ix), StorageNode: testidentity.MustPregeneratedSignedIdentity(nodeIx, storj.LatestIDVersion()).ID,
+			}
+
+		}
+
+		var nodes []SelectedNode
+		var pieces metabase.Pieces
+		for i := 0; i < 10; i++ {
+			id := testrand.NodeID()
+			node := &SelectedNode{
+				ID: id,
+			}
+			if i < 7 {
+				node.CountryCode = location.UnitedStates
+			} else {
+				node.CountryCode = location.Germany
+			}
+			node.Tags = NodeTags{
+				{
+					Name:   "dc",
+					Value:  []byte("dc" + strconv.Itoa(i/5)),
+					Signer: zeroSigner,
+				},
+			}
+			nodes = append(nodes, *node)
+			pieces = append(pieces, piece(i, i))
+		}
+
+		result := config[20].Invariant(pieces, nodes)
+
+		// only first 5 are fine by the dc filter + only 2 US nodes are allowed --> 7 are clumped
+		require.Equal(t, 7, result.Count())
+	})
+
 }
 
 func TestParsedConfigWithoutTracker(t *testing.T) {
@@ -202,7 +240,6 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 	// tracker is not available for certain microservices (like repair). Still the placement should work.
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 20)
 
 	// smoketest for creating choice of two selector
 	selected, err := config[2].Selector(ctx,
