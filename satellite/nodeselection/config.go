@@ -493,6 +493,25 @@ func InvariantFromString(expr string) (Invariant, error) {
 			}
 			return ClumpingByAttribute(attr, int(max)), nil
 		},
+		"filter": FilterInvariant,
+	}
+	for k, v := range supportedFilters {
+		env[k] = v
+	}
+	env[mito.OpAnd] = func(env map[any]any, a, b any) (any, error) {
+		filter1, ok1 := a.(NodeFilter)
+		filter2, ok2 := b.(NodeFilter)
+		if ok1 && ok2 {
+			return NodeFilters{filter1, filter2}, nil
+		}
+
+		invariant1, ok1 := a.(Invariant)
+		invariant2, ok2 := b.(Invariant)
+		if ok1 && ok2 {
+			return CombinedInvariant(invariant1, invariant2), nil
+		}
+
+		return nil, ErrPlacement.New("&& is supported only between NodeFilter or Invariant instances")
 	}
 	filter, err := mito.Eval(expr, env)
 	if err != nil {
