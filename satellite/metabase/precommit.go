@@ -474,11 +474,11 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 		SQL: `
 				SELECT version, status
 				FROM objects
-				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) and version > 0
 				ORDER BY version DESC
 				LIMIT 1
 			`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  loc.ProjectID,
 			"bucket_name": loc.BucketName,
 			"object_key":  loc.ObjectKey,
@@ -486,20 +486,15 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 	}, spanner.QueryOptions{RequestTag: "precommit-delete-unversioned-check"}).Do(func(row *spanner.Row) error {
 		return Error.Wrap(row.Columns(&result.HighestVersion, &status))
 	})
-
-	// no previous versions found, return early
-	if errors.Is(err, iterator.Done) {
-		result.HighestVersion = 0
-		return result, nil
-	}
 	if err != nil {
 		return PrecommitConstraintResult{}, Error.Wrap(err)
 	}
 
-	// this is special case when we have no previous committed object under this location
-	// but we have a pending object for this upload. Because of that we know we don't have
-	// any previous object version to delete and we can just continue.
-	if result.HighestVersion == DefaultVersion && !status.IsCommitted() {
+	// With this check we can avoid deletion call when it's first upload to that location.
+	// For BeginObjectNextVersion it will be when HighestVersion is 1 as one pending object was already created.
+	// For BeginObjectExactVersion (negative version for pending objects) it will be when HighestVersion is 0
+	// because all existing pending objects were filtered with version > 0 condition.
+	if result.HighestVersion <= DefaultVersion && !status.IsCommitted() {
 		return result, nil
 	}
 
@@ -510,6 +505,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 				project_id      = @project_id
 				AND bucket_name = @bucket_name
 				AND object_key  = @object_key
+				AND version > 0
 				AND status IN ` + statusesUnversioned + `
 			THEN RETURN stream_id, retention_mode, retain_until`,
 		Params: map[string]any{
