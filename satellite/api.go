@@ -866,6 +866,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 			consoleConfig.SkuEnabled = config.Payments.StripeCoinPayments.SkuEnabled
 
+			for _, model := range config.Payments.Products {
+				if model.PriceSummary != "" {
+					consoleConfig.ProductPriceSummaries = append(consoleConfig.ProductPriceSummaries, model.PriceSummary)
+				}
+			}
+
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),
