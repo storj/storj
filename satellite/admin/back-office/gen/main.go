@@ -163,7 +163,8 @@ func main() {
 		},
 		Request: backoffice.DisableUserRequest{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountDeleteNoData},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountDeleteNoData},
+			passAuthParamKey: true,
 		},
 	})
 

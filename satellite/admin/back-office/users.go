@@ -692,9 +692,16 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 }
 
 // DisableUser deactivates a user if they have no active projects or unpaid invoices.
-func (s *Service) DisableUser(ctx context.Context, userID uuid.UUID, request DisableUserRequest) api.HTTPError {
+func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if authInfo == nil {
+		return api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.New("not authorized"),
+		}
+	}
 
 	if request.Reason == "" {
 		return api.HTTPError{
@@ -765,6 +772,22 @@ func (s *Service) DisableUser(ctx context.Context, userID uuid.UUID, request Dis
 	err = s.payments.CreditCards().RemoveAll(ctx, user.ID)
 	if err != nil {
 		s.log.Error("Failed to remove credit cards for deleted user", zap.Stringer("userId", user.ID), zap.Error(err))
+	}
+
+	afterState, err := s.consoleDB.Users().Get(ctx, user.ID)
+	if err != nil {
+		s.log.Error("Failed to retrieve user after disabling", zap.Stringer("userId", user.ID), zap.Error(err))
+	} else {
+		s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+			Action:     "disable_user",
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeUser,
+			ItemID:     user.ID,
+			Reason:     request.Reason,
+			Before:     user,
+			After:      afterState,
+			Timestamp:  s.nowFn(),
+		})
 	}
 
 	return api.HTTPError{}

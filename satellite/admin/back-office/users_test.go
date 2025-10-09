@@ -503,17 +503,19 @@ func TestDisableUser(t *testing.T) {
 		p, err := sat.AddProject(ctx, user.ID, "Project")
 		require.NoError(t, err)
 
-		apiErr := service.DisableUser(ctx, testrand.UUID(), backoffice.DisableUserRequest{})
+		authInfo := &backoffice.AuthInfo{Email: "test@example.com"}
+
+		apiErr := service.DisableUser(ctx, authInfo, testrand.UUID(), backoffice.DisableUserRequest{})
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "reason is required")
 
 		request := backoffice.DisableUserRequest{Reason: "reason"}
-		apiErr = service.DisableUser(ctx, testrand.UUID(), request)
+		apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), request)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
-		apiErr = service.DisableUser(ctx, user.ID, request)
+		apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
 		require.Equal(t, http.StatusConflict, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "active projects")
@@ -524,7 +526,7 @@ func TestDisableUser(t *testing.T) {
 		inv, err := sat.Admin.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "test invoice 1")
 		require.NoError(t, err)
 
-		apiErr = service.DisableUser(ctx, user.ID, request)
+		apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
 		require.Equal(t, http.StatusConflict, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "unpaid invoices")
@@ -532,7 +534,7 @@ func TestDisableUser(t *testing.T) {
 		_, err = sat.Admin.Payments.Accounts.Invoices().Delete(ctx, inv.ID)
 		require.NoError(t, err)
 
-		require.NoError(t, service.DisableUser(ctx, user.ID, request).Err)
+		require.NoError(t, service.DisableUser(ctx, authInfo, user.ID, request).Err)
 
 		u, apiErr := service.GetUser(ctx, user.ID)
 		require.NoError(t, apiErr.Err)
