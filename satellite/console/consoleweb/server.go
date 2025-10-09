@@ -1156,6 +1156,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ShowNewPricingTiers:               server.config.ShowNewPricingTiers,
 		ComputeGatewayURL:                 server.config.ComputeGatewayURL,
 		NewPricingStartDate:               newPricingStartDate,
+		ProductPriceSummaries:             server.config.ProductPriceSummaries,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,
