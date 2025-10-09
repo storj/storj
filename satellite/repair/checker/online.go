@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/nodeselection"
-	"storj.io/storj/satellite/overlay"
 )
 
 // ReliabilityCache caches known nodes for the specified staleness duration
@@ -21,10 +20,11 @@ import (
 //
 // architecture: Service
 type ReliabilityCache struct {
-	overlay   *overlay.Service
-	staleness time.Duration
-	mu        sync.Mutex
-	state     atomic.Value // contains immutable *reliabilityState
+	overlay      Overlay
+	staleness    time.Duration
+	onlineWindow time.Duration
+	mu           sync.Mutex
+	state        atomic.Value // contains immutable *reliabilityState
 }
 
 // reliabilityState.
@@ -34,10 +34,13 @@ type reliabilityState struct {
 }
 
 // NewReliabilityCache creates a new reliability checking cache.
-func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration) *ReliabilityCache {
+// onlineWindow is used to determine if storage nodes are considered online based on their last
+// successful contact.
+func NewReliabilityCache(overlay Overlay, staleness time.Duration, onlineWindow time.Duration) *ReliabilityCache {
 	return &ReliabilityCache{
-		overlay:   overlay,
-		staleness: staleness,
+		overlay:      overlay,
+		staleness:    staleness,
+		onlineWindow: onlineWindow,
 	}
 }
 
@@ -124,7 +127,7 @@ func (cache *ReliabilityCache) Refresh(ctx context.Context) (err error) {
 func (cache *ReliabilityCache) refreshLocked(ctx context.Context) (_ *reliabilityState, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	selectedNodes, err := cache.overlay.GetAllParticipatingNodes(ctx)
+	selectedNodes, err := cache.overlay.GetAllParticipatingNodesForRepair(ctx, cache.onlineWindow)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

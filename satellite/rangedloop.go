@@ -165,7 +165,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 		}
 
 		for class, f := range classes {
-			cache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness)
+			cache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness, config.Checker.OnlineWindow)
 			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, cache, class, f, config.RangedLoop.AsOfSystemInterval))
 		}
 	}
@@ -182,7 +182,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 
 		peer.Repair.Queue = repairQueue
 
-		reliabilityCache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness)
+		reliabilityCache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness, config.Checker.OnlineWindow)
 		var health checker.Health
 		switch config.Checker.HealthScore {
 		case "probability":

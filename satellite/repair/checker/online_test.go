@@ -36,7 +36,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
-	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond)
+	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, 5*time.Minute)
 	var group errgroup.Group
 	for i := 0; i < 10; i++ {
 		group.Go(func() error {

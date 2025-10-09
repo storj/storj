@@ -184,6 +184,9 @@
 # the probability of a single node going down within the next checker iteration
 # checker.node-failure-rate: 5.435e-05
 
+# the amount of time without seeing a node before its considered offline
+# checker.online-window: 4h0m0s
+
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
