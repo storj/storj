@@ -33,10 +33,11 @@ type Config struct {
 	SaveTalliesBatchSize int           `help:"how large should be insert into tallies" default:"10000"`
 	RetentionDays        int           `help:"how many days to retain tallies or zero to retain indefinitely" default:"365"`
 
-	ListLimit          int           `help:"how many buckets to query in a batch" default:"2500"`
-	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
-	FixedReadTimestamp bool          `help:"whether to use fixed (start of process) timestamp for DB reads from objects table" default:"true" testDefault:"false"`
-	UsePartitionQuery  bool          `help:"whether to use partition query for DB reads from objects table" default:"false"`
+	ListLimit            int           `help:"how many buckets to query in a batch" default:"2500"`
+	AsOfSystemInterval   time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
+	FixedReadTimestamp   bool          `help:"whether to use fixed (start of process) timestamp for DB reads from objects table" default:"true" testDefault:"false"`
+	UsePartitionQuery    bool          `help:"whether to use partition query for DB reads from objects table" default:"false"`
+	SmallObjectRemainder bool          `help:"whether to enable small object remainder accounting" default:"false"`
 }
 
 // Service is the tally service for data stored on each storage node.

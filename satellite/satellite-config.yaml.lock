@@ -1919,6 +1919,9 @@ server.private-address: 127.0.0.1:7778
 # how large should be insert into tallies
 # tally.save-tallies-batch-size: 10000
 
+# whether to enable small object remainder accounting
+# tally.small-object-remainder: false
+
 # whether to use partition query for DB reads from objects table
 # tally.use-partition-query: false
 
