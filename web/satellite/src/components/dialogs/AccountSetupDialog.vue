@@ -5,7 +5,7 @@
     <v-dialog :model-value="shouldShowSetupDialog" fullscreen persistent transition="fade-transition" scrollable>
         <v-card>
             <v-card-item class="pa-1" :class="{ 'h-100': step === OnboardingStep.SetupComplete }">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="OnboardingStep.AccountInfo">
                         <account-info-step
                             :ref="stepInfos[OnboardingStep.AccountInfo].ref"
@@ -23,28 +23,9 @@
                             <account-type-step
                                 @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
                                 @pro-click="() => onSelectPricingPlan(proPlanInfo)"
+                                @pkg-click="() => onSelectPricingPlan(pricingPlan)"
                                 @back="toPrevStep"
                             />
-                        </v-window-item>
-
-                        <v-window-item :value="OnboardingStep.PricingPlanSelection">
-                            <v-container>
-                                <v-row justify="center">
-                                    <v-col class="text-center py-4">
-                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
-                                        <div class="text-overline mt-2 mb-1">
-                                            Pricing Plan
-                                        </div>
-                                        <h2>Select a pricing plan</h2>
-                                    </v-col>
-                                </v-row>
-                                <v-row justify="center" align="center">
-                                    <pricing-plan-selection-step
-                                        show-free-plan
-                                        @select="onSelectPricingPlan"
-                                    />
-                                </v-row>
-                            </v-container>
                         </v-window-item>
 
                         <v-window-item :value="OnboardingStep.PaymentMethodSelection">
@@ -78,7 +59,7 @@
                                         </v-tabs>
                                     </v-col>
                                 </v-row>
-                                <v-window v-model="paymentTab">
+                                <v-window v-model="paymentTab" :touch="false">
                                     <v-window-item :value="PaymentOption.CreditCard">
                                         <v-row class="ma-0" justify="center" align="center">
                                             <v-col cols="12" sm="10" md="8" lg="6">
@@ -171,7 +152,6 @@ import { useNotify } from '@/composables/useNotify';
 import { Wallet } from '@/types/payments';
 
 import SuccessStep from '@/components/dialogs/accountSetupSteps/SuccessStep.vue';
-import PricingPlanSelectionStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanSelectionStep.vue';
 import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';
 import ManagedPassphraseOptInStep from '@/components/dialogs/accountSetupSteps/ManagedPassphraseOptInStep.vue';
 import AccountTypeStep from '@/components/dialogs/accountSetupSteps/AccountTypeStep.vue';
@@ -202,6 +182,7 @@ const companyName = ref<string>('');
 const storageNeeds = ref<AccountSetupStorageNeeds | undefined>(undefined);
 const haveSalesContact = ref<boolean>(false);
 
+const pricingPlan = computed<PricingPlanInfo | null>(() => billingStore.state.pricingPlanInfo);
 const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvailable);
 const proPlanInfo = computed<PricingPlanInfo>(() => billingStore.proPlanInfo);
 const isProPlan = computed<boolean>(() => plan.value?.type === PricingPlanType.PRO);
@@ -228,7 +209,6 @@ const billingEnabled = computed<boolean>(() => configStore.state.config.billingF
 const accountInfoNextStep = computed<OnboardingStep>(() => {
     // If billing isn’t on, we always take the default step.
     if (!billingEnabled.value) return defaultNextStep.value;
-    if (pkgAvailable.value) return OnboardingStep.PricingPlanSelection;
     return OnboardingStep.PlanTypeSelection;
 });
 
@@ -245,19 +225,6 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
             await userStore.updateSettings(update);
         },
     }),
-    [OnboardingStep.PricingPlanSelection]: new StepInfo<OnboardingStep>({
-        prev: () => OnboardingStep.AccountInfo,
-        next: () => {
-            if (!isFreePlan.value) return OnboardingStep.PaymentMethodSelection;
-            return defaultNextStep.value;
-        },
-        beforeNext: async () => {
-            if (isFreePlan.value) {
-                await userStore.updateSettings({ onboardingStep: defaultNextStep.value });
-            }
-        },
-        noRef: true,
-    }),
     [OnboardingStep.PlanTypeSelection]: new StepInfo<OnboardingStep>({
         prev: () => OnboardingStep.AccountInfo,
         next: () => {
@@ -272,7 +239,7 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
         noRef: true,
     }),
     [OnboardingStep.PaymentMethodSelection]: new StepInfo<OnboardingStep>({
-        prev: () => pkgAvailable.value ? OnboardingStep.PricingPlanSelection : OnboardingStep.PlanTypeSelection,
+        prev: () => OnboardingStep.PlanTypeSelection,
         next: () => defaultNextStep.value,
         beforeNext: async () => {
             await userStore.updateSettings({ onboardingStep: defaultNextStep.value });
@@ -293,7 +260,8 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     }),
 };
 
-function onSelectPricingPlan(p: PricingPlanInfo): void {
+function onSelectPricingPlan(p: PricingPlanInfo | null): void {
+    if (!p) return;
     plan.value = p;
     toNextStep();
 }
@@ -368,9 +336,6 @@ onBeforeMount(() => {
         (currentStep === OnboardingStep.ManagedPassphraseOptIn && !allowManagedPassphraseStep.value):
         step.value = OnboardingStep.SetupComplete;
         break;
-    case currentStep === OnboardingStep.PricingPlanSelection && !pkgAvailable.value:
-        step.value = allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
-        break;
     case ACCOUNT_SETUP_STEPS.some(s => s === currentStep):
         step.value = currentStep as OnboardingStep;
         break;
@@ -378,7 +343,8 @@ onBeforeMount(() => {
         step.value = OnboardingStep.AccountInfo;
         break;
     case pkgAvailable.value:
-        step.value = OnboardingStep.PricingPlanSelection;
+        step.value = OnboardingStep.PlanTypeSelection;
+        break;
     }
 
     isAccountSetup.value = true;
