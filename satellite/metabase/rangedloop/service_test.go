@@ -423,7 +423,10 @@ func TestAllInOne(t *testing.T) {
 				satellite.DB.OverlayCache(),
 			),
 			func() *checker.Observer {
-				reliabilityCache := checker.NewReliabilityCache(satellite.Overlay.Service, satellite.Config.Checker.ReliabilityCacheStaleness)
+				reliabilityCache := checker.NewReliabilityCache(
+					satellite.Overlay.Service, satellite.Config.Checker.ReliabilityCacheStaleness,
+					satellite.Config.Checker.OnlineWindow,
+				)
 				health := checker.NewProbabilityHealth(satellite.Config.Checker.NodeFailureRate, reliabilityCache)
 				return checker.NewObserver(
 					log.Named("repair:checker"),

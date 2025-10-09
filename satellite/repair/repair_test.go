@@ -3592,7 +3592,9 @@ func TestRepairRSOverride(t *testing.T) {
 		require.NotEqual(t, segments[0].Redundancy.TotalShares, segments[1].Redundancy.TotalShares)
 
 		// verify that both segments have a piece on all online nodes
-		allNodes, err := satellite.Overlay.Service.GetAllParticipatingNodes(ctx)
+		allNodes, err := satellite.Overlay.Service.GetAllParticipatingNodesForRepair(
+			ctx, satellite.Config.Checker.OnlineWindow,
+		)
 		require.NoError(t, err)
 		activeNodes := make(map[storj.NodeID]bool)
 		for _, node := range allNodes {

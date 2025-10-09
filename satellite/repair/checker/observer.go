@@ -77,7 +77,7 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 		config.RepairThresholdOverrides = RepairThresholdOverrides{config.RepairOverrides}
 	}
 
-	nodesCache := NewReliabilityCache(overlay, config.ReliabilityCacheStaleness)
+	nodesCache := NewReliabilityCache(overlay, config.ReliabilityCacheStaleness, config.OnlineWindow)
 
 	return &Observer{
 		logger: logger,

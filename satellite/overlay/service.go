@@ -562,6 +562,16 @@ func (service *Service) GetAllParticipatingNodes(ctx context.Context) (records [
 	return service.db.GetAllParticipatingNodes(ctx, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
 }
 
+// GetAllParticipatingNodesForRepair returns all known participating nodes (this includes all known
+// nodes excluding nodes that have been disqualified or gracefully exited).
+// The passed onlineWindow is used to determine whether each node is marked as Online.
+func (service *Service) GetAllParticipatingNodesForRepair(
+	ctx context.Context, onlineWindow time.Duration) (records []nodeselection.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetAllParticipatingNodes(ctx, onlineWindow, service.config.AsOfSystemTime)
+}
+
 // UpdateReputation updates the DB columns for any of the reputation fields.
 func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, email string, request ReputationUpdate, reputationChanges []nodeevents.Type) (err error) {
 	defer mon.Task()(&ctx)(&err)

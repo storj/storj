@@ -23,12 +23,13 @@ type Config struct {
 	RepairTargetOverrides     RepairTargetOverrides    `help:"comma-separated override values for repair success target in the format k-target" default:""`
 	// Node failure rate is an estimation based on a 6 hour checker run interval (4 checker iterations per day), a network of about 9200 nodes, and about 2 nodes churning per day.
 	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
-	NodeFailureRate            float64  `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
-	RepairQueueInsertBatchSize int      `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
-	RepairExcludedCountryCodes []string `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
-	DoDeclumping               bool     `help:"Treat pieces on the same network as in need of repair" default:"true"`
-	DoPlacementCheck           bool     `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
-	HealthScore                string   `help:"Health score to use for segment health calculation. Options: 'probability', 'normalized'. 'probability' uses the original SegmentHealth logic with node count estimation, while 'normalized' uses a normalized health calculation (healthy -k)." default:"probability" enum:"probability,normalized"`
+	NodeFailureRate            float64       `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435" `
+	RepairQueueInsertBatchSize int           `help:"Number of damaged segments to buffer in-memory before flushing to the repair queue" default:"100" `
+	RepairExcludedCountryCodes []string      `help:"list of country codes to treat node from this country as offline " default:"" hidden:"true"`
+	DoDeclumping               bool          `help:"Treat pieces on the same network as in need of repair" default:"true"`
+	DoPlacementCheck           bool          `help:"Treat pieces out of segment placement as in need of repair" default:"true"`
+	HealthScore                string        `help:"Health score to use for segment health calculation. Options: 'probability', 'normalized'. 'probability' uses the original SegmentHealth logic with node count estimation, while 'normalized' uses a normalized health calculation (healthy -k)." default:"probability" enum:"probability,normalized"`
+	OnlineWindow               time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"5m"`
 }
 
 // RepairThresholdOverrides override values for repair threshold.
