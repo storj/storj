@@ -105,6 +105,7 @@ export class FrontendConfig {
     showNewPricingTiers: boolean;
     computeGatewayURL: string;
     newPricingStartDate: Time | null;
+    productPriceSummaries: string[] | null;
 }
 
 export class MinimumChargeConfig {
