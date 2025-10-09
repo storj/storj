@@ -1733,6 +1733,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # when does nodes for repaired pieces cache start blocking
 # repairer.nodes-for-repair-cache-stale: 10m0s
 
+# the amount of time without seeing a node before its considered offline
+# repairer.online-window: 4h0m0s
+
 # enable cache for participating nodes
 # repairer.participating-node-cache-enabled: false
 

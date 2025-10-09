@@ -96,7 +96,7 @@ type SegmentRepairer struct {
 	statsCollector *statsCollector
 	metabase       *metabase.DB
 	orders         *orders.Service
-	overlay        *overlay.Service
+	overlay        Overlay
 	ec             *ECRepairer
 	timeout        time.Duration
 	reporter       audit.Reporter
@@ -124,6 +124,8 @@ type SegmentRepairer struct {
 	OnTestingCheckSegmentAlteredHook func()
 	OnTestingPiecesReportHook        func(pieces FetchResultReport)
 	placements                       nodeselection.PlacementDefinitions
+	// onlineWindow to consider if storage nodes are online according to their last successful contact.
+	onlineWindow time.Duration
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -135,7 +137,7 @@ func NewSegmentRepairer(
 	log *zap.Logger,
 	metabase *metabase.DB,
 	orders *orders.Service,
-	overlay *overlay.Service,
+	overlaysvc *overlay.Service,
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
 	placements nodeselection.PlacementDefinitions,
@@ -161,7 +163,7 @@ func NewSegmentRepairer(
 		statsCollector:             newStatsCollector(),
 		metabase:                   metabase,
 		orders:                     orders,
-		overlay:                    overlay,
+		overlay:                    overlaysvc,
 		ec:                         ecRepairer,
 		timeout:                    config.Timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
@@ -173,6 +175,7 @@ func NewSegmentRepairer(
 		doDeclumping:               config.DoDeclumping,
 		doPlacementCheck:           config.DoPlacementCheck,
 		placements:                 placements,
+		onlineWindow:               config.OnlineWindow,
 
 		nowFn: time.Now,
 	}
@@ -185,7 +188,10 @@ func NewSegmentRepairer(
 	}
 
 	if config.NodesForRepairCacheEnabled {
-		repairer.nodesForRepairCache, err = sync2.NewReadCache(config.NodesForRepairCacheInterval, config.NodesForRepairCacheStale, overlay.GetAllOnlineNodesForRepair)
+		repairer.nodesForRepairCache, err = sync2.NewReadCache(
+			config.NodesForRepairCacheInterval, config.NodesForRepairCacheStale, func(ctx context.Context) (map[storj.NodeID]*overlay.NodeReputation, error) {
+				return overlaysvc.GetAllOnlineNodesForRepair(ctx, repairer.onlineWindow)
+			})
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -982,7 +988,7 @@ func (repairer *SegmentRepairer) AdminFetchPieces(
 
 func (repairer *SegmentRepairer) getParticipatingNodes(ctx context.Context, nodes []storj.NodeID) ([]nodeselection.SelectedNode, error) {
 	if repairer.participatingNodesCache == nil {
-		return repairer.overlay.GetParticipatingNodes(ctx, nodes)
+		return repairer.overlay.GetParticipatingNodesForRepair(ctx, nodes, repairer.onlineWindow)
 	}
 
 	cache, err := repairer.participatingNodesCache.Get(ctx, time.Now())
@@ -1003,7 +1009,7 @@ func (repairer *SegmentRepairer) getParticipatingNodes(ctx context.Context, node
 }
 
 func (repairer *SegmentRepairer) fetchParticipatingNodes(ctx context.Context) (map[storj.NodeID]*nodeselection.SelectedNode, error) {
-	nodes, err := repairer.overlay.GetAllParticipatingNodes(ctx)
+	nodes, err := repairer.overlay.GetAllParticipatingNodesForRepair(ctx, repairer.onlineWindow)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -1027,7 +1033,7 @@ func (repairer *SegmentRepairer) RefreshParticipatingNodesCache(ctx context.Cont
 
 func (repairer *SegmentRepairer) getNodesForRepair(ctx context.Context, nodes []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
 	if repairer.nodesForRepairCache == nil {
-		return repairer.overlay.GetOnlineNodesForRepair(ctx, nodes)
+		return repairer.overlay.GetOnlineNodesForRepair(ctx, nodes, repairer.onlineWindow)
 	}
 
 	// We return all. We could filter out and return the asked ones, but it doesn't hurt to return
