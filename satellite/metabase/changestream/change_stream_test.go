@@ -25,7 +25,7 @@ import (
 )
 
 func TestSpannerChangeStreamMessageGeneration(t *testing.T) {
-	//	t.Skip("Skipping change stream tests in CI, for now - testing this with emulator is very slow (20-25 delay between events might be possible)")
+	t.Skip("Skipping change stream tests in CI, for now - testing this with emulator is very slow (20-25 delay between events might be possible)")
 	// Run test only on Spanner since change streams are Spanner-specific
 	metabasetest.RunWithConfig(t, metabase.Config{
 		ApplicationName:  "test-change-stream",

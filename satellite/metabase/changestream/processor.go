@@ -8,7 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+
+	"storj.io/common/errs2"
 )
 
 // Processor processes change stream records in batches (parallel). This contains the logic to follow child partitions.
@@ -32,7 +36,10 @@ func Processor(ctx context.Context, adapter Adapter, feedName string, startTime 
 						return fn(record)
 					})
 					if err != nil {
-						tracker.Failed(todoItem.Token)
+						if !errs2.IsCanceled(err) && spanner.ErrCode(err) != codes.Canceled {
+							tracker.Failed(todoItem.Token)
+							tracker.NotifyReady()
+						}
 						//nolint
 						return nil
 					}
@@ -42,12 +49,14 @@ func Processor(ctx context.Context, adapter Adapter, feedName string, startTime 
 						}
 					}
 					tracker.Finish(todoItem.Token)
+					tracker.NotifyReady()
 					return nil
 				})
 			}
 		}
 	})
 	tracker.Add("", nil, startTime, "")
+	tracker.NotifyReady()
 	return eg.Wait()
 }
 
@@ -91,11 +100,12 @@ func (t *Tracker) Add(token string, parentTokens []string, start time.Time, reco
 		RecordSequence: recordSequence,
 	}
 	t.status[token] = statusReceived
-	t.notifyReady()
 }
 
-// notifyReady checks for partitions that are ready to be processed and sends them to the receive channel.
-func (t *Tracker) notifyReady() {
+// NotifyReady checks for partitions that are ready to be processed and sends them to the receive channel.
+func (t *Tracker) NotifyReady() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	for _, todo := range t.todo {
 		if t.status[todo.Token] != statusReceived {
 			continue
