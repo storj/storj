@@ -438,17 +438,22 @@ func (service *Service) GetOnlineNodesForAudit(ctx context.Context, nodeIDs []st
 }
 
 // GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
-func (service *Service) GetOnlineNodesForRepair(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*NodeReputation, err error) {
+// The passed onlineWindow is used to determine whether each node is marked as Online.
+func (service *Service) GetOnlineNodesForRepair(
+	ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration,
+) (_ map[storj.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetOnlineNodesForAuditAndRepair(ctx, nodeIDs, service.config.Node.OnlineWindow)
+	return service.db.GetOnlineNodesForAuditAndRepair(ctx, nodeIDs, onlineWindow)
 }
 
 // GetAllOnlineNodesForRepair returns a map of online and valid nodes to upload repaired pieces.
-func (service *Service) GetAllOnlineNodesForRepair(ctx context.Context) (_ map[storj.NodeID]*NodeReputation, err error) {
+// The passed onlineWindow is used to determine whether each node is marked as Online.
+func (service *Service) GetAllOnlineNodesForRepair(
+	ctx context.Context, onlineWindow time.Duration) (_ map[storj.NodeID]*NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetAllOnlineNodesForRepair(ctx, service.config.Node.OnlineWindow)
+	return service.db.GetAllOnlineNodesForRepair(ctx, onlineWindow)
 }
 
 // GetNodeIPsFromPlacement returns a map of node ip:port for the supplied nodeIDs. Results are filtered out by placement.
@@ -552,6 +557,21 @@ func (service *Service) GetParticipatingNodes(ctx context.Context, nodeIDs storj
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetParticipatingNodes(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.AsOfSystemTime)
+}
+
+// GetParticipatingNodesForRepair returns all known participating nodes (this includes all known
+// nodes excluding nodes that have been disqualified or gracefully exited).
+// The passed onlineWindow is used to determine whether each node is marked as Online.
+// The results are returned in a slice of the same length as the input nodeIDs,
+// and each index of the returned list corresponds to the same index in nodeIDs.
+// If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
+// will have a zero value.
+func (service *Service) GetParticipatingNodesForRepair(
+	ctx context.Context, nodeIDs storj.NodeIDList, onlineWindow time.Duration,
+) (records []nodeselection.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.GetParticipatingNodes(ctx, nodeIDs, onlineWindow, service.config.AsOfSystemTime)
 }
 
 // GetAllParticipatingNodes returns all known participating nodes (this includes all known nodes

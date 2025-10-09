@@ -3692,10 +3692,15 @@ func TestRepairRSOverride(t *testing.T) {
 
 //revive:disable:context-as-argument
 func createGetRepairOrderLimits(
-	t *testing.T, sat *testplanet.Satellite, ctx context.Context, segment metabase.SegmentForRepair, healthy metabase.Pieces,
+	t *testing.T, sat *testplanet.Satellite, ctx context.Context, segment metabase.SegmentForRepair,
+	healthy metabase.Pieces, // onlineWindow time.Duration,
 ) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation) {
 	limits, privateKey, cachedNodesInfo, err := sat.Orders.Service.CreateGetRepairOrderLimits(
-		ctx, segment, segment.Pieces, sat.Overlay.Service.GetOnlineNodesForRepair,
+		ctx, segment, segment.Pieces,
+		func(ctx context.Context, nodes []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error) {
+			return sat.Overlay.Service.GetOnlineNodesForRepair(ctx, nodes, sat.Config.Repairer.OnlineWindow)
+
+		},
 	)
 	require.NoError(t, err)
 	return limits, privateKey, cachedNodesInfo
