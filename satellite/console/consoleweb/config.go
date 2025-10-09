@@ -102,6 +102,7 @@ type FrontendConfig struct {
 	ShowNewPricingTiers               bool                        `json:"showNewPricingTiers"`
 	ComputeGatewayURL                 string                      `json:"computeGatewayURL"`
 	NewPricingStartDate               *time.Time                  `json:"newPricingStartDate"`
+	ProductPriceSummaries             []string                    `json:"productPriceSummaries"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

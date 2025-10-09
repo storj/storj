@@ -216,6 +216,8 @@ type ProductUsagePrice struct {
 	EgressOverageMode      bool
 	IncludedEgressSKU      string
 	StorageRemainder       string
+	// PriceSummary will be displayed on the Pro Account info card in the UI.
+	PriceSummary string
 	ProductSKUs
 	ProjectUsagePrice
 }
@@ -252,6 +254,8 @@ type ProductUsagePriceYaml struct {
 	EgressOverageMode      bool   `yaml:"egress-overage-mode" json:"-"`
 	IncludedEgressSKU      string `yaml:"included-egress-sku" json:"-"`
 	StorageRemainder       string `yaml:"storage-remainder" json:"-"`
+	// PriceSummary will be displayed on the Pro Account info card in the UI.
+	PriceSummary string `yaml:"price-summary" json:"-"`
 }
 
 // String returns the YAML string representation of the price overrides.
@@ -350,6 +354,7 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			EgressOverageMode:      price.EgressOverageMode,
 			IncludedEgressSKU:      price.IncludedEgressSKU,
 			StorageRemainder:       price.StorageRemainder,
+			PriceSummary:           price.PriceSummary,
 		}
 	}
 	*p = prices
