@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
@@ -16,8 +17,11 @@ import (
 	"storj.io/common/errs2"
 )
 
+var mon = monkit.Package()
+
 // Processor processes change stream records in batches (parallel). This contains the logic to follow child partitions.
-func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) error {
+func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	tracker := &Tracker{
 		todo:    make(map[string]Todo),
 		status:  make(map[string]TodoStatus),

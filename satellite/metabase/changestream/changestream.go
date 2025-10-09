@@ -98,7 +98,8 @@ type ChangeFeedRecord struct {
 }
 
 // ReadPartitions listens to Spanner change stream and processes records via callback.
-func ReadPartitions(ctx context.Context, log *zap.Logger, client *recordeddb.SpannerClient, name string, partitionToken string, from time.Time, callback func(record DataChangeRecord) error) ([]ChildPartitionsRecord, error) {
+func ReadPartitions(ctx context.Context, log *zap.Logger, client *recordeddb.SpannerClient, name string, partitionToken string, from time.Time, callback func(record DataChangeRecord) error) (childPartitions []ChildPartitionsRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
 	log.Info("Listening on change stream", zap.String("name", name), zap.Time("from", from), zap.String("partition_token", partitionToken))
 
 	query := `SELECT ChangeRecord FROM READ_%s(start_timestamp => @start_time,heartbeat_milliseconds => @heartbeat_milliseconds`
@@ -120,8 +121,7 @@ func ReadPartitions(ctx context.Context, log *zap.Logger, client *recordeddb.Spa
 
 	iter := client.Single().Query(ctx, stmt)
 
-	var childPartitions []ChildPartitionsRecord
-	err := iter.Do(func(row *spanner.Row) error {
+	err = iter.Do(func(row *spanner.Row) error {
 		records := make([]*ChangeRecord, 0)
 		err := row.Columns(&records)
 		if err != nil {
