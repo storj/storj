@@ -516,7 +516,7 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		AdminEmail: authInfo.Email,
 		ItemType:   auditlogger.ItemTypeUser,
 		ItemID:     userID,
-		Reason:     "",
+		Reason:     request.Reason,
 		Before:     beforeState,
 		After:      updatedUser,
 		Timestamp:  s.nowFn(),
