@@ -19,6 +19,8 @@ import (
 	"storj.io/common/context2"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
 )
 
@@ -46,6 +48,7 @@ type Config struct {
 	RepairExcludedCountryCodes    []string      `help:"list of country codes to treat node from this country as offline" default:"" hidden:"true"`
 	DoDeclumping                  bool          `help:"repair pieces on the same network to other nodes" default:"true"`
 	DoPlacementCheck              bool          `help:"repair pieces out of segment placement" default:"true"`
+	OnlineWindow                  time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h" testDefault:"5m"`
 
 	ParticipatingNodeCacheEnabled  bool          `help:"enable cache for participating nodes" default:"false" testDefault:"true"`
 	ParticipatingNodeCacheInterval time.Duration `help:"how often participating nodes cache should be refreshed" default:"5m"`
@@ -57,6 +60,32 @@ type Config struct {
 
 	IncludedPlacements PlacementList `help:"comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)" default:""`
 	ExcludedPlacements PlacementList `help:"comma separated placement IDs (numbers), placements which should be ignored by the repairer" default:""`
+}
+
+// Overlay is used to fetch information about nodes for repairing segments.
+type Overlay interface {
+	// GetOnlineNodesForRepair returns a map of nodes for the supplied nodeIDs.
+	// The passed onlineWindow is used to determine whether each node is marked as Online.
+	GetOnlineNodesForRepair(
+		_ context.Context, _ []storj.NodeID, onlineWindow time.Duration,
+	) (map[storj.NodeID]*overlay.NodeReputation, error)
+	// FindStorageNodesForUpload searches the for nodes in the cache that meet the provided requirements for upload.
+	FindStorageNodesForUpload(context.Context, overlay.FindStorageNodesRequest) ([]*nodeselection.SelectedNode, error)
+	// GetParticipatingNodesForRepair returns all known participating nodes (this includes all known
+	// nodes excluding nodes that have been disqualified or gracefully exited).
+	// The passed onlineWindow is used to determine whether each node is marked as Online.
+	// The results are returned in a slice of the same length as the input nodeIDs,
+	// and each index of the returned list corresponds to the same index in nodeIDs.
+	// If a node is not known, or is disqualified or exited, the corresponding returned SelectedNode
+	// will have a zero value.
+	GetParticipatingNodesForRepair(
+		_ context.Context, _ storj.NodeIDList, onlineWindow time.Duration,
+	) ([]nodeselection.SelectedNode, error)
+	// GetAllParticipatingNodesForRepair returns all known participating nodes (this includes all known
+	// nodes excluding nodes that have been disqualified or gracefully exited).
+	// The passed onlineWindow is used to determine whether each node is marked as Online.
+	GetAllParticipatingNodesForRepair(
+		_ context.Context, onlineWindow time.Duration) ([]nodeselection.SelectedNode, error)
 }
 
 // PlacementList is a configurable, comma separated list of PlacementConstraint IDs.
