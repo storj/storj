@@ -40,7 +40,6 @@ type Observer struct {
 	logger                   *zap.Logger
 	repairQueue              queue.RepairQueue
 	nodesCache               *ReliabilityCache
-	overlayService           *overlay.Service
 	repairThresholdOverrides RepairThresholdOverrides
 	repairTargetOverrides    RepairTargetOverrides
 	nodeFailureRate          float64
@@ -85,7 +84,6 @@ func NewObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *ove
 
 		repairQueue:              repairQueue,
 		nodesCache:               nodesCache,
-		overlayService:           overlay,
 		repairThresholdOverrides: config.RepairThresholdOverrides,
 		repairTargetOverrides:    config.RepairTargetOverrides,
 		nodeFailureRate:          config.NodeFailureRate,
@@ -270,7 +268,6 @@ func (observer *Observer) RefreshReliabilityCache(ctx context.Context) error {
 type observerFork struct {
 	repairQueue              *queue.InsertBuffer
 	nodesCache               *ReliabilityCache
-	overlayService           *overlay.Service
 	rsStats                  map[redundancyStyle]*partialRSStats
 	repairThresholdOverrides RepairThresholdOverrides
 	repairTargetOverrides    RepairTargetOverrides
@@ -300,7 +297,6 @@ func newObserverFork(observer *Observer) rangedloop.Partial {
 	return &observerFork{
 		repairQueue:              observer.createInsertBuffer(),
 		nodesCache:               observer.nodesCache,
-		overlayService:           observer.overlayService,
 		rsStats:                  make(map[redundancyStyle]*partialRSStats),
 		repairThresholdOverrides: observer.repairThresholdOverrides,
 		repairTargetOverrides:    observer.repairTargetOverrides,
