@@ -10,6 +10,7 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc/codes"
 
 	"storj.io/common/errs2"
@@ -21,6 +22,7 @@ import (
 )
 
 func TestChangeStream(t *testing.T) {
+	log := zaptest.NewLogger(t)
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		streamId := metabasetest.RandObjectStream()
 		adapter := db.ChooseAdapter(streamId.ProjectID)
@@ -47,7 +49,7 @@ func TestChangeStream(t *testing.T) {
 		changes := make(chan changestream.DataChangeRecord)
 		feedErr := make(chan error)
 		go func() {
-			err = changestream.Processor(feedCtx, spannerAdapter, changefeedName, startTime, func(record changestream.DataChangeRecord) error {
+			err = changestream.Processor(feedCtx, log, spannerAdapter, changefeedName, startTime, func(record changestream.DataChangeRecord) error {
 				changes <- record
 				return nil
 			})

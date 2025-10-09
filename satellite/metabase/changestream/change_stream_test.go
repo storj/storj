@@ -13,6 +13,8 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/testcontext"
@@ -348,7 +350,8 @@ func setupChangeStreamTest(ctx context.Context, t *testing.T, db *metabase.DB) (
 	require.NoError(t, err, "Should be able to check change stream existence")
 	require.True(t, changeStreamExists, "Change stream should exist")
 
-	eventCh, errCh, cleanup = startChangeStreamReader(ctx, adapter, "bucket_eventing")
+	log := zaptest.NewLogger(t)
+	eventCh, errCh, cleanup = startChangeStreamReader(ctx, log, adapter, "bucket_eventing")
 
 	// Give the reader a moment to start up
 	time.Sleep(2 * time.Second)
@@ -461,7 +464,7 @@ func verifyChangeStreamExists(ctx context.Context, adapter *metabase.SpannerAdap
 
 // startChangeStreamReader starts reading change stream events in the background
 // and returns a channel that will receive events as they occur
-func startChangeStreamReader(ctx context.Context, adapter *metabase.SpannerAdapter, streamName string) (<-chan changestream.DataChangeRecord, <-chan error, func()) {
+func startChangeStreamReader(ctx context.Context, log *zap.Logger, adapter *metabase.SpannerAdapter, streamName string) (<-chan changestream.DataChangeRecord, <-chan error, func()) {
 	eventCh := make(chan changestream.DataChangeRecord, 100) // Buffer to avoid blocking
 	errCh := make(chan error, 1)
 
@@ -475,7 +478,7 @@ func startChangeStreamReader(ctx context.Context, adapter *metabase.SpannerAdapt
 
 		startTime := time.Now()
 
-		err := changestream.Processor(processorCtx, adapter, streamName, startTime, func(record changestream.DataChangeRecord) error {
+		err := changestream.Processor(processorCtx, log, adapter, streamName, startTime, func(record changestream.DataChangeRecord) error {
 			select {
 			case eventCh <- record:
 			case <-processorCtx.Done():

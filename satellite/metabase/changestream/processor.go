@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 
@@ -16,7 +17,7 @@ import (
 )
 
 // Processor processes change stream records in batches (parallel). This contains the logic to follow child partitions.
-func Processor(ctx context.Context, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) error {
+func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) error {
 	tracker := &Tracker{
 		todo:    make(map[string]Todo),
 		status:  make(map[string]TodoStatus),
@@ -41,6 +42,7 @@ func Processor(ctx context.Context, adapter Adapter, feedName string, startTime 
 							tracker.NotifyReady()
 						}
 						//nolint
+						log.Warn("failed to process partition (will be retried)", zap.String("token", todoItem.Token), zap.Error(err))
 						return nil
 					}
 					for _, partition := range partitions {
