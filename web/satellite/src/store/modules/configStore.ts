@@ -78,6 +78,13 @@ export class MinimumCharge {
         return Time.formattedDate(this.startDate, { month: 'long', year: 'numeric', timeZone: 'UTC' });
     }
 
+    get monthDayStartDateStr(): string {
+        if (!this.startDate) {
+            return '';
+        }
+        return Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', timeZone: 'UTC' });
+    }
+
     get shortStartDateStr(): string {
         if (!this.startDate) {
             return '';

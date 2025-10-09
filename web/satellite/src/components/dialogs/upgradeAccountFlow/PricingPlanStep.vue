@@ -3,20 +3,24 @@
 
 <template>
     <template v-if="!isSuccess">
-        <v-row class="ma-0" align="center">
-            <v-col class="px-0">
-                <p class="font-weight-bold">{{ plan.title }} <span v-if="plan.activationSubtitle"> / {{ plan.activationSubtitle }}</span></p>
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <p v-html="plan.activationDescriptionHTML" />
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <div v-if="plan.activationPriceInfo" class="mt-2"><v-chip color="info"><p v-html="plan.activationPriceInfo" /></v-chip></div>
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <v-chip v-if="plan.activationPriceHTML" variant="text" color="success" :prepend-icon="Check" class="mt-2"><p class="font-weight-bold" v-html="plan.activationPriceHTML" /></v-chip>
-            </v-col>
-        </v-row>
+        <v-sheet elevation="0" border="sm" rounded="lg" color="background" class="pa-5 mb-4">
+            <template v-if="plan.planUpfrontCharge">
+                Add {{ plan.planUpfrontCharge }} to activate your account - this stays as your account balance.
+                <br>
+            </template>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <p v-if="plan.planMinimumFeeInfo" v-html="plan.planMinimumFeeInfo" />
+
+            <div v-if="plan.planUpfrontCharge" class="d-flex align-center justify-start mt-4 ga-5">
+                <v-sheet border="sm" elevation="0" rounded="lg" class="py-1 px-3 custom-border">
+                    <span class="text-body-1 font-weight-bold"> Total Today: {{ plan.planUpfrontCharge || '$0' }} </span>
+                </v-sheet>
+                <span v-if="plan.planUpfrontCharge" class="text-body-1 font-weight-bold">
+                    <v-icon :icon="Check" /> {{ plan.planBalanceCredit }} will be added to your account balance</span>
+            </div>
+        </v-sheet>
 
         <div v-if="!isFree" class="my-2">
-            <p class="text-caption mb-2">Add Card Info</p>
             <StripeCardElement
                 ref="stripeCardInput"
                 @ready="stripeReady = true"
@@ -27,7 +31,7 @@
             <v-btn
                 id="activate"
                 block
-                :color="plan.type === 'partner' ? 'success' : 'primary'"
+                :color="plan.type === 'partner' ? 'secondary' : 'primary'"
                 :disabled="!stripeReady && !isFree"
                 :loading="loading"
                 @click="onActivateClick"
@@ -97,8 +101,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VAlert, VBtn, VCol, VIcon, VRow, VChip } from 'vuetify/components';
-import { Check, LockKeyhole, ChevronLeft } from 'lucide-vue-next';
+import { VAlert, VBtn, VCol, VIcon, VRow, VSheet } from 'vuetify/components';
+import { Check, ChevronLeft, LockKeyhole } from 'lucide-vue-next';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
@@ -215,3 +219,9 @@ function onSuccess() {
     }
 }
 </script>
+
+<style scoped lang="scss">
+.custom-border {
+    border-color: currentcolor !important;
+}
+</style>

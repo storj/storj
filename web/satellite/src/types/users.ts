@@ -455,6 +455,7 @@ export enum OnboardingStep {
     PlanTypeSelection = 'PlanTypeSelection',
     AccountInfo = 'AccountInfo',
     PaymentMethodSelection = 'PaymentMethodSelection',
+    // left here for backward compatibility
     PricingPlanSelection = 'PricingPlanSelection',
     ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
     SetupComplete = 'SetupComplete',
@@ -475,6 +476,7 @@ export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountInfo,
     OnboardingStep.PlanTypeSelection,
     OnboardingStep.PaymentMethodSelection,
+    // left here for backward compatibility
     OnboardingStep.PricingPlanSelection,
     OnboardingStep.ManagedPassphraseOptIn,
     OnboardingStep.SetupComplete,
