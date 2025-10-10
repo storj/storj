@@ -261,7 +261,7 @@ type Config struct {
 	TestingCommitSegmentUseMutations bool          `default:"false"  help:"enable using Spanner mutations while committing segment" hidden:"true"`
 	TestingDeleteBucketBatchSize     int           `default:"15" help:"how many objects to delete in a single batch during a bucket deletion"`
 
-	TestingAlternativeBeginObject         bool      `default:"false" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
+	TestingAlternativeBeginObject         bool      `default:"true" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
 	TestingAlternativeBeginObjectProjects UUIDsFlag `default:""  help:"list of project IDs for which will use alternative (negative version) begin object implementation" hidden:"true"`
 
 	// TODO we need to split this into separate config with other metabase related flags

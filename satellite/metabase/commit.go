@@ -1164,23 +1164,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		nextVersion := opts.Version
-
-		// precommit.HighestVersion == 0 means there are no previous object versions (pending and committed)
-		switch {
-		case precommit.HighestVersion < 0:
-			// pending object created with BeginObjectExactVersion and negative version.
-			// There are no other committed objects.
-			nextVersion = 1
-		case precommit.HighestVersion > 0:
-			// pending object created with BeginObjectNextVersion or
-			// there are other committed objects.
-			if nextVersion < precommit.HighestVersion {
-				nextVersion = precommit.HighestVersion + 1
-			}
+		if nextVersion < precommit.HighestVersion {
+			nextVersion = precommit.HighestVersion + 1
 		}
 
-		err = adapter.finalizeObjectCommit(ctx, opts, nextStatus, nextVersion, segments, totalPlainSize, totalEncryptedSize, fixedSegmentSize, &object)
-		if err != nil {
+		if err := adapter.finalizeObjectCommit(ctx, opts, nextStatus, nextVersion, segments, totalPlainSize, totalEncryptedSize, fixedSegmentSize, &object); err != nil {
 			return err
 		}
 
