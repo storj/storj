@@ -155,7 +155,7 @@ func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	placementDetails, _, err := b.service.GetPlacementDetails(ctx, projectID)
+	placementDetails, err := b.service.GetPlacementDetails(ctx, projectID)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			b.serveJSONError(ctx, w, http.StatusUnauthorized, err)

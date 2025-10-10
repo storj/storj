@@ -2395,12 +2395,17 @@ func TestChangeEmail(t *testing.T) {
 
 func TestCreateProject_WithEntitlementsService(t *testing.T) {
 	var (
-		placement       = storj.PlacementConstraint(10)
-		placementDetail = console.PlacementDetail{
+		placement10       = storj.PlacementConstraint(10)
+		placement50       = storj.PlacementConstraint(50)
+		placement10Detail = console.PlacementDetail{
 			ID:     10,
 			IdName: "placement10",
 		}
-		allowedPlacements = []storj.PlacementConstraint{storj.DefaultPlacement, placement}
+		placement0Detail = console.PlacementDetail{
+			ID:     0,
+			IdName: "0",
+		}
+		allowedPlacements = []storj.PlacementConstraint{storj.DefaultPlacement, placement10}
 		partnersMapping   = entitlements.PlacementProductMappings{
 			storj.DefaultPlacement:        2,
 			storj.PlacementConstraint(12): 2,
@@ -2419,8 +2424,8 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 				}
 				config.Console.Placement.SelfServeEnabled = true
 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
-					storj.DefaultPlacement: {ID: 0},
-					placement:              placementDetail,
+					storj.DefaultPlacement: placement0Detail,
+					placement10:            placement10Detail,
 				})
 				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
 				config.Entitlements.Enabled = true
@@ -2467,7 +2472,6 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 
 		p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test-project"})
 		require.NoError(t, err)
-		require.Contains(t, sat.Config.Console.Placement.AllowedPlacementIdsForNewProjects, p.DefaultPlacement)
 
 		feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
 		require.NoError(t, err)
@@ -2475,6 +2479,13 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 		require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
 		require.NotNil(t, feats.PlacementProductMappings)
 		require.EqualValues(t, defaultMapping, feats.PlacementProductMappings)
+		require.Contains(t, feats.NewBucketPlacements, p.DefaultPlacement)
+
+		config, err := service.GetProjectConfig(userCtx, p.ID)
+		require.NoError(t, err)
+		require.Equal(t, len(feats.NewBucketPlacements), len(config.AvailablePlacements))
+		require.Contains(t, config.AvailablePlacements, placement10Detail)
+		require.Contains(t, config.AvailablePlacements, placement0Detail)
 
 		user, err = sat.AddUser(ctx, console.CreateUser{
 			FullName:  "Test User2",
@@ -2495,6 +2506,44 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 		require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
 		require.NotNil(t, feats.PlacementProductMappings)
 		require.EqualValues(t, partnersMapping, feats.PlacementProductMappings)
+		require.Contains(t, feats.NewBucketPlacements, p.DefaultPlacement)
+
+		config, err = service.GetProjectConfig(userCtx, p.ID)
+		require.NoError(t, err)
+		require.Equal(t, len(feats.NewBucketPlacements), len(config.AvailablePlacements))
+		require.Contains(t, config.AvailablePlacements, placement10Detail)
+		require.Contains(t, config.AvailablePlacements, placement0Detail)
+
+		user, err = sat.AddUser(ctx, console.CreateUser{
+			FullName: "Non default placement User",
+			Email:    "nondefaultplacement@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		err = sat.DB.Console().Users().UpdateDefaultPlacement(ctx, user.ID, placement50)
+		require.NoError(t, err)
+
+		user, err = service.GetUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, placement50, user.DefaultPlacement)
+
+		userCtx, err = sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		p, err = service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test-project"})
+		require.NoError(t, err)
+		require.Equal(t, placement50, p.DefaultPlacement)
+
+		feats, err = sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+		require.NoError(t, err)
+		require.NotNil(t, feats.NewBucketPlacements)
+		require.EqualValues(t, []storj.PlacementConstraint{placement50}, feats.NewBucketPlacements)
+		require.NotNil(t, feats.PlacementProductMappings)
+		require.EqualValues(t, defaultMapping, feats.PlacementProductMappings)
+
+		config, err = service.GetProjectConfig(userCtx, p.ID)
+		require.NoError(t, err)
+		require.Empty(t, config.AvailablePlacements)
 	})
 }
 

@@ -3584,15 +3584,15 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
 
-	placementDetails, entitlementsHasPlacements, err := s.getPlacementDetails(ctx, project)
-	if err != nil {
-		return nil, err
-	}
-
-	if s.entitlementsConfig.Enabled && !entitlementsHasPlacements && project.DefaultPlacement != storj.DefaultPlacement {
-		// this project is configured to be only able to create buckets with the default placement,
-		// so it should not have any other available placements.
-		placementDetails = make([]PlacementDetail, 0)
+	placementDetails := make([]PlacementDetail, 0)
+	if user.DefaultPlacement == storj.DefaultPlacement {
+		// users with non default placements are configured to be only able to
+		// create buckets with the default placement, so they should not have any
+		// available placements.
+		placementDetails, err = s.getPlacementDetails(ctx, project)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var computeAuthToken string
@@ -3924,7 +3924,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			DefaultPlacement: user.DefaultPlacement,
 		}
 
-		if s.entitlementsConfig.Enabled && len(s.config.Placement.AllowedPlacementIdsForNewProjects) > 0 {
+		if user.DefaultPlacement == storj.DefaultPlacement && s.entitlementsConfig.Enabled && len(s.config.Placement.AllowedPlacementIdsForNewProjects) > 0 {
 			newProject.DefaultPlacement = s.config.Placement.AllowedPlacementIdsForNewProjects[0]
 		}
 
@@ -3994,6 +3994,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			feats := entitlements.ProjectFeatures{
 				NewBucketPlacements:      s.config.Placement.AllowedPlacementIdsForNewProjects,
 				PlacementProductMappings: mapping,
+			}
+			if user.DefaultPlacement != storj.DefaultPlacement {
+				feats.NewBucketPlacements = []storj.PlacementConstraint{user.DefaultPlacement}
 			}
 			featBytes, err := json.Marshal(feats)
 			if err != nil {
@@ -5328,16 +5331,14 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 }
 
 // GetPlacementDetails retrieves all placement with human-readable details available to a project's user agent.
-// It also returns whether the project's entitlement has any new bucket placements configured. This return is
-// mainly to be tested to ensure (s *Service) getPlacementDetails is correct.
-func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) (_ []PlacementDetail, entitlementsHasPlacements bool, err error) {
+func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) (_ []PlacementDetail, err error) {
 	user, err := GetUser(ctx)
 	if err != nil {
-		return nil, false, ErrUnauthorized.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, false, ErrUnauthorized.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	project := isMember.project
@@ -5345,10 +5346,10 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 	return s.getPlacementDetails(ctx, project)
 }
 
-func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]PlacementDetail, bool, error) {
-	placements, entitlementsHasPlacements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(project.UserAgent))
+func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]PlacementDetail, error) {
+	placements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(project.UserAgent))
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	details := make([]PlacementDetail, 0)
@@ -5357,7 +5358,7 @@ func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]
 			details = append(details, detail)
 		}
 	}
-	return details, entitlementsHasPlacements, nil
+	return details, nil
 }
 
 // GetUsageReportParam contains parameters for GetUsageReport method.

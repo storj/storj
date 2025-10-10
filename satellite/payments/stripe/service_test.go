@@ -1643,9 +1643,8 @@ func TestPartnerPlacements(t *testing.T) {
 		require.Equal(t, productModel2, model)
 		require.Equal(t, productID2, prodID)
 
-		details, entitlementsHasPlacements, err := sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		details, err := sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.False(t, entitlementsHasPlacements)
 		// expect placement10 and placement12, which are defined for the partner,
 		// and placement11, which is defined globally.
 		require.Len(t, details, 3)
@@ -1657,9 +1656,8 @@ func TestPartnerPlacements(t *testing.T) {
 		err = sat.DB.Console().Projects().UpdateUserAgent(ctx, proj.ID, make([]byte, 0))
 		require.NoError(t, err)
 
-		details, entitlementsHasPlacements, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.False(t, entitlementsHasPlacements)
 		// only placement11 and placement12 are defined globally.
 		require.Len(t, details, 2)
 		require.Contains(t, details, placementDetail11)
@@ -1683,9 +1681,8 @@ func TestPartnerPlacements(t *testing.T) {
 		err = entitlementsAPI.SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placement11})
 		require.NoError(t, err)
 
-		details, entitlementsHasPlacements, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
+		details, err = sat.API.Console.Service.GetPlacementDetails(userCtx, proj.ID)
 		require.NoError(t, err)
-		require.True(t, entitlementsHasPlacements)
 		// expect only placement11, which is defined in entitlements
 		require.Len(t, details, 1)
 		require.Contains(t, details, placementDetail11)
