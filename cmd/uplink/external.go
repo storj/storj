@@ -261,7 +261,8 @@ func (ex *external) analyticsEnabled() bool {
 
 // Wrap is called by clingy with the command to be executed.
 func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	// Please don't put mon.Task()(&ctx)(&err) to here. We need to create the first trace/span after we initialized
+	// all the reporters / observers. First span can be created in cmd.Execute.
 
 	if err = ex.migrate(); err != nil {
 		return err
