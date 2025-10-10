@@ -134,31 +134,11 @@ export const useBillingStore = defineStore('billing', () => {
     const proPlanInfo = computed(() => {
         const priceSummaries = configStore.state.config.productPriceSummaries ?? [];
 
-        const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumCharge.value.amount}.`;
-        // even if startDate is null, priorNoticeEnabled and noticeEnabled will be false
-        const isAfterStartDate = new Date() >= (minimumCharge.value.startDate ?? new Date());
-
-        let activationDesc = 'Add a credit card to activate your account. Only pay for what you use';
-        if (minimumCharge.value.priorNoticeEnabled) {
-            activationDesc += `. A ${minimumChargeLink} of ${minimumCharge.value.amount} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.value.shortStartDateStr}.`;
-        } else if (minimumCharge.value.isEnabled) {
-            activationDesc += `, ${minimumChargeTxt}`;
-        } else {
-            activationDesc += ', no minimum. Billed monthly.';
-        }
-
         const payUpfrontDollars = centsToDollars(upgradePayUpfrontAmount.value);
 
         return new PricingPlanInfo({
             type: PricingPlanType.PRO,
-            title: 'Activate Account',
-            containerSubtitle: `Pay-as-you-go${minimumChargeMsg.value}`,
-            containerDescription: `Pay for what you need. As low as ${storagePrice.value} storage, as low as ${egressPrice.value} for download bandwidth.`,
-            containerFooterHTML: `Additional per-segment fee of ${segmentPrice.value} applies.`,
             activationButtonText: upgradePayUpfrontAmount.value > 0 ? `Activate account - ${payUpfrontDollars}` : 'Activate account',
-            activationDescriptionHTML: activationDesc,
-            activationPriceHTML: upgradePayUpfrontAmount.value > 0 ? 'Secure payment processing' : 'No charge today',
-            activationPriceInfo: upgradePayUpfrontAmount.value > 0 ? `<b>Pay ${payUpfrontDollars} to activate</b> - Includes ${payUpfrontDollars} usage credit to get you started.` : null,
             planTitle: 'Pro Account',
             planSubtitle: 'Scale as you grow with usage based pricing',
             planCost: 'Pay-as-you-go',

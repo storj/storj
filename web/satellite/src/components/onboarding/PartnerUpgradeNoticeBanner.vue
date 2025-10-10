@@ -19,44 +19,37 @@
                 class="mt-3"
                 color="success"
                 :append-icon="ArrowRight"
-                @click="toggleUpgradeDialog"
+                @click="appStore.toggleUpgradeFlow(true)"
             >
                 Learn More
             </v-btn>
         </template>
     </v-alert>
-
-    <upgrade-account-dialog
-        ref="upgradeDialog"
-        v-model="isUpgradeDialogShown"
-    />
 </template>
 
 <script setup lang="ts">
 import { VAlert, VBtn } from 'vuetify/components';
-import { ref, watch } from 'vue';
+import { computed, watch } from 'vue';
 import { ArrowRight } from 'lucide-vue-next';
 
 import { PricingPlanInfo } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
+import { useAppStore } from '@/store/modules/appStore';
 
-import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
-
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 
 const notify = useNotify();
-
-const isUpgradeDialogShown = ref<boolean>(false);
-
-const upgradeDialog = ref<{ setSecondStep: ()=>void }>();
 
 defineProps<{
     planInfo: PricingPlanInfo,
 }>();
 
 const model = defineModel<boolean>({ required: true });
+
+const isUpgradeDialogShown = computed(() => appStore.state.isUpgradeFlowDialogShown);
 
 async function dismiss() {
     try {
@@ -67,13 +60,6 @@ async function dismiss() {
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }
-}
-
-function toggleUpgradeDialog() {
-    // go to the second step, which in this case
-    // will be the pricing plan selection step.
-    upgradeDialog.value?.setSecondStep();
-    isUpgradeDialogShown.value = true;
 }
 
 watch(() => [usersStore.state.user.isPaid, isUpgradeDialogShown.value], (value) => {

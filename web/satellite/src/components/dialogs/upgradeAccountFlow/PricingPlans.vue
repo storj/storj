@@ -3,11 +3,11 @@
 
 <template>
     <v-row justify="center" class="flex-wrap">
-        <v-col v-if="hideFreePlan === false" cols="12" sm="10" md="6" lg="4">
+        <v-col v-if="hideFreePlan === false" cols="12" sm="10" md="6" :lg="!pkgAvailable && isUpgradeFlow ? 6 : 4">
             <PricingPlanCard id="free-plan" :disable-cta="!!customFreePlan" :plan="customFreePlan ?? freePlan" @cta-click="emit('freeClick')" />
         </v-col>
 
-        <v-col cols="12" sm="10" md="6" lg="4">
+        <v-col cols="12" sm="10" md="6" :lg="!pkgAvailable && isUpgradeFlow ? 6 : 4">
             <PricingPlanCard :plan="proPlan" :class="{'pro-border': !pkgAvailable }" @cta-click="emit('proClick')" />
         </v-col>
 
@@ -31,6 +31,7 @@ const billingStore = useBillingStore();
 defineProps<{
     customFreePlan?: PricingPlanInfo;
     hideFreePlan?: boolean;
+    isUpgradeFlow?: boolean;
 }>();
 
 const emit = defineEmits<{
