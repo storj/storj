@@ -614,21 +614,24 @@ func TestCreateRestKey(t *testing.T) {
 			Expiration: time.Now().Add(24 * time.Hour),
 			Reason:     "reason",
 		}
+
+		authInfo := &backoffice.AuthInfo{Email: "test@example.com"}
+
 		t.Run("Success - create REST key with expiration", func(t *testing.T) {
-			key, apiErr := service.CreateRestKey(ctx, user.ID, request)
+			key, apiErr := service.CreateRestKey(ctx, authInfo, user.ID, request)
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, key)
 		})
 
 		t.Run("Error - user not found", func(t *testing.T) {
-			_, apiErr := service.CreateRestKey(ctx, testrand.UUID(), request)
+			_, apiErr := service.CreateRestKey(ctx, authInfo, testrand.UUID(), request)
 			require.Error(t, apiErr.Err)
 			require.Equal(t, http.StatusNotFound, apiErr.Status)
 		})
 
 		t.Run("Error - missing expiration", func(t *testing.T) {
 			request = backoffice.CreateRestKeyRequest{}
-			_, apiErr := service.CreateRestKey(ctx, user.ID, request)
+			_, apiErr := service.CreateRestKey(ctx, authInfo, user.ID, request)
 			require.Error(t, apiErr.Err)
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Contains(t, apiErr.Err.Error(), "expiration is required")
@@ -636,14 +639,14 @@ func TestCreateRestKey(t *testing.T) {
 
 		t.Run("Error - expiration in the past", func(t *testing.T) {
 			request.Expiration = time.Now().Add(-1 * time.Hour)
-			_, apiErr := service.CreateRestKey(ctx, user.ID, request)
+			_, apiErr := service.CreateRestKey(ctx, authInfo, user.ID, request)
 			require.Error(t, apiErr.Err)
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Contains(t, apiErr.Err.Error(), "expiration must be in the future")
 		})
 
 		t.Run("Error - missing reason", func(t *testing.T) {
-			_, apiErr := service.CreateRestKey(ctx, user.ID, backoffice.CreateRestKeyRequest{
+			_, apiErr := service.CreateRestKey(ctx, authInfo, user.ID, backoffice.CreateRestKeyRequest{
 				Expiration: time.Now().Add(24 * time.Hour),
 			})
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)

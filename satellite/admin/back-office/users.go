@@ -878,7 +878,7 @@ func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid
 }
 
 // CreateRestKey creates a new REST API key for a user.
-func (s *Service) CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError) {
+func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -922,6 +922,17 @@ func (s *Service) CreateRestKey(ctx context.Context, userID uuid.UUID, request C
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+		Action:     "create_rest_key",
+		AdminEmail: authInfo.Email,
+		ItemType:   auditlogger.ItemTypeUser,
+		ItemID:     user.ID,
+		Reason:     request.Reason,
+		Before:     nil,
+		After:      apiKey[:5] + "*****",
+		Timestamp:  s.nowFn(),
+	})
 
 	return &apiKey, api.HTTPError{}
 }

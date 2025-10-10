@@ -211,7 +211,8 @@ func main() {
 		Request:  backoffice.CreateRestKeyRequest{},
 		Response: "",
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountCreateRestKey},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountCreateRestKey},
+			passAuthParamKey: true,
 		},
 	})
 
