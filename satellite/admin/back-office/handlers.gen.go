@@ -42,7 +42,7 @@ type UserManagementService interface {
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
 	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) api.HTTPError
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
-	ToggleMFA(ctx context.Context, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
+	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
 	CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
 }
 
@@ -581,11 +581,17 @@ func (h *UserManagementHandler) handleToggleMFA(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 32) {
 		return
 	}
 
-	httpErr := h.service.ToggleMFA(ctx, userID, payload)
+	httpErr := h.service.ToggleMFA(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

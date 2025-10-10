@@ -195,7 +195,8 @@ func main() {
 		},
 		Request: backoffice.ToggleMfaRequest{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountDisableMFA},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountDisableMFA},
+			passAuthParamKey: true,
 		},
 	})
 

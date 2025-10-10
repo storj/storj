@@ -577,11 +577,13 @@ func TestDisableMFA(t *testing.T) {
 		require.NotEmpty(t, user.MFASecretKey)
 		require.NotEmpty(t, user.MFARecoveryCodes)
 
-		apiErr = service.ToggleMFA(ctx, user.ID, backoffice.ToggleMfaRequest{})
+		authInfo := &backoffice.AuthInfo{Email: "test@example.com"}
+
+		apiErr = service.ToggleMFA(ctx, authInfo, user.ID, backoffice.ToggleMfaRequest{})
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "reason is required")
 
-		apiErr = service.ToggleMFA(ctx, user.ID, backoffice.ToggleMfaRequest{Reason: "reason"})
+		apiErr = service.ToggleMFA(ctx, authInfo, user.ID, backoffice.ToggleMfaRequest{Reason: "reason"})
 		require.NoError(t, apiErr.Err)
 
 		u, apiErr = service.GetUser(ctx, user.ID)
