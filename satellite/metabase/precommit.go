@@ -55,12 +55,20 @@ func (r *PrecommitConstraintResult) submitMetrics() {
 }
 
 // PrecommitConstraint ensures that only a single uncommitted object exists at the specified location.
+// Will always return non negative highest version.
 func (db *DB) PrecommitConstraint(ctx context.Context, opts PrecommitConstraint, adapter precommitTransactionAdapter) (result PrecommitConstraintResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Location.Verify(); err != nil {
 		return result, Error.Wrap(err)
 	}
+
+	defer func() {
+		// fail safe to be sure that HighestVersion is never negative
+		if result.HighestVersion < 0 {
+			result.HighestVersion = 0
+		}
+	}()
 
 	if opts.Versioned {
 		var version Version
