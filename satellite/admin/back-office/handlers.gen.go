@@ -50,7 +50,7 @@ type ProjectManagementService interface {
 	GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError)
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
 	UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectRequest) (*Project, api.HTTPError)
-	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
+	UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
 }
 
 type SearchService interface {
@@ -795,11 +795,17 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 
-	retVal, httpErr := h.service.UpdateProjectLimits(ctx, publicID, payload)
+	retVal, httpErr := h.service.UpdateProjectLimits(ctx, authInfo, publicID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return

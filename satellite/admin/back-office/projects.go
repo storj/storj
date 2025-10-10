@@ -322,9 +322,16 @@ func (s *Service) getProjectUsage(
 }
 
 // UpdateProjectLimits updates the project's max buckets, storage, bandwidth, segment, rate, and burst limits.
-func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req ProjectLimitsUpdateRequest) (*Project, api.HTTPError) {
+func (s *Service) UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, id uuid.UUID, req ProjectLimitsUpdateRequest) (*Project, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if authInfo == nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.New("not authorized"),
+		}
+	}
 
 	if req.Reason == "" {
 		return nil, api.HTTPError{
@@ -360,6 +367,22 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req Pro
 			Status: http.StatusInternalServerError,
 			Err:    Error.Wrap(err),
 		}
+	}
+
+	afterState, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
+	if err != nil {
+		s.log.Error("Failed to fetch project after updating limits", zap.Error(err))
+	} else {
+		s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+			Action:     "update_project_limits",
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeProject,
+			ItemID:     p.PublicID,
+			Reason:     req.Reason,
+			Before:     p,
+			After:      afterState,
+			Timestamp:  s.nowFn(),
+		})
 	}
 
 	return s.GetProject(ctx, id)

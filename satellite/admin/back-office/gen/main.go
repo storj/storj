@@ -271,7 +271,8 @@ func main() {
 		Request:  backoffice.ProjectLimitsUpdateRequest{},
 		Response: backoffice.Project{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermProjectSetLimits},
+			authPermsKey:     []backoffice.Permission{backoffice.PermProjectSetLimits},
+			passAuthParamKey: true,
 		},
 	})
 
