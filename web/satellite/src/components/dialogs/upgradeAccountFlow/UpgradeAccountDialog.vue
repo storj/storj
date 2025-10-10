@@ -31,11 +31,11 @@
             <v-divider />
 
             <v-card-item>
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false" class="no-overflow">
                     <v-window-item :value="UpgradeAccountStep.Info">
                         <UpgradeInfoStep
                             :loading="loading"
-                            @upgrade="setSecondStep"
+                            @upgrade="upgrade"
                         />
                     </v-window-item>
 
@@ -43,10 +43,8 @@
                         <v-tabs
                             v-model="paymentTab"
                             color="primary"
-                            center-active
                             show-arrows
                             class="border-b-thin mb-3"
-                            grow
                         >
                             <v-tab>
                                 Credit Card
@@ -55,12 +53,13 @@
                                 STORJ Tokens
                             </v-tab>
                         </v-tabs>
-                        <v-window v-model="paymentTab">
+                        <v-window v-model="paymentTab" :touch="false">
                             <v-window-item :value="PaymentOption.CreditCard">
-                                <AddCreditCardStep
+                                <PricingPlanStep
                                     v-model:loading="loading"
+                                    :plan="plan"
+                                    @back="setStep(UpgradeAccountStep.Info)"
                                     @success="() => setStep(UpgradeAccountStep.Success)"
-                                    @back="() => setStep(UpgradeAccountStep.Info)"
                                 />
                             </v-window-item>
                             <v-window-item :value="PaymentOption.StorjTokens">
@@ -79,16 +78,12 @@
                         <SuccessStep @continue="model = false" />
                     </v-window-item>
 
-                    <v-window-item :value="UpgradeAccountStep.PricingPlanSelection">
-                        <PricingPlanSelectionStep @select="onSelectPricingPlan" />
-                    </v-window-item>
-
                     <v-window-item :value="UpgradeAccountStep.PricingPlan">
                         <PricingPlanStep
                             v-model:loading="loading"
                             :plan="plan"
                             @close="model = false"
-                            @back="setStep(UpgradeAccountStep.PricingPlanSelection)"
+                            @back="setStep(UpgradeAccountStep.Info)"
                         />
                     </v-window-item>
                 </v-window>
@@ -106,25 +101,24 @@ import {
     VCardTitle,
     VDialog,
     VDivider,
+    VTab,
+    VTabs,
     VWindow,
     VWindowItem,
-    VTabs,
-    VTab,
 } from 'vuetify/components';
+import { useDisplay } from 'vuetify';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { PricingPlanInfo } from '@/types/common';
+import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { Wallet } from '@/types/payments';
 import { useUsersStore } from '@/store/modules/usersStore';
 
 import UpgradeInfoStep from '@/components/dialogs/upgradeAccountFlow/UpgradeInfoStep.vue';
-import AddCreditCardStep from '@/components/dialogs/upgradeAccountFlow/AddCreditCardStep.vue';
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
-import PricingPlanSelectionStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanSelectionStep.vue';
 import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';
 
 enum UpgradeAccountStep {
@@ -133,7 +127,6 @@ enum UpgradeAccountStep {
     AddCC = 'addCCStep',
     AddTokens = 'addTokensStep',
     Success = 'successStep',
-    PricingPlanSelection = 'pricingPlanSelectionStep',
     PricingPlan = 'pricingPlanStep',
 }
 
@@ -141,6 +134,7 @@ const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 
+const { smAndDown, md } = useDisplay();
 const notify = useNotify();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
@@ -171,15 +165,18 @@ const stepTitles = computed(() => {
         [UpgradeAccountStep.AddCC]: 'Add Credit Card',
         [UpgradeAccountStep.AddTokens]: 'Add Storj Tokens',
         [UpgradeAccountStep.Success]: 'Success',
-        [UpgradeAccountStep.PricingPlanSelection]: 'Upgrade',
-        [UpgradeAccountStep.PricingPlan]: plan.value?.title || '',
+        [UpgradeAccountStep.PricingPlan]: plan.value?.planTitle || '',
     };
 });
 
 const maxWidth = computed(() => {
     switch (step.value) {
     case UpgradeAccountStep.Info:
-    case UpgradeAccountStep.PricingPlanSelection:
+        if (billingStore.state.pricingPlansAvailable) {
+            return smAndDown.value ? '' : md.value ? '90%' : '65%';
+        }
+        return smAndDown.value ? '' : md.value ? '80%' : '55%';
+    case UpgradeAccountStep.PricingPlan:
     case UpgradeAccountStep.AddTokens:
     case UpgradeAccountStep.Options:
         return '720px';
@@ -228,19 +225,11 @@ function setStep(s: UpgradeAccountStep) {
     step.value = s;
 }
 
-function onSelectPricingPlan(p: PricingPlanInfo) {
+function upgrade(p: PricingPlanInfo) {
+    if (loading.value) return;
     plan.value = p;
-    setStep(UpgradeAccountStep.PricingPlan);
-}
 
-/**
- * Sets second step in the flow (after user clicks to upgrade).
- * Most users will go to the Options step, but if a user is eligible for a
- * pricing plan (and pricing plans are enabled), they will be sent to the PricingPlan step.
- */
-async function setSecondStep() {
-    const newStep = billingStore.state.pricingPlansAvailable ? UpgradeAccountStep.PricingPlanSelection : UpgradeAccountStep.Options;
-    setStep(newStep);
+    setStep(p.type === PricingPlanType.PARTNER ? UpgradeAccountStep.PricingPlan : UpgradeAccountStep.Options);
 }
 
 watch(paymentTab, newTab => {
@@ -253,12 +242,14 @@ watch(content, (value) => {
         return;
     }
 });
-
-defineExpose({ setSecondStep });
 </script>
 
 <style scoped lang="scss">
 .no-border {
     border: 0 !important;
+}
+
+.v-overlay .v-card .no-overflow {
+    overflow-y: hidden !important;
 }
 </style>
