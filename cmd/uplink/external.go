@@ -335,7 +335,7 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		if !version.Build.Release {
 			versionName = "uplink-dev"
 		}
-		collector, err := jaeger.NewUDPCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
+		collector, err := jaeger.NewThriftCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
 		if err != nil {
 			return err
 		}
