@@ -27,35 +27,60 @@
             />
         </div>
 
-        <div class="py-4">
-            <v-btn
-                id="activate"
-                block
-                :color="plan.type === 'partner' ? 'secondary' : 'primary'"
-                :disabled="!stripeReady && !isFree"
-                :loading="loading"
-                @click="onActivateClick"
-            >
-                <template v-if="plan.type !== 'free'" #prepend>
-                    <v-icon :icon="LockKeyhole" />
-                </template>
+        <template v-if="isAccountSetup">
+            <div class="py-4">
+                <v-btn
+                    id="activate"
+                    block
+                    :color="plan.type === 'partner' ? 'secondary' : 'primary'"
+                    :disabled="!stripeReady && !isFree"
+                    :loading="loading"
+                    @click="onActivateClick"
+                >
+                    {{ plan.activationButtonText || ('Activate ' + plan.planTitle) }}
+                </v-btn>
+            </div>
 
-                {{ plan.activationButtonText || ('Activate ' + plan.title) }}
-            </v-btn>
-        </div>
-
-        <div class="pb-4">
-            <v-btn
-                block
-                variant="text"
-                color="default"
-                :prepend-icon="ChevronLeft"
-                :disabled="loading"
-                @click="onBack"
-            >
-                Back
-            </v-btn>
-        </div>
+            <div class="pb-4">
+                <v-btn
+                    block
+                    variant="text"
+                    color="default"
+                    :prepend-icon="ChevronLeft"
+                    :disabled="loading"
+                    @click="onBack"
+                >
+                    Back
+                </v-btn>
+            </div>
+        </template>
+        <template v-else>
+            <v-row justify="center" class="mx-0 mt-2 mb-1">
+                <v-col class="pl-0">
+                    <v-btn
+                        block
+                        variant="outlined"
+                        color="default"
+                        :disabled="loading"
+                        @click="onBack"
+                    >
+                        Back
+                    </v-btn>
+                </v-col>
+                <v-col class="px-0">
+                    <v-btn
+                        id="activate"
+                        block
+                        :color="plan.type === 'partner' ? 'secondary' : 'primary'"
+                        :disabled="!stripeReady && !isFree"
+                        :loading="loading"
+                        @click="onActivateClick"
+                    >
+                        {{ plan.activationButtonText || ('Activate ' + plan.planTitle) }}
+                    </v-btn>
+                </v-col>
+            </v-row>
+        </template>
     </template>
 
     <template v-else>
@@ -81,7 +106,7 @@
             </template>
             <template #text>
                 <p class="font-weight-bold">
-                    {{ plan.title }}
+                    {{ plan.planTitle }}
                 </p>
                 <p v-if="plan.activationSubtitle">{{ plan.activationSubtitle }}</p>
             </template>
@@ -102,13 +127,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VAlert, VBtn, VCol, VIcon, VRow, VSheet } from 'vuetify/components';
-import { Check, ChevronLeft, LockKeyhole } from 'lucide-vue-next';
+import { Check, ChevronLeft } from 'lucide-vue-next';
+import { useRoute } from 'vue-router';
 
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { ROUTES } from '@/router';
+import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 
@@ -117,11 +147,14 @@ interface StripeForm {
     initStripe(): Promise<string>;
 }
 
+const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
+const projectsStore = useProjectsStore();
 
 const notify = useNotify();
+const route = useRoute();
 
 const isSuccess = ref<boolean>(false);
 
@@ -176,6 +209,8 @@ async function onActivateClick() {
         const response = await stripeCardInput.value.onSubmit();
         await onCardAdded(response);
     } catch (error) {
+        const source = props.isAccountSetup ? AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG : AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL;
+        notify.notifyError(error, source);
         if (cardAuthorizationEnabled.value) {
             // initStripe will get a new card setup secret if there's an error.
             stripeCardInput.value?.initStripe();
@@ -204,19 +239,28 @@ async function onCardAdded(res: string): Promise<void> {
     }
     onSuccess();
 
-    Promise.all([
-        usersStore.getUser(),
-        billingStore.getCreditCards(),
-    ]).catch((_) => {});
+    // We fetch User one more time to update their Paid Tier status.
+    usersStore.getUser().catch((_) => {});
+
+    if (route.name === ROUTES.Dashboard.name || route.name === ROUTES.Domains.name) {
+        projectsStore.getProjectConfig().catch((_) => {});
+        projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
+    }
+
+    if (route.name === ROUTES.Billing.name) {
+        billingStore.getCreditCards().catch((_) => {});
+    }
 }
 
 function onSuccess() {
-    if (props.isAccountSetup) {
-        loading.value = false;
-        emit('success');
-    } else {
+    analyticsStore.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+    loading.value = false;
+    notify.success('Card successfully added and account upgraded');
+
+    if (props.plan.type === PricingPlanType.PARTNER)
         isSuccess.value = true;
-    }
+    else
+        emit('success');
 }
 </script>
 

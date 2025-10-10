@@ -15,18 +15,10 @@ export enum SortDirection {
 export class PricingPlanInfo {
     public type: PricingPlanType = PricingPlanType.FREE;
     // Info for the pricing plan container
-    public title: string = '';
-    public containerSubtitle: string = '';
-    public containerDescription: string = '';
-    public containerFooterHTML: string | null = null;
     public activationButtonText: string | null = null;
     // Info for the pricing plan modal (pre-activation)
     public activationSubtitle: string | null = null;
-    public activationDescriptionHTML: string = '';
-    public activationPriceHTML: string | null = null;
-    public activationPriceInfo: string | null = null;
     // Info for the pricing plan modal (post-activation)
-    public successSubtitle: string = '';
     public bannerTitle: string = '';
     public bannerText: string = '';
     // the following are used in the new upgrade/account setup
@@ -60,12 +52,6 @@ export enum PricingPlanType {
 
 export const FREE_PLAN_INFO = new PricingPlanInfo({
     type: PricingPlanType.FREE,
-    title: 'Free Trial',
-    containerSubtitle: 'Limited 30-day trial',
-    containerDescription: 'Try Storj for free with 25GB of storage and 25GB download bandwidth for 30 days.',
-    containerFooterHTML: 'Upgrade anytime to Pro account to continue using Storj.',
-    activationDescriptionHTML: 'Start for free to try Storj and upgrade later.',
-    activationPriceInfo: 'Limited 25',
     planTitle: 'Free Trial',
     planSubtitle: 'Perfect for trying out Storj.',
     planCost: 'Free',
