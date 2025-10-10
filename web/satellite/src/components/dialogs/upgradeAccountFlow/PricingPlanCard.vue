@@ -15,13 +15,14 @@
 
             <v-btn
                 :id="id"
+                :disabled="disableCta"
                 :variant="isFreePlan ? 'outlined' :'flat'"
                 :color="isFreePlan ? 'text-secondary' : isProPlan ? 'primary' : 'secondary'"
                 class="mt-4 mb-4"
                 @click="emit('ctaClick')"
             >
                 {{ plan.planCTA }}
-                <template #append>
+                <template v-if="!disableCta" #append>
                     <v-icon :icon="ArrowRight" />
                 </template>
             </v-btn>
@@ -51,6 +52,7 @@ import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 const props = defineProps<{
     plan: PricingPlanInfo,
     id?: string,
+    disableCta?: boolean,
 }>();
 
 const emit = defineEmits<{
