@@ -65,6 +65,9 @@ func TestAutoFreezeChore(t *testing.T) {
 		amount := int64(100)
 		curr := string(stripe.CurrencyUSD)
 
+		now := time.Now().UTC().Truncate(time.Minute)
+		chore.TestSetNow(func() time.Time { return now })
+
 		t.Run("No billing event for legal frozen user", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
@@ -119,7 +122,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// forward date to after the grace period
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -152,6 +155,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("No billing event for violation frozen user", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return now })
 
 			violatingUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Violating User",
@@ -203,7 +207,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// forward date to after the grace period
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -237,6 +241,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("No billing freeze event for paid invoice", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return now })
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -285,7 +290,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// forward date to after the grace period
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(25 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -301,7 +306,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -353,7 +358,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing warn grace period
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(25 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -366,7 +371,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing freeze grace period
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(25 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -421,7 +426,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -470,7 +475,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing warn grace period
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(25 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -490,7 +495,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -552,7 +557,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -641,7 +646,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("Bot user is frozen with delay", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			botUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test Bot User",
@@ -678,7 +683,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// Current date is now 3 days later.
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(24 * 3 * time.Hour)
+				return now.Add(25 * 3 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -716,6 +721,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 		t.Run("Free trial expiration freeze", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return now })
 
 			freeUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Free User",
@@ -731,7 +737,6 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, frozen)
 
-			now := time.Now()
 			newTime := now.Add(120 * time.Hour)
 			newTimePtr := &newTime
 			err = usersDB.Update(ctx, freeUser.ID, console.UpdateUserRequest{
@@ -758,7 +763,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.True(t, frozen)
 
 			// reset chore time
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			err = service.TrialExpirationUnfreezeUser(ctx, freeUser.ID)
 			require.NoError(t, err)
@@ -793,7 +798,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.True(t, frozen)
 
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(50 * 24 * time.Hour)
+				return now.Add(50 * 24 * time.Hour)
 			})
 
 			chore.Loop.TriggerWait()
@@ -840,7 +845,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("Email notifications for events", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User",
@@ -882,7 +887,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, 1, warning.NotificationsCount)
 
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(warnEmailsIntervals[0]).Add(1 * time.Minute)
+				return now.Add(warnEmailsIntervals[0]).Add(2 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -892,7 +897,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, 2, warning.NotificationsCount)
 
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(warnEmailsIntervals[1]).Add(1 * time.Minute)
+				return now.Add(warnEmailsIntervals[1]).Add(2 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -903,7 +908,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing freeze grace period
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(25 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -918,7 +923,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, 1, freeze.NotificationsCount)
 
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(freezeEmailsIntervals[0]).Add(1 * time.Minute)
+				return now.Add(freezeEmailsIntervals[0]).Add(2 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -928,7 +933,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, 2, freeze.NotificationsCount)
 
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(freezeEmailsIntervals[1]).Add(1 * time.Minute)
+				return now.Add(freezeEmailsIntervals[1]).Add(2 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -938,7 +943,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			require.Equal(t, 3, freeze.NotificationsCount)
 
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(freezeEmailsIntervals[2]).Add(1 * time.Minute)
+				return now.Add(freezeEmailsIntervals[2]).Add(2 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -949,7 +954,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			chore.TestSetNow(func() time.Time {
 				// current date is now after billing freeze grace period
-				return time.Now().Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.BillingFreezeGracePeriod).Add(25 * time.Hour)
 			})
 			chore.Loop.TriggerWait()
 
@@ -962,7 +967,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("No trial expiration excalation for paid and NFR users", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			paidUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Paid User",
@@ -985,7 +990,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// forward date to after the grace period
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod).Add(25 * time.Hour)
 			})
 
 			// run the chore
@@ -1002,7 +1007,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		t.Run("No trial expiration escalation for non-active users", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
-			chore.TestSetNow(time.Now)
+			chore.TestSetNow(func() time.Time { return now })
 
 			inactiveUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Inactive User",
@@ -1023,7 +1028,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			// forward date to after the grace period
 			chore.TestSetNow(func() time.Time {
-				return time.Now().Add(sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod).Add(24 * time.Hour)
+				return now.Add(sat.Config.Console.AccountFreeze.TrialExpirationFreezeGracePeriod).Add(25 * time.Hour)
 			})
 
 			// run the chore
