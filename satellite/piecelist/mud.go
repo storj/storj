@@ -13,6 +13,7 @@ import (
 func Module(ball *mud.Ball) {
 	mud.Provide[*PieceList](ball, NewPieceList)
 	mud.Implementation[[]rangedloop.Observer, *PieceList](ball)
+	mud.Tag[*PieceList, mud.Optional](ball, mud.Optional{})
 	config.RegisterConfig[Config](ball, "piecelist")
 
 }

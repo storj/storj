@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
+	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
@@ -80,6 +81,7 @@ func Module(ball *mud.Ball) {
 		nodeselection.Module(ball)
 	}
 	rangedloop.Module(ball)
+	bloomfilter.Module(ball)
 	metainfo.Module(ball)
 	metabase.Module(ball)
 	eventingconfig.Module(ball)
@@ -95,15 +97,16 @@ func Module(ball *mud.Ball) {
 	piecelist.Module(ball)
 
 	buckets.Module(ball)
+
 	mud.View[DB, buckets.DB](ball, DB.Buckets)
-
 	mud.View[DB, attribution.DB](ball, DB.Attribution)
-
 	mud.View[DB, overlay.PeerIdentities](ball, DB.PeerIdentities)
-
 	mud.View[DB, srevocation.DB](ball, DB.Revocation)
-
 	mud.View[DB, console.DB](ball, DB.Console)
+	mud.View[overlay.DB, bloomfilter.Overlay](ball, func(db overlay.DB) bloomfilter.Overlay {
+		return db
+	})
+
 	console.Module(ball)
 	mud.RegisterInterfaceImplementation[metainfo.APIKeys, console.APIKeys](ball)
 

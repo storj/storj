@@ -76,10 +76,11 @@ func observerName(o Observer) string {
 	return name
 }
 
-var _ Observer = (*segmentsCountValidation)(nil)
+var _ Observer = (*SegmentsCountValidation)(nil)
 var _ Partial = (*segmentsCountValidationFork)(nil)
 
-type segmentsCountValidation struct {
+// SegmentsCountValidation is an observer that validates the segments count before and after the ranged loop.
+type SegmentsCountValidation struct {
 	log            *zap.Logger
 	mb             *metabase.DB
 	checkTimestamp time.Time
@@ -90,8 +91,8 @@ type segmentsCountValidation struct {
 }
 
 // NewSegmentsCountValidation creates a new observer that validates the segments count.
-func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp time.Time) Observer {
-	return &segmentsCountValidation{
+func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp time.Time) *SegmentsCountValidation {
+	return &SegmentsCountValidation{
 		log:               log,
 		mb:                mb,
 		checkTimestamp:    checkTimestamp,
@@ -99,7 +100,8 @@ func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp
 	}
 }
 
-func (s *segmentsCountValidation) Start(ctx context.Context, startTime time.Time) error {
+// Start fetches the initial segments count.
+func (s *SegmentsCountValidation) Start(ctx context.Context, startTime time.Time) error {
 	s.log.Info("starting segments count validation", zap.Time("check timestamp", s.checkTimestamp))
 
 	stats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
@@ -110,13 +112,15 @@ func (s *segmentsCountValidation) Start(ctx context.Context, startTime time.Time
 	return nil
 }
 
-func (s *segmentsCountValidation) Fork(ctx context.Context) (Partial, error) {
+// Fork creates a new partial observer for a fork of the ranged loop.
+func (s *SegmentsCountValidation) Fork(ctx context.Context) (Partial, error) {
 	return &segmentsCountValidationFork{
 		count: make(map[string]int64),
 	}, nil
 }
 
-func (s *segmentsCountValidation) Join(ctx context.Context, partial Partial) error {
+// Join aggregates the results from a fork of the ranged loop.
+func (s *SegmentsCountValidation) Join(ctx context.Context, partial Partial) error {
 	countPartial := partial.(*segmentsCountValidationFork)
 
 	for key, value := range countPartial.count {
@@ -125,7 +129,8 @@ func (s *segmentsCountValidation) Join(ctx context.Context, partial Partial) err
 	return nil
 }
 
-func (s *segmentsCountValidation) Finish(ctx context.Context) error {
+// Finish fetches the final segments count and compares it to the initial count and the processed segments.
+func (s *SegmentsCountValidation) Finish(ctx context.Context) error {
 	finalStats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
 	if err != nil {
 		return Error.Wrap(err)

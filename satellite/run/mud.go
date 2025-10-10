@@ -40,4 +40,12 @@ func Module(ball *mud.Ball) {
 		return &ChangeStream{}
 	})
 	cli.RegisterSubcommand[*ChangeStream](ball, "change-stream", "run the Spanner change stream processor service")
+	mud.Provide[*GcBf](ball, func() *GcBf {
+		return &GcBf{}
+	})
+	cli.RegisterSubcommand[*GcBf](ball, "gc-bf", "run the ranged-loop with bloom filter generation only")
+	mud.Provide[*GcBfOnce](ball, func() *GcBfOnce {
+		return &GcBfOnce{}
+	})
+	cli.RegisterSubcommand[*GcBfOnce](ball, "gc-bf-once", "run the ranged-loop with bloom filter generation only, stop after one iteration")
 }
