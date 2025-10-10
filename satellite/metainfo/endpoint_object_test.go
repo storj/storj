@@ -54,6 +54,7 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/uplink"
+	"storj.io/uplink/private/bucket"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/object"
 	"storj.io/uplink/private/piecestore"
@@ -7423,4 +7424,84 @@ func randObjectStream(projectID uuid.UUID, bucketName string) metabase.ObjectStr
 		Version:    randVersion(),
 		StreamID:   testrand.UUID(),
 	}
+}
+
+func TestNegativeVersion(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		UplinkCount:    1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.TestingAlternativeBeginObject = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		checkObjects := func(bucketName string, f func(object metabase.Object)) {
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.NotEmpty(t, objects)
+			for _, object := range objects {
+				if string(object.BucketName) == bucketName {
+					f(object)
+				}
+			}
+		}
+
+		t.Run("Move and Copy do not create negative versions", func(t *testing.T) {
+			bucketName := "testbucket"
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "an/object/keyA", testrand.Bytes(memory.KiB)))
+			require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "an/object/keyB", testrand.Bytes(memory.KiB)))
+
+			checkObjects(bucketName, func(object metabase.Object) {
+				require.Greater(t, object.Version, metabase.Version(0))
+			})
+
+			_, err = project.BeginUpload(ctx, bucketName, "an/object/move_key", nil)
+			require.NoError(t, err)
+			_, err = project.BeginUpload(ctx, bucketName, "an/object/copy_key", nil)
+			require.NoError(t, err)
+
+			require.NoError(t, project.MoveObject(ctx, bucketName, "an/object/keyA", bucketName, "an/object/move_key", nil))
+			_, err = project.CopyObject(ctx, bucketName, "an/object/keyB", bucketName, "an/object/copy_key", nil)
+			require.NoError(t, err)
+
+			checkObjects(bucketName, func(object metabase.Object) {
+				if object.Status > metabase.Pending {
+					require.Greater(t, object.Version, metabase.Version(0))
+				} else {
+					require.Less(t, object.Version, metabase.Version(0))
+				}
+			})
+		})
+
+		t.Run("Delete marker do not create negative versions", func(t *testing.T) {
+			bucketName := "testbucket-versioned"
+			require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName))
+			require.NoError(t, bucket.SetBucketVersioning(ctx, project, bucketName, true))
+			require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "an/object/keyA", testrand.Bytes(memory.KiB)))
+
+			checkObjects(bucketName, func(object metabase.Object) {
+				require.Greater(t, object.Version, metabase.Version(0))
+			})
+
+			_, err = project.BeginUpload(ctx, bucketName, "an/object/keyA", nil)
+			require.NoError(t, err)
+
+			_, err = project.DeleteObject(ctx, bucketName, "an/object/keyA")
+			require.NoError(t, err)
+
+			checkObjects(bucketName, func(object metabase.Object) {
+				if object.Status > metabase.Pending {
+					require.Greater(t, object.Version, metabase.Version(0))
+				} else {
+					require.Less(t, object.Version, metabase.Version(0))
+				}
+			})
+		})
+	})
 }
