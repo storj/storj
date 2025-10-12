@@ -5,11 +5,12 @@ package metabase
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
-	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 
 	"storj.io/storj/shared/dbutil/spannerutil"
@@ -27,6 +28,11 @@ type BucketTally struct {
 	TotalBytes    int64
 
 	MetadataSize int64
+
+	// BytesByRemainder maps storage remainder values to total bytes calculated with that remainder.
+	// The map key is the remainder value in bytes, and the value is the total bytes for this bucket
+	// calculated with that remainder applied.
+	BytesByRemainder map[int64]int64
 }
 
 // CollectBucketTallies contains arguments necessary for looping through objects in metabase.
@@ -38,6 +44,18 @@ type CollectBucketTallies struct {
 	Now                time.Time
 
 	UsePartitionQuery bool
+
+	// StorageRemainders is a list of remainder values to calculate for each bucket.
+	// Objects with total_encrypted_size less than a remainder value are counted as that remainder value.
+	// Results are returned in BucketTally.BytesByRemainder map.
+	//
+	// Example: []int64{0, 51200, 102400} will calculate three values per bucket:
+	//   - BytesByRemainder[0] = actual total size
+	//   - BytesByRemainder[51200] = total size with 50KB minimum per object
+	//   - BytesByRemainder[102400] = total size with 100KB minimum per object
+	//
+	// An empty list defaults to []int64{0} (no remainder applied).
+	StorageRemainders []int64
 }
 
 // Verify verifies CollectBucketTallies request fields.
@@ -81,30 +99,83 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 
 // CollectBucketTallies collect limited bucket tallies from given bucket locations.
 func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
-	err = withRows(p.db.QueryContext(ctx, `
-			SELECT
-				project_id, bucket_name,
-				SUM(total_encrypted_size), SUM(segment_count),
-				COALESCE(SUM(length(encrypted_metadata)),0)+COALESCE(SUM(length(encrypted_etag)), 0),
-				count(*), count(*) FILTER (WHERE status = `+statusPending+`)
-			FROM objects
-			`+LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
-			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
-			(expires_at IS NULL OR expires_at > $5)
-			GROUP BY (project_id, bucket_name)
-			ORDER BY (project_id, bucket_name) ASC
-		`, opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now))(func(rows tagsql.Rows) error {
+	remainders := normalizeStorageRemainders(opts.StorageRemainders)
+
+	// Build dynamic SUM columns for each remainder value.
+	var sumExpressions []string
+	paramIdx := 6 // Start after the 5 base parameters.
+	for _, remainder := range remainders {
+		if remainder > 0 {
+			sumExpressions = append(sumExpressions, fmt.Sprintf("SUM(GREATEST(total_encrypted_size, $%d))", paramIdx))
+			paramIdx++
+		} else {
+			sumExpressions = append(sumExpressions, "SUM(total_encrypted_size)")
+		}
+	}
+
+	// Build the query with multiple remainder calculations.
+	selectCols := "project_id, bucket_name, " + strings.Join(sumExpressions, ", ") + `,
+		SUM(segment_count),
+		COALESCE(SUM(length(encrypted_metadata)), 0) + COALESCE(SUM(length(encrypted_etag)), 0),
+		count(*),
+		count(*) FILTER (WHERE status = ` + statusPending + `)`
+
+	query := `
+		SELECT
+			` + selectCols + `
+		FROM objects
+		` + LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval) + `
+		WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
+		(expires_at IS NULL OR expires_at > $5)
+		GROUP BY (project_id, bucket_name)
+		ORDER BY (project_id, bucket_name) ASC
+	`
+
+	// Build query arguments.
+	args := []interface{}{opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now}
+	for _, remainder := range remainders {
+		if remainder > 0 {
+			args = append(args, remainder)
+		}
+	}
+
+	rows, err := p.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return []BucketTally{}, Error.New("unable to query bucket tallies: %w", err)
+	}
+
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var bucketTally BucketTally
 
-			if err = rows.Scan(
+			// Prepare slice to scan remainder bytes.
+			bytesByRemainder := make([]int64, len(remainders))
+			scanDest := []interface{}{
 				&bucketTally.ProjectID, &bucketTally.BucketName,
-				&bucketTally.TotalBytes, &bucketTally.TotalSegments,
-				&bucketTally.MetadataSize, &bucketTally.ObjectCount,
+			}
+			for i := range remainders {
+				scanDest = append(scanDest, &bytesByRemainder[i])
+			}
+			scanDest = append(scanDest,
+				&bucketTally.TotalSegments,
+				&bucketTally.MetadataSize,
+				&bucketTally.ObjectCount,
 				&bucketTally.PendingObjectCount,
-			); err != nil {
+			)
+
+			if err = rows.Scan(scanDest...); err != nil {
 				return Error.New("unable to query bucket tally: %w", err)
 			}
+
+			// Populate BytesByRemainder map with all calculated values.
+			bucketTally.BytesByRemainder = make(map[int64]int64)
+			for i, remainder := range remainders {
+				bucketTally.BytesByRemainder[remainder] = bytesByRemainder[i]
+			}
+
+			// For backward compatibility, populate TotalBytes with actual bytes (remainder=0).
+			// We always ensure remainder=0 is in the list, so BytesByRemainder[0] is always present.
+			bucketTally.TotalBytes = bucketTally.BytesByRemainder[0]
 
 			result = append(result, bucketTally)
 		}
@@ -135,14 +206,40 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 		return nil, Error.Wrap(err)
 	}
 
+	params := map[string]any{
+		"from_project_id":  opts.From.ProjectID,
+		"from_bucket_name": opts.From.BucketName,
+		"to_project_id":    opts.To.ProjectID,
+		"to_bucket_name":   opts.To.BucketName,
+		"when":             opts.Now,
+	}
+
+	remainders := normalizeStorageRemainders(opts.StorageRemainders)
+
+	// Build dynamic SUM columns for each remainder value.
+	var sumExpressions []string
+	for i, remainder := range remainders {
+		if remainder > 0 {
+			paramName := fmt.Sprintf("storage_remainder_%d", i)
+			sumExpressions = append(sumExpressions, fmt.Sprintf("SUM(GREATEST(total_encrypted_size, @%s))", paramName))
+			params[paramName] = remainder
+		} else {
+			sumExpressions = append(sumExpressions, "SUM(total_encrypted_size)")
+		}
+	}
+
+	// Build the SELECT columns.
+	selectCols := "project_id, bucket_name, " + strings.Join(sumExpressions, ", ") + `,
+		SUM(segment_count),
+		COALESCE(SUM(length(encrypted_metadata)), 0) + COALESCE(SUM(length(encrypted_etag)), 0),
+		count(*) AS total_objects_count,
+		COUNTIF(status = ` + statusPending + `) AS pending_objects_count`
+
 	txn := s.client.Single().WithTimestampBound(spannerutil.MaxStalenessFromAOSI(opts.AsOfSystemInterval))
-	return spannerutil.CollectRows(txn.QueryWithOptions(ctx, spanner.Statement{
+	rows, err := spannerutil.CollectRows(txn.QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
-				project_id, bucket_name,
-				SUM(total_encrypted_size), SUM(segment_count),
-				COALESCE(SUM(length(encrypted_metadata)),0)+COALESCE(SUM(length(encrypted_etag)), 0),
-				count(*) AS total_objects_count, COUNTIF(status = ` + statusPending + `) AS pending_objects_count
+				` + selectCols + `
 			FROM objects
 			WHERE ` + fromTuple + `
 				AND ` + toTuple + `
@@ -150,23 +247,46 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 			GROUP BY project_id, bucket_name
 			ORDER BY project_id ASC, bucket_name ASC
 		`,
-		Params: map[string]any{
-			"from_project_id":  opts.From.ProjectID,
-			"from_bucket_name": opts.From.BucketName,
-			"to_project_id":    opts.To.ProjectID,
-			"to_bucket_name":   opts.To.BucketName,
-			"when":             opts.Now,
-		},
+		Params: params,
 	}, spanner.QueryOptions{
 		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	}), func(row *spanner.Row, bucketTally *BucketTally) error {
-		return row.Columns(
+		// Prepare slice to scan remainder bytes.
+		bytesByRemainder := make([]int64, len(remainders))
+		scanDest := []interface{}{
 			&bucketTally.ProjectID, &bucketTally.BucketName,
-			&bucketTally.TotalBytes, &bucketTally.TotalSegments,
-			&bucketTally.MetadataSize, &bucketTally.ObjectCount,
+		}
+		for i := range remainders {
+			scanDest = append(scanDest, &bytesByRemainder[i])
+		}
+		scanDest = append(scanDest,
+			&bucketTally.TotalSegments,
+			&bucketTally.MetadataSize,
+			&bucketTally.ObjectCount,
 			&bucketTally.PendingObjectCount,
 		)
+
+		if err := row.Columns(scanDest...); err != nil {
+			return err
+		}
+
+		// Populate BytesByRemainder map with all calculated values.
+		bucketTally.BytesByRemainder = make(map[int64]int64)
+		for i, remainder := range remainders {
+			bucketTally.BytesByRemainder[remainder] = bytesByRemainder[i]
+		}
+
+		// For backward compatibility, populate TotalBytes with actual bytes (remainder=0).
+		// We always ensure remainder=0 is in the list, so BytesByRemainder[0] is always present.
+		bucketTally.TotalBytes = bucketTally.BytesByRemainder[0]
+
+		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return rows, nil
 }
 
 func (s *SpannerAdapter) collectBucketTalliesWithPartitionedQuery(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
@@ -219,7 +339,18 @@ func (s *SpannerAdapter) collectBucketTalliesWithPartitionedQuery(ctx context.Co
 		return nil, Error.Wrap(err)
 	}
 
-	bucketTallies := map[BucketLocation]BucketTally{}
+	remainders := normalizeStorageRemainders(opts.StorageRemainders)
+
+	type bucketTallyWithRemainders struct {
+		BucketLocation
+		ObjectCount        int64
+		PendingObjectCount int64
+		TotalSegments      int64
+		MetadataSize       int64
+		BytesByRemainder   map[int64]int64
+	}
+
+	bucketTallies := map[BucketLocation]*bucketTallyWithRemainders{}
 	for _, partition := range partitions {
 		iter := txn.Execute(ctx, partition)
 		err := iter.Do(func(r *spanner.Row) error {
@@ -234,23 +365,67 @@ func (s *SpannerAdapter) collectBucketTalliesWithPartitionedQuery(ctx context.Co
 
 			bucketTally, ok := bucketTallies[bucketLocation]
 			if !ok {
-				bucketTally = BucketTally{
-					BucketLocation: bucketLocation,
+				bucketTally = &bucketTallyWithRemainders{
+					BucketLocation:   bucketLocation,
+					BytesByRemainder: make(map[int64]int64),
+				}
+				bucketTallies[bucketLocation] = bucketTally
+			}
+
+			// Calculate bytes for each remainder value.
+			for _, remainder := range remainders {
+				if remainder > 0 && totalEncryptedSize < remainder {
+					bucketTally.BytesByRemainder[remainder] += remainder
+				} else {
+					bucketTally.BytesByRemainder[remainder] += totalEncryptedSize
 				}
 			}
-			bucketTally.TotalBytes += totalEncryptedSize
+
 			bucketTally.TotalSegments += segmentCount
 			bucketTally.MetadataSize += encryptedMetadataSize
 			bucketTally.ObjectCount++
 			if status == Pending {
 				bucketTally.PendingObjectCount++
 			}
-			bucketTallies[bucketLocation] = bucketTally
 			return nil
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 	}
-	return maps.Values(bucketTallies), nil
+
+	// Convert to BucketTally results.
+	for _, tally := range bucketTallies {
+		bt := BucketTally{
+			BucketLocation:     tally.BucketLocation,
+			ObjectCount:        tally.ObjectCount,
+			PendingObjectCount: tally.PendingObjectCount,
+			TotalSegments:      tally.TotalSegments,
+			MetadataSize:       tally.MetadataSize,
+			BytesByRemainder:   tally.BytesByRemainder,
+			// For backward compatibility, populate TotalBytes with actual bytes (remainder=0).
+			// We always ensure remainder=0 is in the list, so BytesByRemainder[0] is always present.
+			TotalBytes: tally.BytesByRemainder[0],
+		}
+
+		result = append(result, bt)
+	}
+
+	return result, nil
+}
+
+// normalizeStorageRemainders ensures remainder=0 is always included for backward compatibility.
+// Returns a new slice with remainder=0 prepended if not already present.
+func normalizeStorageRemainders(remainders []int64) []int64 {
+	if len(remainders) == 0 {
+		return []int64{0}
+	}
+
+	// Check if 0 is already in the list.
+	if slices.Contains(remainders, 0) {
+		return remainders
+	}
+
+	// Prepend 0 to the list so TotalBytes gets actual bytes.
+	return append([]int64{0}, remainders...)
 }

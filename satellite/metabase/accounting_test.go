@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -168,6 +170,9 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 					TotalSegments:      0,
 					TotalBytes:         0,
 					MetadataSize:       int64(len(userData.EncryptedMetadata) + len(userData.EncryptedETag)),
+					BytesByRemainder: map[int64]int64{
+						0: 0,
+					},
 				},
 				{
 					BucketLocation: metabase.BucketLocation{
@@ -179,6 +184,9 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 					TotalSegments:      1,
 					TotalBytes:         1024,
 					MetadataSize:       0,
+					BytesByRemainder: map[int64]int64{
+						0: 1024,
+					},
 				},
 			}
 
@@ -304,6 +312,9 @@ func bucketTallyFromRaw(m metabase.RawObject) metabase.BucketTally {
 		TotalSegments: int64(m.SegmentCount),
 		TotalBytes:    m.TotalEncryptedSize,
 		MetadataSize:  int64(len(m.EncryptedMetadata) + len(m.EncryptedETag)),
+		BytesByRemainder: map[int64]int64{
+			0: m.TotalEncryptedSize,
+		},
 	}
 }
 
@@ -313,5 +324,209 @@ func sortBucketLocations(bc []metabase.BucketLocation) {
 			return bc[i].BucketName < bc[j].BucketName
 		}
 		return bc[i].ProjectID.Less(bc[j].ProjectID)
+	})
+}
+
+func TestCollectBucketTallies_WithRemainder(t *testing.T) {
+	t.Parallel()
+	for _, usePartitionQuery := range []bool{false, true} {
+		t.Run(fmt.Sprintf("usePartitionQuery=%v", usePartitionQuery), func(t *testing.T) {
+			testCollectBucketTalliesWithRemainder(t, usePartitionQuery)
+		})
+	}
+}
+
+func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		projectID := testrand.UUID()
+		bucketName := metabase.BucketName("test-bucket")
+
+		// Create objects of various sizes.
+		// Each segment in CreateObject is 1024 bytes (1KB) encrypted size.
+		smallObj := metabasetest.RandObjectStream()
+		smallObj.ProjectID = projectID
+		smallObj.BucketName = bucketName
+		smallObj.ObjectKey = "small-1kb"
+
+		mediumObj := metabasetest.RandObjectStream()
+		mediumObj.ProjectID = projectID
+		mediumObj.BucketName = bucketName
+		mediumObj.ObjectKey = "medium-5kb"
+
+		largeObj := metabasetest.RandObjectStream()
+		largeObj.ProjectID = projectID
+		largeObj.BucketName = bucketName
+		largeObj.ObjectKey = "large-100kb"
+
+		// Create objects: 1 segment (1KB), 5 segments (5KB), 100 segments (100KB).
+		obj1 := metabasetest.CreateObject(ctx, t, db, smallObj, 1)
+		obj2 := metabasetest.CreateObject(ctx, t, db, mediumObj, 5)
+		obj3 := metabasetest.CreateObject(ctx, t, db, largeObj, 100)
+
+		// Verify actual object sizes.
+		require.EqualValues(t, 1024, obj1.TotalEncryptedSize)   // 1KB
+		require.EqualValues(t, 5120, obj2.TotalEncryptedSize)   // 5KB
+		require.EqualValues(t, 102400, obj3.TotalEncryptedSize) // 100KB
+
+		// Actual total bytes: 1KB + 5KB + 100KB = 108544 bytes.
+		actualTotalBytes := int64(108544)
+
+		t.Run("nil remainders (default to 0)", func(t *testing.T) {
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: nil, // Should default to []int64{0}.
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// Should have actual bytes (no remainder applied).
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes")
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (first remainder)")
+			require.EqualValues(t, 3, tally.ObjectCount, "should have 3 objects")
+			require.EqualValues(t, 106, tally.TotalSegments, "should have 106 total segments")
+		})
+
+		t.Run("explicit remainder 0", func(t *testing.T) {
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{0},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// Should have actual bytes (no remainder applied).
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes")
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes")
+		})
+
+		t.Run("single non-zero remainder", func(t *testing.T) {
+			remainder := int64(51200) // 50KB
+
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{remainder},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// With remainder of 50KB:
+			// - Small object (1KB) → counted as 50KB (remainder applies)
+			// - Medium object (5KB) → counted as 50KB (remainder applies)
+			// - Large object (100KB) → counted as 100KB (already larger than remainder)
+			// Total = 50KB + 50KB + 100KB = 204800 bytes
+			expectedBytes := int64(204800)
+
+			require.Equal(t, expectedBytes, tally.BytesByRemainder[remainder], "BytesByRemainder[51200] should equal 200KB")
+
+			// TotalBytes should equal actual bytes (remainder=0 is always auto-added)
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (always includes remainder=0)")
+		})
+
+		t.Run("multiple remainders including 0", func(t *testing.T) {
+			remainder50KB := int64(51200)   // 50KB
+			remainder100KB := int64(102400) // 100KB
+
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{0, remainder50KB, remainder100KB},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// With remainder=0: actual bytes.
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes")
+
+			// With remainder=50KB: 50KB + 50KB + 100KB = 200KB.
+			expectedBytes50KB := int64(204800)
+			require.Equal(t, expectedBytes50KB, tally.BytesByRemainder[remainder50KB], "BytesByRemainder[51200] should equal 200KB")
+
+			// With remainder=100KB: 100KB + 100KB + 100KB = 300KB.
+			expectedBytes100KB := int64(307200)
+			require.Equal(t, expectedBytes100KB, tally.BytesByRemainder[remainder100KB], "BytesByRemainder[102400] should equal 300KB")
+
+			// TotalBytes should be the first remainder value (remainder=0).
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (first remainder)")
+		})
+
+		t.Run("multiple remainders without 0", func(t *testing.T) {
+			remainder50KB := int64(51200)   // 50KB
+			remainder100KB := int64(102400) // 100KB
+
+			tallies, err := db.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+				},
+				To: metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketName + "z",
+				},
+				Now:               time.Now(),
+				UsePartitionQuery: usePartitionQuery,
+				StorageRemainders: []int64{remainder50KB, remainder100KB},
+			})
+			require.NoError(t, err)
+			require.Len(t, tallies, 1)
+
+			tally := tallies[0]
+
+			// BytesByRemainder SHOULD have 0 key (auto-added for backward compatibility).
+			require.Equal(t, actualTotalBytes, tally.BytesByRemainder[0], "BytesByRemainder[0] should equal actual bytes (auto-added)")
+
+			// With remainder=50KB: 50KB + 50KB + 100KB = 200KB
+			expectedBytes50KB := int64(204800)
+			require.Equal(t, expectedBytes50KB, tally.BytesByRemainder[remainder50KB], "BytesByRemainder[51200] should equal 200KB")
+
+			// With remainder=100KB: 100KB + 100KB + 100KB = 300KB
+			expectedBytes100KB := int64(307200)
+			require.Equal(t, expectedBytes100KB, tally.BytesByRemainder[remainder100KB], "BytesByRemainder[102400] should equal 300KB")
+
+			// TotalBytes should always equal actual bytes (remainder=0 is always included)
+			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (always includes remainder=0)")
+		})
 	})
 }
