@@ -207,7 +207,7 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 			&obj.TotalEncryptedSize,
 			&obj.FixedSegmentSize,
 
-			encryptionParameters{&obj.Encryption},
+			&obj.Encryption,
 			&obj.ZombieDeletionDeadline,
 			lockModeWrapper{
 				retentionMode: &obj.Retention.Mode,
@@ -267,7 +267,7 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 			&obj.TotalEncryptedSize,
 			spannerutil.Int(&obj.FixedSegmentSize),
 
-			encryptionParameters{&obj.Encryption},
+			&obj.Encryption,
 			&obj.ZombieDeletionDeadline,
 			lockModeWrapper{
 				retentionMode: &obj.Retention.Mode,
@@ -447,7 +447,7 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 		obj.TotalEncryptedSize,
 		obj.FixedSegmentSize,
 
-		encryptionParameters{&obj.Encryption},
+		&obj.Encryption,
 		obj.ZombieDeletionDeadline,
 	}, nil
 }
@@ -905,7 +905,7 @@ func spannerInsertObject(obj RawObject) *spanner.Mutation {
 		obj.TotalEncryptedSize,
 		int64(obj.FixedSegmentSize),
 
-		encryptionParameters{&obj.Encryption},
+		&obj.Encryption,
 		obj.ZombieDeletionDeadline,
 
 		lockModeWrapper{

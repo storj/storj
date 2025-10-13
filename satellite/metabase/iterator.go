@@ -628,7 +628,7 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 		&item.StreamID,
 		&item.Version,
 		&item.Status,
-		encryptionParameters{&item.Encryption},
+		&item.Encryption,
 	}
 
 	if it.includeSystemMetadata {
