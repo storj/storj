@@ -482,7 +482,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 		SQL: `
 				SELECT version, status
 				FROM objects
-				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) and version > 0
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
 				ORDER BY version DESC
 				LIMIT 1
 			`,
@@ -513,7 +513,6 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversioned(ctx context.Con
 				project_id      = @project_id
 				AND bucket_name = @bucket_name
 				AND object_key  = @object_key
-				AND version > 0
 				AND status IN ` + statusesUnversioned + `
 			THEN RETURN stream_id, retention_mode, retain_until`,
 		Params: map[string]any{
