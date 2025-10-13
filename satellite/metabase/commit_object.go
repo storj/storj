@@ -197,7 +197,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommitWithSegments(ctx cont
 	).
 		Scan(
 			&object.CreatedAt, &object.ExpiresAt,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -241,7 +241,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 		},
 	}, spanner.QueryOptions{RequestTag: "finalize-object-commit-with-segments-delete"}).Do(func(row *spanner.Row) error {
 		deleted = true
-		err := row.Columns(&object.CreatedAt, &object.ExpiresAt, encryptionParameters{&object.Encryption})
+		err := row.Columns(&object.CreatedAt, &object.ExpiresAt, &object.Encryption)
 		if err != nil {
 			return Error.New("failed to read old object details: %w", err)
 		}
@@ -291,7 +291,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommitWithSegments(ctx conte
 			"total_plain_size":                 totalPlainSize,
 			"total_encrypted_size":             totalEncryptedSize,
 			"fixed_segment_size":               int64(fixedSegmentSize),
-			"encryption":                       encryptionParameters{&object.Encryption},
+			"encryption":                       object.Encryption,
 		},
 	}, spanner.QueryOptions{RequestTag: "finalize-object-commit-with-segments-insert"})
 

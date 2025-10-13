@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
@@ -346,8 +347,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 	var segmentCount, fixedSegmentSize sql.NullInt32
 	var totalPlainSize, totalEncryptedSize sql.NullInt64
 	var status NullableObjectStatus
-	var encryptionParams nullableValue[encryptionParameters]
-	encryptionParams.value.EncryptionParameters = &deleted.Encryption
+	var encryptionParams nullableValue[*storj.EncryptionParameters]
+	encryptionParams.value = new(storj.EncryptionParameters)
 
 	err = ptx.tx.QueryRowContext(ctx, `
 		WITH highest_object AS (
@@ -454,6 +455,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 		return PrecommitConstraintResult{}, ErrObjectLock.New(legalHoldErrMsg)
 	case deleted.Retention.ActiveNow():
 		return PrecommitConstraintResult{}, ErrObjectLock.New(retentionErrMsg)
+	}
+
+	if !encryptionParams.isnull {
+		deleted.Encryption = *encryptionParams.value
 	}
 
 	if result.DeletedObjectCount > 1 {
@@ -628,8 +633,8 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 	var segmentCount, fixedSegmentSize sql.NullInt32
 	var totalPlainSize, totalEncryptedSize sql.NullInt64
 	var status NullableObjectStatus
-	var encryptionParams nullableValue[encryptionParameters]
-	encryptionParams.value.EncryptionParameters = &deleted.Encryption
+	var encryptionParams nullableValue[*storj.EncryptionParameters]
+	encryptionParams.value = new(storj.EncryptionParameters)
 
 	err = ptx.tx.QueryRowContext(ctx, `
 		WITH highest_object AS (
@@ -720,6 +725,10 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 	deleted.TotalPlainSize = totalPlainSize.Int64
 	deleted.TotalEncryptedSize = totalEncryptedSize.Int64
 	deleted.FixedSegmentSize = fixedSegmentSize.Int32
+
+	if !encryptionParams.isnull {
+		deleted.Encryption = *encryptionParams.value
+	}
 
 	if result.DeletedObjectCount > 1 {
 		ptx.postgresAdapter.log.Error("object with multiple committed versions were found!",
@@ -868,7 +877,7 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPendingU
 		&deleted.TotalPlainSize,
 		&deleted.TotalEncryptedSize,
 		&deleted.FixedSegmentSize,
-		encryptionParameters{&deleted.Encryption},
+		&deleted.Encryption,
 		lockModeWrapper{
 			retentionMode: &deleted.Retention.Mode,
 			legalHold:     &deleted.LegalHold,
