@@ -53,13 +53,9 @@ func TestChangeStream(t *testing.T) {
 				changes <- record
 				return nil
 			})
-
 			feedErr <- err
-
 		}()
 
-		require.NoError(t, err)
-		time.Sleep(10 * time.Millisecond)
 		err = adapter.TestingBatchInsertObjects(ctx, []metabase.RawObject{
 			{
 				ObjectStream: metabase.ObjectStream{
@@ -72,6 +68,14 @@ func TestChangeStream(t *testing.T) {
 		require.NoError(t, err)
 		change := <-changes
 		require.Equal(t, "objects", change.TableName)
+		require.Equal(t, "INSERT", change.ModType)
+
+		err = adapter.TestingDeleteAll(ctx)
+		require.NoError(t, err)
+		change = <-changes
+		require.Equal(t, "objects", change.TableName)
+		require.Equal(t, "DELETE", change.ModType)
+
 		cancel()
 		err = <-feedErr
 		if spanner.ErrCode(err) != codes.Canceled {

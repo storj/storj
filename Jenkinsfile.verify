@@ -115,15 +115,16 @@ pipeline {
                             'spanner://127.0.0.1:9015?emulator|' +
                             'spanner://127.0.0.1:9016?emulator'
                         SPANNER_DISABLE_BUILTIN_METRICS = 'true'
+                        CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG='--override_change_stream_partition_token_alive_seconds=1'
                     }
                     steps {
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9016 &'
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9016 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
 
                         sh 'use-ports -from 1024 -to 10000 &'
 
