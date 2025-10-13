@@ -35,7 +35,6 @@ type encoderDecoder interface {
 }
 
 var (
-	_ encoderDecoder = encryptionParameters{}
 	_ encoderDecoder = (*SegmentPosition)(nil)
 	_ encoderDecoder = lockModeWrapper{}
 	_ encoderDecoder = timeWrapper{}
@@ -53,55 +52,6 @@ func (v *nullableValue[T]) Scan(value interface{}) error {
 	}
 	v.isnull = false
 	return v.value.Scan(value)
-}
-
-type encryptionParameters struct {
-	*storj.EncryptionParameters
-}
-
-// Check that EncryptionParameters layout doesn't change.
-var _ struct {
-	CipherSuite storj.CipherSuite
-	BlockSize   int32
-} = storj.EncryptionParameters{}
-
-// Value implements sql/driver.Valuer interface.
-func (params encryptionParameters) Value() (driver.Value, error) {
-	var bytes [8]byte
-	bytes[0] = byte(params.CipherSuite)
-	binary.LittleEndian.PutUint32(bytes[1:], uint32(params.BlockSize))
-	return int64(binary.LittleEndian.Uint64(bytes[:])), nil
-}
-
-// Scan implements sql.Scanner interface.
-func (params encryptionParameters) Scan(value interface{}) error {
-	switch value := value.(type) {
-	case int64:
-		var bytes [8]byte
-		binary.LittleEndian.PutUint64(bytes[:], uint64(value))
-		params.CipherSuite = storj.CipherSuite(bytes[0])
-		params.BlockSize = int32(binary.LittleEndian.Uint32(bytes[1:]))
-		return nil
-	default:
-		return Error.New("unable to scan %T into EncryptionParameters", value)
-	}
-}
-
-// EncodeSpanner implements spanner.Encoder interface.
-func (params encryptionParameters) EncodeSpanner() (interface{}, error) {
-	return params.Value()
-}
-
-// DecodeSpanner implements spanner.Decoder interface.
-func (params encryptionParameters) DecodeSpanner(input interface{}) error {
-	if value, ok := input.(string); ok {
-		iVal, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return err
-		}
-		input = iVal
-	}
-	return params.Scan(input)
 }
 
 // Value implements sql/driver.Valuer interface.

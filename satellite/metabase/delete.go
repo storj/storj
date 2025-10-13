@@ -229,7 +229,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 			lockModeWrapper{
 				retentionMode: &object.Retention.Mode,
 				legalHold:     &object.LegalHold,
@@ -564,7 +564,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 			lockModeWrapper{
 				retentionMode: &object.Retention.Mode,
 				legalHold:     &object.LegalHold,
@@ -598,7 +598,7 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 				&object.Status, spannerutil.Int(&object.SegmentCount),
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-				encryptionParameters{&object.Encryption},
+				&object.Encryption,
 				lockModeWrapper{
 					retentionMode: &object.Retention.Mode,
 					legalHold:     &object.LegalHold,
@@ -798,7 +798,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 			lockModeWrapper{
 				retentionMode: &object.Retention.Mode,
 				legalHold:     &object.LegalHold,

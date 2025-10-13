@@ -470,7 +470,7 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 				version, created_at`,
 		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.NewStreamID,
 		Pending, sourceObject.ExpiresAt, sourceObject.SegmentCount,
-		encryptionParameters{&sourceObject.Encryption},
+		&sourceObject.Encryption,
 		encryptedUserData.EncryptedMetadata, encryptedUserData.EncryptedMetadataNonce, encryptedUserData.EncryptedMetadataEncryptedKey, encryptedUserData.EncryptedETag,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
 		&zombieDeletionDeadline,
@@ -570,7 +570,7 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 				"status":                           Pending,
 				"expires_at":                       sourceObject.ExpiresAt,
 				"segment_count":                    int64(sourceObject.SegmentCount),
-				"encryption":                       encryptionParameters{&sourceObject.Encryption},
+				"encryption":                       sourceObject.Encryption,
 				"encrypted_metadata":               encryptedUserData.EncryptedMetadata,
 				"encrypted_metadata_nonce":         encryptedUserData.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": encryptedUserData.EncryptedMetadataEncryptedKey,
@@ -740,7 +740,7 @@ func (p *PostgresAdapter) getObjectNonPendingExactVersion(ctx context.Context, o
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -790,7 +790,7 @@ func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, op
 			spannerutil.Int(&object.SegmentCount),
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 		)
 		if err != nil {
 			return Error.New("unable to scan object: %w", err)

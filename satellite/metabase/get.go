@@ -76,7 +76,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
 			timeWrapper{&object.Retention.RetainUntil},
 		)
@@ -135,7 +135,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 				spannerutil.Int(&object.SegmentCount),
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-				encryptionParameters{&object.Encryption},
+				&object.Encryption,
 				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
 				timeWrapper{&object.Retention.RetainUntil},
 			))
@@ -201,7 +201,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		&object.SegmentCount,
 		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-		encryptionParameters{&object.Encryption},
+		&object.Encryption,
 		lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
 		timeWrapper{&object.Retention.RetainUntil},
 	)
@@ -258,7 +258,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 				spannerutil.Int(&object.SegmentCount),
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-				encryptionParameters{&object.Encryption},
+				&object.Encryption,
 				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
 				timeWrapper{&object.Retention.RetainUntil},
 			))

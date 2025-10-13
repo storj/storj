@@ -742,7 +742,7 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 		&item.Version,
 		&item.StreamID,
 		&item.Status,
-		encryptionParameters{&item.Encryption},
+		&item.Encryption,
 	}
 
 	if opts.IncludeSystemMetadata {
@@ -820,7 +820,7 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 		&item.Version,
 		&item.StreamID,
 		&item.Status,
-		encryptionParameters{&item.Encryption},
+		&item.Encryption,
 	}
 
 	if opts.IncludeSystemMetadata {

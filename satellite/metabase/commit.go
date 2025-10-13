@@ -155,7 +155,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 			)
 			RETURNING version, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
-		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
+		opts.ExpiresAt, opts.Encryption,
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
 		lockModeWrapper{
@@ -168,11 +168,6 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 // BeginObjectNextVersion implements Adapter.
 func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
 	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		enc, err := encryptionParameters{&opts.Encryption}.Value()
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
 		return Error.Wrap(txn.Query(ctx, spanner.Statement{
 			SQL: `INSERT objects (
 					project_id, bucket_name, object_key, version, stream_id,
@@ -195,7 +190,7 @@ func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginO
 				"object_key":                       opts.ObjectKey,
 				"stream_id":                        opts.StreamID.Bytes(),
 				"expires_at":                       opts.ExpiresAt,
-				"encryption":                       enc,
+				"encryption":                       opts.Encryption,
 				"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
@@ -335,7 +330,7 @@ func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts Begi
 		)
 		RETURNING created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
-		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
+		opts.ExpiresAt, opts.Encryption,
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
 		lockModeWrapper{
@@ -377,7 +372,7 @@ func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts Begin
 				"version":                          opts.Version,
 				"stream_id":                        opts.StreamID,
 				"expires_at":                       opts.ExpiresAt,
-				"encryption":                       &encryptionParameters{&opts.Encryption},
+				"encryption":                       opts.Encryption,
 				"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
 				"encrypted_metadata":               opts.EncryptedMetadata,
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
@@ -1206,7 +1201,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 		totalPlainSize,
 		totalEncryptedSize,
 		fixedSegmentSize,
-		encryptionParameters{&opts.Encryption},
+		opts.Encryption,
 	}
 
 	metadataColumns := ""
@@ -1261,7 +1256,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 			`, args...).Scan(
 		&object.Version, &object.CreatedAt, &object.ExpiresAt,
 		&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce, &object.EncryptedETag,
-		encryptionParameters{&object.Encryption},
+		&object.Encryption,
 		object.columnRetentionMode(),
 		object.columnRetainUntil(),
 	)
@@ -1305,7 +1300,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		}
 		err = row.Columns(
 			&status, &streamID, &object.CreatedAt, &object.ExpiresAt,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 			object.columnRetentionMode(),
 			object.columnRetainUntil(),
 		)
@@ -1343,7 +1338,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			nextStatus, len(finalSegments),
 
 			totalPlainSize, totalEncryptedSize, int64(fixedSegmentSize),
-			encryptionParameters{&object.Encryption}, nil, // zombie_deletion_deadline is NULL
+			object.Encryption, nil, // zombie_deletion_deadline is NULL
 		}
 
 		if opts.OverrideEncryptedMetadata {
@@ -1432,7 +1427,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			)
 		}
 		args = append(args,
-			encryptionParameters{&object.Encryption},
+			&object.Encryption,
 			object.columnRetentionMode(),
 			object.columnRetainUntil(),
 		)
@@ -1485,7 +1480,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			opts.StreamID, object.CreatedAt, object.ExpiresAt, nextStatus, len(finalSegments),
 			object.EncryptedUserData.EncryptedMetadataNonce, object.EncryptedUserData.EncryptedMetadata, object.EncryptedUserData.EncryptedMetadataEncryptedKey, object.EncryptedUserData.EncryptedETag,
 			totalPlainSize, totalEncryptedSize, int64(fixedSegmentSize),
-			encryptionParameters{&object.Encryption}, nil, // zombie_deletion_deadline is NULL
+			object.Encryption, nil, // zombie_deletion_deadline is NULL
 			object.columnRetentionMode(),
 			object.columnRetainUntil(),
 		})
@@ -1667,7 +1662,7 @@ func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Co
 
 	args := []any{
 		object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
-		object.Status, object.SegmentCount, object.ExpiresAt, encryptionParameters{&object.Encryption},
+		object.Status, object.SegmentCount, object.ExpiresAt, object.Encryption,
 		object.TotalPlainSize, object.TotalEncryptedSize,
 		nil,
 		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey, object.EncryptedETag,
@@ -1744,7 +1739,7 @@ func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Con
 		"status":                           object.Status,
 		"segment_count":                    int64(object.SegmentCount),
 		"expires_at":                       object.ExpiresAt,
-		"encryption_parameters":            encryptionParameters{&object.Encryption},
+		"encryption_parameters":            object.Encryption,
 		"total_plain_size":                 object.TotalPlainSize,
 		"total_encrypted_size":             object.TotalEncryptedSize,
 		"zombie_deletion_deadline":         nil,
