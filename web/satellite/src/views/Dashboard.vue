@@ -139,7 +139,7 @@
                             Segments are the encrypted parts of an uploaded object.
                             <a
                                 class="link"
-                                href="https://docs.storj.io/dcs/pricing#per-segment-fee"
+                                href="https://storj.dev/dcs/pricing/legacy#segment-fees"
                                 target="_blank"
                                 rel="noopener noreferrer"
                             >

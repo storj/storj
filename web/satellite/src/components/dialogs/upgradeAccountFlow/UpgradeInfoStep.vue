@@ -45,7 +45,7 @@
                         Read more about segment fees in the
                         <a
                             class="link"
-                            href="https://docs.storj.io/dcs/pricing#per-segment-fee"
+                            href="https://storj.dev/dcs/pricing/legacy#segment-fees"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
