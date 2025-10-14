@@ -247,8 +247,8 @@ test-wasm-size: ## Test that the built .wasm code has not increased in size
 
 ##@ Build
 
-.PHONY: storagenode-console
-storagenode-console:
+# Stamp files to prevent rebuilding UI assets in parallel builds
+.build/storagenode-console.stamp: web/storagenode/package.json web/storagenode/package-lock.json
 	# build web assets
 	rm -rf web/storagenode/dist
 	# install npm dependencies and build the binaries
@@ -259,9 +259,13 @@ storagenode-console:
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
+	@mkdir -p .build
+	@touch $@
 
-.PHONY: multinode-console
-multinode-console:
+.PHONY: storagenode-console
+storagenode-console: .build/storagenode-console.stamp
+
+.build/multinode-console.stamp: web/multinode/package.json web/multinode/package-lock.json
 	# build web assets
 	rm -rf web/multinode/dist
 	# install npm dependencies and build the binaries
@@ -272,9 +276,13 @@ multinode-console:
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
+	@mkdir -p .build
+	@touch $@
 
-.PHONY: satellite-admin-ui
-satellite-admin-ui:
+.PHONY: multinode-console
+multinode-console: .build/multinode-console.stamp
+
+.build/satellite-admin-ui.stamp: satellite/admin/ui/package.json satellite/admin/ui/package-lock.json satellite/admin/back-office/ui/package.json satellite/admin/back-office/ui/package-lock.json
 	# install npm dependencies for being embedded by Go embed.
 	docker run --rm -i \
 		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
@@ -291,12 +299,18 @@ satellite-admin-ui:
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
+	@mkdir -p .build
+	@touch $@
+
+.PHONY: satellite-admin-ui
+satellite-admin-ui: .build/satellite-admin-ui.stamp
 
 .PHONY: satellite-wasm
 satellite-wasm:
+	@mkdir -p /tmp/go-cache-js-wasm /tmp/go-pkg-js-wasm
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=js -e GOARCH=wasm -e GOARM=6 -e CGO_ENABLED=1 \
-	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+	-v /tmp/go-cache-js-wasm:/tmp/.cache/go-build -v /tmp/go-pkg-js-wasm:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -e TAG=${TAG} -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/build-wasm.sh ;\
 
@@ -414,7 +428,7 @@ binary:
 	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	mkdir -p release/${TAG}
-	mkdir -p /tmp/go-cache /tmp/go-pkg
+	mkdir -p /tmp/go-cache-${GOOS}-${GOARCH} /tmp/go-pkg-${GOOS}-${GOARCH}
 	rm -f cmd/${SUB_DIR}${COMPONENT}/resource.syso
 	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
 	[ "${GOOS}" = "windows" ] && [ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${SUB_DIR}${COMPONENT}/resource.syso \
@@ -431,7 +445,7 @@ binary:
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
-	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+	-v /tmp/go-cache-${GOOS}-${GOARCH}:/tmp/.cache/go-build -v /tmp/go-pkg-${GOOS}-${GOARCH}:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${SUB_DIR}${COMPONENT}
@@ -497,8 +511,17 @@ OSARCHLIST             := linux_amd64 linux_arm linux_arm64 windows_amd64 freebs
 OSARCHLIST_AMD_ONLY    := linux_amd64
 BINARIES               := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 BINARIES_AMD_ONLY      := $(foreach C,$(COMPONENTLIST_AMD_ONLY),$(foreach O,$(OSARCHLIST_AMD_ONLY),$C_$O))
+
+# Number of parallel jobs for building binaries (default: number of CPU cores)
+PARALLEL_JOBS ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+
 .PHONY: binaries
 binaries: ${BINARIES} ${BINARIES_AMD_ONLY} ## Build segment-verify jobq certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
+
+.PHONY: binaries-parallel
+binaries-parallel: ## Build binaries in parallel (faster)
+	@echo "Building binaries in parallel with $(PARALLEL_JOBS) jobs..."
+	@$(MAKE) -j$(PARALLEL_JOBS) binaries
 
 
 .PHONY: sign-windows-installer
@@ -566,7 +589,7 @@ clean: binaries-clean clean-images ## Clean docker test environment, local relea
 
 .PHONY: binaries-clean
 binaries-clean: ## Remove all local release binaries (jenkins)
-	rm -rf release
+	rm -rf release .build
 
 .PHONY: clean-images
 clean-images:

@@ -62,7 +62,7 @@ node('node') {
 
     stage('Build Binaries') {
       lastStage = env.STAGE_NAME
-      sh 'make binaries'
+      sh 'make binaries-parallel'
 
       stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
 
