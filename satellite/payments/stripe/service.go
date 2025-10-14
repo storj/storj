@@ -933,23 +933,25 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		// Create segment invoice item.
 		// Note: Segment fees are not affected by UseGBUnits, they use the same units for all products.
-		segmentItem := &stripe.InvoiceItemParams{}
-		segmentDesc := prefix + segmentInvoiceItemDesc
-		if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
-			segmentItem.AddMetadata("SKU", info.SegmentSKU)
-			if service.stripeConfig.InvItemSKUInDescription {
-				segmentDesc += " - " + info.SegmentSKU
+		if !info.ProjectUsagePriceModel.SegmentMonthCents.IsZero() {
+			segmentItem := &stripe.InvoiceItemParams{}
+			segmentDesc := prefix + segmentInvoiceItemDesc
+			if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
+				segmentItem.AddMetadata("SKU", info.SegmentSKU)
+				if service.stripeConfig.InvItemSKUInDescription {
+					segmentDesc += " - " + info.SegmentSKU
+				}
 			}
-		}
-		segmentItem.Description = stripe.String(segmentDesc)
-		segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
-		segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
-		segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-		if service.stripeConfig.UseIdempotency {
-			segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
-		}
+			segmentItem.Description = stripe.String(segmentDesc)
+			segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
+			segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
+			segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
+			if service.stripeConfig.UseIdempotency {
+				segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
+			}
 
-		result = append(result, segmentItem)
+			result = append(result, segmentItem)
+		}
 
 		if !info.SmallObjectFeeCents.IsZero() {
 			smallObjectFeeItem := &stripe.InvoiceItemParams{}

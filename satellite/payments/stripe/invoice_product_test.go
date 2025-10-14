@@ -567,6 +567,162 @@ func TestInvoiceByProduct_withPlaceholderItems(t *testing.T) {
 	})
 }
 
+func TestInvoiceByProduct_WithAndWithoutSegmentFee(t *testing.T) {
+	// Test that products with zero segment fees do not generate segment invoice items.
+	priceWithSegments := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "4",
+		EgressTB:  "7",
+		Segment:   "3", // Has segment fee
+	}
+	priceWithoutSegments := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "4",
+		EgressTB:  "7",
+		Segment:   "0", // Zero segment fee
+	}
+
+	productWithSegments := paymentsconfig.ProductUsagePrice{
+		ID:                5,
+		Name:              "Product With Segments",
+		ProjectUsagePrice: priceWithSegments,
+	}
+	productWithoutSegments := paymentsconfig.ProductUsagePrice{
+		ID:                6,
+		Name:              "Product Without Segments",
+		ProjectUsagePrice: priceWithoutSegments,
+	}
+
+	var productOverrides paymentsconfig.ProductPriceOverrides
+	productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+		5: productWithSegments,
+		6: productWithoutSegments,
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `25:annotation("location", "withsegments");26:annotation("location", "withoutsegments")`,
+				}
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					25: 5, // Product with segments
+					26: 6, // Product without segments
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		stripeService := sat.API.Payments.StripeService
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		period := time.Date(2025, 10, 15, 0, 0, 0, 0, time.UTC)
+		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
+		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
+
+		withSegmentsPlacement := storj.PlacementConstraint(25)
+		withoutSegmentsPlacement := storj.PlacementConstraint(26)
+
+		project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: "segment fee test project"})
+		require.NoError(t, err)
+
+		bucket1, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "bucket-with-segments",
+			ProjectID: project.ID,
+			Placement: withSegmentsPlacement,
+		})
+		require.NoError(t, err)
+		bucket2, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "bucket-without-segments",
+			ProjectID: project.ID,
+			Placement: withoutSegmentsPlacement,
+		})
+		require.NoError(t, err)
+
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucket1.Name),
+			Placement:  &withSegmentsPlacement,
+		})
+		require.NoError(t, err)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  project.ID,
+			BucketName: []byte(bucket2.Name),
+			Placement:  &withoutSegmentsPlacement,
+		})
+		require.NoError(t, err)
+
+		egressBytes := int64(1000 * memory.MB)
+		storageBytes := int64(500 * memory.MB)
+		segmentCount := int64(1000)
+
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket1.Name, egressBytes, storageBytes, segmentCount)
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket2.Name, egressBytes, storageBytes, segmentCount)
+
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
+
+		record := stripe.ProjectRecord{ProjectID: project.ID, Storage: 1}
+		_, err = stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+		require.NoError(t, err)
+
+		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+		// Verify that we have:
+		// - Product with segments: 3 items (storage + egress + segment)
+		// - Product without segments: 2 items (storage + egress only)
+		// Total: 5 items
+		require.Len(t, invoiceItems, 5, "Expected 5 invoice items total")
+
+		var withSegmentsStorageItem, withSegmentsEgressItem, withSegmentsSegmentItem *stripeSDK.InvoiceItemParams
+		var withoutSegmentsStorageItem, withoutSegmentsEgressItem *stripeSDK.InvoiceItemParams
+		var foundWithoutSegmentsSegmentItem bool
+
+		for _, item := range invoiceItems {
+			desc := *item.Description
+			if strings.Contains(desc, "Product With Segments") {
+				if strings.Contains(desc, "Storage") {
+					withSegmentsStorageItem = item
+				} else if strings.Contains(desc, "Egress") {
+					withSegmentsEgressItem = item
+				} else if strings.Contains(desc, "Segment") {
+					withSegmentsSegmentItem = item
+				}
+			} else if strings.Contains(desc, "Product Without Segments") {
+				if strings.Contains(desc, "Storage") {
+					withoutSegmentsStorageItem = item
+				} else if strings.Contains(desc, "Egress") {
+					withoutSegmentsEgressItem = item
+				} else if strings.Contains(desc, "Segment") {
+					foundWithoutSegmentsSegmentItem = true
+				}
+			}
+		}
+
+		// Verify product with segments has all 3 items.
+		require.NotNil(t, withSegmentsStorageItem, "Product with segments should have storage item")
+		require.NotNil(t, withSegmentsEgressItem, "Product with segments should have egress item")
+		require.NotNil(t, withSegmentsSegmentItem, "Product with segments should have segment item")
+
+		// Verify product without segments has only storage and egress items.
+		require.NotNil(t, withoutSegmentsStorageItem, "Product without segments should have storage item")
+		require.NotNil(t, withoutSegmentsEgressItem, "Product without segments should have egress item")
+		require.False(t, foundWithoutSegmentsSegmentItem, "Product without segments should NOT have segment item when segment fee is zero")
+	})
+}
+
 func TestEgressOverageFunctionality(t *testing.T) {
 	defaultPlacement := storj.DefaultPlacement
 	includedEgressDesc := "Included Egress"
