@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 func TestGetProject(t *testing.T) {
@@ -413,6 +415,213 @@ func TestUpdateProjectLimits(t *testing.T) {
 			require.Contains(t, apiErr.Err.Error(), console.UserSetStorageLimit.String())
 			require.Contains(t, apiErr.Err.Error(), console.RateLimitList.String())
 			require.Contains(t, apiErr.Err.Error(), console.RateLimit.String())
+		})
+	})
+}
+
+func TestUpdateProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location","global");10:annotation("location", "defaultPlacement")`}
+				config.Admin.BackOffice.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
+				config.Admin.BackOffice.AuditLogger.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		// Create a test user
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@test.test",
+			FullName: "Test User",
+		}, 1)
+		require.NoError(t, err)
+
+		project, err := sat.AddProject(ctx, user.ID, "test project")
+		require.NoError(t, err)
+
+		// Create auth info with proper permissions
+		authInfo := &admin.AuthInfo{
+			Email:  "test@test.test",
+			Groups: []string{"admin"},
+		}
+
+		t.Run("authentication", func(t *testing.T) {
+			newName := "new-project-name"
+			req := admin.UpdateProjectRequest{
+				Name:   &newName,
+				Reason: "testing",
+			}
+			testFailAuth := func(groups []string) {
+				_, apiErr := service.UpdateProject(ctx, &admin.AuthInfo{Groups: groups}, user.ID, req)
+				require.True(t, apiErr.Status == http.StatusUnauthorized || apiErr.Status == http.StatusForbidden)
+				require.Error(t, apiErr.Err)
+				require.Contains(t, apiErr.Err.Error(), "not authorized")
+			}
+
+			testFailAuth(nil)
+			testFailAuth([]string{})
+			testFailAuth([]string{"viewer"}) // insufficient permissions
+
+			_, apiErr := service.UpdateProject(ctx, authInfo, testrand.UUID(), req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.Error(t, apiErr.Err)
+		})
+
+		t.Run("non-existent project", func(t *testing.T) {
+			req := admin.UpdateProjectRequest{Reason: "testing"}
+			_, apiErr := service.UpdateProject(ctx, authInfo, testrand.UUID(), req)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("missing reason", func(t *testing.T) {
+			newName := "updated-name"
+			req := admin.UpdateProjectRequest{Name: &newName}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
+			assert.Contains(t, apiErr.Err.Error(), "reason is required")
+		})
+
+		t.Run("update name", func(t *testing.T) {
+			newName := "updated-project-name"
+			req := admin.UpdateProjectRequest{
+				Name:   &newName,
+				Reason: "updating project name",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			// Verify the update
+			updated, err := consoleDB.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			assert.Equal(t, newName, updated.Name)
+		})
+
+		t.Run("update description", func(t *testing.T) {
+			newDescription := "updated project description"
+			req := admin.UpdateProjectRequest{
+				Description: &newDescription,
+				Reason:      "updating project description",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			// Verify the update
+			updated, err := consoleDB.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			assert.Equal(t, newDescription, updated.Description)
+		})
+
+		t.Run("update user agent", func(t *testing.T) {
+			newUserAgent := "new-user-agent"
+			req := admin.UpdateProjectRequest{
+				UserAgent: &newUserAgent,
+				Reason:    "updating user agent",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			// Verify the update
+			updated, err := consoleDB.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			assert.Equal(t, []byte(newUserAgent), updated.UserAgent)
+		})
+
+		t.Run("update status", func(t *testing.T) {
+			newStatus := console.ProjectStatus(1)
+			req := admin.UpdateProjectRequest{
+				Status: &newStatus,
+				Reason: "updating project status",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			// Verify the update
+			updated, err := consoleDB.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			assert.Equal(t, &newStatus, updated.Status)
+		})
+
+		t.Run("update default placement", func(t *testing.T) {
+			newPlacement := storj.PlacementConstraint(10)
+			req := admin.UpdateProjectRequest{
+				DefaultPlacement: &newPlacement,
+				Reason:           "updating default placement",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			// Verify the update
+			updated, err := consoleDB.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			assert.Equal(t, newPlacement, updated.DefaultPlacement)
+		})
+
+		t.Run("update multiple fields", func(t *testing.T) {
+			newName := "multi-update-name"
+			newDescription := "multi-update description"
+			newUserAgent := "multi-update-agent"
+			newPlacement := storj.DefaultPlacement
+			req := admin.UpdateProjectRequest{
+				Name:             &newName,
+				Description:      &newDescription,
+				UserAgent:        &newUserAgent,
+				DefaultPlacement: &newPlacement,
+				Reason:           "updating multiple fields",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			// Verify the updates
+			updated, err := consoleDB.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			assert.Equal(t, newName, updated.Name)
+			assert.Equal(t, newDescription, updated.Description)
+			assert.Equal(t, newPlacement, updated.DefaultPlacement)
+			assert.Equal(t, []byte(newUserAgent), updated.UserAgent)
+		})
+
+		t.Run("empty name validation", func(t *testing.T) {
+			emptyName := ""
+			req := admin.UpdateProjectRequest{
+				Name:   &emptyName,
+				Reason: "testing empty name",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
+			assert.Contains(t, apiErr.Err.Error(), "name cannot be empty")
+		})
+
+		t.Run("invalid status validation", func(t *testing.T) {
+			invalidStatus := console.ProjectStatus(999)
+			req := admin.UpdateProjectRequest{
+				Status: &invalidStatus,
+				Reason: "testing invalid status",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
+			assert.Contains(t, apiErr.Err.Error(), "invalid project status")
+		})
+
+		t.Run("invalid placement validation", func(t *testing.T) {
+			invalidPlacement := storj.PlacementConstraint(100)
+			req := admin.UpdateProjectRequest{
+				DefaultPlacement: &invalidPlacement,
+				Reason:           "testing invalid placement",
+			}
+			_, apiErr := service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
+			assert.Contains(t, apiErr.Err.Error(), "invalid placement ID")
 		})
 	})
 }

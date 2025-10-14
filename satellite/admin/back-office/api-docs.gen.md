@@ -21,7 +21,9 @@
   * [Toggle MFA](#usermanagement-toggle-mfa)
   * [Create Rest Key](#usermanagement-create-rest-key)
 * ProjectManagement
+  * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
+  * [Update project](#projectmanagement-update-project)
   * [Update project limits](#projectmanagement-update-project-limits)
 * Search
   * [Search users or projects](#search-search-users-or-projects)
@@ -513,6 +515,25 @@ Creates a rest API key a user
 string
 ```
 
+<h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets available project statuses
+
+`GET /back-office/api/v1/projects/statuses`
+
+**Response body:**
+
+```typescript
+[
+	{
+		name: string
+		value: number
+	}
+
+]
+
+```
+
 <h3 id='projectmanagement-get-project'>Get project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets project by ID
@@ -562,6 +583,75 @@ Gets project by ID
 	storageUsed: number
 	segmentLimit: number
 	segmentUsed: number
+	status: unknown
+}
+
+```
+
+<h3 id='projectmanagement-update-project'>Update project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates project name, user agent and default placement by ID
+
+`PATCH /back-office/api/v1/projects/{publicID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	name: string
+	description: string
+	userAgent: string
+	status: number
+	defaultPlacement: number
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	name: string
+	description: string
+	userAgent: string
+	owner: 	{
+		id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+		fullName: string
+		email: string
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	defaultPlacement: number
+	rateLimit: number
+	burstLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitDelete: number
+	burstLimitDelete: number
+	rateLimitList: number
+	burstLimitList: number
+	maxBuckets: number
+	bandwidthLimit: number
+	userSetBandwidthLimit: number
+	bandwidthUsed: number
+	storageLimit: number
+	userSetStorageLimit: number
+	storageUsed: number
+	segmentLimit: number
+	segmentUsed: number
+	status: unknown
 }
 
 ```
@@ -570,7 +660,7 @@ Gets project by ID
 
 Updates project limits by ID
 
-`PUT /back-office/api/v1/projects/{publicID}/limits`
+`PATCH /back-office/api/v1/projects/{publicID}/limits`
 
 **Path Params:**
 
@@ -642,6 +732,7 @@ Updates project limits by ID
 	storageUsed: number
 	segmentLimit: number
 	segmentUsed: number
+	status: unknown
 }
 
 ```

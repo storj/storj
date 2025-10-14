@@ -109,6 +109,7 @@ export class Project {
     storageUsed: number | null;
     segmentLimit: number | null;
     segmentUsed: number | null;
+    status: ProjectStatusInfo | null;
 }
 
 export class ProjectFlags {
@@ -148,6 +149,11 @@ export class ProjectLimitsUpdateRequest {
     reason: string;
 }
 
+export class ProjectStatusInfo {
+    name: string;
+    value: number;
+}
+
 export class SearchResult {
     project: Project | null;
     accounts: AccountMin[] | null;
@@ -168,6 +174,15 @@ export class ToggleFreezeUserRequest {
 }
 
 export class ToggleMfaRequest {
+    reason: string;
+}
+
+export class UpdateProjectRequest {
+    name: string | null;
+    description: string | null;
+    userAgent: string | null;
+    status: number | null;
+    defaultPlacement: number | null;
     reason: string;
 }
 
@@ -391,6 +406,16 @@ export class ProjectManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/back-office/api/v1/projects';
 
+    public async getProjectStatuses(): Promise<ProjectStatusInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/statuses`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as ProjectStatusInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async getProject(publicID: UUID): Promise<Project> {
         const fullPath = `${this.ROOT_PATH}/${publicID}`;
         const response = await this.http.get(fullPath);
@@ -401,9 +426,19 @@ export class ProjectManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
+    public async updateProject(request: UpdateProjectRequest, publicID: UUID): Promise<Project> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async updateProjectLimits(request: ProjectLimitsUpdateRequest, publicID: UUID): Promise<Project> {
         const fullPath = `${this.ROOT_PATH}/${publicID}/limits`;
-        const response = await this.http.put(fullPath, JSON.stringify(request));
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as Project);
         }

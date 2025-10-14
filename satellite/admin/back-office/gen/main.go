@@ -216,6 +216,17 @@ func main() {
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 
+	group.Get("/statuses", &apigen.Endpoint{
+		Name:           "Get project statuses",
+		Description:    "Gets available project statuses",
+		GoName:         "GetProjectStatuses",
+		TypeScriptName: "getProjectStatuses",
+		Response:       []backoffice.ProjectStatusInfo{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
+		},
+	})
+
 	group.Get("/{publicID}", &apigen.Endpoint{
 		Name:           "Get project",
 		Description:    "Gets project by ID",
@@ -230,7 +241,23 @@ func main() {
 		},
 	})
 
-	group.Put("/{publicID}/limits", &apigen.Endpoint{
+	group.Patch("/{publicID}", &apigen.Endpoint{
+		Name:           "Update project",
+		Description:    "Updates project name, user agent and default placement by ID",
+		GoName:         "UpdateProject",
+		TypeScriptName: "updateProject",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		Request:  backoffice.UpdateProjectRequest{},
+		Response: backoffice.Project{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{},
+			passAuthParamKey: true,
+		},
+	})
+
+	group.Patch("/{publicID}/limits", &apigen.Endpoint{
 		Name:           "Update project limits",
 		Description:    "Updates project limits by ID",
 		GoName:         "UpdateProjectLimits",

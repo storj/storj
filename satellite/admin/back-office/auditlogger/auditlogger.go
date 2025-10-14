@@ -24,6 +24,8 @@ type ItemType string
 const (
 	// ItemTypeUser represents a user item.
 	ItemTypeUser ItemType = "User"
+	// ItemTypeProject represents a project item.
+	ItemTypeProject ItemType = "Project"
 )
 
 // Event represents an audit event for an admin operation.

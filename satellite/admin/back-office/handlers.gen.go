@@ -47,7 +47,9 @@ type UserManagementService interface {
 }
 
 type ProjectManagementService interface {
+	GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError)
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
+	UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectRequest) (*Project, api.HTTPError)
 	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
 }
 
@@ -154,8 +156,10 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 	}
 
 	projectsRouter := router.PathPrefix("/back-office/api/v1/projects").Subrouter()
+	projectsRouter.HandleFunc("/statuses", handler.handleGetProjectStatuses).Methods("GET")
 	projectsRouter.HandleFunc("/{publicID}", handler.handleGetProject).Methods("GET")
-	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PUT")
+	projectsRouter.HandleFunc("/{publicID}", handler.handleUpdateProject).Methods("PATCH")
+	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PATCH")
 
 	return handler
 }
@@ -627,6 +631,34 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 	}
 }
 
+func (h *ProjectManagementHandler) handleGetProjectStatuses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 131072) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetProjectStatuses(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetProjectStatuses response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
 func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -664,6 +696,54 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	publicIDParam, ok := mux.Vars(r)["publicID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing publicID route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(publicIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateProjectRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateProject(ctx, authInfo, publicID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
