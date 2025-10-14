@@ -16,6 +16,7 @@ export interface FieldRule {
 
 export enum FieldType {
     Text,
+    TextArea,
     Number,
     Select,
     Date,

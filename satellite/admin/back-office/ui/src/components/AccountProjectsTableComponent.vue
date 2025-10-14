@@ -28,6 +28,7 @@
                         <ProjectActionsMenu
                             :project-id="item.id" :owner="item.owner"
                             @update-limits="onUpdateLimitsClicked"
+                            @update="onUpdateClicked"
                         />
                         <v-icon :icon="MoreHorizontal" />
                     </v-btn>
@@ -135,6 +136,11 @@
         v-model="updateLimitsDialog"
         :project="projectToUpdate"
     />
+    <ProjectUpdateDialog
+        v-if="projectToUpdate && hasUpdateProjectPerm"
+        v-model="updateProjectDialog"
+        :project="projectToUpdate"
+    />
 </template>
 
 <script setup lang="ts">
@@ -152,6 +158,7 @@ import { ROUTES } from '@/router';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
+import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
 
 type UsageStats = {
     used: number | null;
@@ -182,6 +189,7 @@ const search = ref<string>('');
 const selected = ref<string[]>([]);
 const projectToUpdate = ref<Project>();
 const updateLimitsDialog = ref<boolean>(false);
+const updateProjectDialog = ref<boolean>(false);
 
 const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
@@ -204,6 +212,12 @@ const props = defineProps<{
 }>();
 
 const featureFlags = computed(() => appStore.state.settings.admin.features);
+
+const hasUpdateProjectPerm = computed(() => {
+    return featureFlags.value.project.updateInfo ||
+      featureFlags.value.project.updatePlacement ||
+      featureFlags.value.project.updateValueAttribution;
+});
 
 /**
  * Returns the user's project usage data.
@@ -247,6 +261,11 @@ async function onUpdateLimitsClicked(projectId: string) {
     updateLimitsDialog.value = true;
 }
 
+async function onUpdateClicked(projectId: string) {
+    projectToUpdate.value = await projectsStore.getProject(projectId);
+    updateProjectDialog.value = true;
+}
+
 /**
 * Selects the project and navigates to the project dashboard.
 */
@@ -268,6 +287,14 @@ function getPercentColor(percent: number) {
 }
 
 watch(updateLimitsDialog, async (shown) => {
+    if (shown) return;
+
+    // wait for the dialog to close
+    await new Promise(resolve => setTimeout(resolve, 300));
+    projectToUpdate.value = undefined;
+});
+
+watch(updateProjectDialog, async (shown) => {
     if (shown) return;
 
     // wait for the dialog to close

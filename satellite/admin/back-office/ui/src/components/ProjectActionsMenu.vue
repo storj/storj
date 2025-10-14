@@ -14,24 +14,14 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.project.updateInfo" density="comfortable" link rounded="lg">
+            <v-list-item
+                v-if="hasUpdateProjectPerm"
+                density="comfortable" rounded="lg"
+                link
+                @click="emit('update', projectId)"
+            >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Edit Project
-                    <ProjectInformationDialog />
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.project.updateValueAttribution" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Set Value
-                    <ProjectUserAgentsDialog />
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.project.updatePlacement" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Set Placement
-                    <ProjectGeofenceDialog />
                 </v-list-item-title>
             </v-list-item>
 
@@ -79,17 +69,20 @@ import { FeatureFlags, User } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 
-import ProjectInformationDialog from '@/components/ProjectInformationDialog.vue';
 import ProjectDeleteDialog from '@/components/ProjectDeleteDialog.vue';
 import ProjectNewBucketDialog from '@/components/ProjectNewBucketDialog.vue';
-import ProjectGeofenceDialog from '@/components/ProjectGeofenceDialog.vue';
-import ProjectUserAgentsDialog from '@/components/ProjectUserAgentsDialog.vue';
 import ProjectAddUserDialog from '@/components/ProjectAddUserDialog.vue';
 
 const appStore = useAppStore();
 const router = useRouter();
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+
+const hasUpdateProjectPerm = computed(() => {
+    return featureFlags.value.project.updateInfo ||
+      featureFlags.value.project.updatePlacement ||
+      featureFlags.value.project.updateValueAttribution;
+});
 
 const props = defineProps<{
     projectId: string;
@@ -98,6 +91,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (e: 'updateLimits', projectId: string): void;
+    (e: 'update', projectId: string): void;
 }>();
 
 const isCurrentRouteViewProject = computed(() => {

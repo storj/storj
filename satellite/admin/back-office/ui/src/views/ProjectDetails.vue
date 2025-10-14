@@ -41,6 +41,7 @@
                 <ProjectActionsMenu
                     :project-id="project.id" :owner="project.owner"
                     @update-limits="onUpdateLimitsClicked"
+                    @update="updateDialog = true"
                 />
             </v-btn>
         </div>
@@ -65,11 +66,13 @@
                             :icon="FilePen"
                             variant="outlined" size="small"
                             density="comfortable" color="default"
+                            @click="updateDialog = true"
                         />
-                        <!--                            <ProjectInformationDialog />
-                        </v-btn>-->
                     </template>
                     <v-card-text>
+                        <v-chip :color="statusColor" variant="tonal" class="mr-2 font-weight-bold">
+                            {{ project?.status?.name }}
+                        </v-chip>
                         <v-chip
                             :color="userIsPaid(userAccount) ? 'success' : userIsNFR(userAccount) ? 'warning' : 'info'"
                             variant="tonal" class="font-weight-bold"
@@ -87,9 +90,8 @@
                             :icon="FilePen"
                             variant="outlined" size="small"
                             density="comfortable" color="default"
+                            @click="updateDialog = true"
                         />
-                    <!--                            <ProjectUserAgentsDialog />
-                    </v-btn>-->
                     </template>
                     <v-card-text>
                         <v-chip color="default" :variant="project.userAgent ? 'tonal' : 'text'" class="mr-2">{{ project.userAgent || 'None' }}</v-chip>
@@ -104,9 +106,8 @@
                             :icon="FilePen"
                             variant="outlined" size="small"
                             density="comfortable" color="default"
+                            @click="updateDialog = true"
                         />
-                    <!--                            <ProjectGeofenceDialog />
-                    </v-btn>-->
                     </template>
                     <v-card-text>
                         <v-chip variant="tonal" class="mr-2">
@@ -242,6 +243,11 @@
         v-model="updateLimitsDialog"
         :project="project"
     />
+    <ProjectUpdateDialog
+        v-if="project && hasUpdateProjectPerm"
+        v-model="updateDialog"
+        :project="project"
+    />
 </template>
 
 <script setup lang="ts">
@@ -266,6 +272,7 @@ import LogsTableComponent from '@/components/LogsTableComponent.vue';
 import UsersTableComponent from '@/components/UsersTableComponent.vue';
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
+import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
@@ -276,14 +283,36 @@ const router = useRouter();
 const notify = useNotificationsStore();
 
 const updateLimitsDialog = ref<boolean>(false);
+const updateDialog = ref<boolean>(false);
 
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+
+const hasUpdateProjectPerm = computed(() => {
+    return featureFlags.value.project.updateInfo ||
+      featureFlags.value.project.updatePlacement ||
+      featureFlags.value.project.updateValueAttribution;
+});
 
 const userAccount = computed<UserAccount>(() => usersStore.state.currentAccount as UserAccount);
 const project = computed<Project | null>(() => projectsStore.state.currentProject);
 
 const placementText = computed<string>(() => {
     return appStore.getPlacementText(project.value?.defaultPlacement || 0);
+});
+
+const statusColor = computed(() => {
+    if (!project.value || !project.value.status) {
+        return 'default';
+    }
+    const status = project.value.status.name.toLowerCase();
+    if (status.includes('disabled')) {
+        return 'error';
+    }
+    if (status.includes('active')) {
+        return 'success';
+    }
+
+    return 'warning';
 });
 
 /**

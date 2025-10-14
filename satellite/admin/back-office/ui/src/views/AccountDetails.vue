@@ -279,7 +279,7 @@ const statusColor = computed(() => {
         return 'default';
     }
     const status = userAccount.value.status.name.toLowerCase();
-    if (status.includes('deletion') || status.includes('deleted')) {
+    if (status.includes('deleted')) {
         return 'error';
     }
     if (status.includes('active')) {
