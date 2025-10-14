@@ -721,9 +721,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update PUT inline order")
 	}
 
-	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed); err != nil {
-		return nil, nil, nil, err
-	}
+	endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed)
 
 	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {

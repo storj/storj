@@ -807,15 +807,13 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *console.APIKeyInfo) error {
 	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfoToLimits(keyInfo)); err != nil {
 		// don't log errors if it was user cancellation
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			endpoint.log.Error(
+				"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Error(err),
+			)
 		}
-
-		endpoint.log.Error(
-			"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
 	} else if exceeded {
 		if limit > 0 {
 			endpoint.log.Warn("Monthly bandwidth limit exceeded",
@@ -859,27 +857,23 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	return nil
 }
 
-func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, segmentSize int64) error {
-	return endpoint.addToUploadLimits(ctx, keyInfo, segmentSize, 1)
+func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, segmentSize int64) {
+	endpoint.addToUploadLimits(ctx, keyInfo, segmentSize, 1)
 }
 
-func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, size, segmentCount int64) error {
+func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, size, segmentCount int64) {
 	if err := endpoint.projectUsage.UpdateProjectStorageAndSegmentUsage(ctx, keyInfoToLimits(keyInfo), size, segmentCount); err != nil {
 		// don't log errors if it was user cancellation
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			// log it and continue. it's most likely our own fault that we couldn't
+			// track it, and the only thing that will be affected is our per-project
+			// bandwidth and storage limits.
+			endpoint.log.Error("Could not track new project's storage and segment usage",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Error(err),
+			)
 		}
-
-		// log it and continue. it's most likely our own fault that we couldn't
-		// track it, and the only thing that will be affected is our per-project
-		// bandwidth and storage limits.
-		endpoint.log.Error("Could not track new project's storage and segment usage",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
 	}
-
-	return nil
 }
 
 func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo *console.APIKeyInfo, storage int64, segments int64) (err error) {
@@ -895,15 +889,13 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 		}
 
 		// don't log errors if it was user cancellation
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			endpoint.log.Error(
+				"Updating project upload limits failed; limits won't be enforced",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Error(err),
+			)
 		}
-
-		endpoint.log.Error(
-			"Updating project upload limits failed; limits won't be enforced",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-			zap.Error(err),
-		)
 	}
 
 	return nil

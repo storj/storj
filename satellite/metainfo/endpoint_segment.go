@@ -511,9 +511,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo, segmentSize); err != nil {
-		return nil, err
-	}
+	endpoint.addSegmentToUploadLimits(ctx, keyInfo, segmentSize)
 
 	// increment our counters in the success tracker appropriate to the committing uplink
 	{
@@ -634,9 +632,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update PUT inline order")
 	}
 
-	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed); err != nil {
-		return nil, err
-	}
+	endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed)
 
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
