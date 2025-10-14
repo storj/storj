@@ -66,6 +66,7 @@
                     persistent-hint
                     variant="outlined"
                     class="mb-4"
+                    :maxlength="100"
                     @update:model-value="val => name = val.trim()"
                 />
             </v-form>

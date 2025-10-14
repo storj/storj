@@ -51,6 +51,7 @@
                         label="Name"
                         placeholder="Enter your instance name"
                         :hide-details="false"
+                        :maxlength="100"
                         required
                     />
 
