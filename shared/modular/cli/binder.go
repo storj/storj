@@ -130,6 +130,9 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 			continue
 		}
 
+		invalidConversionPanic := func(field reflect.StructField, val any) {
+			panic(fmt.Sprintf("invalid field type conversion: %s %T->%s (%v)", field.Name, val, field.Type.String(), val))
+		}
 		// here is the binding, where we got the real value.
 		// Now we can assume it's a simple value, and let's clingy just get the actual value.
 		// Time to set it back to the config reference (flag.Value may already be handled earlier).
@@ -154,7 +157,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				fieldval.SetInt(int64(nv))
 
 			default:
-				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+				invalidConversionPanic(field, val)
 			}
 
 		case reflect.TypeOf(int64(0)):
@@ -165,13 +168,13 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				}
 				nv, err := strconv.Atoi(v)
 				if err != nil {
-					panic(fmt.Sprintf("invalid integer value type: %s=%s", field.Name, field.Type.String()))
+					invalidConversionPanic(field, val)
 				}
 				fieldval.SetInt(int64(nv))
 			case int64:
 				fieldval.SetInt(v)
 			default:
-				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+				invalidConversionPanic(field, val)
 			}
 		case reflect.TypeOf(uint(0)), reflect.TypeOf(uint64(0)), reflect.TypeOf(uint32(0)):
 			switch v := val.(type) {
@@ -181,7 +184,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				}
 				nv, err := strconv.Atoi(v)
 				if err != nil {
-					panic(fmt.Sprintf("invalid integer value type: %s=%s", field.Name, field.Type.String()))
+					invalidConversionPanic(field, val)
 				}
 				fieldval.SetUint(uint64(nv))
 			default:
@@ -194,8 +197,20 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 			}
 			fieldval.Set(reflect.ValueOf(val))
 		case reflect.TypeOf(float64(0)):
-			if fv, ok := val.(float64); ok {
-				fieldval.SetFloat(fv)
+			switch v := val.(type) {
+			case float64:
+				fieldval.SetFloat(v)
+			case string:
+				if v == "" {
+					continue
+				}
+				pf, err := strconv.ParseFloat(v, 64)
+				if err != nil {
+					invalidConversionPanic(field, val)
+				}
+				fieldval.SetFloat(pf)
+			default:
+				invalidConversionPanic(field, val)
 			}
 		case reflect.TypeOf(""):
 			fieldval.SetString(val.(string))
@@ -209,11 +224,11 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				}
 				rv, err := strconv.ParseBool(strings.TrimSpace(strings.ToLower(bc)))
 				if err != nil {
-					panic(fmt.Sprintf("invalid boolean value: %s (%s) %s", field.Name, field.Type.String(), bc))
+					invalidConversionPanic(field, val)
 				}
 				fieldval.SetBool(rv)
 			default:
-				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+				invalidConversionPanic(field, val)
 			}
 
 		case reflect.TypeOf([]string(nil)):
@@ -224,10 +239,10 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				}
 				fieldval.Set(reflect.ValueOf(strings.Split(bc, ",")))
 			default:
-				panic(fmt.Sprintf("invalid field type: %s=%s", field.Name, field.Type.String()))
+				invalidConversionPanic(field, val)
 			}
 		default:
-			panic(fmt.Sprintf("invalid field type: %s %s=%s", refVal.Type(), field.Name, field.Type.String()))
+			invalidConversionPanic(field, val)
 		}
 
 	}

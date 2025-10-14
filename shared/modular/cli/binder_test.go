@@ -111,6 +111,57 @@ func TestBindConfig_WithPrefix(t *testing.T) {
 	}
 }
 
+func TestBindConfig_Conversions(t *testing.T) {
+	t.Run("from string", func(t *testing.T) {
+		params := newMockParameters()
+		cfg := &ConfigSupport{identityDir: "/test/identity"}
+		config := &SimpleConfig{}
+
+		params.values = map[string]any{
+			"test.string-field":   "foo",
+			"test.int-field":      "9",
+			"test.bool-field":     "true",
+			"test.duration-field": "1s",
+			"test.float64field":   "1.5",
+			"test.uint64field":    "10",
+		}
+
+		require.NotPanics(t, func() {
+			bindConfig(params, "test", reflect.ValueOf(config), cfg)
+		})
+
+		require.Equal(t, "foo", config.StringField)
+		require.Equal(t, 9, config.IntField)
+		require.Equal(t, true, config.BoolField)
+		require.Equal(t, time.Second, config.DurationField)
+		require.Equal(t, 1.5, config.Float64Field)
+		require.Equal(t, uint64(10), config.Uint64Field)
+	})
+	t.Run("from raw", func(t *testing.T) {
+		params := newMockParameters()
+		cfg := &ConfigSupport{identityDir: "/test/identity"}
+		config := &SimpleConfig{}
+
+		params.values = map[string]any{
+			"test.string-field": "foo",
+			"test.int-field":    9,
+			"test.bool-field":   true,
+			"test.float64field": 1.5,
+			"test.uint64field":  uint64(10),
+		}
+
+		require.NotPanics(t, func() {
+			bindConfig(params, "test", reflect.ValueOf(config), cfg)
+		})
+
+		require.Equal(t, "foo", config.StringField)
+		require.Equal(t, 9, config.IntField)
+		require.Equal(t, true, config.BoolField)
+		require.Equal(t, 1.5, config.Float64Field)
+		require.Equal(t, uint64(10), config.Uint64Field)
+	})
+}
+
 func TestBindConfig_Tags(t *testing.T) {
 	params := newMockParameters()
 	cfg := &ConfigSupport{identityDir: "/test/identity"}
@@ -327,7 +378,8 @@ func TestHyphenate(t *testing.T) {
 
 // mockParameters implements clingy.Parameters for testing
 type mockParameters struct {
-	flags map[string]interface{}
+	flags  map[string]interface{}
+	values map[string]interface{}
 }
 
 func newMockParameters() *mockParameters {
@@ -346,7 +398,7 @@ func (m *mockParameters) Flag(name, help string, def interface{}, opts ...clingy
 	}
 
 	// Return nil to skip value assignment in bindConfig (this causes early continue)
-	return nil
+	return m.values[name]
 }
 
 func (m *mockParameters) Arg(name, help string, opts ...clingy.Option) interface{} {
