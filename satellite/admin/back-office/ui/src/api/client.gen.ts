@@ -45,6 +45,25 @@ export class BucketFlags {
     view: boolean;
 }
 
+export class BucketInfo {
+    name: string;
+    userAgent: string;
+    placement: string;
+    storage: number;
+    egress: number;
+    segmentCount: number;
+    createdAt: Time;
+}
+
+export class BucketInfoPage {
+    items: BucketInfo[] | null;
+    limit: number;
+    offset: number;
+    pageCount: number;
+    currentPage: number;
+    totalCount: number;
+}
+
 export class CreateRestKeyRequest {
     expiration: Time;
     reason: string;
@@ -421,6 +440,22 @@ export class ProjectManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getProjectBuckets(publicID: UUID, search: string, page: string, limit: string, since: Time, before: Time): Promise<BucketInfoPage> {
+        const u = new URL(`${this.ROOT_PATH}/${publicID}/buckets`, window.location.href);
+        u.searchParams.set('search', search);
+        u.searchParams.set('page', page);
+        u.searchParams.set('limit', limit);
+        u.searchParams.set('since', since);
+        u.searchParams.set('before', before);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as BucketInfoPage);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

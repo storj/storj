@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
@@ -239,6 +240,27 @@ func main() {
 			apigen.NewParam("publicID", uuid.UUID{}),
 		},
 		Response: backoffice.Project{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
+		},
+	})
+
+	group.Get("/{publicID}/buckets", &apigen.Endpoint{
+		Name:           "Get project buckets",
+		Description:    "Gets a project's buckets",
+		GoName:         "GetProjectBuckets",
+		TypeScriptName: "getProjectBuckets",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		QueryParams: []apigen.Param{
+			apigen.NewParam("search", ""),
+			apigen.NewParam("page", ""),
+			apigen.NewParam("limit", ""),
+			apigen.NewParam("since", time.Time{}),
+			apigen.NewParam("before", time.Time{}),
+		},
+		Response: backoffice.BucketInfoPage{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
 		},

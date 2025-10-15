@@ -163,6 +163,7 @@ type ProjectUsageByDay struct {
 type BucketUsage struct {
 	ProjectID  uuid.UUID `json:"projectID"`
 	BucketName string    `json:"bucketName"`
+	UserAgent  []byte    `json:"-"`
 
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 	Location         string                    `json:"location"`

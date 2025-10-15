@@ -57,6 +57,9 @@ func TestGetSettings(t *testing.T) {
 						UpdatePlacement:        true,
 						UpdateValueAttribution: true,
 					},
+					Bucket: backoffice.BucketFlags{
+						List: true,
+					},
 				},
 			},
 		}
@@ -95,6 +98,9 @@ func TestGetSettings(t *testing.T) {
 							},
 							Project: backoffice.ProjectFlags{
 								View: true,
+							},
+							Bucket: backoffice.BucketFlags{
+								List: true,
 							},
 						},
 					},

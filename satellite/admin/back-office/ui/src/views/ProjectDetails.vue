@@ -216,12 +216,12 @@
             </v-col>
         </v-row>
 
-        <v-row>
-            <v-col v-if="featureFlags.bucket.list">
-                <h3 class="my-4">Buckets</h3>
-                <BucketsTableComponent />
-            </v-col>
-        </v-row>
+        <!--        <v-row>-->
+        <!--            <v-col v-if="featureFlags.bucket.list">-->
+        <!--                <h3 class="my-4">Buckets</h3>-->
+        <!--                <BucketsTableComponent />-->
+        <!--            </v-col>-->
+        <!--        </v-row>-->
 
         <v-row>
             <v-col v-if="featureFlags.project.memberList">
