@@ -8,15 +8,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"golang.org/x/sync/errgroup"
 )
+
+var mon = monkit.Package()
 
 // Processor processes change stream records in batches (parallel). This contains the logic to follow child partitions.
 func Processor(ctx context.Context, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) error {
 	tracker := &Tracker{
-		todo:    make(map[string]Todo),
-		status:  make(map[string]TodoStatus),
-		receive: make(chan Todo),
+		todo:       make(map[string]Todo),
+		status:     make(map[string]TodoStatus),
+		retryCount: make(map[string]int),
+		receive:    make(chan Todo),
 	}
 
 	eg, childCtx := errgroup.WithContext(ctx)
@@ -73,8 +77,9 @@ type Tracker struct {
 	mu   sync.Mutex
 	todo map[string]Todo
 	// TODO: this one kept in memory forever. We should have a way to clean it up.
-	status  map[string]TodoStatus
-	receive chan Todo
+	status       map[string]TodoStatus
+	retryCount   map[string]int // Track retry attempts per partition
+	receive      chan Todo
 }
 
 // Add adds a new token to be tracked, and notify the listener, if new partitions are ready to be processed.
@@ -129,5 +134,16 @@ func (t *Tracker) Finish(token string) {
 func (t *Tracker) Failed(token string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	// Increment retry count for this partition
+	t.retryCount[token]++
+	retryAttempt := t.retryCount[token]
+
+	// Track partition failures and retries
+	mon.Counter("changestream_partition_failed_total").Inc(1)
+	mon.Counter("changestream_partition_retry_total").Inc(1)
+	mon.IntVal("changestream_partition_retry_attempt").Observe(int64(retryAttempt))
+
+	// Mark as received so it will be retried
 	t.status[token] = statusReceived
 }
