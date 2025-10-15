@@ -1704,6 +1704,306 @@ func TestSsoFlow(t *testing.T) {
 	})
 }
 
+func TestRegister_WithMemberInvitation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = true
+				config.Console.MemberAccountsEnabled = true
+				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		invitationsDB := sat.DB.Console().ProjectInvitations()
+		membersDB := sat.DB.Console().ProjectMembers()
+		projectsDB := sat.DB.Console().Projects()
+
+		type registerData struct {
+			FullName     string `json:"fullName"`
+			ShortName    string `json:"shortName"`
+			Email        string `json:"email"`
+			Password     string `json:"password"`
+			InviterEmail string `json:"inviterEmail"`
+		}
+
+		makeRequest := func(data registerData) (int, string) {
+			jsonBody, err := json.Marshal(data)
+			require.NoError(t, err)
+
+			endpoint := sat.ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(jsonBody))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, result.Body.Close())
+			}()
+
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+
+			return result.StatusCode, string(body)
+		}
+
+		setupInviterAndProject := func(t *testing.T, emailSuffix string) (*console.User, *console.Project) {
+			inviter, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Inviter User",
+				Email:    "inviter-" + emailSuffix + "@example.com",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := projectsDB.Insert(ctx, &console.Project{
+				ID:       testrand.UUID(),
+				PublicID: testrand.UUID(),
+				OwnerID:  inviter.ID,
+			})
+			require.NoError(t, err)
+
+			return inviter, project
+		}
+
+		t.Run("Valid invitation with inviter email", func(t *testing.T) {
+			inviter, project := setupInviterAndProject(t, "valid")
+			inviteeEmail := "invitee-valid@example.com"
+
+			_, err := invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     inviteeEmail,
+				InviterID: &inviter.ID,
+			})
+			require.NoError(t, err)
+
+			status, _ := makeRequest(registerData{
+				FullName:     "Invitee User",
+				ShortName:    "Invitee",
+				Email:        inviteeEmail,
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusOK, status)
+
+			// Verify user was created as MemberUser.
+			_, users, err := service.GetUserByEmailWithUnverified(ctx, inviteeEmail)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			user := &users[0]
+			require.Equal(t, console.MemberUser, user.Kind)
+			require.True(t, user.TrialExpiration == nil || user.TrialExpiration.IsZero(), "Trial expiration should not be set")
+
+			// Verify user was added to project.
+			member, err := membersDB.GetByMemberIDAndProjectID(ctx, user.ID, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, member)
+			require.Equal(t, console.RoleMember, member.Role)
+
+			// Verify invitation was deleted.
+			invites, err := invitationsDB.GetByProjectID(ctx, project.ID)
+			require.NoError(t, err)
+			for _, inv := range invites {
+				require.NotEqual(t, inviteeEmail, inv.Email, "Invitation should be deleted after successful registration")
+			}
+		})
+
+		t.Run("Invalid inviter email format", func(t *testing.T) {
+			status, body := makeRequest(registerData{
+				FullName:     "Test User",
+				Email:        "test-invalid-format@example.com",
+				Password:     "password123",
+				InviterEmail: "invalid-email",
+			})
+			require.Equal(t, http.StatusBadRequest, status)
+			require.Contains(t, body, "Invalid inviter email")
+		})
+
+		t.Run("No invitation found", func(t *testing.T) {
+			inviter, _ := setupInviterAndProject(t, "noinvite")
+			status, body := makeRequest(registerData{
+				FullName:     "No Invite User",
+				Email:        "noinvite@example.com",
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusForbidden, status)
+			require.Contains(t, body, "no valid invitation found")
+		})
+
+		t.Run("Inviter does not exist", func(t *testing.T) {
+			inviter, project := setupInviterAndProject(t, "noninviter")
+			inviteeEmail := "invitee-noninviter@example.com"
+
+			_, err := invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     inviteeEmail,
+				InviterID: &inviter.ID,
+			})
+			require.NoError(t, err)
+
+			status, body := makeRequest(registerData{
+				FullName:     "Test User",
+				Email:        inviteeEmail,
+				Password:     "password123",
+				InviterEmail: "nonexistent@example.com",
+			})
+			require.Equal(t, http.StatusForbidden, status)
+			require.Contains(t, body, "error getting inviter info")
+		})
+
+		t.Run("Invitation from different inviter", func(t *testing.T) {
+			inviter, project := setupInviterAndProject(t, "different")
+			otherInviter, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Other Inviter",
+				Email:    "otherinviter-different@example.com",
+			}, 1)
+			require.NoError(t, err)
+
+			inviteeEmail := "invitee-different@example.com"
+
+			_, err = invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     inviteeEmail,
+				InviterID: &otherInviter.ID,
+			})
+			require.NoError(t, err)
+
+			status, body := makeRequest(registerData{
+				FullName:     "Test User",
+				Email:        inviteeEmail,
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusForbidden, status)
+			require.Contains(t, body, "no valid invitation found")
+		})
+
+		t.Run("Expired invitation", func(t *testing.T) {
+			inviter, project := setupInviterAndProject(t, "expired")
+			inviteeEmail := "invitee-expired@example.com"
+
+			invite, err := invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     inviteeEmail,
+				InviterID: &inviter.ID,
+			})
+			require.NoError(t, err)
+
+			// Manually update the CreatedAt to make it expired.
+			db := sat.DB.Testing()
+			expiredDate := time.Now().Add(-sat.Config.Console.ProjectInvitationExpiration - time.Hour)
+			result, err := db.RawDB().ExecContext(ctx,
+				db.Rebind("UPDATE project_invitations SET created_at = ? WHERE project_id = ? AND email = ?"),
+				expiredDate, invite.ProjectID, strings.ToUpper(invite.Email),
+			)
+			require.NoError(t, err)
+
+			count, err := result.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, count)
+
+			status, body := makeRequest(registerData{
+				FullName:     "Test User",
+				Email:        inviteeEmail,
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusForbidden, status)
+			require.Contains(t, body, "invitation has expired")
+		})
+
+		t.Run("Disabled project", func(t *testing.T) {
+			inviter, project := setupInviterAndProject(t, "disabled")
+			inviteeEmail := "invitee-disabled@example.com"
+
+			_, err := invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     inviteeEmail,
+				InviterID: &inviter.ID,
+			})
+			require.NoError(t, err)
+
+			err = projectsDB.UpdateStatus(ctx, project.ID, console.ProjectDisabled)
+			require.NoError(t, err)
+
+			status, body := makeRequest(registerData{
+				FullName:     "Test User",
+				Email:        inviteeEmail,
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusForbidden, status)
+			require.Contains(t, body, "project you were invited to no longer exists")
+		})
+
+		t.Run("Normal registration without inviter email", func(t *testing.T) {
+			normalUserEmail := "normaluser@example.com"
+
+			status, _ := makeRequest(registerData{
+				FullName:  "Normal User",
+				ShortName: "Normal",
+				Email:     normalUserEmail,
+				Password:  "password123",
+			})
+			require.Equal(t, http.StatusOK, status)
+
+			_, users, err := service.GetUserByEmailWithUnverified(ctx, normalUserEmail)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			require.NotEqual(t, console.MemberUser, users[0].Kind)
+		})
+
+		t.Run("Existing unverified user with invitation", func(t *testing.T) {
+			inviter, project := setupInviterAndProject(t, "existing")
+			existingEmail := "existing@example.com"
+
+			status, _ := makeRequest(registerData{
+				FullName: "Existing User",
+				Email:    existingEmail,
+				Password: "password123",
+			})
+			require.Equal(t, http.StatusOK, status)
+
+			_, err := invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     existingEmail,
+				InviterID: &inviter.ID,
+			})
+			require.NoError(t, err)
+
+			_, usersBefore, err := service.GetUserByEmailWithUnverified(ctx, existingEmail)
+			require.NoError(t, err)
+			require.Len(t, usersBefore, 1)
+			userBefore := &usersBefore[0]
+
+			// Re-register with inviter email.
+			status, _ = makeRequest(registerData{
+				FullName:     "Existing User Updated",
+				Email:        existingEmail,
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusOK, status)
+
+			// Verify user was updated to MemberUser.
+			_, usersAfter, err := service.GetUserByEmailWithUnverified(ctx, existingEmail)
+			require.NoError(t, err)
+			require.Len(t, usersAfter, 1)
+			userAfter := &usersAfter[0]
+			require.Equal(t, userBefore.ID, userAfter.ID)
+			require.Equal(t, console.MemberUser, userAfter.Kind)
+
+			// Verify user was added to project.
+			member, err := membersDB.GetByMemberIDAndProjectID(ctx, userAfter.ID, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, member)
+		})
+	})
+}
+
 func TestAuth_DeleteAccount(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

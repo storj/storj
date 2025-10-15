@@ -1360,7 +1360,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
 		}
 
-		if s.config.FreeTrialDuration != 0 {
+		if !user.NoTrialExpiration && s.config.FreeTrialDuration != 0 {
 			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 			newUser.TrialExpiration = &expiration
 		}
@@ -1470,6 +1470,7 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 		ActivationCode:   &requestData.ActivationCode,
 		SignupId:         &requestData.SignupId,
 		SignupPromoCode:  &requestData.SignupPromoCode,
+		Kind:             &requestData.Kind,
 	}
 	if requestData.ShortName != "" {
 		shortNamePtr := &requestData.ShortName
@@ -1479,7 +1480,10 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 		updatedUser.UserAgent = requestData.UserAgent
 	}
 
-	if s.config.FreeTrialDuration != 0 {
+	if requestData.NoTrialExpiration {
+		noExpiration := new(time.Time)
+		updatedUser.TrialExpiration = &noExpiration
+	} else if s.config.FreeTrialDuration != 0 {
 		expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 		expirationPtr := &expiration
 		updatedUser.TrialExpiration = &expirationPtr
@@ -3473,6 +3477,33 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 	}
 
 	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
+}
+
+// JoinProjectNoAuth adds a user to a project with a specified role.
+func (s *Service) JoinProjectNoAuth(ctx context.Context, projectID uuid.UUID, user *User, role ProjectMemberRole) {
+	// should not happen in practice, but just in case.
+	if user == nil {
+		return
+	}
+
+	_, err := s.store.ProjectMembers().Insert(ctx, user.ID, projectID, role)
+	if err != nil {
+		s.log.Warn("error adding user to project",
+			zap.Error(err),
+			zap.String("email", user.Email),
+			zap.String("projectID", projectID.String()),
+		)
+		return
+	}
+
+	err = s.store.ProjectInvitations().Delete(ctx, projectID, user.Email)
+	if err != nil {
+		s.log.Warn("error deleting project invitation",
+			zap.Error(err),
+			zap.String("email", user.Email),
+			zap.String("projectID", projectID.String()),
+		)
+	}
 }
 
 // EmissionImpactResponse represents emission impact response to be returned to client.

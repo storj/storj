@@ -56,6 +56,7 @@ type Auth struct {
 	CancelPasswordRecoveryURL string
 	ActivateAccountURL        string
 	ActivationCodeEnabled     bool
+	MemberAccountsEnabled     bool
 	SatelliteName             string
 	badPasswords              map[string]struct{}
 	badPasswordsEncoded       string
@@ -70,7 +71,12 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service, satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string, activationCodeEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string) *Auth {
+func NewAuth(
+	log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service,
+	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
+	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
+	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
+) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -83,6 +89,7 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery",
 		ActivateAccountURL:        externalAddress + "activation",
 		ActivationCodeEnabled:     activationCodeEnabled,
+		MemberAccountsEnabled:     memberAccountsEnabled,
 		service:                   service,
 		accountFreezeService:      accountFreezeService,
 		mailService:               mailService,
@@ -414,6 +421,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		CaptchaResponse  string `json:"captchaResponse"`
 		SignupPromoCode  string `json:"signupPromoCode"`
 		IsMinimal        bool   `json:"isMinimal"`
+		InviterEmail     string `json:"inviterEmail"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -428,6 +436,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	isValidEmail := utils.ValidateEmail(registerData.Email)
 	if !isValidEmail {
 		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
+		return
+	}
+
+	if a.MemberAccountsEnabled && registerData.InviterEmail != "" && !utils.ValidateEmail(registerData.InviterEmail) {
+		a.serveJSONError(ctx, w, console.ErrValidation.Wrap(errs.New("Invalid inviter email.")))
 		return
 	}
 
@@ -534,6 +547,18 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		AllowNoName: registerData.IsMinimal,
 	}
 
+	var invitation *console.ProjectInvitation
+	if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
+		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+
+		requestData.Kind = console.MemberUser
+		requestData.NoTrialExpiration = true
+	}
+
 	var user *console.User
 	if len(unverified) > 0 {
 		user = &unverified[0]
@@ -595,22 +620,27 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
 
-	invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
-	if err != nil {
-		a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
-	} else if len(invites) > 0 {
-		var firstInvite console.ProjectInvitation
-		for _, inv := range invites {
-			if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
-				firstInvite = inv
+	if a.MemberAccountsEnabled && invitation != nil {
+		a.service.JoinProjectNoAuth(ctx, invitation.ProjectID, user, console.RoleMember)
+		a.analytics.TrackInviteLinkSignup(invitation.Email, registerData.Email)
+	} else {
+		invites, err := a.service.GetInvitesByEmail(ctx, registerData.Email)
+		if err != nil {
+			a.log.Error("Could not get invitations", zap.String("email", registerData.Email), zap.Error(err))
+		} else if len(invites) > 0 {
+			var firstInvite console.ProjectInvitation
+			for _, inv := range invites {
+				if inv.InviterID != nil && (firstInvite.CreatedAt.IsZero() || inv.CreatedAt.Before(firstInvite.CreatedAt)) {
+					firstInvite = inv
+				}
 			}
-		}
-		if firstInvite.InviterID != nil {
-			inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
-			if err != nil {
-				a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
-			} else {
-				a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
+			if firstInvite.InviterID != nil {
+				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
+				if err != nil {
+					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
+				} else {
+					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
+				}
 			}
 		}
 	}
@@ -642,6 +672,48 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			Origin:         a.ExternalAddress,
 		},
 	)
+}
+
+func (a *Auth) handleProjectInvitation(ctx context.Context, userEmail, inviterEmail string) (invitation *console.ProjectInvitation, err error) {
+	invites, err := a.service.GetInvitesByEmail(ctx, userEmail)
+	if err != nil {
+		return nil, console.ErrProjectInviteInvalid.New("could not get invitations")
+	}
+	if len(invites) == 0 {
+		return nil, console.ErrProjectInviteInvalid.New("no valid invitation found")
+	}
+
+	inviter, _, err := a.service.GetUserByEmailWithUnverified(ctx, inviterEmail)
+	if err != nil {
+		return nil, console.ErrProjectInviteInvalid.New("error getting inviter info")
+	}
+	if inviter == nil {
+		return nil, console.ErrProjectInviteInvalid.New("could not find inviter")
+	}
+
+	for _, invite := range invites {
+		if invite.InviterID != nil && *invite.InviterID == inviter.ID {
+			invitation = &invite
+			break
+		}
+	}
+
+	if invitation == nil {
+		return nil, console.ErrProjectInviteInvalid.New("no valid invitation found")
+	}
+	if a.service.IsProjectInvitationExpired(invitation) {
+		return nil, console.ErrProjectInviteInvalid.New("the invitation has expired")
+	}
+
+	proj, err := a.service.GetProjectNoAuth(ctx, invitation.ProjectID)
+	if err != nil {
+		return nil, console.ErrProjectInviteInvalid.New("could not get project info")
+	}
+	if proj.Status != nil && *proj.Status == console.ProjectDisabled {
+		return nil, console.ErrProjectInviteInvalid.New("the project you were invited to no longer exists")
+	}
+
+	return invitation, nil
 }
 
 // ActivateAccount verifies a signup activation code.
@@ -1764,7 +1836,7 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err), console.ErrMFAEnabled.Has(err), console.ErrConflict.Has(err):
 		return http.StatusConflict
-	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err):
+	case console.ErrLoginRestricted.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrForbidden.Has(err), console.ErrSsoUserRestricted.Has(err), console.ErrProjectInviteInvalid.Has(err):
 		return http.StatusForbidden
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
@@ -1809,7 +1881,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "You can't be authenticated. Please contact support"
 	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err), console.ErrInvalidProjectLimit.Has(err),
 		console.ErrNotPaidTier.Has(err), console.ErrTooManyAttempts.Has(err), console.ErrMFAEnabled.Has(err),
-		console.ErrForbidden.Has(err), console.ErrConflict.Has(err):
+		console.ErrForbidden.Has(err), console.ErrConflict.Has(err), console.ErrProjectInviteInvalid.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
