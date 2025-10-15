@@ -816,7 +816,8 @@ func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object Obj
 
 		return nil
 	}, spanner.TransactionOptions{
-		TransactionTag: "testing-set-object-version",
+		TransactionTag:              "testing-set-object-version",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	return rowsAffected, Error.Wrap(err)
 }
@@ -847,7 +848,8 @@ func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, pla
 		}, spanner.QueryOptions{RequestTag: "testing-set-placement-all-segments"})
 		return err
 	}, spanner.TransactionOptions{
-		TransactionTag: "testing-set-placement-all-segments",
+		TransactionTag:              "testing-set-placement-all-segments",
+		ExcludeTxnFromChangeStreams: true,
 	})
 	return Error.Wrap(err)
 }
