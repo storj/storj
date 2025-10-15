@@ -752,7 +752,7 @@ func (s *Store) compactOnce(
 	nset := uint64(0)
 	nexist := uint64(0)
 	alive := make(map[uint64]uint64)
-	total := make(map[uint64]uint64)
+
 	modifications := false
 
 	if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
@@ -764,7 +764,6 @@ func (s *Store) compactOnce(
 		// record and its footer. this differs from the log size field because of optimistic
 		// padding.
 		nexist++
-		total[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
 
 		// if we're not yet sure we're modifying the hash table, we need to check our callbacks
 		// on the record to see if the table would be modified. a record is modified when it is
@@ -799,12 +798,16 @@ func (s *Store) compactOnce(
 		logSlots = tbl_minLogSlots
 	}
 
+	total := make(map[uint64]uint64)
+
 	// using the information, determine which log files are candidates for rewriting.
 	rewriteCandidates := make(map[uint64]bool)
 	if err := s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
 		if err := ctx.Err(); err != nil {
 			return false, err
 		}
+
+		total[lf.id] = lf.size.Load()
 
 		if func() bool {
 			// if the log is empty, no need to delete it just to create it again later.
