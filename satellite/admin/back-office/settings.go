@@ -136,9 +136,6 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermProjectView) {
 			settings.Admin.Features.Project.View = true
 		}
-		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {
-			settings.Admin.Features.Bucket.List = true
-		}
 		if s.authorizer.HasPermissions(g, PermProjectSetLimits) {
 			settings.Admin.Features.Project.UpdateLimits = true
 		}
@@ -150,6 +147,11 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermProjectSetDataPlacement) {
 			settings.Admin.Features.Project.UpdatePlacement = true
+		}
+
+		// bucket permission features
+		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {
+			settings.Admin.Features.Bucket.List = true
 		}
 	}
 
