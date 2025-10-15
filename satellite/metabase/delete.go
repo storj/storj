@@ -900,8 +900,9 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 			},
 		},
 	}, spanner.BatchWriteOptions{
-		Priority:       spannerpb.RequestOptions_PRIORITY_MEDIUM,
-		TransactionTag: "delete-object-last-committed-plain",
+		Priority:                    spannerpb.RequestOptions_PRIORITY_MEDIUM,
+		TransactionTag:              "delete-object-last-committed-plain",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
 	})
 	err = iterator.Do(func(r *spannerpb.BatchWriteResponse) error {
 		if err = status.ErrorProto(r.GetStatus()); err != nil {
@@ -1101,6 +1102,7 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedSuspended(ctx context.Context,
 
 	err = s.WithTx(ctx, TransactionOptions{
 		TransactionTag: "delete-object-last-committed-suspended",
+		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, atx TransactionAdapter) error {
 		result = DeleteObjectResult{}
 		stx := atx.(*spannerTransactionAdapter)

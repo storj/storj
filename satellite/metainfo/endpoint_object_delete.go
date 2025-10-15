@@ -398,6 +398,8 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 			},
 
 			Items: make([]metabase.DeleteObjectsItem, 0, numAllowedObjectKeys),
+
+			TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(req.Bucket)),
 		}
 
 		for _, item := range req.Items {

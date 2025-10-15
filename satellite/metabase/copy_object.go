@@ -87,6 +87,9 @@ type FinishCopyObject struct {
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
 // NewLocation returns the new object location.
@@ -256,6 +259,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-copy-object",
+		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, txadapter TransactionAdapter) error {
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.NewLocation(),

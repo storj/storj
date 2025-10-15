@@ -202,6 +202,9 @@ type FinishMoveObject struct {
 	// LegalHold indicates legal hold settings of the moved object
 	// version.
 	LegalHold bool
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
 // NewLocation returns the new object location.
@@ -244,6 +247,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-move-object",
+		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
 			Location:       opts.NewLocation(),
