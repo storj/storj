@@ -61,6 +61,7 @@ type Config struct {
 	EntitlementsEnabled               bool                      `help:"whether entitlements are enabled" default:"false" hidden:"true"`
 	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	ProductPriceSummaries             []string                  `help:"the pricing summaries gotten from configured products" default:"" hidden:"true"`
+	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig
