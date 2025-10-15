@@ -265,10 +265,12 @@ const (
 	// NFRUser - not-for-resale user is one that has paid privileges
 	// but is not paying for the account.
 	NFRUser UserKind = 2
+	// MemberUser is a kind of user that is a member of a project.
+	MemberUser UserKind = 3
 )
 
 // UserKinds holds all supported user kinds.
-var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser}
+var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser}
 
 // UserStatuses holds all supported user statuses.
 var UserStatuses = []UserStatus{Inactive, Active, Deleted, PendingDeletion, LegalHold, PendingBotVerification, UserRequestedDeletion}
@@ -318,6 +320,8 @@ func (k UserKind) String() string {
 		return "Pro Account"
 	case NFRUser:
 		return "Not-For-Resale"
+	case MemberUser:
+		return "Member Account"
 	default:
 		return ""
 	}
