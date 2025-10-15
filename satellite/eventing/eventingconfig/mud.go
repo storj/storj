@@ -10,5 +10,5 @@ import (
 
 // Module is a mud module.
 func Module(ball *mud.Ball) {
-	config.RegisterConfig[Config](ball, "eventing")
+	config.RegisterConfig[Config](ball, "bucket-eventing")
 }
