@@ -13,7 +13,9 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcsignal"
 	"storj.io/storj/storagenode/hashstore/platform"
@@ -80,6 +82,10 @@ func (r *recordStats) Include(rec Record) {
 		r.numTTL++
 		r.lenTTL += uint64(rec.Length)
 	}
+}
+
+func zapHumanBytes[T ~int | ~int64 | ~uint | ~uint64](key string, v T) zap.Field {
+	return zap.String(key, memory.FormatBytes(int64(v)))
 }
 
 //

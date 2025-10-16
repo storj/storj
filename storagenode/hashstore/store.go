@@ -11,6 +11,7 @@ import (
 	"math/bits"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -760,9 +761,6 @@ func (s *Store) compactOnce(
 			return false, err
 		}
 
-		// keep track of every record that exists in the hash table and the total size of the
-		// record and its footer. this differs from the log size field because of optimistic
-		// padding.
 		nexist++
 
 		// if we're not yet sure we're modifying the hash table, we need to check our callbacks
@@ -792,26 +790,20 @@ func (s *Store) compactOnce(
 		return false, err
 	}
 
-	// calculate a hash table size so that it targets just under a 0.5 load factor.
-	logSlots := uint64(bits.Len64(nset)) + 1
-	if logSlots < tbl_minLogSlots {
-		logSlots = tbl_minLogSlots
-	}
-
-	total := make(map[uint64]uint64)
-
-	// using the information, determine which log files are candidates for rewriting.
+	// using the information, determine which log files are candidates for rewriting and keep track
+	// of their dead sizes for quick lookup so we can prioritize them.
+	dead := make(map[uint64]uint64)
 	rewriteCandidates := make(map[uint64]bool)
 	if err := s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
 		if err := ctx.Err(); err != nil {
 			return false, err
 		}
 
-		total[lf.id] = lf.size.Load()
+		size := lf.size.Load()
+		dead[lf.id] = size - alive[lf.id]
 
 		if func() bool {
 			// if the log is empty, no need to delete it just to create it again later.
-			size := lf.size.Load()
 			if size == 0 {
 				return false
 			}
@@ -839,8 +831,8 @@ func (s *Store) compactOnce(
 		var maxDead uint64
 		var maxLog *logFile
 		_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
-			if dead := total[id] - alive[id]; dead > maxDead {
-				maxDead, maxLog = dead, lf
+			if amount := dead[id]; amount > maxDead {
+				maxDead, maxLog = amount, lf
 			}
 			return true, nil
 		})
@@ -848,7 +840,7 @@ func (s *Store) compactOnce(
 			s.log.Info("including log due to no rewrite candidates",
 				zap.Uint64("id", maxLog.id),
 				zap.String("path", maxLog.fh.Name()),
-				zap.String("dead", memory.FormatBytes(int64(maxDead))),
+				zapHumanBytes("dead", maxDead),
 			)
 			rewriteCandidates[maxLog.id] = true
 		}
@@ -858,10 +850,11 @@ func (s *Store) compactOnce(
 	// reclaim more space per amount of data rewritten, so do them first to minimize cost.
 	rewriteCandidatesByDead := maps.Keys(rewriteCandidates)
 	sort.Slice(rewriteCandidatesByDead, func(i, j int) bool {
-		deadI := total[rewriteCandidatesByDead[i]] - alive[rewriteCandidatesByDead[i]]
-		deadJ := total[rewriteCandidatesByDead[j]] - alive[rewriteCandidatesByDead[j]]
-		return deadI > deadJ
+		return dead[rewriteCandidatesByDead[i]] > dead[rewriteCandidatesByDead[j]]
 	})
+
+	// calculate a hash table size so that it targets just under a 0.5 load factor.
+	logSlots := max(uint64(bits.Len64(nset))+1, tbl_minLogSlots)
 
 	// limit the number of log files we rewrite in a single compaction to so that we write around
 	// the amount of a size of the new hashtbl times the multiple. this bounds the extra space
@@ -889,16 +882,16 @@ func (s *Store) compactOnce(
 	// we are rewriting if the log level is disabled.
 	if ce := s.log.Check(zapcore.InfoLevel, "compaction computed details"); ce != nil {
 		rewriteSorted := maps.Keys(rewrite)
-		sort.Slice(rewriteSorted, func(i, j int) bool {
-			return rewriteSorted[i] < rewriteSorted[j]
-		})
+		slices.Sort(rewriteSorted)
 
 		ce.Write(
 			zap.Uint64("nset", nset),
 			zap.Uint64("nexist", nexist),
 			zap.Bool("modifications", modifications),
 			zap.Uint64("curr logSlots", s.tbl.LogSlots()),
+			zapHumanBytes("curr logSlots size", hashtblSize(s.tbl.LogSlots())),
 			zap.Uint64("next logSlots", logSlots),
+			zapHumanBytes("next logSlots size", hashtblSize(logSlots)),
 			zap.Uint64s("candidates", rewriteCandidatesByDead),
 			zap.Uint64s("rewrite", rewriteSorted),
 			zap.Duration("duration", time.Since(start)),
@@ -1000,7 +993,7 @@ func (s *Store) compactOnce(
 
 				// keep track of the number of records and bytes we rewrote for logs.
 				rewrittenRecords++
-				rewrittenBytes += uint64(rec.Length)
+				rewrittenBytes += uint64(rec.Length) + RecordSize
 
 				return nil
 			}()
@@ -1016,7 +1009,7 @@ func (s *Store) compactOnce(
 		if ce := s.log.Check(zapcore.InfoLevel, "records rewritten"); ce != nil {
 			ce.Write(
 				zap.Uint64("records", rewrittenRecords),
-				zap.String("bytes", memory.FormatBytes(int64(rewrittenBytes))),
+				zapHumanBytes("bytes", rewrittenBytes),
 				zap.Duration("duration", time.Since(rewriteStart)),
 			)
 		}
@@ -1052,7 +1045,7 @@ func (s *Store) compactOnce(
 				rec.Expires = exp
 
 				trashedRecords++
-				trashedBytes += uint64(rec.Length)
+				trashedBytes += uint64(rec.Length) + RecordSize
 			}
 		}
 
@@ -1067,13 +1060,13 @@ func (s *Store) compactOnce(
 			rec.Created = today
 
 			restoredRecords++
-			restoredBytes += uint64(rec.Length)
+			restoredBytes += uint64(rec.Length) + RecordSize
 		}
 
 		// totally ignore any expired records.
 		if expired(rec.Expires) {
 			expiredRecords++
-			expiredBytes += uint64(rec.Length)
+			expiredBytes += uint64(rec.Length) + RecordSize
 
 			return true, nil
 		}
@@ -1098,7 +1091,7 @@ func (s *Store) compactOnce(
 
 				// keep track of the number of records and bytes we rewrote for logs.
 				rewrittenRecords++
-				rewrittenBytes += uint64(rec.Length)
+				rewrittenBytes += uint64(rec.Length) + RecordSize
 			}
 		}
 
@@ -1110,7 +1103,7 @@ func (s *Store) compactOnce(
 		}
 
 		totalRecords++
-		totalBytes += uint64(rec.Length)
+		totalBytes += uint64(rec.Length) + RecordSize
 
 		return true, nil
 	}); err != nil {
@@ -1161,7 +1154,7 @@ func (s *Store) compactOnce(
 		_ = lf.Close()
 		_ = os.Remove(lf.path)
 
-		size := lf.size.Load()
+		size := dead[lf.id]
 		s.stats.dataReclaimed.Add(size)
 
 		reclaimedLogs++
@@ -1186,17 +1179,18 @@ func (s *Store) compactOnce(
 		ce.Write(
 			zap.Duration("duration", time.Since(s.stats.writeTime.Load().(time.Time))),
 			zap.Uint64("total records", totalRecords),
-			zap.String("total bytes", memory.FormatBytes(int64(totalBytes))),
+			zapHumanBytes("total bytes", totalBytes),
 			zap.Uint64("rewritten records", rewrittenRecords),
-			zap.String("rewritten bytes", memory.FormatBytes(int64(rewrittenBytes))),
+			zapHumanBytes("rewritten bytes", rewrittenBytes),
 			zap.Uint64("trashed records", trashedRecords),
-			zap.String("trashed bytes", memory.FormatBytes(int64(trashedBytes))),
+			zapHumanBytes("trashed bytes", trashedBytes),
 			zap.Uint64("restored records", restoredRecords),
-			zap.String("restored bytes", memory.FormatBytes(int64(restoredBytes))),
+			zapHumanBytes("restored bytes", restoredBytes),
 			zap.Uint64("expired records", expiredRecords),
-			zap.String("expired bytes", memory.FormatBytes(int64(expiredBytes))),
+			zapHumanBytes("expired bytes", expiredBytes),
 			zap.Uint64("reclaimed logs", reclaimedLogs),
-			zap.String("reclaimed bytes", memory.FormatBytes(int64(reclaimedBytes))),
+			zapHumanBytes("reclaimed bytes", reclaimedBytes),
+			zap.Float64("reclaim ratio", float64(reclaimedBytes)/float64(rewrittenBytes)),
 		)
 	}
 
