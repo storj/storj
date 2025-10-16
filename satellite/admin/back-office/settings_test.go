@@ -58,7 +58,9 @@ func TestGetSettings(t *testing.T) {
 						UpdateValueAttribution: true,
 					},
 					Bucket: backoffice.BucketFlags{
-						List: true,
+						List:                   true,
+						UpdatePlacement:        true,
+						UpdateValueAttribution: true,
 					},
 				},
 			},

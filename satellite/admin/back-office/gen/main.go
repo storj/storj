@@ -262,7 +262,38 @@ func main() {
 		},
 		Response: backoffice.BucketInfoPage{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectView, backoffice.PermBucketView},
+		},
+	})
+
+	group.Patch("/{publicID}/buckets/{bucketName}", &apigen.Endpoint{
+		Name:           "Update bucket",
+		Description:    "Updates a bucket's user agent, and placement if the bucket is empty",
+		GoName:         "UpdateBucket",
+		TypeScriptName: "updateBucket",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+			apigen.NewParam("bucketName", ""),
+		},
+		Request: backoffice.UpdateBucketRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{},
+			passAuthParamKey: true,
+		},
+	})
+
+	group.Get("/{publicID}/buckets/{bucketName}/state", &apigen.Endpoint{
+		Name:           "Get bucket state",
+		Description:    "Gets a bucket's state that is not stored in the buckets table and requires additional queries.",
+		GoName:         "GetBucketState",
+		TypeScriptName: "getBucketState",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+			apigen.NewParam("bucketName", ""),
+		},
+		Response: backoffice.BucketState{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectView, backoffice.PermBucketView},
 		},
 	})
 

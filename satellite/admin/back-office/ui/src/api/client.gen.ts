@@ -64,6 +64,10 @@ export class BucketInfoPage {
     totalCount: number;
 }
 
+export class BucketState {
+    empty: boolean;
+}
+
 export class CreateRestKeyRequest {
     expiration: Time;
     reason: string;
@@ -193,6 +197,12 @@ export class ToggleFreezeUserRequest {
 }
 
 export class ToggleMfaRequest {
+    reason: string;
+}
+
+export class UpdateBucketRequest {
+    userAgent: string | null;
+    placement: number | null;
     reason: string;
 }
 
@@ -456,6 +466,26 @@ export class ProjectManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as BucketInfoPage);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateBucket(request: UpdateBucketRequest, publicID: UUID, bucketName: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}/buckets/${bucketName}`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getBucketState(publicID: UUID, bucketName: string): Promise<BucketState> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}/buckets/${bucketName}/state`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as BucketState);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

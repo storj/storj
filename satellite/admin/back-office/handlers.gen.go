@@ -53,6 +53,8 @@ type ProjectManagementService interface {
 	GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError)
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
 	GetProjectBuckets(ctx context.Context, publicID uuid.UUID, search, page, limit string, since, before time.Time) (*BucketInfoPage, api.HTTPError)
+	UpdateBucket(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, bucketName string, request UpdateBucketRequest) api.HTTPError
+	GetBucketState(ctx context.Context, publicID uuid.UUID, bucketName string) (*BucketState, api.HTTPError)
 	UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectRequest) (*Project, api.HTTPError)
 	UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
 }
@@ -163,6 +165,8 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 	projectsRouter.HandleFunc("/statuses", handler.handleGetProjectStatuses).Methods("GET")
 	projectsRouter.HandleFunc("/{publicID}", handler.handleGetProject).Methods("GET")
 	projectsRouter.HandleFunc("/{publicID}/buckets", handler.handleGetProjectBuckets).Methods("GET")
+	projectsRouter.HandleFunc("/{publicID}/buckets/{bucketName}", handler.handleUpdateBucket).Methods("PATCH")
+	projectsRouter.HandleFunc("/{publicID}/buckets/{bucketName}/state", handler.handleGetBucketState).Methods("GET")
 	projectsRouter.HandleFunc("/{publicID}", handler.handleUpdateProject).Methods("PATCH")
 	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PATCH")
 
@@ -788,7 +792,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072) {
+	if h.auth.IsRejected(w, r, 131072, 16777216) {
 		return
 	}
 
@@ -801,6 +805,100 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetProjectBuckets response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleUpdateBucket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	publicIDParam, ok := mux.Vars(r)["publicID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing publicID route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(publicIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	bucketName, ok := mux.Vars(r)["bucketName"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing bucketName route param"))
+		return
+	}
+
+	payload := UpdateBucketRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	httpErr := h.service.UpdateBucket(ctx, authInfo, publicID, bucketName, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	publicIDParam, ok := mux.Vars(r)["publicID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing publicID route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(publicIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	bucketName, ok := mux.Vars(r)["bucketName"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing bucketName route param"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 131072, 16777216) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetBucketState(ctx, publicID, bucketName)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetBucketState response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
