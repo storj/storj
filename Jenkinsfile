@@ -103,7 +103,7 @@ node('node') {
 
     stage('Publish Modular Storagenode Images') {
           lastStage = env.STAGE_NAME
-          env.MODULE="SATELLITE"
+          env.MODULE="STORAGENODE"
           sh './scripts/bake.sh -f docker-bake.hcl ' + imageBuildType + ' storagenode-modular --push'
     }
 
