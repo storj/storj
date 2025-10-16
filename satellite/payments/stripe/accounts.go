@@ -631,6 +631,49 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 				discountedUsage.IncludedEgress = usage.Egress - discountedUsage.Egress
 			}
 
+			if accounts.service.stripeConfig.RoundUpInvoiceUsage {
+				// Apply rounding up logic if the feature flag is enabled and UseGBUnits is set.
+				// This rounds up to the nearest whole GB but keeps values in bytes for the frontend.
+				if info.UseGBUnits {
+					conversionFactor := decimal.NewFromInt(mbToGBConversionFactor)
+					// Round up storage: convert byte-hours to GB-Month, round up, then convert back to byte-hours.
+					// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+					// Then multiply back to get rounded byte-hours.
+					storageGBMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
+					if discountedUsage.Storage > 0 {
+						roundedGBMonth := storageGBMonth.Ceil()
+						if roundedGBMonth.IsZero() {
+							roundedGBMonth = decimal.NewFromInt(1)
+						}
+
+						roundedByteHours, _ := roundedGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
+						discountedUsage.Storage = roundedByteHours
+					}
+
+					// Round up egress: convert bytes to GB, round up, then convert back to bytes.
+					// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+					egressGB := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(conversionFactor)
+					if discountedUsage.Egress > 0 {
+						roundedGB := egressGB.Ceil()
+						if roundedGB.IsZero() {
+							roundedGB = decimal.NewFromInt(1)
+						}
+
+						discountedUsage.Egress = roundedGB.Mul(conversionFactor).Shift(6).IntPart()
+					}
+
+					// Round up included egress for overage mode.
+					if info.EgressOverageMode && discountedUsage.IncludedEgress > 0 {
+						includedEgressGB := decimal.NewFromInt(discountedUsage.IncludedEgress).Shift(-6).Div(conversionFactor)
+						roundedIncludedGB := includedEgressGB.Ceil()
+						if roundedIncludedGB.IsZero() {
+							roundedIncludedGB = decimal.NewFromInt(1)
+						}
+						discountedUsage.IncludedEgress = roundedIncludedGB.Mul(conversionFactor).Shift(6).IntPart()
+					}
+				}
+			}
+
 			price := accounts.service.calculateProjectUsagePrice(discountedUsage, info.ProjectUsagePriceModel)
 
 			productCharges[productID] = payments.ProductCharge{
