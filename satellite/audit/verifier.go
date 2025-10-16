@@ -140,8 +140,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	orderLimits, privateKey, cachedNodesInfo, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-			mon.Counter("not_enough_shares_for_audit").Inc(1)   //mon:locked
-			mon.Counter("audit_not_enough_nodes_online").Inc(1) //mon:locked
+			mon.Counter("not_enough_shares_for_audit").Inc(1)   
+			mon.Counter("audit_not_enough_nodes_online").Inc(1) 
 			err = ErrNotEnoughShares.Wrap(err)
 		}
 		return Report{}, err
@@ -246,22 +246,22 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 				zap.String("ErrorType", spew.Sprintf("%#+v", share.Error)))
 		}
 	}
-	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //mon:locked
+	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) 
 
 	required := segmentInfo.Redundancy.RequiredShares
 	total := segmentInfo.Redundancy.TotalShares
 
 	if len(sharesToAudit) < int(required) {
-		mon.Counter("not_enough_shares_for_audit").Inc(1) //mon:locked
+		mon.Counter("not_enough_shares_for_audit").Inc(1) 
 		// if we have reached this point, most likely something went wrong
 		// like a network problem or a forgotten delete. Don't fail nodes.
 		// We have an alert on this. Check the logs and see what happened.
 		var errMsgDetails string
 		if len(offlineNodes)+len(containedNodes) > len(sharesToAudit)+len(failedNodes)+len(unknownNodes) {
-			mon.Counter("audit_suspected_network_problem").Inc(1) //mon:locked
+			mon.Counter("audit_suspected_network_problem").Inc(1) 
 			errMsgDetails = "(suspected network problem). "
 		} else {
-			mon.Counter("audit_not_enough_shares_acquired").Inc(1) //mon:locked
+			mon.Counter("audit_not_enough_shares_acquired").Inc(1) 
 		}
 
 		// The audit couldn't be performed, so we don't report failed nodes.
@@ -273,14 +273,14 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			errMsgDetails, len(sharesToAudit), required, len(failedNodes), len(offlineNodes), len(unknownNodes), len(containedNodes))
 	}
 	// ensure we get values, even if only zero values, so that redash can have an alert based on these
-	mon.Counter("not_enough_shares_for_audit").Inc(0)      //mon:locked
-	mon.Counter("audit_not_enough_nodes_online").Inc(0)    //mon:locked
-	mon.Counter("audit_not_enough_shares_acquired").Inc(0) //mon:locked
-	mon.Counter("audit_suspected_network_problem").Inc(0)  //mon:locked
+	mon.Counter("not_enough_shares_for_audit").Inc(0)      
+	mon.Counter("audit_not_enough_nodes_online").Inc(0)    
+	mon.Counter("audit_not_enough_shares_acquired").Inc(0) 
+	mon.Counter("audit_suspected_network_problem").Inc(0)  
 
 	pieceNums, _, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
-		mon.Counter("could_not_verify_audit_shares").Inc(1) //mon:locked
+		mon.Counter("could_not_verify_audit_shares").Inc(1) 
 		verifier.log.Error("could not verify shares", zap.String("Segment", segmentInfoString(segment)), zap.Error(err))
 		return Report{
 			Segment:  &segmentInfo,
@@ -291,7 +291,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on these
-	mon.Counter("could_not_verify_audit_shares").Inc(0) //mon:locked
+	mon.Counter("could_not_verify_audit_shares").Inc(0) 
 
 	for _, pieceNum := range pieceNums {
 		verifier.log.Info("Verify: share data altered (audit failed)",
@@ -677,25 +677,25 @@ func recordStats(report Report, totalPieces int, verifyErr error) {
 		tags = append(tags, monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(report.Segment.Placement), 10)))
 	}
 
-	mon.Meter("audit_success_nodes_global", tags...).Mark(numSuccessful)     //mon:locked
-	mon.Meter("audit_fail_nodes_global", tags...).Mark(numFailed)            //mon:locked
-	mon.Meter("audit_offline_nodes_global", tags...).Mark(numOffline)        //mon:locked
-	mon.Meter("audit_contained_nodes_global", tags...).Mark(numContained)    //mon:locked
-	mon.Meter("audit_unknown_nodes_global", tags...).Mark(numUnknown)        //mon:locked
-	mon.Meter("audit_total_nodes_global", tags...).Mark(totalAudited)        //mon:locked
-	mon.Meter("audit_total_pointer_nodes_global", tags...).Mark(totalPieces) //mon:locked
+	mon.Meter("audit_success_nodes_global", tags...).Mark(numSuccessful)     
+	mon.Meter("audit_fail_nodes_global", tags...).Mark(numFailed)            
+	mon.Meter("audit_offline_nodes_global", tags...).Mark(numOffline)        
+	mon.Meter("audit_contained_nodes_global", tags...).Mark(numContained)    
+	mon.Meter("audit_unknown_nodes_global", tags...).Mark(numUnknown)        
+	mon.Meter("audit_total_nodes_global", tags...).Mark(totalAudited)        
+	mon.Meter("audit_total_pointer_nodes_global", tags...).Mark(totalPieces) 
 
-	mon.IntVal("audit_success_nodes", tags...).Observe(int64(numSuccessful))           //mon:locked
-	mon.IntVal("audit_fail_nodes", tags...).Observe(int64(numFailed))                  //mon:locked
-	mon.IntVal("audit_offline_nodes", tags...).Observe(int64(numOffline))              //mon:locked
-	mon.IntVal("audit_contained_nodes", tags...).Observe(int64(numContained))          //mon:locked
-	mon.IntVal("audit_unknown_nodes", tags...).Observe(int64(numUnknown))              //mon:locked
-	mon.IntVal("audit_total_nodes", tags...).Observe(int64(totalAudited))              //mon:locked
-	mon.IntVal("audit_total_pointer_nodes", tags...).Observe(int64(totalPieces))       //mon:locked
-	mon.FloatVal("audited_percentage", tags...).Observe(auditedPercentage)             //mon:locked
-	mon.FloatVal("audit_offline_percentage", tags...).Observe(offlinePercentage)       //mon:locked
-	mon.FloatVal("audit_successful_percentage", tags...).Observe(successfulPercentage) //mon:locked
-	mon.FloatVal("audit_failed_percentage", tags...).Observe(failedPercentage)         //mon:locked
-	mon.FloatVal("audit_contained_percentage", tags...).Observe(containedPercentage)   //mon:locked
-	mon.FloatVal("audit_unknown_percentage", tags...).Observe(unknownPercentage)       //mon:locked
+	mon.IntVal("audit_success_nodes", tags...).Observe(int64(numSuccessful))           
+	mon.IntVal("audit_fail_nodes", tags...).Observe(int64(numFailed))                  
+	mon.IntVal("audit_offline_nodes", tags...).Observe(int64(numOffline))              
+	mon.IntVal("audit_contained_nodes", tags...).Observe(int64(numContained))          
+	mon.IntVal("audit_unknown_nodes", tags...).Observe(int64(numUnknown))              
+	mon.IntVal("audit_total_nodes", tags...).Observe(int64(totalAudited))              
+	mon.IntVal("audit_total_pointer_nodes", tags...).Observe(int64(totalPieces))       
+	mon.FloatVal("audited_percentage", tags...).Observe(auditedPercentage)             
+	mon.FloatVal("audit_offline_percentage", tags...).Observe(offlinePercentage)       
+	mon.FloatVal("audit_successful_percentage", tags...).Observe(successfulPercentage) 
+	mon.FloatVal("audit_failed_percentage", tags...).Observe(failedPercentage)         
+	mon.FloatVal("audit_contained_percentage", tags...).Observe(containedPercentage)   
+	mon.FloatVal("audit_unknown_percentage", tags...).Observe(unknownPercentage)       
 }

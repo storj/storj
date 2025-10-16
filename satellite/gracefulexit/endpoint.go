@@ -227,10 +227,10 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeInfo *overlay
 
 		// graceful exit initiation metrics
 		age := endpoint.nowFunc().Sub(node.CreatedAt)
-		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                          //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount) //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)     //mon:locked
-		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                          //mon:locked
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                          
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount) 
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)     
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                          
 	} else {
 		// the node has already initiated GE and hasn't finished yet... or has it?!?!
 		geDoneDate := nodeInfo.ExitStatus.ExitInitiatedAt.AddDate(0, 0, endpoint.config.GracefulExitDurationInDays)
@@ -274,7 +274,7 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeInfo *overlay
 				return nil, Error.Wrap(err)
 			}
 			if request.ExitSuccess {
-				mon.Meter("graceful_exit_success").Mark(1) //mon:locked
+				mon.Meter("graceful_exit_success").Mark(1) 
 				return endpoint.getFinishedSuccessMessage(ctx, updatedNode.Id, *updatedNode.ExitStatus.ExitFinishedAt)
 			}
 			mon.Meter("graceful_exit_failure").Mark(1)

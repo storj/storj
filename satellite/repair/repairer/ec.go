@@ -293,7 +293,7 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
-		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) //mon:locked
+		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) 
 		return nil, pieces, &irreparableError{
 			piecesAvailable: int32(successfulPieces),
 			piecesRequired:  int32(es.RequiredCount()),
@@ -410,7 +410,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		pieceReadCloser = tempfile
 	}
 
-	mon.Meter("repair_bytes_downloaded").Mark64(downloadedPieceSize) //mon:locked
+	mon.Meter("repair_bytes_downloaded").Mark64(downloadedPieceSize) 
 
 	if downloadedPieceSize != pieceSize {
 		return pieceReadCloser, nil, nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, downloadedPieceSize)
@@ -591,10 +591,10 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
 	)
 
-	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))           //mon:locked
-	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount)) //mon:locked
-	mon.IntVal("repair_segment_pieces_failed").Observe(int64(failureCount))        //mon:locked
-	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(cancellationCount)) //mon:locked
+	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))           
+	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount)) 
+	mon.IntVal("repair_segment_pieces_failed").Observe(int64(failureCount))        
+	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(cancellationCount)) 
 
 	return successfulNodes, successfulHashes, nil
 }

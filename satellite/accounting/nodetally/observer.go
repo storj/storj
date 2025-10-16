@@ -139,7 +139,7 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 		}
 	}
 
-	monRangedTally.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
+	monRangedTally.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) 
 
 	err = observer.accounting.SaveTallies(ctx, finishTime, nodeIDs, byteHours)
 	if err != nil {
