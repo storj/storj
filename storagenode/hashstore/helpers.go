@@ -62,15 +62,6 @@ type recordStats struct {
 	lenTTL   uint64 // sum of lengths in set records with expiration and not trash
 }
 
-func (r *recordStats) Scale(factor uint64) {
-	r.numSet *= factor
-	r.lenSet *= factor
-	r.numTrash *= factor
-	r.lenTrash *= factor
-	r.numTTL *= factor
-	r.lenTTL *= factor
-}
-
 func (r *recordStats) Include(rec Record) {
 	r.numSet++
 	r.lenSet += uint64(rec.Length)

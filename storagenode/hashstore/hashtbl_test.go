@@ -258,26 +258,3 @@ func TestHashTbl_IncorrectLogSlots(t *testing.T) {
 	_, err := OpenHashTbl(ctx, h.fh, DefaultMmapConfig)
 	assert.Error(t, err)
 }
-
-//
-// benchmarks
-//
-
-func BenchmarkHashTbl(b *testing.B) {
-	benchmarkLRecs(b, "ComputeEstimates", func(b *testing.B, lrec uint64) {
-		ctx := b.Context()
-		h := newTestHashTbl(b, DefaultMmapConfig, lrec)
-		defer h.Close()
-
-		for i := 0; i < 1<<lrec/2; i++ {
-			h.AssertInsert()
-		}
-
-		b.ReportAllocs()
-		b.ResetTimer()
-
-		for i := 0; i < b.N; i++ {
-			assert.NoError(b, h.ComputeEstimates(ctx))
-		}
-	})
-}

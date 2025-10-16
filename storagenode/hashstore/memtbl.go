@@ -552,13 +552,8 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 		m.remapIfNeeded()
 	}
 
-	// if we had an insert record, we are adding a new key. we don't need to change the alive field
-	// on update because we ensure that the records are equalish above so the length field could not
-	// have changed. we're ignoring the update case for trash because it should be very rare and
-	// doing it properly would require subtracting which may underflow in situations where the
-	// estimate was too small. this technically means that in very rare scenarios, the amount
-	// considered trash could be off, but it will be fixed on the next Range call, Store compaction,
-	// or node restart.
+	// if we had an insert record, we are adding a new key, so include it in the stats. every other
+	// case of update does not change the length, so we don't need to update the stats.
 	if insert {
 		m.statsMu.Lock()
 		m.recStats.Include(rec)

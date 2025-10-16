@@ -10,7 +10,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/zeebo/mwc"
 	"github.com/zeebo/xxh3"
 
 	"storj.io/common/memory"
@@ -172,8 +171,10 @@ func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, err
 		platform.AdviseRandom(data)
 	}
 
-	// estimate numSet, lenSet, numTrash and lenTrash.
-	if err := h.ComputeEstimates(ctx); err != nil {
+	// compute initial stats.
+	if err := h.Range(ctx, func(ctx context.Context, r Record) (bool, error) {
+		return true, nil
+	}); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -253,77 +254,6 @@ func (h *HashTbl) slotForKey(k *Key) slotIdxT {
 	return slotIdxT(v>>s) & h.slotMask
 }
 
-// ComputeEstimates samples the hash table to compute the number of set keys and the total length of
-// the length fields in all of the set records.
-func (h *HashTbl) ComputeEstimates(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := h.opMu.RLock(ctx, &h.closed); err != nil {
-		return err
-	}
-	defer h.opMu.RUnlock()
-
-	const (
-		pagesPerGroup   = 8
-		recordsPerGroup = recordsPerPage * pagesPerGroup
-	)
-
-	// sample some pages worth of records but less than the total
-	maxRecords := uint64(h.numSlots)
-	sampleRecords := uint64(16384)
-	if sampleRecords > maxRecords {
-		sampleRecords = maxRecords
-	}
-	samplePages := sampleRecords / recordsPerPage
-	samplePageGroups := samplePages / pagesPerGroup
-	maxPages := maxRecords / recordsPerPage
-	maxGroup := maxPages / pagesPerGroup
-
-	var (
-		recStats recordStats
-		rng      = mwc.Rand()
-
-		rec   Record
-		valid bool
-	)
-
-	var cache *roPageCache
-	if h.mmap == nil {
-		cache = new(roPageCache)
-		cache.Init(h.fh)
-	}
-
-	for i := uint64(0); i < samplePageGroups; i++ {
-		groupIdx := rng.Uint64n(maxGroup)
-		pageIdx := groupIdx * pagesPerGroup
-		for recIdx := uint64(0); recIdx < recordsPerGroup; recIdx++ {
-			slot := slotIdxT(pageIdx*recordsPerPage + recIdx)
-
-			if cache != nil {
-				valid, err = cache.ReadRecord(slot, &rec)
-			} else {
-				valid, err = h.mmap.ReadRecord(slot, &rec)
-			}
-			if err != nil {
-				return Error.Wrap(err)
-			} else if valid {
-				recStats.Include(rec)
-			}
-		}
-	}
-
-	// scale the number found by the number of total pages divided by the number of sampled
-	// pages. because the hashtbl is always a power of 2 number of pages, we know that
-	// this evenly divides.
-	recStats.Scale(maxPages / samplePages)
-
-	h.statsMu.Lock()
-	h.recStats = recStats
-	h.statsMu.Unlock()
-
-	return nil
-}
-
 // Load returns an estimate of what fraction of the hash table is occupied.
 func (h *HashTbl) Load() float64 {
 	h.statsMu.Lock()
@@ -400,6 +330,8 @@ func (h *HashTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err err
 	var (
 		tmp   Record
 		valid bool
+
+		insert = true // keep track of if this is an insert or an update.
 	)
 
 	var cache *rwPageCache
@@ -453,6 +385,7 @@ func (h *HashTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err err
 			}
 
 			rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
+			insert = false
 		}
 
 		// thus it is either invalid or the key matches and the record is updated, so we can write.
@@ -467,14 +400,9 @@ func (h *HashTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err err
 			return false, Error.Wrap(err)
 		}
 
-		// if the slot was invalid, we are adding a new key. we don't need to change the alive field
-		// on update because we ensure that the records are equalish above so the length field could
-		// not have changed. we're ignoring the update case for trash because it should be very rare
-		// and doing it properly would require subtracting which may underflow in situations where
-		// the estimate was too small. this technically means that in very rare scenarios, the
-		// amount considered trash could be off, but it will be fixed on the next Range call, Store
-		// compaction, or node restart.
-		if !valid {
+		// if we had an insert record, we are adding a new key, so include it in the stats. every other
+		// case of update does not change the length, so we don't need to update the stats.
+		if insert {
 			h.statsMu.Lock()
 			h.recStats.Include(rec)
 			h.statsMu.Unlock()
