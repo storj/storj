@@ -49,7 +49,7 @@
                     v-model="publicKey"
                     label="Public SSH Key"
                     :rules="[RequiredRule, PublicSSHKeyRule]"
-                    hint="Paste your public SSH key (usually starts with 'ssh-rsa' or 'ssh-ed25519')"
+                    hint="Paste your public SSH key (usually starts with 'ssh-rsa', 'ssh-dss' or 'ssh-ed25519')"
                     persistent-hint
                     variant="outlined"
                     auto-grow

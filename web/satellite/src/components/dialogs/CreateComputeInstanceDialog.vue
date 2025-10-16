@@ -198,9 +198,9 @@ const sshKeys = ref<string[]>([]);
 const formValid = ref(false);
 const form = ref<VForm>();
 
-const locations: string[] = ['germany'];
-const instanceTypes: string[] = ['1vcpu-1gb'];
-const images: string[] = ['debian-12'];
+const locations: string[] = ['Germany', 'France'];
+const instanceTypes: string[] = ['1vcpu-1gb', '2vcpu-4gb', '4vcpu-8gb'];
+const images: string[] = ['debian-12', 'centos-8'];
 
 const existingKeys = computed<SSHKey[]>(() => computeStore.state.sshKeys);
 

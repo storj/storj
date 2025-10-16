@@ -35,7 +35,7 @@ enum RouteName {
     PasswordRecovery = 'Password Recovery',
     Activate = 'Activate Account',
     ComputeOverview = 'Overview',
-    ComputeInstances = 'Compute',
+    ComputeInstances = 'Instances',
     ComputeKeys = 'SSH Keys',
     ComputeDeployInstance = 'Deploy Instance',
 }

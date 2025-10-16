@@ -71,18 +71,43 @@
 
             <template #item.actions="{ item }">
                 <v-btn
-                    size="small"
+                    title="Instance Actions"
                     variant="outlined"
                     color="default"
-                    @click="onDelete(item)"
+                    size="small"
+                    rounded="md"
+                    class="mr-1 text-caption"
+                    density="comfortable"
+                    icon
                 >
-                    Remove
+                    <v-icon :icon="Ellipsis" />
+                    <v-menu activator="parent">
+                        <v-list class="pa-1">
+                            <v-list-item density="comfortable" link @click="() => viewDetails(item)">
+                                <template #prepend>
+                                    <component :is="Computer" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    View Details
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item class="text-error" density="comfortable" link @click="() => onDelete(item)">
+                                <template #prepend>
+                                    <component :is="Trash2" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Remove
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
                 </v-btn>
             </template>
         </v-data-table>
     </v-card>
 
     <delete-compute-instance-dialog v-model="isDeleteDialog" :instance="instanceToDelete" />
+    <compute-instance-details-dialog v-model="isDetailsDialog" :instance="instanceToView" />
 </template>
 
 <script setup lang="ts">
@@ -95,6 +120,9 @@ import {
     VChip,
     VIcon,
     VBtn,
+    VList,
+    VListItemTitle,
+    VMenu,
 } from 'vuetify/components';
 import {
     Computer,
@@ -103,6 +131,8 @@ import {
     StopCircle,
     Cog,
     HelpCircle,
+    Ellipsis,
+    Trash2,
 } from 'lucide-vue-next';
 
 import { DataTableHeader } from '@/types/common';
@@ -114,6 +144,7 @@ import { useNotify } from '@/composables/useNotify';
 import { Time } from '@/utils/time';
 
 import DeleteComputeInstanceDialog from '@/components/dialogs/DeleteComputeInstanceDialog.vue';
+import ComputeInstanceDetailsDialog from '@/components/dialogs/ComputeInstanceDetailsDialog.vue';
 
 const computeStore = useComputeStore();
 
@@ -132,7 +163,9 @@ const headers: DataTableHeader[] = [
 
 const search = ref<string>('');
 const isDeleteDialog = ref<boolean>(false);
+const isDetailsDialog = ref<boolean>(false);
 const instanceToDelete = ref<Instance>(new Instance());
+const instanceToView = ref<Instance>(new Instance());
 
 const instances = computed<Instance[]>(() => computeStore.state.instances);
 
@@ -149,6 +182,11 @@ function fetch(): void {
 function onDelete(instance: Instance): void {
     instanceToDelete.value = instance;
     isDeleteDialog.value = true;
+}
+
+function viewDetails(instance: Instance): void {
+    instanceToView.value = instance;
+    isDetailsDialog.value = true;
 }
 
 function getStatusColor(status: string): string {

@@ -137,6 +137,7 @@ export enum AnalyticsErrorEventSource {
     COMPUTE_SSH_KEYS_TABLE = 'Compute SSH Keys Table',
     CREATE_COMPUTE_INSTANCE_DIALOG = 'Create Compute Instance Dialog',
     COMPUTE_INSTANCES_TABLE = 'Compute Instances Table',
+    COMPUTE_INSTANCE_DETAILS_MODAL = 'Compute Instance Details Modal',
 }
 
 export enum PageVisitSource {
