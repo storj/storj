@@ -156,24 +156,31 @@ func TestPrecommitQuery(t *testing.T) {
 			return info, err
 		}
 
-		for _, unversioned := range []bool{false, true} {
-			for _, highestVisible := range []bool{false, true} {
-				name := fmt.Sprintf("Missing/Unversioned:%v,HighestVisible:%v", unversioned, highestVisible)
-				t.Run(name, func(t *testing.T) {
-					obj := metabasetest.RandObjectStream()
+		for _, pending := range []bool{false, true} {
+			for _, unversioned := range []bool{false, true} {
+				for _, highestVisible := range []bool{false, true} {
+					name := fmt.Sprintf("Missing/Pending:%v,Unversioned:%v,HighestVisible:%v", pending, unversioned, highestVisible)
+					t.Run(name, func(t *testing.T) {
+						obj := metabasetest.RandObjectStream()
 
-					info, err := precommit(metabase.PrecommitQuery{
-						ObjectStream:   obj,
-						Unversioned:    unversioned,
-						HighestVisible: highestVisible,
+						info, err := precommit(metabase.PrecommitQuery{
+							ObjectStream:   obj,
+							Pending:        pending,
+							Unversioned:    unversioned,
+							HighestVisible: highestVisible,
+						})
+						if pending {
+							require.ErrorContains(t, err, "object with specified version and pending status is missing")
+						} else {
+							require.NoError(t, err)
+						}
+
+						expect := metabase.PrecommitInfo{
+							TimestampVersion: info.TimestampVersion, // this is dynamically created
+						}
+						require.Equal(t, expect, info)
 					})
-					require.ErrorContains(t, err, "object with specified version and pending status is missing")
-
-					expect := metabase.PrecommitInfo{
-						TimestampVersion: info.TimestampVersion, // this is dynamically created
-					}
-					require.Equal(t, expect, info)
-				})
+				}
 			}
 		}
 
@@ -198,6 +205,7 @@ func TestPrecommitQuery(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			info, err := precommit(metabase.PrecommitQuery{
+				Pending:        true,
 				ObjectStream:   obj,
 				Unversioned:    true,
 				HighestVisible: true,
@@ -207,7 +215,7 @@ func TestPrecommitQuery(t *testing.T) {
 			expect := metabase.PrecommitInfo{
 				HighestVersion:   pending.Version,
 				TimestampVersion: info.TimestampVersion,
-				Pending: metabase.PrecommitPendingObject{
+				Pending: &metabase.PrecommitPendingObject{
 					CreatedAt:                     pending.CreatedAt,
 					ExpiresAt:                     pending.ExpiresAt,
 					Encryption:                    pending.Encryption,
@@ -246,6 +254,7 @@ func TestPrecommitQuery(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			info, err := precommit(metabase.PrecommitQuery{
+				Pending:        true,
 				ObjectStream:   obj,
 				Unversioned:    true,
 				HighestVisible: true,
@@ -255,7 +264,7 @@ func TestPrecommitQuery(t *testing.T) {
 			expect := metabase.PrecommitInfo{
 				HighestVersion:   0, // we don't return negative versions
 				TimestampVersion: info.TimestampVersion,
-				Pending: metabase.PrecommitPendingObject{
+				Pending: &metabase.PrecommitPendingObject{
 					CreatedAt:                     pending.CreatedAt,
 					ExpiresAt:                     pending.ExpiresAt,
 					Encryption:                    pending.Encryption,
@@ -298,6 +307,7 @@ func TestPrecommitQuery(t *testing.T) {
 			objectCommitted := metabasetest.CreateObject(ctx, t, db, objCommitted, 2)
 
 			info, err := precommit(metabase.PrecommitQuery{
+				Pending:        true,
 				ObjectStream:   obj,
 				Unversioned:    true,
 				HighestVisible: true,
@@ -307,7 +317,7 @@ func TestPrecommitQuery(t *testing.T) {
 			expect := metabase.PrecommitInfo{
 				HighestVersion:   20000,
 				TimestampVersion: info.TimestampVersion,
-				Pending: metabase.PrecommitPendingObject{
+				Pending: &metabase.PrecommitPendingObject{
 					CreatedAt:                     pending.CreatedAt,
 					ExpiresAt:                     pending.ExpiresAt,
 					Encryption:                    pending.Encryption,
@@ -354,6 +364,7 @@ func TestPrecommitQuery(t *testing.T) {
 			metabasetest.CreateObjectVersioned(ctx, t, db, objCommitted, 2)
 
 			info, err := precommit(metabase.PrecommitQuery{
+				Pending:        true,
 				ObjectStream:   obj,
 				Unversioned:    true,
 				HighestVisible: true,
@@ -363,7 +374,7 @@ func TestPrecommitQuery(t *testing.T) {
 			expect := metabase.PrecommitInfo{
 				HighestVersion:   20000,
 				TimestampVersion: info.TimestampVersion,
-				Pending: metabase.PrecommitPendingObject{
+				Pending: &metabase.PrecommitPendingObject{
 					CreatedAt:                     pending.CreatedAt,
 					ExpiresAt:                     pending.ExpiresAt,
 					Encryption:                    pending.Encryption,

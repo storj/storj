@@ -147,6 +147,8 @@ func (finishCopy FinishCopyObject) Verify() error {
 }
 
 type transposedSegmentList struct {
+	StreamID uuid.UUID
+
 	Positions []int64
 
 	CreatedAts  []time.Time // non-nillable
@@ -170,6 +172,64 @@ type transposedSegmentList struct {
 	PiecesLists [][]byte
 
 	Placements []storj.PlacementConstraint
+}
+
+func transposeSegments(segments []*Segment, convertPieces func(Pieces) ([]byte, error)) (transposedSegmentList, error) {
+	if len(segments) == 0 {
+		return transposedSegmentList{}, nil
+	}
+	var t transposedSegmentList
+	t.StreamID = segments[0].StreamID
+
+	t.Positions = make([]int64, len(segments))
+	t.CreatedAts = make([]time.Time, len(segments))
+	t.RepairedAts = make([]*time.Time, len(segments))
+	t.ExpiresAts = make([]*time.Time, len(segments))
+	t.RootPieceIDs = make([][]byte, len(segments))
+	t.EncryptedKeyNonces = make([][]byte, len(segments))
+	t.EncryptedKeys = make([][]byte, len(segments))
+	t.EncryptedSizes = make([]int32, len(segments))
+	t.PlainSizes = make([]int32, len(segments))
+	t.PlainOffsets = make([]int64, len(segments))
+	t.EncryptedETags = make([][]byte, len(segments))
+	t.RedundancySchemes = make([]int64, len(segments))
+	t.InlineDatas = make([][]byte, len(segments))
+	t.PiecesLists = make([][]byte, len(segments))
+	t.Placements = make([]storj.PlacementConstraint, len(segments))
+
+	for i, segment := range segments {
+		if t.StreamID != segment.StreamID {
+			return t, Error.New("inconsistent segments")
+		}
+
+		t.Positions[i] = int64(segment.Position.Encode())
+		t.CreatedAts[i] = segment.CreatedAt
+		t.RepairedAts[i] = segment.RepairedAt
+		t.ExpiresAts[i] = segment.ExpiresAt
+		t.RootPieceIDs[i] = segment.RootPieceID.Bytes()
+		t.EncryptedKeyNonces[i] = segment.EncryptedKeyNonce
+		t.EncryptedKeys[i] = segment.EncryptedKey
+		t.EncryptedSizes[i] = segment.EncryptedSize
+		t.PlainSizes[i] = segment.PlainSize
+		t.PlainOffsets[i] = segment.PlainOffset
+		t.EncryptedETags[i] = segment.EncryptedETag
+		redundancy, err := segment.Redundancy.EncodeInt64()
+		if err != nil {
+			return t, Error.New("unable to encode redundancy: %w", err)
+		}
+		t.RedundancySchemes[i] = redundancy
+		t.InlineDatas[i] = segment.InlineData
+
+		piecesData, err := convertPieces(segment.Pieces)
+		if err != nil {
+			return t, Error.New("unable to convert pieces")
+		}
+
+		t.PiecesLists[i] = piecesData
+		t.Placements[i] = segment.Placement
+	}
+
+	return t, nil
 }
 
 // FinishCopyObject accepts new encryption keys for copied object and insert the corresponding new object ObjectKey and segments EncryptedKey.
