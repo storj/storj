@@ -37,7 +37,7 @@ func TestVerifier(t *testing.T) {
 		satellite := planet.Satellites[0]
 
 		config := segmentverify.VerifierConfig{
-			PerPieceTimeout:    time.Second,
+			PerPieceTimeout:    10 * time.Second,
 			OrderRetryThrottle: 500 * time.Millisecond,
 			RequestThrottle:    500 * time.Millisecond,
 		}

@@ -45,7 +45,9 @@ var (
 
 type commitObjectTransactionAdapter interface {
 	updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error)
-	finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error
+	finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []PrecommitSegment, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error
+	// finalizeObjectCommit2 updates the specificed pending object and deletes the unversioned object in query.
+	finalizeObjectCommit2(ctx context.Context, opts CommitObject, query PrecommitInfo, object *Object) (err error)
 	finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error)
 
 	precommitTransactionAdapter
@@ -1099,6 +1101,10 @@ func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f 
 // CommitObject adds a pending object to the database. If another committed object is under target location
 // it will be deleted.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
+	if db.config.TestingTwoRoundtripCommit {
+		return db.CommitObject2(ctx, opts)
+	}
+
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -1191,7 +1197,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	return object, nil
 }
 
-func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
+func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []PrecommitSegment, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	args := []any{
@@ -1276,7 +1282,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []segmentInfoForCommit, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
+func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []PrecommitSegment, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if opts.Version == nextVersion {
@@ -1499,7 +1505,314 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	return nil
 }
 
-func (db *DB) validateParts(segments []segmentInfoForCommit) error {
+// CommitObject2 adds a pending object to the database. If another committed object is under target location
+// it will be deleted.
+func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Object{}, err
+	}
+
+	var precommit PrecommitConstraintResult
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+		MaxCommitDelay: opts.MaxCommitDelay,
+		TransactionTag: "commit-object",
+		TransmitEvent:  opts.TransmitEvent,
+	}, func(ctx context.Context, adapter TransactionAdapter) error {
+		query, err := adapter.precommitQuery(ctx, PrecommitQuery{
+			ObjectStream:   opts.ObjectStream,
+			Unversioned:    !opts.Versioned,
+			HighestVisible: opts.IfNoneMatch.All(),
+		})
+		if err != nil {
+			return err
+		}
+
+		// We should only commit when an object already doesn't exist.
+		if opts.IfNoneMatch.All() {
+			if query.HighestVisible.IsCommitted() {
+				return ErrFailedPrecondition.New("object already exists")
+			}
+		}
+
+		// When committing unversioned objects we need to delete any previous unversioned objects.
+		if !opts.Versioned && query.Unversioned != nil {
+			// If we are not allowed to delete the object we cannot commit.
+			if opts.DisallowDelete {
+				return ErrPermissionDenied.New("no permissions to delete existing object")
+			}
+
+			// Retention is not allowed for unversioned objects,
+			// however the check is cheap and we rather not lose protected objects.
+			var retention Retention
+			retention.Mode = query.Unversioned.RetentionMode.Mode
+			retention.RetainUntil = query.Unversioned.RetainUntil.Time
+
+			// If the object has a legal hold and retention, we also cannot commit.
+			if err = retention.Verify(); err != nil {
+				return Error.Wrap(err)
+			}
+			switch {
+			case query.Unversioned.RetentionMode.LegalHold:
+				return ErrObjectLock.New(legalHoldErrMsg)
+			case retention.ActiveNow():
+				return ErrObjectLock.New(retentionErrMsg)
+			}
+
+			// update the precommit metrics
+			precommit.DeletedObjectCount = 1
+			precommit.DeletedSegmentCount = int(query.Unversioned.SegmentCount)
+		}
+
+		if err = db.validateParts(query.Segments); err != nil {
+			return err
+		}
+
+		finalSegments := convertToFinalSegments(query.Segments)
+		if err := adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments); err != nil {
+			return Error.New("failed to update segments: %w", err)
+		}
+
+		// TODO: would we even need this when we make main index plain_offset?
+		fixedSegmentSize := int32(0)
+		if len(finalSegments) > 0 {
+			fixedSegmentSize = finalSegments[0].PlainSize
+			for i, seg := range finalSegments {
+				if seg.Position.Part != 0 || seg.Position.Index != uint32(i) {
+					fixedSegmentSize = -1
+					break
+				}
+				if i < len(finalSegments)-1 && seg.PlainSize != fixedSegmentSize {
+					fixedSegmentSize = -1
+					break
+				}
+			}
+		}
+
+		var totalPlainSize, totalEncryptedSize int64
+		for _, seg := range finalSegments {
+			totalPlainSize += int64(seg.PlainSize)
+			totalEncryptedSize += int64(seg.EncryptedSize)
+		}
+
+		// Calculate what the new object should be
+		{
+			object.StreamID = opts.StreamID
+			object.ProjectID = opts.ProjectID
+			object.BucketName = opts.BucketName
+			object.ObjectKey = opts.ObjectKey
+			object.Status = committedWhereVersioned(opts.Versioned)
+			object.SegmentCount = int32(len(finalSegments))
+			object.TotalPlainSize = totalPlainSize
+			object.TotalEncryptedSize = totalEncryptedSize
+			object.FixedSegmentSize = fixedSegmentSize
+
+			// values from the database
+			object.CreatedAt = query.Pending.CreatedAt
+			object.ExpiresAt = query.Pending.ExpiresAt
+			object.EncryptedMetadata = query.Pending.EncryptedMetadata
+			object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
+			object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
+			object.EncryptedETag = query.Pending.EncryptedETag
+			object.Encryption = query.Pending.Encryption
+
+			object.Retention.Mode = query.Pending.RetentionMode.Mode
+			object.LegalHold = query.Pending.RetentionMode.LegalHold
+			object.Retention.RetainUntil = query.Pending.RetainUntil.Time
+
+			// TODO: is this check actually necessary?
+			if err := object.verifyObjectLockAndRetention(); err != nil {
+				return Error.Wrap(err)
+			}
+
+			// TODO: should we allow to override existing encryption parameters or return error if don't match with opts?
+			if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+				object.Encryption = opts.Encryption
+			} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
+				return ErrInvalidRequest.New("Encryption is missing")
+			} else {
+				// leave the old value
+			}
+			if opts.OverrideEncryptedMetadata {
+				object.EncryptedUserData = opts.EncryptedUserData
+			}
+
+			// determine the best version to use
+			if opts.Version == query.HighestVersion {
+				// If we don't need to change the version, then let's not do it.
+				object.Version = opts.Version
+			} else {
+				if db.config.TestingTimestampVersioning {
+					object.Version = query.TimestampVersion
+					if query.HighestVersion >= query.TimestampVersion {
+						// this should never happen
+						object.Version = query.HighestVersion + 1
+					}
+				} else {
+					object.Version = query.HighestVersion + 1
+				}
+			}
+		}
+
+		return adapter.finalizeObjectCommit2(ctx, opts, query, &object)
+	})
+	if err != nil {
+		return Object{}, err
+	}
+
+	precommit.submitMetrics()
+
+	mon.Meter("object_commit").Mark(1)
+	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
+	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
+
+	return object, nil
+}
+
+func (ptx *postgresTransactionAdapter) finalizeObjectCommit2(ctx context.Context, opts CommitObject, query PrecommitInfo, object *Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !opts.Versioned && query.Unversioned != nil {
+		// delete the previous unversioned object
+		_, err = ptx.tx.ExecContext(ctx, `
+			DELETE FROM objects
+			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, query.Unversioned.Version)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		_, err = ptx.tx.ExecContext(ctx, `
+			DELETE FROM segments
+			WHERE stream_id = $1
+		`, query.Unversioned.StreamID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	var result sql.Result
+	result, err = ptx.tx.ExecContext(ctx, `
+		UPDATE objects SET
+			version = $5,
+			status = $6,
+			segment_count = $7,
+
+			total_plain_size     = $8,
+			total_encrypted_size = $9,
+			fixed_segment_size   = $10,
+			zombie_deletion_deadline = NULL,
+
+			encryption                       = $11,
+			encrypted_metadata_nonce         = $12,
+			encrypted_metadata               = $13,
+			encrypted_metadata_encrypted_key = $14,
+			encrypted_etag                   = $15
+		WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, object.Version,
+		object.Status,
+		object.SegmentCount,
+		object.TotalPlainSize,
+		object.TotalEncryptedSize,
+		object.FixedSegmentSize,
+		object.Encryption,
+		object.EncryptedMetadataNonce,
+		object.EncryptedMetadata,
+		object.EncryptedMetadataEncryptedKey,
+		object.EncryptedETag,
+	)
+	if err != nil {
+		return Error.New("failed to update object: %w", err)
+	}
+	if count, err := result.RowsAffected(); count != 1 || err != nil {
+		return Error.New("failed to update object (changed %d rows): %w", count, err)
+	}
+
+	return nil
+}
+
+func (stx *spannerTransactionAdapter) finalizeObjectCommit2(ctx context.Context, opts CommitObject, query PrecommitInfo, object *Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !opts.Versioned && query.Unversioned != nil {
+		// delete the previous unversioned object
+		err := stx.tx.BufferWrite([]*spanner.Mutation{
+			spanner.Delete("objects", spanner.Key{
+				opts.ProjectID,
+				opts.BucketName,
+				opts.ObjectKey,
+				int64(query.Unversioned.Version),
+			}),
+			spanner.Delete("segments", spanner.KeyRange{
+				Start: spanner.Key{query.Unversioned.StreamID},
+				End:   spanner.Key{query.Unversioned.StreamID},
+				Kind:  spanner.ClosedClosed,
+			}),
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	if object.Version == query.HighestVersion {
+		columns := []string{
+			"project_id", "bucket_name", "object_key", "version",
+			"status", "segment_count",
+			"total_plain_size", "total_encrypted_size", "fixed_segment_size",
+			"encryption", "zombie_deletion_deadline",
+		}
+		values := []any{
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			object.Status, int64(object.SegmentCount),
+
+			object.TotalPlainSize, object.TotalEncryptedSize, int64(object.FixedSegmentSize),
+			object.Encryption, nil, // zombie_deletion_deadline is NULL
+		}
+
+		if opts.OverrideEncryptedMetadata {
+			columns = append(columns,
+				"encrypted_metadata_nonce",
+				"encrypted_metadata",
+				"encrypted_metadata_encrypted_key",
+				"encrypted_etag",
+			)
+
+			values = append(values,
+				object.EncryptedMetadataNonce,
+				object.EncryptedMetadata,
+				object.EncryptedMetadataEncryptedKey,
+				object.EncryptedETag,
+			)
+		}
+
+		err = stx.tx.BufferWrite([]*spanner.Mutation{
+			spanner.Update("objects", columns, values),
+		})
+		if err != nil {
+			return Error.New("failed to update object: %w", err)
+		}
+
+		return nil
+	}
+
+	err = stx.tx.BufferWrite([]*spanner.Mutation{
+		spanner.Delete("objects", spanner.Key{
+			opts.ProjectID,
+			opts.BucketName,
+			opts.ObjectKey,
+			int64(opts.Version),
+		}),
+		spannerInsertObject(RawObject(*object)),
+	})
+	if err != nil {
+		return Error.New("failed to update object: %w", err)
+	}
+
+	return nil
+}
+
+func (db *DB) validateParts(segments []PrecommitSegment) error {
 	partSize := make(map[uint32]memory.Size)
 
 	var lastPart uint32
