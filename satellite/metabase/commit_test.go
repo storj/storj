@@ -644,7 +644,7 @@ func TestCommitObject_TimestampVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTimestampVersioning)
+	}, metabasetest.WithTimestampVersioning, metabasetest.WithOldCommitObject)
 }
 
 func TestBeginObjectExactVersion(t *testing.T) {
@@ -2108,7 +2108,7 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }
 
 func TestCommitInlineSegment(t *testing.T) {
@@ -2595,7 +2595,7 @@ func TestCommitInlineSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }
 
 func TestCommitObject(t *testing.T) {
@@ -3378,7 +3378,7 @@ func TestCommitObject(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(object)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }
 
 func TestCommitObjectVersioned(t *testing.T) {
@@ -4508,7 +4508,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithOldCommitObject)
 }
 
 func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {

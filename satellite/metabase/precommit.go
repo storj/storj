@@ -422,7 +422,6 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversioned(ctx context.Co
 			&result.DeletedSegmentCount,
 			&result.HighestVersion,
 		)
-
 	if err != nil {
 		return PrecommitConstraintResult{}, Error.Wrap(err)
 	}
@@ -709,7 +708,6 @@ func (ptx *postgresTransactionAdapter) precommitDeleteUnversionedWithNonPending(
 			&result.HighestVersion,
 			&result.HighestNonPendingVersion,
 		)
-
 	if err != nil {
 		return PrecommitConstraintWithNonPendingResult{}, Error.Wrap(err)
 	}
@@ -1159,6 +1157,8 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 // PrecommitQuery is used for querying precommit info.
 type PrecommitQuery struct {
 	ObjectStream
+	// Pending returns the pending object and segments at the location. Precommit returns an error when it does not exist.
+	Pending bool
 	// Unversioned returns the unversioned object at the location.
 	Unversioned bool
 	// HighestVisible returns the highest committed object or delete marker at the location.
@@ -1185,7 +1185,7 @@ type PrecommitInfo struct {
 	//
 	// TODO: the amount of data transferred can probably reduced by doing a conditional
 	// query.
-	Pending PrecommitPendingObject
+	Pending *PrecommitPendingObject
 	// Segments contains all the segments for the given object.
 	Segments []PrecommitSegment
 	// HighestVisible returns the status of the highest version that's either committed
@@ -1239,73 +1239,82 @@ func (db *DB) PrecommitQuery(ctx context.Context, opts PrecommitQuery, adapter p
 func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (PrecommitInfo, error) {
 	var info PrecommitInfo
 	// database timestamp
-	err := ptx.tx.QueryRowContext(ctx, "SELECT "+postgresGenerateTimestampVersion).Scan(&info.TimestampVersion)
-	if err != nil {
-		return info, Error.Wrap(err)
+	{
+		err := ptx.tx.QueryRowContext(ctx, "SELECT "+postgresGenerateTimestampVersion).Scan(&info.TimestampVersion)
+		if err != nil {
+			return info, Error.Wrap(err)
+		}
 	}
 
 	// highest version
-	err = ptx.tx.QueryRowContext(ctx, `
-		SELECT version
-		FROM objects
-		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
-			AND version > 0
-		ORDER BY version DESC
-		LIMIT 1
-	`, opts.ProjectID, opts.BucketName, opts.ObjectKey).Scan(&info.HighestVersion)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return info, Error.Wrap(err)
+	{
+		err := ptx.tx.QueryRowContext(ctx, `
+			SELECT version
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND version > 0
+			ORDER BY version DESC
+			LIMIT 1
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey).Scan(&info.HighestVersion)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return info, Error.Wrap(err)
+		}
 	}
 
 	// pending object
-	err = ptx.tx.QueryRowContext(ctx, `
-		SELECT created_at,
-			expires_at,
-			encrypted_metadata,
-			encrypted_metadata_nonce,
-			encrypted_metadata_encrypted_key,
-			encrypted_etag,
-			encryption,
-			retention_mode,
-			retain_until
-		FROM objects
-		WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-			AND stream_id = $5
-			AND status = `+statusPending+`
-		ORDER BY version DESC
-		LIMIT 1
-	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID).
-		Scan(&info.Pending.CreatedAt, &info.Pending.ExpiresAt,
-			&info.Pending.EncryptedMetadata, &info.Pending.EncryptedMetadataNonce, &info.Pending.EncryptedMetadataEncryptedKey, &info.Pending.EncryptedETag,
-			&info.Pending.Encryption, &info.Pending.RetentionMode, &info.Pending.RetainUntil)
+	if opts.Pending {
+		var pending PrecommitPendingObject
+		err := ptx.tx.QueryRowContext(ctx, `
+			SELECT created_at,
+				expires_at,
+				encrypted_metadata,
+				encrypted_metadata_nonce,
+				encrypted_metadata_encrypted_key,
+				encrypted_etag,
+				encryption,
+				retention_mode,
+				retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+				AND stream_id = $5
+				AND status = `+statusPending+`
+			ORDER BY version DESC
+			LIMIT 1
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID).
+			Scan(&pending.CreatedAt, &pending.ExpiresAt,
+				&pending.EncryptedMetadata, &pending.EncryptedMetadataNonce, &pending.EncryptedMetadataEncryptedKey, &pending.EncryptedETag,
+				&pending.Encryption, &pending.RetentionMode, &pending.RetainUntil)
 
-	if errors.Is(err, sql.ErrNoRows) {
-		// TODO: should we return different error when the object is already committed?
-		return info, ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-	}
-	if err != nil {
-		return info, Error.Wrap(err)
-	}
-
-	// segments
-	err = withRows(ptx.tx.QueryContext(ctx, `
-		SELECT position, encrypted_size, plain_offset, plain_size
-		FROM segments
-		WHERE stream_id = $1
-		ORDER BY position
-	`, opts.StreamID))(func(rows tagsql.Rows) error {
-		info.Segments = []PrecommitSegment{}
-		for rows.Next() {
-			var segment PrecommitSegment
-			if err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize); err != nil {
-				return Error.Wrap(err)
-			}
-			info.Segments = append(info.Segments, segment)
+		if errors.Is(err, sql.ErrNoRows) {
+			// TODO: should we return different error when the object is already committed?
+			return info, ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
 		}
-		return nil
-	})
-	if err != nil {
-		return info, Error.Wrap(err)
+		if err != nil {
+			return info, Error.Wrap(err)
+		}
+
+		info.Pending = &pending
+
+		// segments
+		err = withRows(ptx.tx.QueryContext(ctx, `
+			SELECT position, encrypted_size, plain_offset, plain_size
+			FROM segments
+			WHERE stream_id = $1
+			ORDER BY position
+		`, opts.StreamID))(func(rows tagsql.Rows) error {
+			info.Segments = []PrecommitSegment{}
+			for rows.Next() {
+				var segment PrecommitSegment
+				if err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize); err != nil {
+					return Error.Wrap(err)
+				}
+				info.Segments = append(info.Segments, segment)
+			}
+			return nil
+		})
+		if err != nil {
+			return info, Error.Wrap(err)
+		}
 	}
 
 	// highest visible
@@ -1350,7 +1359,8 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 			return info, Error.Wrap(err)
 		}
 	}
-	return info, err
+
+	return info, nil
 }
 
 func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (result PrecommitInfo, err error) {
@@ -1367,8 +1377,17 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 				AND version > 0
 		) SELECT
 			(` + spannerGenerateTimestampVersion + `),
-			(SELECT version FROM objects_at_location  ORDER BY version DESC LIMIT 1),
-			(SELECT ARRAY(
+			(SELECT version FROM objects_at_location  ORDER BY version DESC LIMIT 1)
+		`,
+		Params: map[string]any{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+		},
+	}
+
+	if opts.Pending {
+		stmt.SQL += `,(SELECT ARRAY(
 				SELECT AS STRUCT
 					created_at,
 					expires_at,
@@ -1389,15 +1408,9 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 				FROM segments
 				WHERE stream_id = @stream_id
 				ORDER BY position
-			))
-		`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-			"stream_id":   opts.StreamID,
-		},
+			))`
+		stmt.Params["version"] = opts.Version
+		stmt.Params["stream_id"] = opts.StreamID
 	}
 
 	if opts.HighestVisible {
@@ -1432,42 +1445,46 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 			result.HighestVersion = Version(*highestVersion)
 		}
 
-		var pending []*PrecommitPendingObject
-		if err := row.Column(2, &pending); err != nil {
-			return Error.Wrap(err)
-		}
-		if len(pending) > 1 {
-			return Error.New("internal error: multiple pending objects with the same key")
-		}
-		if len(pending) == 0 {
-			// TODO: should we return different error when the object is already committed?
-			return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-		}
-		result.Pending = *pending[0]
-
-		var segments []*struct {
-			Position      SegmentPosition `spanner:"position"`
-			EncryptedSize int64           `spanner:"encrypted_size"`
-			PlainOffset   int64           `spanner:"plain_offset"`
-			PlainSize     int64           `spanner:"plain_size"`
-		}
-		if err := row.Column(3, &segments); err != nil {
-			return Error.Wrap(err)
-		}
-		result.Segments = make([]PrecommitSegment, len(segments))
-		for i, v := range segments {
-			if v == nil {
-				return Error.New("internal error: null segment returned")
+		column := 2
+		if opts.Pending {
+			var pending []*PrecommitPendingObject
+			if err := row.Column(column, &pending); err != nil {
+				return Error.Wrap(err)
 			}
-			result.Segments[i] = PrecommitSegment{
-				Position:      v.Position,
-				EncryptedSize: int32(v.EncryptedSize),
-				PlainOffset:   v.PlainOffset,
-				PlainSize:     int32(v.PlainSize),
+			column++
+			if len(pending) > 1 {
+				return Error.New("internal error: multiple pending objects with the same key")
+			}
+			if len(pending) == 0 {
+				// TODO: should we return different error when the object is already committed?
+				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+			}
+			result.Pending = pending[0]
+
+			var segments []*struct {
+				Position      SegmentPosition `spanner:"position"`
+				EncryptedSize int64           `spanner:"encrypted_size"`
+				PlainOffset   int64           `spanner:"plain_offset"`
+				PlainSize     int64           `spanner:"plain_size"`
+			}
+			if err := row.Column(column, &segments); err != nil {
+				return Error.Wrap(err)
+			}
+			column++
+			result.Segments = make([]PrecommitSegment, len(segments))
+			for i, v := range segments {
+				if v == nil {
+					return Error.New("internal error: null segment returned")
+				}
+				result.Segments[i] = PrecommitSegment{
+					Position:      v.Position,
+					EncryptedSize: int32(v.EncryptedSize),
+					PlainOffset:   v.PlainOffset,
+					PlainSize:     int32(v.PlainSize),
+				}
 			}
 		}
 
-		column := 4
 		if opts.HighestVisible {
 			var highestVisible *int64
 			if err := row.Column(column, &highestVisible); err != nil {
