@@ -30,7 +30,13 @@
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
                         width="24" height="24"
                     >
-                        <BucketActionsMenu />
+                        <BucketActionsMenu
+                            :bucket="item"
+                            @update="bucket => {
+                                bucketToUpdate = bucket;
+                                updateBucketDialog = true;
+                            }"
+                        />
                         <v-icon :icon="MoreHorizontal" />
                     </v-btn>
                     <v-chip variant="text" size="small" class="font-weight-bold pl-1 ml-1">
@@ -55,6 +61,14 @@
             </template>
         </v-data-table-server>
     </v-card>
+
+    <BucketUpdateDialog
+        v-if="bucketToUpdate"
+        v-model="updateBucketDialog"
+        :bucket="bucketToUpdate"
+        :project="props.project"
+        @updated="onUpdated"
+    />
 </template>
 
 <script setup lang="ts">
@@ -64,13 +78,14 @@ import { MoreHorizontal, Search } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
 import { DataTableHeader } from '@/types/common';
-import { BucketInfoPage, Project } from '@/api/client.gen';
+import { BucketInfo, BucketInfoPage, Project } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { Memory, Size } from '@/utils/bytesSize';
 import { useBucketsStore } from '@/store/buckets';
 
 import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
+import BucketUpdateDialog from '@/components/BucketUpdateDialog.vue';
 
 const bucketsStore = useBucketsStore();
 
@@ -86,6 +101,8 @@ const search = ref<string>('');
 const pageSize = ref<number>(10);
 const searchTimer = ref<NodeJS.Timeout>();
 const bucketPage = ref<BucketInfoPage>();
+const updateBucketDialog = ref<boolean>(false);
+const bucketToUpdate = ref<BucketInfo>();
 
 const headers: DataTableHeader[] = [
     { title: 'Bucket', key: 'name' },
@@ -105,6 +122,15 @@ const headers: DataTableHeader[] = [
         value: item => date.format(date.date((item as { createdAt: string }).createdAt), 'fullDate'),
     },
 ];
+
+function onUpdated(bucket: BucketInfo) {
+    if (!bucketPage.value?.items) return;
+    const index = bucketPage.value?.items?.findIndex(b => b.name === bucket.name) ?? -1;
+    if (index === -1) return;
+    const items = bucketPage.value.items;
+    items[index] = bucket;
+    bucketPage.value = { ...bucketPage.value, items };
+}
 
 /**
  * Handles update table rows limit event.
@@ -143,6 +169,14 @@ watch(search, () => {
     searchTimer.value = setTimeout(() => {
         fetchBuckets();
     }, 500); // 500ms delay for every new call.
+});
+
+watch(updateBucketDialog, async (newVal) => {
+    if (newVal) return;
+
+    // wait for dialog to close
+    await new Promise(resolve => setTimeout(resolve, 300));
+    bucketToUpdate.value = undefined;
 });
 
 onMounted(() => {

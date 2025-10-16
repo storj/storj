@@ -63,7 +63,7 @@
                     <template #append>
                         <v-icon icon="mdi-chevron-down" />
                     </template>
-                    <BucketActionsMenu />
+                    <!--                    <BucketActionsMenu />-->
                 </v-btn>
             </v-col>
         </v-row>
@@ -82,7 +82,7 @@
                             <v-divider class="my-4" />
                             <v-btn variant="outlined" size="small" color="default" class="mr-2">
                                 Edit Bucket Information
-                                <BucketInformationDialog />
+                                <!--                                <BucketUpdateDialog />-->
                             </v-btn>
                         </template>
                     </v-card-text>
@@ -154,10 +154,8 @@ import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
-import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
 import BucketGeofenceDialog from '@/components/BucketGeofenceDialog.vue';
 import BucketUserAgentsDialog from '@/components/BucketUserAgentsDialog.vue';
-import BucketInformationDialog from '@/components/BucketInformationDialog.vue';
 
 const featureFlags = useAppStore().state.settings.admin.features as FeatureFlags;
 </script>
