@@ -421,6 +421,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.Handle("/purchase", server.withCSRFProtection(server.addCardRateLimiter.Limit(http.HandlerFunc(paymentController.Purchase)))).Methods(http.MethodPost, http.MethodOptions)
+		if config.MemberAccountsEnabled {
+			paymentsRouter.Handle("/start-trial", server.withCSRFProtection(http.HandlerFunc(paymentController.StartFreeTrial))).Methods(http.MethodPost, http.MethodOptions)
+		}
 		if config.PricingPackagesEnabled {
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}

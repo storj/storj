@@ -495,6 +495,32 @@ func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key 
 	return key, status, Error.Wrap(err)
 }
 
+// StartFreeTrial starts free trial for authorized Member user.
+func (payment Payments) StartFreeTrial(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "start free trial")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if !user.IsMember() {
+		return ErrUnauthorized.New("only Member users can start new free trial")
+	}
+
+	freeKind := FreeUser
+	request := UpdateUserRequest{
+		Kind: &freeKind,
+	}
+	if payment.service.config.FreeTrialDuration != 0 {
+		expiration := payment.service.nowFn().Add(payment.service.config.FreeTrialDuration)
+		expirationPtr := &expiration
+		request.TrialExpiration = &expirationPtr
+	}
+
+	return payment.service.store.Users().Update(ctx, user.ID, request)
+}
+
 // SetupAccount creates payment account for authorized user.
 func (payment Payments) SetupAccount(ctx context.Context) (_ payments.CouponType, err error) {
 	defer mon.Task()(&ctx)(&err)

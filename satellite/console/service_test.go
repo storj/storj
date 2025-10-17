@@ -7378,3 +7378,91 @@ func TestGetValdiAPIKey(t *testing.T) {
 		}
 	})
 }
+
+func TestStartFreeTrial(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 30 * 24 * time.Hour // 30 days
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		p := service.Payments()
+
+		t.Run("Member user can start free trial", func(t *testing.T) {
+			memberUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName:          "Member User",
+				Email:             "member@mail.test",
+				NoTrialExpiration: true,
+			}, 1)
+			require.NoError(t, err)
+
+			err = sat.DB.Console().Users().Update(ctx, memberUser.ID, console.UpdateUserRequest{
+				Kind: func() *console.UserKind { k := console.MemberUser; return &k }(),
+			})
+			require.NoError(t, err)
+
+			memberUser, err = sat.DB.Console().Users().Get(ctx, memberUser.ID)
+			require.NoError(t, err)
+			require.True(t, memberUser.IsMember())
+			require.True(t, memberUser.TrialExpiration == nil || memberUser.TrialExpiration.IsZero())
+
+			userCtx, err := sat.UserContext(ctx, memberUser.ID)
+			require.NoError(t, err)
+
+			err = p.StartFreeTrial(userCtx)
+			require.NoError(t, err)
+
+			// Verify user is now Free and has trial expiration set.
+			user, err := sat.DB.Console().Users().Get(ctx, memberUser.ID)
+			require.NoError(t, err)
+			require.True(t, user.IsFree())
+			require.NotNil(t, user.TrialExpiration)
+			require.False(t, user.TrialExpiration.IsZero())
+			require.True(t, user.TrialExpiration.After(time.Now()))
+		})
+
+		t.Run("Non-member user cannot start free trial", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Free User",
+				Email:    "free@mail.test",
+			}, 1)
+			require.NoError(t, err)
+			require.True(t, user.IsFree())
+
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			err = p.StartFreeTrial(userCtx)
+			require.Error(t, err)
+			require.True(t, console.ErrUnauthorized.Has(err))
+
+			err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Kind: func() *console.UserKind { k := console.PaidUser; return &k }(),
+			})
+			require.NoError(t, err)
+
+			userCtx, err = sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			err = p.StartFreeTrial(userCtx)
+			require.Error(t, err)
+			require.True(t, console.ErrUnauthorized.Has(err))
+
+			err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Kind: func() *console.UserKind { k := console.NFRUser; return &k }(),
+			})
+			require.NoError(t, err)
+
+			userCtx, err = sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			err = p.StartFreeTrial(userCtx)
+			require.Error(t, err)
+			require.True(t, console.ErrUnauthorized.Has(err))
+		})
+	})
+}
