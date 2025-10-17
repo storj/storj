@@ -124,81 +124,77 @@ pipeline {
             }
         }
 
-        stage('All Tests') {
-            parallel {
-                stage('Tests') {
-                    environment {
-                        STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                        STORJ_TEST_COCKROACH = 'omit'
-                        STORJ_TEST_COCKROACH_NODROP = 'true'
-                        STORJ_TEST_POSTGRES = 'omit'
-                        STORJ_TEST_LOG_LEVEL = 'info'
-                        COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
-                        STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|' +
-                            'spanner://127.0.0.1:9011?emulator|' +
-                            'spanner://127.0.0.1:9012?emulator|' +
-                            'spanner://127.0.0.1:9013?emulator|' +
-                            'spanner://127.0.0.1:9014?emulator|' +
-                            'spanner://127.0.0.1:9015?emulator|' +
-                            'spanner://127.0.0.1:9016?emulator'
-                        SPANNER_DISABLE_BUILTIN_METRICS = 'true'
-                        CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG='--override_change_stream_partition_token_alive_seconds=1'
-                    }
-                    steps {
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                        sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9016 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+        stage('Tests') {
+            environment {
+                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'info'
+                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|' +
+                    'spanner://127.0.0.1:9011?emulator|' +
+                    'spanner://127.0.0.1:9012?emulator|' +
+                    'spanner://127.0.0.1:9013?emulator|' +
+                    'spanner://127.0.0.1:9014?emulator|' +
+                    'spanner://127.0.0.1:9015?emulator|' +
+                    'spanner://127.0.0.1:9016?emulator'
+                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
+                CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG='--override_change_stream_partition_token_alive_seconds=1'
+            }
+            steps {
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9016 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
 
-                        sh 'use-ports -from 1024 -to 10000 &'
+                sh 'use-ports -from 1024 -to 10000 &'
 
-                        sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-                    }
+                sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+            }
 
-                    post {
-                        always {
-                            archiveArtifacts artifacts: '.build/tests.json'
-                            sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
-                            junit '.build/tests.xml'
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/tests.json'
+                    sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
+                    junit '.build/tests.xml'
 
-                            script {
-                                if(fileExists(".build/coverprofile")){
-                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                                    sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                                    sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                                    cobertura coberturaReportFile: '.build/cobertura.xml',
-                                        lineCoverageTargets: '70, 60, 50',
-                                        autoUpdateHealth: false,
-                                        autoUpdateStability: false,
-                                        failUnhealthy: true
-                                }
-                            }
+                    script {
+                        if(fileExists(".build/coverprofile")){
+                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                            cobertura coberturaReportFile: '.build/cobertura.xml',
+                                lineCoverageTargets: '70, 60, 50',
+                                autoUpdateHealth: false,
+                                autoUpdateStability: false,
+                                failUnhealthy: true
                         }
                     }
                 }
+            }
+        }
 
-                stage('Satellite UI Tests') {
-                    environment {
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
-                        STORJ_TEST_COCKROACH_NODROP = 'true'
-                        STORJ_TEST_POSTGRES = 'omit'
-                        STORJ_TEST_LOG_LEVEL = 'debug'
-                    }
+        stage('Satellite UI Tests') {
+            environment {
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'debug'
+            }
 
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
-                        sh 'make test-satellite-ui'
-                    }
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh 'make test-satellite-ui'
+            }
 
-                    post {
-                        failure {
-                            sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
-                            archiveArtifacts artifacts: '.build/test-results.tar.gz'
-                        }
-                    }
+            post {
+                failure {
+                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
                 }
             }
         }
