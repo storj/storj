@@ -23,7 +23,7 @@ import (
 var _ DB = (*CachingDB)(nil)
 
 // NewCachingDB creates a new CachingDB instance.
-func NewCachingDB(log *zap.Logger, backingStore DB, reputationConfig Config) *CachingDB {
+func NewCachingDB(log *zap.Logger, backingStore DirectDB, reputationConfig Config) *CachingDB {
 	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return &CachingDB{
 		log:                log,

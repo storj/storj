@@ -32,6 +32,12 @@ type DB interface {
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 }
 
+// DirectDB is used only for mud, to differentiate between the interface (reputation.DB) and the two implementation (reputation.CachingDB and reputation.DirectDB).
+// as the satellitedb.Reputation() doesn't return with any concrete type.
+type DirectDB interface {
+	DB
+}
+
 // Info contains all reputation data to be stored in DB.
 type Info struct {
 	AuditSuccessCount           int64
