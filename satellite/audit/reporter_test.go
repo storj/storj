@@ -4,33 +4,37 @@
 package audit_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
-	"storj.io/common/memory"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
+	"storj.io/storj/shared/mud"
+	"storj.io/storj/shared/mudplanet"
+	"storj.io/storj/shared/mudplanet/satellitetest"
 )
 
 func TestReportPendingAudits(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		audits := satellite.Audit
-		audits.Worker.Loop.Pause()
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithRunning[*audit.DBReporter](),
+			mudplanet.WithModule(WithoutCache()),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
+		containment := mudplanet.FindFirst[audit.Containment](t, run, "satellite", 0)
 
-		nodeID := planet.StorageNodes[0].ID()
+		nodeID := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion()).ID
 
 		pending := audit.ReverificationJob{
 			Locator: audit.PieceLocator{
@@ -39,9 +43,8 @@ func TestReportPendingAudits(t *testing.T) {
 		}
 
 		report := audit.Report{PendingAudits: []*audit.ReverificationJob{&pending}}
-		containment := satellite.DB.Containment()
 
-		audits.Reporter.RecordAudits(ctx, report)
+		reporter.RecordAudits(ctx, report)
 
 		pa, err := containment.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -50,54 +53,56 @@ func TestReportPendingAudits(t *testing.T) {
 }
 
 func TestRecordAuditsAtLeastOnce(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				// disable reputation write cache so changes are immediate
-				config.Reputation.FlushInterval = 0
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		audits := satellite.Audit
-		audits.Worker.Loop.Pause()
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithSelector(mud.Or(mud.SelectIfExists[*audit.DBReporter](), mud.SelectIfExists[*reputation.Service]())),
+			mudplanet.WithModule(WithoutCache()),
+			mudplanet.WithConfig[*reputation.Config](func(cfg *reputation.Config) {
+				cfg.FlushInterval = 0
+			}),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
+		service := mudplanet.FindFirst[*reputation.Service](t, run, "satellite", 0)
 
-		nodeID := planet.StorageNodes[0].ID()
+		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
+
+		nodeID := createNode(t, ctx, overlayDB, 0)
 
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
-		audits.Reporter.RecordAudits(ctx, report)
+		reporter.RecordAudits(ctx, report)
 
-		service := satellite.Reputation.Service
 		node, err := service.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, node.TotalAuditCount)
+		require.EqualValues(t, int64(1), node.TotalAuditCount)
 	})
 }
 
 // TestRecordAuditsCorrectOutcome ensures that audit successes, failures, and unknown audits result in the correct disqualification/suspension state.
 func TestRecordAuditsCorrectOutcome(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Reputation.InitialAlpha = 1
-				config.Reputation.AuditLambda = 0.95
-				config.Reputation.AuditDQ = 0.6
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		audits := satellite.Audit
-		audits.Worker.Loop.Pause()
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithRunning[*audit.DBReporter](),
+			mudplanet.WithModule(WithoutCache()),
+			mudplanet.WithConfig[*reputation.Config](func(cfg *reputation.Config) {
+				cfg.InitialAlpha = 1
+				cfg.AuditLambda = 0.95
+				cfg.AuditDQ = 0.6
+			}),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 
-		goodNode := planet.StorageNodes[0].ID()
-		dqNode := planet.StorageNodes[1].ID()
-		suspendedNode := planet.StorageNodes[2].ID()
-		pendingNode := planet.StorageNodes[3].ID()
-		offlineNode := planet.StorageNodes[4].ID()
+		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
+
+		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
+
+		goodNode := createNode(t, ctx, overlayDB, 0)
+		dqNode := createNode(t, ctx, overlayDB, 1)
+		suspendedNode := createNode(t, ctx, overlayDB, 2)
+		pendingNode := createNode(t, ctx, overlayDB, 3)
+		offlineNode := createNode(t, ctx, overlayDB, 4)
 
 		report := audit.Report{
 			Successes: []storj.NodeID{goodNode},
@@ -112,30 +117,29 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 			Offlines: []storj.NodeID{offlineNode},
 		}
 
-		audits.Reporter.RecordAudits(ctx, report)
+		reporter.RecordAudits(ctx, report)
 
-		overlay := satellite.Overlay.Service
-		node, err := overlay.Get(ctx, goodNode)
+		node, err := overlayDB.Get(ctx, goodNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
 		require.Nil(t, node.UnknownAuditSuspended)
 
-		node, err = overlay.Get(ctx, dqNode)
+		node, err = overlayDB.Get(ctx, dqNode)
 		require.NoError(t, err)
 		require.NotNil(t, node.Disqualified)
 		require.Nil(t, node.UnknownAuditSuspended)
 
-		node, err = overlay.Get(ctx, suspendedNode)
+		node, err = overlayDB.Get(ctx, suspendedNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
 		require.NotNil(t, node.UnknownAuditSuspended)
 
-		node, err = overlay.Get(ctx, pendingNode)
+		node, err = overlayDB.Get(ctx, pendingNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
 		require.Nil(t, node.UnknownAuditSuspended)
 
-		node, err = overlay.Get(ctx, offlineNode)
+		node, err = overlayDB.Get(ctx, offlineNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
 		require.Nil(t, node.UnknownAuditSuspended)
@@ -143,29 +147,29 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 }
 
 func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		audits := satellite.Audit
-		audits.Worker.Loop.Pause()
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithRunning[*audit.DBReporter](),
+			mudplanet.WithModule(WithoutCache()),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
+		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
 
-		suspendedNode := planet.StorageNodes[0].ID()
+		suspendedNode := createNode(t, ctx, overlayDB, 4)
 
-		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
+		reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
 
-		overlay := satellite.Overlay.Service
-
-		node, err := overlay.Get(ctx, suspendedNode)
+		node, err := overlayDB.Get(ctx, suspendedNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
 		require.NotNil(t, node.UnknownAuditSuspended)
 
 		suspendedAt := node.UnknownAuditSuspended
 
-		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
+		reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
 
-		node, err = overlay.Get(ctx, suspendedNode)
+		node, err = overlayDB.Get(ctx, suspendedNode)
 		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
 		require.NotNil(t, node.UnknownAuditSuspended)
@@ -176,56 +180,58 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 // TestGracefullyExitedNotUpdated verifies that a gracefully exited node's reputation, suspension,
 // and disqualification flags are not updated when an audit is reported for that node.
 func TestGracefullyExitedNotUpdated(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		audits := satellite.Audit
-		audits.Worker.Loop.Pause()
-		cache := satellite.Overlay.DB
-		reputationDB := satellite.DB.Reputation()
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithRunning[*audit.DBReporter](),
+			mudplanet.WithModule(WithoutCache()),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
+		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
 
-		successNode := planet.StorageNodes[0]
-		failedNode := planet.StorageNodes[1]
-		containedNode := planet.StorageNodes[2]
-		unknownNode := planet.StorageNodes[3]
-		offlineNode := planet.StorageNodes[4]
-		nodeList := []*testplanet.StorageNode{successNode, failedNode, containedNode, unknownNode, offlineNode}
+		successNode := createNode(t, ctx, overlayDB, 4)
+		failedNode := createNode(t, ctx, overlayDB, 5)
+		containedNode := createNode(t, ctx, overlayDB, 6)
+		unknownNode := createNode(t, ctx, overlayDB, 7)
+		offlineNode := createNode(t, ctx, overlayDB, 8)
+
+		nodeIDs := storj.NodeIDList{successNode, failedNode, containedNode, unknownNode, offlineNode}
 
 		report := audit.Report{
-			Successes: storj.NodeIDList{successNode.ID(), failedNode.ID(), containedNode.ID(), unknownNode.ID(), offlineNode.ID()},
+			Successes: nodeIDs,
 		}
-		audits.Reporter.RecordAudits(ctx, report)
+		reporter.RecordAudits(ctx, report)
 
 		// mark each node as having gracefully exited
-		for _, node := range nodeList {
+		for _, node := range nodeIDs {
 			req := &overlay.ExitStatusRequest{
-				NodeID:              node.ID(),
+				NodeID:              node,
 				ExitInitiatedAt:     time.Now(),
 				ExitLoopCompletedAt: time.Now(),
 				ExitFinishedAt:      time.Now(),
 			}
-			_, err := cache.UpdateExitStatus(ctx, req)
+			_, err := overlayDB.UpdateExitStatus(ctx, req)
 			require.NoError(t, err)
 		}
 
 		pending := audit.ReverificationJob{
 			Locator: audit.PieceLocator{
-				NodeID: containedNode.ID(),
+				NodeID: containedNode,
 			},
 		}
 		report = audit.Report{
-			Successes:     storj.NodeIDList{successNode.ID()},
-			Fails:         metabase.Pieces{{StorageNode: failedNode.ID()}},
-			Offlines:      storj.NodeIDList{offlineNode.ID()},
+			Successes:     storj.NodeIDList{successNode},
+			Fails:         metabase.Pieces{{StorageNode: failedNode}},
+			Offlines:      storj.NodeIDList{offlineNode},
 			PendingAudits: []*audit.ReverificationJob{&pending},
-			Unknown:       storj.NodeIDList{unknownNode.ID()},
+			Unknown:       storj.NodeIDList{unknownNode},
 		}
-		audits.Reporter.RecordAudits(ctx, report)
+		reporter.RecordAudits(ctx, report)
 
+		reputationDB := mudplanet.FindFirst[reputation.DB](t, run, "satellite", 0)
 		// since every node has gracefully exit, reputation, dq, and suspension should remain at default values
-		for _, node := range nodeList {
-			nodeCacheInfo, err := reputationDB.Get(ctx, node.ID())
+		for _, node := range nodeIDs {
+			nodeCacheInfo, err := reputationDB.Get(ctx, node)
 			require.NoError(t, err)
 
 			require.Nil(t, nodeCacheInfo.UnknownAuditSuspended)
@@ -235,57 +241,77 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 }
 
 func TestReportOfflineAudits(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				// disable reputation write cache so changes are immediate
-				config.Reputation.FlushInterval = 0
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		node := planet.StorageNodes[0]
-		audits := satellite.Audit
-		audits.Worker.Loop.Pause()
-		reputationService := satellite.Core.Reputation.Service
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithSelector(mud.Or(mud.SelectIfExists[*audit.DBReporter](), mud.SelectIfExists[*reputation.Service]())),
+			mudplanet.WithModule(WithoutCache()),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
+		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
+		node := createNode(t, ctx, overlayDB, 1)
 
-		audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
+		reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node}})
 
-		info, err := reputationService.Get(ctx, node.ID())
+		reputationService := mudplanet.FindFirst[*reputation.Service](t, run, "satellite", 0)
+		info, err := reputationService.Get(ctx, node)
 		require.NoError(t, err)
 		require.Equal(t, int64(1), info.TotalAuditCount)
 
+		cfg := mudplanet.FindFirst[*reputation.Config](t, run, "satellite", 0)
 		// check that other reputation stats were not incorrectly updated by offline audit
 		require.EqualValues(t, 0, info.AuditSuccessCount)
-		require.EqualValues(t, satellite.Config.Reputation.InitialAlpha, info.AuditReputationAlpha)
-		require.EqualValues(t, satellite.Config.Reputation.InitialBeta, info.AuditReputationBeta)
+		require.EqualValues(t, cfg.InitialAlpha, info.AuditReputationAlpha)
+		require.EqualValues(t, cfg.InitialBeta, info.AuditReputationBeta)
 		require.EqualValues(t, 1, info.UnknownAuditReputationAlpha)
 		require.EqualValues(t, 0, info.UnknownAuditReputationBeta)
 	})
 }
 
 func TestReportingAuditFailureResultsInRemovalOfPiece(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					// disable reputation write cache so changes are immediate
-					config.Reputation.FlushInterval = 0
-				},
-				testplanet.ReconfigureRS(4, 5, 6, 6),
-			),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		ul := planet.Uplinks[0]
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithRunning[*audit.DBReporter](),
+			mudplanet.WithModule(WithoutCache()),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
 
-		testData := testrand.Bytes(1 * memory.MiB)
-		err := ul.Upload(ctx, satellite, "bucket-for-test", "path/of/testness", testData)
+		var pieces []metabase.Piece
+		for i := 0; i < 12; i++ {
+			pieces = append(pieces, metabase.Piece{
+				Number:      uint16(i),
+				StorageNode: createNode(t, ctx, overlayDB, i),
+			})
+		}
+		segment := metabase.SegmentForAudit{
+			StreamID: testrand.UUID(),
+			Pieces:   pieces,
+			Redundancy: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      128,
+				RequiredShares: 10,
+				RepairShares:   12,
+				OptimalShares:  14,
+				TotalShares:    16,
+			},
+		}
+
+		metabaseDB := mudplanet.FindFirst[*metabase.DB](t, run, "satellite", 0)
+
+		err := metabaseDB.TestingBatchInsertSegments(ctx, []metabase.RawSegment{
+			{
+				StreamID:          segment.StreamID,
+				Position:          metabase.SegmentPosition{},
+				CreatedAt:         segment.CreatedAt,
+				RootPieceID:       segment.RootPieceID,
+				Pieces:            segment.Pieces,
+				EncryptedKeyNonce: testrand.Bytes(32),
+				EncryptedKey:      testrand.Bytes(32),
+				Redundancy:        segment.Redundancy,
+			},
+		})
 		require.NoError(t, err)
-
-		segment, _ := getRemoteSegment(ctx, t, satellite, ul.Projects[0].ID, "bucket-for-test")
 
 		report := audit.Report{
 			Segment: &segment,
@@ -297,19 +323,44 @@ func TestReportingAuditFailureResultsInRemovalOfPiece(t *testing.T) {
 			},
 		}
 
-		satellite.Audit.Reporter.RecordAudits(ctx, report)
+		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
+		reporter.RecordAudits(ctx, report)
 
-		// piece marked as failed is no longer in the segment
-		afterSegment, _ := getRemoteSegment(ctx, t, satellite, ul.Projects[0].ID, "bucket-for-test")
+		// check if piece marked as failed is no longer in the segment
+		segments, err := metabaseDB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		afterSegment := segments[0]
+
 		require.Len(t, afterSegment.Pieces, len(segment.Pieces)-1)
 		for i, p := range afterSegment.Pieces {
 			assert.NotEqual(t, segment.Pieces[0].Number, p.Number, i)
 			assert.NotEqual(t, segment.Pieces[0].StorageNode, p.StorageNode, i)
 		}
 
-		// segment is still retrievable
-		gotData, err := ul.Download(ctx, satellite, "bucket-for-test", "path/of/testness")
-		require.NoError(t, err)
-		require.Equal(t, testData, gotData)
 	})
+}
+
+//nolint:revive,context-as-argument
+func createNode(t *testing.T, ctx context.Context, db overlay.DB, idx int) storj.NodeID {
+	id := testidentity.MustPregeneratedIdentity(idx, storj.LatestIDVersion()).ID
+	err := db.TestAddNodes(ctx, []*overlay.NodeDossier{
+		{
+			Node: pb.Node{
+				Id: id,
+				Address: &pb.NodeAddress{
+					Address: "127.0.0.1:1234",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	return id
+}
+
+func WithoutCache() func(ball *mud.Ball) {
+	return func(ball *mud.Ball) {
+		mudplanet.WithModule(func(ball *mud.Ball) {
+			mud.ReplaceDependency[reputation.DB, reputation.DirectDB](ball)
+		})
+	}
 }
