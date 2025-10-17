@@ -460,6 +460,16 @@ func (u *User) IsFree() bool {
 	return u.Kind == FreeUser
 }
 
+// IsMember returns whether it's a member user.
+func (u *User) IsMember() bool {
+	return u.Kind == MemberUser
+}
+
+// IsFreeOrMember returns whether it's a free or member user.
+func (u *User) IsFreeOrMember() bool {
+	return u.IsFree() || u.IsMember()
+}
+
 // ResponseUser is an entity which describes db User and can be sent in response.
 type ResponseUser struct {
 	ID                   uuid.UUID `json:"id"`

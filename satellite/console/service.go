@@ -622,7 +622,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFree() && payment.service.config.UpgradePayUpfrontAmount == 0 {
+	if user.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount == 0 {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
@@ -686,7 +686,7 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFree() && payment.service.config.UpgradePayUpfrontAmount == 0 {
+	if user.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount == 0 {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, err
@@ -967,7 +967,7 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 	if err != nil {
 		payment.service.log.Error("Failed to get user for payment intent succeeded event", zap.String("ID", userID.String()), zap.Error(err))
 	} else {
-		if user.IsFree() {
+		if user.IsFreeOrMember() {
 			// If the user is on a free tier, we upgrade them to paid tier.
 			err = payment.upgradeToPaidTier(ctx, user)
 			if err != nil {
@@ -4387,7 +4387,7 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		return Error.Wrap(err)
 	}
 
-	if user.IsFree() {
+	if user.IsFreeOrMember() {
 		return ErrNotPaidTier.New("Only Pro users may request project limit increases")
 	}
 
@@ -6488,7 +6488,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		return err
 	}
 
-	if params.User.IsFree() && payment.service.config.UpgradePayUpfrontAmount > 0 {
+	if params.User.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount > 0 {
 		err = payment.upgradeToPaidTier(ctx, params.User)
 		if err != nil {
 			return err
