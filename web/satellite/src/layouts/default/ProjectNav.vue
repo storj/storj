@@ -82,7 +82,7 @@
                     </template>
 
                     <!-- Project Settings -->
-                    <v-list-item router-link :to="settingsURL" @click="closeDrawer">
+                    <v-list-item v-if="isProjectAdmin" router-link :to="settingsURL" @click="closeDrawer">
                         <template #prepend>
                             <component :is="Settings" :size="18" />
                         </template>
@@ -349,6 +349,7 @@ import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEven
 import { ROUTES } from '@/router';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ProjectRole } from '@/types/projectMembers';
 
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import ManagePassphraseDialog from '@/components/dialogs/ManagePassphraseDialog.vue';
@@ -380,6 +381,8 @@ const openedList = ref<string[]>(['Compute']);
 
 const domainsPageEnabled = computed<boolean>(() => configStore.state.config.domainsPageEnabled);
 const computeUIEnabled = computed<boolean>(() => configStore.state.config.computeUIEnabled);
+
+const isProjectAdmin = computed<boolean>(() => projectsStore.selectedProjectConfig.role === ProjectRole.Admin);
 
 /**
  * Returns the selected project from the store.

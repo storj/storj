@@ -26,38 +26,41 @@
                     />
                 </v-col>
             </v-row>
-            <v-row justify="center">
-                <v-col cols="12" sm="5" md="4" lg="3">
-                    <v-text-field
-                        id="Company Name"
-                        v-model="companyName"
-                        :rules="[MaxNameLengthRule]"
-                        label="Company Name"
-                        hide-details="auto"
-                    />
-                </v-col>
-            </v-row>
-            <v-row justify="center">
-                <v-col cols="12" sm="5" md="4" lg="3">
-                    <v-select
-                        v-model="storageNeeds"
-                        :items="Object.values(AccountSetupStorageNeeds)"
-                        label="Storage Needs"
-                        variant="outlined"
-                        hide-details="auto"
-                    />
-                </v-col>
-            </v-row>
 
-            <v-row justify="center">
-                <v-col cols="12" sm="5" md="4" lg="3">
-                    <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
-                        <template #label>
-                            <p class="text-body-2">I'd like a Sales representative to contact me about my business needs.</p>
-                        </template>
-                    </v-checkbox>
-                </v-col>
-            </v-row>
+            <template v-if="!isMemberAccount">
+                <v-row justify="center">
+                    <v-col cols="12" sm="5" md="4" lg="3">
+                        <v-text-field
+                            id="Company Name"
+                            v-model="companyName"
+                            :rules="[MaxNameLengthRule]"
+                            label="Company Name"
+                            hide-details="auto"
+                        />
+                    </v-col>
+                </v-row>
+                <v-row justify="center">
+                    <v-col cols="12" sm="5" md="4" lg="3">
+                        <v-select
+                            v-model="storageNeeds"
+                            :items="Object.values(AccountSetupStorageNeeds)"
+                            label="Storage Needs"
+                            variant="outlined"
+                            hide-details="auto"
+                        />
+                    </v-col>
+                </v-row>
+
+                <v-row justify="center">
+                    <v-col cols="12" sm="5" md="4" lg="3">
+                        <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
+                            <template #label>
+                                <p class="text-body-2">I'd like a Sales representative to contact me about my business needs.</p>
+                            </template>
+                        </v-checkbox>
+                    </v-col>
+                </v-row>
+            </template>
 
             <v-row justify="center" class="mt-4">
                 <v-col cols="12" sm="5" md="4" lg="3">
@@ -79,7 +82,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { ChevronRight } from 'lucide-vue-next';
 
 import { AuthHttpApi } from '@/api/auth';
@@ -88,6 +91,7 @@ import { MaxNameLengthRule, RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AccountSetupStorageNeeds } from '@/types/users';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
@@ -95,6 +99,7 @@ const auth = new AuthHttpApi();
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
+const usersStore = useUsersStore();
 
 defineProps<{
     loading: boolean,
@@ -110,6 +115,8 @@ const emit = defineEmits<{
 }>();
 
 const formValid = ref<boolean>(false);
+
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
 async function setupAccount(): Promise<void> {
     const hasCompany = companyName.value !== '';

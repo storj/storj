@@ -603,6 +603,7 @@ async function signup(): Promise<void> {
             partner: partner.value,
             signupPromoCode: signupPromoCode.value,
             isMinimal: true,
+            inviterEmail: inviterEmail.value,
         }, secret.value, captchaResponseToken.value);
 
         if (!codeActivationEnabled.value) {

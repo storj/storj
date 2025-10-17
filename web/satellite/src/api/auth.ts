@@ -499,7 +499,7 @@ export class AuthHttpApi implements UsersApi {
      * @returns requestID to be used for code activation.
      * @throws Error
      */
-    public async register(user: Partial<User & { storageNeeds: string, isMinimal: boolean }>, secret: string, captchaResponse: string): Promise<string> {
+    public async register(user: Partial<User & { storageNeeds: string, isMinimal: boolean, inviterEmail: string }>, secret: string, captchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -517,6 +517,7 @@ export class AuthHttpApi implements UsersApi {
             captchaResponse: captchaResponse,
             signupPromoCode: user.signupPromoCode,
             isMinimal: user.isMinimal,
+            inviterEmail: user.inviterEmail ?? '',
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
