@@ -1093,7 +1093,8 @@ func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f 
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
 		},
-		TransactionTag: transactionTag,
+		TransactionTag:              transactionTag,
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
 	})
 	return err
 }

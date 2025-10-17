@@ -231,7 +231,7 @@ test-satellite-ui: ## Run playwright ui tests
 		npm ci;\
 		npx playwright install --with-deps;\
 		STORJ_TEST_SATELLITE_WEB='../../web/satellite' \
-		go test -race -run TestRun -count 1 ./...
+		go test -race -run TestRun -timeout 15m -count 1 ./...
 
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed

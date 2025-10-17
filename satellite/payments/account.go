@@ -112,7 +112,9 @@ type Accounts interface {
 	// project on the entitlements level or those allowed globally for the partner if entitlements are disabled.
 	// In the case of disabled entitlements, it also includes the placements for the default product price
 	// config that have not been overridden for the partner.
-	GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) (_ []storj.PlacementConstraint, _ error)
+	// It also returns a boolean, entitlementHasPlacement, indicating if the project's entitlement has any new buckets
+	// placements defined.
+	GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error)
 
 	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).

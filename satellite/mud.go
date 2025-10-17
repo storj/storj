@@ -151,7 +151,13 @@ func Module(ball *mud.Ball) {
 			Containment: db.Containment(),
 		}
 	})
-	mud.View[DB, reputation.DB](ball, DB.Reputation)
+	mud.Provide[reputation.DB](ball, func(log *zap.Logger, db DB, cfg reputation.Config) reputation.DB {
+		reputationDB := db.Reputation()
+		if cfg.FlushInterval > 0 {
+			reputationDB = reputation.NewCachingDB(log, reputationDB, cfg)
+		}
+		return reputationDB
+	})
 
 	mud.View[*identity.FullIdentity, signing.Signee](ball, func(fullIdentity *identity.FullIdentity) signing.Signee {
 		return signing.SigneeFromPeerIdentity(fullIdentity.PeerIdentity())

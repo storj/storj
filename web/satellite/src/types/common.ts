@@ -13,24 +13,29 @@ export enum SortDirection {
 }
 
 export class PricingPlanInfo {
-    constructor(
-        public type: PricingPlanType = PricingPlanType.FREE,
-        // Info for the pricing plan container
-        public title: string = '',
-        public containerSubtitle: string = '',
-        public containerDescription: string = '',
-        public containerFooterHTML: string | null = null,
-        public activationButtonText: string | null = null,
-        // Info for the pricing plan modal (pre-activation)
-        public activationSubtitle: string | null = null,
-        public activationDescriptionHTML: string = '',
-        public activationPriceHTML: string | null = null,
-        public activationPriceInfo: string | null = null,
-        // Info for the pricing plan modal (post-activation)
-        public successSubtitle: string = '',
-        public bannerTitle: string = '',
-        public bannerText: string = '',
-    ) {}
+    public type: PricingPlanType = PricingPlanType.FREE;
+    // Info for the pricing plan container
+    public activationButtonText: string | null = null;
+    // Info for the pricing plan modal (pre-activation)
+    public activationSubtitle: string | null = null;
+    // Info for the pricing plan modal (post-activation)
+    public bannerTitle: string = '';
+    public bannerText: string = '';
+    // the following are used in the new upgrade/account setup
+    // dialogs.
+    public planTitle: string = '';
+    public planSubtitle: string = '';
+    public planCost: string = '';
+    public planCostInfo: string = '';
+    public planMinimumFeeInfo: string = '';
+    public planUpfrontCharge: string = '';
+    public planBalanceCredit: string = '';
+    public planCTA: string = '';
+    public planInfo: string[] = [];
+
+    constructor(init?: Partial<PricingPlanInfo>) {
+        Object.assign(this, init);
+    }
 }
 
 export interface OnboardingInfo {
@@ -45,18 +50,19 @@ export enum PricingPlanType {
     PRO = 'pro',
 }
 
-export const FREE_PLAN_INFO = new PricingPlanInfo(
-    PricingPlanType.FREE,
-    'Free Trial',
-    'Limited 30-day trial',
-    'Try Storj for free with 25GB of storage and 25GB download bandwidth for 30 days.',
-    'Upgrade anytime to Pro account to continue using Storj.',
-    null,
-    null,
-    'Start for free to try Storj and upgrade later.',
-    null,
-    'Limited 25',
-);
+export const FREE_PLAN_INFO = new PricingPlanInfo({
+    type: PricingPlanType.FREE,
+    planTitle: 'Free Trial',
+    planSubtitle: 'Perfect for trying out Storj.',
+    planCost: 'Free',
+    planCostInfo: '30 days trial, no card needed.',
+    planCTA: 'Start Free Trial',
+    planInfo: [
+        '25GB storage included',
+        '25GB download included',
+        '1 project',
+    ],
+});
 
 // TODO: fully implement these types and their methods according to their Go counterparts
 export type UUID = string;

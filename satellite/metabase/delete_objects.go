@@ -26,6 +26,9 @@ type DeleteObjects struct {
 	Suspended bool
 
 	ObjectLock ObjectLockDeleteOptions
+
+	// supported only by Spanner.
+	TransmitEvent bool
 }
 
 // DeleteObjectsItem describes the location of an object in a bucket to be deleted.
@@ -117,7 +120,8 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				BucketName: opts.BucketName,
 				ObjectKey:  resultItem.ObjectKey,
 			},
-			ObjectLock: opts.ObjectLock,
+			ObjectLock:    opts.ObjectLock,
+			TransmitEvent: opts.TransmitEvent,
 		}
 
 		var deleteObjectResult DeleteObjectResult
@@ -220,6 +224,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			Version:        resultItem.RequestedStreamVersionID.Version(),
 			StreamIDSuffix: resultItem.RequestedStreamVersionID.StreamIDSuffix(),
 			ObjectLock:     opts.ObjectLock,
+			TransmitEvent:  opts.TransmitEvent,
 		})
 
 		result.DeletedSegmentCount += int64(deleteObjectResult.DeletedSegmentCount)

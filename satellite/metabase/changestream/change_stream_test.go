@@ -27,7 +27,6 @@ import (
 )
 
 func TestSpannerChangeStreamMessageGeneration(t *testing.T) {
-	t.Skip("Skipping change stream tests in CI, for now - testing this with emulator is very slow (20-25 delay between events might be possible)")
 	// Run test only on Spanner since change streams are Spanner-specific
 	metabasetest.RunWithConfig(t, metabase.Config{
 		ApplicationName:  "test-change-stream",
@@ -92,7 +91,7 @@ func testChangeStreamInsertOperations(ctx context.Context, t *testing.T, db *met
 	require.NoError(t, err, "Should be able to commit object")
 
 	// Collect events and verify exactly 2 events were generated
-	events := collectChangeStreamEvents(t, eventCh, errCh, 10*time.Second)
+	events := collectChangeStreamEvents(t, eventCh, errCh, 3*time.Second)
 	verifyExpectedEvents(t, events, 2, beforeOperations)
 
 	// Check that we have both status=1 and status=3 events
@@ -172,7 +171,7 @@ func testChangeStreamDeleteOperations(ctx context.Context, t *testing.T, db *met
 
 	// Collect events after delete
 	t.Log("Collecting events from DELETE operation...")
-	deleteEvents := collectChangeStreamEvents(t, eventCh, errCh, 20*time.Second)
+	deleteEvents := collectChangeStreamEvents(t, eventCh, errCh, 3*time.Second)
 	verifyExpectedEvents(t, deleteEvents, 1, beforeDelete)
 
 	// Filter for events that happened after delete
@@ -249,7 +248,7 @@ func testNoEventsForTransmitEventFalse(ctx context.Context, t *testing.T, db *me
 
 	// Collect events after delete
 	t.Log("Collecting events from DELETE operation...")
-	deleteEvents := collectChangeStreamEvents(t, eventCh, errCh, 20*time.Second)
+	deleteEvents := collectChangeStreamEvents(t, eventCh, errCh, 3*time.Second)
 	relevantDeleteEvents := filterRelevantEvents(deleteEvents, beforeDelete)
 
 	t.Logf("Create operations with TransmitEvent=false generated %d events", len(relevantCreateEvents))
@@ -304,7 +303,7 @@ func testNoEventsForNonTrackedColumns(ctx context.Context, t *testing.T, db *met
 	require.NoError(t, err, "Should be able to commit object")
 
 	// Collect events
-	events := collectChangeStreamEvents(t, eventCh, errCh, 8*time.Second)
+	events := collectChangeStreamEvents(t, eventCh, errCh, 3*time.Second)
 	relevantEvents := filterRelevantEvents(events, beforeOperations)
 
 	t.Logf("Operations affecting tracked columns generated %d events", len(relevantEvents))
@@ -353,9 +352,6 @@ func setupChangeStreamTest(ctx context.Context, t *testing.T, db *metabase.DB) (
 	log := zaptest.NewLogger(t)
 	eventCh, errCh, cleanup = startChangeStreamReader(ctx, log, adapter, "bucket_eventing")
 
-	// Give the reader a moment to start up
-	time.Sleep(2 * time.Second)
-
 	return projectID, bucketName, adapter, eventCh, errCh, cleanup
 }
 
@@ -363,7 +359,7 @@ func setupChangeStreamTest(ctx context.Context, t *testing.T, db *metabase.DB) (
 func collectChangeStreamEvents(t *testing.T, eventCh <-chan changestream.DataChangeRecord, errCh <-chan error, timeout time.Duration) []changestream.DataChangeRecord {
 	var events []changestream.DataChangeRecord
 	overallTimeout := time.After(timeout)
-	eventTimeout := time.After(20 * time.Second) // Wait at least 20 seconds for events
+	eventTimeout := time.After(1 * time.Second) // Wait at least 1 seconds for events
 
 	collectingEvents := true
 	for collectingEvents {
@@ -374,7 +370,7 @@ func collectChangeStreamEvents(t *testing.T, eventCh <-chan changestream.DataCha
 				event.TableName, event.ModType, event.ServerTransactionId)
 
 			// Reset the event timeout when we receive events
-			eventTimeout = time.After(10 * time.Second)
+			eventTimeout = time.After(1 * time.Second)
 
 		case err := <-errCh:
 			t.Logf("Change stream reader error: %v", err)

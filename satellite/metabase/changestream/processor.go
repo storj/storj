@@ -8,13 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-
-	"storj.io/common/errs2"
 )
 
 var mon = monkit.Package()
@@ -41,10 +37,8 @@ func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName s
 						return fn(record)
 					})
 					if err != nil {
-						if !errs2.IsCanceled(err) && spanner.ErrCode(err) != codes.Canceled {
-							tracker.Failed(todoItem.Token)
-							tracker.NotifyReady()
-						}
+						tracker.Failed(todoItem.Token)
+						tracker.NotifyReady(childCtx)
 						//nolint
 						log.Warn("failed to process partition (will be retried)", zap.String("token", todoItem.Token), zap.Error(err))
 						return nil
@@ -55,14 +49,14 @@ func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName s
 						}
 					}
 					tracker.Finish(todoItem.Token)
-					tracker.NotifyReady()
+					tracker.NotifyReady(childCtx)
 					return nil
 				})
 			}
 		}
 	})
 	tracker.Add("", nil, startTime, "")
-	tracker.NotifyReady()
+	tracker.NotifyReady(childCtx)
 	return eg.Wait()
 }
 
@@ -109,7 +103,7 @@ func (t *Tracker) Add(token string, parentTokens []string, start time.Time, reco
 }
 
 // NotifyReady checks for partitions that are ready to be processed and sends them to the receive channel.
-func (t *Tracker) NotifyReady() {
+func (t *Tracker) NotifyReady(ctx context.Context) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, todo := range t.todo {
@@ -120,7 +114,14 @@ func (t *Tracker) NotifyReady() {
 			continue
 		}
 		t.status[todo.Token] = statusRunning
-		t.receive <- todo
+		select {
+		case <-ctx.Done():
+			// Context canceled, don't send to channel and reset status
+			t.status[todo.Token] = statusReceived
+			return
+		case t.receive <- todo:
+			// Successfully sent to channel
+		}
 	}
 }
 
