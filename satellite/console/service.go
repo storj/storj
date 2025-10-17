@@ -3584,15 +3584,9 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
 
-	placementDetails := make([]PlacementDetail, 0)
-	if user.DefaultPlacement == storj.DefaultPlacement {
-		// users with non default placements are configured to be only able to
-		// create buckets with the default placement, so they should not have any
-		// available placements.
-		placementDetails, err = s.getPlacementDetails(ctx, project)
-		if err != nil {
-			return nil, err
-		}
+	placementDetails, err := s.getPlacementDetails(ctx, project)
+	if err != nil {
+		return nil, err
 	}
 
 	var computeAuthToken string
@@ -5347,9 +5341,30 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 }
 
 func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]PlacementDetail, error) {
-	placements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(project.UserAgent))
+	placements, entitlementsHasPlacements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(project.UserAgent))
 	if err != nil {
 		return nil, err
+	}
+
+	if project.DefaultPlacement != storj.DefaultPlacement {
+		if !s.entitlementsConfig.Enabled {
+			// if entitlements are disabled, projects can only use self serve placements
+			// if they have a zero default placement.
+			return []PlacementDetail{}, nil
+		}
+
+		if s.entitlementsConfig.Enabled && !entitlementsHasPlacements {
+			// in this case, the project has no placements available via entitlements, so placements
+			// is now the global defaults. But a non-default default placement means the project
+			// has no access to the global self-serve placements.
+			return []PlacementDetail{}, nil
+		}
+	}
+
+	if len(placements) == 1 && placements[0] == project.DefaultPlacement {
+		// if the only placement available is the default placement,
+		// don't return any placement details.
+		return []PlacementDetail{}, nil
 	}
 
 	details := make([]PlacementDetail, 0)

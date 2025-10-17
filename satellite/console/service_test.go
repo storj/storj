@@ -2544,6 +2544,15 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 		config, err = service.GetProjectConfig(userCtx, p.ID)
 		require.NoError(t, err)
 		require.Empty(t, config.AvailablePlacements)
+
+		// delete entitlements for the project
+		err = sat.API.Entitlements.Service.Projects().DeleteByPublicID(ctx, p.PublicID)
+		require.NoError(t, err)
+
+		// still expect that project has no available placements
+		config, err = service.GetProjectConfig(userCtx, p.ID)
+		require.NoError(t, err)
+		require.Empty(t, config.AvailablePlacements)
 	})
 }
 
