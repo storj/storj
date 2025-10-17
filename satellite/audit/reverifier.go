@@ -132,11 +132,11 @@ func (reverifier *Reverifier) ReverifyPiece(ctx context.Context, logger *zap.Log
 	case OutcomeUnknownError:
 		unknown++
 	}
-	mon.Meter("reverify_successes_global").Mark(successes) //mon:locked
-	mon.Meter("reverify_offlines_global").Mark(offlines)   //mon:locked
-	mon.Meter("reverify_fails_global").Mark(fails)         //mon:locked
-	mon.Meter("reverify_contained_global").Mark(pending)   //mon:locked
-	mon.Meter("reverify_unknown_global").Mark(unknown)     //mon:locked
+	mon.Meter("reverify_successes_global").Mark(successes) 
+	mon.Meter("reverify_offlines_global").Mark(offlines)   
+	mon.Meter("reverify_fails_global").Mark(fails)         
+	mon.Meter("reverify_contained_global").Mark(pending)   
+	mon.Meter("reverify_unknown_global").Mark(unknown)     
 
 	return outcome, reputation
 }

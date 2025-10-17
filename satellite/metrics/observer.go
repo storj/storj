@@ -71,13 +71,13 @@ func (obs *Observer) Finish(ctx context.Context) error {
 		mon.IntVal("remote_dependent_object_count", tag).Observe(m.RemoteObjects)
 		mon.IntVal("inline_object_count", tag).Observe(m.InlineObjects)
 
-		mon.IntVal("total_inline_bytes", tag).Observe(m.TotalInlineBytes) //mon:locked
-		mon.IntVal("total_remote_bytes", tag).Observe(m.TotalRemoteBytes) //mon:locked
+		mon.IntVal("total_inline_bytes", tag).Observe(m.TotalInlineBytes) 
+		mon.IntVal("total_remote_bytes", tag).Observe(m.TotalRemoteBytes) 
 
-		mon.IntVal("total_inline_segments", tag).Observe(m.TotalInlineSegments) //mon:locked
-		mon.IntVal("total_remote_segments", tag).Observe(m.TotalRemoteSegments) //mon:locked
+		mon.IntVal("total_inline_segments", tag).Observe(m.TotalInlineSegments) 
+		mon.IntVal("total_remote_segments", tag).Observe(m.TotalRemoteSegments) 
 
-		mon.IntVal("total_segments_with_expires_at", tag).Observe(m.TotalSegmentsWithExpiresAt) //mon:locked
+		mon.IntVal("total_segments_with_expires_at", tag).Observe(m.TotalSegmentsWithExpiresAt) 
 	})
 
 	return nil

@@ -133,7 +133,7 @@ func (service *Service) RunOnce(ctx context.Context) (observerDurations []Observ
 		if err != nil {
 			service.log.Error("ranged loop failure", zap.Error(err))
 
-			mon.Event("rangedloop_error") //mon:locked
+			mon.Event("rangedloop_error") 
 		} else {
 			service.log.Info("ranged loop finished")
 		}

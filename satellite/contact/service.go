@@ -122,7 +122,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 		// If there is an error from trying to dial and ping the node, return that error as
 		// pingErrorMessage and not as the err. We want to use this info to update
 		// node contact info and do not want to terminate execution by returning an err
-		mon.Event("failed_dial") //mon:locked
+		mon.Event("failed_dial") 
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q",
 			nodeurl.ID, nodeurl.Address, err,
@@ -136,7 +136,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 
 	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
 	if err != nil {
-		mon.Event("failed_ping_node") //mon:locked
+		mon.Event("failed_ping_node") 
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
 		service.log.Debug("pingBack pingNode error",

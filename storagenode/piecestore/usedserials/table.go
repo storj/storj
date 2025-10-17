@@ -206,7 +206,7 @@ func (table *Table) Count() int {
 func (table *Table) deleteRandomSerial(ctx context.Context) (err error) {
 	defer monDeleteRandomSerial(&ctx)(&err)
 
-	mon.Meter("delete_random_serial").Mark(1) //mon:locked
+	mon.Meter("delete_random_serial").Mark(1) 
 
 	for _, satMap := range table.serials {
 		for _, serialList := range satMap {
