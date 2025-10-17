@@ -119,8 +119,8 @@ func (projects *projects) getByUserID(ctx context.Context, userID uuid.UUID, noD
 	`
 	args := []interface{}{userID}
 	if noDisabled {
-		query += " AND projects.status != ?"
-		args = append(args, int64(console.ProjectDisabled))
+		query += " AND projects.status = ?"
+		args = append(args, int64(console.ProjectActive))
 	}
 
 	query += " ORDER BY name ASC"
