@@ -292,10 +292,7 @@ func hasReputationChanged(updated Info, current overlay.ReputationStatus, now ti
 		changed = true
 	}
 
-	// check for newly vetted nodes.
-	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
-	// for the VettedAt status is done using time values that are truncated to second precision.
-	if updated.VettedAt != nil && updated.VettedAt.Truncate(time.Second).Equal(now.Truncate(time.Second)) {
+	if updated.VettedAt != nil && current.VettedAt == nil {
 		changed = true
 	}
 	return changed, repChanges
