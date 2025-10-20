@@ -213,27 +213,27 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	for p, s := range observer.TotalStats {
 		t := monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(p), 10))
 
-		mon.IntVal("remote_files_checked", t).Observe(s.objectsChecked)                         
-		mon.IntVal("remote_segments_checked", t).Observe(s.remoteSegmentsChecked)               
-		mon.IntVal("remote_segments_failed_to_check", t).Observe(s.remoteSegmentsFailedToCheck) 
-		mon.IntVal("remote_segments_needing_repair", t).Observe(s.remoteSegmentsNeedingRepair)  
+		mon.IntVal("remote_files_checked", t).Observe(s.objectsChecked)
+		mon.IntVal("remote_segments_checked", t).Observe(s.remoteSegmentsChecked)
+		mon.IntVal("remote_segments_failed_to_check", t).Observe(s.remoteSegmentsFailedToCheck)
+		mon.IntVal("remote_segments_needing_repair", t).Observe(s.remoteSegmentsNeedingRepair)
 		mon.IntVal("remote_segments_needing_repair_due_to_forcing", t).Observe(s.remoteSegmentsNeedingRepairDueToForcing)
-		mon.IntVal("new_remote_segments_needing_repair", t).Observe(s.newRemoteSegmentsNeedingRepair) 
-		mon.IntVal("remote_segments_lost", t).Observe(s.remoteSegmentsLost)                           
-		mon.IntVal("remote_files_lost", t).Observe(int64(len(s.objectsLost)))                         
-		mon.IntVal("remote_segments_over_threshold_1", t).Observe(s.remoteSegmentsOverThreshold[0])   
-		mon.IntVal("remote_segments_over_threshold_2", t).Observe(s.remoteSegmentsOverThreshold[1])   
-		mon.IntVal("remote_segments_over_threshold_3", t).Observe(s.remoteSegmentsOverThreshold[2])   
-		mon.IntVal("remote_segments_over_threshold_4", t).Observe(s.remoteSegmentsOverThreshold[3])   
-		mon.IntVal("remote_segments_over_threshold_5", t).Observe(s.remoteSegmentsOverThreshold[4])   
+		mon.IntVal("new_remote_segments_needing_repair", t).Observe(s.newRemoteSegmentsNeedingRepair)
+		mon.IntVal("remote_segments_lost", t).Observe(s.remoteSegmentsLost)
+		mon.IntVal("remote_files_lost", t).Observe(int64(len(s.objectsLost)))
+		mon.IntVal("remote_segments_over_threshold_1", t).Observe(s.remoteSegmentsOverThreshold[0])
+		mon.IntVal("remote_segments_over_threshold_2", t).Observe(s.remoteSegmentsOverThreshold[1])
+		mon.IntVal("remote_segments_over_threshold_3", t).Observe(s.remoteSegmentsOverThreshold[2])
+		mon.IntVal("remote_segments_over_threshold_4", t).Observe(s.remoteSegmentsOverThreshold[3])
+		mon.IntVal("remote_segments_over_threshold_5", t).Observe(s.remoteSegmentsOverThreshold[4])
 
 		allUnhealthy = s.remoteSegmentsNeedingRepair + s.remoteSegmentsFailedToCheck
 		allChecked = s.remoteSegmentsChecked
 	}
 
-	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted) 
+	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted)
 	allHealthy := allChecked - allUnhealthy
-	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked)) 
+	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked))
 	return nil
 }
 
@@ -341,15 +341,15 @@ func (fork *observerFork) Process(ctx context.Context, segments []rangedloop.Seg
 
 var (
 	// initialize monkit metrics once for better performance.
-	segmentTotalCountIntVal           = mon.IntVal("checker_segment_total_count")   
-	segmentClumpedCountIntVal         = mon.IntVal("checker_segment_clumped_count") 
+	segmentTotalCountIntVal           = mon.IntVal("checker_segment_total_count")
+	segmentClumpedCountIntVal         = mon.IntVal("checker_segment_clumped_count")
 	segmentExitingCountIntVal         = mon.IntVal("checker_segment_exiting_count")
-	segmentAgeIntVal                  = mon.IntVal("checker_segment_age") 
+	segmentAgeIntVal                  = mon.IntVal("checker_segment_age")
 	segmentFreshnessIntVal            = mon.IntVal("checker_segment_freshness")
-	segmentHealthFloatVal             = mon.FloatVal("checker_segment_health")               
-	segmentsBelowMinReqCounter        = mon.Counter("checker_segments_below_min_req")        
-	injuredSegmentHealthFloatVal      = mon.FloatVal("checker_injured_segment_health")       
-	segmentTimeUntilIrreparableIntVal = mon.IntVal("checker_segment_time_until_irreparable") 
+	segmentHealthFloatVal             = mon.FloatVal("checker_segment_health")
+	segmentsBelowMinReqCounter        = mon.Counter("checker_segments_below_min_req")
+	injuredSegmentHealthFloatVal      = mon.FloatVal("checker_injured_segment_health")
+	segmentTimeUntilIrreparableIntVal = mon.IntVal("checker_segment_time_until_irreparable")
 
 	allSegmentPiecesLostPerWeekFloatVal        = mon.FloatVal("checker_all_segment_pieces_lost_per_week")
 	freshSegmentPiecesLostPerWeekFloatVal      = mon.FloatVal("checker_fresh_segment_pieces_lost_per_week")
@@ -429,7 +429,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	numHealthy := piecesCheck.Healthy.Count()
 	mon.IntVal("checker_segment_healthy_count", monkit.NewSeriesTag(
 		"placement", strconv.FormatUint(uint64(segment.Placement), 10),
-	)).Observe(int64(numHealthy)) 
+	)).Observe(int64(numHealthy))
 
 	stats.segmentStats.segmentHealthyCount.Observe(int64(numHealthy))
 
@@ -438,7 +438,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	segmentExitingCountIntVal.Observe(int64(piecesCheck.Exiting.Count()))
 	stats.segmentStats.segmentExitingCount.Observe(int64(piecesCheck.Exiting.Count()))
 	mon.IntVal("checker_segment_off_placement_count",
-		monkit.NewSeriesTag("placement", strconv.Itoa(int(segment.Placement)))).Observe(int64(piecesCheck.OutOfPlacement.Count())) 
+		monkit.NewSeriesTag("placement", strconv.Itoa(int(segment.Placement)))).Observe(int64(piecesCheck.OutOfPlacement.Count()))
 	stats.segmentStats.segmentOffPlacementCount.Observe(int64(piecesCheck.OutOfPlacement.Count()))
 
 	segmentAge := time.Since(segment.CreatedAt)

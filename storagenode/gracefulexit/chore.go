@@ -64,7 +64,7 @@ func (chore *Chore) AddMissing(ctx context.Context) (err error) {
 	chore.log.Debug("exiting", zap.Int("satellites", len(geSatellites)))
 
 	for _, satellite := range geSatellites {
-		mon.Meter("satellite_gracefulexit_request").Mark(1) 
+		mon.Meter("satellite_gracefulexit_request").Mark(1)
 		satellite := satellite
 
 		worker := NewWorker(chore.log, chore.service, chore.dialer, satellite.NodeURL, chore.config)

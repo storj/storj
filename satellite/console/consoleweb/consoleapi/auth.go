@@ -457,14 +457,14 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	valid, captchaScore, err := a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
 	if err != nil {
-		mon.Counter("create_user_captcha_error").Inc(1) 
+		mon.Counter("create_user_captcha_error").Inc(1)
 		a.log.Error("captcha authorization failed", zap.Error(err))
 
 		a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
 		return
 	}
 	if !valid {
-		mon.Counter("create_user_captcha_unsuccessful").Inc(1) 
+		mon.Counter("create_user_captcha_unsuccessful").Inc(1)
 
 		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
 		return
@@ -730,8 +730,8 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 			)
 		}
 
-		mon.Counter("account_activation_failed").Inc(1)                                          
-		mon.IntVal("account_activation_user_failed_count").Observe(int64(user.FailedLoginCount)) 
+		mon.Counter("account_activation_failed").Inc(1)
+		mon.IntVal("account_activation_user_failed_count").Observe(int64(user.FailedLoginCount))
 		penaltyThreshold := a.service.GetLoginAttemptsWithoutPenalty()
 
 		if user.FailedLoginCount == penaltyThreshold {
@@ -739,7 +739,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if user.FailedLoginCount > penaltyThreshold {
-			mon.Counter("account_activation_lockout_reinitiated").Inc(1) 
+			mon.Counter("account_activation_lockout_reinitiated").Inc(1)
 		}
 
 		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))

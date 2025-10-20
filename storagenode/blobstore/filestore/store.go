@@ -38,7 +38,7 @@ var (
 // package for backwards compatibility. (It is no longer activated from inside this
 // package.)
 func MonFileInTrash(namespace []byte) *monkit.Meter {
-	return monStorage.Meter("open_file_in_trash", monkit.NewSeriesTag("namespace", hex.EncodeToString(namespace))) 
+	return monStorage.Meter("open_file_in_trash", monkit.NewSeriesTag("namespace", hex.EncodeToString(namespace)))
 }
 
 // Config is configuration for the blob store.

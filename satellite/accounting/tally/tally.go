@@ -100,13 +100,13 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		if err := service.Tally(ctx); err != nil {
 			service.log.Error("tally failed", zap.Error(err))
 
-			mon.Event("bucket_tally_error") 
+			mon.Event("bucket_tally_error")
 		}
 
 		if err := service.Purge(ctx); err != nil {
 			service.log.Error("tally purge failed", zap.Error(err))
 
-			mon.Event("bucket_tally_purge_error") 
+			mon.Event("bucket_tally_purge_error")
 		}
 		return nil
 	})
@@ -248,19 +248,19 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	// most probably need to add inline/remote information to object in
 	// metabase. We didn't decide yet if that is really needed right now.
 	for _, bucket := range collector.Bucket {
-		monAccounting.IntVal("bucket_objects").Observe(bucket.ObjectCount) 
-		monAccounting.IntVal("bucket_segments").Observe(bucket.Segments()) 
-		// monAccounting.IntVal("bucket_inline_segments").Observe(bucket.InlineSegments) 
-		// monAccounting.IntVal("bucket_remote_segments").Observe(bucket.RemoteSegments) 
+		monAccounting.IntVal("bucket_objects").Observe(bucket.ObjectCount)
+		monAccounting.IntVal("bucket_segments").Observe(bucket.Segments())
+		// monAccounting.IntVal("bucket_inline_segments").Observe(bucket.InlineSegments)
+		// monAccounting.IntVal("bucket_remote_segments").Observe(bucket.RemoteSegments)
 
-		monAccounting.IntVal("bucket_bytes").Observe(bucket.Bytes()) 
-		// monAccounting.IntVal("bucket_inline_bytes").Observe(bucket.InlineBytes) 
-		// monAccounting.IntVal("bucket_remote_bytes").Observe(bucket.RemoteBytes) 
+		monAccounting.IntVal("bucket_bytes").Observe(bucket.Bytes())
+		// monAccounting.IntVal("bucket_inline_bytes").Observe(bucket.InlineBytes)
+		// monAccounting.IntVal("bucket_remote_bytes").Observe(bucket.RemoteBytes)
 		total.Combine(bucket)
 	}
-	monAccounting.IntVal("total_objects").Observe(total.ObjectCount) 
-	monAccounting.IntVal("total_segments").Observe(total.Segments()) 
-	monAccounting.IntVal("total_bytes").Observe(total.Bytes())       
+	monAccounting.IntVal("total_objects").Observe(total.ObjectCount)
+	monAccounting.IntVal("total_segments").Observe(total.Segments())
+	monAccounting.IntVal("total_bytes").Observe(total.Bytes())
 	monAccounting.IntVal("total_pending_objects").Observe(total.PendingObjectCount)
 	monAccounting.IntVal("total_metadata_size").Observe(total.MetadataSize)
 
