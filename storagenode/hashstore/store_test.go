@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1095,7 +1096,7 @@ func testStore_FallbackToNonTTLLogFile(t *testing.T, cfg Config) {
 	id := s.LogFile(permKey) + 1
 	dir := filepath.Join(s.logsPath, fmt.Sprintf("%02x", byte(id)))
 	assert.NoError(t, os.MkdirAll(dir, 0755))
-	name := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
+	name := filepath.Join(dir, createLogName(id, ttl))
 	fh, err := os.OpenFile(name, os.O_CREATE, 0)
 	assert.NoError(t, err)
 	assert.NoError(t, fh.Close())
@@ -1471,6 +1472,58 @@ func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T, cfg Config) {
 
 	_, err := NewStore(t.Context(), cfg, s.logsPath, s.tablePath, s.log)
 	assert.Error(t, err)
+}
+
+func TestStore_HintFileCreation(t *testing.T) {
+	cfg := CreateDefaultConfig(TableKind_HashTbl, false)
+	cfg.Compaction.MaxLogSize = 1024
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	readHintFile := func(id uint64) (max uint64, writable []uint64) {
+		data, err := os.ReadFile(filepath.Join(s.tablePath, createHintName(id)))
+		assert.NoError(t, err)
+
+		for line := range strings.Lines(string(data)) {
+			switch {
+			case strings.HasPrefix(line, "largest: "):
+				max, err = strconv.ParseUint(line[9:25], 16, 64)
+				assert.NoError(t, err)
+			case strings.HasPrefix(line, "writable: "):
+				id, err = strconv.ParseUint(line[10:26], 16, 64)
+				assert.NoError(t, err)
+				writable = append(writable, id)
+			}
+		}
+		return max, writable
+	}
+
+	// the first hint file should say any log file greater than 0 and no writable.
+	max, writable := readHintFile(1)
+	assert.Equal(t, max, 0)
+	assert.Equal(t, writable, []uint64(nil))
+
+	// compaction should create a new hint file, but it should be the same.
+	s.AssertCompact(nil, time.Time{})
+	max, writable = readHintFile(2)
+	assert.Equal(t, max, 0)
+	assert.Equal(t, writable, []uint64(nil))
+
+	// creating data should say any log file greater than 1 and log file 1 is writable.
+	s.AssertCreate()
+	s.AssertCompact(nil, time.Time{})
+	max, writable = readHintFile(3)
+	assert.Equal(t, max, 1)
+	assert.Equal(t, writable, []uint64{1})
+
+	// after filling log file 1, it should say any log file greater than 2 and 2 is writable.
+	for s.LogFile(s.AssertCreate()) == 1 {
+	}
+	s.AssertCompact(nil, time.Time{})
+	max, writable = readHintFile(4)
+	assert.Equal(t, max, 2)
+	assert.Equal(t, writable, []uint64{2})
 }
 
 //

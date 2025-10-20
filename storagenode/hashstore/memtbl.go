@@ -13,6 +13,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
 	"storj.io/storj/storagenode/hashstore/platform"
@@ -365,7 +367,10 @@ func (m *MemTbl) Close() error {
 	}
 
 	if m.fh != nil {
-		m.cloErr = m.fh.Close()
+		m.cloErr = errs.Combine(
+			m.fh.Sync(),
+			m.fh.Close(),
+		)
 	}
 
 	return m.cloErr

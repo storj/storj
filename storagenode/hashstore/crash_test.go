@@ -147,8 +147,7 @@ func TestCorrectDuringCrashes(t *testing.T) {
 
 	// wait until we have at least 3 hashtbl files (middle of a compaction).
 	for {
-		paths, err := allFiles(dir)
-		assert.NoError(t, err)
+		paths := allFiles(t, dir)
 
 		hashtbls := 0
 		for _, path := range paths {

@@ -114,9 +114,17 @@ func OpenTable(ctx context.Context, fh *os.File, cfg Config) (_ Tbl, err error) 
 	}
 	switch header.Kind {
 	case TableKind_HashTbl:
-		return OpenHashTbl(ctx, fh, cfg.Hashtbl)
+		tbl, err := OpenHashTbl(ctx, fh, cfg.Hashtbl)
+		if err != nil {
+			return nil, err
+		}
+		return tbl, nil
 	case TableKind_MemTbl:
-		return OpenMemTbl(ctx, fh, cfg.Memtbl)
+		tbl, err := OpenMemTbl(ctx, fh, cfg.Memtbl)
+		if err != nil {
+			return nil, err
+		}
+		return tbl, nil
 	default:
 		return nil, Error.New("unknown table kind: %d", header.Kind)
 	}

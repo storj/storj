@@ -10,6 +10,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/zeebo/errs"
 	"github.com/zeebo/xxh3"
 
 	"storj.io/common/memory"
@@ -236,7 +237,10 @@ func (h *HashTbl) Close() error {
 	}
 
 	if h.fh != nil {
-		h.cloErr = h.fh.Close()
+		h.cloErr = errs.Combine(
+			h.fh.Sync(),
+			h.fh.Close(),
+		)
 	}
 
 	return h.cloErr

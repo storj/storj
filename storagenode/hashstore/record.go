@@ -126,7 +126,7 @@ func (r Record) String() string {
 }
 
 // RecordsEqualish returns true if the records are equalish. Records are equalish if they are equal
-// except for the expires time and checksums.
+// except for the expires time.
 func RecordsEqualish(a, b Record) bool {
 	a.Expires, b.Expires = 0, 0
 	return a == b

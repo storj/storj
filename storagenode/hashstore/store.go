@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -58,7 +57,8 @@ type Store struct {
 	reviveMu  *mutex   // held during revival to ensure only 1 object is revived from trash at a time
 
 	maxLog  atomic.Uint64 // maximum log file id
-	maxHash atomic.Uint64 // maximum hashtbl id
+	maxTbl  atomic.Uint64 // maximum hashtbl id
+	maxHint atomic.Uint64 // maximum hint id
 
 	stats struct { // contains statistics for monitoring the store
 		compactions atomic.Uint64 // bumped every time a compaction call finishes
@@ -112,179 +112,163 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 		reviveMu:  newMutex(),
 	}
 
-	// if we have any errors, close the store. this means that Close must be
-	// prepared to operate on a partially initialized store.
+	// if we have any errors, close the store. this means that Close must be prepared to operate on
+	// a partially initialized store.
 	defer func() {
 		if err != nil {
 			_ = s.Close()
 		}
 	}()
 
-	// attempt to make the meta directory which ensures all parent directories exist.
+	// attempt to make the given directories which ensures all parent directories exist.
 	if err := os.MkdirAll(s.tablePath, 0755); err != nil {
 		return nil, Error.New("unable to create directory=%q: %w", s.tablePath, err)
 	}
-
 	if err := os.MkdirAll(s.logsPath, 0755); err != nil {
 		return nil, Error.New("unable to create directory=%q: %w", s.logsPath, err)
 	}
 
-	{ // acquire the lock file to prevent concurrent use of the hash table.
-		s.lock, err = os.OpenFile(filepath.Join(s.tablePath, "lock"), os.O_CREATE|os.O_RDONLY, 0666)
-		if err != nil {
-			return nil, Error.New("unable to create lock file: %w", err)
-		}
-		if err := platform.Flock(s.lock); err != nil {
-			return nil, Error.New("unable to flock: %w", err)
-		}
+	// acquire the lock file to prevent concurrent use of the hash table.
+	s.lock, err = os.OpenFile(filepath.Join(s.tablePath, "lock"), os.O_CREATE|os.O_RDONLY, 0666)
+	if err != nil {
+		return nil, Error.New("unable to create lock file: %w", err)
+	}
+	if err := platform.Flock(s.lock); err != nil {
+		return nil, Error.New("unable to flock: %w", err)
 	}
 
-	{ // open all of the log files
-		paths, err := allFiles(s.logsPath)
+	// open all of the log files
+	for parsed, err := range parseFiles(parseLog, s.logsPath) {
 		if err != nil {
 			return nil, err
 		}
 
-		// load all of the log files and keep track of if there is a hashtbl file.
-		for _, path := range paths {
-			name := filepath.Base(path)
+		fh, err := os.OpenFile(parsed.path, os.O_RDWR, 0)
+		if err != nil {
+			return nil, Error.New("unable to open log file: %w", err)
+		}
 
-			// skip any files that don't look like log files. log file names are either
-			//     log-<16 bytes of id>
-			//     log-<16 bytes of id>-<8 bytes of ttl>
-			// so they always begin with "log-" and are either 20 or 29 bytes long.
-			if (len(name) != 20 && len(name) != 29) || name[0:4] != "log-" {
-				continue
+		size, err := fh.Seek(0, io.SeekEnd)
+		if err != nil {
+			_ = fh.Close()
+			return nil, Error.New("unable to seek name=%q: %w", parsed.path, err)
+		}
+
+		if maxLog := s.maxLog.Load(); parsed.data.id > maxLog {
+			s.maxLog.Store(parsed.data.id)
+		}
+
+		lf := newLogFile(parsed.path, parsed.data.id, parsed.data.ttl, fh, uint64(size))
+		s.lfs.Set(parsed.data.id, lf)
+
+		// if the size is over the max size, close the file handle because it is not writable.
+		if lf.size.Load() >= s.cfg.Compaction.MaxLogSize {
+			if err := lf.Close(); err != nil {
+				return nil, Error.New("error closing log file that was over max size: %w", err)
 			}
+		}
 
-			id, err := strconv.ParseUint(name[4:20], 16, 64)
+		s.lfc.Include(lf)
+	}
+
+	// get the name and path of the largest hashtbl file.
+	maxName := "hashtbl" // backwards compatible with old hashtbl files
+	for parsed, err := range parseFiles(parseHashtbl, s.tablePath) {
+		if err != nil {
+			return nil, err
+		}
+
+		if maxTbl := s.maxTbl.Load(); parsed.data > maxTbl {
+			s.maxTbl.Store(parsed.data)
+			maxName = parsed.name
+		}
+	}
+	maxPath := filepath.Join(s.tablePath, maxName)
+
+	// try to open the hashtbl file and create it if it doesn't exist.
+	fh, err := os.OpenFile(maxPath, os.O_RDWR, 0)
+	if os.IsNotExist(err) {
+		// file did not exist, so try to create it with an initial hashtbl but only if we have no
+		// log files which is a good indicator that the store is actually empty.
+		if !s.lfs.Empty() {
+			return nil, Error.New("missing hashtbl when log files exist")
+		}
+
+		// atomically create an empty hashtbl.
+		err = func() error {
+			af, err := newAtomicFile(maxPath)
 			if err != nil {
-				return nil, Error.New("unable to parse name=%q: %w", name, err)
+				return Error.New("unable to create hashtbl: %w", err)
 			}
+			defer af.Cancel()
 
-			var ttl uint32
-			if len(name) == 29 && name[20] == '-' {
-				ttl64, err := strconv.ParseUint(name[21:29], 16, 32)
-				if err != nil {
-					return nil, Error.New("unable to parse name=%q: %w", name, err)
-				}
-				ttl = uint32(ttl64)
-			}
-
-			fh, err := os.OpenFile(path, os.O_RDWR, 0)
+			cons, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), s.cfg.TableDefaultKind.Kind, s.cfg)
 			if err != nil {
-				return nil, Error.New("unable to open log file: %w", err)
+				return Error.Wrap(err)
 			}
-
-			size, err := fh.Seek(0, io.SeekEnd)
+			tbl, err := cons.Done(ctx)
 			if err != nil {
-				_ = fh.Close()
-				return nil, Error.New("unable to seek name=%q: %w", name, err)
+				return Error.Wrap(err)
 			}
+			defer func() { _ = tbl.Close() }()
 
-			if maxLog := s.maxLog.Load(); id > maxLog {
-				s.maxLog.Store(id)
+			if err := af.Commit(); err != nil {
+				return Error.Wrap(err)
 			}
-
-			lf := newLogFile(path, id, ttl, fh, uint64(size))
-			s.lfs.Set(id, lf)
-
-			// if the size is over the max size, close the file handle.
-			if lf.size.Load() >= s.cfg.Compaction.MaxLogSize {
-				if err := lf.Close(); err != nil {
-					return nil, Error.New("error closing log file that was over max size: %w", err)
-				}
+			if err := tbl.Close(); err != nil {
+				return Error.Wrap(err)
 			}
+			return nil
+		}()
+		if err != nil {
+			return nil, err
+		}
 
-			s.lfc.Include(lf)
+		// now try to reopen the file handle after it should be created.
+		fh, err = os.OpenFile(maxPath, os.O_RDWR, 0)
+	}
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// open the hashtbl with the correct file handle.
+	s.tbl, err = OpenTable(ctx, fh, s.cfg)
+	if err != nil {
+		_ = fh.Close()
+		return nil, Error.Wrap(err)
+	}
+
+	// best effort clean up previous hashtbls that were left behind from a previous execution.
+	for parsed, err := range parseFiles(parseHashtbl, s.tablePath) {
+		if err != nil {
+			return nil, err
+		}
+
+		if parsed.name != maxName {
+			_ = os.Remove(parsed.path)
 		}
 	}
 
-	{ // open or create the hash table
-		entries, err := os.ReadDir(s.tablePath)
+	// load the hint file to get the max hint id.
+	for parsed, err := range parseFiles(parseHint, s.tablePath) {
 		if err != nil {
-			return nil, Error.New("unable to read meta directory=%q: %w", s.tablePath, err)
+			return nil, err
 		}
 
-		maxName := "hashtbl" // backwards compatible with old hashtbl files
-		for _, entry := range entries {
-			name := entry.Name()
-
-			// skip any files that don't look like hashtbl files. hashtbl file names are always
-			//     hashtbl-<16 bytes of id>
-			// so they always begin with "hashtbl-" and are 24
-			if len(name) != 24 || name[0:8] != "hashtbl-" {
-				continue
-			}
-
-			id, err := strconv.ParseUint(name[8:24], 16, 64)
-			if err != nil {
-				return nil, Error.New("unable to parse name=%q: %w", name, err)
-			}
-
-			if maxHash := s.maxHash.Load(); id > maxHash {
-				s.maxHash.Store(id)
-				maxName = name
-			}
+		if maxHint := s.maxHint.Load(); parsed.data > maxHint {
+			s.maxHint.Store(parsed.data)
 		}
-		maxPath := filepath.Join(s.tablePath, maxName)
+	}
 
-		// try to open the hashtbl file and create it if it doesn't exist.
-		fh, err := os.OpenFile(maxPath, os.O_RDWR, 0)
-		if os.IsNotExist(err) {
-			// file did not exist, so try to create it with an initial hashtbl but only if we have
-			// no log files which is a good indicator that the store is actually empty.
-			if !s.lfs.Empty() {
-				return nil, Error.New("missing hashtbl when log files exist")
-			}
-			err = func() error {
-				af, err := newAtomicFile(maxPath)
-				if err != nil {
-					return Error.New("unable to create hashtbl: %w", err)
-				}
-				defer af.Cancel()
+	// write out a hint file after we have everything loaded. in the future, it will be used to
+	// make file system check faster, and we'll write it out after the check has finished.
+	s.writeHintFile()
 
-				cons, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), s.cfg.TableDefaultKind.Kind, s.cfg)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-				tbl, err := cons.Done(ctx)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-				defer func() { _ = tbl.Close() }()
-
-				if err := af.Commit(); err != nil {
-					return Error.Wrap(err)
-				}
-				if err := tbl.Close(); err != nil {
-					return Error.Wrap(err)
-				}
-				return nil
-			}()
-			if err != nil {
-				return nil, err
-			}
-
-			// now try to reopen the file handle after it should be created.
-			fh, err = os.OpenFile(maxPath, os.O_RDWR, 0)
-		}
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		ntbl, err := OpenTable(ctx, fh, s.cfg)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		s.tbl = ntbl
-
-		// best effort clean up any tmp files or previous hashtbls that were left behind from a
-		// previous execution.
-		for _, entry := range entries {
-			if name := entry.Name(); strings.HasPrefix(name, "hashtbl") && name != maxName {
-				_ = os.Remove(filepath.Join(s.tablePath, name))
-			}
+	// best effort clean up any tmp files in the table directory. the log directory should not have
+	// any temporary files in it.
+	for parsed, err := range parseFiles(parseTemp, s.tablePath) {
+		if err == nil {
+			_ = os.Remove(parsed.path)
 		}
 	}
 
@@ -394,7 +378,7 @@ func (s *Store) Stats() StoreStats {
 func (s *Store) createLogFile(ttl uint32) (*logFile, error) {
 	id := s.maxLog.Add(1)
 	dir := filepath.Join(s.logsPath, fmt.Sprintf("%02x", byte(id)))
-	path := filepath.Join(dir, fmt.Sprintf("log-%016x-%08x", id, ttl))
+	path := filepath.Join(dir, createLogName(id, ttl))
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -469,10 +453,10 @@ func (s *Store) Close() error {
 	// we can now close all of the resources.
 	var eg errs.Group
 	_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
-		s.lfs.Delete(id)
 		eg.Add(lf.Close())
 		return true, nil
 	})
+	s.lfs.Clear()
 	s.lfc.Clear()
 	s.lru.Clear()
 
@@ -484,7 +468,16 @@ func (s *Store) Close() error {
 		_ = s.lock.Close()
 	}
 
+	// save our close error for future close calls.
 	s.cloErr = eg.Err()
+
+	// if everything closed successfully, write out a shutdown hint file so next startup doesn't
+	// need to do any fsck. note that at this point, no logs exist in lfs, and so the hint file
+	// won't include any writable logs.
+	if s.cloErr == nil {
+		s.writeHintFile()
+	}
+
 	return s.cloErr
 }
 
@@ -905,6 +898,11 @@ func (s *Store) compactOnce(
 		len(rewriteCandidates) == 0 &&
 		logSlots == s.tbl.LogSlots() &&
 		s.tbl.Header().Kind == s.cfg.TableDefaultKind.Kind {
+
+		// write out a new hint file to ensure that future restarts are fast even if we didn't do
+		// any compaction.
+		s.writeHintFile()
+
 		return true, nil
 	}
 
@@ -912,7 +910,7 @@ func (s *Store) compactOnce(
 	s.stats.logsRewritten.Add(uint64(len(rewrite)))
 
 	// create a new hash table sized for the number of records.
-	tblPath := filepath.Join(s.tablePath, fmt.Sprintf("hashtbl-%016x", s.maxHash.Add(1)))
+	tblPath := filepath.Join(s.tablePath, createHashtblName(s.maxTbl.Add(1)))
 	af, err := newAtomicFile(tblPath)
 	if err != nil {
 		return false, Error.Wrap(err)
@@ -1194,6 +1192,10 @@ func (s *Store) compactOnce(
 		)
 	}
 
+	// after a compaction has finished, everything is all sync'd and clean, so write out a new hint
+	// file for the next startup.
+	s.writeHintFile()
+
 	// if we rewrote every log file that we could potentially rewrite, then we're done. len is
 	// sufficient here because rewrite is a subset of rewriteCandidates. also if our rewrite
 	// multiple is 0, then we're done because we unlinked all the fully dead log files already.
@@ -1272,4 +1274,55 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 
 	// return the updated record.
 	return rec, nil
+}
+
+// writeHintFile writes out a hint file for faster fsck. It should only be called when the Store is
+// not in use for writes, so before it opens or during compaction.
+func (s *Store) writeHintFile() {
+	// create the contents of the hint file. it contains the largest log so that we know new logs
+	// created after it need to be checked, and the list of all of the log files that were still
+	// writable.
+	var contents strings.Builder
+	fmt.Fprintf(&contents, "largest: %016x\n", s.maxLog.Load())
+	_ = s.lfs.Range(func(id uint64, lf *logFile) (bool, error) {
+		if !lf.Closed() {
+			fmt.Fprintf(&contents, "writable: %016x\n", id)
+		}
+		return true, nil
+	})
+
+	// get the name of the next hint file that has an id larger than any previous hint file.
+	name := createHintName(s.maxHint.Add(1))
+
+	// write out the contents atomically.
+	err := func() error {
+		af, err := newAtomicFile(filepath.Join(s.tablePath, name))
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		defer af.Cancel()
+
+		if _, err := af.WriteString(contents.String()); err != nil {
+			return Error.Wrap(err)
+		}
+		if err := af.Commit(); err != nil {
+			return Error.Wrap(err)
+		}
+		if err := af.Close(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		return nil
+	}()
+	if err != nil {
+		s.log.Error("unable to write hint file", zap.Error(err))
+		return
+	}
+
+	// optimistically remove old hint files. we don't care if this fails.
+	for parsed, err := range parseFiles(parseHint, s.tablePath) {
+		if err == nil && parsed.name != name {
+			_ = os.Remove(parsed.path)
+		}
+	}
 }

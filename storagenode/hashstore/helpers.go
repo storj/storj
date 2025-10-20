@@ -5,9 +5,7 @@ package hashstore
 
 import (
 	"io"
-	"io/fs"
 	"os"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -142,7 +140,7 @@ func (a *atomicMap[K, V]) Empty() (empty bool) {
 	return empty
 }
 
-func (a *atomicMap[K, V]) Delete(k K)   { a.m.Delete(k) }
+func (a *atomicMap[K, V]) Clear()       { a.m.Clear() }
 func (a *atomicMap[K, V]) Set(k K, v V) { a.m.Store(k, v) }
 func (a *atomicMap[K, V]) Range(fn func(K, V) (bool, error)) (err error) {
 	a.m.Range(func(k, v any) (ok bool) {
@@ -187,18 +185,6 @@ func syncDirectory(dir string) {
 	}
 }
 
-// allFiles recursively collects all files in the given directory and returns
-// their full path.
-func allFiles(dir string) (paths []string, err error) {
-	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err == nil && !d.IsDir() {
-			paths = append(paths, path)
-		}
-		return err
-	})
-	return paths, Error.Wrap(err)
-}
-
 //
 // atomic file creation helper
 //
@@ -215,7 +201,7 @@ type atomicFile struct {
 }
 
 func newAtomicFile(name string) (*atomicFile, error) {
-	tmp := name + ".tmp"
+	tmp := createTempName(name)
 
 	fh, err := platform.CreateFile(tmp)
 	if err != nil {
@@ -251,7 +237,7 @@ func (a *atomicFile) Commit() (err error) {
 	if err := a.Sync(); err != nil {
 		return Error.Wrap(err)
 	}
-	if err := os.Rename(a.tmp, a.name); err != nil {
+	if err := platform.Rename(a.tmp, a.name); err != nil {
 		return Error.Wrap(err)
 	}
 

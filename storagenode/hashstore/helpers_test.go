@@ -59,34 +59,6 @@ func TestClampTTL(t *testing.T) {
 	}
 }
 
-func TestAllFiles(t *testing.T) {
-	dir := t.TempDir()
-
-	touch := func(name string) {
-		assert.NoError(t, os.MkdirAll(filepath.Join(dir, filepath.Dir(name)), 0755))
-		assert.NoError(t, os.WriteFile(filepath.Join(dir, name), nil, 0644))
-	}
-
-	// backwards compatibility
-	touch("log-0000000000000001-00000000")
-	touch("log-0000000000000002-0000ffff")
-
-	// new format
-	touch("03/log-0000000000000003-00000000")
-	touch("04/log-0000000000000004-00000000")
-	touch("03/log-0000000000000103-00000000")
-
-	entries, err := allFiles(dir)
-	assert.NoError(t, err)
-	assert.Equal(t, entries, []string{
-		filepath.Join(dir, "03/log-0000000000000003-00000000"),
-		filepath.Join(dir, "03/log-0000000000000103-00000000"),
-		filepath.Join(dir, "04/log-0000000000000004-00000000"),
-		filepath.Join(dir, "log-0000000000000001-00000000"),
-		filepath.Join(dir, "log-0000000000000002-0000ffff"),
-	})
-}
-
 func TestAtomicFile(t *testing.T) {
 	dir := t.TempDir()
 	f := func(name string) string { return filepath.Join(dir, name) }
@@ -96,17 +68,13 @@ func TestAtomicFile(t *testing.T) {
 		assert.NoError(t, err)
 		defer af.Cancel()
 
-		files, err := allFiles(dir)
-		assert.NoError(t, err)
-		assert.Equal(t, files, []string{f("file0.tmp")})
+		assert.Equal(t, allFiles(t, dir), []string{f("file0.tmp")})
 
 		_, err = af.Write([]byte("hello"))
 		assert.NoError(t, err)
 		assert.NoError(t, af.Commit())
 
-		files, err = allFiles(dir)
-		assert.NoError(t, err)
-		assert.Equal(t, files, []string{f("file0")})
+		assert.Equal(t, allFiles(t, dir), []string{f("file0")})
 
 		data, err := os.ReadFile(f("file0"))
 		assert.NoError(t, err)
@@ -117,16 +85,12 @@ func TestAtomicFile(t *testing.T) {
 		af, err := newAtomicFile(f("file1"))
 		assert.NoError(t, err)
 
-		files, err := allFiles(dir)
-		assert.NoError(t, err)
-		assert.Equal(t, files, []string{f("file0"), f("file1.tmp")})
+		assert.Equal(t, allFiles(t, dir), []string{f("file0"), f("file1.tmp")})
 
 		af.Cancel()
 		assert.Error(t, af.Commit())
 
-		files, err = allFiles(dir)
-		assert.NoError(t, err)
-		assert.Equal(t, files, []string{f("file0")})
+		assert.Equal(t, allFiles(t, dir), []string{f("file0")})
 	}
 }
 
@@ -422,6 +386,24 @@ func TestMultiLRUCache_SingleCapacity(t *testing.T) {
 //
 // test helpers
 //
+
+func touch(t *testing.T, name ...string) {
+	path := filepath.Join(name...)
+	dir := filepath.Dir(path)
+	assert.NoError(t, os.MkdirAll(dir, 0755))
+	assert.NoError(t, os.WriteFile(path, nil, 0644))
+}
+
+// allFiles recursively collects all files in the given directory and returns
+// their full path.
+func allFiles(t *testing.T, dir string) (paths []string) {
+	all := func(name string) (struct{}, bool) { return struct{}{}, true }
+	for parsed, err := range parseFiles(all, dir) {
+		assert.NoError(t, err)
+		paths = append(paths, parsed.path)
+	}
+	return paths
+}
 
 func assertClose(t testing.TB, cl io.Closer) { assert.NoError(t, cl.Close()) }
 

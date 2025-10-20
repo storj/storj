@@ -48,9 +48,16 @@ func newLogFile(path string, id uint64, ttl uint32, fh *os.File, size uint64) *l
 
 func (lf *logFile) Close() error {
 	if !lf.closed.set() {
-		lf.err = lf.fh.Close()
+		lf.err = errs.Combine(
+			lf.fh.Sync(),
+			lf.fh.Close(),
+		)
 	}
 	return lf.err
+}
+
+func (lf *logFile) Closed() bool {
+	return lf.closed.get()
 }
 
 //
@@ -97,7 +104,7 @@ func (l *logCollection) Include(lf *logFile) {
 	defer l.mu.Unlock()
 
 	// if the log has been closed, we can't write to it so don't include it.
-	if lf.closed.get() {
+	if lf.Closed() {
 		return
 	}
 
