@@ -8,14 +8,14 @@
             <account-nav />
             <default-view />
 
-            <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" />
+            <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" :is-member-upgrade="isMemberAccount" />
             <browser-snackbar-component />
         </session-wrapper>
     </v-app>
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount } from 'vue';
+import { computed, onBeforeMount } from 'vue';
 import { VApp } from 'vuetify/components';
 
 import DefaultBar from './AppBar.vue';
@@ -35,6 +35,8 @@ const appStore = useAppStore();
 const usersStore = useUsersStore();
 
 const notify = useNotify();
+
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
 /**
  * Lifecycle hook after initial render.

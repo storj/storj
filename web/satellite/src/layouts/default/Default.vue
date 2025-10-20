@@ -9,14 +9,14 @@
             <ProjectNav />
             <default-view />
 
-            <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" />
+            <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" :is-member-upgrade="isMemberAccount" />
             <browser-snackbar-component />
         </session-wrapper>
     </v-app>
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref, watch } from 'vue';
+import { computed, onBeforeMount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VApp } from 'vuetify/components';
 
@@ -33,6 +33,7 @@ import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
@@ -48,8 +49,11 @@ const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
+const usersStore = useUsersStore();
 
 const isLoading = ref<boolean>(true);
+
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
 /**
  * Selects the project with the given URL ID, redirecting to the

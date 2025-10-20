@@ -258,6 +258,12 @@ export interface PaymentsApi {
      * @throws Error
      */
     pricingPackageAvailable(): Promise<boolean>;
+
+    /**
+     * startFreeTrial starts a free trial for the user.
+     * @param csrfProtectionToken
+     */
+    startFreeTrial(csrfProtectionToken: string): Promise<void>;
 }
 
 export class AccountBalance {
