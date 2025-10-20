@@ -373,7 +373,8 @@ func (endpoint *Endpoint) validateSelfServePlacement(ctx context.Context, projec
 		feats, err := endpoint.entitlementsService.Projects().GetByPublicID(ctx, project.PublicID)
 		if err != nil {
 			if entitlements.ErrNotFound.Has(err) {
-				return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+				// No entitlements row: fallback to global allowlist (already validated above).
+				return nil
 			}
 			return rpcstatus.Error(rpcstatus.Internal, "unable to validate project entitlements")
 		}

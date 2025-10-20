@@ -146,16 +146,21 @@ func TestGetProjectsByUserID(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, projects, 1)
 
-		err = projectsRepo.UpdateStatus(ctx, proj.ID, console.ProjectDisabled)
-		require.NoError(t, err)
+		for _, status := range []console.ProjectStatus{console.ProjectDisabled, console.ProjectPendingDeletion} {
+			err = projectsRepo.UpdateStatus(ctx, proj.ID, status)
+			require.NoError(t, err)
 
-		projects, err = projectsRepo.GetByUserID(ctx, user1.ID)
-		require.NoError(t, err)
-		require.Len(t, projects, 1)
+			projects, err = projectsRepo.GetByUserID(ctx, user1.ID)
+			require.NoError(t, err)
+			require.Len(t, projects, 1)
 
-		projects, err = projectsRepo.GetActiveByUserID(ctx, user1.ID)
-		require.NoError(t, err)
-		require.Len(t, projects, 0)
+			projects, err = projectsRepo.GetActiveByUserID(ctx, user1.ID)
+			require.NoError(t, err)
+			require.Len(t, projects, 0)
+
+			err = projectsRepo.UpdateStatus(ctx, proj.ID, console.ProjectActive)
+			require.NoError(t, err)
+		}
 	})
 }
 

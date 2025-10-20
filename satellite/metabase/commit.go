@@ -46,9 +46,13 @@ var (
 type commitObjectTransactionAdapter interface {
 	updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error)
 	finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []PrecommitSegment, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error
-	// finalizeObjectCommit2 updates the specificed pending object and deletes the unversioned object in query.
-	finalizeObjectCommit2(ctx context.Context, opts CommitObject, query PrecommitInfo, object *Object) (err error)
+	// finalizeObjectCommit2 updates the specificed pending object.
+	finalizeObjectCommit2(ctx context.Context, opts finalizeObjectCommit2) (err error)
 	finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error)
+
+	// precommitDeleteExactObject deletes the exact object and segments.
+	// It does not check object lock constraints.
+	precommitDeleteExactObject(ctx context.Context, stream ObjectStream) (err error)
 
 	precommitTransactionAdapter
 }
@@ -791,21 +795,22 @@ func (s *SpannerAdapter) commitPendingObjectSegmentWithMutations(ctx context.Con
 		}
 
 		err = txn.BufferWrite([]*spanner.Mutation{
-			spanner.InsertOrUpdate("segments",
-				[]string{
-					"stream_id", "position", "expires_at", "root_piece_id", "encrypted_key_nonce",
-					"encrypted_key", "encrypted_size", "plain_offset", "plain_size", "encrypted_etag",
-					"redundancy", "remote_alias_pieces", "placement",
-					"inline_data",
-				},
-				[]any{
-					opts.StreamID, opts.Position, opts.ExpiresAt, opts.RootPieceID, opts.EncryptedKeyNonce,
-					opts.EncryptedKey, int64(opts.EncryptedSize), opts.PlainOffset, int64(opts.PlainSize), opts.EncryptedETag,
-					opts.Redundancy, aliasPieces, opts.Placement,
-					// clear column in case it was inline segment before
-					nil,
-				},
-			),
+			spanner.InsertOrUpdateMap("segments", map[string]any{
+				"stream_id":           opts.StreamID,
+				"position":            opts.Position,
+				"expires_at":          opts.ExpiresAt,
+				"root_piece_id":       opts.RootPieceID,
+				"encrypted_key_nonce": opts.EncryptedKeyNonce,
+				"encrypted_key":       opts.EncryptedKey,
+				"encrypted_size":      int64(opts.EncryptedSize),
+				"plain_offset":        opts.PlainOffset,
+				"plain_size":          int64(opts.PlainSize),
+				"encrypted_etag":      opts.EncryptedETag,
+				"redundancy":          opts.Redundancy,
+				"remote_alias_pieces": aliasPieces,
+				"placement":           opts.Placement,
+				"inline_data":         nil, // clear column in case it was inline segment before
+			}),
 		})
 		if err != nil {
 			return Error.Wrap(err)
@@ -1334,38 +1339,29 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			object.EncryptedUserData = opts.EncryptedUserData
 		}
 
-		columns := []string{
-			"project_id", "bucket_name", "object_key", "version",
-			"status", "segment_count",
-			"total_plain_size", "total_encrypted_size", "fixed_segment_size",
-			"encryption", "zombie_deletion_deadline",
-		}
-		values := []any{
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
-			nextStatus, len(finalSegments),
-
-			totalPlainSize, totalEncryptedSize, int64(fixedSegmentSize),
-			object.Encryption, nil, // zombie_deletion_deadline is NULL
+		updateMap := map[string]any{
+			"project_id":               opts.ProjectID,
+			"bucket_name":              opts.BucketName,
+			"object_key":               opts.ObjectKey,
+			"version":                  opts.Version,
+			"status":                   nextStatus,
+			"segment_count":            int64(len(finalSegments)),
+			"total_plain_size":         totalPlainSize,
+			"total_encrypted_size":     totalEncryptedSize,
+			"fixed_segment_size":       int64(fixedSegmentSize),
+			"encryption":               object.Encryption,
+			"zombie_deletion_deadline": nil,
 		}
 
 		if opts.OverrideEncryptedMetadata {
-			columns = append(columns,
-				"encrypted_metadata_nonce",
-				"encrypted_metadata",
-				"encrypted_metadata_encrypted_key",
-				"encrypted_etag",
-			)
-
-			values = append(values,
-				opts.EncryptedUserData.EncryptedMetadataNonce,
-				opts.EncryptedUserData.EncryptedMetadata,
-				opts.EncryptedUserData.EncryptedMetadataEncryptedKey,
-				opts.EncryptedUserData.EncryptedETag,
-			)
+			updateMap["encrypted_metadata_nonce"] = opts.EncryptedUserData.EncryptedMetadataNonce
+			updateMap["encrypted_metadata"] = opts.EncryptedUserData.EncryptedMetadata
+			updateMap["encrypted_metadata_encrypted_key"] = opts.EncryptedUserData.EncryptedMetadataEncryptedKey
+			updateMap["encrypted_etag"] = opts.EncryptedUserData.EncryptedETag
 		}
 
 		err = stx.tx.BufferWrite([]*spanner.Mutation{
-			spanner.Update("objects", columns, values),
+			spanner.UpdateMap("objects", updateMap),
 		})
 		if err != nil {
 			if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
@@ -1473,26 +1469,28 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	}
 
 	// Create insert mutation for objects table
-	objectInsert := spanner.Insert("objects",
-		[]string{
-			"project_id", "bucket_name", "object_key", "version",
-			"stream_id", "created_at", "expires_at", "status", "segment_count",
-			"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key", "encrypted_etag",
-			"total_plain_size", "total_encrypted_size", "fixed_segment_size",
-			"encryption", "zombie_deletion_deadline",
-			"retention_mode", "retain_until",
-		},
-		[]any{
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, nextVersion,
-			opts.StreamID, object.CreatedAt, object.ExpiresAt, nextStatus, len(finalSegments),
-			object.EncryptedUserData.EncryptedMetadataNonce, object.EncryptedUserData.EncryptedMetadata, object.EncryptedUserData.EncryptedMetadataEncryptedKey, object.EncryptedUserData.EncryptedETag,
-			totalPlainSize, totalEncryptedSize, int64(fixedSegmentSize),
-			object.Encryption, nil, // zombie_deletion_deadline is NULL
-			object.columnRetentionMode(),
-			object.columnRetainUntil(),
-		})
-
-	err = stx.tx.BufferWrite([]*spanner.Mutation{objectInsert})
+	err = stx.tx.BufferWrite([]*spanner.Mutation{spanner.InsertMap("objects", map[string]any{
+		"project_id":                       opts.ProjectID,
+		"bucket_name":                      opts.BucketName,
+		"object_key":                       opts.ObjectKey,
+		"version":                          nextVersion,
+		"stream_id":                        opts.StreamID,
+		"created_at":                       object.CreatedAt,
+		"expires_at":                       object.ExpiresAt,
+		"status":                           nextStatus,
+		"segment_count":                    int64(len(finalSegments)),
+		"encrypted_metadata_nonce":         object.EncryptedUserData.EncryptedMetadataNonce,
+		"encrypted_metadata":               object.EncryptedUserData.EncryptedMetadata,
+		"encrypted_metadata_encrypted_key": object.EncryptedUserData.EncryptedMetadataEncryptedKey,
+		"encrypted_etag":                   object.EncryptedUserData.EncryptedETag,
+		"total_plain_size":                 totalPlainSize,
+		"total_encrypted_size":             totalEncryptedSize,
+		"fixed_segment_size":               int64(fixedSegmentSize),
+		"encryption":                       object.Encryption,
+		"zombie_deletion_deadline":         nil,
+		"retention_mode":                   object.columnRetentionMode(),
+		"retain_until":                     object.columnRetainUntil(),
+	})})
 	if err != nil {
 		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
 			// TODO maybe we should check message if 'encryption' label is there
@@ -1559,6 +1557,18 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 				return ErrObjectLock.New(legalHoldErrMsg)
 			case retention.ActiveNow():
 				return ErrObjectLock.New(retentionErrMsg)
+			}
+
+			// delete the previous unversioned object
+			err := adapter.precommitDeleteExactObject(ctx, ObjectStream{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.BucketName,
+				ObjectKey:  opts.ObjectKey,
+				Version:    query.Unversioned.Version,
+				StreamID:   query.Unversioned.StreamID,
+			})
+			if err != nil {
+				return Error.Wrap(err)
 			}
 
 			// update the precommit metrics
@@ -1656,7 +1666,12 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 			}
 		}
 
-		return adapter.finalizeObjectCommit2(ctx, opts, query, &object)
+		return adapter.finalizeObjectCommit2(ctx, finalizeObjectCommit2{
+			Initial: opts.ObjectStream,
+			Object:  &object,
+
+			EncryptedMetadataChanged: opts.OverrideEncryptedMetadata,
+		})
 	})
 	if err != nil {
 		return Object{}, err
@@ -1671,27 +1686,18 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 	return object, nil
 }
 
-func (ptx *postgresTransactionAdapter) finalizeObjectCommit2(ctx context.Context, opts CommitObject, query PrecommitInfo, object *Object) (err error) {
+type finalizeObjectCommit2 struct {
+	Initial ObjectStream
+	Object  *Object
+
+	EncryptedMetadataChanged bool
+}
+
+func (ptx *postgresTransactionAdapter) finalizeObjectCommit2(ctx context.Context, opts finalizeObjectCommit2) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !opts.Versioned && query.Unversioned != nil {
-		// delete the previous unversioned object
-		_, err = ptx.tx.ExecContext(ctx, `
-			DELETE FROM objects
-			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, query.Unversioned.Version)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		_, err = ptx.tx.ExecContext(ctx, `
-			DELETE FROM segments
-			WHERE stream_id = $1
-		`, query.Unversioned.StreamID)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
+	initial := opts.Initial
+	object := opts.Object
 
 	var result sql.Result
 	result, err = ptx.tx.ExecContext(ctx, `
@@ -1711,7 +1717,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit2(ctx context.Context
 			encrypted_metadata_encrypted_key = $14,
 			encrypted_etag                   = $15
 		WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, object.Version,
+	`, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version, object.Version,
 		object.Status,
 		object.SegmentCount,
 		object.TotalPlainSize,
@@ -1733,62 +1739,36 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit2(ctx context.Context
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCommit2(ctx context.Context, opts CommitObject, query PrecommitInfo, object *Object) (err error) {
+func (stx *spannerTransactionAdapter) finalizeObjectCommit2(ctx context.Context, opts finalizeObjectCommit2) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !opts.Versioned && query.Unversioned != nil {
-		// delete the previous unversioned object
-		err := stx.tx.BufferWrite([]*spanner.Mutation{
-			spanner.Delete("objects", spanner.Key{
-				opts.ProjectID,
-				opts.BucketName,
-				opts.ObjectKey,
-				int64(query.Unversioned.Version),
-			}),
-			spanner.Delete("segments", spanner.KeyRange{
-				Start: spanner.Key{query.Unversioned.StreamID},
-				End:   spanner.Key{query.Unversioned.StreamID},
-				Kind:  spanner.ClosedClosed,
-			}),
-		})
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
+	initial := opts.Initial
+	object := opts.Object
 
-	if object.Version == query.HighestVersion {
-		columns := []string{
-			"project_id", "bucket_name", "object_key", "version",
-			"status", "segment_count",
-			"total_plain_size", "total_encrypted_size", "fixed_segment_size",
-			"encryption", "zombie_deletion_deadline",
-		}
-		values := []any{
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
-			object.Status, int64(object.SegmentCount),
-
-			object.TotalPlainSize, object.TotalEncryptedSize, int64(object.FixedSegmentSize),
-			object.Encryption, nil, // zombie_deletion_deadline is NULL
+	if object.Version == initial.Version {
+		updateMap := map[string]any{
+			"project_id":               initial.ProjectID,
+			"bucket_name":              initial.BucketName,
+			"object_key":               initial.ObjectKey,
+			"version":                  initial.Version,
+			"status":                   object.Status,
+			"segment_count":            int64(object.SegmentCount),
+			"total_plain_size":         object.TotalPlainSize,
+			"total_encrypted_size":     object.TotalEncryptedSize,
+			"fixed_segment_size":       int64(object.FixedSegmentSize),
+			"encryption":               object.Encryption,
+			"zombie_deletion_deadline": nil,
 		}
 
-		if opts.OverrideEncryptedMetadata {
-			columns = append(columns,
-				"encrypted_metadata_nonce",
-				"encrypted_metadata",
-				"encrypted_metadata_encrypted_key",
-				"encrypted_etag",
-			)
-
-			values = append(values,
-				object.EncryptedMetadataNonce,
-				object.EncryptedMetadata,
-				object.EncryptedMetadataEncryptedKey,
-				object.EncryptedETag,
-			)
+		if opts.EncryptedMetadataChanged {
+			updateMap["encrypted_metadata_nonce"] = object.EncryptedMetadataNonce
+			updateMap["encrypted_metadata"] = object.EncryptedMetadata
+			updateMap["encrypted_metadata_encrypted_key"] = object.EncryptedMetadataEncryptedKey
+			updateMap["encrypted_etag"] = object.EncryptedETag
 		}
 
 		err = stx.tx.BufferWrite([]*spanner.Mutation{
-			spanner.Update("objects", columns, values),
+			spanner.UpdateMap("objects", updateMap),
 		})
 		if err != nil {
 			return Error.New("failed to update object: %w", err)
@@ -1799,15 +1779,60 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit2(ctx context.Context,
 
 	err = stx.tx.BufferWrite([]*spanner.Mutation{
 		spanner.Delete("objects", spanner.Key{
-			opts.ProjectID,
-			opts.BucketName,
-			opts.ObjectKey,
-			int64(opts.Version),
+			initial.ProjectID,
+			initial.BucketName,
+			initial.ObjectKey,
+			int64(initial.Version),
 		}),
 		spannerInsertObject(RawObject(*object)),
 	})
 	if err != nil {
 		return Error.New("failed to update object: %w", err)
+	}
+
+	return nil
+}
+
+func (ptx *postgresTransactionAdapter) precommitDeleteExactObject(ctx context.Context, opts ObjectStream) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = ptx.tx.ExecContext(ctx, `
+		DELETE FROM objects
+		WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = ptx.tx.ExecContext(ctx, `
+		DELETE FROM segments
+		WHERE stream_id = $1
+	`, opts.StreamID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (stx *spannerTransactionAdapter) precommitDeleteExactObject(ctx context.Context, opts ObjectStream) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = stx.tx.BufferWrite([]*spanner.Mutation{
+		spanner.Delete("objects", spanner.Key{
+			opts.ProjectID,
+			opts.BucketName,
+			opts.ObjectKey,
+			int64(opts.Version),
+		}),
+		spanner.Delete("segments", spanner.KeyRange{
+			Start: spanner.Key{opts.StreamID},
+			End:   spanner.Key{opts.StreamID},
+			Kind:  spanner.ClosedClosed,
+		}),
+	})
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil
