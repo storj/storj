@@ -791,10 +791,11 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 				want:          rpcstatus.PlacementInvalidValue,
 			},
 			{
-				name:          "no entitlements row (NotFound) → error (all projects must have entitlements)",
-				feats:         nil,
-				placementName: "poland",
-				want:          rpcstatus.PlacementInvalidValue,
+				name:                  "no entitlements row (NotFound) → fallback to global allowlist",
+				feats:                 nil,
+				placementName:         "poland",
+				want:                  rpcstatus.OK,
+				expectBucketPlacement: &plPoland,
 			},
 		}
 
