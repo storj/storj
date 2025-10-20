@@ -83,6 +83,7 @@
                         <v-col cols="12">
                             <v-alert>
                                 Your report will include:
+                                <p v-if="includedDateString">Usage from {{ includedDateString }}.</p>
                                 <p v-if="projectSummary">Summary of your project(s) usage.</p>
                                 <p v-else>Summary of your bucket(s) usage.</p>
                                 <p v-if="includeCost">Detailed cost breakdown.</p>
@@ -127,6 +128,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
+import { useDate } from 'vuetify/framework';
 import { FileSpreadsheet } from 'lucide-vue-next';
 
 import { Download } from '@/utils/download';
@@ -144,6 +146,7 @@ enum Options {
 const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const notify = useNotify();
+const dateFns = useDate();
 
 const props = withDefaults(defineProps<{
     projectID?: string
@@ -161,14 +164,25 @@ const customRange = ref<Date[]>([]);
 
 const newUsageReportEnabled = computed(() => configStore.state.config.newDetailedUsageReportEnabled);
 
+const includedDateString = computed(() => {
+    if (!since.value || !before.value) return '';
+
+    const sinceStr = dateFns.format(since.value, 'monthAndYear');
+    const beforeStr = dateFns.format(before.value, 'monthAndYear');
+
+    if (sinceStr === beforeStr) {
+        return sinceStr;
+    }
+
+    return `${sinceStr} - ${beforeStr}`;
+});
+
 /**
  * Sets past month as active option.
  */
 function setPastMonth(): void {
-    const now = new Date();
-
-    since.value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
-    before.value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
+    since.value = (dateFns.getPreviousMonth(new Date()) as Date);
+    before.value = dateFns.endOfMonth(since.value) as Date;
     option.value = Options.Month;
 }
 
