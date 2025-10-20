@@ -2808,6 +2808,9 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 
 		Retention: retention,
 		LegalHold: req.LegalHold,
+
+		TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(streamID.Bucket)) ||
+			endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(req.NewBucket)),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -3103,6 +3106,8 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		},
 
 		IfNoneMatch: req.IfNoneMatch,
+
+		TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(req.NewBucket)),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
