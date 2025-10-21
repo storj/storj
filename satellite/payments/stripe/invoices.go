@@ -363,6 +363,21 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 			}
 		}
 
+		var start, end time.Time
+		if len(stripeInvoice.Lines.Data) > 0 {
+			// For an invoice created via the Stripe API, the period on the invoice itself
+			// is the date the invoice was created. See https://docs.stripe.com/stripe-data/query-billing-data#working-with-invoice-dates-and-periods
+			// So we take the period from the first line item instead.
+			line := stripeInvoice.Lines.Data[0]
+			if line.Period != nil {
+				start = time.Unix(line.Period.Start, 0)
+				end = time.Unix(line.Period.End, 0)
+			} else {
+				start = time.Unix(stripeInvoice.PeriodStart, 0)
+				end = time.Unix(stripeInvoice.PeriodEnd, 0)
+			}
+		}
+
 		page.Invoices = append(page.Invoices, payments.Invoice{
 			ID:          stripeInvoice.ID,
 			CustomerID:  stripeInvoice.Customer.ID,
@@ -370,7 +385,8 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 			Amount:      total,
 			Status:      string(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
-			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+			Start:       start,
+			End:         end,
 		})
 	}
 
