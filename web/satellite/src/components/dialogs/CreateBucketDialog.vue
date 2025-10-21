@@ -53,7 +53,7 @@
             <v-divider />
 
             <v-card-text class="pa-0">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="CreateStep.Name">
                         <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent>
                             <v-row>

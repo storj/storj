@@ -38,7 +38,7 @@
             <v-divider />
 
             <v-card-text class="pa-0">
-                <v-window v-model="step" :class="{ 'overflow-y-auto': step === 0 }">
+                <v-window v-model="step" :touch="false" :class="{ 'overflow-y-auto': step === 0 }">
                     <!-- QR code step -->
                     <v-window-item :value="0">
                         <v-card-item class="pa-6">

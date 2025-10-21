@@ -20,7 +20,7 @@
 
             <v-divider />
 
-            <v-window v-model="step" class="overflow-y-auto">
+            <v-window v-model="step" :touch="false" class="overflow-y-auto">
                 <v-window-item :value="ManageProjectPassphraseStep.ManageOptions">
                     <manage-options-step
                         :ref="stepInfo[ManageProjectPassphraseStep.ManageOptions].ref"

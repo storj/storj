@@ -40,7 +40,7 @@
 
             <v-divider />
 
-            <v-window v-model="step" class="overflow-y-auto">
+            <v-window v-model="step" :touch="false" class="overflow-y-auto">
                 <v-window-item :value="LockStep.Settings">
                     <v-row>
                         <v-col class="pa-6 mx-3">

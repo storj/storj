@@ -42,7 +42,7 @@
             <v-divider />
 
             <v-card-text class="pa-0">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="Step.Create">
                         <v-form v-model="formValid" class="pa-6" @submit.prevent="createAPIKey">
                             <v-row>

@@ -45,7 +45,7 @@
 
             <v-divider />
 
-            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep">
+            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep" :touch="false">
                 <v-window-item :value="CreateSteps.Info">
                     <v-form v-model="formValid" class="pa-6" @submit.prevent>
                         <v-row>

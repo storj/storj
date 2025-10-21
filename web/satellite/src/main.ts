@@ -8,11 +8,8 @@ import PAPA_PARSE_WORKER_URL from 'virtual:papa-parse-worker';
 import App from './App.vue';
 
 import { registerPlugins } from '@/plugins';
-import { registerMixins } from '@/mixins';
-
 const app = createApp(App);
 
-registerMixins(app);
 registerPlugins(app);
 
 app.mount('#app');

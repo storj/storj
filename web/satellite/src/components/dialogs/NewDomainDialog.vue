@@ -45,6 +45,7 @@
             <v-card-text class="pa-0">
                 <v-window
                     v-model="step"
+                    :touch="false"
                     class="new-domain__window"
                     :class="{ 'new-domain__window--loading': isFetching || isGenerating }"
                 >

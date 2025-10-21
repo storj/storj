@@ -37,7 +37,7 @@
             <v-divider />
 
             <v-card-text>
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="Step.EnterAmount">
                         <v-form v-model="formValid">
                             <p class="mb-4">Choose the amount you wish to deposit:</p>

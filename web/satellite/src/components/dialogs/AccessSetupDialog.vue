@@ -52,6 +52,7 @@
             <v-card-text class="pa-0">
                 <v-window
                     v-model="step"
+                    :touch="false"
                     class="setup-app__window"
                     :class="{ 'setup-app__window--loading': isFetching }"
                 >

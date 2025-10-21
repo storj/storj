@@ -26,7 +26,7 @@
             <v-divider />
 
             <v-card-item class="py-4">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="AddTokensDialogStep.AddTokens">
                         <AddTokensStep
                             is-root
