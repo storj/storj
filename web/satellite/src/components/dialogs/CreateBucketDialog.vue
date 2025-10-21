@@ -77,6 +77,9 @@
                                         minlength="3"
                                         maxlength="63"
                                     />
+                                    <v-alert v-if="dotsInName" variant="tonal" type="warning" rounded="lg">
+                                        Using dots (.) in the bucket name can cause incompatibility.
+                                    </v-alert>
                                 </v-col>
                             </v-row>
                         </v-form>
@@ -606,6 +609,8 @@ const selectStorageOptions = ['< 1TB', '1-10TB', '10-50TB', '50-100TB', '> 100TB
 const project = computed(() => projectsStore.state.selectedProject);
 const projectConfig = computed(() => projectsStore.state.selectedProjectConfig);
 const placementDetails = computed(() => projectConfig.value.availablePlacements || []);
+
+const dotsInName = computed<boolean>(() => bucketName.value.includes('.'));
 
 const defaultRetPeriodResult = computed<string>(() => {
     if (defaultRetentionPeriod.value === 0) return NO_MODE_SET;
