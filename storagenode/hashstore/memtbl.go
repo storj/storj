@@ -88,7 +88,7 @@ func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
 	// but it reduces code paths and is not that expensive overall.
-	m, err := OpenMemTbl(ctx, fh, cfg)
+	m, _, err := OpenMemTbl(ctx, fh, cfg)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -96,27 +96,27 @@ func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uin
 }
 
 // OpenMemTbl opens an existing hash table stored in the given file handle.
-func OpenMemTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *MemTbl, err error) {
+func OpenMemTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *MemTbl, _ map[uint64]*RecordTail, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ensure the file is appropriately aligned and seek it to the end for writes.
 	size, err := fh.Seek(0, io.SeekEnd)
 	if err != nil {
-		return nil, Error.New("unable to determine memtbl size: %w", err)
+		return nil, nil, Error.New("unable to determine memtbl size: %w", err)
 	} else if size < tbl_headerSize {
-		return nil, Error.New("memtbl size too small for header: size=%d", size)
+		return nil, nil, Error.New("memtbl size too small for header: size=%d", size)
 	}
 
 	// read the header information from the first page.
 	header, err := ReadTblHeader(fh)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	} else if header.Kind != TableKind_MemTbl {
-		return nil, Error.New("invalid kind: %d", header.Kind)
+		return nil, nil, Error.New("invalid kind: %d", header.Kind)
 	} else if header.LogSlots > tbl_maxLogSlots {
-		return nil, Error.New("logSlots too large: logSlots=%d", header.LogSlots)
+		return nil, nil, Error.New("logSlots too large: logSlots=%d", header.LogSlots)
 	} else if header.LogSlots < tbl_minLogSlots {
-		return nil, Error.New("logSlots too small: logSlots=%d", header.LogSlots)
+		return nil, nil, Error.New("logSlots too small: logSlots=%d", header.LogSlots)
 	}
 
 	m := &MemTbl{
@@ -138,13 +138,13 @@ func OpenMemTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *MemTbl, err e
 	}()
 
 	if err := m.ensureAlignedLocked(ctx); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if cfg.Mmap && platform.MmapSupported {
 		data, err := platform.Mmap(fh, int(size-size%platform.PageSize))
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, nil, Error.Wrap(err)
 		}
 		m.mmap, m.remap = data, true
 
@@ -157,12 +157,13 @@ func OpenMemTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *MemTbl, err e
 		// saying random => sequential => random.
 	}
 
-	// read the entries from the file.
-	if err := m.loadEntries(ctx); err != nil {
-		return nil, Error.Wrap(err)
+	// read the entries from the file and collect tails.
+	tails, err := m.loadEntries(ctx)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
 	}
 
-	return m, nil
+	return m, tails, nil
 }
 
 // rangeWithIdxLocked reads the file handle calling the provided cb with all of the records that
@@ -237,10 +238,18 @@ func (m *MemTbl) rangeWithIdxLocked(
 }
 
 // loadEntries is responsible for inserting all of the entries from the backing file into memory.
-func (m *MemTbl) loadEntries(ctx context.Context) (err error) {
+func (m *MemTbl) loadEntries(ctx context.Context) (_ map[uint64]*RecordTail, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return m.rangeWithIdxLocked(ctx, func(ctx context.Context, idx memtblIdx, rec Record) (bool, error) {
+	tails := make(map[uint64]*RecordTail)
+	if err := m.rangeWithIdxLocked(ctx, func(ctx context.Context, idx memtblIdx, rec Record) (bool, error) {
+		rt := tails[rec.Log]
+		if rt == nil {
+			rt = new(RecordTail)
+			tails[rec.Log] = rt
+		}
+		rt.Push(rec)
+
 		key := rec.Key
 		short := shortKeyFrom(key)
 		value := memtblIdxToValue(idx)
@@ -286,7 +295,15 @@ func (m *MemTbl) loadEntries(ctx context.Context) (err error) {
 		}
 
 		return true, nil
-	})
+	}); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, rt := range tails {
+		rt.Sort()
+	}
+
+	return tails, nil
 }
 
 // keyIndexLocked returns the index associated with the key.

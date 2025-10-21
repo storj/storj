@@ -97,7 +97,7 @@ func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 
 	// this is a bit wasteful in the sense that we will do some stat calls, reread the header page,
 	// and compute estimates, but it reduces code paths and is not that expensive overall.
-	h, err := OpenHashTbl(ctx, fh, cfg)
+	h, _, err := OpenHashTbl(ctx, fh, cfg)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -105,15 +105,15 @@ func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created ui
 }
 
 // OpenHashTbl opens an existing hash table stored in the given file handle.
-func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, err error) {
+func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, _ map[uint64]*RecordTail, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// compute the number of records from the file size of the hash table.
 	size, err := fileSize(fh)
 	if err != nil {
-		return nil, Error.New("unable to determine hashtbl size: %w", err)
+		return nil, nil, Error.New("unable to determine hashtbl size: %w", err)
 	} else if size < tbl_headerSize+pageSize { // header page + at least 1 page of records
-		return nil, Error.New("hashtbl file too small: size=%d", size)
+		return nil, nil, Error.New("hashtbl file too small: size=%d", size)
 	}
 
 	// compute the logSlots from the size.
@@ -121,25 +121,25 @@ func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, err
 
 	// sanity check that our logSlots is correct.
 	if int64(hashtblSize(logSlots)) != size {
-		return nil, Error.New("logSlots calculation mismatch: size=%d logSlots=%d", size, logSlots)
+		return nil, nil, Error.New("logSlots calculation mismatch: size=%d logSlots=%d", size, logSlots)
 	} else if logSlots > tbl_maxLogSlots {
-		return nil, Error.New("logSlots too large: logSlots=%d", logSlots)
+		return nil, nil, Error.New("logSlots too large: logSlots=%d", logSlots)
 	} else if logSlots < tbl_minLogSlots {
-		return nil, Error.New("logSlots too small: logSlots=%d", logSlots)
+		return nil, nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
 	// read the header information from the first page.
 	header, err := ReadTblHeader(fh)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	} else if header.Kind != TableKind_HashTbl {
-		return nil, Error.New("invalid kind: %d", header.Kind)
+		return nil, nil, Error.New("invalid kind: %d", header.Kind)
 	}
 
 	// zero is allowed for backward compatibility. but if it's specified, it had better match the
 	// file size or we got truncated or something.
 	if header.LogSlots != 0 && header.LogSlots != logSlots {
-		return nil, Error.New("logSlots mismatch: header=%d file=%d", header.LogSlots, logSlots)
+		return nil, nil, Error.New("logSlots mismatch: header=%d file=%d", header.LogSlots, logSlots)
 	}
 
 	h := &HashTbl{
@@ -159,7 +159,7 @@ func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, err
 	if cfg.Mmap && platform.MmapSupported {
 		data, err := platform.Mmap(fh, int(size))
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, nil, Error.Wrap(err)
 		}
 		h.mmap = newMMAPCache(data)
 
@@ -172,14 +172,13 @@ func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, err
 		platform.AdviseRandom(data)
 	}
 
-	// compute initial stats.
-	if err := h.Range(ctx, func(ctx context.Context, r Record) (bool, error) {
-		return true, nil
-	}); err != nil {
-		return nil, Error.Wrap(err)
+	// compute initial stats and collect tails.
+	tails, err := h.loadEntries(ctx)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
 	}
 
-	return h, nil
+	return h, tails, nil
 }
 
 // Stats returns a TblStats about the hash table.
@@ -256,6 +255,30 @@ func (h *HashTbl) slotForKey(k *Key) slotIdxT {
 	}
 	s := (64 - h.logSlots) % 64
 	return slotIdxT(v>>s) & h.slotMask
+}
+
+func (h *HashTbl) loadEntries(ctx context.Context) (_ map[uint64]*RecordTail, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	tails := make(map[uint64]*RecordTail)
+	if err := h.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+		rt := tails[rec.Log]
+		if rt == nil {
+			rt = new(RecordTail)
+			tails[rec.Log] = rt
+		}
+		rt.Push(rec)
+
+		return true, nil
+	}); err != nil {
+		return nil, err
+	}
+
+	for _, rt := range tails {
+		rt.Sort()
+	}
+
+	return tails, nil
 }
 
 // Load returns an estimate of what fraction of the hash table is occupied.

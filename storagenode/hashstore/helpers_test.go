@@ -528,7 +528,7 @@ func (tbl *testTbl) AssertReopen() {
 	fh, err := os.OpenFile(tbl.Handle().Name(), os.O_RDWR, 0)
 	assert.NoError(tbl.t, err)
 
-	h, err := OpenTable(tbl.t.Context(), fh, tbl.cfg)
+	h, _, err := OpenTable(tbl.t.Context(), fh, tbl.cfg)
 	assert.NoError(tbl.t, err)
 
 	tbl.Tbl = h
@@ -598,7 +598,7 @@ func (th *testHashTbl) AssertReopen() {
 	fh, err := os.OpenFile(th.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(th.t, err)
 
-	h, err := OpenHashTbl(th.t.Context(), fh, th.cfg)
+	h, _, err := OpenHashTbl(th.t.Context(), fh, th.cfg)
 	assert.NoError(th.t, err)
 
 	th.HashTbl = h
@@ -668,7 +668,7 @@ func (tm *testMemTbl) AssertReopen() {
 	fh, err := os.OpenFile(tm.fh.Name(), os.O_RDWR, 0)
 	assert.NoError(tm.t, err)
 
-	m, err := OpenMemTbl(tm.t.Context(), fh, tm.cfg)
+	m, _, err := OpenMemTbl(tm.t.Context(), fh, tm.cfg)
 	assert.NoError(tm.t, err)
 
 	tm.MemTbl = m

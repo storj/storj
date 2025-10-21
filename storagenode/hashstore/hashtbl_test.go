@@ -99,15 +99,15 @@ func TestHashTbl_SmallFileSizes(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	_, err = OpenHashTbl(ctx, fh, DefaultMmapConfig)
+	_, _, err = OpenHashTbl(ctx, fh, DefaultMmapConfig)
 	assert.Error(t, err)
 
 	assert.NoError(t, fh.Truncate(tbl_headerSize))
-	_, err = OpenHashTbl(ctx, fh, DefaultMmapConfig)
+	_, _, err = OpenHashTbl(ctx, fh, DefaultMmapConfig)
 	assert.Error(t, err)
 
 	assert.NoError(t, fh.Truncate(tbl_headerSize+(pageSize-1)))
-	_, err = OpenHashTbl(ctx, fh, DefaultMmapConfig)
+	_, _, err = OpenHashTbl(ctx, fh, DefaultMmapConfig)
 	assert.Error(t, err)
 }
 
@@ -255,6 +255,6 @@ func TestHashTbl_IncorrectLogSlots(t *testing.T) {
 
 	assert.NoError(t, h.fh.Truncate(int64(hashtblSize(tbl_minLogSlots+1))))
 
-	_, err := OpenHashTbl(ctx, h.fh, DefaultMmapConfig)
+	_, _, err := OpenHashTbl(ctx, h.fh, DefaultMmapConfig)
 	assert.Error(t, err)
 }

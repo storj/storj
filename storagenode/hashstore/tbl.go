@@ -107,26 +107,26 @@ func writeBool(x *byte, v bool) {
 }
 
 // OpenTable reads the header and opens the appropriate table type.
-func OpenTable(ctx context.Context, fh *os.File, cfg Config) (_ Tbl, err error) {
+func OpenTable(ctx context.Context, fh *os.File, cfg Config) (_ Tbl, _ map[uint64]*RecordTail, err error) {
 	header, err := ReadTblHeader(fh)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 	switch header.Kind {
 	case TableKind_HashTbl:
-		tbl, err := OpenHashTbl(ctx, fh, cfg.Hashtbl)
+		tbl, tails, err := OpenHashTbl(ctx, fh, cfg.Hashtbl)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return tbl, nil
+		return tbl, tails, nil
 	case TableKind_MemTbl:
-		tbl, err := OpenMemTbl(ctx, fh, cfg.Memtbl)
+		tbl, tails, err := OpenMemTbl(ctx, fh, cfg.Memtbl)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return tbl, nil
+		return tbl, tails, nil
 	default:
-		return nil, Error.New("unknown table kind: %d", header.Kind)
+		return nil, nil, Error.New("unknown table kind: %d", header.Kind)
 	}
 }
 

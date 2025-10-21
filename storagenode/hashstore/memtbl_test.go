@@ -311,6 +311,6 @@ func TestMemTbl_ReopenWithTooManyEntries(t *testing.T) {
 	_, err := m.fh.Write(buf[:])
 	assert.NoError(t, err)
 
-	_, err = OpenMemTbl(t.Context(), m.fh, MmapCfg{})
+	_, _, err = OpenMemTbl(t.Context(), m.fh, MmapCfg{})
 	assert.Error(t, err)
 }

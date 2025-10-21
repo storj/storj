@@ -6,6 +6,7 @@ package hashstore
 import (
 	"encoding/binary"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/zeebo/xxh3"
@@ -125,6 +126,11 @@ func (r Record) String() string {
 	)
 }
 
+// IsZero returns true if the record is the zero value.
+func (r Record) IsZero() bool {
+	return r == Record{}
+}
+
 // RecordsEqualish returns true if the records are equalish. Records are equalish if they are equal
 // except for the expires time.
 func RecordsEqualish(a, b Record) bool {
@@ -155,4 +161,34 @@ func (r *Record) ReadFrom(buf *[RecordSize]byte) bool {
 	r.Created = binary.LittleEndian.Uint32(buf[50:50+4]) & 0xffffff
 	r.Expires = Expiration(binary.LittleEndian.Uint32(buf[53:53+4]) & 0xffffff)
 	return binary.LittleEndian.Uint64(buf[56:56+8]) == checksumBuffer(buf)
+}
+
+// RecordTail is a small fixed-size array of records used to track the most recent records in a log.
+type RecordTail [5]Record
+
+// Push adds a record to the tail if it has a larger offset then any record already in the tail.
+func (r *RecordTail) Push(rec Record) {
+	mi, moff := 0, r[0].Offset
+	for i := 1; i < len(r); i++ {
+		if r[i].IsZero() || r[i].Offset < moff {
+			mi, moff = i, r[i].Offset
+		}
+	}
+	if rec.Offset >= moff {
+		r[mi] = rec
+	}
+}
+
+// Sort sorts the records in the tail by offset, breaking ties by key.
+func (r *RecordTail) Sort() {
+	sort.Slice(r[:], func(i, j int) bool {
+		switch {
+		case r[i].Offset > r[j].Offset:
+			return true
+		case r[i].Offset < r[j].Offset:
+			return false
+		default:
+			return string(r[i].Key[:]) > string(r[j].Key[:])
+		}
+	})
 }

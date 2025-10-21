@@ -232,11 +232,12 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 	}
 
 	// open the hashtbl with the correct file handle.
-	s.tbl, err = OpenTable(ctx, fh, s.cfg)
+	tbl, tails, err := OpenTable(ctx, fh, s.cfg)
 	if err != nil {
 		_ = fh.Close()
 		return nil, Error.Wrap(err)
 	}
+	s.tbl = tbl
 
 	// best effort clean up previous hashtbls that were left behind from a previous execution.
 	for parsed, err := range parseFiles(parseHashtbl, s.tablePath) {
@@ -259,6 +260,9 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 			s.maxHint.Store(parsed.data)
 		}
 	}
+
+	// use the tails to do an fsck
+	_ = tails
 
 	// write out a hint file after we have everything loaded. in the future, it will be used to
 	// make file system check faster, and we'll write it out after the check has finished.
@@ -535,9 +539,7 @@ func (s *Store) readerForRecord(ctx context.Context, rec Record) (_ *Reader, err
 		return nil, Error.New("record points to unknown log file rec=%v", rec)
 	}
 
-	fh, err := s.lru.Get(lf.path, func(path string) (*os.File, error) {
-		return os.OpenFile(path, os.O_RDONLY, 0)
-	})
+	fh, err := s.lru.Get(lf.path, os.Open)
 	if err != nil {
 		return nil, Error.New("unable to open log file=%q: %w", lf.path, err)
 	}

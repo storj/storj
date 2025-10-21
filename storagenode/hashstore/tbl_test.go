@@ -344,10 +344,10 @@ func TestTable_OpenIncorrectKind(t *testing.T) {
 	m := newTestMemTbl(t, DefaultMmapConfig, tbl_minLogSlots)
 	defer m.Close()
 
-	_, err := OpenMemTbl(ctx, h.fh, DefaultMmapConfig)
+	_, _, err := OpenMemTbl(ctx, h.fh, DefaultMmapConfig)
 	assert.Error(t, err)
 
-	_, err = OpenHashTbl(ctx, m.fh, DefaultMmapConfig)
+	_, _, err = OpenHashTbl(ctx, m.fh, DefaultMmapConfig)
 	assert.Error(t, err)
 }
 
