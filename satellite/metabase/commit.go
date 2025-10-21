@@ -1352,12 +1352,11 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		}
 
 		// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
-		if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+		if object.Encryption.IsZero() {
+			if opts.Encryption.IsZero() {
+				return ErrInvalidRequest.New("Encryption is missing")
+			}
 			object.Encryption = opts.Encryption
-		} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
-			return ErrInvalidRequest.New("Encryption is missing")
-		} else {
-			// leave the old value
 		}
 		if opts.OverrideEncryptedMetadata {
 			object.EncryptedUserData = opts.EncryptedUserData
@@ -1476,12 +1475,11 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	}
 
 	// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
-	if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+	if object.Encryption.IsZero() {
+		if opts.Encryption.IsZero() {
+			return ErrInvalidRequest.New("Encryption is missing")
+		}
 		object.Encryption = opts.Encryption
-	} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
-		return ErrInvalidRequest.New("Encryption is missing")
-	} else {
-		// leave as is
 	}
 	if opts.OverrideEncryptedMetadata {
 		object.EncryptedUserData = opts.EncryptedUserData
@@ -1681,12 +1679,11 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 			}
 
 			// TODO: should we allow to override existing encryption parameters or return error if don't match with opts?
-			if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+			if object.Encryption.IsZero() {
+				if opts.Encryption.IsZero() {
+					return ErrInvalidRequest.New("Encryption is missing")
+				}
 				object.Encryption = opts.Encryption
-			} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
-				return ErrInvalidRequest.New("Encryption is missing")
-			} else {
-				// leave the old value
 			}
 			if opts.OverrideEncryptedMetadata {
 				object.EncryptedUserData = opts.EncryptedUserData
@@ -2068,12 +2065,11 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 			}
 
 			// TODO: should we allow to override existing encryption parameters or return error if don't match with opts?
-			if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+			if object.Encryption.IsZero() {
+				if opts.Encryption.IsZero() {
+					return ErrInvalidRequest.New("Encryption is missing")
+				}
 				object.Encryption = opts.Encryption
-			} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
-				return ErrInvalidRequest.New("Encryption is missing")
-			} else {
-				// leave the old value
 			}
 		}
 
