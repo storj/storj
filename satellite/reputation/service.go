@@ -135,13 +135,9 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 		return err
 	}
 
-	// only update node if its health status has changed, or it's a newly vetted
-	// node.
-	// this prevents the need to require caller of ApplyAudit() to always know
-	// the previous VettedAt time for a node.
-	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
-	// for the VettedAt status is done using time values that are truncated to second precision.
-	changed, repChanges := hasReputationChanged(*statusUpdate, reputation, now)
+	// Only update node if its health status has changed, or the vetted information
+	// is not set in the nodes table yet.
+	changed, repChanges := hasReputationChanged(*statusUpdate, reputation)
 	if changed {
 		reputationUpdate := &overlay.ReputationUpdate{
 			Disqualified:           statusUpdate.Disqualified,
@@ -269,7 +265,7 @@ func (service *Service) Close() error { return nil }
 
 // hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
 // function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
-func hasReputationChanged(updated Info, current overlay.ReputationStatus, now time.Time) (changed bool, repChanges []nodeevents.Type) {
+func hasReputationChanged(updated Info, current overlay.ReputationStatus) (changed bool, repChanges []nodeevents.Type) {
 	// there is no unDQ, so only update if changed from nil to not nil
 	if current.Disqualified == nil && updated.Disqualified != nil {
 		repChanges = append(repChanges, nodeevents.Disqualified)
