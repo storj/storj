@@ -1046,6 +1046,10 @@ type CommitObject struct {
 	OverrideEncryptedMetadata bool
 	EncryptedUserData
 
+	// TODO: maybe this should use segment ranges rather than individual items
+	SpecificSegments bool
+	OnlySegments     []SegmentPosition
+
 	DisallowDelete bool
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
@@ -1073,6 +1077,20 @@ func (c *CommitObject) Verify() error {
 		err := c.EncryptedUserData.Verify()
 		if err != nil {
 			return err
+		}
+	}
+
+	if c.SpecificSegments {
+		if len(c.OnlySegments) == 0 {
+			return ErrInvalidRequest.New("no segments specified for commit")
+		}
+
+		if err := verifySegmentOrder(c.OnlySegments); err != nil {
+			return err
+		}
+	} else {
+		if len(c.OnlySegments) > 0 {
+			return ErrInvalidRequest.New("segments specified for commit")
 		}
 	}
 
@@ -1119,6 +1137,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		return Object{}, err
 	}
 
+	if opts.SpecificSegments {
+		return Object{}, Error.New("not supported")
+	}
+
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		MaxCommitDelay: opts.MaxCommitDelay,
@@ -1135,6 +1157,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		finalSegments := convertToFinalSegments(segments)
+
 		if err := adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments); err != nil {
 			return Error.New("failed to update segments: %w", err)
 		}
@@ -1583,7 +1606,24 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 			return err
 		}
 
-		finalSegments := convertToFinalSegments(query.Segments)
+		var finalSegments []segmentToCommit
+
+		if opts.SpecificSegments {
+			var segmentsToDelete []SegmentPosition
+			finalSegments, segmentsToDelete, err = determineCommitActions(opts.OnlySegments, query.Segments)
+			if err != nil {
+				return err
+			}
+
+			deletedSegmentCount, err := adapter.deleteSegmentsNotInCommit(ctx, opts.StreamID, segmentsToDelete)
+			if err != nil {
+				return err
+			}
+			precommit.DeletedSegmentCount += int(deletedSegmentCount)
+		} else {
+			finalSegments = convertToFinalSegments(query.Segments)
+		}
+
 		if err := adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments); err != nil {
 			return Error.New("failed to update segments: %w", err)
 		}
