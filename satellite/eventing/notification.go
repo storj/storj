@@ -5,6 +5,7 @@ package eventing
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -103,12 +104,12 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 		}
 		record.EventName = eventName
 
-		if bucketName, ok := extractString(keys, "bucket_name"); ok {
+		if bucketName, ok := extractString("bucket_name", keys); ok {
 			record.S3.Bucket.Name = bucketName
 			record.S3.Bucket.Arn = fmt.Sprintf("arn:storj:s3:::%s", bucketName)
 		}
 
-		if projectID, ok := extractString(keys, "project_id"); ok {
+		if projectID, ok := extractString("project_id", keys); ok {
 			projectIDBytes, err := base64.StdEncoding.DecodeString(projectID)
 			if err != nil {
 				return Event{}, errs.New("invalid base64 project_id: %w", err)
@@ -120,7 +121,7 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 			record.S3.Bucket.OwnerIdentity.PrincipalId = projectID.String()
 		}
 
-		if objectKey, ok := extractString(keys, "object_key"); ok {
+		if objectKey, ok := extractString("object_key", keys); ok {
 			objectKeyBytes, err := base64.StdEncoding.DecodeString(objectKey)
 			if err != nil {
 				return Event{}, errs.New("invalid base64 object_key: %w", err)
@@ -128,12 +129,23 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 			record.S3.Object.Key = string(objectKeyBytes)
 		}
 
-		if totalPlainSize, ok := extractInt64(newValues, "total_plain_size"); ok {
+		if totalPlainSize, ok := extractFirstInt64("total_plain_size", newValues, oldValues); ok {
 			record.S3.Object.Size = totalPlainSize
 		}
 
-		if version, ok := extractInt64(keys, "version"); ok {
-			record.S3.Object.VersionId = strconv.FormatInt(version, 10)
+		if version, ok := extractInt64("version", keys); ok {
+			if streamID, ok := extractFirstString("stream_id", newValues, oldValues); ok {
+				streamIDBytes, err := base64.StdEncoding.DecodeString(streamID)
+				if err != nil {
+					return Event{}, errs.New("invalid base64 stream_id: %w", err)
+				}
+				streamID, err := uuid.FromBytes(streamIDBytes)
+				if err != nil {
+					return Event{}, errs.New("invalid stream_id uuid: %w", err)
+				}
+				streamVersionID := metabase.NewStreamVersionID(metabase.Version(version), streamID)
+				record.S3.Object.VersionId = hex.EncodeToString(streamVersionID.Bytes())
+			}
 		}
 
 		commitNanos := dataRecord.CommitTimestamp.UnixNano()
@@ -180,7 +192,7 @@ func parseNullJSONMap(nj spanner.NullJSON, what string) (map[string]interface{},
 func determineEventName(modType string, newValues, oldValues map[string]interface{}) string {
 	switch modType {
 	case "INSERT":
-		if newStatus, ok := extractInt64(newValues, "status"); ok {
+		if newStatus, ok := extractInt64("status", newValues); ok {
 			switch metabase.ObjectStatus(newStatus) {
 			case metabase.CommittedUnversioned, metabase.CommittedVersioned:
 				return S3ObjectCreatedPut
@@ -189,8 +201,8 @@ func determineEventName(modType string, newValues, oldValues map[string]interfac
 			}
 		}
 	case "UPDATE":
-		if newStatus, ok := extractInt64(newValues, "status"); ok {
-			if oldStatus, ok := extractInt64(oldValues, "status"); ok && metabase.ObjectStatus(oldStatus) == metabase.Pending {
+		if newStatus, ok := extractInt64("status", newValues); ok {
+			if oldStatus, ok := extractInt64("status", oldValues); ok && metabase.ObjectStatus(oldStatus) == metabase.Pending {
 				switch metabase.ObjectStatus(newStatus) {
 				case metabase.CommittedUnversioned, metabase.CommittedVersioned:
 					return S3ObjectCreatedPut
@@ -198,7 +210,7 @@ func determineEventName(modType string, newValues, oldValues map[string]interfac
 			}
 		}
 	case "DELETE":
-		if oldStatus, ok := extractInt64(oldValues, "status"); ok {
+		if oldStatus, ok := extractInt64("status", oldValues); ok {
 			switch metabase.ObjectStatus(oldStatus) {
 			case metabase.CommittedUnversioned, metabase.CommittedVersioned,
 				metabase.DeleteMarkerVersioned, metabase.DeleteMarkerUnversioned:
@@ -209,7 +221,7 @@ func determineEventName(modType string, newValues, oldValues map[string]interfac
 	return ""
 }
 
-func extractString(values map[string]interface{}, key string) (string, bool) {
+func extractString(key string, values map[string]interface{}) (string, bool) {
 	if values == nil {
 		return "", false
 	}
@@ -221,7 +233,17 @@ func extractString(values map[string]interface{}, key string) (string, bool) {
 	return "", false
 }
 
-func extractInt64(values map[string]interface{}, key string) (int64, bool) {
+// extractFirstString calls extractString on the first values map, if not found continue to the next ones.
+func extractFirstString(key string, values ...map[string]interface{}) (string, bool) {
+	for _, v := range values {
+		if iv, ok := extractString(key, v); ok {
+			return iv, true
+		}
+	}
+	return "", false
+}
+
+func extractInt64(key string, values map[string]interface{}) (int64, bool) {
 	if values == nil {
 		return 0, false
 	}
@@ -242,6 +264,16 @@ func extractInt64(values map[string]interface{}, key string) (int64, bool) {
 				return i, true
 			}
 
+		}
+	}
+	return 0, false
+}
+
+// extractFirstInt64 calls extractInt64 on the first values map, if not found continue to the next ones.
+func extractFirstInt64(key string, values ...map[string]interface{}) (int64, bool) {
+	for _, v := range values {
+		if iv, ok := extractInt64(key, v); ok {
+			return iv, true
 		}
 	}
 	return 0, false
