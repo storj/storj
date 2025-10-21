@@ -26,7 +26,7 @@
                 <template #append>
                     <v-btn
                         id="close-share"
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -204,7 +204,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Check, Copy, Code2, Download, Eye, Link, Share2 } from 'lucide-vue-next';
+import { Check, Copy, Code2, Download, Eye, Link, Share2, X } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

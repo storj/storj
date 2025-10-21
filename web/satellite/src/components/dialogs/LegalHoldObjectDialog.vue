@@ -28,7 +28,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -132,7 +132,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { FileLock2 } from 'lucide-vue-next';
+import { FileLock2, X } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';

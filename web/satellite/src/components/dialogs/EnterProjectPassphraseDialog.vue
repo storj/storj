@@ -27,7 +27,7 @@
 
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -123,7 +123,7 @@ import {
     VTextField,
     VSheet,
 } from 'vuetify/components';
-import { LockKeyhole } from 'lucide-vue-next';
+import { LockKeyhole, X } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

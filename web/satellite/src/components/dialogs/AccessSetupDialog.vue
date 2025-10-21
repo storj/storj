@@ -22,7 +22,7 @@
                     </v-card-subtitle>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -226,7 +226,7 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { useRoute } from 'vue-router';
-import { BookOpenText, KeyRound } from 'lucide-vue-next';
+import { BookOpenText, KeyRound, X } from 'lucide-vue-next';
 
 import {
     AccessType,

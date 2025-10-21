@@ -23,7 +23,7 @@
                 <v-card-title class="font-weight-bold">Session timed out?</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -72,7 +72,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { Timer } from 'lucide-vue-next';
+import { Timer, X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';

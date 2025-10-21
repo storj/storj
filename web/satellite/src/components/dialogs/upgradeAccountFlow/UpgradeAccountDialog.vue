@@ -18,7 +18,7 @@
                 <v-card-title class="font-weight-bold">{{ stepTitles[step] }}</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -107,6 +107,7 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
+import { X } from 'lucide-vue-next';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/composables/useNotify';

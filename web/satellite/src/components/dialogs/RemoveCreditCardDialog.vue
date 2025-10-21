@@ -23,7 +23,7 @@
                 <v-card-title class="font-weight-bold">Remove Card</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -80,6 +80,7 @@ import {
     VBtn,
     VSheet,
 } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';

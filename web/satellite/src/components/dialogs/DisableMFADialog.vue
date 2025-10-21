@@ -24,7 +24,7 @@
                 <v-card-title class="font-weight-bold">Disable Two-Factor</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -116,7 +116,7 @@ import {
     VTextField,
     VSheet,
 } from 'vuetify/components';
-import { RectangleEllipsis } from 'lucide-vue-next';
+import { RectangleEllipsis, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';

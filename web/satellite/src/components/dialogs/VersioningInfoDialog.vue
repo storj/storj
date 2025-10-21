@@ -27,7 +27,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -141,7 +141,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { History } from 'lucide-vue-next';
+import { History, X } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';

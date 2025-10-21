@@ -39,7 +39,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -449,7 +449,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { ArrowRight, Check } from 'lucide-vue-next';
+import { ArrowRight, Check, X } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';

@@ -23,7 +23,7 @@
                 <v-card-title class="font-weight-bold">Apply New Coupon</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -88,7 +88,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions, VSheet } from 'vuetify/components';
-import { TicketPercent } from 'lucide-vue-next';
+import { TicketPercent, X } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

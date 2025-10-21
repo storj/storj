@@ -28,7 +28,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -314,7 +314,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Trash2 } from 'lucide-vue-next';
+import { Trash2, X } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
 import { DeleteAccountStep } from '@/types/accountActions';

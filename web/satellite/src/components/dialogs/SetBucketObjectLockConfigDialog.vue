@@ -24,7 +24,7 @@
                 <v-card-title class="font-weight-bold">Lock Settings</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -102,7 +102,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { Lock } from 'lucide-vue-next';
+import { Lock, X } from 'lucide-vue-next';
 import type { ObjectLockRule } from '@aws-sdk/client-s3';
 
 import { useLoading } from '@/composables/useLoading';

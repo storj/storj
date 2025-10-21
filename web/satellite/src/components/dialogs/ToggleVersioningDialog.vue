@@ -20,7 +20,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -93,6 +93,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { computed } from 'vue';
+import { X } from 'lucide-vue-next';
 
 import { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';

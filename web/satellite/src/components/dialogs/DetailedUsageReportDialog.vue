@@ -28,7 +28,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -129,7 +129,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useDate } from 'vuetify/framework';
-import { FileSpreadsheet } from 'lucide-vue-next';
+import { FileSpreadsheet, X } from 'lucide-vue-next';
 
 import { Download } from '@/utils/download';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

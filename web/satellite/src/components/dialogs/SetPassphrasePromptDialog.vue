@@ -26,7 +26,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -91,7 +91,7 @@ import {
     VBtn,
     VSheet,
 } from 'vuetify/components';
-import { LockKeyhole } from 'lucide-vue-next';
+import { LockKeyhole, X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';

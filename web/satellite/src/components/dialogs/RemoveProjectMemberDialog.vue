@@ -23,7 +23,7 @@
                 <v-card-title class="font-weight-bold">Remove {{ memberInviteText }}</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -99,7 +99,7 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
-import { UserMinus } from 'lucide-vue-next';
+import { UserMinus, X } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';

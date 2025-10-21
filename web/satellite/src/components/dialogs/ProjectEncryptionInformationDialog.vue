@@ -27,7 +27,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -148,7 +148,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { computed, ref } from 'vue';
-import { Plus, LockKeyhole } from 'lucide-vue-next';
+import { Plus, LockKeyhole, X } from 'lucide-vue-next';
 
 import {
     AnalyticsEvent,

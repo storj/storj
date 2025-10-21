@@ -28,7 +28,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -230,7 +230,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { MailPlus } from 'lucide-vue-next';
+import { MailPlus, X } from 'lucide-vue-next';
 
 import { ChangeEmailStep } from '@/types/accountActions';
 import { User } from '@/types/users';

@@ -28,7 +28,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -187,7 +187,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Key } from 'lucide-vue-next';
+import { Key, X } from 'lucide-vue-next';
 
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
