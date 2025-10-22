@@ -19,6 +19,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
@@ -48,7 +49,8 @@ type commitObjectTransactionAdapter interface {
 	finalizeObjectCommit(ctx context.Context, opts CommitObject, nextStatus ObjectStatus, nextVersion Version, finalSegments []PrecommitSegment, totalPlainSize int64, totalEncryptedSize int64, fixedSegmentSize int32, object *Object) error
 	// finalizeObjectCommit2 updates the specificed pending object.
 	finalizeObjectCommit2(ctx context.Context, opts finalizeObjectCommit2) (err error)
-	finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error)
+
+	precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error)
 
 	// precommitDeleteExactObject deletes the exact object and segments.
 	// It does not check object lock constraints.
@@ -393,7 +395,6 @@ func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts Begin
 		}).Do(func(row *spanner.Row) error {
 			return Error.Wrap(row.Columns(&object.CreatedAt))
 		})
-
 		if err != nil {
 			if errCode := spanner.ErrCode(err); errCode == codes.AlreadyExists {
 				return Error.Wrap(ErrObjectAlreadyExists.New(""))
@@ -1044,6 +1045,10 @@ type CommitObject struct {
 	OverrideEncryptedMetadata bool
 	EncryptedUserData
 
+	// TODO: maybe this should use segment ranges rather than individual items
+	SpecificSegments bool
+	OnlySegments     []SegmentPosition
+
 	DisallowDelete bool
 
 	// Versioned indicates whether an object is allowed to have multiple versions.
@@ -1071,6 +1076,20 @@ func (c *CommitObject) Verify() error {
 		err := c.EncryptedUserData.Verify()
 		if err != nil {
 			return err
+		}
+	}
+
+	if c.SpecificSegments {
+		if len(c.OnlySegments) == 0 {
+			return ErrInvalidRequest.New("no segments specified for commit")
+		}
+
+		if err := verifySegmentOrder(c.OnlySegments); err != nil {
+			return err
+		}
+	} else {
+		if len(c.OnlySegments) > 0 {
+			return ErrInvalidRequest.New("segments specified for commit")
 		}
 	}
 
@@ -1117,6 +1136,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		return Object{}, err
 	}
 
+	if opts.SpecificSegments {
+		return Object{}, Error.New("not supported")
+	}
+
 	var precommit PrecommitConstraintResult
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		MaxCommitDelay: opts.MaxCommitDelay,
@@ -1133,6 +1156,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		finalSegments := convertToFinalSegments(segments)
+
 		if err := adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments); err != nil {
 			return Error.New("failed to update segments: %w", err)
 		}
@@ -1328,12 +1352,11 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		}
 
 		// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
-		if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+		if object.Encryption.IsZero() {
+			if opts.Encryption.IsZero() {
+				return ErrInvalidRequest.New("Encryption is missing")
+			}
 			object.Encryption = opts.Encryption
-		} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
-			return ErrInvalidRequest.New("Encryption is missing")
-		} else {
-			// leave the old value
 		}
 		if opts.OverrideEncryptedMetadata {
 			object.EncryptedUserData = opts.EncryptedUserData
@@ -1452,12 +1475,11 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	}
 
 	// TODO should we allow to override existing encryption parameters or return error if don't match with opts?
-	if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+	if object.Encryption.IsZero() {
+		if opts.Encryption.IsZero() {
+			return ErrInvalidRequest.New("Encryption is missing")
+		}
 		object.Encryption = opts.Encryption
-	} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
-		return ErrInvalidRequest.New("Encryption is missing")
-	} else {
-		// leave as is
 	}
 	if opts.OverrideEncryptedMetadata {
 		object.EncryptedUserData = opts.EncryptedUserData
@@ -1521,6 +1543,7 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		query, err := adapter.precommitQuery(ctx, PrecommitQuery{
 			ObjectStream:   opts.ObjectStream,
+			Pending:        true,
 			Unversioned:    !opts.Versioned,
 			HighestVisible: opts.IfNoneMatch.All(),
 		})
@@ -1580,7 +1603,24 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 			return err
 		}
 
-		finalSegments := convertToFinalSegments(query.Segments)
+		var finalSegments []segmentToCommit
+
+		if opts.SpecificSegments {
+			var segmentsToDelete []SegmentPosition
+			finalSegments, segmentsToDelete, err = determineCommitActions(opts.OnlySegments, query.Segments)
+			if err != nil {
+				return err
+			}
+
+			deletedSegmentCount, err := adapter.deleteSegmentsNotInCommit(ctx, opts.StreamID, segmentsToDelete)
+			if err != nil {
+				return err
+			}
+			precommit.DeletedSegmentCount += int(deletedSegmentCount)
+		} else {
+			finalSegments = convertToFinalSegments(query.Segments)
+		}
+
 		if err := adapter.updateSegmentOffsets(ctx, opts.StreamID, finalSegments); err != nil {
 			return Error.New("failed to update segments: %w", err)
 		}
@@ -1613,6 +1653,7 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 			object.ProjectID = opts.ProjectID
 			object.BucketName = opts.BucketName
 			object.ObjectKey = opts.ObjectKey
+			object.Version = db.nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion)
 			object.Status = committedWhereVersioned(opts.Versioned)
 			object.SegmentCount = int32(len(finalSegments))
 			object.TotalPlainSize = totalPlainSize
@@ -1638,12 +1679,11 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 			}
 
 			// TODO: should we allow to override existing encryption parameters or return error if don't match with opts?
-			if object.Encryption.IsZero() && !opts.Encryption.IsZero() {
+			if object.Encryption.IsZero() {
+				if opts.Encryption.IsZero() {
+					return ErrInvalidRequest.New("Encryption is missing")
+				}
 				object.Encryption = opts.Encryption
-			} else if object.Encryption.IsZero() && opts.Encryption.IsZero() {
-				return ErrInvalidRequest.New("Encryption is missing")
-			} else {
-				// leave the old value
 			}
 			if opts.OverrideEncryptedMetadata {
 				object.EncryptedUserData = opts.EncryptedUserData
@@ -1941,37 +1981,102 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		TransactionTag: "commit-inline-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
-		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:       opts.Location(),
-			Versioned:      opts.Versioned,
-			DisallowDelete: opts.DisallowDelete,
-			CheckExistence: opts.IfNoneMatch.All(),
+		// TODO: verify that a pending object doesn't exist already.
+		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
+			ObjectStream:   opts.ObjectStream,
+			Pending:        false,
+			Unversioned:    !opts.Versioned,
+			HighestVisible: opts.IfNoneMatch.All(),
 		}, adapter)
 		if err != nil {
 			return err
 		}
 
-		nextVersion := precommit.HighestVersion + 1
-		nextStatus := committedWhereVersioned(opts.Versioned)
+		// We should only commit when an object already doesn't exist.
+		if opts.IfNoneMatch.All() {
+			if query.HighestVisible.IsCommitted() {
+				return ErrFailedPrecondition.New("object already exists")
+			}
+		}
 
-		object.StreamID = opts.StreamID
-		object.ProjectID = opts.ProjectID
-		object.BucketName = opts.BucketName
-		object.ObjectKey = opts.ObjectKey
-		object.Version = nextVersion
-		object.Status = nextStatus
-		object.SegmentCount = 1
-		object.TotalPlainSize = int64(opts.CommitInlineSegment.PlainSize)
-		object.TotalEncryptedSize = int64(int32(len(opts.CommitInlineSegment.InlineData)))
-		object.ExpiresAt = opts.ExpiresAt
-		object.Encryption = opts.Encryption
-		object.EncryptedUserData = opts.EncryptedUserData
-		object.Retention = opts.Retention
-		object.LegalHold = opts.LegalHold
+		// When committing unversioned objects we need to delete any previous unversioned objects.
+		if !opts.Versioned && query.Unversioned != nil {
+			// If we are not allowed to delete the object we cannot commit.
+			if opts.DisallowDelete {
+				return ErrPermissionDenied.New("no permissions to delete existing object")
+			}
 
-		segment := &Segment{
+			// Retention is not allowed for unversioned objects,
+			// however the check is cheap and we rather not lose protected objects.
+			var retention Retention
+			retention.Mode = query.Unversioned.RetentionMode.Mode
+			retention.RetainUntil = query.Unversioned.RetainUntil.Time
+
+			// If the object has a legal hold and retention, we also cannot commit.
+			if err = retention.Verify(); err != nil {
+				return Error.Wrap(err)
+			}
+			switch {
+			case query.Unversioned.RetentionMode.LegalHold:
+				return ErrObjectLock.New(legalHoldErrMsg)
+			case retention.ActiveNow():
+				return ErrObjectLock.New(retentionErrMsg)
+			}
+
+			// delete the previous unversioned object
+			err := adapter.precommitDeleteExactObject(ctx, ObjectStream{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.BucketName,
+				ObjectKey:  opts.ObjectKey,
+				Version:    query.Unversioned.Version,
+				StreamID:   query.Unversioned.StreamID,
+			})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// update the precommit metrics
+			precommit.DeletedObjectCount = 1
+			precommit.DeletedSegmentCount = int(query.Unversioned.SegmentCount)
+		}
+
+		now := time.Now() // TODO: should we get this information from the database?
+
+		{
+			object.StreamID = opts.StreamID
+			object.ProjectID = opts.ProjectID
+			object.BucketName = opts.BucketName
+			object.ObjectKey = opts.ObjectKey
+			object.CreatedAt = now
+			object.Version = db.nextVersion(0, query.HighestVersion, query.TimestampVersion)
+			object.Status = committedWhereVersioned(opts.Versioned)
+			object.SegmentCount = 1
+			object.TotalPlainSize = int64(opts.CommitInlineSegment.PlainSize)
+			object.TotalEncryptedSize = int64(int32(len(opts.CommitInlineSegment.InlineData)))
+			object.ExpiresAt = opts.ExpiresAt
+			object.Encryption = opts.Encryption
+			object.EncryptedUserData = opts.EncryptedUserData
+			object.Retention = opts.Retention
+			object.LegalHold = opts.LegalHold
+
+			// TODO: is this check actually necessary?
+			if err := object.verifyObjectLockAndRetention(); err != nil {
+				return Error.Wrap(err)
+			}
+
+			// TODO: should we allow to override existing encryption parameters or return error if don't match with opts?
+			if object.Encryption.IsZero() {
+				if opts.Encryption.IsZero() {
+					return ErrInvalidRequest.New("Encryption is missing")
+				}
+				object.Encryption = opts.Encryption
+			}
+		}
+
+		return adapter.precommitInsertObject(ctx, &object, []*Segment{{
 			StreamID:          opts.StreamID,
 			Position:          opts.CommitInlineSegment.Position,
+			CreatedAt:         now,
 			ExpiresAt:         opts.ExpiresAt,
 			EncryptedKey:      opts.CommitInlineSegment.EncryptedKey,
 			EncryptedKeyNonce: opts.CommitInlineSegment.EncryptedKeyNonce,
@@ -1979,9 +2084,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 			PlainSize:         opts.CommitInlineSegment.PlainSize,
 			EncryptedSize:     int32(len(opts.CommitInlineSegment.InlineData)),
 			InlineData:        opts.CommitInlineSegment.InlineData,
-		}
-
-		return adapter.finalizeInlineObjectCommit(ctx, &object, segment)
+		}})
 	})
 	if err != nil {
 		return Object{}, err
@@ -1996,169 +2099,71 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	return object, nil
 }
 
-func (ptx *postgresTransactionAdapter) finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error) {
+func (ptx *postgresTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	args := []any{
-		object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
-		object.Status, object.SegmentCount, object.ExpiresAt, object.Encryption,
-		object.TotalPlainSize, object.TotalEncryptedSize,
-		nil,
-		object.EncryptedMetadata, object.EncryptedMetadataNonce, object.EncryptedMetadataEncryptedKey, object.EncryptedETag,
-		object.columnRetentionMode(), object.columnRetainUntil(),
-	}
-
-	var versionArgument string
-	if ptx.postgresAdapter.testingTimestampVersioning {
-		versionArgument = postgresGenerateTimestampVersion
-	} else {
-		versionArgument = "$18"
-		args = append(args, object.Version)
-	}
-
-	// TODO should we put this into single query
-	err = ptx.tx.QueryRowContext(ctx, `
-		INSERT INTO objects (
-			project_id, bucket_name, object_key, version, stream_id,
-			status, segment_count, expires_at, encryption,
-			total_plain_size, total_encrypted_size,
-			zombie_deletion_deadline,
-			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
-			retention_mode, retain_until
-		) VALUES (
-			$1, $2, $3, `+versionArgument+`, $4,
-			$5, $6, $7, $8,
-			$9, $10,
-			$11,
-			$12, $13, $14, $15,
-			$16, $17
-		)
-		RETURNING version, created_at`,
-		args...,
-	).Scan(&object.Version, &object.CreatedAt)
+	t, err := transposeSegments(segments, func(p Pieces) ([]byte, error) {
+		if len(p) != 0 {
+			return nil, Error.New("expected only inline segments")
+		}
+		return nil, nil
+	})
 	if err != nil {
-		return Error.New("failed to create object: %w", err)
+		return Error.Wrap(err)
 	}
-
-	// TODO consider not inserting segment if inline data is empty
 
 	_, err = ptx.tx.ExecContext(ctx, `
-		INSERT INTO segments (
-			stream_id, position, expires_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, encrypted_etag, plain_size, plain_offset,
-			inline_data
-		) VALUES (
-			$1, $2, $3,
-			$4, $5, $6,
-			$7, $8, $9, 0, -- plain_offset is 0
-			$10
-		)
-		`, segment.StreamID, segment.Position, segment.ExpiresAt,
-		storj.PieceID{}, segment.EncryptedKeyNonce, segment.EncryptedKey,
-		segment.EncryptedSize, segment.EncryptedETag, segment.PlainSize,
-		segment.InlineData,
+			INSERT INTO segments (
+				stream_id, position, expires_at,
+				encrypted_key_nonce, encrypted_key,
+				root_piece_id,
+				redundancy,
+				encrypted_size, plain_offset, plain_size,
+				remote_alias_pieces, placement,
+				inline_data
+			) SELECT
+				$1, UNNEST($2::INT8[]), UNNEST($3::timestamptz[]),
+				UNNEST($4::BYTEA[]), UNNEST($5::BYTEA[]),
+				UNNEST($6::BYTEA[]),
+				UNNEST($7::INT8[]),
+				UNNEST($8::INT4[]), UNNEST($9::INT8[]),	UNNEST($10::INT4[]),
+				UNNEST($11::BYTEA[]), UNNEST($12::INT2[]),
+				UNNEST($13::BYTEA[])
+		`, t.StreamID, pgutil.Int8Array(t.Positions), pgutil.NullTimestampTZArray(t.ExpiresAts),
+		pgutil.ByteaArray(t.EncryptedKeyNonces), pgutil.ByteaArray(t.EncryptedKeys),
+		pgutil.ByteaArray(t.RootPieceIDs),
+		pgutil.Int8Array(t.RedundancySchemes),
+		pgutil.Int4Array(t.EncryptedSizes), pgutil.Int8Array(t.PlainOffsets), pgutil.Int4Array(t.PlainSizes),
+		pgutil.ByteaArray(t.PiecesLists), pgutil.PlacementConstraintArray(t.Placements),
+		pgutil.ByteaArray(t.InlineDatas),
 	)
 	if err != nil {
-		return Error.New("failed to create segment: %w", err)
+		return Error.New("unable to insert segments: %w", err)
+	}
+
+	if err := postgresInsertObject(ctx, ptx.tx, (*RawObject)(object)); err != nil {
+		return Error.New("unable to insert object: %w", err)
 	}
 
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeInlineObjectCommit(ctx context.Context, object *Object, segment *Segment) (err error) {
+func (stx *spannerTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(spanner) should we perform these two inserts as a Migration
-	params := map[string]interface{}{
-		"project_id":                       object.ProjectID,
-		"bucket_name":                      object.BucketName,
-		"object_key":                       []byte(object.ObjectKey),
-		"stream_id":                        object.StreamID,
-		"status":                           object.Status,
-		"segment_count":                    int64(object.SegmentCount),
-		"expires_at":                       object.ExpiresAt,
-		"encryption_parameters":            object.Encryption,
-		"total_plain_size":                 object.TotalPlainSize,
-		"total_encrypted_size":             object.TotalEncryptedSize,
-		"zombie_deletion_deadline":         nil,
-		"encrypted_metadata":               object.EncryptedMetadata,
-		"encrypted_metadata_nonce":         object.EncryptedMetadataNonce,
-		"encrypted_metadata_encrypted_key": object.EncryptedMetadataEncryptedKey,
-		"encrypted_etag":                   object.EncryptedETag,
-		"retention_mode":                   object.columnRetentionMode(),
-		"retain_until":                     object.columnRetainUntil(),
-	}
+	var mutations []*spanner.Mutation
 
-	var versionQueryArgument string
-	if stx.spannerAdapter.testingTimestampVersioning {
-		versionQueryArgument = spannerGenerateTimestampVersion
-	} else {
-		versionQueryArgument = "@version"
-		params["version"] = object.Version
-	}
-
-	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version, stream_id,
-				status, segment_count, expires_at, encryption,
-				total_plain_size, total_encrypted_size,
-				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
-				retention_mode, retain_until
-			) VALUES (
-				@project_id, @bucket_name, @object_key, ` + versionQueryArgument + `, @stream_id,
-				@status, @segment_count, @expires_at, @encryption_parameters,
-				@total_plain_size, @total_encrypted_size,
-				@zombie_deletion_deadline,
-				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
-				@retention_mode, @retain_until
-			)
-			THEN RETURN version, created_at
-		`,
-		Params: params,
-	}, spanner.QueryOptions{RequestTag: "finalize-inline-object-commit"}).Do(func(row *spanner.Row) error {
-		err := row.Columns(&object.Version, &object.CreatedAt)
-		if err != nil {
-			return Error.New("failed to read object created_at: %w", err)
+	mutations = append(mutations, spannerInsertObject(RawObject(*object)))
+	for _, segment := range segments {
+		if len(segment.Pieces) != 0 {
+			return Error.New("internal error: tried to insert segment with remote alias pieces")
 		}
-		return nil
-	})
-	if err != nil {
-		return Error.New("failed to create object: %w", err)
+		mutations = append(mutations, spannerInsertSegment(RawSegment(*segment), nil))
 	}
 
-	// TODO consider not inserting segment if inline data is empty
-	_, err = stx.tx.UpdateWithOptions(ctx, spanner.Statement{
-		SQL: `
-			INSERT INTO segments (
-				stream_id, position, expires_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, encrypted_etag, plain_size, plain_offset,
-				inline_data
-			) VALUES (
-				@stream_id, @position, @expires_at,
-				@root_piece_id, @encrypted_key_nonce, @encrypted_key,
-				@encrypted_size, @encrypted_etag, @plain_size, 0, -- plain_offset is 0
-				@inline_data
-			)
-		`,
-		Params: map[string]interface{}{
-			"stream_id":           segment.StreamID,
-			"position":            segment.Position,
-			"expires_at":          segment.ExpiresAt,
-			"root_piece_id":       storj.PieceID{},
-			"encrypted_key_nonce": segment.EncryptedKeyNonce,
-			"encrypted_key":       segment.EncryptedKey,
-			"encrypted_size":      int64(segment.EncryptedSize),
-			"encrypted_etag":      segment.EncryptedETag,
-			"plain_size":          int64(segment.PlainSize),
-			"inline_data":         segment.InlineData,
-		},
-	}, spanner.QueryOptions{RequestTag: "finalize-inline-object-commit-segments"})
+	err = stx.tx.BufferWrite(mutations)
 	if err != nil {
-		return Error.New("failed to create segment: %w", err)
+		return Error.Wrap(err)
 	}
 
 	return nil

@@ -126,6 +126,65 @@ func (client *Uplink) Delete(ctx context.Context, bucketName string, path storj.
 	return nil
 }
 
+// DeleteMany objects from specific satellite.
+func (client *Uplink) DeleteMany(ctx context.Context, bucketName string, paths []storj.Path) (resultItems []object.DeleteObjectsResultItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := client.GetProject(ctx)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	items := make([]object.DeleteObjectsItem, len(paths))
+	for i, path := range paths {
+		items[i] = object.DeleteObjectsItem{ObjectKey: path}
+	}
+
+	resultItems, err = object.DeleteObjects(ctx, project, bucketName, items, nil)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return resultItems, nil
+}
+
+// Copy data between source and destination on specific satellite.
+func (client *Uplink) Copy(ctx context.Context, srcBucket string, srcPath storj.Path, destBucket string, destPath storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := client.GetProject(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	_, err = project.CopyObject(ctx, srcBucket, srcPath, destBucket, destPath, nil)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
+// Move data between source and destination on specific satellite.
+func (client *Uplink) Move(ctx context.Context, srcBucket string, srcPath storj.Path, destBucket string, destPath storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := client.GetProject(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	err = project.MoveObject(ctx, srcBucket, srcPath, destBucket, destPath, nil)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
 // GetProject returns a uplink.Project which allows interactions with a specific project.
 func (client *Uplink) GetProject(ctx context.Context) (_ *uplink.Project, err error) {
 	defer mon.Task()(&ctx)(&err)

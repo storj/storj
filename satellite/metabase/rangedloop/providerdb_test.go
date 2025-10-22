@@ -160,12 +160,9 @@ func createSegment(ctx *testcontext.Context, t testing.TB, db *metabase.DB, stre
 		},
 	}.Check(ctx, t, db)
 
-	metabasetest.CommitObjectWithSegments{
-		Opts: metabase.CommitObjectWithSegments{
+	metabasetest.CommitObject{
+		Opts: metabase.CommitObject{
 			ObjectStream: obj,
-			Segments: []metabase.SegmentPosition{
-				{Part: 0, Index: 0},
-			},
 		},
 	}.Check(ctx, t, db)
 }

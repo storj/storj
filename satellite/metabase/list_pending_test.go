@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -1423,14 +1424,17 @@ func TestListPendingObjects_Limit(t *testing.T) {
 
 		numberOfObjects := 0
 
+		const minVersion = -10000
+		const maxVersion = 10000
+
 		prefixes := []string{"", "aprefix/"}
 		for _, prefix := range prefixes {
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				metabasetest.CreatePendingObject(ctx, t, db, metabase.ObjectStream{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					ObjectKey:  metabase.ObjectKey(prefix + "object" + strconv.Itoa(i)),
-					Version:    1000,
+					Version:    metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion),
 					StreamID:   testrand.UUID(),
 				}, 0)
 				numberOfObjects++
@@ -1490,6 +1494,272 @@ func TestListPendingObjects_Limit(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+func TestListObjectsPendingDuplicates(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		projectID := testrand.UUID()
+
+		const amount = 23
+		const minVersion = -10000
+		const maxVersion = 10000
+
+		type TestCase struct {
+			Name       string
+			Bucket     string
+			Prefixes   []string
+			UploadFunc func(bucket string, prefixe string) map[metabase.ObjectStream]struct{}
+		}
+
+		testCases := []TestCase{
+			{
+				Name:     "single location many pending objects",
+				Bucket:   "test1",
+				Prefixes: []string{"", "aprefix/"},
+				UploadFunc: func(bucket string, prefix string) map[metabase.ObjectStream]struct{} {
+					// upload objects to the same location to have many pending objects
+					// with different versions
+					expectedKeys := make(map[metabase.ObjectStream]struct{})
+					for range amount {
+						object := metabasetest.CreatePendingObject(ctx, t, db, metabase.ObjectStream{
+							ProjectID:  projectID,
+							BucketName: metabase.BucketName(bucket),
+							ObjectKey:  metabase.ObjectKey(prefix + "object"),
+							Version:    metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion),
+							StreamID:   testrand.UUID(),
+						}, 0)
+						expectedKeys[object.ObjectStream] = struct{}{}
+					}
+					return expectedKeys
+				},
+			},
+			{
+				Name:     "many locations many pending objects",
+				Bucket:   "test2",
+				Prefixes: []string{"", "aprefix/"},
+				UploadFunc: func(bucket string, prefix string) map[metabase.ObjectStream]struct{} {
+					// upload to the same location many times to have internally different versions
+					expectedKeys := make(map[metabase.ObjectStream]struct{})
+					for i := range amount {
+						version := 1
+						if i%2 == 0 {
+							version = 2
+						} else if i%3 == 0 {
+							version = 3
+						}
+
+						for v := 0; v < version; v++ {
+							object := metabasetest.CreatePendingObject(ctx, t, db, metabase.ObjectStream{
+								ProjectID:  projectID,
+								BucketName: metabase.BucketName(bucket),
+								ObjectKey:  metabase.ObjectKey(prefix + fmt.Sprintf("object-%d", i)),
+								Version:    metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion),
+								StreamID:   testrand.UUID(),
+							}, 0)
+							expectedKeys[object.ObjectStream] = struct{}{}
+						}
+					}
+					return expectedKeys
+				},
+			},
+		}
+
+		for _, testCase := range testCases {
+			t.Run(testCase.Name, func(t *testing.T) {
+				for _, prefix := range testCase.Prefixes {
+					expectedKeys := testCase.UploadFunc(testCase.Bucket, prefix)
+
+					prefixLabel := prefix
+					if prefixLabel == "" {
+						prefixLabel = "empty"
+					}
+
+					for _, listLimit := range []int{
+						0, 1, 2, 3, 7, amount - 1, amount, amount + 1,
+					} {
+						t.Run(fmt.Sprintf("prefix %s limit %d", prefixLabel, listLimit), func(t *testing.T) {
+							keys := make(map[metabase.ObjectStream]struct{})
+
+							more := true
+							cursor := metabase.ListObjectsCursor{}
+							for more {
+								result, err := db.ListObjects(ctx, metabase.ListObjects{
+									ProjectID:   projectID,
+									BucketName:  metabase.BucketName(testCase.Bucket),
+									Prefix:      metabase.ObjectKey(prefix),
+									Limit:       listLimit,
+									Pending:     true,
+									AllVersions: true,
+									Cursor:      cursor,
+								})
+								require.NoError(t, err)
+
+								for _, object := range result.Objects {
+									keys[metabase.ObjectStream{
+										ProjectID:  projectID,
+										BucketName: metabase.BucketName(testCase.Bucket),
+										ObjectKey:  metabase.ObjectKey(prefix) + object.ObjectKey,
+										Version:    object.Version,
+										StreamID:   object.StreamID,
+									}] = struct{}{}
+
+									cursor = metabase.ListObjectsCursor{
+										Key:     metabase.ObjectKey(prefix) + object.ObjectKey,
+										Version: object.Version,
+									}
+								}
+								more = result.More
+							}
+
+							require.Equal(t, expectedKeys, keys)
+						})
+					}
+				}
+			})
+		}
+	})
+}
+
+func TestListPendingObjectsWithNegativeVersions(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		projectID := testrand.UUID()
+		bucketName := metabase.BucketName(testrand.BucketName())
+
+		t.Run("list pending objects with negative versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// Create pending objects with negative versions
+			objects := make([]metabase.RawObject, 0, 5)
+			for range 5 {
+				obj := metabasetest.RandObjectStream()
+				obj.ProjectID = projectID
+				obj.BucketName = bucketName
+				obj.Version = metabase.Version(-1 * testrand.Int63n(math.MaxInt64))
+
+				pendingObject := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
+				objects = append(objects, metabase.RawObject{
+					ObjectStream:           pendingObject.ObjectStream,
+					CreatedAt:              pendingObject.CreatedAt,
+					Status:                 metabase.Pending,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: pendingObject.ZombieDeletionDeadline,
+				})
+			}
+
+			// Sort objects by key and version (ascending)
+			sort.SliceStable(objects, func(i, j int) bool {
+				if objects[i].ObjectKey != objects[j].ObjectKey {
+					return objects[i].ObjectKey < objects[j].ObjectKey
+				}
+				return objects[i].Version < objects[j].Version
+			})
+
+			// List all pending objects
+			result, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:   projectID,
+				BucketName:  bucketName,
+				Pending:     true,
+				AllVersions: true,
+				Recursive:   true,
+				Limit:       10,
+			})
+			require.NoError(t, err)
+			require.Equal(t, len(objects), len(result.Objects))
+			require.False(t, result.More)
+
+			// Verify all objects are returned in correct order
+			for i, expected := range objects {
+				require.Equal(t, expected.ObjectKey, result.Objects[i].ObjectKey)
+				require.Equal(t, expected.Version, result.Objects[i].Version)
+				require.Equal(t, expected.StreamID, result.Objects[i].StreamID)
+			}
+
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
+
+		t.Run("list pending objects with negative versions using cursor", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// Create pending objects with negative versions
+			objects := make([]metabase.RawObject, 0, 5)
+			for range 5 {
+				obj := metabasetest.RandObjectStream()
+				obj.ProjectID = projectID
+				obj.BucketName = bucketName
+				obj.Version = metabase.Version(-1 * testrand.Int63n(math.MaxInt64))
+
+				pendingObject := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
+				objects = append(objects, metabase.RawObject{
+					ObjectStream:           pendingObject.ObjectStream,
+					CreatedAt:              pendingObject.CreatedAt,
+					Status:                 metabase.Pending,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: pendingObject.ZombieDeletionDeadline,
+				})
+			}
+
+			// Sort objects by key and version (ascending)
+			sort.SliceStable(objects, func(i, j int) bool {
+				if objects[i].ObjectKey != objects[j].ObjectKey {
+					return objects[i].ObjectKey < objects[j].ObjectKey
+				}
+				return objects[i].Version < objects[j].Version
+			})
+
+			// List with pagination using limit
+			var allListedObjects []metabase.ObjectEntry
+			cursor := metabase.ListObjectsCursor{}
+
+			for {
+				result, err := db.ListObjects(ctx, metabase.ListObjects{
+					ProjectID:   projectID,
+					BucketName:  bucketName,
+					Pending:     true,
+					AllVersions: true,
+					Recursive:   true,
+					Limit:       2,
+					Cursor:      cursor,
+				})
+				require.NoError(t, err)
+
+				allListedObjects = append(allListedObjects, result.Objects...)
+
+				if !result.More {
+					break
+				}
+
+				// Set cursor to last returned object
+				lastObj := result.Objects[len(result.Objects)-1]
+				cursor = metabase.ListObjectsCursor{
+					Key:     lastObj.ObjectKey,
+					Version: lastObj.Version,
+				}
+			}
+
+			// Verify all objects were listed
+			require.Equal(t, len(objects), len(allListedObjects))
+
+			for i, expected := range objects {
+				require.Equal(t, expected.ObjectKey, allListedObjects[i].ObjectKey)
+				require.Equal(t, expected.Version, allListedObjects[i].Version)
+				require.Equal(t, expected.StreamID, allListedObjects[i].StreamID)
+			}
+
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
 	})
 }
 

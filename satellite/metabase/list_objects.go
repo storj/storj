@@ -615,7 +615,7 @@ func (opts *ListObjects) boundarySpanner() string {
 // FirstVersion returns the first object version we need to iterate given the list objects logic.
 func (opts *ListObjects) FirstVersion() Version {
 	if opts.VersionAscending() {
-		return 0
+		return -MaxVersion
 	} else {
 		return MaxVersion
 	}
@@ -625,7 +625,7 @@ func (opts *ListObjects) lastVersion() Version {
 	if opts.VersionAscending() {
 		return MaxVersion
 	} else {
-		return 0
+		return -MaxVersion
 	}
 }
 
