@@ -560,6 +560,15 @@ func (db *bucketsDB) CountBuckets(ctx context.Context, projectID uuid.UUID) (cou
 	return int(count64), nil
 }
 
+// CountObjectLockBuckets returns the number of buckets a project currently has with object lock enabled.
+func (db *bucketsDB) CountObjectLockBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error) {
+	count64, err := db.db.Count_BucketMetainfo_Name_By_ProjectId_And_ObjectLockEnabled_Equal_True(ctx, dbx.BucketMetainfo_ProjectId(projectID[:]))
+	if err != nil {
+		return -1, err
+	}
+	return int(count64), nil
+}
+
 func convertFullDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, err error) {
 	id, err := uuid.FromBytes(dbxBucket.Id)
 	if err != nil {

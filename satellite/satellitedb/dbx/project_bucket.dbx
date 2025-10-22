@@ -191,6 +191,12 @@ read count (
 	where bucket_metainfo.project_id = ?
 )
 
+read count (
+	select bucket_metainfo.name
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.object_lock_enabled = true
+)
+
 read paged (
 	select bucket_metainfo.project_id bucket_metainfo.name
 )

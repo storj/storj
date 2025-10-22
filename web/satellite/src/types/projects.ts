@@ -265,6 +265,7 @@ export interface UpdateProjectLimitsFields {
  */
 export class ProjectDeletionData {
     public constructor(
+        public lockEnabledBuckets: number,
         public buckets: number,
         public apiKeys: number,
         public currentUsage: boolean,

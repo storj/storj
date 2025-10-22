@@ -328,6 +328,7 @@ type ProjectConfig struct {
 
 // DeleteProjectInfo holds data for project deletion UI flow.
 type DeleteProjectInfo struct {
+	LockEnabledBuckets  int             `json:"lockEnabledBuckets"`
 	Buckets             int             `json:"buckets"`
 	APIKeys             int             `json:"apiKeys"`
 	CurrentUsage        bool            `json:"currentUsage"`

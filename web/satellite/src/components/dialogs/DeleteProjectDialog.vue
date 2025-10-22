@@ -75,6 +75,16 @@
                         </v-form>
                     </v-window-item>
 
+                    <v-window-item :value="DeleteProjectStep.LockEnabledBucketsStep">
+                        <div class="pa-6">
+                            <v-alert variant="tonal" type="warning">
+                                You have {{ buckets }} bucket{{ buckets > 1 ? 's' : '' }} with Object Lock enabled.
+                                By proceeding, you will lose any objects in {{ buckets > 1 ? 'these' : 'this' }}
+                                bucket{{ buckets > 1 ? 's' : '' }} even if they are locked.
+                            </v-alert>
+                        </div>
+                    </v-window-item>
+
                     <v-window-item :value="DeleteProjectStep.DeleteAccessKeysStep">
                         <v-form class="pa-6">
                             <v-row>
@@ -199,6 +209,15 @@
 
                     <v-col>
                         <v-btn
+                            v-if="step === DeleteProjectStep.LockEnabledBucketsStep"
+                            variant="flat"
+                            color="warning"
+                            block
+                            @click="proceed(true)"
+                        >
+                            Proceed
+                        </v-btn>
+                        <v-btn
                             v-if="step === DeleteProjectStep.DeleteBucketsStep"
                             variant="flat"
                             block
@@ -227,7 +246,7 @@
                             color="primary"
                             variant="flat"
                             block
-                            @click="proceed"
+                            @click="proceed()"
                         >
                             Next
                         </v-btn>
@@ -238,7 +257,7 @@
                             :loading="isLoading"
                             :disabled="step === DeleteProjectStep.ConfirmDeleteStep && !isDeleteConfirmed"
                             block
-                            @click="proceed"
+                            @click="proceed()"
                         >
                             Delete Project
                         </v-btn>
@@ -275,7 +294,7 @@ import {
 } from 'vuetify/components';
 import { Trash2, X } from 'lucide-vue-next';
 
-import { DeleteProjectStep } from '@/types/accountActions';
+import { DeleteProjectStep, SKIP_OBJECT_LOCK_ENABLED_BUCKETS } from '@/types/accountActions';
 import { User } from '@/types/users';
 import { Project, ProjectDeletionData } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
@@ -326,6 +345,10 @@ function chooseRestrictionStep(deleteResp: ProjectDeletionData) {
         step.value = DeleteProjectStep.DeleteBucketsStep;
         buckets.value = deleteResp.buckets;
         break;
+    case deleteResp.lockEnabledBuckets > 0:
+        step.value = DeleteProjectStep.LockEnabledBucketsStep;
+        buckets.value = deleteResp.lockEnabledBuckets;
+        break;
     case deleteResp.apiKeys > 0:
         step.value = DeleteProjectStep.DeleteAccessKeysStep;
         apiKeys.value = deleteResp.apiKeys;
@@ -339,12 +362,17 @@ function chooseRestrictionStep(deleteResp: ProjectDeletionData) {
     }
 }
 
-async function proceed(): Promise<void> {
+async function proceed(skipLockEnabledBuckets = false): Promise<void> {
     await withLoading(async () => {
         try {
             switch (step.value) {
             case DeleteProjectStep.InitStep:
-                deleteResp.value = await projectStore.deleteProject(project.value.id, DeleteProjectStep.InitStep, '');
+            case DeleteProjectStep.LockEnabledBucketsStep:
+                deleteResp.value = await projectStore.deleteProject(
+                    project.value.id,
+                    DeleteProjectStep.InitStep,
+                    skipLockEnabledBuckets ? SKIP_OBJECT_LOCK_ENABLED_BUCKETS : '',
+                );
                 if (!deleteResp.value) {
                     step.value = DeleteProjectStep.VerifyPasswordStep;
                 } else {

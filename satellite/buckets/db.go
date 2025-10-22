@@ -196,6 +196,8 @@ type DB interface {
 	ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts ListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList List, err error)
 	// CountBuckets returns the number of buckets a project currently has
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
+	// CountObjectLockBuckets returns the number of buckets a project currently has with object lock enabled.
+	CountObjectLockBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error)
 	// IterateBucketLocations iterates through all buckets with specific page size.
 	IterateBucketLocations(ctx context.Context, pageSize int, fn func([]metabase.BucketLocation) error) (err error)
 	// GetBucketObjectLockEnabled returns whether a bucket has Object Lock enabled.

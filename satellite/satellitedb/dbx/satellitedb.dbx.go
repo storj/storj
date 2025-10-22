@@ -20711,6 +20711,31 @@ func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId_And_ObjectLockEnabled_Equal_True(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.object_lock_enabled = true")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx context.Context,
 	limit int, start *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation) (
 	rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
@@ -31333,6 +31358,31 @@ func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.
 	}
 
 	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId_And_ObjectLockEnabled_Equal_True(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.object_lock_enabled = true")
 
 	var __values []any
 	__values = append(__values, bucket_metainfo_project_id.value())
@@ -42273,6 +42323,31 @@ func (obj *spannerImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Conte
 
 }
 
+func (obj *spannerImpl) Count_BucketMetainfo_Name_By_ProjectId_And_ObjectLockEnabled_Equal_True(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.object_lock_enabled = true")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name(ctx context.Context,
 	limit int, start *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation) (
 	rows []*ProjectId_Name_Row, next *Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation, err error) {
@@ -47184,6 +47259,10 @@ type Methods interface {
 		rows []*WebappSession, err error)
 
 	Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+		count int64, err error)
+
+	Count_BucketMetainfo_Name_By_ProjectId_And_ObjectLockEnabled_Equal_True(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
 		count int64, err error)
 

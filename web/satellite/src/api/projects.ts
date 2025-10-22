@@ -124,6 +124,7 @@ export class ProjectsHttpApi implements ProjectsApi {
 
         if (response.status === 409) {
             return new ProjectDeletionData(
+                result.lockEnabledBuckets,
                 result.buckets,
                 result.apiKeys,
                 result.currentUsage,

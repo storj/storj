@@ -3120,6 +3120,33 @@ func TestAbbreviatedDeleteProject(t *testing.T) {
 		require.Nil(t, resp)
 		require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p.ID))
 
+		bucket = buckets.Bucket{
+			ID:         testrand.UUID(),
+			Name:       "testBucket2",
+			ProjectID:  p.ID,
+			ObjectLock: buckets.ObjectLockSettings{Enabled: true},
+		}
+		_, err = sat.API.Buckets.Service.CreateBucket(userCtx, bucket)
+		require.NoError(t, err)
+
+		resp, err = service.DeleteProject(userCtx, p.ID, console.DeleteProjectInit, "test")
+		// abbreviated deletion does checks for object lock buckets on the DeleteProjectInit step
+		require.Error(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, 1, resp.LockEnabledBuckets)
+
+		resp, err = service.DeleteProject(userCtx, p.ID, console.DeleteProjectInit, console.SkipObjectLockEnabledBuckets)
+		// object lock bucket check can be skipped
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		resp, err = service.DeleteProject(userCtx, p.ID, console.VerifyAccountMfaStep, "test")
+		// object lock bucket check happens only on the DeleteProjectInit step
+		require.NoError(t, err)
+		require.Nil(t, resp)
+
+		require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p.ID))
+
 		_, _, err = service.CreateAPIKey(userCtx, p.ID, "testKey", macaroon.APIKeyVersionMin)
 		require.NoError(t, err)
 

@@ -2531,6 +2531,10 @@ const (
 	changeEmailAction   accountAction = "change_email"
 	deleteAccountAction accountAction = "delete_account"
 	deleteProjectAction accountAction = "delete_project"
+
+	// SkipObjectLockEnabledBuckets is a flag to skip checking for object lock enabled buckets
+	// during project or account deletion.
+	SkipObjectLockEnabledBuckets = "skip-object-lock-enabled-buckets"
 )
 
 // DeleteAccount handles self-serve account delete actions.
@@ -4171,7 +4175,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 		return nil, ErrUnauthorized.New("please try again later")
 	}
 
-	info, err = s.checkProjectCanBeDeleted(ctx, user, p)
+	info, err = s.checkProjectCanBeDeleted(ctx, user, p, step, data)
 	if err != nil {
 		return info, Error.Wrap(err)
 	}
@@ -4219,7 +4223,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	projectID = p.ID
 
-	info, err := s.checkProjectCanBeDeleted(ctx, user, p)
+	info, err := s.checkProjectCanBeDeleted(ctx, user, p, DeleteProjectInit, "")
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusConflict,
@@ -6146,8 +6150,19 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 
 // checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
 // no error means the project status is clean.
-func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project) (resp *DeleteProjectInfo, err error) {
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project, step AccountActionStep, data string) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if step == DeleteProjectInit && s.config.AbbreviatedDeleteProjectEnabled && data != SkipObjectLockEnabledBuckets {
+		// check for buckets with Object Lock enabled
+		count, err := s.buckets.CountObjectLockBuckets(ctx, project.ID)
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return &DeleteProjectInfo{LockEnabledBuckets: count}, ErrUsage.New("some buckets with Object Lock enabled exist")
+		}
+	}
 
 	if !s.config.AbbreviatedDeleteProjectEnabled {
 		buckets, err := s.buckets.CountBuckets(ctx, project.ID)
