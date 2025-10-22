@@ -399,7 +399,7 @@ func (c *ObserverFork) Process(ctx context.Context, segments []rangedloop.Segmen
 			continue
 		}
 
-		piecesCheck := repair.ClassifySegmentPieces(s.Pieces, selectedNodes, nil, false, false, c.placements[s.Placement])
+		piecesCheck := repair.ClassifySegmentPieces(s.Pieces, selectedNodes, nil, true, true, c.placements[s.Placement])
 
 		c.healthMatrix.Increment(s.Placement, piecesCheck.Healthy.Count()-int(s.Redundancy.RequiredShares), piecesCheck.Retrievable.Count()-int(s.Redundancy.RequiredShares), 1, fmt.Sprintf("%s/%d", s.StreamID, s.Position.Encode()))
 		counters := ClassGroupCounters{}

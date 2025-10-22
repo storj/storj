@@ -114,7 +114,7 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 			if nodeRecord.ID.IsZero() {
 				continue
 			}
-			if placement.NodeFilter.Match(&nodeRecord) {
+			if placement.NodeFilter == nil || placement.NodeFilter.Match(&nodeRecord) {
 				continue
 			}
 			pieceNum := pieces[index].Number
