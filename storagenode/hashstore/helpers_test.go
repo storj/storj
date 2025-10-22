@@ -494,6 +494,11 @@ func returnFailure(t testing.TB) func(string) (*testCloser, error) {
 	}
 }
 
+func temporarily[T any](slot *T, val T) func() {
+	val, *slot = *slot, val
+	return func() { *slot = val }
+}
+
 //
 // generic table
 //

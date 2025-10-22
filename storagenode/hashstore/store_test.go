@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
+	"golang.org/x/exp/maps"
 
 	"storj.io/storj/storagenode/hashstore/platform"
 )
@@ -1482,33 +1482,20 @@ func TestStore_HintFileCreation(t *testing.T) {
 	defer s.Close()
 
 	readHintFile := func(id uint64) (max uint64, writable []uint64) {
-		data, err := os.ReadFile(filepath.Join(s.tablePath, createHintName(id)))
-		assert.NoError(t, err)
-
-		for line := range strings.Lines(string(data)) {
-			switch {
-			case strings.HasPrefix(line, "largest: "):
-				max, err = strconv.ParseUint(line[9:25], 16, 64)
-				assert.NoError(t, err)
-			case strings.HasPrefix(line, "writable: "):
-				id, err = strconv.ParseUint(line[10:26], 16, 64)
-				assert.NoError(t, err)
-				writable = append(writable, id)
-			}
-		}
-		return max, writable
+		excluded := parseHintFile(filepath.Join(s.tablePath, createHintName(id)))
+		return excluded.largest, maps.Keys(excluded.writable)
 	}
 
 	// the first hint file should say any log file greater than 0 and no writable.
 	max, writable := readHintFile(1)
 	assert.Equal(t, max, 0)
-	assert.Equal(t, writable, []uint64(nil))
+	assert.Equal(t, writable, []uint64{})
 
 	// compaction should create a new hint file, but it should be the same.
 	s.AssertCompact(nil, time.Time{})
 	max, writable = readHintFile(2)
 	assert.Equal(t, max, 0)
-	assert.Equal(t, writable, []uint64(nil))
+	assert.Equal(t, writable, []uint64{})
 
 	// creating data should say any log file greater than 1 and log file 1 is writable.
 	s.AssertCreate()
