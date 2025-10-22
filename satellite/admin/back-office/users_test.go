@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestGetUser(t *testing.T) {
@@ -40,7 +41,7 @@ func TestGetUser(t *testing.T) {
 		service := sat.Admin.Admin.Service
 		consoleDB := sat.DB.Console()
 
-		_, apiErr := service.GetUserByEmail(ctx, "test@storj.io")
+		_, apiErr := service.GetUserByEmail(ctx, "test@test.test")
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		_, apiErr = service.GetUser(ctx, testrand.UUID())
@@ -49,7 +50,7 @@ func TestGetUser(t *testing.T) {
 
 		consoleUser, err := sat.AddUser(ctx, console.CreateUser{
 			FullName:  "Test User",
-			Email:     "test@storj.io",
+			Email:     "test@test.test",
 			UserAgent: []byte("agent"),
 		}, 1)
 		require.NoError(t, err)
@@ -194,6 +195,36 @@ func TestGetUser(t *testing.T) {
 		require.NotNil(t, user)
 		require.Len(t, user.Projects, len(projects))
 		testProjectsFields(user)
+
+		require.False(t, user.HasUnpaidInvoices)
+
+		// create an unpaid invoice
+		_, err = sat.Admin.Payments.Accounts.Invoices().Create(ctx, consoleUser.ID, 1000, "test invoice 1")
+		require.NoError(t, err)
+
+		user, apiErr = service.GetUser(ctx, consoleUser.ID)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, user)
+		require.True(t, user.HasUnpaidInvoices)
+
+		// create a user with no stripe customer ID
+		consoleUser = &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Test User",
+			Email:        "test2@test.test",
+			PasswordHash: testrand.Bytes(8),
+			Status:       console.Active,
+		}
+		consoleUser, err = consoleDB.Users().Insert(ctx, consoleUser)
+		require.NoError(t, err)
+
+		_, err = sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, consoleUser.ID)
+		require.ErrorIs(t, err, stripe.ErrNoCustomer)
+
+		user, apiErr = service.GetUser(ctx, consoleUser.ID)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, user)
+		require.False(t, user.HasUnpaidInvoices)
 	})
 }
 

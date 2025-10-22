@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 // User holds the user's information.
@@ -659,11 +660,14 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 	if apiErr.Err != nil {
 		return nil, apiErr
 	}
+
 	hasUnpaidInvoices, err := s.hasUnpaidInvoices(ctx, user.ID)
 	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
+		if !errors.Is(err, stripe.ErrNoCustomer) {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
 		}
 	}
 
