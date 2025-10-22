@@ -84,5 +84,7 @@ type ProductUsagePriceModel struct {
 	// StorageRemainderBytes is the minimum size in bytes that objects should be counted as.
 	// Objects smaller than this value will be counted as this value for billing purposes.
 	StorageRemainderBytes int64 `json:"-"`
+	// UseGBUnits when true, invoice line items will use GB units instead of MB units.
+	UseGBUnits bool `json:"useGBUnits"`
 	ProjectUsagePriceModel
 }

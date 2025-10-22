@@ -495,3 +495,161 @@ func TestProductCharges(t *testing.T) {
 			"Product 2 (Partner) total pricing should be higher than Product 1 (Standard)")
 	})
 }
+
+func TestProductCharges_WithRounding(t *testing.T) {
+	productWithRounding := paymentsconfig.ProductUsagePrice{
+		Name: "Product with GB Rounding",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB:           "7000",  // $7 per GB-Month (7000 cents per 1000 MB-Month = 7 cents per MB-Month * 1000)
+			EgressTB:            "10000", // $10 per GB (10000 cents per 1000 MB = 10 cents per MB * 1000)
+			Segment:             "0",
+			EgressDiscountRatio: 0.25, // 25% discount = 75% charged, 25% included
+		},
+		UseGBUnits:        true, // Use GB units instead of MB
+		EgressOverageMode: true,
+	}
+
+	productWithoutRounding := paymentsconfig.ProductUsagePrice{
+		Name: "Product without Rounding",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "7000",
+			EgressTB:  "10000",
+			Segment:   "0",
+		},
+		UseGBUnits: false, // Use MB units (legacy behavior)
+	}
+
+	var productOverrides paymentsconfig.ProductPriceOverrides
+	productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+		1: productWithRounding,
+		2: productWithoutRounding,
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");12:annotation("location", "testplacement")`,
+				}
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					0:  1, // Default placement uses product 1 (with rounding)
+					12: 2, // Custom placement uses product 2 (without rounding)
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				config.Payments.Products = productOverrides
+
+				config.Payments.StripeCoinPayments.RoundUpInvoiceUsage = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		accounts := sat.API.Payments.Accounts
+		user := planet.Uplinks[0].Projects[0].Owner
+		projectID := planet.Uplinks[0].Projects[0].ID
+		db := sat.DB
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		now := time.Now()
+		since := now.AddDate(0, -1, 0)
+
+		_, err := accounts.Setup(ctx, user.ID, user.Email, "")
+		require.NoError(t, err)
+
+		defaultPlacement := storj.DefaultPlacement
+		customPlacement := storj.PlacementConstraint(12)
+
+		bucket1, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "test-bucket-with-rounding",
+			ProjectID: projectID,
+			Placement: defaultPlacement,
+		})
+		require.NoError(t, err)
+
+		bucket2, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "test-bucket-without-rounding",
+			ProjectID: projectID,
+			Placement: customPlacement,
+		})
+		require.NoError(t, err)
+
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: []byte(bucket1.Name),
+			Placement:  &defaultPlacement,
+		})
+		require.NoError(t, err)
+
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: []byte(bucket2.Name),
+			Placement:  &customPlacement,
+		})
+		require.NoError(t, err)
+
+		firstDayOfMonth := time.Date(since.Year(), since.Month(), 1, 0, 0, 0, 0, time.UTC)
+		secondDayOfMonth := time.Date(since.Year(), since.Month(), 2, 0, 0, 0, 0, time.UTC)
+		lastDayOfMonth := time.Date(since.Year(), since.Month()+1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
+
+		// Use small amounts that will be rounded up to 1 GB.
+		// For example: 500 MB of egress should be rounded up to 1 GB (1,000,000,000 bytes).
+		smallEgressBytes := int64(500_000_000)  // 500 MB in bytes
+		smallStorageBytes := int64(100_000_000) // 100 MB in bytes
+		smallSegments := int64(100)
+		const hoursPerMonth = 720
+
+		generateProjectUsage(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket1.Name, smallEgressBytes, smallStorageBytes, smallSegments)
+		generateProjectUsage(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket2.Name, smallEgressBytes, smallStorageBytes, smallSegments)
+
+		charges, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
+		require.NoError(t, err)
+		require.NotEmpty(t, charges)
+
+		var product1Charge, product2Charge *payments.ProductCharge
+
+		for _, projectCharges := range charges {
+			for productID, charge := range projectCharges {
+				switch productID {
+				case 1:
+					product1Charge = &charge
+				case 2:
+					product2Charge = &charge
+				}
+			}
+		}
+
+		require.NotNil(t, product1Charge, "Should have charges for product 1 (with rounding)")
+		require.NotNil(t, product2Charge, "Should have charges for product 2 (without rounding)")
+
+		// Test rounding behavior for product 1 (with rounding enabled).
+		// Storage: Small usage should be rounded up to 1 GB-Month worth of byte-hours.
+		// 1 GB-Month = 1000 MB-Month = 1000 * 1e6 bytes * 720 hours = 720,000,000,000 byte-hours
+		expectedRoundedStorageByteHours := float64(1000 * 1e6 * hoursPerMonth) // 1 GB-Month in byte-hours
+		require.Equal(t, expectedRoundedStorageByteHours, product1Charge.ProjectUsage.Storage,
+			"Product 1 storage should be rounded up to 1 GB-Month (in byte-hours)")
+
+		// Egress: Small usage should be rounded up to 1 GB worth of bytes.
+		// 1 GB = 1000 MB = 1000 * 1e6 bytes = 1,000,000,000 bytes
+		expectedRoundedEgressBytes := int64(1000 * 1e6) // 1 GB in bytes
+		require.Equal(t, expectedRoundedEgressBytes, product1Charge.ProjectUsage.Egress,
+			"Product 1 egress should be rounded up to 1 GB (in bytes)")
+
+		// Verify included egress is also rounded for overage mode.
+		require.Equal(t, expectedRoundedEgressBytes, product1Charge.ProjectUsage.IncludedEgress,
+			"Product 1 should have included egress in overage mode")
+
+		// Test that product 2 (without rounding) uses original values.
+		// Without rounding, the values should be much smaller than the rounded values.
+		require.Less(t, product2Charge.ProjectUsage.Storage, product1Charge.ProjectUsage.Storage,
+			"Product 2 storage should be less than product 1 (no rounding applied)")
+		require.Less(t, product2Charge.ProjectUsage.Egress, product1Charge.ProjectUsage.Egress,
+			"Product 2 egress should be less than product 1 (no rounding applied)")
+	})
+}
