@@ -22,7 +22,7 @@ import (
 )
 
 type precommitTransactionAdapter interface {
-	precommitQuery(ctx context.Context, params PrecommitQuery) (PrecommitInfo, error)
+	precommitQuery(ctx context.Context, params PrecommitQuery) (*PrecommitInfo, error)
 
 	precommitQueryHighest(ctx context.Context, loc ObjectLocation) (highest Version, err error)
 	precommitQueryHighestAndStatusUnversioned(ctx context.Context, loc ObjectLocation) (highest Version, committedStatus ObjectStatus, err error)
@@ -1167,6 +1167,8 @@ type PrecommitQuery struct {
 
 // PrecommitInfo is the information necessary for committing objects.
 type PrecommitInfo struct {
+	ObjectStream
+
 	// TimestampVersion is used for timestamp versioning.
 	//
 	// This is used when timestamp versioning is enabled and we need to change version.
@@ -1226,23 +1228,25 @@ type PrecommitPendingObject struct {
 }
 
 // PrecommitQuery queries all information about the object so it can be committed.
-func (db *DB) PrecommitQuery(ctx context.Context, opts PrecommitQuery, adapter precommitTransactionAdapter) (result PrecommitInfo, err error) {
+func (db *DB) PrecommitQuery(ctx context.Context, opts PrecommitQuery, adapter precommitTransactionAdapter) (result *PrecommitInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.ObjectStream.Verify(); err != nil {
-		return result, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	return adapter.precommitQuery(ctx, opts)
 }
 
-func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (PrecommitInfo, error) {
+func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (*PrecommitInfo, error) {
 	var info PrecommitInfo
+	info.ObjectStream = opts.ObjectStream
+
 	// database timestamp
 	{
 		err := ptx.tx.QueryRowContext(ctx, "SELECT "+postgresGenerateTimestampVersion).Scan(&info.TimestampVersion)
 		if err != nil {
-			return info, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -1257,7 +1261,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 			LIMIT 1
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey).Scan(&info.HighestVersion)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return info, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -1287,10 +1291,10 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 
 		if errors.Is(err, sql.ErrNoRows) {
 			// TODO: should we return different error when the object is already committed?
-			return info, ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+			return nil, ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
 		}
 		if err != nil {
-			return info, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 
 		info.Pending = &pending
@@ -1313,7 +1317,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 			return nil
 		})
 		if err != nil {
-			return info, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -1329,7 +1333,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 			LIMIT 1
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey).Scan(&info.HighestVisible)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return info, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
@@ -1356,14 +1360,14 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 			return nil
 		})
 		if err != nil {
-			return info, Error.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
-	return info, nil
+	return &info, nil
 }
 
-func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (result PrecommitInfo, err error) {
+func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (_ *PrecommitInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stmt := spanner.Statement{
@@ -1429,6 +1433,9 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 				WHERE status IN ` + statusesUnversioned + `
 			))`
 	}
+
+	var result PrecommitInfo
+	result.ObjectStream = opts.ObjectStream
 
 	err = stx.tx.QueryWithOptions(ctx, stmt, spanner.QueryOptions{
 		RequestTag: `precommit-query`,
@@ -1514,7 +1521,7 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 		return nil
 	})
 	if err != nil {
-		return result, err
+		return nil, err
 	}
-	return result, nil
+	return &result, nil
 }
