@@ -7,8 +7,6 @@ import { BucketsPageObjects } from '@objects/BucketsPageObjects';
 import { createAndOnboardUser } from './common';
 
 test.describe('buckets', () => {
-    const email = `${uuidv4()}@example.com`;
-    const password = 'password';
     let userCreated = false;
 
     test.beforeEach(async ({

@@ -242,9 +242,16 @@ async function onCardAdded(res: string): Promise<void> {
     // We fetch User one more time to update their Paid Tier status.
     usersStore.getUser().catch((_) => {});
 
-    if (route.name === ROUTES.Dashboard.name || route.name === ROUTES.Domains.name) {
-        projectsStore.getProjectConfig().catch((_) => {});
-        projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
+    if (
+        route.name === ROUTES.Dashboard.name ||
+        route.name === ROUTES.Domains.name ||
+        route.name === ROUTES.Buckets.name ||
+        route.name === ROUTES.Bucket.name
+    ) {
+        Promise.all([
+            projectsStore.getProjectConfig(),
+            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
+        ]).catch(_ => {});
     }
 
     if (route.name === ROUTES.Billing.name) {

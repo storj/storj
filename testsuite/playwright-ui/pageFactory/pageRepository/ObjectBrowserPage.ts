@@ -85,8 +85,9 @@ export class ObjectBrowserPage {
 
     async verifyShareObjectLink(): Promise<void> {
         await this.page.locator(ObjectBrowserPageObjects.SHARE_BUTTON_XPATH).click();
-        const loader = this.page.locator(ObjectBrowserPageObjects.SHARE_MODAL_LOADER_CLASS);
-        await expect(loader).toBeHidden();
+        await this.page.locator(ObjectBrowserPageObjects.SHARE_MODAL_NEXT_BUTTON_XPATH).click();
+        const title = this.page.locator(ObjectBrowserPageObjects.SHARE_MODAL_PREVIEW_LINK_TITLE_XPATH);
+        await expect(title).toBeVisible();
         const copyIcons = await this.page.locator(ObjectBrowserPageObjects.COPY_ICON_BUTTON).all();
         expect(copyIcons).toHaveLength(2);
 

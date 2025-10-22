@@ -11,7 +11,8 @@ export class ObjectBrowserPageObjects {
     static COPY_LINK_BUTTON_XPATH = `//button[span[text()='Copy Link']]`;
     static COPY_ICON_BUTTON = `[aria-roledescription="copy-btn"]`;
     static COPIED_TEXT = `Copied`;
-    static SHARE_MODAL_LOADER_CLASS = `.share-dialog__content--loading`;
+    static SHARE_MODAL_NEXT_BUTTON_XPATH = `//button[span[text()=' Next -> ']]`;
+    static SHARE_MODAL_PREVIEW_LINK_TITLE_XPATH = `//div/div/div/p[contains(text(),' Interactive Preview Link ')]`;
     static OBJECT_MAP_IMAGE_XPATH = `//img[@id='Map']`;
     static DELETE_ROW_ACTION_BUTTON_XPATH = `//div[div[div[text()=' Delete ']]]`;
     static SNACKBAR_DELETE_BUTTON_SELECTOR = `.v-snackbar button:has-text("Delete")`;

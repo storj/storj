@@ -8,7 +8,7 @@
         transition="fade-transition"
         :persistent="isLoading"
     >
-        <v-card ref="innerContent">
+        <v-card :loading="isLoading">
             <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
@@ -38,122 +38,168 @@
 
             <v-divider />
 
-            <div class="pa-6 share-dialog__content" :class="{ 'share-dialog__content--loading': isLoading }">
-                <v-row>
-                    <v-col cols="12">
-                        <v-alert type="info" variant="tonal">
-                            Public link sharing. Anyone with the link can view your shared {{ shareText.toLowerCase() }}. No sign-in required.
-                        </v-alert>
-                    </v-col>
-                    <v-col v-if="shareInfo?.freeTrialExpiration" cols="12" class="pt-0">
-                        <v-alert type="warning" variant="tonal">
-                            This link will expire at {{ shareInfo.freeTrialExpiration.toLocaleString() }}.
-                            <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> your account to avoid expiration limits on future links.
-                        </v-alert>
-                    </v-col>
-                    <v-col cols="12" class="pt-0">
-                        <v-tabs v-model="shareTab" color="primary" class="border-b-thin" center-active>
-                            <v-tab value="links"><component :is="Link" :size="16" class="mr-2" />Links</v-tab>
-                            <v-tab value="social"><component :is="Share2" :size="16" class="mr-2" />Social</v-tab>
-                            <v-tab v-if="showEmbedCode" value="embed"><component :is="Code2" :size="16" class="mr-2" />Embed</v-tab>
-                        </v-tabs>
-                    </v-col>
-                    <v-col cols="12" class="pt-0">
-                        <v-window v-model="shareTab">
-                            <v-window-item value="links">
-                                <p class="text-subtitle-2 font-weight-bold mt-2 d-flex align-center">
-                                    <component :is="Eye" :size="16" class="mr-2" /> Interactive Preview Link
-                                    <v-chip
-                                        v-if="rawLink"
-                                        size="x-small"
-                                        variant="outlined"
-                                        color="default"
-                                        class="ml-2"
-                                    >
-                                        Default
-                                    </v-chip>
-                                </p>
-                                <p class="text-caption text-medium-emphasis mb-2">View the {{ shareText.toLowerCase() }} in a browser before downloading</p>
+            <v-window v-model="step">
+                <v-window-item :value="ShareStep.OptionsStep">
+                    <v-form v-model="formValid" class="pa-6" @submit.prevent>
+                        <v-row>
+                            <v-col cols="12">
+                                <p class="text-subtitle-2 mb-6">Every shared {{ shareText.toLowerCase() }} requires an explicit Access Key.</p>
                                 <v-text-field
-                                    :model-value="link"
-                                    variant="solo-filled"
-                                    rounded="lg"
-                                    hide-details="auto"
-                                    flat
-                                    readonly
-                                    class="text-caption"
-                                >
-                                    <template #append-inner>
-                                        <input-copy-button :value="link" />
-                                    </template>
-                                </v-text-field>
+                                    v-model="accessName"
+                                    variant="outlined"
+                                    :rules="accessNameRules"
+                                    label="Access Key name"
+                                    placeholder="Enter access key name"
+                                    :hide-details="false"
+                                    :maxlength="maxAccessNameLength"
+                                    :disabled="isLoading"
+                                    required
+                                />
+                                <template v-if="isPaidProjectOwner">
+                                    <p class="text-subtitle-2 mb-6">Set an optional expiration date for this link.</p>
 
-                                <template v-if="rawLink">
-                                    <p class="text-subtitle-2 font-weight-bold mt-4 d-flex align-center">
-                                        <component :is="Download" :size="16" class="mr-2" /> Direct Download Link
-                                    </p>
-                                    <p class="text-caption text-medium-emphasis mb-2">Download the file immediately without preview</p>
-                                    <v-text-field
-                                        :model-value="rawLink"
-                                        variant="solo-filled"
+                                    <v-chip-group
+                                        v-model="expirationOption"
+                                        selected-class="font-weight-bold"
+                                        mandatory
+                                        column
+                                        filter
+                                    >
+                                        <v-chip v-for="option in Object.values(ExpirationOptions)" :key="option" :value="option">{{ option }}</v-chip>
+                                    </v-chip-group>
+
+                                    <v-date-picker
+                                        v-if="expirationOption === ExpirationOptions.Custom"
+                                        v-model="expiration"
+                                        width="100%"
+                                        border
+                                        elevation="0"
                                         rounded="lg"
-                                        hide-details="auto"
-                                        readonly
-                                        flat
-                                        class="text-caption"
-                                    >
-                                        <template #append-inner>
-                                            <input-copy-button :value="rawLink" />
-                                        </template>
-                                    </v-text-field>
+                                        :min="minDate"
+                                    />
                                 </template>
-                            </v-window-item>
+                            </v-col>
+                        </v-row>
+                    </v-form>
+                </v-window-item>
+                <v-window-item :value="ShareStep.LinkStep">
+                    <v-card-item class="pa-6">
+                        <v-row>
+                            <v-col cols="12">
+                                <v-alert type="info" variant="tonal">
+                                    Public link sharing. Anyone with the link can view your shared {{ shareText.toLowerCase() }}. No sign-in required.
+                                </v-alert>
+                            </v-col>
+                            <v-col v-if="shareInfo?.freeTrialExpiration" cols="12" class="pt-0">
+                                <v-alert type="warning" variant="tonal">
+                                    This link will expire at {{ shareInfo.freeTrialExpiration.toLocaleString() }}.
+                                    <a class="text-decoration-underline text-cursor-pointer" @click="appStore.toggleUpgradeFlow(true)">Upgrade</a> your account to avoid expiration limits on future links.
+                                </v-alert>
+                            </v-col>
+                            <v-col cols="12" class="pt-0">
+                                <v-tabs v-model="shareTab" color="primary" class="border-b-thin" center-active>
+                                    <v-tab value="links"><component :is="Link" :size="16" class="mr-2" />Links</v-tab>
+                                    <v-tab value="social"><component :is="Share2" :size="16" class="mr-2" />Social</v-tab>
+                                    <v-tab v-if="showEmbedCode" value="embed"><component :is="Code2" :size="16" class="mr-2" />Embed</v-tab>
+                                </v-tabs>
+                            </v-col>
+                            <v-col cols="12" class="pt-0">
+                                <v-window v-model="shareTab">
+                                    <v-window-item value="links">
+                                        <p class="text-subtitle-2 font-weight-bold mt-2 d-flex align-center">
+                                            <component :is="Eye" :size="16" class="mr-2" /> Interactive Preview Link
+                                            <v-chip
+                                                v-if="rawLink"
+                                                size="x-small"
+                                                variant="outlined"
+                                                color="default"
+                                                class="ml-2"
+                                            >
+                                                Default
+                                            </v-chip>
+                                        </p>
+                                        <p class="text-caption text-medium-emphasis mb-2">View the {{ shareText.toLowerCase() }} in a browser before downloading</p>
+                                        <v-text-field
+                                            :model-value="link"
+                                            variant="solo-filled"
+                                            rounded="lg"
+                                            hide-details="auto"
+                                            flat
+                                            readonly
+                                            class="text-caption"
+                                        >
+                                            <template #append-inner>
+                                                <input-copy-button :value="link" />
+                                            </template>
+                                        </v-text-field>
 
-                            <v-window-item value="social">
-                                <p class="text-subtitle-2 font-weight-bold mt-2">Share via</p>
-                                <p class="text-caption text-medium-emphasis mb-2">Share your link on social media or via email</p>
-                                <v-chip-group class="mx-n1" column>
-                                    <v-chip
-                                        v-for="opt in ShareOptions"
-                                        :key="opt"
-                                        :color="SHARE_BUTTON_CONFIGS[opt].color"
-                                        :href="SHARE_BUTTON_CONFIGS[opt].getLink(link)"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        link
-                                        class="ma-1 font-weight-medium"
-                                    >
-                                        <component
-                                            :is="SHARE_BUTTON_CONFIGS[opt].icon"
-                                            class="share-dialog__content__icon"
-                                            size="16"
-                                        />
-                                        {{ opt }}
-                                    </v-chip>
-                                </v-chip-group>
-                            </v-window-item>
+                                        <template v-if="rawLink">
+                                            <p class="text-subtitle-2 font-weight-bold mt-4 d-flex align-center">
+                                                <component :is="Download" :size="16" class="mr-2" /> Direct Download Link
+                                            </p>
+                                            <p class="text-caption text-medium-emphasis mb-2">Download the file immediately without preview</p>
+                                            <v-text-field
+                                                :model-value="rawLink"
+                                                variant="solo-filled"
+                                                rounded="lg"
+                                                hide-details="auto"
+                                                readonly
+                                                flat
+                                                class="text-caption"
+                                            >
+                                                <template #append-inner>
+                                                    <input-copy-button :value="rawLink" />
+                                                </template>
+                                            </v-text-field>
+                                        </template>
+                                    </v-window-item>
 
-                            <v-window-item v-if="showEmbedCode" value="embed">
-                                <p class="text-subtitle-2 font-weight-bold mt-2">HTML Embed Code</p>
-                                <p class="text-caption text-medium-emphasis mb-2">Add this code to your website to embed the file</p>
-                                <v-text-field
-                                    :model-value="embedCode"
-                                    variant="solo-filled"
-                                    rounded="lg"
-                                    hide-details="auto"
-                                    readonly
-                                    flat
-                                    class="text-caption"
-                                >
-                                    <template #append-inner>
-                                        <input-copy-button :value="embedCode" />
-                                    </template>
-                                </v-text-field>
-                            </v-window-item>
-                        </v-window>
-                    </v-col>
-                </v-row>
-            </div>
+                                    <v-window-item value="social">
+                                        <p class="text-subtitle-2 font-weight-bold mt-2">Share via</p>
+                                        <p class="text-caption text-medium-emphasis mb-2">Share your link on social media or via email</p>
+                                        <v-chip-group class="mx-n1" column>
+                                            <v-chip
+                                                v-for="opt in ShareOptions"
+                                                :key="opt"
+                                                :color="SHARE_BUTTON_CONFIGS[opt].color"
+                                                :href="SHARE_BUTTON_CONFIGS[opt].getLink(link)"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                link
+                                                class="ma-1 font-weight-medium"
+                                            >
+                                                <component
+                                                    :is="SHARE_BUTTON_CONFIGS[opt].icon"
+                                                    size="16"
+                                                />
+                                                {{ opt }}
+                                            </v-chip>
+                                        </v-chip-group>
+                                    </v-window-item>
+
+                                    <v-window-item v-if="showEmbedCode" value="embed">
+                                        <p class="text-subtitle-2 font-weight-bold mt-2">HTML Embed Code</p>
+                                        <p class="text-caption text-medium-emphasis mb-2">Add this code to your website to embed the file</p>
+                                        <v-text-field
+                                            :model-value="embedCode"
+                                            variant="solo-filled"
+                                            rounded="lg"
+                                            hide-details="auto"
+                                            readonly
+                                            flat
+                                            class="text-caption"
+                                        >
+                                            <template #append-inner>
+                                                <input-copy-button :value="embedCode" />
+                                            </template>
+                                        </v-text-field>
+                                    </v-window-item>
+                                </v-window>
+                            </v-col>
+                        </v-row>
+                    </v-card-item>
+                </v-window-item>
+            </v-window>
 
             <v-divider />
 
@@ -166,6 +212,18 @@
                     </v-col>
                     <v-col>
                         <v-btn
+                            v-if="step === ShareStep.OptionsStep"
+                            color="primary"
+                            variant="flat"
+                            :disabled="!formValid || (expirationOption === ExpirationOptions.Custom && !expiration)"
+                            :loading="isLoading"
+                            block
+                            @click="generateShareLink"
+                        >
+                            Next ->
+                        </v-btn>
+                        <v-btn
+                            v-else
                             :color="justCopied ? 'success' : 'primary'"
                             variant="flat"
                             :prepend-icon="justCopied ? Check : Copy"
@@ -194,8 +252,10 @@ import {
     VChip,
     VChipGroup,
     VCol,
+    VDatePicker,
     VDialog,
     VDivider,
+    VForm,
     VRow,
     VSheet,
     VTab,
@@ -204,7 +264,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Check, Copy, Code2, Download, Eye, Link, Share2, X } from 'lucide-vue-next';
+import { Check, Code2, Copy, Download, Eye, Link, Share2, X } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -215,11 +275,25 @@ import { useAppStore } from '@/store/modules/appStore';
 import { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useLoading } from '@/composables/useLoading';
+import { useConfigStore } from '@/store/modules/configStore';
+import { RequiredRule, ValidationRule } from '@/types/common';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
 // Define tab values as string literals for better type support
 type ShareTabType = 'links' | 'social' | 'embed';
+
+enum ShareStep {
+    OptionsStep = 'options',
+    LinkStep = 'link',
+}
+
+enum ExpirationOptions {
+    NoExpiration = 'No Expiration',
+    Custom = 'Custom',
+}
 
 const props = defineProps<{
     bucketName: string,
@@ -230,20 +304,33 @@ const emit = defineEmits<{
     'contentRemoved': [];
 }>();
 
+const accessNameRules: ValidationRule<string>[] = [
+    RequiredRule,
+    v => !agStore.state.allAGNames.includes(v) || 'This name is already in use',
+];
+
 const model = defineModel<boolean>({ required: true });
 
 const appStore = useAppStore();
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectStore = useProjectsStore();
+const configStore = useConfigStore();
+const agStore = useAccessGrantsStore();
 
 const notify = useNotify();
 const { generateBucketShareURL, generateFileOrFolderShareURL } = useLinksharing();
+const { isLoading, withLoading } = useLoading();
 
+const step = ref<ShareStep>(ShareStep.OptionsStep);
+const formValid = ref<boolean>(false);
+const accessName = ref<string>('');
+const expirationOption = ref<ExpirationOptions>(ExpirationOptions.NoExpiration);
+const expiration = ref<Date | null>(null);
 const shareTab = ref<ShareTabType>('links');
-const innerContent = ref<VCard | null>(null);
-const isLoading = ref<boolean>(true);
-const shareInfo = ref<ShareInfo | null>(null);
+const shareInfo = ref<ShareInfo>();
+
+const type = computed<ShareType>(() => !props.file ? ShareType.Bucket : (props.file.type === 'folder' ? ShareType.Folder : ShareType.Object));
 
 const link = computed<string>(() => shareInfo.value?.url || '');
 const rawLink = computed<string>(() => props.file?.type === 'file' ? link.value.replace('/s/', '/raw/') : '');
@@ -253,7 +340,29 @@ const justCopied = computed<boolean>(() => copiedTimeout.value !== null);
 
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
-const shareText = computed<string>(() => !props.file ? 'Bucket' : props.file.type === 'folder' ? 'Folder' : 'File');
+const maxAccessNameLength = computed<number>(() => configStore.state.config.maxNameCharacters);
+const selectedProjectID = computed<string>(() => projectStore.state.selectedProject.id);
+
+const isPaidProjectOwner = computed<boolean>(() => projectStore.state.selectedProjectConfig.hasPaidPrivileges);
+
+const shareText = computed<string>(() => {
+    switch (type.value) {
+    case ShareType.Bucket:
+        return 'Bucket';
+    case ShareType.Folder:
+        return 'Folder';
+    case ShareType.Object:
+        return 'File';
+    default:
+        return '';
+    }
+});
+
+const minDate = computed<string>(() => {
+    const today = new Date();
+    today.setDate(today.getDate()+1);
+    return today.toISOString().split('T')[0];
+});
 
 const fileType = computed<PreviewType>(() => {
     if (!props.file) return PreviewType.None;
@@ -278,9 +387,9 @@ const showEmbedCode = computed<boolean>(() => {
 const embedCode = computed<string>(() => {
     switch (fileType.value) {
     case PreviewType.Video:
-        return `<video src="${rawLink.value}" controls/>`;
+        return `<video src="${rawLink.value}" controls />`;
     case PreviewType.Audio:
-        return `<audio src="${rawLink.value}" controls/>`;
+        return `<audio src="${rawLink.value}" controls />`;
     case PreviewType.Image:
         return `<img src="${rawLink.value}" alt="Shared image" />`;
     default:
@@ -319,58 +428,77 @@ function onCopy(): void {
     }, 750);
 }
 
-/**
- * Generates linksharing URL when the dialog is opened.
- */
-watch(() => innerContent.value, async (comp: VCard | null): Promise<void> => {
-    if (!comp) {
-        shareTab.value = 'links';
-        emit('contentRemoved');
-        return;
-    }
+function generateShareLink(): void {
+    withLoading(async () => {
+        if (!formValid.value || (expirationOption.value === ExpirationOptions.Custom && !expiration.value)) return;
 
-    isLoading.value = true;
-    shareInfo.value = null;
-    analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED, { project_id: projectStore.state.selectedProject.id });
+        try {
+            if (!props.file) {
+                shareInfo.value = await generateBucketShareURL(
+                    props.bucketName,
+                    accessName.value,
+                    expiration.value,
+                );
+            } else {
+                shareInfo.value = await generateFileOrFolderShareURL(
+                    props.bucketName,
+                    filePath.value,
+                    props.file.Key,
+                    // TODO: replace magic string type of BrowserObject.type with some constant/enum.
+                    props.file.type === 'folder' ? ShareType.Folder : ShareType.Object,
+                    accessName.value,
+                    expiration.value,
+                );
+            }
 
-    try {
-        if (!props.file) {
-            shareInfo.value = await generateBucketShareURL(props.bucketName);
-        } else {
-            shareInfo.value = await generateFileOrFolderShareURL(
-                props.bucketName,
-                filePath.value,
-                props.file.Key,
-                // TODO: replace magic string type of BrowserObject.type with some constant/enum.
-                props.file.type === 'folder' ? ShareType.Folder : ShareType.Object,
-            );
+            step.value = ShareStep.LinkStep;
+
+            analyticsStore.eventTriggered(AnalyticsEvent.LINK_SHARED, { project_id: selectedProjectID.value });
+        } catch (error) {
+            error.message = `Unable to get sharing URL. ${error.message}`;
+            notify.notifyError(error, AnalyticsErrorEventSource.SHARE_MODAL);
+            model.value = false;
         }
-    } catch (error) {
-        error.message = `Unable to get sharing URL. ${error.message}`;
-        notify.notifyError(error, AnalyticsErrorEventSource.SHARE_MODAL);
-        model.value = false;
+    });
+}
+
+watch(expirationOption, val => {
+    if (val === ExpirationOptions.NoExpiration) expiration.value = null;
+});
+
+watch(model, val => {
+    if (!val) {
+        step.value = ShareStep.OptionsStep;
+        shareTab.value = 'links';
+        shareInfo.value = undefined;
+        emit('contentRemoved');
+
         return;
     }
 
-    isLoading.value = false;
+    let access = props.bucketName;
+    if (props.file) access = props.file.Key;
+
+    access = `${access}_shared-${type.value}_${new Date().toISOString()}`;
+    if (access.length > maxAccessNameLength.value) {
+        access = `shared-${type.value}_${new Date().toISOString()}`;
+    }
+
+    accessName.value = access;
+    expirationOption.value = ExpirationOptions.NoExpiration;
+    expiration.value = null;
+
+    withLoading(async () => {
+        try {
+            await agStore.getAllAGNames(selectedProjectID.value);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.SHARE_MODAL);
+        }
+    });
 });
 </script>
 
 <style scoped lang="scss">
-.share-dialog__content {
-    transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
-
-    &--loading {
-        opacity: 0.3;
-        transition: opacity 0s;
-        pointer-events: none;
-    }
-
-    &__icon {
-        margin-right: 5.5px;
-    }
-}
-
 :deep(.v-field__input) {
     font-size: 0.875rem !important;
 }
