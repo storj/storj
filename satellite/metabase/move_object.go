@@ -249,18 +249,34 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		TransactionTag: "finish-move-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
-		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:       opts.NewLocation(),
-			Versioned:      opts.NewVersioned,
-			DisallowDelete: opts.NewDisallowDelete,
+		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
+			ObjectStream: ObjectStream{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.NewBucket,
+				ObjectKey:  opts.NewEncryptedObjectKey,
+				Version:    0,
+				StreamID:   opts.StreamID,
+			},
+			Pending:        false, // the pending object doesn't exist
+			Unversioned:    !opts.NewVersioned,
+			HighestVisible: false,
 		}, adapter)
 		if err != nil {
 			return err
 		}
 
-		newStatus := committedWhereVersioned(opts.NewVersioned)
-		nextVersion := precommit.HighestVersion + 1
+		// When committing unversioned objects we need to delete any previous unversioned objects.
+		if !opts.NewVersioned {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, query, &precommit); err != nil {
+				return err
+			}
+		}
 
+		newStatus := committedWhereVersioned(opts.NewVersioned)
+		nextVersion := db.nextVersion(0, query.HighestVersion, query.TimestampVersion)
+
+		// TODO(optimize): query the object to be moved as part of PrecommitQuery.
+		// Then simplify the code to construct the new object and use precommitDeleteExactObject together with precommitInsertExactObject.
 		oldStatus, segmentsCount, hasMetadataOrETag, streamID, lockInfo, err := adapter.objectMove(ctx, opts, newStatus, nextVersion)
 		if err != nil {
 			// purposefully not wrapping the error here, so as not to break expected error text in tests
@@ -345,14 +361,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		newStatus,
 		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
 		timeWrapper{&opts.Retention.RetainUntil},
-	}
-
-	var versionArg string
-	if !ptx.postgresAdapter.testingTimestampVersioning {
-		versionArg = "$12"
-		args = append(args, nextVersion)
-	} else {
-		versionArg = postgresGenerateTimestampVersion
+		nextVersion,
 	}
 
 	err = ptx.tx.QueryRowContext(ctx, `
@@ -361,7 +370,7 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 				UPDATE objects SET
 					bucket_name = $1,
 					object_key = $2,
-					version = `+versionArg+`,
+					version = $12,
 					status = $9,
 					encrypted_metadata_encrypted_key =
 						CASE WHEN encrypted_metadata IS NOT NULL
@@ -497,6 +506,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		"project_id":                       opts.ProjectID,
 		"bucket_name":                      opts.NewBucket,
 		"object_key":                       opts.NewEncryptedObjectKey,
+		"version":                          nextVersion,
 		"stream_id":                        streamID,
 		"created_at":                       createdAt,
 		"expires_at":                       expiresAt,
@@ -515,15 +525,6 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 		"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
 	}
 
-	var versionArg string
-	if !stx.spannerAdapter.testingTimestampVersioning {
-		versionArg = "@version"
-		params["version"] = nextVersion
-
-	} else {
-		versionArg = spannerGenerateTimestampVersion
-	}
-
 	_, err = stx.tx.UpdateWithOptions(ctx, spanner.Statement{
 		SQL: `
 			INSERT INTO objects (
@@ -535,7 +536,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 				zombie_deletion_deadline,
 				retention_mode, retain_until
 			) VALUES (
-				@project_id, @bucket_name, @object_key, ` + versionArg + `,
+				@project_id, @bucket_name, @object_key, @version,
 				@stream_id, @created_at, @expires_at, @status, @segment_count,
 				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
