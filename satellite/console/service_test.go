@@ -4127,6 +4127,33 @@ func TestAbbreviatedDeleteAccount(t *testing.T) {
 
 			require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p.ID))
 
+			// check that having object lock buckets interrupts deletion
+			bucket = buckets.Bucket{
+				ID:         testrand.UUID(),
+				Name:       "testBucket2",
+				ProjectID:  p.ID,
+				ObjectLock: buckets.ObjectLockSettings{Enabled: true},
+			}
+			_, err = sat.API.Buckets.Service.CreateBucket(userCtx, bucket)
+			require.NoError(t, err)
+
+			resp, err = service.DeleteAccount(userCtx, console.DeleteAccountInit, "test")
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.Equal(t, 1, resp.LockEnabledBuckets)
+
+			// object lock bucket check can be skipped
+			resp, err = service.DeleteAccount(userCtx, console.DeleteAccountInit, console.SkipObjectLockEnabledBuckets)
+			require.NoError(t, err)
+			require.Nil(t, resp)
+
+			// object lock bucket check only happens at initial step
+			resp, err = service.DeleteAccount(userCtx, console.VerifyAccountMfaStep, "test")
+			require.NoError(t, err)
+			require.Nil(t, resp)
+
+			require.NoError(t, sat.API.Buckets.Service.DeleteBucket(ctx, []byte(bucket.Name), p.ID))
+
 			// check that having api keys does not interrupt
 			// abbreviated deletion
 			_, _, err = service.CreateAPIKey(userCtx, p.PublicID, "testkey", macaroon.APIKeyVersionMin)

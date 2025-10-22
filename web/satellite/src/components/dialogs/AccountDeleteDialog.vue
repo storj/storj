@@ -59,6 +59,16 @@
                         </v-form>
                     </v-window-item>
 
+                    <v-window-item :value="DeleteAccountStep.LockEnabledBucketsStep">
+                        <div class="pa-6">
+                            <v-alert variant="tonal" type="warning">
+                                You have {{ buckets }} bucket{{ buckets > 1 ? 's' : '' }} with Object Lock enabled.
+                                By proceeding, you will lose any objects in {{ buckets > 1 ? 'these' : 'this' }}
+                                bucket{{ buckets > 1 ? 's' : '' }} even if they are locked.
+                            </v-alert>
+                        </div>
+                    </v-window-item>
+
                     <v-window-item :value="DeleteAccountStep.DeleteBucketsStep">
                         <v-form class="pa-6">
                             <v-row>
@@ -245,6 +255,16 @@
                             Go to projects
                         </v-btn>
                         <v-btn
+                            v-else-if="step === DeleteAccountStep.LockEnabledBucketsStep"
+                            color="warning"
+                            variant="flat"
+                            :loading="isLoading"
+                            block
+                            @click="proceed(true)"
+                        >
+                            Next
+                        </v-btn>
+                        <v-btn
                             v-else-if="step === DeleteAccountStep.PayInvoicesStep"
                             color="error"
                             variant="flat"
@@ -268,7 +288,7 @@
                             :loading="isLoading"
                             :disabled="step === DeleteAccountStep.ConfirmDeleteStep && !isDeleteConfirmed"
                             block
-                            @click="proceed"
+                            @click="proceed()"
                         >
                             Next
                         </v-btn>
@@ -279,7 +299,7 @@
                             color="error"
                             variant="flat"
                             block
-                            @click="proceed"
+                            @click="proceed()"
                         >
                             Delete Account
                         </v-btn>
@@ -317,7 +337,7 @@ import {
 import { Trash2, X } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
-import { DeleteAccountStep } from '@/types/accountActions';
+import { DeleteAccountStep, SKIP_OBJECT_LOCK_ENABLED_BUCKETS } from '@/types/accountActions';
 import { AccountDeletionData, User } from '@/types/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
@@ -362,6 +382,10 @@ function chooseRestrictionStep(deleteResp: AccountDeletionData) {
         ownedProjects.value = deleteResp.ownedProjects;
         buckets.value = deleteResp.buckets;
         break;
+    case deleteResp.lockEnabledBuckets > 0:
+        step.value = DeleteAccountStep.LockEnabledBucketsStep;
+        buckets.value = deleteResp.lockEnabledBuckets;
+        break;
     case deleteResp.apiKeys > 0:
         step.value = DeleteAccountStep.DeleteAccessKeysStep;
         ownedProjects.value = deleteResp.ownedProjects;
@@ -381,12 +405,16 @@ function chooseRestrictionStep(deleteResp: AccountDeletionData) {
     }
 }
 
-async function proceed(): Promise<void> {
+async function proceed(skipLockEnabledBuckets = false): Promise<void> {
     await withLoading(async () => {
         try {
             switch (step.value) {
             case DeleteAccountStep.InitStep:
-                deleteResp.value = await userStore.deleteAccount(DeleteAccountStep.InitStep, '');
+            case DeleteAccountStep.LockEnabledBucketsStep:
+                deleteResp.value = await userStore.deleteAccount(
+                    DeleteAccountStep.InitStep,
+                    skipLockEnabledBuckets ? SKIP_OBJECT_LOCK_ENABLED_BUCKETS : '',
+                );
                 if (!deleteResp.value) {
                     step.value = DeleteAccountStep.VerifyPasswordStep;
                 } else {

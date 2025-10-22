@@ -617,6 +617,7 @@ type SetUpAccountRequest struct {
 // DeleteAccountResponse holds data for account deletion UI flow.
 type DeleteAccountResponse struct {
 	OwnedProjects       int   `json:"ownedProjects"`
+	LockEnabledBuckets  int   `json:"lockEnabledBuckets"`
 	Buckets             int   `json:"buckets"`
 	ApiKeys             int   `json:"apiKeys"`
 	UnpaidInvoices      int   `json:"unpaidInvoices"`

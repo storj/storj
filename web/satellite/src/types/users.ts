@@ -291,6 +291,7 @@ export interface AccountSetupData {
 export class AccountDeletionData {
     public constructor(
         public ownedProjects: number,
+        public lockEnabledBuckets: number,
         public buckets: number,
         public apiKeys: number,
         public unpaidInvoices: number,

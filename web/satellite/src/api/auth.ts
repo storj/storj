@@ -261,6 +261,7 @@ export class AuthHttpApi implements UsersApi {
         if (response.status === 409) {
             return new AccountDeletionData(
                 result.ownedProjects,
+                result.lockEnabledBuckets,
                 result.buckets,
                 result.apiKeys,
                 result.unpaidInvoices,

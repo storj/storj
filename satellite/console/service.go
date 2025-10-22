@@ -2568,16 +2568,32 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 	deletionRestricted := false
 	var projects []Project
 
-	if !s.config.AbbreviatedDeleteAccountEnabled {
+	if !s.config.AbbreviatedDeleteAccountEnabled || (step == DeleteAccountInit && data != SkipObjectLockEnabledBuckets) {
 		projects, err = s.store.Projects().GetOwnActive(ctx, user.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		resp.OwnedProjects = len(projects)
+	}
 
-		// check project deletion restrictions
-		for _, p := range projects {
+	// check project deletion restrictions
+	for _, p := range projects {
+		if step == DeleteAccountInit && s.config.AbbreviatedDeleteAccountEnabled && data != SkipObjectLockEnabledBuckets {
+			// check for buckets with Object Lock enabled
+			for _, p := range projects {
+				count, err := s.buckets.CountObjectLockBuckets(ctx, p.ID)
+				if err != nil {
+					return nil, err
+				}
+				resp.LockEnabledBuckets += count
+			}
+			if resp.LockEnabledBuckets > 0 {
+				return resp, nil
+			}
+		}
+
+		if !s.config.AbbreviatedDeleteAccountEnabled {
 			buckets, err := s.buckets.CountBuckets(ctx, p.ID)
 			if err != nil {
 				return nil, err
