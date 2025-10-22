@@ -1111,25 +1111,40 @@ func TestFinishCopyObject(t *testing.T) {
 				destionationCommittedVersion metabase.Version
 			}{
 				// the same bucket
-				0: {"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{}, 2, 2,
-					[]metabase.Version{}, 1, 1,
+				0: {
+					"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{},
+					2, 2,
+					[]metabase.Version{},
+					1, 1,
 				},
-				1: {"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{}, 1, 1,
-					[]metabase.Version{1}, 2, 2,
+				1: {
+					"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{},
+					1, 1,
+					[]metabase.Version{1},
+					2, 2,
 				},
-				2: {"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{}, 1, 1,
-					[]metabase.Version{1, 3}, 2, 4,
+				2: {
+					"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{},
+					1, 1,
+					[]metabase.Version{1, 3},
+					2, 4,
 				},
-				3: {"testbucket", "object", "testbucket", "new-object",
-					[]metabase.Version{1, 5}, 2, 6,
-					[]metabase.Version{1, 3}, 2, 4,
+				3: {
+					"testbucket", "object", "testbucket", "new-object",
+					[]metabase.Version{1, 5},
+					2, 6,
+					[]metabase.Version{1, 3},
+					2, 4,
 				},
-				4: {"testbucket", "object", "newbucket", "object",
-					[]metabase.Version{2, 3}, 1, 4,
-					[]metabase.Version{1, 5}, 2, 6,
+				4: {
+					"testbucket", "object", "newbucket", "object",
+					[]metabase.Version{2, 3},
+					1, 4,
+					[]metabase.Version{1, 5},
+					2, 6,
 				},
 			}
 
@@ -1907,5 +1922,5 @@ func TestFinishCopyObject(t *testing.T) {
 			// no retention and legal hold
 			test(t, metabase.Retention{}, true)
 		})
-	}, metabasetest.WithTimestampVersioning)
+	}, metabasetest.WithTimestampVersioning, metabasetest.WithOldCommitObject)
 }

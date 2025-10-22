@@ -1559,44 +1559,10 @@ func (db *DB) CommitObject2(ctx context.Context, opts CommitObject) (object Obje
 		}
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
-		if !opts.Versioned && query.Unversioned != nil {
-			// If we are not allowed to delete the object we cannot commit.
-			if opts.DisallowDelete {
-				return ErrPermissionDenied.New("no permissions to delete existing object")
+		if !opts.Versioned {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, query, &precommit); err != nil {
+				return err
 			}
-
-			// Retention is not allowed for unversioned objects,
-			// however the check is cheap and we rather not lose protected objects.
-			var retention Retention
-			retention.Mode = query.Unversioned.RetentionMode.Mode
-			retention.RetainUntil = query.Unversioned.RetainUntil.Time
-
-			// If the object has a legal hold and retention, we also cannot commit.
-			if err = retention.Verify(); err != nil {
-				return Error.Wrap(err)
-			}
-			switch {
-			case query.Unversioned.RetentionMode.LegalHold:
-				return ErrObjectLock.New(legalHoldErrMsg)
-			case retention.ActiveNow():
-				return ErrObjectLock.New(retentionErrMsg)
-			}
-
-			// delete the previous unversioned object
-			err := adapter.precommitDeleteExactObject(ctx, ObjectStream{
-				ProjectID:  opts.ProjectID,
-				BucketName: opts.BucketName,
-				ObjectKey:  opts.ObjectKey,
-				Version:    query.Unversioned.Version,
-				StreamID:   query.Unversioned.StreamID,
-			})
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			// update the precommit metrics
-			precommit.DeletedObjectCount = 1
-			precommit.DeletedSegmentCount = int(query.Unversioned.SegmentCount)
 		}
 
 		if err = db.validateParts(query.Segments); err != nil {
@@ -2000,44 +1966,10 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 		}
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
-		if !opts.Versioned && query.Unversioned != nil {
-			// If we are not allowed to delete the object we cannot commit.
-			if opts.DisallowDelete {
-				return ErrPermissionDenied.New("no permissions to delete existing object")
+		if !opts.Versioned {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, query, &precommit); err != nil {
+				return err
 			}
-
-			// Retention is not allowed for unversioned objects,
-			// however the check is cheap and we rather not lose protected objects.
-			var retention Retention
-			retention.Mode = query.Unversioned.RetentionMode.Mode
-			retention.RetainUntil = query.Unversioned.RetainUntil.Time
-
-			// If the object has a legal hold and retention, we also cannot commit.
-			if err = retention.Verify(); err != nil {
-				return Error.Wrap(err)
-			}
-			switch {
-			case query.Unversioned.RetentionMode.LegalHold:
-				return ErrObjectLock.New(legalHoldErrMsg)
-			case retention.ActiveNow():
-				return ErrObjectLock.New(retentionErrMsg)
-			}
-
-			// delete the previous unversioned object
-			err := adapter.precommitDeleteExactObject(ctx, ObjectStream{
-				ProjectID:  opts.ProjectID,
-				BucketName: opts.BucketName,
-				ObjectKey:  opts.ObjectKey,
-				Version:    query.Unversioned.Version,
-				StreamID:   query.Unversioned.StreamID,
-			})
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			// update the precommit metrics
-			precommit.DeletedObjectCount = 1
-			precommit.DeletedSegmentCount = int(query.Unversioned.SegmentCount)
 		}
 
 		now := time.Now() // TODO: should we get this information from the database?
@@ -2097,6 +2029,52 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
 
 	return object, nil
+}
+
+func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter TransactionAdapter, disallowDelete bool, query *PrecommitInfo, stats *PrecommitConstraintResult) (err error) {
+	if query.Unversioned == nil {
+		return nil
+	}
+
+	// If we are not allowed to delete the object we cannot commit.
+	if disallowDelete {
+		return ErrPermissionDenied.New("no permissions to delete existing object")
+	}
+
+	// Retention is not allowed for unversioned objects,
+	// however the check is cheap and we rather not lose protected objects.
+	var retention Retention
+	retention.Mode = query.Unversioned.RetentionMode.Mode
+	retention.RetainUntil = query.Unversioned.RetainUntil.Time
+
+	// If the object has a legal hold and retention, we also cannot commit.
+	if err = retention.Verify(); err != nil {
+		return Error.Wrap(err)
+	}
+	switch {
+	case query.Unversioned.RetentionMode.LegalHold:
+		return ErrObjectLock.New(legalHoldErrMsg)
+	case retention.ActiveNow():
+		return ErrObjectLock.New(retentionErrMsg)
+	}
+
+	// delete the previous unversioned object
+	err = adapter.precommitDeleteExactObject(ctx, ObjectStream{
+		ProjectID:  query.ProjectID,
+		BucketName: query.BucketName,
+		ObjectKey:  query.ObjectKey,
+		Version:    query.Unversioned.Version,
+		StreamID:   query.Unversioned.StreamID,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// update the precommit metrics
+	stats.DeletedObjectCount = 1
+	stats.DeletedSegmentCount = int(query.Unversioned.SegmentCount)
+
+	return nil
 }
 
 func (ptx *postgresTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {

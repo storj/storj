@@ -145,9 +145,9 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 
 func TestPrecommitQuery(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		precommit := func(query metabase.PrecommitQuery) (metabase.PrecommitInfo, error) {
+		precommit := func(query metabase.PrecommitQuery) (*metabase.PrecommitInfo, error) {
 			adapter := db.ChooseAdapter(query.ObjectStream.ProjectID)
-			var info metabase.PrecommitInfo
+			var info *metabase.PrecommitInfo
 			err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, tx metabase.TransactionAdapter) error {
 				var err error
 				info, err = db.PrecommitQuery(ctx, query, tx)
@@ -171,15 +171,17 @@ func TestPrecommitQuery(t *testing.T) {
 						})
 						if pending {
 							require.ErrorContains(t, err, "object with specified version and pending status is missing")
+							require.Nil(t, info)
 						} else {
 							require.NoError(t, err)
+							expect := &metabase.PrecommitInfo{
+								ObjectStream:     obj,
+								TimestampVersion: info.TimestampVersion, // this is dynamically created
+							}
+							require.Equal(t, expect, info)
 						}
-
-						expect := metabase.PrecommitInfo{
-							TimestampVersion: info.TimestampVersion, // this is dynamically created
-						}
-						require.Equal(t, expect, info)
 					})
+
 				}
 			}
 		}
@@ -212,7 +214,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   pending.Version,
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
@@ -261,7 +264,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   0, // we don't return negative versions
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
@@ -314,7 +318,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   20000,
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
@@ -371,7 +376,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   20000,
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
