@@ -12,7 +12,7 @@
                 <template #activator="{ props }">
                     <v-btn
                         v-bind="props"
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { VBtn, VTooltip } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { ONBOARDING_STEPPER_STEPS, User } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';

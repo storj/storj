@@ -14,7 +14,7 @@
                 <v-card-title class="font-weight-bold"> Add Tax ID </v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -109,6 +109,7 @@ import {
     VSelect,
     VTextField,
 } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { Tax, TaxCountry } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

@@ -33,7 +33,7 @@
 
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -45,7 +45,7 @@
 
             <v-divider />
 
-            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep">
+            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep" :touch="false">
                 <v-window-item :value="CreateSteps.Info">
                     <v-form v-model="formValid" class="pa-6" @submit.prevent>
                         <v-row>
@@ -265,7 +265,7 @@ import {
     VWindowItem,
     VSheet,
 } from 'vuetify/components';
-import { ArrowRight, Box, Gauge } from 'lucide-vue-next';
+import { ArrowRight, Box, Gauge, X } from 'lucide-vue-next';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';

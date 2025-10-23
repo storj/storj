@@ -350,8 +350,8 @@ export class PaymentsHistoryItem {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
     }
 
-    public get formattedStart(): string {
-        return Time.formattedDate(this.start);
+    public get period(): string {
+        return Time.formattedDate(this.start) + ' - ' + Time.formattedDate(this.end);
     }
 
     public get label(): string {

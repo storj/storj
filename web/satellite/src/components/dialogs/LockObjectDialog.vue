@@ -28,7 +28,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -40,7 +40,7 @@
 
             <v-divider />
 
-            <v-window v-model="step" class="overflow-y-auto">
+            <v-window v-model="step" :touch="false" class="overflow-y-auto">
                 <v-window-item :value="LockStep.Settings">
                     <v-row>
                         <v-col class="pa-6 mx-3">
@@ -253,7 +253,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Lock } from 'lucide-vue-next';
+import { Lock, X } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';

@@ -26,7 +26,7 @@
 
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -86,7 +86,7 @@ import {
     VSheet,
     VAlert,
 } from 'vuetify/components';
-import { TriangleAlert } from 'lucide-vue-next';
+import { TriangleAlert, X } from 'lucide-vue-next';
 
 import { Bucket } from '@/types/buckets';
 import { AccessGrant } from '@/types/accessGrants';

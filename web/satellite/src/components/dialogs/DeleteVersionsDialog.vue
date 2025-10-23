@@ -24,7 +24,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -114,7 +114,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { VTreeview } from 'vuetify/labs/VTreeview';
-import { Trash2 } from 'lucide-vue-next';
+import { Trash2, X } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';

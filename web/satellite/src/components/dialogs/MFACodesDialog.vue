@@ -17,7 +17,7 @@
                 <v-card-title class="font-weight-bold">Two-Factor Recovery Codes</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -138,6 +138,7 @@ import {
     VOtpInput,
     VTextField,
 } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';

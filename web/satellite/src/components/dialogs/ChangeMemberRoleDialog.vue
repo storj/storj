@@ -27,7 +27,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -95,7 +95,7 @@ import {
     VSelect,
     VSheet,
 } from 'vuetify/components';
-import { UserCog } from 'lucide-vue-next';
+import { UserCog, X } from 'lucide-vue-next';
 
 import { ProjectRole } from '@/types/projectMembers';
 import { useLoading } from '@/composables/useLoading';

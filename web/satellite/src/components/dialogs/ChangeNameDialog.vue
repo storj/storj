@@ -25,7 +25,7 @@
                 <v-card-title class="font-weight-bold">Edit Name</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -101,7 +101,7 @@ import {
     VTextField,
     VSheet,
 } from 'vuetify/components';
-import { UserPen } from 'lucide-vue-next';
+import { UserPen, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';

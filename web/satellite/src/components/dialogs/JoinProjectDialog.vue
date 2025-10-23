@@ -15,7 +15,7 @@
 
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -73,6 +73,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { ProjectInvitationResponse } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

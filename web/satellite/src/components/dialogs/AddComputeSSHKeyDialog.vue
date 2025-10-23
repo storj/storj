@@ -28,7 +28,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -113,7 +113,7 @@ import {
     VDivider,
     VSheet,
 } from 'vuetify/components';
-import { FileKey } from 'lucide-vue-next';
+import { FileKey, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';

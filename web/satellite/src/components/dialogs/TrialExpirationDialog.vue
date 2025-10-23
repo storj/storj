@@ -17,7 +17,7 @@
                     <v-card-title class="font-weight-bold">{{ title }}</v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -84,7 +84,7 @@ import {
     VChip,
     VBtn,
 } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';

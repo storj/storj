@@ -24,7 +24,7 @@
                 <v-card-title class="font-weight-bold">Change Password</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -140,7 +140,7 @@ import {
     VTooltip,
     VSheet,
 } from 'vuetify/components';
-import { Lock } from 'lucide-vue-next';
+import { Lock, X } from 'lucide-vue-next';
 
 import { GoodPasswordRule, RequiredRule, ValidationRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

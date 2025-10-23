@@ -714,7 +714,7 @@ func deleteAllBucketsAndObjects(
 				return errs.New("error deleting bucket %q (project: %q): %+v", b.Name, projectID, err)
 			}
 
-			log.Debug("bucked deleted", zap.Stringer("project_id", projectID), zap.String("bucket_name", b.Name))
+			log.Debug("bucket deleted", zap.Stringer("project_id", projectID), zap.String("bucket_name", b.Name))
 		}
 
 		blopts = blopts.NextPage(bcks)

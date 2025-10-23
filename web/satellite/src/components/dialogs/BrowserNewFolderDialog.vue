@@ -28,7 +28,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -109,6 +109,7 @@ import {
     VDivider,
     VCardActions,
 } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/composables/useNotify';

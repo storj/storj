@@ -13,7 +13,7 @@
                 <v-card-title class="font-weight-bold">Upgrade Account</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -74,6 +74,7 @@ import {
     VDivider,
     VRow,
 } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

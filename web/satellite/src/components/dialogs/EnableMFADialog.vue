@@ -25,7 +25,7 @@
                 <v-card-title class="font-weight-bold">Setup Two-Factor</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -38,7 +38,7 @@
             <v-divider />
 
             <v-card-text class="pa-0">
-                <v-window v-model="step" :class="{ 'overflow-y-auto': step === 0 }">
+                <v-window v-model="step" :touch="false" :class="{ 'overflow-y-auto': step === 0 }">
                     <!-- QR code step -->
                     <v-window-item :value="0">
                         <v-card-item class="pa-6">
@@ -168,7 +168,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import QRCode from 'qrcode';
-import { ShieldCheck } from 'lucide-vue-next';
+import { ShieldCheck, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';

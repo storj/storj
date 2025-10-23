@@ -20,7 +20,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -98,7 +98,7 @@ import {
     VIcon,
     VDivider,
 } from 'vuetify/components';
-import { SquareArrowOutUpRight } from 'lucide-vue-next';
+import { SquareArrowOutUpRight, X } from 'lucide-vue-next';
 
 import { Emission } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

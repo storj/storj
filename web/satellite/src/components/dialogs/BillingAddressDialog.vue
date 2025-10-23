@@ -14,7 +14,7 @@
                 <v-card-title class="font-weight-bold">Update Billing Address</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -62,6 +62,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardActions, VCardItem, VCardTitle, VCol, VDialog, VDivider, VRow } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { BillingAddress } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

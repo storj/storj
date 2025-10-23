@@ -14,7 +14,7 @@
                 <v-card-title class="font-weight-bold"> Add STORJ Tokens </v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -26,7 +26,7 @@
             <v-divider />
 
             <v-card-item class="py-4">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="AddTokensDialogStep.AddTokens">
                         <AddTokensStep
                             is-root
@@ -47,6 +47,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { VBtn, VCard, VCardItem, VCardTitle, VDialog, VDivider, VWindow, VWindowItem } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';

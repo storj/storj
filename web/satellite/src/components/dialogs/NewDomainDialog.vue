@@ -30,7 +30,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -45,6 +45,7 @@
             <v-card-text class="pa-0">
                 <v-window
                     v-model="step"
+                    :touch="false"
                     class="new-domain__window"
                     :class="{ 'new-domain__window--loading': isFetching || isGenerating }"
                 >
@@ -177,7 +178,7 @@ import {
     VWindowItem,
     VIcon,
 } from 'vuetify/components';
-import { Globe } from 'lucide-vue-next';
+import { Globe, X } from 'lucide-vue-next';
 
 import { NewDomainFlowStep } from '@/types/domains';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

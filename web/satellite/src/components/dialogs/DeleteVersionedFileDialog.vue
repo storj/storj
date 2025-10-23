@@ -23,7 +23,7 @@
                 <template #append>
                     <v-btn
                         :disabled="isLoading"
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -314,7 +314,7 @@ import {
     VRadioGroup,
     VIcon,
 } from 'vuetify/components';
-import { Trash2 } from 'lucide-vue-next';
+import { Trash2, X } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';

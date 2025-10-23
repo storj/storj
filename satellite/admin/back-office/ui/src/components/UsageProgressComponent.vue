@@ -2,59 +2,83 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :title="title" variant="flat" :border="true" rounded="xlg">
-        <v-card-item class="pt-1">
-            <v-row>
-                <v-col cols="12" class="pb-1">
+    <v-card v-if="!rateAndBurst" :title="title" variant="flat" rounded="xlg">
+        <template v-if="featureFlags.project.updateLimits" #append>
+            <v-btn
+                size="small"
+                variant="outlined"
+                color="default"
+                @click="emit('updateLimits')"
+            >
+                Change Limits
+            </v-btn>
+        </template>
+        <v-card-text class="pt-2">
+            <v-row class="mb-1">
+                <v-col cols="12">
                     <v-progress-linear :color="color" :model-value="percentage" rounded height="6" />
                 </v-col>
+            </v-row>
 
-                <v-col cols="6">
+            <div class="d-flex justify-space-between align-center">
+                <div>
                     <p class="text-medium-emphasis">Used</p>
                     <h4>{{ onlyLimit ? "---" : format(used || 0) }}</h4>
-                    <v-divider class="my-3" />
-                    <p class="text-medium-emphasis">Percentage</p>
-                    <h4 class="">{{ onlyLimit ? "---" : percentage+'%' }}</h4>
-                </v-col>
+                </div>
 
-                <v-col cols="6">
+                <div>
                     <p class="text-right text-medium-emphasis">Available</p>
                     <h4 class="text-right">{{ onlyLimit ? "---" : format(available) }}</h4>
-                    <v-divider class="my-3" />
+                </div>
+            </div>
+
+            <v-divider class="my-2" />
+            <div class="d-flex justify-space-between align-center">
+                <div>
+                    <p class="text-medium-emphasis">Percentage</p>
+                    <h4 class="">{{ onlyLimit ? "---" : percentage+'%' }}</h4>
+                </div>
+                <div>
                     <p class="text-right text-medium-emphasis">Limit</p>
                     <h4 class="text-right">{{ format(limit) }}</h4>
-                </v-col>
-
-                <template v-if="featureFlags.project.updateLimits">
-                    <v-divider />
-                    <v-col>
-                        <v-btn
-                            size="small"
-                            variant="outlined"
-                            color="default"
-                            class="mt-1 my-2"
-                            @click="emit('updateLimits')"
-                        >
-                            Change Limits
-                        </v-btn>
-                    </v-col>
-                </template>
-            </v-row>
-        </v-card-item>
+                    <span class="text-right text-caption text-medium-emphasis">
+                        <template v-if="userSpecified">{{ format(userSpecified) }} user specified </template>
+                        <template v-else>&nbsp;</template>
+                    </span>
+                </div>
+            </div>
+        </v-card-text>
+    </v-card>
+    <v-card v-else :title="title" variant="flat" rounded="xlg">
+        <template v-if="featureFlags.project.updateLimits" #append>
+            <v-btn
+                size="small"
+                density="comfortable"
+                variant="outlined"
+                color="default"
+                :icon="PenBox"
+                @click="emit('updateLimits')"
+            />
+        </template>
+        <v-card-text>
+            <div class="d-flex justify-space-between align-center">
+                <div>
+                    <p class="text-medium-emphasis">Rate</p>
+                    <p class="text-medium-emphasis">Burst</p>
+                </div>
+                <div>
+                    <p>{{ rateAndBurst.rate || '__' }}</p>
+                    <p>{{ rateAndBurst.burst || '__' }}</p>
+                </div>
+            </div>
+        </v-card-text>
     </v-card>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import {
-    VCard,
-    VCardItem,
-    VRow,
-    VCol,
-    VProgressLinear,
-    VDivider,
-    VBtn,
-} from 'vuetify/components';
+import { VBtn, VCard, VCardText, VCol, VDivider, VProgressLinear, VRow } from 'vuetify/components';
+import { PenBox } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -68,6 +92,8 @@ const props = defineProps<{
     onlyLimit?: boolean;
     used?: number;
     limit: number;
+    userSpecified?: number;
+    rateAndBurst?: { rate: number | null; burst: number | null };
 }>();
 
 const emit = defineEmits<{

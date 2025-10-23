@@ -27,7 +27,7 @@
 
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -116,7 +116,7 @@
 <script setup lang="ts">
 import { Component, computed, ref, watch } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCardItem, VDivider, VCardTitle, VBtn, VCard, VCardActions, VDialog, VAlert, VSheet, VIcon } from 'vuetify/components';
-import { LockKeyhole } from 'lucide-vue-next';
+import { LockKeyhole, X } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
