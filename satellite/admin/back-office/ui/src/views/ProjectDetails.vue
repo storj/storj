@@ -125,7 +125,7 @@
                 <!-- TODO: get bucket count -->
                 <UsageProgressComponent
                     title="Buckets" :only-limit="true"
-                    :limit="project.maxBuckets || 0"
+                    :limit="project.maxBuckets"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -135,7 +135,7 @@
                     title="Storage" :is-bytes="true"
                     :used="project.storageUsed ?? 0"
                     :limit="project.storageLimit ?? 0"
-                    :user-specified="project.userSetStorageLimit ?? 0"
+                    :user-specified="project.userSetStorageLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -145,7 +145,7 @@
                     title="Download" :is-bytes="true"
                     :used="project.bandwidthUsed"
                     :limit="project.bandwidthLimit ?? 0"
-                    :user-specified="project.userSetBandwidthLimit ?? 0"
+                    :user-specified="project.userSetBandwidthLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -153,8 +153,8 @@
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
                     title="Segments"
-                    :used="project.segmentUsed || 0"
-                    :limit="project.segmentLimit || 0"
+                    :used="project.segmentUsed ?? 0"
+                    :limit="project.segmentLimit ?? 0"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -162,7 +162,7 @@
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
                     title="Rate" :only-limit="true"
-                    :limit="project.rateLimit || 0"
+                    :limit="project.rateLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -170,7 +170,7 @@
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
                     title="Burst" :only-limit="true"
-                    :limit="project.burstLimit || 0"
+                    :limit="project.burstLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -265,7 +265,7 @@ import { useRouter } from 'vue-router';
 import { Box, ChevronDown, ChevronLeft, ChevronRight, FilePen } from 'lucide-vue-next';
 import { useDisplay } from 'vuetify';
 
-import { FeatureFlags, UserAccount } from '@/api/client.gen';
+import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
@@ -294,7 +294,7 @@ const updateLimitsDialog = ref<boolean>(false);
 const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
 
 const userAccount = computed<UserAccount>(() => usersStore.state.currentAccount as UserAccount);
-const project = computed(() => projectsStore.state.currentProject);
+const project = computed<Project | null>(() => projectsStore.state.currentProject);
 
 const placementText = computed<string>(() => {
     return appStore.getPlacementText(project.value?.defaultPlacement || 0);

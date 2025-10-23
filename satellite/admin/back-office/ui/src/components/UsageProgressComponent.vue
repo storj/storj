@@ -91,8 +91,8 @@ const props = defineProps<{
     isBytes?: boolean;
     onlyLimit?: boolean;
     used?: number;
-    limit: number;
-    userSpecified?: number;
+    limit: number | null;
+    userSpecified?: number | null;
     rateAndBurst?: { rate: number | null; burst: number | null };
 }>();
 
@@ -101,7 +101,7 @@ const emit = defineEmits<{
 }>();
 
 const color = computed((): string => {
-    if (props.onlyLimit || !props.used) {
+    if (props.onlyLimit || !props.used || props.limit === null) {
         return 'success';
     }
 
@@ -120,7 +120,7 @@ const color = computed((): string => {
 });
 
 const percentage = computed((): string => {
-    if (props.onlyLimit || !props.used) {
+    if (props.onlyLimit || !props.used || props.limit === null) {
         return '0';
     }
 
@@ -133,7 +133,7 @@ const percentage = computed((): string => {
 });
 
 const available = computed((): number => {
-    if (props.onlyLimit || !props.used) {
+    if (props.onlyLimit || !props.used || props.limit === null) {
         return 0;
     }
 
@@ -149,7 +149,10 @@ const available = computed((): number => {
 * value in the best human readable memory size unit rounding down to 0 when its expressed in bytes
 * and truncating the decimals when its expressed in other units.
 */
-function format(val: number): string {
+function format(val: number | null): string {
+    if (val === null || val === undefined) {
+        return 'No Explicit Limit Set';
+    }
     if (!props.isBytes) {
         return val.toString();
     }

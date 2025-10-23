@@ -62,12 +62,19 @@ import { VBtn, VCard, VCardActions, VCol, VDialog, VForm, VRow } from 'vuetify/c
 import { X } from 'lucide-vue-next';
 
 import { useNotificationsStore } from '@/store/notifications';
-import { PositiveNumberRule, RequiredRule } from '@/types/common';
 import { Project, ProjectLimitsUpdateRequest, UserProject } from '@/api/client.gen';
 import { useProjectsStore } from '@/store/projects';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/users';
-import { FieldType, FormBuilderExpose, FormConfig, FormField, rawNumberField, terabyteFormField } from '@/types/forms';
+import {
+    FieldType,
+    FormBuilderExpose,
+    FormConfig,
+    NULLABLE_FIELD_VALUE,
+    nullableNumberField,
+    rawNumberField,
+    terabyteFormField,
+} from '@/types/forms';
 
 import DynamicFormBuilder from '@/components/form-builder/DynamicFormBuilder.vue';
 
@@ -87,24 +94,24 @@ const valid = ref<boolean>(false);
 const formBuilder = ref<FormBuilderExpose>();
 
 const initialFormData = computed(() => ({
-    maxBuckets: props.project?.maxBuckets ?? 0,
+    maxBuckets: props.project?.maxBuckets ?? NULLABLE_FIELD_VALUE,
     storageLimit: props.project?.storageLimit ?? 0,
-    userSetStorageLimit: props.project?.userSetStorageLimit ?? 0,
+    userSetStorageLimit: props.project?.userSetStorageLimit ?? NULLABLE_FIELD_VALUE,
     bandwidthLimit: props.project?.bandwidthLimit ?? 0,
-    userSetBandwidthLimit: props.project?.userSetBandwidthLimit ?? 0,
+    userSetBandwidthLimit: props.project?.userSetBandwidthLimit ?? NULLABLE_FIELD_VALUE,
     segmentLimit: props.project?.segmentLimit ?? 0,
-    rateLimit: props.project?.rateLimit ?? 0,
-    burstLimit: props.project?.burstLimit ?? 0,
-    rateLimitList: props.project?.rateLimitList ?? 0,
-    burstLimitList: props.project?.burstLimitList ?? 0,
-    rateLimitGet: props.project?.rateLimitGet ?? 0,
-    burstLimitGet: props.project?.burstLimitGet ?? 0,
-    rateLimitPut: props.project?.rateLimitPut ?? 0,
-    burstLimitPut: props.project?.burstLimitPut ?? 0,
-    rateLimitDelete: props.project?.rateLimitDelete ?? 0,
-    burstLimitDelete: props.project?.burstLimitDelete ?? 0,
-    rateLimitHead: props.project?.rateLimitHead ?? 0,
-    burstLimitHead: props.project?.burstLimitHead ?? 0,
+    rateLimit: props.project?.rateLimit ?? NULLABLE_FIELD_VALUE,
+    burstLimit: props.project?.burstLimit ?? NULLABLE_FIELD_VALUE,
+    rateLimitList: props.project?.rateLimitList ?? NULLABLE_FIELD_VALUE,
+    burstLimitList: props.project?.burstLimitList ?? NULLABLE_FIELD_VALUE,
+    rateLimitGet: props.project?.rateLimitGet ?? NULLABLE_FIELD_VALUE,
+    burstLimitGet: props.project?.burstLimitGet ?? NULLABLE_FIELD_VALUE,
+    rateLimitPut: props.project?.rateLimitPut ?? NULLABLE_FIELD_VALUE,
+    burstLimitPut: props.project?.burstLimitPut ?? NULLABLE_FIELD_VALUE,
+    rateLimitDelete: props.project?.rateLimitDelete ?? NULLABLE_FIELD_VALUE,
+    burstLimitDelete: props.project?.burstLimitDelete ?? NULLABLE_FIELD_VALUE,
+    rateLimitHead: props.project?.rateLimitHead ?? NULLABLE_FIELD_VALUE,
+    burstLimitHead: props.project?.burstLimitHead ?? NULLABLE_FIELD_VALUE,
     projectId: props.project?.id ?? '',
 }));
 
@@ -115,7 +122,10 @@ const formConfig = computed((): FormConfig => {
                 rows: [
                     {
                         fields: [
-                            rawNumberField({ key: 'maxBuckets', label: 'Total buckets',
+                            nullableNumberField({
+                                key: 'maxBuckets',
+                                label: 'Total buckets',
+                                step: 1,
                                 cols:{ default: 12, sm: 6 },
                             }),
                             rawNumberField({ key: 'segmentLimit', label: 'Segments', step: 5000,
@@ -158,27 +168,27 @@ const formConfig = computed((): FormConfig => {
                 rows: [
                     {
                         fields: [
-                            rateAndBurstFields({ key: 'rateLimit', label: 'Rate' }, false),
-                            rateAndBurstFields({ key: 'burstLimit', label: 'Burst' }, false),
-                            rateAndBurstFields({ key: 'rateLimitHead', label: 'Head rate' }),
+                            nullableNumberField({ key: 'rateLimit', label: 'Rate' }),
+                            nullableNumberField({ key: 'burstLimit', label: 'Burst' }),
+                            nullableNumberField({ key: 'rateLimitHead', label: 'Head rate' }),
                         ],
                     }, {
                         fields: [
-                            rateAndBurstFields({ key: 'burstLimitHead', label: 'Head burst' }),
-                            rateAndBurstFields({ key: 'rateLimitGet', label: 'Get rate' }),
-                            rateAndBurstFields({ key: 'burstLimitGet', label: 'Get burst' }),
+                            nullableNumberField({ key: 'burstLimitHead', label: 'Head burst' }),
+                            nullableNumberField({ key: 'rateLimitGet', label: 'Get rate' }),
+                            nullableNumberField({ key: 'burstLimitGet', label: 'Get burst' }),
                         ],
                     }, {
                         fields: [
-                            rateAndBurstFields({ key: 'rateLimitList', label: 'List rate' }),
-                            rateAndBurstFields({ key: 'burstLimitList', label: 'List burst' }),
-                            rateAndBurstFields({ key: 'rateLimitPut', label: 'Put rate' }),
+                            nullableNumberField({ key: 'rateLimitList', label: 'List rate' }),
+                            nullableNumberField({ key: 'burstLimitList', label: 'List burst' }),
+                            nullableNumberField({ key: 'rateLimitPut', label: 'Put rate' }),
                         ],
                     }, {
                         fields: [
-                            rateAndBurstFields({ key: 'burstLimitPut', label: 'Put burst' }),
-                            rateAndBurstFields({ key: 'rateLimitDelete', label: 'Delete rate' }),
-                            rateAndBurstFields({ key: 'burstLimitDelete', label: 'Delete burst' }),
+                            nullableNumberField({ key: 'burstLimitPut', label: 'Put burst' }),
+                            nullableNumberField({ key: 'rateLimitDelete', label: 'Delete rate' }),
+                            nullableNumberField({ key: 'burstLimitDelete', label: 'Delete burst' }),
                         ],
                     },
                 ],
@@ -213,22 +223,6 @@ const hasFormChanged = computed(() => {
     }
     return false;
 });
-
-function rateAndBurstFields(conf: Partial<FormField>, optional = true): FormField {
-    return {
-        type: FieldType.Number,
-        rules: [RequiredRule, PositiveNumberRule],
-        key: conf.key ?? '',
-        label: conf.label ?? '',
-        clearable: !optional,
-        step: 100,
-        cols: { default: 12, sm: 4 },
-        transform: optional ? {
-            forward: (value) => value === null || value === undefined ? 0 : value,
-            back: (value) => value === null || value === undefined ? 0 : value,
-        } : undefined,
-    };
-}
 
 function updateLimits() {
     if (!valid.value) {
