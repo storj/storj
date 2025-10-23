@@ -1,0 +1,101 @@
+{
+  "CommitTimestamp": "2025-09-03T08:39:00.349663Z",
+  "RecordSequence": "00000000",
+  "ServerTransactionId": "MTMzMTUxNjY5MjcxMDE1ODg1NzQ=",
+  "IsLastRecordInTransactionInPartition": false,
+  "TableName": "objects",
+  "ColumnTypes": [
+    {
+      "Name": "project_id",
+      "CodeType": {
+        "code": "BYTES"
+      },
+      "IsPrimaryKey": true,
+      "OrdinalPosition": 1
+    },
+    {
+      "Name": "bucket_name",
+      "CodeType": {
+        "code": "STRING"
+      },
+      "IsPrimaryKey": true,
+      "OrdinalPosition": 2
+    },
+    {
+      "Name": "object_key",
+      "CodeType": {
+        "code": "BYTES"
+      },
+      "IsPrimaryKey": true,
+      "OrdinalPosition": 3
+    },
+    {
+      "Name": "version",
+      "CodeType": {
+        "code": "INT64"
+      },
+      "IsPrimaryKey": true,
+      "OrdinalPosition": 4
+    },
+    {
+      "Name": "stream_id",
+      "CodeType": {
+        "code": "BYTES"
+      },
+      "IsPrimaryKey": false,
+      "OrdinalPosition": 5
+    },
+    {
+      "Name": "status",
+      "CodeType": {
+        "code": "INT64"
+      },
+      "IsPrimaryKey": false,
+      "OrdinalPosition": 8
+    },
+    {
+      "Name": "total_plain_size",
+      "CodeType": {
+        "code": "INT64"
+      },
+      "IsPrimaryKey": false,
+      "OrdinalPosition": 13
+    }
+  ],
+  "Mods": [
+    {
+      "Keys": {
+        "bucket_name": "bucket1",
+        "object_key": "b2JqZWN0MQ==",
+        "project_id": "0P7mxBI3QiSWSM+r4x9ubw==",
+        "version": "-6322779619769918629"
+      },
+      "NewValues": {},
+      "OldValues": {
+        "status": "1",
+        "stream_id": "9q8EFFgLSYCysQaEK9K0pA==",
+        "total_plain_size": "0"
+      }
+    },
+    {
+      "Keys": {
+        "bucket_name": "bucket1",
+        "object_key": "b2JqZWN0MQ==",
+        "project_id": "0P7mxBI3QiSWSM+r4x9ubw==",
+        "version": "99"
+      },
+      "NewValues": {},
+      "OldValues": {
+        "status": "3",
+        "stream_id": "k3JrjdBKRbuCT2cxhu5vlg==",
+        "total_plain_size": "4194304"
+      }
+    }
+  ],
+  "ModType": "DELETE",
+  "ValueCaptureType": "NEW_ROW_AND_OLD_VALUES",
+  "NumberOfRecordsInTransaction": 2,
+  "NumberOfPartitionsInTransaction": 1,
+  "TransactionTag": "commit-object",
+  "IsSystemTransaction": false
+}

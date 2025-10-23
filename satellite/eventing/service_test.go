@@ -37,7 +37,7 @@ var _ eventing.PublicProjectIDer = &TestPublicProjectIDs{}
 
 func TestProcessRecord(t *testing.T) {
 	var r changestream.DataChangeRecord
-	raw, err := os.ReadFile("./testdata/insert.json")
+	raw, err := os.ReadFile("./testdata/commit-object-insert.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestProcessRecord(t *testing.T) {
 
 func TestProcessRecord_NoMatchingBucket(t *testing.T) {
 	var r changestream.DataChangeRecord
-	raw, err := os.ReadFile("./testdata/insert.json")
+	raw, err := os.ReadFile("./testdata/commit-object-insert.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)

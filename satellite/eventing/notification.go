@@ -21,6 +21,7 @@ import (
 // S3ObjectEvent represents various event names triggered by S3 object operations.
 const (
 	S3ObjectCreatedPut                 = "ObjectCreated:Put"
+	S3ObjectCreatedCopy                = "ObjectCreated:Copy"
 	S3ObjectRemovedDelete              = "ObjectRemoved:Delete"
 	S3ObjectRemovedDeleteMarkerCreated = "ObjectRemoved:DeleteMarkerCreated"
 )
@@ -81,9 +82,15 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 		record.S3.S3SchemaVersion = "1.0"
 		record.S3.ConfigurationId = "ObjectEvents"
 
-		var newValues, oldValues, keys map[string]interface{}
+		eventName := determineEventName(dataRecord.TransactionTag, dataRecord.ModType)
+		if eventName == "" {
+			continue
+		}
+		record.EventName = eventName
 
-		newValues, err = parseNullJSONMap(mod.NewValues, "new values")
+		var keys, oldValues, newValues map[string]interface{}
+
+		keys, err = parseNullJSONMap(mod.Keys, "keys")
 		if err != nil {
 			return Event{}, err
 		}
@@ -93,16 +100,16 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 			return Event{}, err
 		}
 
-		keys, err = parseNullJSONMap(mod.Keys, "keys")
+		newValues, err = parseNullJSONMap(mod.NewValues, "new values")
 		if err != nil {
 			return Event{}, err
 		}
 
-		eventName := determineEventName(dataRecord.ModType, newValues, oldValues)
-		if eventName == "" {
+		var version int64
+		var ok bool
+		if version, ok = extractInt64("version", keys); !ok {
 			continue
 		}
-		record.EventName = eventName
 
 		if bucketName, ok := extractString("bucket_name", keys); ok {
 			record.S3.Bucket.Name = bucketName
@@ -133,19 +140,17 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 			record.S3.Object.Size = totalPlainSize
 		}
 
-		if version, ok := extractInt64("version", keys); ok {
-			if streamID, ok := extractFirstString("stream_id", newValues, oldValues); ok {
-				streamIDBytes, err := base64.StdEncoding.DecodeString(streamID)
-				if err != nil {
-					return Event{}, errs.New("invalid base64 stream_id: %w", err)
-				}
-				streamID, err := uuid.FromBytes(streamIDBytes)
-				if err != nil {
-					return Event{}, errs.New("invalid stream_id uuid: %w", err)
-				}
-				streamVersionID := metabase.NewStreamVersionID(metabase.Version(version), streamID)
-				record.S3.Object.VersionId = hex.EncodeToString(streamVersionID.Bytes())
+		if streamID, ok := extractFirstString("stream_id", newValues, oldValues); ok {
+			streamIDBytes, err := base64.StdEncoding.DecodeString(streamID)
+			if err != nil {
+				return Event{}, errs.New("invalid base64 stream_id: %w", err)
 			}
+			streamID, err := uuid.FromBytes(streamIDBytes)
+			if err != nil {
+				return Event{}, errs.New("invalid stream_id uuid: %w", err)
+			}
+			streamVersionID := metabase.NewStreamVersionID(metabase.Version(version), streamID)
+			record.S3.Object.VersionId = hex.EncodeToString(streamVersionID.Bytes())
 		}
 
 		commitNanos := dataRecord.CommitTimestamp.UnixNano()
@@ -189,33 +194,32 @@ func parseNullJSONMap(nj spanner.NullJSON, what string) (map[string]interface{},
 	}
 }
 
-func determineEventName(modType string, newValues, oldValues map[string]interface{}) string {
-	switch modType {
-	case "INSERT":
-		if newStatus, ok := extractInt64("status", newValues); ok {
-			switch metabase.ObjectStatus(newStatus) {
-			case metabase.CommittedUnversioned, metabase.CommittedVersioned:
-				return S3ObjectCreatedPut
-			case metabase.DeleteMarkerVersioned, metabase.DeleteMarkerUnversioned:
-				return S3ObjectRemovedDeleteMarkerCreated
-			}
+func determineEventName(transactionTag, modType string) string {
+	switch transactionTag {
+	case "commit-inline-object":
+		if modType == "INSERT" {
+			return S3ObjectCreatedPut
 		}
-	case "UPDATE":
-		if newStatus, ok := extractInt64("status", newValues); ok {
-			if oldStatus, ok := extractInt64("status", oldValues); ok && metabase.ObjectStatus(oldStatus) == metabase.Pending {
-				switch metabase.ObjectStatus(newStatus) {
-				case metabase.CommittedUnversioned, metabase.CommittedVersioned:
-					return S3ObjectCreatedPut
-				}
-			}
+	case "commit-object":
+		switch modType {
+		case "INSERT", "UPDATE":
+			return S3ObjectCreatedPut
 		}
-	case "DELETE":
-		if oldStatus, ok := extractInt64("status", oldValues); ok {
-			switch metabase.ObjectStatus(oldStatus) {
-			case metabase.CommittedUnversioned, metabase.CommittedVersioned,
-				metabase.DeleteMarkerVersioned, metabase.DeleteMarkerUnversioned:
-				return S3ObjectRemovedDelete
-			}
+	case "delete-all-bucket-objects", "delete-object-exact-version", "delete-object-exact-version-using-object-lock", "delete-object-last-committed-plain":
+		if modType == "DELETE" {
+			return S3ObjectRemovedDelete
+		}
+	case "delete-object-last-committed-suspended", "delete-object-last-committed-versioned":
+		if modType == "INSERT" {
+			return S3ObjectRemovedDeleteMarkerCreated
+		}
+	case "finish-copy-object":
+		if modType == "UPDATE" {
+			return S3ObjectCreatedCopy
+		}
+	case "finish-move-object":
+		if modType == "INSERT" {
+			return S3ObjectCreatedCopy
 		}
 	}
 	return ""

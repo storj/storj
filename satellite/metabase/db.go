@@ -720,6 +720,14 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 					`ALTER CHANGE STREAM bucket_eventing SET FOR objects (stream_id, status, total_plain_size)`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "change value capture type for the bucket eventing change stream",
+				Version:     25,
+				Action: migrate.SQL{
+					`ALTER CHANGE STREAM bucket_eventing SET FOR OPTIONS (value_capture_type = 'NEW_ROW_AND_OLD_VALUES')`,
+				},
+			},
 		},
 	}
 }

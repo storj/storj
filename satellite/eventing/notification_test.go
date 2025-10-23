@@ -30,9 +30,242 @@ func testStreamVersionID(version int64) string {
 	return hex.EncodeToString(metabase.NewStreamVersionID(metabase.Version(version), TestStreamID).Bytes())
 }
 
-func TestConvertModsToEvent_Delete(t *testing.T) {
+func TestConvertModsToEvent_BeginObjectExactVersion(t *testing.T) {
 	var r changestream.DataChangeRecord
-	raw, err := os.ReadFile("./testdata/delete.json")
+	raw, err := os.ReadFile("./testdata/begin-object-exact-version.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Empty(t, event.Records)
+}
+
+func TestConvertModsToEvent_BeginObjectNextVersion(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/begin-object-next-version.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Empty(t, event.Records)
+}
+
+func TestConvertModsToEvent_CommitInlineObject_Delete_Overwrite(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/commit-inline-object-delete-overwrite.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Empty(t, event.Records)
+}
+
+func TestConvertModsToEvent_CommitInlineObject_Insert(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/commit-inline-object-insert.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(100), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_CommitObject_Delete(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/commit-object-delete.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Empty(t, event.Records)
+}
+
+func TestConvertModsToEvent_CommitObject_Delete_Overwrite(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/commit-object-delete-overwrite.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Empty(t, event.Records)
+}
+
+func TestConvertModsToEvent_CommitObject_Insert(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/commit-object-insert.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(100), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_CommitObject_Update(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/commit-object-update.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(100), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_DeleteAllBucketObjects(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/delete-all-bucket-objects.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 3)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(99), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+	record = event.Records[1]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object2", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(100), record.S3.Object.VersionId)
+	assert.Equal(t, int64(1024), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+	record = event.Records[2]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object3", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(101), record.S3.Object.VersionId)
+	assert.Equal(t, int64(37345), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_DeleteObjectExactVersion(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/delete-object-exact-version.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(101), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_DeleteObjectExactVersionUsingObjectLock(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/delete-object-exact-version-using-object-lock.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(101), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_DeleteObjectLastCommittedPlain(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/delete-object-last-committed-plain.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
@@ -55,9 +288,9 @@ func TestConvertModsToEvent_Delete(t *testing.T) {
 	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
 }
 
-func TestConvertModsToEvent_Insert(t *testing.T) {
+func TestConvertModsToEvent_DeleteObjectLastCommittedSuspended(t *testing.T) {
 	var r changestream.DataChangeRecord
-	raw, err := os.ReadFile("./testdata/insert.json")
+	raw, err := os.ReadFile("./testdata/delete-object-last-committed-suspended.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
@@ -68,7 +301,104 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
+	assert.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(101), record.S3.Object.VersionId)
+	assert.Zero(t, record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_DeleteObjectLastCommittedVersioned(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/delete-object-last-committed-versioned.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(101), record.S3.Object.VersionId)
+	assert.Zero(t, record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_FinishCopyObject_Delete_Overwrite(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/finish-copy-object-delete-overwrite.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Empty(t, event.Records)
+}
+
+func TestConvertModsToEvent_FinishCopyObject_Update(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/finish-copy-object-update.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectCreatedCopy, record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(101), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
+}
+
+func TestConvertModsToEvent_FinishMoveObject_Delete(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/finish-move-object-delete.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Empty(t, event.Records)
+}
+
+func TestConvertModsToEvent_FinishMoveObject_Insert(t *testing.T) {
+	var r changestream.DataChangeRecord
+	raw, err := os.ReadFile("./testdata/finish-move-object-insert.json")
+	require.NoError(t, err)
+	err = json.Unmarshal(raw, &r)
+	require.NoError(t, err)
+	event, err := ConvertModsToEvent(r)
+	require.NoError(t, err)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, S3ObjectCreatedCopy, record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -80,318 +410,30 @@ func TestConvertModsToEvent_Insert(t *testing.T) {
 	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
 }
 
-func TestConvertModsToEvent_Update(t *testing.T) {
+func TestConvertModsToEvent_ObjectCopyInsertPending(t *testing.T) {
 	var r changestream.DataChangeRecord
-	raw, err := os.ReadFile("./testdata/update.json")
+	raw, err := os.ReadFile("./testdata/object-copy-insert-pending.json")
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
-	assert.Equal(t, "2.1", record.EventVersion)
-	assert.Equal(t, "storj:s3", record.EventSource)
-	assert.Equal(t, "2025-09-24T08:54:41.183Z", record.EventTime)
-	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
-	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
-	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
-	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
-	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
-	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
-	assert.Equal(t, "object1", record.S3.Object.Key)
-	assert.Equal(t, testStreamVersionID(100), record.S3.Object.VersionId)
-	assert.Equal(t, int64(123), record.S3.Object.Size)
-	assert.Equal(t, "18682C0B37F170B8", record.S3.Object.Sequencer)
+	require.Empty(t, event.Records)
 }
 
 func TestConvertModsToEvent(t *testing.T) {
 	testTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
-	t.Run("ObjectCreated:Put for CommittedUnversioned", func(t *testing.T) {
-		dataRecord := changestream.DataChangeRecord{
-			CommitTimestamp: testTime,
-			ModType:         "INSERT",
-			Mods: []*changestream.Mods{
-				{
-					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"stream_id":        "k3JrjdBKRbuCT2cxhu5vlg==", // base64: TestStreamID
-							"status":           float64(3),                 // CommittedUnversioned
-							"total_plain_size": float64(1024),
-						},
-						Valid: true,
-					},
-					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"bucket_name": "test-bucket",
-							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
-							"version":     float64(1),
-						},
-						Valid: true,
-					},
-				},
-			},
-		}
-
-		event, err := ConvertModsToEvent(dataRecord)
-		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-
-		record := event.Records[0]
-		assert.Equal(t, "2.1", record.EventVersion)
-		assert.Equal(t, "storj:s3", record.EventSource)
-		assert.Equal(t, "2024-01-01T12:00:00.000Z", record.EventTime)
-		assert.Equal(t, S3ObjectCreatedPut, record.EventName)
-		assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
-		assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
-		assert.Equal(t, "test-bucket", record.S3.Bucket.Name)
-		assert.Equal(t, "arn:storj:s3:::test-bucket", record.S3.Bucket.Arn)
-		assert.Equal(t, "test/object.txt", record.S3.Object.Key)
-		assert.Equal(t, int64(1024), record.S3.Object.Size)
-		assert.Equal(t, testStreamVersionID(1), record.S3.Object.VersionId)
-		assert.Equal(t, fmt.Sprintf("%016X", testTime.UnixNano()), record.S3.Object.Sequencer)
-	})
-
-	t.Run("ObjectCreated:Put for CommittedVersioned", func(t *testing.T) {
-		dataRecord := changestream.DataChangeRecord{
-			CommitTimestamp: testTime,
-			ModType:         "INSERT",
-			Mods: []*changestream.Mods{
-				{
-					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"bucket_name": "test-bucket",
-							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
-							"version":     float64(2),
-						},
-						Valid: true,
-					},
-					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"stream_id":        "k3JrjdBKRbuCT2cxhu5vlg==", // base64: TestStreamID
-							"status":           float64(4),                 // CommittedVersioned
-							"total_plain_size": float64(2048),
-						},
-						Valid: true,
-					},
-				},
-			},
-		}
-
-		event, err := ConvertModsToEvent(dataRecord)
-		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-
-		record := event.Records[0]
-		assert.Equal(t, S3ObjectCreatedPut, record.EventName)
-		assert.Equal(t, int64(2048), record.S3.Object.Size)
-	})
-
-	t.Run("ObjectCreated:Put for CommittedUnversioned with update", func(t *testing.T) {
-		dataRecord := changestream.DataChangeRecord{
-			CommitTimestamp: testTime,
-			ModType:         "UPDATE",
-			Mods: []*changestream.Mods{
-				{
-					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"stream_id":        "k3JrjdBKRbuCT2cxhu5vlg==", // base64: TestStreamID
-							"status":           float64(3),                 // CommittedUnversioned
-							"total_plain_size": float64(1024),
-						},
-						Valid: true,
-					},
-					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"bucket_name": "test-bucket",
-							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
-							"version":     float64(1),
-						},
-						Valid: true,
-					},
-					OldValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"status":           float64(1), // Pending
-							"total_plain_size": float64(0),
-						},
-						Valid: true,
-					},
-				},
-			},
-		}
-
-		event, err := ConvertModsToEvent(dataRecord)
-		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-
-		record := event.Records[0]
-		assert.Equal(t, "2.1", record.EventVersion)
-		assert.Equal(t, "storj:s3", record.EventSource)
-		assert.Equal(t, "2024-01-01T12:00:00.000Z", record.EventTime)
-		assert.Equal(t, S3ObjectCreatedPut, record.EventName)
-		assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
-		assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
-		assert.Equal(t, "test-bucket", record.S3.Bucket.Name)
-		assert.Equal(t, "arn:storj:s3:::test-bucket", record.S3.Bucket.Arn)
-		assert.Equal(t, "test/object.txt", record.S3.Object.Key)
-		assert.Equal(t, int64(1024), record.S3.Object.Size)
-		assert.Equal(t, testStreamVersionID(1), record.S3.Object.VersionId)
-		assert.Equal(t, fmt.Sprintf("%016X", testTime.UnixNano()), record.S3.Object.Sequencer)
-	})
-
-	t.Run("ObjectCreated:Put for CommittedVersioned with update", func(t *testing.T) {
-		dataRecord := changestream.DataChangeRecord{
-			CommitTimestamp: testTime,
-			ModType:         "UPDATE",
-			Mods: []*changestream.Mods{
-				{
-					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"bucket_name": "test-bucket",
-							"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
-							"version":     float64(2),
-						},
-						Valid: true,
-					},
-					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"status":           float64(4), // CommittedVersioned
-							"total_plain_size": float64(2048),
-						},
-						Valid: true,
-					},
-					OldValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"status":           float64(1), // Pending
-							"total_plain_size": float64(0),
-						},
-						Valid: true,
-					},
-				},
-			},
-		}
-
-		event, err := ConvertModsToEvent(dataRecord)
-		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-
-		record := event.Records[0]
-		assert.Equal(t, S3ObjectCreatedPut, record.EventName)
-		assert.Equal(t, int64(2048), record.S3.Object.Size)
-	})
-
-	t.Run("ObjectRemoved:DeleteMarkerCreated for DeleteMarkerVersioned", func(t *testing.T) {
-		dataRecord := changestream.DataChangeRecord{
-			CommitTimestamp: testTime,
-			ModType:         "INSERT",
-			Mods: []*changestream.Mods{
-				{
-					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"bucket_name": "test-bucket",
-							"object_key":  "dGVzdC9kZWxldGVkLW9iamVjdC50eHQ=", // base64: test/deleted-object.txt
-							"version":     float64(3),
-						},
-						Valid: true,
-					},
-					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"stream_id": "k3JrjdBKRbuCT2cxhu5vlg==", // base64: TestStreamID
-							"status":    float64(5),                 // DeleteMarkerVersioned
-						},
-						Valid: true,
-					},
-				},
-			},
-		}
-
-		event, err := ConvertModsToEvent(dataRecord)
-		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-
-		record := event.Records[0]
-		require.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
-		assert.Equal(t, "test/deleted-object.txt", record.S3.Object.Key)
-		assert.Equal(t, testStreamVersionID(3), record.S3.Object.VersionId)
-	})
-
-	t.Run("ObjectRemoved:DeleteMarkerCreated for DeleteMarkerUnversioned", func(t *testing.T) {
-		dataRecord := changestream.DataChangeRecord{
-			CommitTimestamp: testTime,
-			ModType:         "INSERT",
-			Mods: []*changestream.Mods{
-				{
-					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"status": float64(6), // DeleteMarkerUnversioned
-						},
-						Valid: true,
-					},
-					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"bucket_name": "test-bucket",
-							"object_key":  "dGVzdC9kZWxldGVkLW9iamVjdC50eHQ=", // base64: test/deleted-object.txt
-						},
-						Valid: true,
-					},
-				},
-			},
-		}
-
-		event, err := ConvertModsToEvent(dataRecord)
-		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-
-		record := event.Records[0]
-		assert.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
-	})
-
-	t.Run("ObjectRemoved:Delete for DELETE operation", func(t *testing.T) {
-		dataRecord := changestream.DataChangeRecord{
-			CommitTimestamp: testTime,
-			ModType:         "DELETE",
-			Mods: []*changestream.Mods{
-				{
-					OldValues: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"stream_id": "k3JrjdBKRbuCT2cxhu5vlg==", // base64: TestStreamID
-							"status":    float64(3),                 // CommittedUnversioned
-						},
-						Valid: true,
-					},
-					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
-							"bucket_name": "test-bucket",
-							"object_key":  "dGVzdC9kZWxldGVkLW9iamVjdC50eHQ=", // base64: test/deleted-object.txt
-							"version":     float64(1),
-						},
-						Valid: true,
-					},
-				},
-			},
-		}
-
-		event, err := ConvertModsToEvent(dataRecord)
-		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-
-		record := event.Records[0]
-		assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
-		assert.Equal(t, "test-bucket", record.S3.Bucket.Name)
-		assert.Equal(t, "test/deleted-object.txt", record.S3.Object.Key)
-		assert.Equal(t, testStreamVersionID(1), record.S3.Object.VersionId)
-	})
-
 	t.Run("Multiple mods in single record", func(t *testing.T) {
 		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
+			TransactionTag:  "commit-object",
 			ModType:         "INSERT",
 			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{
 						Value: map[string]interface{}{
-							"status":           float64(3),
+							"stream_id":        "k3JrjdBKRbuCT2cxhu5vlg==", // base64: TestStreamID
 							"total_plain_size": float64(100),
 						},
 						Valid: true,
@@ -408,7 +450,7 @@ func TestConvertModsToEvent(t *testing.T) {
 				{
 					NewValues: spanner.NullJSON{
 						Value: map[string]interface{}{
-							"status":           float64(4),
+							"stream_id":        "pcBVBgOOQmWX34uVMZBi1g==", // base64: TestStreamID
 							"total_plain_size": float64(200),
 						},
 						Valid: true,
@@ -438,6 +480,7 @@ func TestConvertModsToEvent(t *testing.T) {
 	t.Run("Invalid JSON in NewValues returns error", func(t *testing.T) {
 		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
+			TransactionTag:  "commit-object",
 			ModType:         "INSERT",
 			Mods: []*changestream.Mods{
 				{
@@ -454,6 +497,7 @@ func TestConvertModsToEvent(t *testing.T) {
 	t.Run("Invalid JSON in OldValues returns error", func(t *testing.T) {
 		dataRecord := changestream.DataChangeRecord{
 			CommitTimestamp: testTime,
+			TransactionTag:  "delete-object-last-committed-plain",
 			ModType:         "DELETE",
 			Mods: []*changestream.Mods{
 				{
@@ -509,99 +553,59 @@ func TestConvertModsToEvent(t *testing.T) {
 }
 
 func TestDetermineEventName(t *testing.T) {
-	t.Run("INSERT with CommittedUnversioned", func(t *testing.T) {
-		newValues := map[string]interface{}{"status": float64(3)}
-		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, S3ObjectCreatedPut, eventName)
-	})
-
-	t.Run("INSERT with CommittedVersioned", func(t *testing.T) {
-		newValues := map[string]interface{}{"status": float64(4)}
-		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, S3ObjectCreatedPut, eventName)
-	})
-
-	t.Run("UPDATE with CommittedUnversioned", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(1)}
-		newValues := map[string]interface{}{"status": float64(3)}
-		eventName := determineEventName("UPDATE", newValues, oldValues)
-		require.Equal(t, S3ObjectCreatedPut, eventName)
-	})
-
-	t.Run("UPDATE with CommittedVersioned", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(1)}
-		newValues := map[string]interface{}{"status": float64(4)}
-		eventName := determineEventName("UPDATE", newValues, oldValues)
-		require.Equal(t, S3ObjectCreatedPut, eventName)
-	})
-
-	t.Run("UPDATE with no pending status change returns empty", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(3)}
-		newValues := map[string]interface{}{"status": float64(3)}
-		eventName := determineEventName("UPDATE", newValues, oldValues)
-		require.Equal(t, "", eventName)
-	})
-
-	t.Run("UPDATE with no committed status change returns empty", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(1)}
-		newValues := map[string]interface{}{"status": float64(1)}
-		eventName := determineEventName("UPDATE", newValues, oldValues)
-		require.Equal(t, "", eventName)
-	})
-
-	t.Run("UPDATE with no committed status change and no old values", func(t *testing.T) {
-		newValues := map[string]interface{}{"status": float64(1)}
-		eventName := determineEventName("UPDATE", newValues, nil)
-		require.Equal(t, "", eventName)
-	})
-
-	t.Run("INSERT with DeleteMarkerVersioned", func(t *testing.T) {
-		newValues := map[string]interface{}{"status": float64(5)}
-		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, S3ObjectRemovedDeleteMarkerCreated, eventName)
-	})
-
-	t.Run("INSERT with DeleteMarkerUnversioned", func(t *testing.T) {
-		newValues := map[string]interface{}{"status": float64(6)}
-		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, S3ObjectRemovedDeleteMarkerCreated, eventName)
-	})
-
-	t.Run("DELETE with CommittedUnversioned", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(3)}
-		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, S3ObjectRemovedDelete, eventName)
-	})
-
-	t.Run("DELETE with CommittedVersioned", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(4)}
-		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, S3ObjectRemovedDelete, eventName)
-	})
-
-	t.Run("DELETE with DeleteMarkerVersioned", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(5)}
-		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, S3ObjectRemovedDelete, eventName)
-	})
-
-	t.Run("DELETE with DeleteMarkerUnversioned", func(t *testing.T) {
-		oldValues := map[string]interface{}{"status": float64(6)}
-		eventName := determineEventName("DELETE", nil, oldValues)
-		require.Equal(t, S3ObjectRemovedDelete, eventName)
-	})
-
-	t.Run("Unknown mod type returns empty", func(t *testing.T) {
-		newValues := map[string]interface{}{"status": float64(3)}
-		eventName := determineEventName("UPDATE", newValues, nil)
-		require.Equal(t, "", eventName)
-	})
-
-	t.Run("INSERT with Pending status returns empty", func(t *testing.T) {
-		newValues := map[string]interface{}{"status": float64(1)} // Pending
-		eventName := determineEventName("INSERT", newValues, nil)
-		require.Equal(t, "", eventName)
-	})
+	for _, tt := range []struct {
+		transactionTag    string
+		modType           string
+		expectedEventName string
+	}{
+		{"begin-object-exact-version", "INSERT", ""},
+		{"begin-object-exact-version", "UPDATE", ""},
+		{"begin-object-exact-version", "DELETE", ""},
+		{"begin-object-next-version	", "INSERT", ""},
+		{"begin-object-next-version	", "UPDATE", ""},
+		{"begin-object-next-version	", "DELETE", ""},
+		{"commit-inline-object", "INSERT", S3ObjectCreatedPut},
+		{"commit-inline-object", "UPDATE", ""},
+		{"commit-inline-object", "DELETE", ""},
+		{"commit-object", "INSERT", S3ObjectCreatedPut},
+		{"commit-object", "UPDATE", S3ObjectCreatedPut},
+		{"commit-object", "DELETE", ""},
+		{"delete-all-bucket-objects", "INSERT", ""},
+		{"delete-all-bucket-objects", "UPDATE", ""},
+		{"delete-all-bucket-objects", "DELETE", S3ObjectRemovedDelete},
+		{"delete-object-exact-version", "INSERT", ""},
+		{"delete-object-exact-version", "UPDATE", ""},
+		{"delete-object-exact-version", "DELETE", S3ObjectRemovedDelete},
+		{"delete-object-exact-version-using-object-lock", "INSERT", ""},
+		{"delete-object-exact-version-using-object-lock", "UPDATE", ""},
+		{"delete-object-exact-version-using-object-lock", "DELETE", S3ObjectRemovedDelete},
+		{"delete-object-last-committed-plain", "INSERT", ""},
+		{"delete-object-last-committed-plain", "UPDATE", ""},
+		{"delete-object-last-committed-plain", "DELETE", S3ObjectRemovedDelete},
+		{"delete-object-last-committed-suspended", "INSERT", S3ObjectRemovedDeleteMarkerCreated},
+		{"delete-object-last-committed-suspended", "UPDATE", ""},
+		{"delete-object-last-committed-suspended", "DELETE", ""},
+		{"delete-object-last-committed-versioned", "INSERT", S3ObjectRemovedDeleteMarkerCreated},
+		{"delete-object-last-committed-versioned", "UPDATE", ""},
+		{"delete-object-last-committed-versioned", "DELETE", ""},
+		{"finish-copy-object", "INSERT", ""},
+		{"finish-copy-object", "UPDATE", S3ObjectCreatedCopy},
+		{"finish-copy-object", "DELETE", ""},
+		{"finish-move-object", "INSERT", S3ObjectCreatedCopy},
+		{"finish-move-object", "UPDATE", ""},
+		{"finish-move-object", "DELETE", ""},
+		{"object-copy-insert-pending", "INSERT", ""},
+		{"object-copy-insert-pending", "UPDATE", ""},
+		{"object-copy-insert-pending", "DELETE", ""},
+		{"unknown-transaction", "INSERT", ""},
+		{"unknown-transaction", "UPDATE", ""},
+		{"unknown-transaction", "DELETE", ""},
+	} {
+		t.Run(fmt.Sprintf("%s %s", tt.transactionTag, tt.modType), func(t *testing.T) {
+			eventName := determineEventName(tt.transactionTag, tt.modType)
+			assert.Equal(t, tt.expectedEventName, eventName)
+		})
+	}
 }
 
 func TestExtractString(t *testing.T) {
