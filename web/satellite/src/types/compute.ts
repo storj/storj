@@ -14,6 +14,10 @@ export interface IComputeAPI {
     getInstances(baseURL: string, authToken: string): Promise<Instance[]>;
     updateInstanceType(baseURL: string, authToken: string, id: string, instanceType: string): Promise<Instance>;
     deleteInstance(baseURL: string, authToken: string, id: string): Promise<void>;
+
+    getAvailableInstanceTypes(baseURL: string, authToken: string): Promise<string[]>;
+    getAvailableImages(baseURL: string, authToken: string): Promise<string[]>;
+    getAvailableLocations(baseURL: string, authToken: string): Promise<string[]>;
 }
 
 export interface CreateSSHKeyRequest {

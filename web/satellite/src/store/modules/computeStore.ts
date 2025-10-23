@@ -18,6 +18,9 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 export class ComputeState {
     public sshKeys: SSHKey[] = [];
     public instances: Instance[] = [];
+    public availableInstanceTypes: string[] = [];
+    public availableImages: string[] = [];
+    public availableLocations: string[] = [];
 }
 
 export const useComputeStore = defineStore('compute', () => {
@@ -100,9 +103,36 @@ export const useComputeStore = defineStore('compute', () => {
         state.instances = state.instances.filter(i => i.id !== id);
     }
 
+    async function getAvailableInstanceTypes(): Promise<string[]> {
+        const types = await api.getAvailableInstanceTypes(computeGatewayURL.value, computeAuthToken.value);
+
+        state.availableInstanceTypes = types;
+
+        return types;
+    }
+
+    async function getAvailableImages(): Promise<string[]> {
+        const images = await api.getAvailableImages(computeGatewayURL.value, computeAuthToken.value);
+
+        state.availableImages = images;
+
+        return images;
+    }
+
+    async function getAvailableLocations(): Promise<string[]> {
+        const locations = await api.getAvailableLocations(computeGatewayURL.value, computeAuthToken.value);
+
+        state.availableLocations = locations;
+
+        return locations;
+    }
+
     async function clear() {
         state.sshKeys = [];
         state.instances = [];
+        state.availableInstanceTypes = [];
+        state.availableImages = [];
+        state.availableLocations = [];
     }
 
     return {
@@ -115,6 +145,9 @@ export const useComputeStore = defineStore('compute', () => {
         getInstance,
         updateInstanceType,
         deleteInstance,
+        getAvailableInstanceTypes,
+        getAvailableImages,
+        getAvailableLocations,
         clear,
     };
 });

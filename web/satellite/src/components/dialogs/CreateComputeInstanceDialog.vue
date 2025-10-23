@@ -29,7 +29,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -172,7 +172,7 @@ import {
     VSheet,
     VTextField,
 } from 'vuetify/components';
-import { Computer } from 'lucide-vue-next';
+import { Computer, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
@@ -198,9 +198,9 @@ const sshKeys = ref<string[]>([]);
 const formValid = ref(false);
 const form = ref<VForm>();
 
-const locations: string[] = ['Germany', 'France'];
-const instanceTypes: string[] = ['1vcpu-1gb', '2vcpu-4gb', '4vcpu-8gb'];
-const images: string[] = ['debian-12', 'centos-8'];
+const locations = computed<string[]>(() => computeStore.state.availableLocations);
+const instanceTypes = computed<string[]>(() => computeStore.state.availableInstanceTypes);
+const images = computed<string[]>(() => computeStore.state.availableImages);
 
 const existingKeys = computed<SSHKey[]>(() => computeStore.state.sshKeys);
 
@@ -242,7 +242,12 @@ watch(model, val => {
     } else {
         withLoading(async () => {
             try {
-                await computeStore.getSSHKeys();
+                await Promise.all([
+                    computeStore.getSSHKeys(),
+                    computeStore.getAvailableImages(),
+                    computeStore.getAvailableInstanceTypes(),
+                    computeStore.getAvailableLocations(),
+                ]);
             } catch (error) {
                 notify.notifyError(error, AnalyticsErrorEventSource.CREATE_COMPUTE_INSTANCE_DIALOG);
             }
