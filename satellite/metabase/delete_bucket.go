@@ -140,7 +140,6 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 
 	deleteBatch := func(ctx context.Context, cursor ObjectKey) (lastDeletedObject ObjectKey, deletedObjects, deletedSegments int64, err error) {
 		defer mon.Task()(&ctx)(&err)
-		var maxCommitDelay = 50 * time.Millisecond
 
 		// TODO(spanner): see if it would be better to avoid batching altogether here.
 		_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
@@ -212,7 +211,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 		}, spanner.TransactionOptions{
 			CommitPriority: spannerpb.RequestOptions_PRIORITY_MEDIUM,
 			CommitOptions: spanner.CommitOptions{
-				MaxCommitDelay: &maxCommitDelay,
+				MaxCommitDelay: opts.MaxCommitDelay,
 			},
 			TransactionTag:              "delete-all-bucket-objects",
 			ExcludeTxnFromChangeStreams: !opts.TransmitEvent,

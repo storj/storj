@@ -584,13 +584,19 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var maxCommitDelay *time.Duration
+	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[bucket.ProjectID]; ok {
+		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
+	}
+
 	deletedCount, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 		Bucket: metabase.BucketLocation{
 			ProjectID:  bucket.ProjectID,
 			BucketName: metabase.BucketName(bucket.Name),
 		},
-		BatchSize:     endpoint.config.TestingDeleteBucketBatchSize,
-		TransmitEvent: transmitEvent,
+		BatchSize:      endpoint.config.TestingDeleteBucketBatchSize,
+		MaxCommitDelay: maxCommitDelay,
+		TransmitEvent:  transmitEvent,
 	})
 	if err != nil {
 		return 0, endpoint.ConvertKnownErrWithMessage(err, "internal error")
