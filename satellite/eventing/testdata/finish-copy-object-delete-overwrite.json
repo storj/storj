@@ -1,6 +1,6 @@
 {
   "CommitTimestamp": "2025-09-03T08:39:00.349663Z",
-  "RecordSequence": "00000001",
+  "RecordSequence": "00000000",
   "ServerTransactionId": "MTMzMTUxNjY5MjcxMDE1ODg1NzQ=",
   "IsLastRecordInTransactionInPartition": true,
   "TableName": "objects",
@@ -68,20 +68,20 @@
         "bucket_name": "bucket1",
         "object_key": "b2JqZWN0MQ==",
         "project_id": "0P7mxBI3QiSWSM+r4x9ubw==",
-        "version": "100"
+        "version": "101"
       },
-      "NewValues": {
+      "NewValues": {},
+      "OldValues": {
         "status": "3",
         "stream_id": "k3JrjdBKRbuCT2cxhu5vlg==",
         "total_plain_size": "4194304"
-      },
-      "OldValues": {}
+      }
     }
   ],
-  "ModType": "INSERT",
-  "ValueCaptureType": "OLD_AND_NEW_VALUES",
+  "ModType": "DELETE",
+  "ValueCaptureType": "NEW_ROW_AND_OLD_VALUES",
   "NumberOfRecordsInTransaction": 2,
   "NumberOfPartitionsInTransaction": 1,
-  "TransactionTag": "commit-object",
+  "TransactionTag": "finish-copy-object",
   "IsSystemTransaction": false
 }

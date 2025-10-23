@@ -1,7 +1,7 @@
 {
-  "CommitTimestamp": "2025-09-24T08:54:41.183011Z",
+  "CommitTimestamp": "2025-09-03T08:39:00.349663Z",
   "RecordSequence": "00000000",
-  "ServerTransactionId": "1758704078609448",
+  "ServerTransactionId": "MTMzMTUxNjY5MjcxMDE1ODg1NzQ=",
   "IsLastRecordInTransactionInPartition": true,
   "TableName": "objects",
   "ColumnTypes": [
@@ -68,24 +68,22 @@
         "bucket_name": "bucket1",
         "object_key": "b2JqZWN0MQ==",
         "project_id": "0P7mxBI3QiSWSM+r4x9ubw==",
-        "version": "100"
+        "version": "101"
       },
       "NewValues": {
         "status": "3",
         "stream_id": "k3JrjdBKRbuCT2cxhu5vlg==",
-        "total_plain_size": "123"
+        "total_plain_size": "4194304"
       },
       "OldValues": {
-        "status": "1",
-        "stream_id": "k3JrjdBKRbuCT2cxhu5vlg==",
-        "total_plain_size": "0"
+        "status": "1"
       }
     }
   ],
   "ModType": "UPDATE",
-  "ValueCaptureType": "OLD_AND_NEW_VALUES",
+  "ValueCaptureType": "NEW_ROW_AND_OLD_VALUES",
   "NumberOfRecordsInTransaction": 1,
   "NumberOfPartitionsInTransaction": 1,
-  "TransactionTag": "",
+  "TransactionTag": "finish-copy-object",
   "IsSystemTransaction": false
 }
