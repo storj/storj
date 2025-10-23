@@ -91,6 +91,14 @@
                                     View Details
                                 </v-list-item-title>
                             </v-list-item>
+                            <v-list-item density="comfortable" link @click="() => onUpdate(item)">
+                                <template #prepend>
+                                    <component :is="BoltIcon" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Update Type
+                                </v-list-item-title>
+                            </v-list-item>
                             <v-list-item class="text-error" density="comfortable" link @click="() => onDelete(item)">
                                 <template #prepend>
                                     <component :is="Trash2" :size="18" />
@@ -108,6 +116,7 @@
 
     <delete-compute-instance-dialog v-model="isDeleteDialog" :instance="instanceToDelete" />
     <compute-instance-details-dialog v-model="isDetailsDialog" :instance="instanceToView" />
+    <update-compute-instance-dialog v-model="isUpdateDialog" :instance="instanceToUpdate" />
 </template>
 
 <script setup lang="ts">
@@ -133,6 +142,7 @@ import {
     HelpCircle,
     Ellipsis,
     Trash2,
+    BoltIcon,
 } from 'lucide-vue-next';
 
 import { DataTableHeader } from '@/types/common';
@@ -145,6 +155,7 @@ import { Time } from '@/utils/time';
 
 import DeleteComputeInstanceDialog from '@/components/dialogs/DeleteComputeInstanceDialog.vue';
 import ComputeInstanceDetailsDialog from '@/components/dialogs/ComputeInstanceDetailsDialog.vue';
+import UpdateComputeInstanceDialog from '@/components/dialogs/UpdateComputeInstanceDialog.vue';
 
 const computeStore = useComputeStore();
 
@@ -164,8 +175,10 @@ const headers: DataTableHeader[] = [
 const search = ref<string>('');
 const isDeleteDialog = ref<boolean>(false);
 const isDetailsDialog = ref<boolean>(false);
+const isUpdateDialog = ref<boolean>(false);
 const instanceToDelete = ref<Instance>(new Instance());
 const instanceToView = ref<Instance>(new Instance());
+const instanceToUpdate = ref<Instance>(new Instance());
 
 const instances = computed<Instance[]>(() => computeStore.state.instances);
 
@@ -187,6 +200,11 @@ function onDelete(instance: Instance): void {
 function viewDetails(instance: Instance): void {
     instanceToView.value = instance;
     isDetailsDialog.value = true;
+}
+
+function onUpdate(instance: Instance): void {
+    instanceToUpdate.value = instance;
+    isUpdateDialog.value = true;
 }
 
 function getStatusColor(status: string): string {

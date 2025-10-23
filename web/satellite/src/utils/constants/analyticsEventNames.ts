@@ -136,6 +136,7 @@ export enum AnalyticsErrorEventSource {
     ADD_COMPUTE_SSH_KEY_MODAL = 'Add Compute SSH Key Modal',
     COMPUTE_SSH_KEYS_TABLE = 'Compute SSH Keys Table',
     CREATE_COMPUTE_INSTANCE_DIALOG = 'Create Compute Instance Dialog',
+    UPDATE_COMPUTE_INSTANCE_DIALOG = 'Update Compute Instance Dialog',
     COMPUTE_INSTANCES_TABLE = 'Compute Instances Table',
     COMPUTE_INSTANCE_DETAILS_MODAL = 'Compute Instance Details Modal',
 }
