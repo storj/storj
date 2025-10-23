@@ -244,7 +244,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		return err
 	}
 
-	var precommit PrecommitConstraintResult
+	var metrics commitMetrics
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-move-object",
 		TransmitEvent:  opts.TransmitEvent,
@@ -267,7 +267,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.NewVersioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, query, &precommit); err != nil {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, query, &metrics); err != nil {
 				return err
 			}
 		}
@@ -345,7 +345,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		return err
 	}
 
-	precommit.submitMetrics()
+	metrics.submit()
 	mon.Meter("finish_move_object").Mark(1)
 
 	return nil

@@ -324,62 +324,43 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, errors.Join(err, errCleanup)
 	}
 
-	var precommit PrecommitConstraintResult
-	if db.config.TestingTwoRoundtripCommit {
-		err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
-			TransactionTag: "finish-copy-object",
-			TransmitEvent:  opts.TransmitEvent,
-		}, func(ctx context.Context, adapter TransactionAdapter) error {
-			query, err := db.PrecommitQuery(ctx, PrecommitQuery{
-				ObjectStream:   newObject.ObjectStream,
-				Pending:        false, // the pending object is already created
-				Unversioned:    !opts.NewVersioned,
-				HighestVisible: opts.IfNoneMatch.All(),
-			}, adapter)
-			if err != nil {
+	var metrics commitMetrics
+	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+		TransactionTag: "finish-copy-object",
+		TransmitEvent:  opts.TransmitEvent,
+	}, func(ctx context.Context, adapter TransactionAdapter) error {
+		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
+			ObjectStream:   newObject.ObjectStream,
+			Pending:        false, // the pending object is already created
+			Unversioned:    !opts.NewVersioned,
+			HighestVisible: opts.IfNoneMatch.All(),
+		}, adapter)
+		if err != nil {
+			return err
+		}
+
+		// We should only commit when an object already doesn't exist.
+		if opts.IfNoneMatch.All() {
+			if query.HighestVisible.IsCommitted() {
+				return ErrFailedPrecondition.New("object already exists")
+			}
+		}
+
+		// When committing unversioned objects we need to delete any previous unversioned objects.
+		if !opts.NewVersioned {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, query, &metrics); err != nil {
 				return err
 			}
+		}
 
-			// We should only commit when an object already doesn't exist.
-			if opts.IfNoneMatch.All() {
-				if query.HighestVisible.IsCommitted() {
-					return ErrFailedPrecondition.New("object already exists")
-				}
-			}
+		initial := newObject.ObjectStream
+		newObject.Version = db.nextVersion(newObject.Version, query.HighestVersion, query.TimestampVersion)
 
-			// When committing unversioned objects we need to delete any previous unversioned objects.
-			if !opts.NewVersioned {
-				if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, query, &precommit); err != nil {
-					return err
-				}
-			}
-
-			initial := newObject.ObjectStream
-			newObject.Version = db.nextVersion(newObject.Version, query.HighestVersion, query.TimestampVersion)
-
-			return adapter.commitPendingCopyObject2(ctx, commitPendingCopyObject{
-				Initial: initial,
-				Object:  &newObject,
-			})
+		return adapter.commitPendingCopyObject2(ctx, commitPendingCopyObject{
+			Initial: initial,
+			Object:  &newObject,
 		})
-	} else {
-		err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
-			TransactionTag: "finish-copy-object",
-			TransmitEvent:  opts.TransmitEvent,
-		}, func(ctx context.Context, txadapter TransactionAdapter) error {
-			precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-				Location:       opts.NewLocation(),
-				Versioned:      opts.NewVersioned,
-				DisallowDelete: opts.NewDisallowDelete,
-				CheckExistence: opts.IfNoneMatch.All(),
-			}, txadapter)
-			if err != nil {
-				return err
-			}
-
-			return txadapter.commitPendingCopyObject(ctx, &newObject, precommit.HighestVersion)
-		})
-	}
+	})
 	if err != nil {
 		_, errCleanup := adapter.deleteObjectExactVersion(ctx,
 			DeleteObjectExactVersion{
@@ -389,7 +370,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, errors.Join(err, errCleanup)
 	}
 
-	precommit.submitMetrics()
+	metrics.submit()
 	mon.Meter("finish_copy_object").Mark(1)
 
 	return newObject, nil

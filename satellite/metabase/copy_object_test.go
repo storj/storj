@@ -1922,5 +1922,5 @@ func TestFinishCopyObject(t *testing.T) {
 			// no retention and legal hold
 			test(t, metabase.Retention{}, true)
 		})
-	}, metabasetest.WithTimestampVersioning, metabasetest.WithOldCommitObject)
+	}, metabasetest.WithTimestampVersioning)
 }
