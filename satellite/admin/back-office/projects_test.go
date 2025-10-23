@@ -100,22 +100,6 @@ func TestGetProject(t *testing.T) {
 			project, apiErr := service.GetProject(ctx, projPublicID)
 			require.NoError(t, apiErr.Err)
 
-			// service should return defaults for these since they are null in DB.
-			defaultRate := int(sat.Config.Metainfo.RateLimiter.Rate)
-			defaultBurst := defaultRate
-			defaultMaxBuckets := sat.Config.Metainfo.ProjectLimits.MaxBuckets
-
-			// check DB value is null and admin value is not null.
-			require.Nil(t, consoleProject.RateLimit)
-			require.NotNil(t, project.RateLimit)
-			assert.Equal(t, defaultRate, *project.RateLimit)
-			require.Nil(t, consoleProject.BurstLimit)
-			require.NotNil(t, project.BurstLimit)
-			assert.Equal(t, defaultBurst, *project.BurstLimit)
-			require.Nil(t, consoleProject.MaxBuckets)
-			require.NotNil(t, project.MaxBuckets)
-			assert.Equal(t, defaultMaxBuckets, *project.MaxBuckets)
-
 			assert.Equal(t, consoleProject.OwnerID, project.Owner.ID)
 			assert.Equal(t, consoleUser.FullName, project.Owner.FullName)
 			assert.Equal(t, consoleUser.Email, project.Owner.Email)
@@ -128,6 +112,10 @@ func TestGetProject(t *testing.T) {
 			assert.EqualValues(t, consoleProject.SegmentLimit, project.SegmentLimit)
 			require.NotNil(t, project.SegmentUsed)
 			assert.Zero(t, *project.SegmentUsed)
+
+			defaultRate := int(sat.Config.Metainfo.RateLimiter.Rate)
+			defaultBurst := defaultRate
+			defaultMaxBuckets := sat.Config.Metainfo.ProjectLimits.MaxBuckets
 
 			// now set the null columns to specific values and check admin returns them.
 			newBucketLimit := defaultMaxBuckets * 2
@@ -324,7 +312,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 			})
 			require.NoError(t, apiErr.Err)
 
-			// test setting nullable limits to 0 which should make them null in DB
+			// test setting nullable limits to admin.NullableLimitValue (-1) which should make them null in DB
 			// first set all nullable fields to non-zero values
 			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
 				UserSetStorageLimit:   int64Ptr(expectStorage),
@@ -363,18 +351,18 @@ func TestUpdateProjectLimits(t *testing.T) {
 
 			// now set all nullable fields to 0 to make them null
 			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
-				UserSetStorageLimit:   int64Ptr(0),
-				UserSetBandwidthLimit: int64Ptr(0),
-				RateLimitHead:         intPtr(0),
-				BurstLimitHead:        intPtr(0),
-				RateLimitGet:          intPtr(0),
-				BurstLimitGet:         intPtr(0),
-				RateLimitPut:          intPtr(0),
-				BurstLimitPut:         intPtr(0),
-				RateLimitDelete:       intPtr(0),
-				BurstLimitDelete:      intPtr(0),
-				RateLimitList:         intPtr(0),
-				BurstLimitList:        intPtr(0),
+				UserSetStorageLimit:   int64Ptr(admin.NullableLimitValue),
+				UserSetBandwidthLimit: int64Ptr(admin.NullableLimitValue),
+				RateLimitHead:         intPtr(admin.NullableLimitValue),
+				BurstLimitHead:        intPtr(admin.NullableLimitValue),
+				RateLimitGet:          intPtr(admin.NullableLimitValue),
+				BurstLimitGet:         intPtr(admin.NullableLimitValue),
+				RateLimitPut:          intPtr(admin.NullableLimitValue),
+				BurstLimitPut:         intPtr(admin.NullableLimitValue),
+				RateLimitDelete:       intPtr(admin.NullableLimitValue),
+				BurstLimitDelete:      intPtr(admin.NullableLimitValue),
+				RateLimitList:         intPtr(admin.NullableLimitValue),
+				BurstLimitList:        intPtr(admin.NullableLimitValue),
 			})
 			require.NoError(t, apiErr.Err)
 			require.Nil(t, project.UserSetStorageLimit)
@@ -398,11 +386,11 @@ func TestUpdateProjectLimits(t *testing.T) {
 			require.Equal(t, intPtr(expectBurst), project.BurstLimit)
 
 			_, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
-				MaxBuckets:          intPtr(-1),
+				MaxBuckets:          intPtr(-2),
 				StorageLimit:        int64Ptr(-1),
-				UserSetStorageLimit: int64Ptr(-1),
-				RateLimit:           intPtr(-1),
-				RateLimitList:       intPtr(-1),
+				UserSetStorageLimit: int64Ptr(-2),
+				RateLimit:           intPtr(-2),
+				RateLimitList:       intPtr(-2),
 			})
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Error(t, apiErr.Err)

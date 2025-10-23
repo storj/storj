@@ -21,6 +21,9 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
+// NullableLimitValue is the value used to indicate that a limit should be set to null.
+const NullableLimitValue = -1
+
 // Project contains the information and configurations of a project.
 type Project struct {
 	ID               uuid.UUID                 `json:"-"`
@@ -154,21 +157,6 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		userBandwidthl = &l
 	}
 
-	maxBuckets := &s.defaults.MaxBuckets
-	if p.MaxBuckets != nil {
-		*maxBuckets = *p.MaxBuckets
-	}
-
-	rate := &s.defaults.RateLimit
-	if p.RateLimit != nil {
-		rate = p.RateLimit
-	}
-
-	burst := &s.defaults.RateLimit
-	if p.BurstLimit != nil {
-		burst = p.BurstLimit
-	}
-
 	return &Project{
 		ID:          p.ID,
 		PublicID:    p.PublicID,
@@ -182,8 +170,8 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		},
 		CreatedAt:        p.CreatedAt,
 		DefaultPlacement: p.DefaultPlacement,
-		RateLimit:        rate,
-		BurstLimit:       burst,
+		RateLimit:        p.RateLimit,
+		BurstLimit:       p.BurstLimit,
 		RateLimitList:    p.RateLimitList,
 		BurstLimitList:   p.BurstLimitList,
 		RateLimitHead:    p.RateLimitHead,
@@ -194,7 +182,7 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		BurstLimitPut:    p.BurstLimitPut,
 		RateLimitDelete:  p.RateLimitDelete,
 		BurstLimitDelete: p.BurstLimitDelete,
-		MaxBuckets:       maxBuckets,
+		MaxBuckets:       p.MaxBuckets,
 		ProjectUsageLimits: ProjectUsageLimits[*int64]{
 			BandwidthLimit:        bandwidthl,
 			UserSetBandwidthLimit: userBandwidthl,
@@ -364,20 +352,23 @@ func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLim
 		requestValue *int64
 		currentValue *int64
 		limitKind    console.LimitKind
-		allowsNull   bool
+		disallowNull bool
 	}{
 		{
 			requestValue: req.StorageLimit,
 			currentValue: sizeTo64(p.StorageLimit),
 			limitKind:    console.StorageLimit,
+			disallowNull: true,
 		}, {
 			requestValue: req.BandwidthLimit,
 			currentValue: sizeTo64(p.BandwidthLimit),
 			limitKind:    console.BandwidthLimit,
+			disallowNull: true,
 		}, {
 			requestValue: req.SegmentLimit,
 			currentValue: p.SegmentLimit,
 			limitKind:    console.SegmentLimit,
+			disallowNull: true,
 		}, {
 			requestValue: intTo64(req.MaxBuckets),
 			currentValue: intTo64(p.MaxBuckets),
@@ -394,74 +385,64 @@ func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLim
 			requestValue: req.UserSetStorageLimit,
 			currentValue: sizeTo64(p.UserSpecifiedStorageLimit),
 			limitKind:    console.UserSetStorageLimit,
-			allowsNull:   true,
 		}, {
 			requestValue: req.UserSetBandwidthLimit,
 			currentValue: sizeTo64(p.UserSpecifiedBandwidthLimit),
 			limitKind:    console.UserSetBandwidthLimit,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitHead),
 			currentValue: intTo64(p.RateLimitHead),
 			limitKind:    console.RateLimitHead,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitHead),
 			currentValue: intTo64(p.BurstLimitHead),
 			limitKind:    console.BurstLimitHead,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitGet),
 			currentValue: intTo64(p.RateLimitGet),
 			limitKind:    console.RateLimitGet,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitGet),
 			currentValue: intTo64(p.BurstLimitGet),
 			limitKind:    console.BurstLimitGet,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitPut),
 			currentValue: intTo64(p.RateLimitPut),
 			limitKind:    console.RateLimitPut,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitPut),
 			currentValue: intTo64(p.BurstLimitPut),
 			limitKind:    console.BurstLimitPut,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitDelete),
 			currentValue: intTo64(p.RateLimitDelete),
 			limitKind:    console.RateLimitDelete,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitDelete),
 			currentValue: intTo64(p.BurstLimitDelete),
 			limitKind:    console.BurstLimitDelete,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitList),
 			currentValue: intTo64(p.RateLimitList),
 			limitKind:    console.RateLimitList,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitList),
 			currentValue: intTo64(p.BurstLimitList),
 			limitKind:    console.BurstLimitList,
-			allowsNull:   true,
 		},
 	}
 	for _, limit := range limits {
 		if limit.requestValue == nil {
 			continue
 		}
-		if *limit.requestValue < 0 {
-			errGroup = append(errGroup, errs.New("%s cannot be negative", limit.limitKind))
+
+		allowNull := !limit.disallowNull
+		if allowNull && *limit.requestValue == NullableLimitValue && limit.currentValue != nil {
+			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: nil})
 			continue
 		}
-		if limit.allowsNull && *limit.requestValue == 0 && limit.currentValue != nil {
-			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: nil})
+		if *limit.requestValue < 0 {
+			errGroup = append(errGroup, errs.New("%s cannot be negative", limit.limitKind))
 			continue
 		}
 		if limit.currentValue == nil || *limit.requestValue != *limit.currentValue {
