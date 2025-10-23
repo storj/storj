@@ -14,6 +14,7 @@ It can also be a YAML file path.
 STORJ_PAYMENTS_PRODUCTS: |
   - id: product_id
     name: "Product Name"
+    price-summary: "price summary"
     storage: "price_per_TB_per_month"
     storage-sku: "storage_sku_value"
     egress: "price_per_TB"
@@ -28,27 +29,31 @@ STORJ_PAYMENTS_PRODUCTS: |
     minimum-retention-fee: "fee_per_TB_per_month"
     minimum-retention-fee-sku: "minimum_retention_sku_value"
     use-gb-units: boolean_value
-    storage-remainder: integer_value
+    storage-remainder: "memory.Size"
 ```
 
 ### Fields
 
 - `name`: Human-readable product name
+- `price-summary`: Summary of the cost of storage and egress for the product. This will be shown on the UI's upgrade and account setup dialogs.
 - `storage`: Price for storage per month in dollars/TB
 - `storage-sku`: SKU for storage
 - `egress`: Price for egress in dollars/TB
 - `egress-sku`: SKU for egress
 - `included-egress-sku`: SKU for included egress
-- `egress-overage-mode`: Boolean indicating if egress overage mode is enabled
-- `egress-discount-ratio`: Ratio of free egress per unit-month of storage
-- `segment`: Price for segments stored on network per month in dollars/segment
+- `egress-overage-mode`: Boolean indicating if egress overage mode is enabled. In overage mode, a product's egress will
+be communicated as "free egress, with some overage fees beyond a certain point".
+- `egress-discount-ratio`: Ratio of free egress per unit-month of storage. This can be omitted if it is not relevant to the product.
+In that case, it will default to 0 (no free egress).
+- `segment`: Price for segments stored on network per month in dollars/segment. This can be omitted if not relevant to the product.
+In that case, it will default to 0 (no segment charges).
 - `segment-sku`: SKU for segment storage
 - `small-object-fee`: Fee for small objects per TB
 - `small-object-fee-sku`: SKU for small object fee
 - `minimum-retention-fee`: Minimum retention fee per TB per month
 - `minimum-retention-fee-sku`: SKU for minimum retention fee
 - `use-gb-units`: Boolean flag to use GB units instead of MB units on invoices (true for GB, false for MB)
-- `storage-remainder`: Remainder storage in bytes
+- `storage-remainder`: Remainder storage in `memory.Size` parsable format (e.g., "50KB", "1MB")
 
 ### Example Configuration
 
@@ -83,20 +88,20 @@ STORJ_PAYMENTS_PRODUCTS: |
     egress-discount-ratio: 0.0
   4:
     name: "Global Collaboration"
+    price-summary: "15$/TB Storage, 20$/TB Egress"
     storage: 15
     storage-sku: "storage_sku_value_4"
     egress: 20
     egress-sku: "egress_sku_value_4"
     egress-discount-ratio: 1
     included-egress-sku: "included_egress_sku_value_4"
-    segment: 0
     small-object-fee: 15
     small-object-fee-sku: "small_object_sku_value_4"
     minimum-retention-fee: 15
     minimum-retention-fee-sku: "minimum_retention_sku_value_4"
     egress-overage-mode: true
     use-gb-units: true
-    storage-remainder: 50000
+    storage-remainder: "50KB"
 ```
 
 ## PlacementPriceOverrides
