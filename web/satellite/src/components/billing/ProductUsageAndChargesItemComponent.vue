@@ -108,7 +108,7 @@
                                     </td>
                                 </tr>
 
-                                <tr v-if="!newPricingEnabled">
+                                <tr v-if="getSegmentPrice(productID)">
                                     <td>
                                         <p>Segments <span class="d-none d-md-inline">({{ getSegmentPrice(productID) }} per Segment-Month)</span></p>
                                     </td>
@@ -187,8 +187,6 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useConfigStore } from '@/store/modules/configStore';
-import { useUsersStore } from '@/store/modules/usersStore';
 
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
 
@@ -207,9 +205,7 @@ const props = withDefaults(defineProps<{
 });
 
 const billingStore = useBillingStore();
-const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
-const userStore = useUsersStore();
 
 /**
  * An array of tuples containing the partner name and usage charge for the specified project ID.
@@ -239,14 +235,6 @@ const projectName = computed((): string => {
  * Returns product usage price model from store.
  */
 const productCharges = computed<ProductCharges>(() => billingStore.state.productCharges as ProductCharges);
-
-/**
- * Whether this project has new pricing.
- */
-const newPricingEnabled = computed<boolean>(() => {
-    if (!configStore.getBillingEnabled(userStore.state.user)) return false;
-    return configStore.getProjectHasNewPricing(project.value?.createdAt || null);
-});
 
 /**
  * Returns product name by product ID.
@@ -313,7 +301,10 @@ function getEgressPrice(productID: number): string {
  * Returns segment price.
  */
 function getSegmentPrice(productID: number): string {
-    return formatPrice(decimalShift(getPriceModel(productID).segmentMonthCents, 2));
+    const price = getPriceModel(productID).segmentMonthCents;
+    if (!price) return '';
+    if (parseInt(price, 10) === 0) return '';
+    return formatPrice(decimalShift(price, 2));
 }
 
 /**

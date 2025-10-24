@@ -687,21 +687,6 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 			}
 		}
 
-		if len(productCharges) == 0 {
-			name := "Global"
-			if product, ok := accounts.service.pricingConfig.ProductPriceMap[0]; ok {
-				name = product.ProductName
-			}
-
-			productCharges[0] = payments.ProductCharge{
-				ProjectUsage: accounting.ProjectUsage{Since: since, Before: before},
-				ProductUsagePriceModel: payments.ProductUsagePriceModel{
-					ProductName:            name,
-					ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
-				},
-			}
-		}
-
 		charges[project.PublicID] = productCharges
 	}
 

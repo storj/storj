@@ -6,7 +6,6 @@ package metabase_test
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -17,46 +16,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
-
-func TestPrecommitConstraint_Empty(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := metabasetest.RandObjectStream()
-
-		for _, versioned := range []bool{false, true} {
-			for _, disallowDelete := range []bool{false, true} {
-				name := fmt.Sprintf("Versioned:%v,DisallowDelete:%v", versioned, disallowDelete)
-				t.Run(name, func(t *testing.T) {
-					var result metabase.PrecommitConstraintResult
-					err := db.ChooseAdapter(obj.Location().ProjectID).WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
-						var err error
-						result, err = db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-							Location:       obj.Location(),
-							Versioned:      versioned,
-							DisallowDelete: disallowDelete,
-						}, adapter)
-						return err
-					})
-					require.NoError(t, err)
-					require.Equal(t, metabase.PrecommitConstraintResult{}, result)
-				})
-			}
-		}
-
-		t.Run("with-non-pending", func(t *testing.T) {
-			adapter := db.ChooseAdapter(obj.ProjectID)
-			var result metabase.PrecommitConstraintWithNonPendingResult
-			err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, tx metabase.TransactionAdapter) error {
-				var err error
-				result, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, metabase.PrecommitDeleteUnversionedWithNonPending{
-					ObjectLocation: obj.Location(),
-				})
-				return err
-			})
-			require.NoError(t, err)
-			require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{}, result)
-		})
-	})
-}
 
 func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
@@ -145,9 +104,9 @@ func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
 
 func TestPrecommitQuery(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		precommit := func(query metabase.PrecommitQuery) (metabase.PrecommitInfo, error) {
+		precommit := func(query metabase.PrecommitQuery) (*metabase.PrecommitInfo, error) {
 			adapter := db.ChooseAdapter(query.ObjectStream.ProjectID)
-			var info metabase.PrecommitInfo
+			var info *metabase.PrecommitInfo
 			err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, tx metabase.TransactionAdapter) error {
 				var err error
 				info, err = db.PrecommitQuery(ctx, query, tx)
@@ -171,15 +130,17 @@ func TestPrecommitQuery(t *testing.T) {
 						})
 						if pending {
 							require.ErrorContains(t, err, "object with specified version and pending status is missing")
+							require.Nil(t, info)
 						} else {
 							require.NoError(t, err)
+							expect := &metabase.PrecommitInfo{
+								ObjectStream:     obj,
+								TimestampVersion: info.TimestampVersion, // this is dynamically created
+							}
+							require.Equal(t, expect, info)
 						}
-
-						expect := metabase.PrecommitInfo{
-							TimestampVersion: info.TimestampVersion, // this is dynamically created
-						}
-						require.Equal(t, expect, info)
 					})
+
 				}
 			}
 		}
@@ -212,7 +173,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   pending.Version,
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
@@ -261,7 +223,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   0, // we don't return negative versions
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
@@ -314,7 +277,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   20000,
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
@@ -371,7 +335,8 @@ func TestPrecommitQuery(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			expect := metabase.PrecommitInfo{
+			expect := &metabase.PrecommitInfo{
+				ObjectStream:     obj,
 				HighestVersion:   20000,
 				TimestampVersion: info.TimestampVersion,
 				Pending: &metabase.PrecommitPendingObject{
@@ -389,128 +354,6 @@ func TestPrecommitQuery(t *testing.T) {
 			}
 
 			require.EqualExportedValues(t, expect, info)
-		})
-	})
-}
-
-func BenchmarkPrecommitConstraint(b *testing.B) {
-	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
-		baseObj := metabasetest.RandObjectStream()
-
-		for i := 0; i < 500; i++ {
-			metabasetest.CreateObject(ctx, b, db, metabasetest.RandObjectStream(), 0)
-		}
-
-		for i := 0; i < 10; i++ {
-			baseObj.ObjectKey = metabase.ObjectKey("foo/" + strconv.Itoa(i))
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-
-			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixA/" + strconv.Itoa(i))
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-
-			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixB/" + strconv.Itoa(i))
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-		}
-
-		for i := 0; i < 50; i++ {
-			baseObj.ObjectKey = metabase.ObjectKey("boo/foo" + strconv.Itoa(i) + "/object")
-			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
-		}
-
-		adapter := db.ChooseAdapter(baseObj.ProjectID)
-		b.Run("unversioned", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
-					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-						Location: metabase.ObjectLocation{
-							ProjectID:  baseObj.ProjectID,
-							BucketName: baseObj.BucketName,
-							ObjectKey:  "foo/5",
-						},
-						Versioned:      false,
-						DisallowDelete: false,
-					}, adapter)
-					return err
-				})
-				require.NoError(b, err)
-			}
-		})
-
-		b.Run("versioned", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
-					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-						Location: metabase.ObjectLocation{
-							ProjectID:  baseObj.ProjectID,
-							BucketName: baseObj.BucketName,
-							ObjectKey:  "foo/5",
-						},
-						Versioned:      true,
-						DisallowDelete: false,
-					}, adapter)
-					return err
-				})
-				require.NoError(b, err)
-			}
-		})
-	})
-}
-
-func BenchmarkPrecommitConstraintUnversioned(b *testing.B) {
-	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
-		baseObj := metabasetest.RandObjectStream()
-
-		adapter := db.ChooseAdapter(baseObj.ProjectID)
-
-		var objects []metabase.RawObject
-		for i := 0; i < b.N; i++ {
-			baseObj.ObjectKey = metabase.ObjectKey(fmt.Sprintf("overwrite/%d", i))
-			object := metabase.RawObject{
-				ObjectStream: baseObj,
-				Status:       metabase.CommittedUnversioned,
-			}
-			objects = append(objects, object)
-		}
-		err := db.TestingBatchInsertObjects(ctx, objects)
-		require.NoError(b, err)
-		b.ResetTimer()
-
-		b.Run("nooverwrite", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				objectKey := metabase.ObjectKey(fmt.Sprintf("nooverwrite/%d", i))
-				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
-					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-						Location: metabase.ObjectLocation{
-							ProjectID:  baseObj.ProjectID,
-							BucketName: baseObj.BucketName,
-							ObjectKey:  objectKey,
-						},
-						Versioned:      false,
-						DisallowDelete: false,
-					}, adapter)
-					return err
-				})
-				require.NoError(b, err)
-			}
-		})
-
-		b.Run("overwrite", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				objectKey := metabase.ObjectKey(fmt.Sprintf("overwrite/%d", i))
-				err := adapter.WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, adapter metabase.TransactionAdapter) error {
-					_, err := db.PrecommitConstraint(ctx, metabase.PrecommitConstraint{
-						Location: metabase.ObjectLocation{
-							ProjectID:  baseObj.ProjectID,
-							BucketName: baseObj.BucketName,
-							ObjectKey:  objectKey,
-						},
-						Versioned:      false,
-						DisallowDelete: false,
-					}, adapter)
-					return err
-				})
-				require.NoError(b, err)
-			}
 		})
 	})
 }
