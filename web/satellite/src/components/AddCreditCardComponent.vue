@@ -51,7 +51,7 @@
 
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
 import { computed, ref, watch } from 'vue';
-import { Plus } from 'lucide-vue-next';
+import { Plus, X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';

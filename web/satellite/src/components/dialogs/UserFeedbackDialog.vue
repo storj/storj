@@ -14,7 +14,7 @@
                 <v-card-title class="font-weight-bold">Give Feedback</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -114,6 +114,7 @@ import {
     VCheckbox,
     VAlert,
 } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';

@@ -25,7 +25,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -83,7 +83,7 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
-import { Trash2 } from 'lucide-vue-next';
+import { Trash2, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';

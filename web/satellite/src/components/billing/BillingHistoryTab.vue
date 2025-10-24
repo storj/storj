@@ -16,9 +16,9 @@
                 {{ centsToDollars(item.amount) }}
             </span>
         </template>
-        <template #item.formattedStart="{ item }">
+        <template #item.period="{ item }">
             <span class="font-weight-bold">
-                {{ item.formattedStart }}
+                {{ item.period }}
             </span>
         </template>
         <template #item.formattedStatus="{ item }">
@@ -27,9 +27,28 @@
             </v-chip>
         </template>
         <template #item.link="{ item }">
-            <v-btn v-if="item.link" variant="outlined" color="default" size="small" :href="item.link">
-                Download
-            </v-btn>
+            <div class="d-flex flex-wrap ga-1">
+                <v-btn
+                    v-if="item.link"
+                    :prepend-icon="DownloadIcon"
+                    variant="outlined"
+                    color="default"
+                    size="small"
+                    :href="item.link"
+                >
+                    Invoice
+                </v-btn>
+                <v-btn
+                    v-if="item.link"
+                    :prepend-icon="DownloadIcon"
+                    variant="outlined"
+                    color="default"
+                    size="small"
+                    @click="downloadUsageReport(item)"
+                >
+                    Usage report
+                </v-btn>
+            </div>
         </template>
 
         <template #bottom>
@@ -71,7 +90,7 @@ import {
     VSelect,
     VDataTableServer,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, DownloadIcon } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -80,18 +99,23 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { PaymentHistoryPage, PaymentsHistoryItem } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
+import { DataTableHeader } from '@/types/common';
+import { useProjectsStore } from '@/store/modules/projectsStore';
+import { Download } from '@/utils/download';
 
 const billingStore = useBillingStore();
+const projectsStore = useProjectsStore();
+
 const notify = useNotify();
 
 const { isLoading, withLoading } = useLoading();
 
 const limit = ref(DEFAULT_PAGE_LIMIT);
-const headers = [
-    { title: 'Date', key: 'formattedStart', sortable: false },
+const headers: DataTableHeader[] = [
+    { title: 'Usage Period', key: 'period', sortable: false },
     { title: 'Amount', key: 'amount', sortable: false },
     { title: 'Status', key: 'formattedStatus', sortable: false },
-    { title: '', key: 'link', sortable: false, width: 0 },
+    { title: '', key: 'link', sortable: false, width: 250, align: 'end' },
 ];
 const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
 
@@ -142,6 +166,16 @@ async function previousClicked(): Promise<void> {
 async function sizeChanged(size: number) {
     limit.value = size;
     fetchHistory();
+}
+
+function downloadUsageReport(item: PaymentsHistoryItem): void {
+    try {
+        const link = projectsStore.getUsageReportLink(item.start, item.end, true, true);
+        Download.fileByLink(link);
+        notify.success('Usage report download started successfully.');
+    } catch (error) {
+        notify.notifyError(error, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
+    }
 }
 
 onMounted(() => {

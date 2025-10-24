@@ -40,3 +40,28 @@ func (p *SpannerAdapter) generateVersion() string {
 	}
 	return spannerGenerateNextVersion
 }
+
+func (db *DB) nextVersion(pendingVersion, highestVersion, timestampVersion Version) (result Version) {
+	pendingVersion = max(pendingVersion, 0)
+	highestVersion = max(highestVersion, 0)
+
+	if pendingVersion == highestVersion {
+		if pendingVersion == 0 {
+			return 1
+		}
+		return pendingVersion
+	}
+
+	if db.config.TestingTimestampVersioning {
+		if highestVersion > timestampVersion {
+			// this should never happen, but just in case
+			return highestVersion + 1
+		}
+		if timestampVersion == 0 {
+			return 1
+		}
+		return timestampVersion
+	}
+
+	return highestVersion + 1
+}

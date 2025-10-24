@@ -25,7 +25,7 @@
                 </v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -121,7 +121,7 @@
 
 <script setup lang="ts">
 import { ref, computed, h, watch } from 'vue';
-import { FolderArchive, Check, Download } from 'lucide-vue-next';
+import { FolderArchive, Check, Download, X } from 'lucide-vue-next';
 import {
     VDialog,
     VCard,

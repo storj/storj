@@ -199,7 +199,7 @@
                     show-adjacent-months
                     hide-details
                 >
-                    <v-icon class="mr-2" size="20" icon="$calendar" />
+                    <v-icon class="mr-2" size="20" :icon="Calendar" />
                 </v-date-input>
             </v-col>
         </v-row>
@@ -316,7 +316,7 @@ import {
 } from 'vuetify/components';
 import { VDateInput } from 'vuetify/labs/components';
 import { useRouter } from 'vue-router';
-import { Info, CirclePlus, CircleArrowUp, Cloud, CloudDownload } from 'lucide-vue-next';
+import { Info, CirclePlus, CircleArrowUp, Cloud, CloudDownload, Calendar } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

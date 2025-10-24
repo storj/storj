@@ -412,8 +412,15 @@ func TestPayments(t *testing.T) {
 		}
 
 		{ // Get_AccountChargesByDateRange
+			consoleDB := planet.Satellites[0].DB.Console()
+			consoleUser, err := consoleDB.Users().GetByEmail(ctx, user.email)
+			require.NoError(t, err)
+			projects, err := consoleDB.Projects().GetOwnActive(ctx, consoleUser.ID)
+			require.NoError(t, err)
+			require.NotEmpty(t, projects)
+
 			resp, body := test.request(http.MethodGet, "/payments/account/product-charges?from=1619827200&to=1620844320", nil)
-			require.Contains(t, body, "egress")
+			require.Contains(t, body, projects[0].PublicID.String())
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 

@@ -26,7 +26,7 @@
 
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -108,7 +108,7 @@ import {
     VCardActions,
     VSheet,
 } from 'vuetify/components';
-import { UserPlus } from 'lucide-vue-next';
+import { UserPlus, X } from 'lucide-vue-next';
 
 import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

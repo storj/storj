@@ -422,7 +422,7 @@ var (
 
 	deleteNonExistingBucketObjectsCmd = &cobra.Command{
 		Use:   "delete-non-existing-bucket-objects <project-id> <bucket-name>",
-		Short: "Delete all the objects in a bucket",
+		Short: "Delete all the objects of an unexisting bucket",
 		Long: "Deletes the objects in a given bucket, but does not guarantee consistency, while the " +
 			"delete is in progress. Bucket must not exists at the moment when command is executed otherwise " +
 			"command will return error",

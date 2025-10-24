@@ -14,13 +14,13 @@
                 </v-card-title>
 
                 <template #append>
-                    <v-btn icon="$close" variant="text" size="small" color="default" @click="model = false" />
+                    <v-btn :icon="X" variant="text" size="small" color="default" @click="model = false" />
                 </template>
             </v-card-item>
 
             <v-divider />
 
-            <v-window v-model="step" class="overflow-y-auto">
+            <v-window v-model="step" :touch="false" class="overflow-y-auto">
                 <v-window-item :value="ManageProjectPassphraseStep.ManageOptions">
                     <manage-options-step
                         :ref="stepInfo[ManageProjectPassphraseStep.ManageOptions].ref"
@@ -142,7 +142,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep, PassphraseOption } from '@/types/managePassphrase';
 import { useProjectsStore } from '@/store/modules/projectsStore';

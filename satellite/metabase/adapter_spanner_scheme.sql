@@ -51,4 +51,4 @@ CREATE TABLE IF NOT EXISTS node_aliases
 
 CREATE UNIQUE INDEX IF NOT EXISTS node_aliases_node_alias_key ON node_aliases(node_alias);
 
-CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE );
+CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE );

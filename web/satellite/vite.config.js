@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
     if (isProd) {
         plugins.push(papaParseWorker());
         plugins.push(viteCompression({
-            algorithm: 'brotliCompress',
+            algorithms: ['brotliCompress'],
             threshold: 1024,
             ext: '.br',
             filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),

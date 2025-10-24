@@ -6,8 +6,11 @@ package metabase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -20,6 +23,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgxutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // RawObject defines the full object that is stored in the database. It should be rarely used directly.
@@ -630,6 +634,32 @@ var rawSegmentColumns = []string{
 	"placement",
 }
 
+// spannerInsertSegment creates a spanner mutation for inserting the object.
+func spannerInsertSegment(obj RawSegment, aliasPieces []byte) *spanner.Mutation {
+	return spanner.Insert("segments", rawSegmentColumns, []any{
+		obj.StreamID.Bytes(),
+		int64(obj.Position.Encode()),
+
+		obj.CreatedAt,
+		obj.RepairedAt,
+		obj.ExpiresAt,
+
+		obj.RootPieceID.Bytes(),
+		obj.EncryptedKeyNonce,
+		obj.EncryptedKey,
+		obj.EncryptedETag,
+
+		int64(obj.EncryptedSize),
+		int64(obj.PlainSize),
+		obj.PlainOffset,
+
+		obj.Redundancy,
+		obj.InlineData,
+		aliasPieces,
+		obj.Placement,
+	})
+}
+
 type copyFromRawSegments struct {
 	idx     int
 	rows    []RawSegment
@@ -885,7 +915,11 @@ var rawObjectColumns = []string{
 
 // spannerInsertObject creates a spanner mutation for inserting the object.
 func spannerInsertObject(obj RawObject) *spanner.Mutation {
-	return spanner.Insert("objects", rawObjectColumns, []any{
+	return spanner.Insert("objects", rawObjectColumns, spannerObjectArguments(obj))
+}
+
+func spannerObjectArguments(obj RawObject) []any {
+	return []any{
 		obj.ProjectID.Bytes(),
 		obj.BucketName,
 		[]byte(obj.ObjectKey),
@@ -915,5 +949,62 @@ func spannerInsertObject(obj RawObject) *spanner.Mutation {
 			legalHold:     &obj.LegalHold,
 		},
 		obj.Retention.RetainUntil,
-	})
+	}
+}
+
+var postgresObjectInsertQuery = sync.OnceValue(func() string {
+	postgresObjectColumns := strings.Join(rawObjectColumns, ", ")
+
+	var args strings.Builder
+	for i := range len(rawObjectColumns) {
+		if i == 0 {
+			fmt.Fprintf(&args, "$%v", i+1)
+		} else {
+			fmt.Fprintf(&args, ", $%v", i+1)
+		}
+	}
+
+	return `INSERT INTO objects (` + postgresObjectColumns + `) SELECT ` + args.String()
+})
+
+func postgresInsertObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	_, err := tx.ExecContext(ctx, postgresObjectInsertQuery(), postgresObjectArguments(object)...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func postgresObjectArguments(obj *RawObject) []any {
+	return []any{
+		obj.ProjectID.Bytes(),
+		obj.BucketName,
+		obj.ObjectKey,
+		obj.Version,
+		obj.StreamID.Bytes(),
+
+		obj.CreatedAt,
+		obj.ExpiresAt,
+
+		obj.Status,
+		obj.SegmentCount,
+
+		obj.EncryptedMetadataNonce,
+		obj.EncryptedMetadata,
+		obj.EncryptedMetadataEncryptedKey,
+		obj.EncryptedETag,
+
+		obj.TotalPlainSize,
+		obj.TotalEncryptedSize,
+		obj.FixedSegmentSize,
+
+		&obj.Encryption,
+		obj.ZombieDeletionDeadline,
+
+		lockModeWrapper{
+			retentionMode: &obj.Retention.Mode,
+			legalHold:     &obj.LegalHold,
+		},
+		obj.Retention.RetainUntil,
+	}
 }

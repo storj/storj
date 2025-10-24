@@ -37,6 +37,11 @@ func (obj *Object) columnRetentionMode() lockModeWrapper {
 	}
 }
 
+var (
+	_ = (*Object).columnRetainUntil   // TODO: disable linter warning temporarily
+	_ = (*Object).columnRetentionMode // TODO: disable linter warning temporarily
+)
+
 // columnRetainUntil is a helper for creating the correct wrapper for databases
 // for scanning "retain_until" column.
 func (obj *Object) columnRetainUntil() timeWrapper {

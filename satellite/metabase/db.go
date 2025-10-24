@@ -712,6 +712,14 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				Version:     23,
 				Action:      &createChangeStreamAction{adapter: s},
 			},
+			{
+				DB:          &db,
+				Description: "watch stream_id in bucket eventing change stream",
+				Version:     24,
+				Action: migrate.SQL{
+					`ALTER CHANGE STREAM bucket_eventing SET FOR objects (stream_id, status, total_plain_size)`,
+				},
+			},
 		},
 	}
 }
@@ -728,9 +736,9 @@ func (action *createChangeStreamAction) Run(ctx context.Context, log *zap.Logger
 	var createChangeStreamSQL string
 	if action.adapter.connParams.Emulator {
 		// Spanner emulator doesn't support allow_txn_exclusion
-		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE)`
+		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE)`
 	} else {
-		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, allow_txn_exclusion = TRUE)`
+		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, allow_txn_exclusion = TRUE)`
 	}
 
 	// Execute the statement, handling the "already exists" error for idempotency

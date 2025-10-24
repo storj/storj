@@ -15,7 +15,7 @@
                 <v-card-title class="font-weight-bold">Session Expiring</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -71,6 +71,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { VDialog, VCard, VCardItem, VCardTitle, VBtn, VDivider, VCardActions, VRow, VCol } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
 
 import { INACTIVITY_MODAL_DURATION } from '@/composables/useSessionTimeout';
 

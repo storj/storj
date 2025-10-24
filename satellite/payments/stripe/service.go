@@ -51,8 +51,11 @@ const (
 	// hoursPerMonth is the number of months in a billing month. For the purpose of billing, a byte*month's month is always 30 days.
 	hoursPerMonth = 24 * 30
 
-	storageInvoiceItemDesc = " - Storage (MB-Month)"
-	egressInvoiceItemDesc  = " - Egress Bandwidth (MB)"
+	// mbToGBConversionFactor is the factor used to convert MB units to GB units.
+	// Since 1 GB = 1000 MB (using decimal notation for billing), we multiply prices
+	// by this factor and divide quantities by this factor when converting from MB to GB.
+	mbToGBConversionFactor = 1000
+
 	segmentInvoiceItemDesc = " - Segment Fee (Segment-Month)"
 )
 
@@ -692,6 +695,7 @@ func (service *Service) getAndProcessUsages(
 				EgressOverageMode:        priceModel.EgressOverageMode,
 				IncludedEgressSKU:        priceModel.IncludedEgressSKU,
 				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
+				UseGBUnits:               priceModel.UseGBUnits,
 			}
 		}
 	}
@@ -737,7 +741,12 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		// Create storage invoice item.
 		storageItem := &stripe.InvoiceItemParams{}
-		storageDesc := prefix + storageInvoiceItemDesc
+		var storageDesc string
+		if info.UseGBUnits {
+			storageDesc = prefix + " - Storage (GB-Month)"
+		} else {
+			storageDesc = prefix + " - Storage (MB-Month)"
+		}
 		if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
 			storageItem.AddMetadata("SKU", info.StorageSKU)
 			if service.stripeConfig.InvItemSKUInDescription {
@@ -745,9 +754,31 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			}
 		}
 		storageItem.Description = stripe.String(storageDesc)
-		storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
-		storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
-		storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		if info.UseGBUnits {
+			// New products: convert from byte-hours to GB-Month.
+			// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+			storageAdjustedMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
+			var storageQuantity int64
+			if service.stripeConfig.RoundUpInvoiceUsage {
+				storageQuantity = storageAdjustedMonth.Ceil().IntPart()
+				// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
+				if discountedUsage.Storage > 0 && storageQuantity == 0 {
+					storageQuantity = 1
+				}
+			} else {
+				storageQuantity = storageAdjustedMonth.Round(0).IntPart()
+			}
+			storageItem.Quantity = stripe.Int64(storageQuantity)
+			// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		} else {
+			// Legacy products: use MB-Month with rounding.
+			storageMBMonth := storageMBMonthDecimal(discountedUsage.Storage)
+			storageItem.Quantity = stripe.Int64(storageMBMonth.IntPart())
+			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
+			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		}
 		if service.stripeConfig.UseIdempotency {
 			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
 		}
@@ -758,11 +789,44 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		if info.EgressOverageMode {
 			// In overage mode, show both included egress (at $0) and overage (when present).
 
-			totalEgressMB := egressMBDecimal(usage.Egress).IntPart()
-			overageEgressMB := egressMBDecimal(discountedUsage.Egress).IntPart()
-			includedEgressMB := totalEgressMB - overageEgressMB
+			var totalEgressQuantity, overageEgressQuantity, includedEgressQuantity int64
+			var egressUnitDesc string
 
-			if includedEgressMB > 0 {
+			if info.UseGBUnits {
+				// New products: convert from bytes to GB.
+				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+				totalEgressAdjusted := decimal.NewFromInt(usage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+				overageEgressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+
+				if service.stripeConfig.RoundUpInvoiceUsage {
+					totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
+					overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
+
+					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+					if usage.Egress > 0 && totalEgressQuantity == 0 {
+						totalEgressQuantity = 1
+					}
+					if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
+						overageEgressQuantity = 1
+					}
+				} else {
+					totalEgressQuantity = totalEgressAdjusted.Round(0).IntPart()
+					overageEgressQuantity = overageEgressAdjusted.Round(0).IntPart()
+				}
+
+				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
+				egressUnitDesc = "GB"
+			} else {
+				// Legacy products: use MB with rounding.
+				totalEgressMB := egressMBDecimal(usage.Egress)
+				overageEgressMB := egressMBDecimal(discountedUsage.Egress)
+				totalEgressQuantity = totalEgressMB.IntPart()
+				overageEgressQuantity = overageEgressMB.IntPart()
+				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
+				egressUnitDesc = "MB"
+			}
+
+			if includedEgressQuantity > 0 {
 				includedEgressItem := &stripe.InvoiceItemParams{}
 
 				// Format discount ratio for description (e.g., "3X" for ratio 3.0, "0.5X" for 0.5).
@@ -775,7 +839,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 					// Has decimal places, show with appropriate precision.
 					discountRatioStr = fmt.Sprintf("%.1fX", discountRatio)
 				}
-				includedEgressDesc := prefix + fmt.Sprintf(" - %s Included Egress (MB)", discountRatioStr)
+				includedEgressDesc := prefix + fmt.Sprintf(" - %s Included Egress (%s)", discountRatioStr, egressUnitDesc)
 				if info.IncludedEgressSKU != "" && service.stripeConfig.SkuEnabled {
 					includedEgressItem.AddMetadata("SKU", info.IncludedEgressSKU)
 					if service.stripeConfig.InvItemSKUInDescription {
@@ -783,7 +847,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 					}
 				}
 				includedEgressItem.Description = stripe.String(includedEgressDesc)
-				includedEgressItem.Quantity = stripe.Int64(includedEgressMB)
+				includedEgressItem.Quantity = stripe.Int64(includedEgressQuantity)
 				includedEgressItem.UnitAmountDecimal = stripe.Float64(0) // $0 price for included egress.
 				if service.stripeConfig.UseIdempotency {
 					includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
@@ -792,9 +856,9 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				result = append(result, includedEgressItem)
 			}
 
-			if overageEgressMB > 0 {
+			if overageEgressQuantity > 0 {
 				overageEgressItem := &stripe.InvoiceItemParams{}
-				overageEgressDesc := prefix + " - Additional Egress (MB)"
+				overageEgressDesc := prefix + fmt.Sprintf(" - Additional Egress (%s)", egressUnitDesc)
 
 				if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
 					overageEgressItem.AddMetadata("SKU", info.EgressSKU)
@@ -803,9 +867,16 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 					}
 				}
 				overageEgressItem.Description = stripe.String(overageEgressDesc)
-				overageEgressItem.Quantity = stripe.Int64(overageEgressMB)
-				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
-				overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+				overageEgressItem.Quantity = stripe.Int64(overageEgressQuantity)
+				if info.UseGBUnits {
+					// New products: multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+				} else {
+					// Legacy products: use price as-is.
+					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+				}
 				if service.stripeConfig.UseIdempotency {
 					overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
 				}
@@ -814,7 +885,12 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			}
 		} else {
 			egressItem := &stripe.InvoiceItemParams{}
-			egressDesc := prefix + egressInvoiceItemDesc
+			var egressDesc string
+			if info.UseGBUnits {
+				egressDesc = prefix + " - Egress Bandwidth (GB)"
+			} else {
+				egressDesc = prefix + " - Egress Bandwidth (MB)"
+			}
 			if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
 				egressItem.AddMetadata("SKU", info.EgressSKU)
 				if service.stripeConfig.InvItemSKUInDescription {
@@ -822,9 +898,32 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				}
 			}
 			egressItem.Description = stripe.String(egressDesc)
-			egressItem.Quantity = stripe.Int64(egressMBDecimal(discountedUsage.Egress).IntPart())
-			egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
-			egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+			if info.UseGBUnits {
+				// New products: convert from bytes to GB.
+				// Avoid intermediate MB rounding to preserve precision.
+				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+				egressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
+				var egressQuantity int64
+				if service.stripeConfig.RoundUpInvoiceUsage {
+					egressQuantity = egressAdjusted.Ceil().IntPart()
+					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+					if discountedUsage.Egress > 0 && egressQuantity == 0 {
+						egressQuantity = 1
+					}
+				} else {
+					egressQuantity = egressAdjusted.Round(0).IntPart()
+				}
+				egressItem.Quantity = stripe.Int64(egressQuantity)
+				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+			} else {
+				// Legacy products: use MB with rounding.
+				egressMB := egressMBDecimal(discountedUsage.Egress)
+				egressItem.Quantity = stripe.Int64(egressMB.IntPart())
+				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
+				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+			}
 			if service.stripeConfig.UseIdempotency {
 				egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
 			}
@@ -833,30 +932,45 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		}
 
 		// Create segment invoice item.
-		segmentItem := &stripe.InvoiceItemParams{}
-		segmentDesc := prefix + segmentInvoiceItemDesc
-		if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
-			segmentItem.AddMetadata("SKU", info.SegmentSKU)
-			if service.stripeConfig.InvItemSKUInDescription {
-				segmentDesc += " - " + info.SegmentSKU
+		// Note: Segment fees are not affected by UseGBUnits, they use the same units for all products.
+		if !info.ProjectUsagePriceModel.SegmentMonthCents.IsZero() {
+			segmentItem := &stripe.InvoiceItemParams{}
+			segmentDesc := prefix + segmentInvoiceItemDesc
+			if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
+				segmentItem.AddMetadata("SKU", info.SegmentSKU)
+				if service.stripeConfig.InvItemSKUInDescription {
+					segmentDesc += " - " + info.SegmentSKU
+				}
 			}
-		}
-		segmentItem.Description = stripe.String(segmentDesc)
-		segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
-		segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
-		segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-		if service.stripeConfig.UseIdempotency {
-			segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
-		}
+			segmentItem.Description = stripe.String(segmentDesc)
+			segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
+			segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
+			segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
+			if service.stripeConfig.UseIdempotency {
+				segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
+			}
 
-		result = append(result, segmentItem)
+			result = append(result, segmentItem)
+		}
 
 		if !info.SmallObjectFeeCents.IsZero() {
 			smallObjectFeeItem := &stripe.InvoiceItemParams{}
-			smallObjectFeeItem.Description = stripe.String(prefix + " - Minimum Object Size Remainder (MB-Month)")
+			var smallObjectFeeDesc string
+			if info.UseGBUnits {
+				smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (GB-Month)"
+			} else {
+				smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (MB-Month)"
+			}
+			smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
 			smallObjectFeeItem.Quantity = stripe.Int64(0) // not applied for now.
-			smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
-			smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+			if info.UseGBUnits {
+				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+				smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+				smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+			} else {
+				smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+				smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+			}
 			if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
 				smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
 			}
@@ -869,10 +983,22 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		if !info.MinimumRetentionFeeCents.IsZero() {
 			minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
-			minimumRetentionFeeItem.Description = stripe.String(prefix + " - Minimum Storage Retention Remainder (MB-Month)")
+			var minimumRetentionFeeDesc string
+			if info.UseGBUnits {
+				minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (GB-Month)"
+			} else {
+				minimumRetentionFeeDesc = prefix + " - Minimum Storage Retention Remainder (MB-Month)"
+			}
+			minimumRetentionFeeItem.Description = stripe.String(minimumRetentionFeeDesc)
 			minimumRetentionFeeItem.Quantity = stripe.Int64(0) // not applied for now.
-			minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Float64()
-			minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+			if info.UseGBUnits {
+				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+				minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+				minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+			} else {
+				minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Float64()
+				minimumRetentionFeeItem.UnitAmountDecimal = stripe.Float64(minimumRetentionFeePrice)
+			}
 			if info.MinimumRetentionFeeSKU != "" && service.stripeConfig.SkuEnabled {
 				minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
 			}
@@ -1204,7 +1330,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 				}
 
 				item := itemsIter.InvoiceItem()
-				if strings.Contains(item.Description, storageInvoiceItemDesc) {
+				if strings.Contains(item.Description, "Storage (MB-Month)") || strings.Contains(item.Description, "Storage (GB-Month)") {
 					totalStorage += item.Quantity
 				}
 

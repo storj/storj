@@ -26,7 +26,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -79,7 +79,7 @@ import {
     VDivider,
     VBtn,
 } from 'vuetify/components';
-import { ShieldAlert } from 'lucide-vue-next';
+import { ShieldAlert, X } from 'lucide-vue-next';
 
 const model = defineModel<boolean>({ required: true });
 </script>

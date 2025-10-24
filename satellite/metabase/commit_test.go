@@ -525,7 +525,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithOldCommitObject)
+	})
 }
 
 func TestCommitObject_TimestampVersioning(t *testing.T) {
@@ -1171,7 +1171,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithOldCommitObject)
+	})
 }
 
 func TestBeginSegment(t *testing.T) {
@@ -5180,7 +5180,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 		})
-	}, metabasetest.WithOldCommitObject)
+	})
 }
 
 func TestConditionalWrites(t *testing.T) {
@@ -5462,5 +5462,5 @@ func TestConditionalWrites(t *testing.T) {
 			assert.Equal(t, 1, success)
 			assert.Equal(t, requests-1, failed)
 		})
-	}, metabasetest.WithOldCommitObject)
+	})
 }

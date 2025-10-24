@@ -22,12 +22,13 @@ type copyObjectAdapter interface {
 	getSegmentsForCopy(ctx context.Context, object Object) (segments transposedSegmentList, err error)
 	getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error)
 	finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error)
-	insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, newStatus ObjectStatus, encryptedUserData EncryptedUserData) (newObject Object, err error)
+	insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error)
 	deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error)
 }
 
 type copyObjectTransactionAdapter interface {
 	commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error)
+	commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error)
 }
 
 // BeginCopyObjectResult holds data needed to begin copy object.
@@ -147,6 +148,8 @@ func (finishCopy FinishCopyObject) Verify() error {
 }
 
 type transposedSegmentList struct {
+	StreamID uuid.UUID
+
 	Positions []int64
 
 	CreatedAts  []time.Time // non-nillable
@@ -170,6 +173,64 @@ type transposedSegmentList struct {
 	PiecesLists [][]byte
 
 	Placements []storj.PlacementConstraint
+}
+
+func transposeSegments(segments []*Segment, convertPieces func(Pieces) ([]byte, error)) (transposedSegmentList, error) {
+	if len(segments) == 0 {
+		return transposedSegmentList{}, nil
+	}
+	var t transposedSegmentList
+	t.StreamID = segments[0].StreamID
+
+	t.Positions = make([]int64, len(segments))
+	t.CreatedAts = make([]time.Time, len(segments))
+	t.RepairedAts = make([]*time.Time, len(segments))
+	t.ExpiresAts = make([]*time.Time, len(segments))
+	t.RootPieceIDs = make([][]byte, len(segments))
+	t.EncryptedKeyNonces = make([][]byte, len(segments))
+	t.EncryptedKeys = make([][]byte, len(segments))
+	t.EncryptedSizes = make([]int32, len(segments))
+	t.PlainSizes = make([]int32, len(segments))
+	t.PlainOffsets = make([]int64, len(segments))
+	t.EncryptedETags = make([][]byte, len(segments))
+	t.RedundancySchemes = make([]int64, len(segments))
+	t.InlineDatas = make([][]byte, len(segments))
+	t.PiecesLists = make([][]byte, len(segments))
+	t.Placements = make([]storj.PlacementConstraint, len(segments))
+
+	for i, segment := range segments {
+		if t.StreamID != segment.StreamID {
+			return t, Error.New("inconsistent segments")
+		}
+
+		t.Positions[i] = int64(segment.Position.Encode())
+		t.CreatedAts[i] = segment.CreatedAt
+		t.RepairedAts[i] = segment.RepairedAt
+		t.ExpiresAts[i] = segment.ExpiresAt
+		t.RootPieceIDs[i] = segment.RootPieceID.Bytes()
+		t.EncryptedKeyNonces[i] = segment.EncryptedKeyNonce
+		t.EncryptedKeys[i] = segment.EncryptedKey
+		t.EncryptedSizes[i] = segment.EncryptedSize
+		t.PlainSizes[i] = segment.PlainSize
+		t.PlainOffsets[i] = segment.PlainOffset
+		t.EncryptedETags[i] = segment.EncryptedETag
+		redundancy, err := segment.Redundancy.EncodeInt64()
+		if err != nil {
+			return t, Error.New("unable to encode redundancy: %w", err)
+		}
+		t.RedundancySchemes[i] = redundancy
+		t.InlineDatas[i] = segment.InlineData
+
+		piecesData, err := convertPieces(segment.Pieces)
+		if err != nil {
+			return t, Error.New("unable to convert pieces")
+		}
+
+		t.PiecesLists[i] = piecesData
+		t.Placements[i] = segment.Placement
+	}
+
+	return t, nil
 }
 
 // FinishCopyObject accepts new encryption keys for copied object and insert the corresponding new object ObjectKey and segments EncryptedKey.
@@ -236,7 +297,13 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		finalEncryptedUserData.EncryptedMetadata = sourceObject.EncryptedMetadata
 	}
 
-	newObject, err := adapter.insertPendingCopyObject(ctx, opts, sourceObject, committedWhereVersioned(opts.NewVersioned), finalEncryptedUserData)
+	// TODO(optimize): inserting pending copy object and segments can be done as a single
+	// batch write.
+	//
+	// TODO(optimize): move inserting encrypted user data into commit. This in some scenarios
+	// can avoid some extra data moving (e.g. when the version needs to change) in Spanner.
+	// this should also allow use to reuse `finalizeCommitObject` rather than having a separate commitPendingCopyObject.
+	newObject, err := adapter.insertPendingCopyObject(ctx, opts, sourceObject, finalEncryptedUserData)
 	if err != nil {
 		return Object{}, err
 	}
@@ -246,6 +313,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	newObject.EncryptedUserData = finalEncryptedUserData
 	newObject.Retention = opts.Retention
 	newObject.LegalHold = opts.LegalHold
+	newObject.Status = committedWhereVersioned(opts.NewVersioned)
 
 	if err := adapter.finalizeSegmentsCopy(ctx, opts, newSegments); err != nil {
 		_, errCleanup := adapter.deleteObjectExactVersion(ctx,
@@ -256,24 +324,43 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, errors.Join(err, errCleanup)
 	}
 
-	var precommit PrecommitConstraintResult
+	var metrics commitMetrics
 	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-copy-object",
 		TransmitEvent:  opts.TransmitEvent,
-	}, func(ctx context.Context, txadapter TransactionAdapter) error {
-		precommit, err = db.PrecommitConstraint(ctx, PrecommitConstraint{
-			Location:       opts.NewLocation(),
-			Versioned:      opts.NewVersioned,
-			DisallowDelete: opts.NewDisallowDelete,
-			CheckExistence: opts.IfNoneMatch.All(),
-		}, txadapter)
+	}, func(ctx context.Context, adapter TransactionAdapter) error {
+		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
+			ObjectStream:   newObject.ObjectStream,
+			Pending:        false, // the pending object is already created
+			Unversioned:    !opts.NewVersioned,
+			HighestVisible: opts.IfNoneMatch.All(),
+		}, adapter)
 		if err != nil {
 			return err
 		}
 
-		return txadapter.commitPendingCopyObject(ctx, &newObject, precommit.HighestVersion)
-	})
+		// We should only commit when an object already doesn't exist.
+		if opts.IfNoneMatch.All() {
+			if query.HighestVisible.IsCommitted() {
+				return ErrFailedPrecondition.New("object already exists")
+			}
+		}
 
+		// When committing unversioned objects we need to delete any previous unversioned objects.
+		if !opts.NewVersioned {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, query, &metrics); err != nil {
+				return err
+			}
+		}
+
+		initial := newObject.ObjectStream
+		newObject.Version = db.nextVersion(newObject.Version, query.HighestVersion, query.TimestampVersion)
+
+		return adapter.commitPendingCopyObject2(ctx, commitPendingCopyObject{
+			Initial: initial,
+			Object:  &newObject,
+		})
+	})
 	if err != nil {
 		_, errCleanup := adapter.deleteObjectExactVersion(ctx,
 			DeleteObjectExactVersion{
@@ -283,7 +370,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		return Object{}, errors.Join(err, errCleanup)
 	}
 
-	precommit.submitMetrics()
+	metrics.submit()
 	mon.Meter("finish_copy_object").Mark(1)
 
 	return newObject, nil
@@ -403,7 +490,6 @@ func (s *SpannerAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Ob
 		index++
 		return nil
 	})
-
 	if err != nil {
 		return transposedSegmentList{}, Error.New("could not load segments for copy: %w", err)
 	}
@@ -447,7 +533,7 @@ func (p *PostgresAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishC
 	return nil
 }
 
-func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, newStatus ObjectStatus, encryptedUserData EncryptedUserData) (newObject Object, err error) {
+func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 
 	zombieDeletionDeadline := time.Now().Add(defaultZombieDeletionCopyObjectPeriod)
@@ -483,7 +569,6 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 	)
 
 	newObject = sourceObject
-	newObject.Status = newStatus
 
 	err = row.Scan(&newObject.Version, &newObject.CreatedAt)
 	if err != nil {
@@ -536,7 +621,7 @@ func (s *SpannerAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCo
 	return nil
 }
 
-func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, newStatus ObjectStatus, encryptedUserData EncryptedUserData) (newObject Object, err error) {
+func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error) {
 	// TODO we need to handle metadata correctly (copy from original object or replace)
 
 	newObject = sourceObject
@@ -601,10 +686,9 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 		return Object{}, Error.New("unable to copy object: %w", err)
 	}
 
-	newObject.Status = newStatus
-
 	return newObject, nil
 }
+
 func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
 	if object.Version == highestVersion {
 		_, err = ptx.tx.ExecContext(ctx, `
@@ -712,6 +796,81 @@ func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Contex
 	})
 	if err != nil {
 		return Error.New("unable to finish copy object: %w", err)
+	}
+
+	return nil
+}
+
+type commitPendingCopyObject struct {
+	Initial ObjectStream
+	Object  *Object
+}
+
+func (ptx *postgresTransactionAdapter) commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error) {
+	initial := opts.Initial
+	object := opts.Object
+
+	result, err := ptx.tx.ExecContext(ctx, `
+		UPDATE objects SET
+			version = $6,
+			status = $7,
+			zombie_deletion_deadline = NULL
+		WHERE
+			(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
+			status       = `+statusPending,
+		initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version, initial.StreamID,
+		object.Version, object.Status,
+	)
+	if err != nil {
+		return Error.New("failed to update object: %w", err)
+	}
+	if count, err := result.RowsAffected(); count != 1 || err != nil {
+		// This may happen when:
+		//
+		// 1. user starts copy object
+		// 2. user calls list pending objects
+		// 3. user invokes commit or abort pending object
+		// 4. the 1. copy object arrives here in commitPendingCopyObject2.
+		return Error.New("failed to update object %#v (changed %d rows): %w", initial, count, err)
+	}
+	return nil
+}
+
+func (stx *spannerTransactionAdapter) commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error) {
+	initial := opts.Initial
+	object := opts.Object
+
+	if object.Version == initial.Version {
+		updateMap := map[string]any{
+			"project_id":               initial.ProjectID,
+			"bucket_name":              initial.BucketName,
+			"object_key":               initial.ObjectKey,
+			"version":                  initial.Version,
+			"status":                   object.Status,
+			"zombie_deletion_deadline": nil,
+		}
+
+		err = stx.tx.BufferWrite([]*spanner.Mutation{
+			spanner.UpdateMap("objects", updateMap),
+		})
+		if err != nil {
+			return Error.New("failed to update object: %w", err)
+		}
+
+		return nil
+	}
+
+	err = stx.tx.BufferWrite([]*spanner.Mutation{
+		spanner.Delete("objects", spanner.Key{
+			initial.ProjectID,
+			initial.BucketName,
+			initial.ObjectKey,
+			int64(initial.Version),
+		}),
+		spannerInsertObject(RawObject(*object)),
+	})
+	if err != nil {
+		return Error.New("failed to update object: %w", err)
 	}
 
 	return nil

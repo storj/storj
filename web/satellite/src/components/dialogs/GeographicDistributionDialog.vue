@@ -27,7 +27,7 @@
                 <template #append>
                     <v-btn
                         id="close-geo-distribution"
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -99,7 +99,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
-import { SquareArrowOutUpRight } from 'lucide-vue-next';
+import { SquareArrowOutUpRight, X } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';

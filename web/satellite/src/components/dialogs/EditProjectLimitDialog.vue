@@ -23,7 +23,7 @@
                 <v-card-title class="font-weight-bold">{{ hasCustomLimit ? 'Edit' : 'Set' }} {{ limitType }} Limit</v-card-title>
                 <template #append>
                     <v-btn
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -172,7 +172,7 @@ import {
     VAlert,
     VSheet,
 } from 'vuetify/components';
-import { ChevronDown, ChevronUp, Cloud, CloudDownload } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, Cloud, CloudDownload, X } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

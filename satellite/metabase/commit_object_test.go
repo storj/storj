@@ -17,21 +17,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
-		for _, test := range metabasetest.InvalidObjectStreams(obj) {
-			test := test
-			t.Run(test.Name, func(t *testing.T) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-				metabasetest.CommitObjectWithSegments{
-					Opts: metabase.CommitObjectWithSegments{
-						ObjectStream: test.ObjectStream,
-					},
-					ErrClass: test.ErrClass,
-					ErrText:  test.ErrText,
-				}.Check(ctx, t, db)
-				metabasetest.Verify{}.Check(ctx, t, db)
-			})
-		}
-
 		t.Run("invalid order", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -39,10 +24,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			pos01 := metabase.SegmentPosition{Part: 0, Index: 1}
 			pos10 := metabase.SegmentPosition{Part: 1, Index: 0}
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos01,
 						pos00,
 					},
@@ -51,10 +37,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "segments not in ascending order, got {0 1} before {0 0}",
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos10,
 						pos00,
 					},
@@ -63,10 +50,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "segments not in ascending order, got {1 0} before {0 0}",
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos00,
 						pos00,
 					},
@@ -76,386 +64,6 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("version without pending", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-				},
-				ErrClass: &metabase.ErrObjectNotFound,
-				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("version", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-			now := time.Now()
-
-			userData := metabasetest.RandEncryptedUserData()
-
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					EncryptedUserData: userData,
-				},
-			}.Check(ctx, t, db)
-
-			// disallow for double commit
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-				},
-				ErrClass: &metabase.ErrObjectNotFound,
-				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    5,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.CommittedUnversioned,
-
-						EncryptedUserData: userData,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("disallow delete but nothing to delete", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-			now := time.Now()
-
-			userData := metabasetest.RandEncryptedUserData()
-
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					EncryptedUserData: userData,
-					DisallowDelete:    true,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    5,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.CommittedUnversioned,
-
-						EncryptedUserData: userData,
-						Encryption:        metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("disallow delete when committing unversioned", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			unversionedStream := obj
-			unversionedStream.Version = 3
-			unversionedObject := metabasetest.CreateObject(ctx, t, db, unversionedStream, 0)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			userData := metabasetest.RandEncryptedUserData()
-
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					EncryptedUserData: userData,
-					DisallowDelete:    true,
-				},
-				ErrClass: &metabase.ErrPermissionDenied,
-				ErrText:  "no permissions to delete existing object",
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(unversionedObject),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    5,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("overwrite previous object when committing unversioned", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.CreateObject(ctx, t, db, obj, 1)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-			now := time.Now()
-
-			userData := metabasetest.RandEncryptedUserData()
-
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					EncryptedUserData: userData,
-				},
-				ExpectVersion: obj.Version + 1,
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    obj.Version + 1,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.CommittedUnversioned,
-
-						EncryptedUserData: userData,
-						Encryption:        metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("keep previous objects when committing versioned", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			unversionedStream := obj
-			unversionedStream.Version = 3
-			unversionedObject := metabasetest.CreateObject(ctx, t, db, unversionedStream, 0)
-			versionedStream := obj
-			versionedStream.Version = 4
-			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, versionedStream, 0)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-			now := time.Now()
-
-			userData := metabasetest.RandEncryptedUserData()
-
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					EncryptedUserData: userData,
-
-					Versioned: true,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(unversionedObject),
-					metabase.RawObject(versionedObject),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    5,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.CommittedVersioned,
-
-						EncryptedUserData: userData,
-						Encryption:        metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("keep versioned objects when committing unversioned", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			versionedStream1 := obj
-			versionedStream1.Version = 3
-			versionedObject1 := metabasetest.CreateObjectVersioned(ctx, t, db, versionedStream1, 0)
-			versionedStream2 := obj
-			versionedStream2.Version = 4
-			versionedObject2 := metabasetest.CreateObjectVersioned(ctx, t, db, versionedStream2, 0)
-
-			metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-			now := time.Now()
-
-			userData := metabasetest.RandEncryptedUserData()
-
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					EncryptedUserData: userData,
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(versionedObject1),
-					metabase.RawObject(versionedObject2),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    5,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.CommittedUnversioned,
-
-						EncryptedUserData: userData,
-						Encryption:        metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
 		})
 
 		t.Run("segments missing in database", func(t *testing.T) {
@@ -471,10 +79,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			zombieDeadline := now.Add(24 * time.Hour)
 
 			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos00,
 					},
 				},
@@ -555,10 +164,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos01,
 					},
 				},
@@ -652,10 +262,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos01,
 					},
 				},
@@ -754,10 +365,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos00,
 						pos01,
 					},
@@ -877,10 +489,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos00,
 						pos10,
 					},
@@ -1000,10 +613,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
-					ObjectStream: obj,
-					Segments: []metabase.SegmentPosition{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:     obj,
+					SpecificSegments: true,
+					OnlySegments: []metabase.SegmentPosition{
 						pos00,
 						pos02,
 					},
@@ -1075,8 +689,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 			now := time.Now()
 
-			metabasetest.CommitObjectWithSegments{
-				Opts: metabase.CommitObjectWithSegments{
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
 					ObjectStream: obj,
 				},
 			}.Check(ctx, t, db)

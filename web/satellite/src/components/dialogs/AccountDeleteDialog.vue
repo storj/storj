@@ -28,7 +28,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -41,7 +41,7 @@
             <v-divider />
 
             <v-card-text class="pa-0">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="DeleteAccountStep.InitStep">
                         <v-form class="pa-6" @submit.prevent>
                             <v-row>
@@ -314,7 +314,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Trash2 } from 'lucide-vue-next';
+import { Trash2, X } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
 import { DeleteAccountStep } from '@/types/accountActions';

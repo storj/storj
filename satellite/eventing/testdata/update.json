@@ -38,6 +38,14 @@
       "OrdinalPosition": 4
     },
     {
+      "Name": "stream_id",
+      "CodeType": {
+        "code": "BYTES"
+      },
+      "IsPrimaryKey": false,
+      "OrdinalPosition": 5
+    },
+    {
       "Name": "status",
       "CodeType": {
         "code": "INT64"
@@ -64,10 +72,12 @@
       },
       "NewValues": {
         "status": "3",
+        "stream_id": "k3JrjdBKRbuCT2cxhu5vlg==",
         "total_plain_size": "123"
       },
       "OldValues": {
         "status": "1",
+        "stream_id": "k3JrjdBKRbuCT2cxhu5vlg==",
         "total_plain_size": "0"
       }
     }

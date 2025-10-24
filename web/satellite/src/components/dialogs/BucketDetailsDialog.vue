@@ -27,7 +27,7 @@
                 <template #append>
                     <v-btn
                         id="close-bucket-details"
-                        icon="$close"
+                        :icon="X"
                         variant="text"
                         size="small"
                         color="default"
@@ -143,6 +143,7 @@ import {
     Clock,
     CalendarPlus,
     CalendarClock,
+    X,
 } from 'lucide-vue-next';
 
 import { Bucket } from '@/types/buckets';

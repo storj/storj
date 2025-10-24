@@ -28,7 +28,7 @@
                     </v-card-title>
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -41,7 +41,7 @@
             <v-divider />
 
             <v-card-text class="pa-0">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="ChangeEmailStep.InitStep">
                         <v-form class="pa-6" @submit.prevent>
                             <v-row>
@@ -230,7 +230,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { MailPlus } from 'lucide-vue-next';
+import { MailPlus, X } from 'lucide-vue-next';
 
 import { ChangeEmailStep } from '@/types/accountActions';
 import { User } from '@/types/users';

@@ -39,7 +39,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -53,7 +53,7 @@
             <v-divider />
 
             <v-card-text class="pa-0">
-                <v-window v-model="step">
+                <v-window v-model="step" :touch="false">
                     <v-window-item :value="CreateStep.Name">
                         <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent>
                             <v-row>
@@ -77,6 +77,9 @@
                                         minlength="3"
                                         maxlength="63"
                                     />
+                                    <v-alert v-if="dotsInName" variant="tonal" type="warning" rounded="lg">
+                                        Using dots (.) in the bucket name can cause incompatibility.
+                                    </v-alert>
                                 </v-col>
                             </v-row>
                         </v-form>
@@ -446,7 +449,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { ArrowRight, Check } from 'lucide-vue-next';
+import { ArrowRight, Check, X } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
@@ -606,6 +609,8 @@ const selectStorageOptions = ['< 1TB', '1-10TB', '10-50TB', '50-100TB', '> 100TB
 const project = computed(() => projectsStore.state.selectedProject);
 const projectConfig = computed(() => projectsStore.state.selectedProjectConfig);
 const placementDetails = computed(() => projectConfig.value.availablePlacements || []);
+
+const dotsInName = computed<boolean>(() => bucketName.value.includes('.'));
 
 const defaultRetPeriodResult = computed<string>(() => {
     if (defaultRetentionPeriod.value === 0) return NO_MODE_SET;
