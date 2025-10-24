@@ -5361,17 +5361,16 @@ func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]
 		}
 	}
 
-	if len(placements) == 1 && placements[0] == project.DefaultPlacement {
-		// if the only placement available is the default placement,
-		// don't return any placement details.
-		return []PlacementDetail{}, nil
-	}
-
 	details := make([]PlacementDetail, 0)
 	for _, placement := range placements {
 		if detail, ok := s.config.Placement.SelfServeDetails.Get(placement); ok {
 			details = append(details, detail)
 		}
+	}
+	if len(details) == 1 && details[0].ID == int(project.DefaultPlacement) {
+		// if the only placement available is the default placement,
+		// don't return any placement details.
+		return []PlacementDetail{}, nil
 	}
 	return details, nil
 }
