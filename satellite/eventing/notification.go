@@ -18,11 +18,11 @@ import (
 	"storj.io/storj/satellite/metabase/changestream"
 )
 
-// S3ObjectEvent represents various event types triggered by S3 object operations.
+// S3ObjectEvent represents various event names triggered by S3 object operations.
 const (
-	S3ObjectCreatedPut                 = "s3:ObjectCreated:Put"
-	S3ObjectRemovedDelete              = "s3:ObjectRemoved:Delete"
-	S3ObjectRemovedDeleteMarkerCreated = "s3:ObjectRemoved:DeleteMarkerCreated"
+	S3ObjectCreatedPut                 = "ObjectCreated:Put"
+	S3ObjectRemovedDelete              = "ObjectRemoved:Delete"
+	S3ObjectRemovedDeleteMarkerCreated = "ObjectRemoved:DeleteMarkerCreated"
 )
 
 // Event contains one or more event records.
