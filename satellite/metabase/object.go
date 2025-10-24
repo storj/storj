@@ -28,37 +28,6 @@ func (obj *Object) StreamVersionID() StreamVersionID {
 	return NewStreamVersionID(obj.Version, obj.StreamID)
 }
 
-// columnRetentionMode is a helper for creating the correct wrapper for databases
-// for scanning "retention_mode" column.
-func (obj *Object) columnRetentionMode() lockModeWrapper {
-	return lockModeWrapper{
-		retentionMode: &obj.Retention.Mode,
-		legalHold:     &obj.LegalHold,
-	}
-}
-
-var (
-	_ = (*Object).columnRetainUntil   // TODO: disable linter warning temporarily
-	_ = (*Object).columnRetentionMode // TODO: disable linter warning temporarily
-)
-
-// columnRetainUntil is a helper for creating the correct wrapper for databases
-// for scanning "retain_until" column.
-func (obj *Object) columnRetainUntil() timeWrapper {
-	return timeWrapper{&obj.Retention.RetainUntil}
-}
-
-// verifyObjectLockAndRetention checks that constraints for object lock and retention are correctly set.
-func (obj *Object) verifyObjectLockAndRetention() error {
-	if err := obj.Retention.Verify(); err != nil {
-		return err
-	}
-	if obj.ExpiresAt != nil && (obj.LegalHold || obj.Retention.Enabled()) {
-		return Error.New("object expiration must not be set if Object Lock configuration is set")
-	}
-	return nil
-}
-
 // Segment segment metadata.
 // TODO define separated struct.
 type Segment RawSegment

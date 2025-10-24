@@ -974,18 +974,3 @@ func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, op
 
 	return object, nil
 }
-
-func checkExpiresAtWithObjectLock(object Object, segments transposedSegmentList, retention Retention, legalHold bool) error {
-	if !retention.Enabled() && !legalHold {
-		return nil
-	}
-	for _, e := range segments.ExpiresAts {
-		if e != nil {
-			return ErrObjectExpiration.New(noLockWithExpirationSegmentsErrMsg)
-		}
-	}
-	if object.ExpiresAt != nil && !object.ExpiresAt.IsZero() {
-		return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
-	}
-	return nil
-}
