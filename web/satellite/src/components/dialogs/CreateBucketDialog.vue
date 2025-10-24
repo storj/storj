@@ -623,8 +623,8 @@ const showNewPricingTiers = computed<boolean>(() => configStore.state.config.sho
 const selfPlacementEnabled = computed<boolean>(() => {
     if (!configStore.state.config.selfServePlacementSelectEnabled) return false;
 
-    return (configStore.state.config.entitlementsEnabled && !!projectConfig.value.availablePlacements.length) ||
-        !project.value.placement;
+    return (configStore.state.config.entitlementsEnabled || !project.value.placement) &&
+        !!projectConfig.value.availablePlacements.length;
 });
 
 const selectedPlacement = computed<PlacementDetails | null>(() => {
