@@ -94,16 +94,21 @@ func (p ProjectUsagePrice) ToModel() (model payments.ProjectUsagePriceModel, err
 	if err != nil {
 		return model, Error.Wrap(err)
 	}
-	segmentMonthDollars, err := decimal.NewFromString(p.Segment)
-	if err != nil {
-		return model, Error.Wrap(err)
+
+	var segmentMonthCents decimal.Decimal
+	if p.Segment != "" {
+		segmentMonthDollars, err := decimal.NewFromString(p.Segment)
+		if err != nil {
+			return model, Error.Wrap(err)
+		}
+		segmentMonthCents = segmentMonthDollars.Shift(2)
 	}
 
 	// Shift is to change the precision from TB dollars to MB cents
 	return payments.ProjectUsagePriceModel{
 		StorageMBMonthCents: storageTBMonthDollars.Shift(-6).Shift(2),
 		EgressMBCents:       egressTBDollars.Shift(-6).Shift(2),
-		SegmentMonthCents:   segmentMonthDollars.Shift(2),
+		SegmentMonthCents:   segmentMonthCents,
 		EgressDiscountRatio: p.EgressDiscountRatio,
 	}, nil
 }
@@ -332,9 +337,14 @@ func (p *ProductPriceOverrides) Set(s string) error {
 		if price.Name == "" {
 			return Error.New("Product Name must not be empty")
 		}
-		egressDiscount, err := strconv.ParseFloat(price.EgressDiscountRatio, 64)
-		if err != nil {
-			return Error.New("Invalid egress discount ratio '%s' (%s)", price.EgressDiscountRatio, err)
+
+		var err error
+		var egressDiscount float64
+		if price.EgressDiscountRatio != "" {
+			egressDiscount, err = strconv.ParseFloat(price.EgressDiscountRatio, 64)
+			if err != nil {
+				return Error.New("Invalid egress discount ratio '%s' (%s)", price.EgressDiscountRatio, err)
+			}
 		}
 		prices[i] = ProductUsagePrice{
 			ID:   price.ID,

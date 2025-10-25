@@ -253,6 +253,27 @@ func main() {
 		},
 	})
 
+	// generic api group that handles searching for users and projects together
+	group = api.Group("Search", "search")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Get("/", &apigen.Endpoint{
+		Name:           "Search users or projects",
+		Description:    "Searches for users by email or name and projects by ID. Results are limited to 100 users.",
+		GoName:         "SearchUsersOrProjects",
+		TypeScriptName: "searchUsersOrProjects",
+		QueryParams: []apigen.Param{
+			apigen.NewParam("term", ""),
+		},
+		Response: backoffice.SearchResult{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{
+				/* permissions are validated dynamically in SearchUsersOrProjects */
+			},
+			passAuthParamKey: true,
+		},
+	})
+
 	api.OutputRootDir = findModuleRootDir()
 	api.MustWriteGo(filepath.Join("satellite", "admin", "back-office", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join("satellite", "admin", "back-office", "ui", "src", "api", "client.gen.ts"))

@@ -155,8 +155,8 @@
                             </tbody>
                         </v-table>
                     </div>
-                    <v-btn :prepend-icon="Calendar" class="mt-2">
-                        <detailed-usage-report-dialog :project-i-d="projectID" />
+                    <v-btn v-if="project" :prepend-icon="Calendar" class="mt-2">
+                        <detailed-usage-report-dialog :project />
                         Detailed Project Report
                     </v-btn>
                 </v-expansion-panel-text>

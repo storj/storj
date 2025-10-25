@@ -229,6 +229,18 @@ func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID)
 	return ProjectFromDBX(ctx, project)
 }
 
+// GetByPublicOrPrivateID is a method for querying project from the database by either publicID or id.
+func (projects *projects) GetByPublicOrPrivateID(ctx context.Context, id uuid.UUID) (_ *console.Project, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := projects.db.Get_Project_By__Id_Or_PublicId(ctx, dbx.Project_Id(id[:]), dbx.Project_PublicId(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	return ProjectFromDBX(ctx, project)
+}
+
 // GetPublicID returns the public project ID for a given project ID.
 func (projects *projects) GetPublicID(ctx context.Context, id uuid.UUID) (_ uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)

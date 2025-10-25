@@ -16,6 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	admin "storj.io/storj/satellite/admin/back-office"
@@ -85,14 +86,19 @@ func TestGetProject(t *testing.T) {
 			projPublicID := consoleProject.PublicID
 
 			service := sat.Admin.Admin.Service
+			for _, id := range []uuid.UUID{consoleProject.ID, consoleProject.PublicID} {
+				project, apiErr := service.GetProject(ctx, id)
+				require.NoError(t, apiErr.Err)
+				assert.Equal(t, consoleProject.ID, project.ID)
+				assert.Equal(t, consoleProject.PublicID, project.PublicID)
+				assert.Equal(t, consoleProject.Name, project.Name)
+				assert.Equal(t, consoleProject.Description, project.Description)
+				assert.EqualValues(t, consoleProject.UserAgent, project.UserAgent)
+				assert.Equal(t, consoleProject.CreatedAt, project.CreatedAt)
+			}
+
 			project, apiErr := service.GetProject(ctx, projPublicID)
 			require.NoError(t, apiErr.Err)
-
-			assert.Equal(t, projPublicID, project.ID)
-			assert.Equal(t, consoleProject.Name, project.Name)
-			assert.Equal(t, consoleProject.Description, project.Description)
-			assert.EqualValues(t, consoleProject.UserAgent, project.UserAgent)
-			assert.Equal(t, consoleProject.CreatedAt, project.CreatedAt)
 
 			// service should return defaults for these since they are null in DB.
 			defaultRate := int(sat.Config.Metainfo.RateLimiter.Rate)

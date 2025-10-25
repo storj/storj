@@ -19,14 +19,19 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const projectApi = new ProjectManagementHttpApiV1();
 
-    async function updateCurrentProject(project: string | Project): Promise<Project> {
+    async function updateCurrentProject(project: string | Project): Promise<void> {
         if (typeof project === 'string') {
+            clearCurrentProject();
             state.currentProject = await getProject(project);
-            return state.currentProject;
+            return;
         }
         state.currentProject = project;
-        return state.currentProject;
     }
+
+    function clearCurrentProject(): void {
+        state.currentProject = null;
+    }
+
     async function getProject(id: string): Promise<Project> {
         return await projectApi.getProject(id);
     }
@@ -39,6 +44,7 @@ export const useProjectsStore = defineStore('projects', () => {
         state,
         getProject,
         updateCurrentProject,
+        clearCurrentProject,
         updateProjectLimits,
     };
 });

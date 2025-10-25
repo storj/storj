@@ -133,6 +133,10 @@ read one (
 	where project.id = ?
 )
 read one (
+	select project
+	where (project.id = ?, project.public_id = ?)
+)
+read one (
 	select project.usage_limit
 	where  project.id = ?
 )

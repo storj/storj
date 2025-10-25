@@ -146,6 +146,11 @@ export class ProjectLimitsUpdateRequest {
     burstLimitList: number | null;
 }
 
+export class SearchResult {
+    project: Project | null;
+    accounts: AccountMin[] | null;
+}
+
 export class Settings {
     admin: SettingsAdmin;
 }
@@ -398,6 +403,23 @@ export class ProjectManagementHttpApiV1 {
         const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class SearchHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/back-office/api/v1/search';
+
+    public async searchUsersOrProjects(term: string): Promise<SearchResult> {
+        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        u.searchParams.set('term', term);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as SearchResult);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

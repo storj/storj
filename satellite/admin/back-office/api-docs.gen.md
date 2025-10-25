@@ -24,6 +24,8 @@
 * ProjectManagement
   * [Get project](#projectmanagement-get-project)
   * [Update project limits](#projectmanagement-update-project-limits)
+* Search
+  * [Search users or projects](#search-search-users-or-projects)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -630,6 +632,48 @@ Updates project limits by ID
 	storageUsed: number
 	segmentLimit: number
 	segmentUsed: number
+}
+
+```
+
+<h3 id='search-search-users-or-projects'>Search users or projects (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Searches for users by email or name and projects by ID. Results are limited to 100 users.
+
+`GET /back-office/api/v1/search/`
+
+**Query Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `term` | `string` |  |
+
+**Response body:**
+
+```typescript
+{
+	project: unknown
+	accounts: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			fullName: string
+			email: string
+			kind: 			{
+				value: number
+				name: string
+				hasPaidPrivileges: boolean
+			}
+
+			status: 			{
+				name: string
+				value: number
+			}
+
+			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		}
+
+	]
+
 }
 
 ```

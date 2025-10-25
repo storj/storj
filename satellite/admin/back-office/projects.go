@@ -23,7 +23,8 @@ import (
 
 // Project contains the information and configurations of a project.
 type Project struct {
-	ID               uuid.UUID                 `json:"id"` // This is the public ID
+	ID               uuid.UUID                 `json:"-"`
+	PublicID         uuid.UUID                 `json:"id"`
 	Name             string                    `json:"name"`
 	Description      string                    `json:"description"`
 	UserAgent        string                    `json:"userAgent"`
@@ -90,12 +91,12 @@ type ProjectLimitsUpdateRequest struct {
 	BurstLimitList        *int   `json:"burstLimitList"`
 }
 
-// GetProject gets the project info by public ID.
+// GetProject gets the project info by either private or public ID.
 func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	p, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
+	p, err := s.consoleDB.Projects().GetByPublicOrPrivateID(ctx, id)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -169,7 +170,8 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 	}
 
 	return &Project{
-		ID:          p.PublicID,
+		ID:          p.ID,
+		PublicID:    p.PublicID,
 		Name:        p.Name,
 		Description: p.Description,
 		UserAgent:   userAgent,

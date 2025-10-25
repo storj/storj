@@ -25,6 +25,9 @@
                     <v-card-title class="font-weight-bold">
                         Get Detailed Usage Report
                     </v-card-title>
+                    <v-card-subtitle v-if="project">
+                        For project {{ project.name }}
+                    </v-card-subtitle>
 
                     <template #append>
                         <v-btn
@@ -84,8 +87,14 @@
                             <v-alert>
                                 Your report will include:
                                 <p v-if="includedDateString">Usage from {{ includedDateString }}.</p>
-                                <p v-if="projectSummary">Summary of your project(s) usage.</p>
-                                <p v-else>Summary of your bucket(s) usage.</p>
+                                <p v-if="projectSummary">
+                                    <span v-if="!project">Summary of your project(s) usage.</span>
+                                    <span v-else>Summary of your usage in the project <b>{{ project.name }}</b>.</span>
+                                </p>
+                                <p v-else>
+                                    <span v-if="!project">Summary of your bucket(s) usage.</span>
+                                    <span v-else>Summary of your bucket(s) usage in the project <b>{{ project.name }}</b>.</span>
+                                </p>
                                 <p v-if="includeCost">Detailed cost breakdown.</p>
                             </v-alert>
                         </v-col>
@@ -117,6 +126,7 @@ import {
     VCard,
     VCardActions,
     VCardItem,
+    VCardSubtitle,
     VCardTitle,
     VChip,
     VChipGroup,
@@ -136,6 +146,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';
+import { Project } from '@/types/projects';
 
 enum Options {
     Month = 0,
@@ -148,11 +159,9 @@ const projectsStore = useProjectsStore();
 const notify = useNotify();
 const dateFns = useDate();
 
-const props = withDefaults(defineProps<{
-    projectID?: string
-}>(), {
-    projectID: '',
-});
+const props = defineProps<{
+    project?: Project;
+}>();
 
 const dialog = ref<boolean>(false);
 const option = ref<Options>(Options.Month);
@@ -226,7 +235,7 @@ function downloadReport(): void {
     }
 
     try {
-        const link = projectsStore.getUsageReportLink(since.value, before.value, includeCost.value, projectSummary.value, props.projectID);
+        const link = projectsStore.getUsageReportLink(since.value, before.value, includeCost.value, projectSummary.value, props.project?.id);
         Download.fileByLink(link);
         notify.success('Usage report download started successfully.');
         dialog.value = false;
