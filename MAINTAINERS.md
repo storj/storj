@@ -80,7 +80,7 @@ Why we do use this flow but not revert from the release branch? It's to prevent 
 
 ## Where to find the release binaries
 
-After Jenkins job for this release finished it will automaticaly post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
+After Jenkins job for this release finished it will automatically post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
 Update this tag with changelog that you previously created.\
 For now changelog is generated automatically, but binaries for darwin not. Darwin binaries should be generated manually and added to tag.\
 Add New Contributors list to the release. To generate it: 
