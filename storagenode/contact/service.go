@@ -164,7 +164,7 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 	interval := initialBackOff
 	attempts := 0
 	for {
-		mon.Meter("satellite_contact_request").Mark(1) //mon:locked
+		mon.Meter("satellite_contact_request").Mark(1)
 
 		err := service.pingSatelliteOnce(ctx, satellite, timeout)
 		attempts++

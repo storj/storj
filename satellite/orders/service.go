@@ -243,7 +243,7 @@ func (service *Service) createGetOrderLimits(ctx context.Context, peer *identity
 		}
 	}
 	if len(signer.AddressedLimits) < int(segment.Redundancy.RequiredShares) {
-		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //mon:locked
+		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1)
 		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), segment.Redundancy.RequiredShares)
 	}
 
