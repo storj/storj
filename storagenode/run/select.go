@@ -6,6 +6,7 @@ package root
 import (
 	"storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/profiler"
+	"storj.io/storj/shared/modular/tracing"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/contact"
@@ -28,6 +29,7 @@ func (a *Select) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),
 		mud.Select[*profiler.Profiler](ball),
+		mud.Select[*tracing.Tracing](ball),
 		mud.Select[*storagenode.EndpointRegistration](ball),
 		mud.Select[*contact.Endpoint](ball),
 		mud.Select[*contact.Chore](ball),
