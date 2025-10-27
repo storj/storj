@@ -47,7 +47,7 @@ require (
 	github.com/redis/go-redis/v9 v9.5.1
 	github.com/shirou/gopsutil/v3 v3.21.3
 	github.com/shopspring/decimal v1.2.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.24
+	github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20251022131615-eb24eb109368
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
@@ -87,7 +87,7 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20251020105611-b5c3802e98a0
+	storj.io/common v0.0.0-20251022143549-19bf6a9f274a
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16

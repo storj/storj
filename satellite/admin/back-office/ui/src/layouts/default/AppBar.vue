@@ -219,6 +219,7 @@
         </v-sheet>
     </v-navigation-drawer>
 
+    <FullScreenLoader :model-value="appStore.state.loading" />
     <GlobalSearchDialog v-model="globalSearch" />
 </template>
 
@@ -248,6 +249,7 @@ import { useAppStore } from '@/store/app';
 import { useThemeStore } from '@/store/theme';
 import { ROUTES } from '@/router';
 
+import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import GlobalSearchDialog from '@/components/GlobalSearchDialog.vue';
 
 const appStore = useAppStore();

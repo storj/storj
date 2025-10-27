@@ -2,10 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="isLoading || !userAccount" class="d-flex justify-center align-center" style="height: calc(100vh - 150px);">
-        <v-skeleton-loader width="300" height="200" type="article" />
-    </div>
-    <v-container v-else>
+    <v-container v-if="userAccount">
         <div class="d-flex ga-2 flex-wrap justify-space-between align-center mb-5">
             <div>
                 <PageTitleComponent title="Account Details" />
@@ -218,7 +215,7 @@
     <AccountDeleteDialog v-if="userAccount" v-model="deleteAccountDialogEnabled" :account="userAccount" />
     <AccountDisableMFADialog v-if="userAccount" v-model="disableMFADialogEnabled" :account="userAccount" />
     <AccountCreateRestKeyDialog v-if="userAccount" v-model="createRestKeyDialogEnabled" :account="userAccount" />
-    <FullScreenLoader v-model="isActionInProgress" />
+    <AccountUnfreezeDialog v-if="userAccount" v-model="unfreezeDialogEnabled" :account="userAccount" />
 </template>
 
 <script setup lang="ts">
@@ -235,7 +232,6 @@ import {
     VDivider,
     VIcon,
     VRow,
-    VSkeletonLoader,
     VTooltip,
 } from 'vuetify/components';
 import { AlertCircle, ChevronDown, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
@@ -246,7 +242,6 @@ import { useAppStore } from '@/store/app';
 import { userIsFree, userIsNFR, userIsPaid } from '@/types/user';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
-import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { Size } from '@/utils/bytesSize';
 
@@ -260,20 +255,19 @@ import AccountFreezeDialog from '@/components/AccountFreezeDialog.vue';
 import AccountUpdateDialog from '@/components/AccountUpdateDialog.vue';
 import AccountUpdateLimitsDialog from '@/components/AccountUpdateLimitsDialog.vue';
 import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
-import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import AccountDisableMFADialog from '@/components/AccountDisableMFADialog.vue';
 import AccountCreateRestKeyDialog from '@/components/AccountCreateRestKeyDialog.vue';
+import AccountUnfreezeDialog from '@/components/AccountUnfreezeDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
 const router = useRouter();
 
-const { isLoading, withLoading, withCustomLoading } = useLoading();
 const notify = useNotify();
 const date = useDate();
 
-const isActionInProgress = ref<boolean>(false);
 const freezeDialogEnabled = ref<boolean>(false);
+const unfreezeDialogEnabled = ref<boolean>(false);
 const updateAccountDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
 const deleteAccountDialogEnabled = ref<boolean>(false);
@@ -285,7 +279,7 @@ const statusColor = computed(() => {
         return 'default';
     }
     const status = userAccount.value.status.name.toLowerCase();
-    if (status.includes('deletion') || status.includes('deleted')) {
+    if (status.includes('deleted')) {
         return 'error';
     }
     if (status.includes('active')) {
@@ -376,33 +370,17 @@ const usageCacheError = computed<boolean>(() => {
 
 function toggleFreeze() {
     if (userAccount.value.freezeStatus) {
-        unfreezeAccount();
+        unfreezeDialogEnabled.value = true;
         return;
     }
     freezeDialogEnabled.value = true;
-}
-
-function unfreezeAccount() {
-    withCustomLoading(isActionInProgress, async () => {
-        if (!userAccount.value.freezeStatus) {
-            notify.error('Account is not frozen.');
-            return;
-        }
-        try {
-            await usersStore.unfreezeUser(userAccount.value.id);
-            await usersStore.updateCurrentUser(userAccount.value.id);
-            notify.success('Account unfrozen successfully.');
-        } catch (error) {
-            notify.error(`Failed to toggle account freeze status. ${error.message}`);
-        }
-    });
 }
 
 watch(() => router.currentRoute.value.params.userID as string, (userID) => {
     if (!userID || (userAccount.value && userAccount.value.id === userID)) {
         return;
     }
-    withLoading(async () => {
+    appStore.load(async () => {
         try {
             await usersStore.updateCurrentUser(userID);
         } catch (error) {

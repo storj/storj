@@ -18,8 +18,12 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/console"
 )
+
+// NullableLimitValue is the value used to indicate that a limit should be set to null.
+const NullableLimitValue = -1
 
 // Project contains the information and configurations of a project.
 type Project struct {
@@ -49,6 +53,7 @@ type Project struct {
 	// Maxbuckets is `nil` when satellite applies the configured default max buckets.
 	MaxBuckets *int `json:"maxBuckets"`
 	ProjectUsageLimits[*int64]
+	Status *ProjectStatusInfo `json:"status"`
 }
 
 // ProjectUsageLimits holds project usage limits and current usage. It uses generics for allowing
@@ -89,6 +94,25 @@ type ProjectLimitsUpdateRequest struct {
 	BurstLimitDelete      *int   `json:"burstLimitDelete"`
 	RateLimitList         *int   `json:"rateLimitList"`
 	BurstLimitList        *int   `json:"burstLimitList"`
+
+	Reason string `json:"reason"` // reason for audit log
+}
+
+// ProjectStatusInfo is used to list the possible project statuses in the UI.
+type ProjectStatusInfo struct {
+	Name  string                `json:"name"`
+	Value console.ProjectStatus `json:"value"`
+}
+
+// UpdateProjectRequest contains the fields that can be updated in a project.
+type UpdateProjectRequest struct {
+	Name             *string                    `json:"name"`
+	Description      *string                    `json:"description"`
+	UserAgent        *string                    `json:"userAgent"`
+	Status           *console.ProjectStatus     `json:"status"`
+	DefaultPlacement *storj.PlacementConstraint `json:"defaultPlacement"`
+
+	Reason string `json:"reason"` // Reason for the change, for audit logging
 }
 
 // GetProject gets the project info by either private or public ID.
@@ -154,19 +178,9 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		userBandwidthl = &l
 	}
 
-	maxBuckets := &s.defaults.MaxBuckets
-	if p.MaxBuckets != nil {
-		*maxBuckets = *p.MaxBuckets
-	}
-
-	rate := &s.defaults.RateLimit
-	if p.RateLimit != nil {
-		rate = p.RateLimit
-	}
-
-	burst := &s.defaults.RateLimit
-	if p.BurstLimit != nil {
-		burst = p.BurstLimit
+	var status *ProjectStatusInfo
+	if p.Status != nil {
+		status = &ProjectStatusInfo{Name: p.Status.String(), Value: *p.Status}
 	}
 
 	return &Project{
@@ -182,8 +196,8 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		},
 		CreatedAt:        p.CreatedAt,
 		DefaultPlacement: p.DefaultPlacement,
-		RateLimit:        rate,
-		BurstLimit:       burst,
+		RateLimit:        p.RateLimit,
+		BurstLimit:       p.BurstLimit,
 		RateLimitList:    p.RateLimitList,
 		BurstLimitList:   p.BurstLimitList,
 		RateLimitHead:    p.RateLimitHead,
@@ -194,7 +208,7 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		BurstLimitPut:    p.BurstLimitPut,
 		RateLimitDelete:  p.RateLimitDelete,
 		BurstLimitDelete: p.BurstLimitDelete,
-		MaxBuckets:       maxBuckets,
+		MaxBuckets:       p.MaxBuckets,
 		ProjectUsageLimits: ProjectUsageLimits[*int64]{
 			BandwidthLimit:        bandwidthl,
 			UserSetBandwidthLimit: userBandwidthl,
@@ -205,6 +219,7 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 			SegmentLimit:          p.SegmentLimit,
 			SegmentUsed:           segmentu,
 		},
+		Status: status,
 	}, api.HTTPError{}
 }
 
@@ -311,6 +326,13 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, id uuid.UUID, req Pro
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	if req.Reason == "" {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("reason is required"),
+		}
+	}
+
 	p, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -364,20 +386,23 @@ func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLim
 		requestValue *int64
 		currentValue *int64
 		limitKind    console.LimitKind
-		allowsNull   bool
+		disallowNull bool
 	}{
 		{
 			requestValue: req.StorageLimit,
 			currentValue: sizeTo64(p.StorageLimit),
 			limitKind:    console.StorageLimit,
+			disallowNull: true,
 		}, {
 			requestValue: req.BandwidthLimit,
 			currentValue: sizeTo64(p.BandwidthLimit),
 			limitKind:    console.BandwidthLimit,
+			disallowNull: true,
 		}, {
 			requestValue: req.SegmentLimit,
 			currentValue: p.SegmentLimit,
 			limitKind:    console.SegmentLimit,
+			disallowNull: true,
 		}, {
 			requestValue: intTo64(req.MaxBuckets),
 			currentValue: intTo64(p.MaxBuckets),
@@ -394,74 +419,64 @@ func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLim
 			requestValue: req.UserSetStorageLimit,
 			currentValue: sizeTo64(p.UserSpecifiedStorageLimit),
 			limitKind:    console.UserSetStorageLimit,
-			allowsNull:   true,
 		}, {
 			requestValue: req.UserSetBandwidthLimit,
 			currentValue: sizeTo64(p.UserSpecifiedBandwidthLimit),
 			limitKind:    console.UserSetBandwidthLimit,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitHead),
 			currentValue: intTo64(p.RateLimitHead),
 			limitKind:    console.RateLimitHead,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitHead),
 			currentValue: intTo64(p.BurstLimitHead),
 			limitKind:    console.BurstLimitHead,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitGet),
 			currentValue: intTo64(p.RateLimitGet),
 			limitKind:    console.RateLimitGet,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitGet),
 			currentValue: intTo64(p.BurstLimitGet),
 			limitKind:    console.BurstLimitGet,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitPut),
 			currentValue: intTo64(p.RateLimitPut),
 			limitKind:    console.RateLimitPut,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitPut),
 			currentValue: intTo64(p.BurstLimitPut),
 			limitKind:    console.BurstLimitPut,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitDelete),
 			currentValue: intTo64(p.RateLimitDelete),
 			limitKind:    console.RateLimitDelete,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitDelete),
 			currentValue: intTo64(p.BurstLimitDelete),
 			limitKind:    console.BurstLimitDelete,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.RateLimitList),
 			currentValue: intTo64(p.RateLimitList),
 			limitKind:    console.RateLimitList,
-			allowsNull:   true,
 		}, {
 			requestValue: intTo64(req.BurstLimitList),
 			currentValue: intTo64(p.BurstLimitList),
 			limitKind:    console.BurstLimitList,
-			allowsNull:   true,
 		},
 	}
 	for _, limit := range limits {
 		if limit.requestValue == nil {
 			continue
 		}
-		if *limit.requestValue < 0 {
-			errGroup = append(errGroup, errs.New("%s cannot be negative", limit.limitKind))
+
+		allowNull := !limit.disallowNull
+		if allowNull && *limit.requestValue == NullableLimitValue && limit.currentValue != nil {
+			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: nil})
 			continue
 		}
-		if limit.allowsNull && *limit.requestValue == 0 && limit.currentValue != nil {
-			toUpdate = append(toUpdate, console.Limit{Kind: limit.limitKind, Value: nil})
+		if *limit.requestValue < 0 {
+			errGroup = append(errGroup, errs.New("%s cannot be negative", limit.limitKind))
 			continue
 		}
 		if limit.currentValue == nil || *limit.requestValue != *limit.currentValue {
@@ -474,4 +489,187 @@ func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLim
 	}
 
 	return toUpdate, nil
+}
+
+// GetProjectStatuses returns the possible project statuses.
+func (s *Service) GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	statuses := make([]ProjectStatusInfo, len(console.ProjectStatuses))
+	for i, k := range console.ProjectStatuses {
+		statuses[i] = ProjectStatusInfo{
+			Name:  k.String(),
+			Value: k,
+		}
+	}
+	return statuses, api.HTTPError{}
+}
+
+// UpdateProject updates the project's information by public ID.
+func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, req UpdateProjectRequest) (*Project, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiErr := s.validateUpdateProjectRequest(ctx, authInfo, req)
+	if apiErr.Err != nil {
+		return nil, apiErr
+	}
+
+	p, err := s.consoleDB.Projects().GetByPublicID(ctx, publicID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("project not found")
+		}
+		return nil, api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	beforeState := *p
+
+	if req.Name != nil {
+		p.Name = *req.Name
+	}
+	if req.Description != nil {
+		p.Description = *req.Description
+	}
+	if req.UserAgent != nil {
+		p.UserAgent = []byte(*req.UserAgent)
+	}
+	if req.Status != nil {
+		p.Status = req.Status
+	}
+	if req.DefaultPlacement != nil {
+		p.DefaultPlacement = *req.DefaultPlacement
+	}
+
+	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		if err = tx.Projects().Update(ctx, p); err != nil {
+			return err
+		}
+		if req.DefaultPlacement != nil {
+			if err = tx.Projects().UpdateDefaultPlacement(ctx, p.ID, *req.DefaultPlacement); err != nil {
+				return err
+			}
+		}
+		if req.UserAgent != nil {
+			if err = tx.Projects().UpdateUserAgent(ctx, p.ID, []byte(*req.UserAgent)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+		Action:     "update_project",
+		AdminEmail: authInfo.Email,
+		ItemType:   auditlogger.ItemTypeProject,
+		ItemID:     p.PublicID,
+		Reason:     req.Reason,
+		Before:     beforeState,
+		After:      *p,
+		Timestamp:  s.nowFn(),
+	})
+
+	return s.GetProject(ctx, publicID)
+}
+
+func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *AuthInfo, request UpdateProjectRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) api.HTTPError {
+		return api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	if authInfo == nil || len(authInfo.Groups) == 0 {
+		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	}
+
+	groups := authInfo.Groups
+	hasPerm := func(perm Permission) bool {
+		for _, g := range groups {
+			if s.authorizer.HasPermissions(g, perm) {
+				return true
+			}
+		}
+		return false
+	}
+
+	valid := false
+	var errGroup errs.Group
+	if request.Reason == "" {
+		errGroup = append(errGroup, errs.New("reason is required"))
+	}
+
+	if request.Status != nil {
+		if !hasPerm(PermProjectUpdate) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change project status"))
+		}
+		for _, ps := range console.ProjectStatuses {
+			if *request.Status == ps {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			errGroup = append(errGroup, errs.New("invalid project status %d", *request.Status))
+		}
+	}
+
+	if request.Name != nil {
+		if !hasPerm(PermProjectUpdate) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change project name"))
+		}
+		if *request.Name == "" {
+			errGroup = append(errGroup, errs.New("name cannot be empty"))
+		}
+	}
+
+	if request.Description != nil && !hasPerm(PermProjectUpdate) {
+		return apiError(http.StatusForbidden, errs.New("not authorized to change project description"))
+	}
+
+	if request.UserAgent != nil && !hasPerm(PermProjectSetUserAgent) {
+		return apiError(http.StatusForbidden, errs.New("not authorized to set user agent"))
+	}
+
+	if request.DefaultPlacement != nil {
+		if !hasPerm(PermProjectSetDataPlacement) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change project default placement"))
+		}
+		placements, _ := s.GetPlacements(ctx)
+		placementValid := false
+		for _, p := range placements {
+			if p.ID == *request.DefaultPlacement {
+				placementValid = true
+				break
+			}
+		}
+		if !placementValid {
+			errGroup = append(errGroup, errs.New("invalid placement ID %d", *request.DefaultPlacement))
+		}
+	}
+
+	if errGroup != nil {
+		return apiError(http.StatusBadRequest, errGroup.Err())
+	}
+
+	if request.DefaultPlacement == nil {
+		return api.HTTPError{}
+	}
+
+	return api.HTTPError{}
 }

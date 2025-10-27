@@ -35,7 +35,7 @@ enum RouteName {
     PasswordRecovery = 'Password Recovery',
     Activate = 'Activate Account',
     ComputeOverview = 'Overview',
-    ComputeInstances = 'Compute',
+    ComputeInstances = 'Instances',
     ComputeKeys = 'SSH Keys',
     ComputeDeployInstance = 'Deploy Instance',
 }
@@ -228,11 +228,12 @@ const routes: RouteRecordRaw[] = [
                 name: ROUTES.ProjectSettings.name,
                 component: () => import(/* webpackChunkName: "ProjectSettings" */ '@/views/ProjectSettings.vue'),
             },
-            {
-                path: ROUTES.ComputeOverview.path,
-                name: ROUTES.ComputeOverview.name,
-                component: () => import(/* webpackChunkName: "ComputeOverview" */ '@/views/ComputeOverview.vue'),
-            },
+            // TODO: enable when we have more compute features.
+            // {
+            //     path: ROUTES.ComputeOverview.path,
+            //     name: ROUTES.ComputeOverview.name,
+            //     component: () => import(/* webpackChunkName: "ComputeOverview" */ '@/views/ComputeOverview.vue'),
+            // },
             {
                 path: ROUTES.ComputeInstances.path,
                 name: ROUTES.ComputeInstances.name,
@@ -243,11 +244,11 @@ const routes: RouteRecordRaw[] = [
                 name: ROUTES.ComputeKeys.name,
                 component: () => import(/* webpackChunkName: "ComputeKeys" */ '@/views/ComputeKeys.vue'),
             },
-            {
-                path: ROUTES.ComputeDeployInstance.path,
-                name: ROUTES.ComputeDeployInstance.name,
-                component: () => import(/* webpackChunkName: "ComputeDeployInstance" */ '@/views/ComputeDeployInstance.vue'),
-            },
+            // {
+            //     path: ROUTES.ComputeDeployInstance.path,
+            //     name: ROUTES.ComputeDeployInstance.name,
+            //     component: () => import(/* webpackChunkName: "ComputeDeployInstance" */ '@/views/ComputeDeployInstance.vue'),
+            // },
         ],
     },
 ];

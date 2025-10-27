@@ -193,6 +193,9 @@ const (
 	ProjectPendingDeletion ProjectStatus = 2
 )
 
+// ProjectStatuses are all valid project statuses.
+var ProjectStatuses = []ProjectStatus{ProjectDisabled, ProjectActive, ProjectPendingDeletion}
+
 // String returns the string name.
 func (status *ProjectStatus) String() string {
 	if status == nil {
@@ -200,9 +203,11 @@ func (status *ProjectStatus) String() string {
 	}
 	switch *status {
 	case ProjectDisabled:
-		return "deleting/disabled"
+		return "Disabled"
 	case ProjectActive:
-		return "active"
+		return "Active"
+	case ProjectPendingDeletion:
+		return "Pending Deletion"
 	default:
 		return fmt.Sprintf("unknown ProjectStatus(%d)", *status)
 	}

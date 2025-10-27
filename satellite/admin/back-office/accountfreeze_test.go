@@ -14,7 +14,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	admin "storj.io/storj/satellite/admin/back-office"
+	backoffice "storj.io/storj/satellite/admin/back-office"
 	"storj.io/storj/satellite/console"
 )
 
@@ -24,22 +24,50 @@ func TestFreezeUser(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.LiveAccounting.AsOfSystemInterval = 0
+				config.Admin.BackOffice.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
 
-		apiErr := service.FreezeUser(ctx, uuid.UUID{}, admin.FreezeUserRequest{
-			Type: console.BillingFreeze,
-		})
+		for _, unauthorizedInfo := range []*backoffice.AuthInfo{nil, {}} {
+			apiErr := service.ToggleFreezeUser(ctx, unauthorizedInfo, uuid.UUID{}, backoffice.ToggleFreezeUserRequest{})
+			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
+		}
+
+		request := backoffice.ToggleFreezeUserRequest{Reason: "reason", Action: backoffice.FreezeActionUnfreeze}
+
+		apiErr := service.ToggleFreezeUser(ctx, &backoffice.AuthInfo{Groups: []string{"somerole"}}, uuid.UUID{}, request)
+		require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+		apiErr = service.ToggleFreezeUser(ctx, &backoffice.AuthInfo{Groups: []string{"viewer"}}, uuid.UUID{}, request)
+		require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
+
+		request.Reason = ""
+		apiErr = service.ToggleFreezeUser(ctx, authInfo, uuid.UUID{}, request)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "reason is required")
+
+		request.Reason = "reason"
+		request.Action = ""
+		apiErr = service.ToggleFreezeUser(ctx, authInfo, uuid.UUID{}, request)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "invalid action")
+
+		request.Action = backoffice.FreezeActionFreeze
+		apiErr = service.ToggleFreezeUser(ctx, authInfo, uuid.UUID{}, request)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "user not found")
 
-		apiErr = service.FreezeUser(ctx, uuid.UUID{}, admin.FreezeUserRequest{
-			Type: console.BillingWarning,
-		})
+		request.Type = console.BillingWarning
+		apiErr = service.ToggleFreezeUser(ctx, authInfo, uuid.UUID{}, request)
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "unsupported freeze event type")
@@ -55,7 +83,8 @@ func TestFreezeUser(t *testing.T) {
 		require.NotEmpty(t, types)
 
 		for _, eventType := range types {
-			apiErr = service.FreezeUser(ctx, user.ID, admin.FreezeUserRequest{Type: eventType.Value})
+			request.Type = eventType.Value
+			apiErr = service.ToggleFreezeUser(ctx, authInfo, user.ID, request)
 			require.NoError(t, apiErr.Err)
 
 			account, apiErr := service.GetUserByEmail(ctx, user.Email)
@@ -63,17 +92,16 @@ func TestFreezeUser(t *testing.T) {
 			require.NotNil(t, account.FreezeStatus)
 			require.Equal(t, eventType.Value, account.FreezeStatus.Value)
 
-			apiErr = service.UnfreezeUser(ctx, user.ID)
+			request.Action = backoffice.FreezeActionUnfreeze
+			apiErr = service.ToggleFreezeUser(ctx, authInfo, user.ID, request)
 			require.NoError(t, apiErr.Err)
 
 			account, apiErr = service.GetUserByEmail(ctx, user.Email)
 			require.NoError(t, apiErr.Err)
 			require.Nil(t, account.FreezeStatus)
-		}
 
-		apiErr = service.UnfreezeUser(ctx, uuid.UUID{})
-		require.Equal(t, http.StatusNotFound, apiErr.Status)
-		require.Error(t, apiErr.Err)
-		require.Contains(t, apiErr.Err.Error(), "user not found")
+			request.Action = backoffice.FreezeActionFreeze
+			request.Type = eventType.Value
+		}
 	})
 }

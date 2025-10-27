@@ -4,12 +4,19 @@
 import { BytesMustBeWholeRule, PositiveNumberRule, RequiredRule } from '@/types/common';
 import { Memory } from '@/utils/bytesSize';
 
+/**
+ * Special value to represent null for nullable number fields.
+ * This value will be saved as null in the DB.
+ */
+export const NULLABLE_FIELD_VALUE = -1;
+
 export interface FieldRule {
     (value: unknown): boolean | string;
 }
 
 export enum FieldType {
     Text,
+    TextArea,
     Number,
     Select,
     Date,
@@ -78,19 +85,37 @@ export interface FormBuilderExpose {
 }
 
 export function terabyteFormField(conf: Partial<FormField>): FormField {
+    const rules = [RequiredRule, PositiveNumberRule, BytesMustBeWholeRule];
+    if (conf.clearable) {
+        rules.splice(0, 1); // Remove RequiredRule if field is clearable
+    }
     return {
         type: FieldType.Number,
-        rules: [RequiredRule, PositiveNumberRule, BytesMustBeWholeRule],
+        rules,
         label: conf.label ?? '',
         key: conf.key ?? '',
         clearable: conf.clearable,
         cols: conf.cols,
         precision: 4,
         step: 0.5,
-        messages: (value) => [`Bytes: ${value || 0}`],
+        messages: (value) => {
+            const bytes = [`Bytes: ${value || 0}`];
+            if (!conf.clearable) return bytes;
+
+            if (value === null || value === undefined || value === NULLABLE_FIELD_VALUE) {
+                return [];
+            }
+            return bytes;
+        },
         transform: {
-            forward: (value) => Number(value) / Memory.TB,
-            back: (value) => Number(value) * Memory.TB,
+            forward: (value) => {
+                if (!conf.clearable) return Number(value) / Memory.TB;
+                return value === NULLABLE_FIELD_VALUE ? null : Number(value) / Memory.TB;
+            },
+            back: (value) => {
+                if (!conf.clearable) return Number(value) * Memory.TB;
+                return value === null || value === undefined ? NULLABLE_FIELD_VALUE : Number(value) * Memory.TB;
+            },
         },
     };
 }
@@ -103,5 +128,21 @@ export function rawNumberField(conf: Partial<FormField>): FormField {
         label: conf.label ?? '',
         step: conf.step,
         cols: conf.cols,
+    };
+}
+
+export function nullableNumberField(conf: Partial<FormField>): FormField {
+    return {
+        type: FieldType.Number,
+        rules: [PositiveNumberRule],
+        key: conf.key ?? '',
+        label: conf.label ?? '',
+        clearable: true,
+        step: conf.step ?? 100,
+        cols: conf.cols ?? { default: 12, sm: 4 },
+        transform: {
+            forward: (value) => value === NULLABLE_FIELD_VALUE ? null : value,
+            back: (value) => value === null || value === undefined ? NULLABLE_FIELD_VALUE : value,
+        },
     };
 }

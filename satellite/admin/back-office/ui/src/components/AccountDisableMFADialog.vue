@@ -3,15 +3,11 @@
 
 <template>
     <v-dialog v-model="model" width="auto" transition="fade-transition">
-        <v-card rounded="xlg">
-            <template #title>
-                Disable MFA
-            </template>
-            <template #subtitle>
-                <span class="text-wrap">
-                    Disable multi-factor-authentication for this account?
-                </span>
-            </template>
+        <v-card
+            rounded="xlg"
+            title="Disable MFA"
+            subtitle="Enter a reason for disabling MFA for this account"
+        >
             <template #append>
                 <v-btn :icon="X" variant="text" size="small" color="default" @click="model = false" />
             </template>
@@ -30,6 +26,18 @@
                             hide-details="auto"
                         />
                     </v-col>
+                    <v-col cols="12">
+                        <v-textarea
+                            v-model="reason"
+                            :rules="[RequiredRule]"
+                            label="Reason"
+                            placeholder="Enter a reason for disabling MFA for this account"
+                            variant="solo-filled"
+                            hide-details="auto"
+                            autofocus
+                            flat
+                        />
+                    </v-col>
                 </v-row>
             </div>
 
@@ -46,7 +54,16 @@
                         </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="primary" variant="flat" block :loading="isLoading" @click="disableMFA">Disable MFA</v-btn>
+                        <v-btn
+                            color="primary"
+                            variant="flat"
+                            :loading="isLoading"
+                            :disabled="!reason"
+                            block
+                            @click="disableMFA"
+                        >
+                            Disable MFA
+                        </v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
@@ -55,13 +72,15 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardActions, VCol, VDialog, VRow, VTextField } from 'vuetify/components';
+import { VBtn, VCard, VCardActions, VCol, VDialog, VRow, VTextField, VTextarea } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
+import { ref, watch } from 'vue';
 
 import { UserAccount } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/users';
+import { RequiredRule } from '@/types/common';
 
 const usersStore = useUsersStore();
 
@@ -74,10 +93,12 @@ const props = defineProps<{
     account: UserAccount;
 }>();
 
+const reason = ref('');
+
 function disableMFA() {
     withLoading(async () => {
         try {
-            await usersStore.disableMFA(props.account.id);
+            await usersStore.disableMFA(props.account.id, reason.value);
             const account = { ...props.account };
 
             account.mfaEnabled = false;
@@ -89,4 +110,8 @@ function disableMFA() {
         }
     });
 }
+
+watch(model, (newVal) => {
+    if (newVal) reason.value = '';
+});
 </script>

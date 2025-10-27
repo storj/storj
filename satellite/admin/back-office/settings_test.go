@@ -51,8 +51,11 @@ func TestGetSettings(t *testing.T) {
 						UpdateUserAgent: true,
 					},
 					Project: backoffice.ProjectFlags{
-						View:         true,
-						UpdateLimits: true,
+						View:                   true,
+						UpdateInfo:             true,
+						UpdateLimits:           true,
+						UpdatePlacement:        true,
+						UpdateValueAttribution: true,
 					},
 				},
 			},

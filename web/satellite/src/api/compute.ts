@@ -133,9 +133,10 @@ export class ComputeAPI implements IComputeAPI {
     public async deleteInstance(baseURL: string, authToken: string, id: string): Promise<void> {
         const path = `${baseURL}/api/v1/instance/${id}`;
         const response = await this.http.delete(path, null, { authToken });
-        const result = await response.json();
 
         if (response.status !== 204) {
+            const result = await response.json();
+
             throw new APIError({
                 status: response.status,
                 message: result.message || 'Can not delete Instance',
@@ -151,8 +152,8 @@ export class ComputeAPI implements IComputeAPI {
             instance.status,
             instance.hostname,
             instance.ipv4Address,
-            new Date(instance.created),
-            new Date(instance.updated),
+            instance.created ? new Date(instance.created) : new Date(),
+            instance.updated ? new Date(instance.updated) : new Date(),
             instance.remote,
             instance.password ?? '',
             instance.deleting ?? false,

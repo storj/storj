@@ -139,6 +139,15 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermProjectSetLimits) {
 			settings.Admin.Features.Project.UpdateLimits = true
 		}
+		if s.authorizer.HasPermissions(g, PermProjectUpdate) {
+			settings.Admin.Features.Project.UpdateInfo = true
+		}
+		if s.authorizer.HasPermissions(g, PermProjectSetUserAgent) {
+			settings.Admin.Features.Project.UpdateValueAttribution = true
+		}
+		if s.authorizer.HasPermissions(g, PermProjectSetDataPlacement) {
+			settings.Admin.Features.Project.UpdatePlacement = true
+		}
 	}
 
 	return &settings, api.HTTPError{}

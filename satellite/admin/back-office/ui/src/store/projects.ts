@@ -8,10 +8,13 @@ import {
     Project,
     ProjectLimitsUpdateRequest,
     ProjectManagementHttpApiV1,
+    ProjectStatusInfo,
+    UpdateProjectRequest,
 } from '@/api/client.gen';
 
 class ProjectsState {
     currentProject: Project | null = null;
+    public projectStatuses: ProjectStatusInfo[] = [];
 }
 
 export const useProjectsStore = defineStore('projects', () => {
@@ -40,11 +43,24 @@ export const useProjectsStore = defineStore('projects', () => {
         return await projectApi.updateProjectLimits(limits, id);
     }
 
+    async function updateProject(projectID: string, request: UpdateProjectRequest): Promise<Project> {
+        return await projectApi.updateProject(request, projectID);
+    }
+
+    async function getProjectStatuses(): Promise<void> {
+        if (state.projectStatuses.length) {
+            return;
+        }
+        state.projectStatuses = await projectApi.getProjectStatuses();
+    }
+
     return {
         state,
         getProject,
         updateCurrentProject,
         clearCurrentProject,
         updateProjectLimits,
+        updateProject,
+        getProjectStatuses,
     };
 });

@@ -340,6 +340,12 @@ func TestUpdateUser(t *testing.T) {
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "reason is required")
+
+		req.Reason = "reason"
 		u, apiErr := service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.NoError(t, apiErr.Err)
 		require.Equal(t, newName, u.FullName)
@@ -364,7 +370,7 @@ func TestUpdateUser(t *testing.T) {
 		// test setting default paid or NFR limits
 		usageLimits := sat.Config.Console.UsageLimits
 		newKind = console.NFRUser
-		req = backoffice.UpdateUserRequest{Kind: &newKind}
+		req = backoffice.UpdateUserRequest{Kind: &newKind, Reason: "reason"}
 		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.NoError(t, apiErr.Err)
 		require.Equal(t, usageLimits.Project.Nfr, u.ProjectLimit)
@@ -379,7 +385,7 @@ func TestUpdateUser(t *testing.T) {
 		require.Equal(t, usageLimits.Segment.Nfr, *p.SegmentLimit)
 
 		newKind = console.PaidUser
-		req = backoffice.UpdateUserRequest{Kind: &newKind}
+		req = backoffice.UpdateUserRequest{Kind: &newKind, Reason: "reason"}
 		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.NoError(t, apiErr.Err)
 		require.Equal(t, usageLimits.Project.Paid, u.ProjectLimit)
@@ -390,36 +396,66 @@ func TestUpdateUser(t *testing.T) {
 		// trial expiration
 		require.Nil(t, u.TrialExpiration)
 		newKind = console.FreeUser
-		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind})
+		req = backoffice.UpdateUserRequest{Kind: &newKind, Reason: "reason"}
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, u.TrialExpiration)
+		require.WithinDuration(t, *u.TrialExpiration, timeStamp, sat.Config.Console.Config.FreeTrialDuration+time.Minute)
+
+		req.TrialExpiration = new(string)
+		*req.TrialExpiration = "" // remove trial expiration
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.Nil(t, u.TrialExpiration)
+
+		*req.TrialExpiration = timeStamp.Add(24 * time.Hour).Format(time.RFC3339)
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, u.TrialExpiration)
+		require.WithinDuration(t, *u.TrialExpiration, timeStamp, 24*time.Hour)
 
 		// validation
 		newKind = console.UserKind(100)
-		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind})
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind,
+			Reason: "reason",
+		})
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
 		newStatus = console.UserStatus(100)
-		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Status: &newStatus})
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Status: &newStatus,
+			Reason: "reason",
+		})
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
-		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Email: &user2.Email})
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Email: &user2.Email,
+			Reason: "reason",
+		})
 		require.Equal(t, http.StatusConflict, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
-		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Name: new(string)})
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{
+			Name:   new(string),
+			Reason: "reason",
+		})
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
-		req = backoffice.UpdateUserRequest{TrialExpiration: new(time.Time)}
+		req = backoffice.UpdateUserRequest{Reason: "reason", TrialExpiration: new(string)}
+		*req.TrialExpiration = timeStamp.Add(-24 * time.Hour).Format(time.RFC3339)
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "must be in the future")
 
-		*req.TrialExpiration = timeStamp.Add(254 * time.Hour)
+		*req.TrialExpiration = "invalid"
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "invalid trial expiration format")
+
+		*req.TrialExpiration = timeStamp.Add(254 * time.Hour).Format(time.RFC3339)
 		newKind = console.PaidUser
 		req.Kind = &newKind
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
@@ -428,12 +464,14 @@ func TestUpdateUser(t *testing.T) {
 		require.Contains(t, apiErr.Err.Error(), "for free users")
 
 		// make user paid again
-		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind})
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind,
+			Reason: "reason",
+		})
 		require.NoError(t, apiErr.Err)
 		require.Equal(t, console.PaidUser.Info(), u.Kind)
 		require.Nil(t, u.TrialExpiration)
 
-		*req.TrialExpiration = timeStamp.Add(254 * time.Hour)
+		*req.TrialExpiration = timeStamp.Add(254 * time.Hour).Format(time.RFC3339)
 		req.Kind = nil
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
@@ -450,7 +488,7 @@ func TestUpdateUser(t *testing.T) {
 	})
 }
 
-func TestDeleteUser(t *testing.T) {
+func TestDisableUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -465,11 +503,19 @@ func TestDeleteUser(t *testing.T) {
 		p, err := sat.AddProject(ctx, user.ID, "Project")
 		require.NoError(t, err)
 
-		apiErr := service.DeleteUser(ctx, testrand.UUID())
+		authInfo := &backoffice.AuthInfo{Email: "test@example.com"}
+
+		apiErr := service.DisableUser(ctx, authInfo, testrand.UUID(), backoffice.DisableUserRequest{})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "reason is required")
+
+		request := backoffice.DisableUserRequest{Reason: "reason"}
+		apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), request)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 
-		apiErr = service.DeleteUser(ctx, user.ID)
+		apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
 		require.Equal(t, http.StatusConflict, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "active projects")
@@ -480,7 +526,7 @@ func TestDeleteUser(t *testing.T) {
 		inv, err := sat.Admin.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "test invoice 1")
 		require.NoError(t, err)
 
-		apiErr = service.DeleteUser(ctx, user.ID)
+		apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
 		require.Equal(t, http.StatusConflict, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "unpaid invoices")
@@ -488,7 +534,7 @@ func TestDeleteUser(t *testing.T) {
 		_, err = sat.Admin.Payments.Accounts.Invoices().Delete(ctx, inv.ID)
 		require.NoError(t, err)
 
-		require.NoError(t, service.DeleteUser(ctx, user.ID).Err)
+		require.NoError(t, service.DisableUser(ctx, authInfo, user.ID, request).Err)
 
 		u, apiErr := service.GetUser(ctx, user.ID)
 		require.NoError(t, apiErr.Err)
@@ -531,7 +577,11 @@ func TestDisableMFA(t *testing.T) {
 		require.NotEmpty(t, user.MFASecretKey)
 		require.NotEmpty(t, user.MFARecoveryCodes)
 
-		apiErr = service.DisableMFA(ctx, user.ID)
+		apiErr = service.ToggleMFA(ctx, user.ID, backoffice.ToggleMfaRequest{})
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "reason is required")
+
+		apiErr = service.ToggleMFA(ctx, user.ID, backoffice.ToggleMfaRequest{Reason: "reason"})
 		require.NoError(t, apiErr.Err)
 
 		u, apiErr = service.GetUser(ctx, user.ID)
@@ -560,6 +610,7 @@ func TestCreateRestKey(t *testing.T) {
 
 		request := backoffice.CreateRestKeyRequest{
 			Expiration: time.Now().Add(24 * time.Hour),
+			Reason:     "reason",
 		}
 		t.Run("Success - create REST key with expiration", func(t *testing.T) {
 			key, apiErr := service.CreateRestKey(ctx, user.ID, request)
@@ -587,6 +638,15 @@ func TestCreateRestKey(t *testing.T) {
 			require.Error(t, apiErr.Err)
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Contains(t, apiErr.Err.Error(), "expiration must be in the future")
+		})
+
+		t.Run("Error - missing reason", func(t *testing.T) {
+			_, apiErr := service.CreateRestKey(ctx, user.ID, backoffice.CreateRestKeyRequest{
+				Expiration: time.Now().Add(24 * time.Hour),
+			})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "reason is required")
 		})
 	})
 }

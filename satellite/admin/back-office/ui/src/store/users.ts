@@ -7,9 +7,11 @@ import { reactive } from 'vue';
 import {
     AccountMin,
     CreateRestKeyRequest,
+    DisableUserRequest,
     FreezeEventType,
-    FreezeUserRequest,
     KindInfo,
+    ToggleFreezeUserRequest,
+    ToggleMfaRequest,
     UpdateUserRequest,
     UserAccount,
     UserManagementHttpApiV1,
@@ -53,17 +55,25 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function getAccountFreezeTypes(): Promise<void> {
+        if (state.freezeTypes.length) {
+            return;
+        }
         state.freezeTypes = await userApi.getFreezeEventTypes();
     }
 
-    async function freezeUser(userID: string, eventType: number): Promise<void> {
-        const request = new FreezeUserRequest();
+    async function freezeUser(userID: string, eventType: number, reason: string): Promise<void> {
+        const request = new ToggleFreezeUserRequest();
+        request.action = 'freeze';
         request.type = eventType;
-        await userApi.freezeUser(request, userID);
+        request.reason = reason;
+        await userApi.toggleFreezeUser(request, userID);
     }
 
-    async function unfreezeUser(userID: string): Promise<void> {
-        await userApi.unfreezeUser(userID);
+    async function unfreezeUser(userID: string, reason: string): Promise<void> {
+        const request = new ToggleFreezeUserRequest();
+        request.action = 'unfreeze';
+        request.reason = reason;
+        await userApi.toggleFreezeUser(request, userID);
     }
 
     async function getUserKinds(): Promise<void> {
@@ -85,16 +95,21 @@ export const useUsersStore = defineStore('users', () => {
         return await userApi.updateUser(request, userID);
     }
 
-    async function deleteUser(userID: string): Promise<void> {
-        await userApi.deleteUser(userID);
+    async function deleteUser(userID: string, reason: string): Promise<void> {
+        const request = new DisableUserRequest();
+        request.reason = reason;
+        await userApi.disableUser(request, userID);
     }
 
-    async function disableMFA(userID: string): Promise<void> {
-        await userApi.disableMFA(userID);
+    async function disableMFA(userID: string, reason: string): Promise<void> {
+        const request = new ToggleMfaRequest();
+        request.reason = reason;
+        await userApi.toggleMFA(request, userID);
     }
 
-    async function createRestKey(userID: string, expirationDate: Date): Promise<string> {
+    async function createRestKey(userID: string, expirationDate: Date, reason: string): Promise<string> {
         const request = new CreateRestKeyRequest();
+        request.reason = reason;
         request.expiration = expirationDate.toISOString();
         return await userApi.createRestKey(request, userID);
     }
