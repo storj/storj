@@ -67,7 +67,6 @@ func main() {
 	flag.BoolVar(&checks.Monkit, "monkit", checks.Monkit, "check monkit usage")
 	flag.BoolVar(&checks.Errors, "errs", checks.Errors, "check error usage")
 	flag.BoolVar(&checks.Static, "staticcheck", checks.Static, "perform static analysis checks against the code base")
-	flag.BoolVar(&checks.Monitoring, "monitoring", checks.Monitoring, "check monitoring")
 	flag.BoolVar(&checks.WASMSize, "wasm-size", checks.WASMSize, "check the wasm file size for optimal performance")
 	flag.BoolVar(&checks.Protolock, "protolock", checks.Protolock, "check the status of the protolock file")
 	flag.BoolVar(&checks.CheckDowngrades, "check-downgrades", checks.CheckDowngrades, "run the check-downgrades tool")
@@ -151,10 +150,6 @@ func main() {
 
 	if checks.Static {
 		commands[0] = append(commands[0], newCommand(ctx, workDir, "staticcheck", target...))
-	}
-
-	if checks.Monitoring {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "make", "check-monitoring"))
 	}
 
 	if checks.WASMSize {

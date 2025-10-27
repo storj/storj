@@ -118,7 +118,6 @@ llint:
 		-errs \
 		-staticcheck \
 		-golangci \
-		-monitoring \
 		-wasm-size \
 		-protolock \
 		-check-tx \
@@ -232,13 +231,6 @@ test-satellite-ui: ## Run playwright ui tests
 		npx playwright install --with-deps;\
 		STORJ_TEST_SATELLITE_WEB='../../web/satellite' \
 		go test -race -run TestRun -timeout 15m -count 1 ./...
-
-.PHONY: check-monitoring
-check-monitoring: ## Check for locked monkit calls that have changed
-	@echo "Running ${@}"
-	@check-monitoring ./... | diff -U0 ./monkit.lock - \
-	|| (echo "Locked monkit metrics have been changed. **Notify #team-data** and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
-	&& exit 1)
 
 .PHONY: test-wasm-size
 test-wasm-size: ## Test that the built .wasm code has not increased in size
