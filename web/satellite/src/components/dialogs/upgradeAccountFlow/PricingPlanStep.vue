@@ -264,10 +264,11 @@ function onSuccess() {
     loading.value = false;
     notify.success('Card successfully added and account upgraded');
 
-    if (props.plan.type === PricingPlanType.PARTNER)
-        isSuccess.value = true;
-    else
+    if (props.isAccountSetup || props.plan.type !== PricingPlanType.PARTNER) {
         emit('success');
+    } else {
+        isSuccess.value = true;
+    }
 }
 </script>
 
