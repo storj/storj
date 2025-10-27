@@ -960,6 +960,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Analytics,
 				config.Payments.MinimumCharge,
 				prices,
+				config.Entitlements.Enabled,
 			)
 
 			peer.Servers.Add(lifecycle.Item{
