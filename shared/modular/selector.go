@@ -11,11 +11,6 @@ import (
 	"storj.io/storj/shared/mud"
 )
 
-var presets = map[string]string{
-	// storagenode with hashtable based storage, all services required only by standard storagenode are disabled.
-	"@hashstore": "storagenode.EndpointRegistration,contact.Endpoint,contact.Chore,bandwidth.Service,orders.Service,debug.Wrapper,piecestore.PieceBackend=piecestore.HashStoreBackend,!retain.Service,!monitor.DiskVerification",
-}
-
 // CreateSelector create a custom component hierarchy selector based on environment variables.
 // This is the way how it is possible to replace components of the process or disable existing ones.
 func CreateSelector(ball *mud.Ball) mud.ComponentSelector {
@@ -35,9 +30,7 @@ func CreateSelectorFromString(ball *mud.Ball, selection string) mud.ComponentSel
 	var selector mud.ComponentSelector = func(c *mud.Component) bool {
 		return false
 	}
-	for abbrev, long := range presets {
-		selection = strings.ReplaceAll(selection, abbrev, long)
-	}
+
 	for _, s := range strings.Split(selection, ",") {
 		switch {
 		case s == "service":
