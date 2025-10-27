@@ -89,17 +89,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 	}
 
 	// Log the record for debugging purposes
-	for _, mod := range record.Mods {
-		s.log.Debug("Received change record",
-			zap.String("table", record.TableName),
-			zap.Time("commit_timestamp", record.CommitTimestamp),
-			zap.String("mod_type", record.ModType),
-			zap.String("record_sequence", record.RecordSequence),
-			zap.String("transaction_tag", record.TransactionTag),
-			zap.Stringer("keys", mod.Keys),
-			zap.Stringer("old_values", mod.OldValues),
-			zap.Stringer("new_values", mod.NewValues))
-	}
+	s.log.Debug("Received change record", zap.Any("Record", record))
 
 	// Convert the change stream record to an S3 event
 	event, err := ConvertModsToEvent(record)
