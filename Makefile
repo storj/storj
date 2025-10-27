@@ -555,9 +555,9 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 		&& sha256sum *.zip > sha256sums \
 		&& gsutil -m cp -r *.zip sha256sums "gs://storj-v3-alpha-builds/${TAG}/"
 
-.PHONY: draft-release
-draft-release:
-	scripts/draft-release.sh ${BRANCH_NAME} "release/${TAG}"
+.PHONY: publish-release
+publish-release:
+	scripts/publish-release.sh ${BRANCH_NAME} "release/${TAG}"
 
 ##@ Clean
 
