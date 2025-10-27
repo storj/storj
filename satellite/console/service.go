@@ -1507,8 +1507,7 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 	}
 
 	if requestData.NoTrialExpiration {
-		noExpiration := new(time.Time)
-		updatedUser.TrialExpiration = &noExpiration
+		updatedUser.TrialExpiration = new(*time.Time)
 	} else if s.config.FreeTrialDuration != 0 {
 		expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 		expirationPtr := &expiration

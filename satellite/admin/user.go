@@ -404,6 +404,18 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := server.db.Console().Users().GetByEmail(ctx, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", email),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "failed to read body",
@@ -466,7 +478,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	code, errMsg, details, _ := server.updateUserData(ctx, email, updateRequest)
+	code, errMsg, details := server.updateUserData(ctx, user, updateRequest)
 	if code != 0 {
 		sendJSONError(w, errMsg, details, code)
 		return
@@ -507,9 +519,21 @@ func (server *Server) updateUserStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	user, err := server.db.Console().Users().GetByEmail(ctx, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", email),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	updateRequest := console.UpdateUserRequest{}
 	updateRequest.Status = &status
-	code, errMsg, details, _ := server.updateUserData(ctx, email, updateRequest)
+	code, errMsg, details := server.updateUserData(ctx, user, updateRequest)
 	if code != 0 {
 		sendJSONError(w, errMsg, details, code)
 		return
@@ -541,11 +565,36 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 		}
 
 		kind = console.UserKind(i)
-		if kind > console.NFRUser || kind < console.FreeUser {
-			sendJSONError(w, fmt.Sprintf("invalid user kind %d. Valid values are %d (FreeUser), %d (PaidUser) and %d (NFRUser)", kind, console.FreeUser, console.PaidUser, console.NFRUser),
+		if kind > console.MemberUser || kind < console.FreeUser {
+			sendJSONError(w, fmt.Sprintf("invalid user kind %d. Valid values are %d (FreeUser), %d (PaidUser), %d (NFRUser) and %d (MemberUser)", kind, console.FreeUser, console.PaidUser, console.NFRUser, console.MemberUser),
 				"", http.StatusBadRequest)
 			return
 		}
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, email)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", email),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	projects, err := server.db.Console().Projects().GetOwnActive(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get user's projects",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if kind == console.MemberUser && len(projects) > 0 {
+		sendJSONError(w, "cannot change user kind to MemberUser when user has own projects",
+			"", http.StatusForbidden)
+		return
 	}
 
 	usageLimitsConfig := server.console.UsageLimits
@@ -574,20 +623,17 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 	updateRequest.ProjectBandwidthLimit = ptrInt(bandwidthLimit.Int64())
 	updateRequest.ProjectSegmentLimit = &segmentLimit
 
-	code, errMsg, details, userID := server.updateUserData(ctx, email, updateRequest)
+	if kind == console.MemberUser {
+		updateRequest.TrialExpiration = new(*time.Time)
+	}
+
+	code, errMsg, details := server.updateUserData(ctx, user, updateRequest)
 	if code != 0 {
 		sendJSONError(w, errMsg, details, code)
 		return
 	}
 
 	// update projects limits
-	projects, err := server.db.Console().Projects().GetOwn(ctx, userID)
-	if err != nil {
-		sendJSONError(w, "failed to get user's projects",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	var updateErrs errs.Group
 	for _, p := range projects {
 		err = server.db.Console().Projects().UpdateUsageLimits(ctx, p.ID, console.UsageLimits{
@@ -602,7 +648,6 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 	if updateErrs.Err() != nil {
 		sendJSONError(w, "failed to update projects limits",
 			updateErrs.Err().Error(), http.StatusInternalServerError)
-		return
 	}
 }
 
@@ -1376,24 +1421,15 @@ func (server *Server) updateExternalID(w http.ResponseWriter, r *http.Request) {
 
 // updateUserData updates the user's data. It returns status codes is 0 when there isn't any error.
 func (server *Server) updateUserData(
-	ctx context.Context, email string, userUpdate console.UpdateUserRequest,
-) (statusCode int, errMsg, details string, userID uuid.UUID) {
-
-	user, err := server.db.Console().Users().GetByEmail(ctx, email)
-	if errors.Is(err, sql.ErrNoRows) {
-		return http.StatusNotFound, fmt.Sprintf("user with email %q does not exist", email), "", uuid.UUID{}
-	}
-	if err != nil {
-		return http.StatusInternalServerError, "failed to get user", err.Error(), uuid.UUID{}
-	}
-
+	ctx context.Context, user *console.User, userUpdate console.UpdateUserRequest,
+) (statusCode int, errMsg, details string) {
 	if userUpdate.Email != nil && *userUpdate.Email != "" {
 		existingUser, err := server.db.Console().Users().GetByEmail(ctx, *userUpdate.Email)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return http.StatusInternalServerError, "failed to check for user email", err.Error(), uuid.UUID{}
+			return http.StatusInternalServerError, "failed to check for user email", err.Error()
 		}
 		if existingUser != nil {
-			return http.StatusConflict, "user with email already exists " + *userUpdate.Email, "", uuid.UUID{}
+			return http.StatusConflict, "user with email already exists " + *userUpdate.Email, ""
 		}
 	}
 	if userUpdate.Kind != nil && user.UpgradeTime != nil {
@@ -1407,15 +1443,15 @@ func (server *Server) updateUserData(
 		err := server.freezeAccounts.AdminTrialExpirationUnfreezeUser(ctx, user.ID)
 		if err != nil {
 			if !errs.Is(err, console.ErrNoFreezeStatus) && !errs.Is(err, sql.ErrNoRows) {
-				return http.StatusInternalServerError, "failed to unfreeze user", err.Error(), uuid.UUID{}
+				return http.StatusInternalServerError, "failed to unfreeze user", err.Error()
 			}
 		}
 	}
 
-	err = server.db.Console().Users().Update(ctx, user.ID, userUpdate)
+	err := server.db.Console().Users().Update(ctx, user.ID, userUpdate)
 	if err != nil {
-		return http.StatusInternalServerError, "failed to update user", err.Error(), uuid.UUID{}
+		return http.StatusInternalServerError, "failed to update user", err.Error()
 	}
 
-	return 0, "", "", user.ID
+	return 0, "", ""
 }

@@ -400,7 +400,8 @@ export class Admin {
 						new Select(false, true, [
 							{ text: 'Free User', value: 0 },
 							{ text: 'Paid User', value: 1 },
-							{ text: 'NFR User', value: 2 }
+							{ text: 'NFR User', value: 2 },
+							{ text: 'Member User', value: 3 }
 						])
 					]
 				],

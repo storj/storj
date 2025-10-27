@@ -370,6 +370,7 @@ func TestUserKindUpdate(t *testing.T) {
 		sat := planet.Satellites[0]
 		address := sat.Admin.Admin.Listener.Addr()
 		usageLimitsConfig := sat.Config.Console.UsageLimits
+
 		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 		require.Equal(t, console.FreeUser, user.Kind)
@@ -402,7 +403,7 @@ func TestUserKindUpdate(t *testing.T) {
 		t.Run("OK", func(t *testing.T) {
 			updateKind := func(kind console.UserKind) {
 				link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, kind)
-				_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+				_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", sat.Config.Console.AuthToken)
 
 				var (
 					storage, bandwidth memory.Size
@@ -421,7 +422,7 @@ func TestUserKindUpdate(t *testing.T) {
 						usageLimitsConfig.Segment.Free, usageLimitsConfig.Project.Free
 				}
 
-				updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+				updatedUser, err := sat.DB.Console().Users().Get(ctx, user.ID)
 				require.NoError(t, err)
 				require.Equal(t, updatedUser.Kind, kind)
 				require.Equal(t, projectLimit, updatedUser.ProjectLimit)
@@ -441,9 +442,9 @@ func TestUserKindUpdate(t *testing.T) {
 
 			freezeUser := func() {
 				link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/trial-expiration-freeze", user.Email)
-				_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+				_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", sat.Config.Console.AuthToken)
 
-				_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+				_, err = sat.DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
 				require.NoError(t, err)
 			}
 
@@ -452,7 +453,7 @@ func TestUserKindUpdate(t *testing.T) {
 			// updating to console.PaidUser should remove the trial freeze event.
 			updateKind(console.PaidUser)
 
-			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+			_, err = sat.DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
 			require.ErrorIs(t, err, sql.ErrNoRows)
 
 			// reset to console.FreeUser.
@@ -464,20 +465,43 @@ func TestUserKindUpdate(t *testing.T) {
 			// updating to console.NFRUser should remove the trial freeze event.
 			updateKind(console.NFRUser)
 
-			_, err = planet.Satellites[0].DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
+			_, err = sat.DB.Console().AccountFreezeEvents().Get(ctx, user.ID, console.TrialExpirationFreeze)
 			require.ErrorIs(t, err, sql.ErrNoRows)
+
+			// set MemberUser kind.
+			memberUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "member User",
+				Email:    "member@example.com",
+				Password: "password",
+			}, 1)
+			require.NoError(t, err)
+			require.Equal(t, console.FreeUser, memberUser.Kind)
+
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", memberUser.Email, console.MemberUser)
+			_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", sat.Config.Console.AuthToken)
+
+			memberUser, err = sat.DB.Console().Users().Get(ctx, memberUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.MemberUser, memberUser.Kind)
+			require.Nil(t, memberUser.TrialExpiration)
 		})
 
 		t.Run("invalid value", func(t *testing.T) {
 			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/not-int", user.Email)
-			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", sat.Config.Console.AuthToken)
 			require.Contains(t, string(responseBody), "invalid user kind. int required")
 		})
 
 		t.Run("invalid kind", func(t *testing.T) {
 			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.UserKind(100))
-			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", planet.Satellites[0].Config.Console.AuthToken)
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusBadRequest, "", sat.Config.Console.AuthToken)
 			require.Contains(t, string(responseBody), "invalid user kind 100")
+		})
+
+		t.Run("failed to set Member kind for user with own projects", func(t *testing.T) {
+			link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/kind/%d", user.Email, console.MemberUser)
+			responseBody := assertReq(ctx, t, link, http.MethodPut, "", http.StatusForbidden, "", sat.Config.Console.AuthToken)
+			require.Contains(t, string(responseBody), "cannot change user kind to MemberUser when user has own projects")
 		})
 	})
 }
