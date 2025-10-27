@@ -5,12 +5,12 @@ go 1.24.7
 replace storj.io/storj => ../../
 
 require (
-	github.com/spacemonkeygo/monkit/v3 v3.0.24
+	github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20251022131615-eb24eb109368
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20251020105611-b5c3802e98a0
+	storj.io/common v0.0.0-20251022143549-19bf6a9f274a
 	storj.io/edge v1.103.1-0.20250804153022-178f571b318a
 	storj.io/storj v1.91.0-alpha.0.20240813103324-76441219aa95
 )

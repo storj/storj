@@ -1402,8 +1402,8 @@ github.com/sourcegraph/conc v0.3.0/go.mod h1:Sdozi7LEKbFPqYX2/J+iBAM6HpqSLTASQIK
 github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62 h1:X5+jSi+pL+sc2/Sp9mtrmRqDDnKkm9YVy1ik/jJDRD0=
 github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62/go.mod h1:7NL9UAYQnRM5iKHUCld3tf02fKb5Dft+41+VckASUy0=
 github.com/spacemonkeygo/monkit/v3 v3.0.4/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
-github.com/spacemonkeygo/monkit/v3 v3.0.24 h1:cKixJ+evHnfJhWNyIZjBy5hoW8LTWmrJXPo18tzLNrk=
-github.com/spacemonkeygo/monkit/v3 v3.0.24/go.mod h1:XkZYGzknZwkD0AKUnZaSXhRiVTLCkq7CWVa3IsE72gA=
+github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20251022131615-eb24eb109368 h1:GyYC5Ntqk/yy9lEIGE7chdIvt4zP44taycwd9YDSGdc=
+github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20251022131615-eb24eb109368/go.mod h1:XkZYGzknZwkD0AKUnZaSXhRiVTLCkq7CWVa3IsE72gA=
 github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a/go.mod h1:ul4bvvnCOPZgq8w0nTkSmWVg/hauVpFS97Am1YM1XXo=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 h1:RC6RW7j+1+HkWaX/Yh71Ee5ZHaHYt7ZP4sQgUrm6cDU=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572/go.mod h1:w0SWMsp6j9O/dk4/ZpIhL+3CkG8ofA2vuv7k+ltqUMc=
@@ -2407,8 +2407,8 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
-storj.io/common v0.0.0-20251020105611-b5c3802e98a0 h1:gPP3ws/6jp/JM19f9rHa4oxg2zrkEU0OiS1axVoGfTM=
-storj.io/common v0.0.0-20251020105611-b5c3802e98a0/go.mod h1:YNr7/ty6CmtpG5C9lEPtPXK3hOymZpueCb9QCNuPMUY=
+storj.io/common v0.0.0-20251022143549-19bf6a9f274a h1:g3stKez/XuRJ25RYRSUthdhG86DgFpBAvnOqHufHdDM=
+storj.io/common v0.0.0-20251022143549-19bf6a9f274a/go.mod h1:UgjRCGYYYQc2U5W9MiNZJYBa3pCM8t/TLVzlTfAjKBY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 h1:oqMwoF6vaOrCe92SKRyr8cc2WSjLYAd8fjpAHA7rNqY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 h1:8OE12DvUnB9lfZcHe7IDGsuhjrY9GBAr964PVHmhsro=
