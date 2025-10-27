@@ -1,12 +1,12 @@
-// Copyright (C) 2023 Storj Labs, Inc.
+// Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <v-dialog v-model="model" width="auto" transition="fade-transition">
         <v-card
             rounded="xlg"
-            title="Delete Account"
-            subtitle="Enter a reason for deleting this account"
+            title="Unfreeze Account"
+            subtitle="Enter a reason for unfreezing this account"
         >
             <template #append>
                 <v-btn
@@ -40,7 +40,7 @@
                             v-model="reason"
                             :rules="[RequiredRule]"
                             label="Reason"
-                            placeholder="Enter reason for deleting this account"
+                            placeholder="Enter reason for unfreezing this account"
                             variant="solo-filled"
                             hide-details="auto"
                             autofocus
@@ -48,11 +48,6 @@
                         />
                     </v-col>
                 </v-row>
-
-                <v-alert class="mt-6" title="Warning" variant="tonal" color="error" rounded="lg">
-                    This will delete the account, data, and account
-                    information.
-                </v-alert>
             </div>
 
             <v-card-actions class="pa-6">
@@ -62,13 +57,13 @@
                     </v-col>
                     <v-col>
                         <v-btn
-                            color="error" variant="flat"
+                            variant="flat"
                             :loading="isLoading"
                             :disabled="!reason"
                             block
-                            @click="deleteAccount"
+                            @click="unfreezeAccount"
                         >
-                            Delete Account
+                            Unfreeze Account
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -78,21 +73,18 @@
 </template>
 
 <script setup lang="ts">
-import { VAlert, VBtn, VCard, VCardActions, VCol, VDialog, VRow, VTextarea, VTextField } from 'vuetify/components';
+import { VBtn, VCard, VCardActions, VCol, VDialog, VRow, VTextarea, VTextField } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
-import { useRouter } from 'vue-router';
 import { ref, watch } from 'vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { UserAccount } from '@/api/client.gen';
 import { useUsersStore } from '@/store/users';
 import { useNotify } from '@/composables/useNotify';
-import { ROUTES } from '@/router';
 import { RequiredRule } from '@/types/common';
 
 const notify = useNotify();
 const usersStore = useUsersStore();
-const router = useRouter();
 const { isLoading, withLoading } = useLoading();
 
 const model = defineModel<boolean>({ required: true });
@@ -103,17 +95,15 @@ const props = defineProps<{
 
 const reason = ref('');
 
-function deleteAccount() {
+function unfreezeAccount() {
     withLoading(async () => {
         try {
-            await usersStore.deleteUser(props.account.id, reason.value);
-            notify.success('Account deleted successfully');
-
+            await usersStore.unfreezeUser(props.account.id, reason.value);
+            await usersStore.updateCurrentUser(props.account.id);
+            notify.success('Account unfrozen successfully.');
             model.value = false;
-            await new Promise((resolve) => setTimeout(resolve, 300)); // wait for dialog to close
-            router.push({ name: ROUTES.Accounts.name });
         } catch (e) {
-            notify.error(`Failed to delete account. ${e.message}`);
+            notify.error(`Failed to unfreeze account. ${e.message}`);
         }
     });
 }

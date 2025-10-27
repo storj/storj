@@ -24,38 +24,52 @@
                 <v-row>
                     <v-col cols="12" class="pb-0">
                         <v-chip-group
-                            v-model="expiration" filter column
+                            v-model="expirationDate" filter column
                             mandatory
                         >
                             <v-chip
-                                v-for="dur in [Duration.DAY_30, Duration.DAY_60, Duration.DAY_180, Duration.YEAR_1]"
-                                :key="dur.days"
-                                :value="dur" variant="outlined"
+                                v-for="date in dates"
+                                :key="date.txt"
+                                :value="date.date"
+                                variant="outlined"
                                 @click="toggleCustomExpiration()"
                             >
-                                <span class="text-capitalize">{{ dur.shortString }}</span>
+                                <span class="text-capitalize">{{ date.txt }}</span>
                             </v-chip>
 
                             <v-divider class="my-2" />
 
-                            <v-chip-group v-model="hasCustomDate" filter>
-                                <v-chip :value="true" @click="toggleCustomExpiration(!hasCustomDate)">
-                                    Set Custom Expiration Date
-                                </v-chip>
-                            </v-chip-group>
-
-                            <v-date-picker
-                                v-if="hasCustomDate"
-                                v-model="customDate"
-                                :min="new Date()"
-                                header="Choose Dates"
-                                show-adjacent-months
-                                border
-                                elevation="0"
-                                rounded="lg"
-                                class="w-100 mb-2"
-                            />
+                            <div style="position: relative;">
+                                <v-date-input
+                                    ref="dateInput"
+                                    v-model="customDate"
+                                    style="position: absolute; z-index: -1;"
+                                    class="invisible"
+                                    label="Set Custom Expiration Date"
+                                    prepend-icon=""
+                                    variant="solo"
+                                />
+                                <v-chip-group :model-value="!!customDate" filter>
+                                    <v-chip :value="true" @click="toggleCustomExpiration(!customDate)">
+                                        <span v-if="customDate">{{ useDate().format(customDate, 'fullDate') }}</span>
+                                        <span v-else>Set Custom Expiration Date</span>
+                                    </v-chip>
+                                </v-chip-group>
+                            </div>
                         </v-chip-group>
+                    </v-col>
+
+                    <v-col cols="12">
+                        <v-textarea
+                            v-model="reason"
+                            :rules="[RequiredRule]"
+                            placeholder="Enter reason for deleting this account"
+                            label="Reason"
+                            variant="solo-filled"
+                            hide-details="auto"
+                            autofocus
+                            flat
+                        />
                     </v-col>
                 </v-row>
 
@@ -92,7 +106,9 @@
                     <v-col v-if="!apiKey">
                         <v-btn
                             color="primary" variant="flat"
-                            block :loading="isLoading"
+                            :loading="isLoading"
+                            :disabled="!reason || !expirationDate"
+                            block
                             @click="createRestKey"
                         >
                             Create
@@ -106,27 +122,29 @@
 
 <script setup lang="ts">
 import {
+    VAlert,
     VBtn,
     VCard,
     VCardActions,
     VChip,
     VChipGroup,
     VCol,
-    VDatePicker,
     VDialog,
     VDivider,
     VRow,
+    VTextarea,
     VTextField,
-    VAlert,
 } from 'vuetify/components';
-import {  X } from 'lucide-vue-next';
-import { ref, watch } from 'vue';
+import { VDateInput } from 'vuetify/labs/VDateInput';
+import { X } from 'lucide-vue-next';
+import { computed, ref, watch } from 'vue';
+import { useDate } from 'vuetify';
 
 import { UserAccount } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/users';
-import { Duration } from '@/utils/time';
+import { RequiredRule } from '@/types/common';
 
 import TextOutputArea from '@/components/TextOutputArea.vue';
 
@@ -141,29 +159,53 @@ const props = defineProps<{
     account: UserAccount;
 }>();
 
-const expiration = ref<Duration>(Duration.DAY_30);
-const hasCustomDate = ref(false);
-const customDate = ref<Date>();
+const expirationDate = ref<Date | null>(null);
+const customDate = ref<Date | null>(null);
 const apiKey = ref('');
+const reason = ref('');
+
+const dateInput = ref<InstanceType<typeof VDateInput> | null>(null);
+
+const dates = computed<{ date: Date, txt: string }[]>(() => {
+    const today = new Date();
+    return [
+        {
+            date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30),
+            txt: '30 days',
+        },
+        {
+            date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 60),
+            txt: '60 days',
+        },
+        {
+            date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 180),
+            txt: '180 days',
+        },
+        {
+            date: new Date(today.getFullYear() + 1, today.getMonth(), today.getDate()),
+            txt: '1 year',
+        },
+    ];
+});
 
 function toggleCustomExpiration(hasCustom: boolean = false): void {
-    hasCustomDate.value = hasCustom;
     if (!hasCustom) {
-        expiration.value = Duration.DAY_30;
+        expirationDate.value = dates.value[0].date;
+        customDate.value = null;
         return;
     }
     const today = new Date();
     // set to next day
     today.setDate(today.getDate() + 1);
     customDate.value = today;
+    dateInput.value?.click();
 }
 
 function createRestKey() {
     withLoading(async () => {
+        if (!expirationDate.value || !reason.value) return;
         try {
-            const expirationDate = new Date();
-            expirationDate.setTime(expirationDate.getTime() + expiration.value.milliseconds);
-            apiKey.value = await usersStore.createRestKey(props.account.id, expirationDate);
+            apiKey.value = await usersStore.createRestKey(props.account.id, expirationDate.value, reason.value);
 
             notify.success('REST API key created successfully');
         } catch (e) {
@@ -174,15 +216,14 @@ function createRestKey() {
 
 watch(customDate, (newDate) => {
     if (!newDate) return;
-    const dur = newDate.getTime() - new Date().getTime();
-    expiration.value = new Duration(dur);
+    expirationDate.value = newDate;
 });
 
 watch(model, value => {
     if (value) return;
-    hasCustomDate.value = false;
-    expiration.value = Duration.DAY_30;
-    customDate.value = undefined;
+    expirationDate.value = dates.value[0].date;
+    customDate.value = null;
+    reason.value = '';
 
     // clear api key after dialog close animation
     setTimeout(() => apiKey.value = '', 300);

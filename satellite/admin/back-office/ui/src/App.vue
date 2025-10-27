@@ -2,38 +2,26 @@
 // See LICENSE for copying information.
 
 <template>
-    <div
-        v-if="!appStore.state.settings"
-        class="d-flex justify-center align-center align-items-center"
-        style="height: calc(100vh - 150px);"
-    >
-        <v-skeleton-loader
-            class="mx-auto"
-            width="300"
-            height="200"
-            type="card"
-        />
-    </div>
-    <template v-else>
+    <template v-if="appStore.state.settings">
         <router-view />
         <notifications />
     </template>
+
+    <FullScreenLoader :model-value="!appStore.state.settings" />
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, watch } from 'vue';
-import { VSkeletonLoader } from 'vuetify/components';
 
 import { useAppStore } from '@/store/app';
 import { useNotify } from '@/composables/useNotify';
-import { useUsersStore } from '@/store/users';
 import { DARK_THEME_QUERY, useThemeStore } from '@/store/theme';
 
 import Notifications from '@/layouts/default/Notifications.vue';
+import FullScreenLoader from '@/components/FullScreenLoader.vue';
 
 const appStore = useAppStore();
 const themeStore = useThemeStore();
-const usersStore = useUsersStore();
 const notify = useNotify();
 
 const darkThemeMediaQuery = window.matchMedia(DARK_THEME_QUERY);
@@ -53,7 +41,7 @@ watch(() => themeStore.state.name, (theme) => {
 onMounted(async () => {
     try {
         await Promise.all([
-            usersStore.getAccountFreezeTypes(),appStore.getSettings(),
+            appStore.getSettings(),
             appStore.getPlacements(),
         ]);
     } catch (error) {

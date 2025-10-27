@@ -47,6 +47,11 @@ export class BucketFlags {
 
 export class CreateRestKeyRequest {
     expiration: Time;
+    reason: string;
+}
+
+export class DisableUserRequest {
+    reason: string;
 }
 
 export class FeatureFlags {
@@ -62,10 +67,6 @@ export class FeatureFlags {
 export class FreezeEventType {
     name: string;
     value: number;
-}
-
-export class FreezeUserRequest {
-    type: number;
 }
 
 export class KindInfo {
@@ -108,6 +109,7 @@ export class Project {
     storageUsed: number | null;
     segmentLimit: number | null;
     segmentUsed: number | null;
+    status: ProjectStatusInfo | null;
 }
 
 export class ProjectFlags {
@@ -144,6 +146,17 @@ export class ProjectLimitsUpdateRequest {
     burstLimitDelete: number | null;
     rateLimitList: number | null;
     burstLimitList: number | null;
+    reason: string;
+}
+
+export class ProjectStatusInfo {
+    name: string;
+    value: number;
+}
+
+export class SearchResult {
+    project: Project | null;
+    accounts: AccountMin[] | null;
 }
 
 export class Settings {
@@ -154,17 +167,37 @@ export class SettingsAdmin {
     features: FeatureFlags;
 }
 
+export class ToggleFreezeUserRequest {
+    action: string;
+    type: number;
+    reason: string;
+}
+
+export class ToggleMfaRequest {
+    reason: string;
+}
+
+export class UpdateProjectRequest {
+    name: string | null;
+    description: string | null;
+    userAgent: string | null;
+    status: number | null;
+    defaultPlacement: number | null;
+    reason: string;
+}
+
 export class UpdateUserRequest {
     email: string | null;
     name: string | null;
     kind: number | null;
     status: number | null;
-    trialExpiration: Time | null;
+    trialExpiration: string | null;
     userAgent: string | null;
     projectLimit: number | null;
     storageLimit: number | null;
     bandwidthLimit: number | null;
     segmentLimit: number | null;
+    reason: string;
 }
 
 export class User {
@@ -328,9 +361,9 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async deleteUser(userID: UUID): Promise<void> {
+    public async disableUser(request: DisableUserRequest, userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}`;
-        const response = await this.http.delete(fullPath);
+        const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }
@@ -338,9 +371,9 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async freezeUser(request: FreezeUserRequest, userID: UUID): Promise<void> {
+    public async toggleFreezeUser(request: ToggleFreezeUserRequest, userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
-        const response = await this.http.post(fullPath, JSON.stringify(request));
+        const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }
@@ -348,19 +381,9 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async unfreezeUser(userID: UUID): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
-        const response = await this.http.delete(fullPath);
-        if (response.ok) {
-            return;
-        }
-        const err = await response.json();
-        throw new APIError(err.error, response.status);
-    }
-
-    public async disableMFA(userID: UUID): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/mfa/${userID}`;
-        const response = await this.http.delete(fullPath);
+    public async toggleMFA(request: ToggleMfaRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/mfa`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }
@@ -383,6 +406,16 @@ export class ProjectManagementHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/back-office/api/v1/projects';
 
+    public async getProjectStatuses(): Promise<ProjectStatusInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/statuses`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as ProjectStatusInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async getProject(publicID: UUID): Promise<Project> {
         const fullPath = `${this.ROOT_PATH}/${publicID}`;
         const response = await this.http.get(fullPath);
@@ -393,11 +426,38 @@ export class ProjectManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async updateProjectLimits(request: ProjectLimitsUpdateRequest, publicID: UUID): Promise<Project> {
-        const fullPath = `${this.ROOT_PATH}/${publicID}/limits`;
-        const response = await this.http.put(fullPath, JSON.stringify(request));
+    public async updateProject(request: UpdateProjectRequest, publicID: UUID): Promise<Project> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateProjectLimits(request: ProjectLimitsUpdateRequest, publicID: UUID): Promise<Project> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}/limits`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class SearchHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/back-office/api/v1/search';
+
+    public async searchUsersOrProjects(term: string): Promise<SearchResult> {
+        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        u.searchParams.set('term', term);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as SearchResult);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

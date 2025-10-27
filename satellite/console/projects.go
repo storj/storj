@@ -41,6 +41,8 @@ type Projects interface {
 	GetEncryptedPassphrase(ctx context.Context, id uuid.UUID) ([]byte, *int, error)
 	// GetByPublicID is a method for querying project from the database by public_id.
 	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*Project, error)
+	// GetByPublicOrPrivateID is a method for querying project from the database by either publicID or id.
+	GetByPublicOrPrivateID(ctx context.Context, id uuid.UUID) (*Project, error)
 	// GetPublicID returns the public project ID for a given project ID.
 	GetPublicID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	// Insert is a method for inserting project into the database.
@@ -191,6 +193,9 @@ const (
 	ProjectPendingDeletion ProjectStatus = 2
 )
 
+// ProjectStatuses are all valid project statuses.
+var ProjectStatuses = []ProjectStatus{ProjectDisabled, ProjectActive, ProjectPendingDeletion}
+
 // String returns the string name.
 func (status *ProjectStatus) String() string {
 	if status == nil {
@@ -198,9 +203,11 @@ func (status *ProjectStatus) String() string {
 	}
 	switch *status {
 	case ProjectDisabled:
-		return "deleting/disabled"
+		return "Disabled"
 	case ProjectActive:
-		return "active"
+		return "Active"
+	case ProjectPendingDeletion:
+		return "Pending Deletion"
 	default:
 		return fmt.Sprintf("unknown ProjectStatus(%d)", *status)
 	}

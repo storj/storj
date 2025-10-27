@@ -58,14 +58,14 @@
                                     <v-icon :icon="User" />
                                 </template>
                                 <template #default>
-                                    <span class="text-truncate" style="max-width: 120px;">{{ item.email }}</span>
+                                    <span class="text-truncate" style="max-width: 150px;">{{ item.email }}</span>
                                 </template>
                             </v-btn>
                         </template>
 
-                        <template #item.name="{ item }">
-                            <v-chip variant="tonal" color="default" size="small">
-                                {{ item.fullName }}
+                        <template #item.fullName="{ item }">
+                            <v-chip v-if="item.fullName" variant="tonal" color="default" size="small">
+                                <span v-tooltip="item.fullName" class="text-truncate" style="max-width: 150px;">{{ item.fullName }}</span>
                             </v-chip>
                         </template>
 
@@ -113,6 +113,7 @@ import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { userIsNFR, userIsPaid } from '@/types/user';
 import { useLoading } from '@/composables/useLoading';
+import { useProjectsStore } from '@/store/projects';
 
 import NewAccountDialog from '@/components/NewAccountDialog.vue';
 
@@ -180,6 +181,7 @@ function goToUser(user: AccountMin):void {
 
 onMounted(() => {
     usersStore.clearCurrentUser();
+    useProjectsStore().clearCurrentProject();
 });
 </script>
 <style scoped lang="scss">

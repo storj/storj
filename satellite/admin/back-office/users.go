@@ -66,17 +66,49 @@ type UpdateUserRequest struct {
 	Name            *string             `json:"name"`
 	Kind            *console.UserKind   `json:"kind"`
 	Status          *console.UserStatus `json:"status"`
-	TrialExpiration *time.Time          `json:"trialExpiration"`
+	TrialExpiration *string             `json:"trialExpiration"` // in RFC3339 format, empty string to clear
 	UserAgent       *string             `json:"userAgent"`
 	ProjectLimit    *int                `json:"projectLimit"`
 	StorageLimit    *int64              `json:"storageLimit"`
 	BandwidthLimit  *int64              `json:"bandwidthLimit"`
 	SegmentLimit    *int64              `json:"segmentLimit"`
+
+	Reason string `json:"reason"` // reason for audit log
+}
+
+func (r *UpdateUserRequest) parseTrialExpiration() (**time.Time, error) {
+	if r.TrialExpiration == nil {
+		return nil, nil
+	}
+	t := new(*time.Time)
+	if *r.TrialExpiration == "" {
+		*t = nil
+		return t, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, *r.TrialExpiration)
+	if err != nil {
+		return nil, err
+	}
+	*t = &parsed
+
+	return t, nil
+}
+
+// DisableUserRequest represents a request to disable a user.
+type DisableUserRequest struct {
+	Reason string `json:"reason"` // reason for audit log
 }
 
 // CreateRestKeyRequest represents a request to create rest key.
 type CreateRestKeyRequest struct {
 	Expiration time.Time `json:"expiration"`
+
+	Reason string `json:"reason"` // reason for audit log
+}
+
+// ToggleMfaRequest represents a request to (enable or) disable MFA for a user.
+type ToggleMfaRequest struct {
+	Reason string `json:"reason"` // reason for audit log
 }
 
 // UserProject is project owned by a user with  basic information, usage, and limits.
@@ -353,22 +385,22 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 	}
 
 	var upgradeTime *time.Time
-	trialExpiration := new(*time.Time)
-	*trialExpiration = request.TrialExpiration
+	trialExpiration, _ := request.parseTrialExpiration()
 	if request.Kind != nil && *request.Kind != user.Kind {
 		now := s.nowFn()
 		if *request.Kind == console.PaidUser {
 			upgradeTime = &now
-			*trialExpiration = nil
 		}
 		if *request.Kind == console.FreeUser {
 			if request.TrialExpiration == nil {
 				if s.consoleConfig.FreeTrialDuration != 0 {
 					expiration := now.Add(s.consoleConfig.FreeTrialDuration)
+					trialExpiration = new(*time.Time)
 					*trialExpiration = &expiration
 				}
 			}
 		} else {
+			trialExpiration = new(*time.Time)
 			ptrInt := func(i int64) *int64 { return &i }
 			limits := map[string]map[console.UserKind]any{
 				"project": {
@@ -484,7 +516,7 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		AdminEmail: authInfo.Email,
 		ItemType:   auditlogger.ItemTypeUser,
 		ItemID:     userID,
-		Reason:     "",
+		Reason:     request.Reason,
 		Before:     beforeState,
 		After:      updatedUser,
 		Timestamp:  s.nowFn(),
@@ -519,6 +551,10 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 
 	valid := false
 	var errGroup errs.Group
+
+	if request.Reason == "" {
+		errGroup = append(errGroup, errs.New("reason is required"))
+	}
 	if request.Status != nil {
 		if !hasPerm(PermAccountChangeStatus) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to change user status"))
@@ -548,17 +584,23 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 			errGroup = append(errGroup, errs.New("invalid user kind %d", *request.Kind))
 		}
 	}
-	if request.TrialExpiration != nil {
+
+	trialExpiration, err := request.parseTrialExpiration()
+	if err != nil {
+		errGroup = append(errGroup, errs.New("invalid trial expiration format, must be RFC3339"))
+	} else if trialExpiration != nil {
 		if !hasPerm(PermAccountChangeKind) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to change trial expiration"))
 		}
-		if request.TrialExpiration.Before(s.nowFn()) {
-			errGroup = append(errGroup, errs.New("trial expiration must be in the future"))
-		}
-		if request.Kind != nil && *request.Kind != console.FreeUser {
-			errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
-		} else if request.Kind == nil && user.Kind != console.FreeUser {
-			errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
+		if *trialExpiration != nil {
+			if (*trialExpiration).Before(s.nowFn()) {
+				errGroup = append(errGroup, errs.New("trial expiration must be in the future"))
+			}
+			if request.Kind != nil && *request.Kind != console.FreeUser {
+				errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
+			} else if request.Kind == nil && user.Kind != console.FreeUser {
+				errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
+			}
 		}
 	}
 
@@ -649,10 +691,24 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 	}, api.HTTPError{}
 }
 
-// DeleteUser deactivates a user if they have no active projects or unpaid invoices.
-func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) api.HTTPError {
+// DisableUser deactivates a user if they have no active projects or unpaid invoices.
+func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if authInfo == nil {
+		return api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.New("not authorized"),
+		}
+	}
+
+	if request.Reason == "" {
+		return api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("reason is required"),
+		}
+	}
 
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
@@ -718,6 +774,22 @@ func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) api.HTTPErro
 		s.log.Error("Failed to remove credit cards for deleted user", zap.Stringer("userId", user.ID), zap.Error(err))
 	}
 
+	afterState, err := s.consoleDB.Users().Get(ctx, user.ID)
+	if err != nil {
+		s.log.Error("Failed to retrieve user after disabling", zap.Stringer("userId", user.ID), zap.Error(err))
+	} else {
+		s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+			Action:     "disable_user",
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeUser,
+			ItemID:     user.ID,
+			Reason:     request.Reason,
+			Before:     user,
+			After:      afterState,
+			Timestamp:  s.nowFn(),
+		})
+	}
+
 	return api.HTTPError{}
 }
 
@@ -739,10 +811,17 @@ func (s *Service) hasUnpaidInvoices(ctx context.Context, userID uuid.UUID) (_ bo
 	return s.payments.Invoices().CheckPendingItems(ctx, userID)
 }
 
-// DisableMFA disables MFA for a user.
-func (s *Service) DisableMFA(ctx context.Context, userID uuid.UUID) api.HTTPError {
+// ToggleMFA toggles MFA for a user. Only disabling is supported by admin.
+func (s *Service) ToggleMFA(ctx context.Context, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if request.Reason == "" {
+		return api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("reason is required"),
+		}
+	}
 
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
@@ -781,6 +860,26 @@ func (s *Service) CreateRestKey(ctx context.Context, userID uuid.UUID, request C
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	var validationErrs errs.Group
+	if request.Reason == "" {
+		validationErrs = append(validationErrs, errs.New("reason is required"))
+	}
+
+	if request.Expiration.IsZero() {
+		validationErrs = append(validationErrs, errs.New("expiration is required"))
+	}
+
+	expiration := time.Until(request.Expiration)
+	if expiration < 0 {
+		validationErrs = append(validationErrs, errs.New("expiration must be in the future"))
+	}
+	if validationErrs != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.Wrap(validationErrs.Err()),
+		}
+	}
+
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -791,21 +890,6 @@ func (s *Service) CreateRestKey(ctx context.Context, userID uuid.UUID, request C
 		return nil, api.HTTPError{
 			Status: status,
 			Err:    Error.Wrap(err),
-		}
-	}
-
-	if request.Expiration.IsZero() {
-		return nil, api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.New("expiration is required"),
-		}
-	}
-
-	expiration := time.Until(request.Expiration)
-	if expiration < 0 {
-		return nil, api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.New("expiration must be in the future"),
 		}
 	}
 

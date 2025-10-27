@@ -2,10 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="!project || !userAccount" class="d-flex justify-center align-center" style="height: calc(100vh - 150px);">
-        <v-skeleton-loader width="300" height="200" type="article" />
-    </div>
-    <v-container v-else>
+    <v-container v-if="project && userAccount">
         <div class="d-flex ga-2 flex-wrap justify-space-between align-center mb-5">
             <div>
                 <PageTitleComponent title="Project Details" />
@@ -44,6 +41,7 @@
                 <ProjectActionsMenu
                     :project-id="project.id" :owner="project.owner"
                     @update-limits="onUpdateLimitsClicked"
+                    @update="updateDialog = true"
                 />
             </v-btn>
         </div>
@@ -68,11 +66,13 @@
                             :icon="FilePen"
                             variant="outlined" size="small"
                             density="comfortable" color="default"
+                            @click="updateDialog = true"
                         />
-                        <!--                            <ProjectInformationDialog />
-                        </v-btn>-->
                     </template>
                     <v-card-text>
+                        <v-chip :color="statusColor" variant="tonal" class="mr-2 font-weight-bold">
+                            {{ project?.status?.name }}
+                        </v-chip>
                         <v-chip
                             :color="userIsPaid(userAccount) ? 'success' : userIsNFR(userAccount) ? 'warning' : 'info'"
                             variant="tonal" class="font-weight-bold"
@@ -90,9 +90,8 @@
                             :icon="FilePen"
                             variant="outlined" size="small"
                             density="comfortable" color="default"
+                            @click="updateDialog = true"
                         />
-                    <!--                            <ProjectUserAgentsDialog />
-                    </v-btn>-->
                     </template>
                     <v-card-text>
                         <v-chip color="default" :variant="project.userAgent ? 'tonal' : 'text'" class="mr-2">{{ project.userAgent || 'None' }}</v-chip>
@@ -107,9 +106,8 @@
                             :icon="FilePen"
                             variant="outlined" size="small"
                             density="comfortable" color="default"
+                            @click="updateDialog = true"
                         />
-                    <!--                            <ProjectGeofenceDialog />
-                    </v-btn>-->
                     </template>
                     <v-card-text>
                         <v-chip variant="tonal" class="mr-2">
@@ -125,7 +123,7 @@
                 <!-- TODO: get bucket count -->
                 <UsageProgressComponent
                     title="Buckets" :only-limit="true"
-                    :limit="project.maxBuckets || 0"
+                    :limit="project.maxBuckets"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -135,7 +133,7 @@
                     title="Storage" :is-bytes="true"
                     :used="project.storageUsed ?? 0"
                     :limit="project.storageLimit ?? 0"
-                    :user-specified="project.userSetStorageLimit ?? 0"
+                    :user-specified="project.userSetStorageLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -145,7 +143,7 @@
                     title="Download" :is-bytes="true"
                     :used="project.bandwidthUsed"
                     :limit="project.bandwidthLimit ?? 0"
-                    :user-specified="project.userSetBandwidthLimit ?? 0"
+                    :user-specified="project.userSetBandwidthLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -153,8 +151,8 @@
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
                     title="Segments"
-                    :used="project.segmentUsed || 0"
-                    :limit="project.segmentLimit || 0"
+                    :used="project.segmentUsed ?? 0"
+                    :limit="project.segmentLimit ?? 0"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -162,7 +160,7 @@
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
                     title="Rate" :only-limit="true"
-                    :limit="project.rateLimit || 0"
+                    :limit="project.rateLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -170,7 +168,7 @@
             <v-col cols="12" sm="6" lg="4">
                 <UsageProgressComponent
                     title="Burst" :only-limit="true"
-                    :limit="project.burstLimit || 0"
+                    :limit="project.burstLimit"
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -245,27 +243,21 @@
         v-model="updateLimitsDialog"
         :project="project"
     />
+    <ProjectUpdateDialog
+        v-if="project && hasUpdateProjectPerm"
+        v-model="updateDialog"
+        :project="project"
+    />
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import {
-    VAlert,
-    VBtn,
-    VCard,
-    VCardText,
-    VChip,
-    VCol,
-    VContainer,
-    VIcon,
-    VRow,
-    VSkeletonLoader,
-} from 'vuetify/components';
+import { computed, onUnmounted, ref, watch } from 'vue';
+import { VAlert, VBtn, VCard, VCardText, VChip, VCol, VContainer, VIcon, VRow } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 import { Box, ChevronDown, ChevronLeft, ChevronRight, FilePen } from 'lucide-vue-next';
 import { useDisplay } from 'vuetify';
 
-import { FeatureFlags, UserAccount } from '@/api/client.gen';
+import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
@@ -280,6 +272,7 @@ import LogsTableComponent from '@/components/LogsTableComponent.vue';
 import UsersTableComponent from '@/components/UsersTableComponent.vue';
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
+import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
@@ -290,14 +283,36 @@ const router = useRouter();
 const notify = useNotificationsStore();
 
 const updateLimitsDialog = ref<boolean>(false);
+const updateDialog = ref<boolean>(false);
 
-const featureFlags = appStore.state.settings.admin.features as FeatureFlags;
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+
+const hasUpdateProjectPerm = computed(() => {
+    return featureFlags.value.project.updateInfo ||
+      featureFlags.value.project.updatePlacement ||
+      featureFlags.value.project.updateValueAttribution;
+});
 
 const userAccount = computed<UserAccount>(() => usersStore.state.currentAccount as UserAccount);
-const project = computed(() => projectsStore.state.currentProject);
+const project = computed<Project | null>(() => projectsStore.state.currentProject);
 
 const placementText = computed<string>(() => {
     return appStore.getPlacementText(project.value?.defaultPlacement || 0);
+});
+
+const statusColor = computed(() => {
+    if (!project.value || !project.value.status) {
+        return 'default';
+    }
+    const status = project.value.status.name.toLowerCase();
+    if (status.includes('disabled')) {
+        return 'error';
+    }
+    if (status.includes('active')) {
+        return 'success';
+    }
+
+    return 'warning';
 });
 
 /**
@@ -325,18 +340,24 @@ function copyProjectID() {
     });
 }
 
-onMounted(async () => {
-    const projectID = router.currentRoute.value.params.projectID as string;
-    const userID = router.currentRoute.value.params.userID as string;
-
-    try {
-        await Promise.all([
-            projectsStore.updateCurrentProject(projectID),
-            usersStore.updateCurrentUser(userID),
-        ]);
-    } catch (error) {
-        notify.notifyError('Failed to load project details. ' + error.message);
-        router.push({ name: ROUTES.Accounts.name });
+watch(() => router.currentRoute.value.params.projectID as string, (projectID) => {
+    if (!projectID) {
+        return;
     }
-});
+    const userID = router.currentRoute.value.params.userID as string;
+    const promises: Promise<void>[] = [];
+    if (!userAccount.value || userAccount.value.id !== userID) promises.push(usersStore.updateCurrentUser(userID));
+    if (!project.value || project.value.id !== projectID) promises.push(projectsStore.updateCurrentProject(projectID));
+
+    appStore.load(async () => {
+        try {
+            await Promise.all(promises);
+        } catch (error) {
+            notify.notifyError('Failed to load project details. ' + error.message);
+            router.push({ name: ROUTES.Accounts.name });
+        }
+    });
+}, { immediate: true });
+
+onUnmounted(() => projectsStore.clearCurrentProject());
 </script>

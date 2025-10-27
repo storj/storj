@@ -80,6 +80,7 @@ export enum AnalyticsErrorEventSource {
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
     CONFIRM_DELETE_DOMAIN_MODAL = 'Confirm delete domain modal',
     CONFIRM_DELETE_COMPUTE_SSH_KEY_MODAL = 'Confirm delete compute ssh key modal',
+    CONFIRM_DELETE_COMPUTE_INSTANCE_MODAL = 'Confirm delete compute instance modal',
     FILE_BROWSER_LIST_CALL = 'File browser - list API call',
     FILE_BROWSER_ENTRY = 'File browser entry',
     FILE_BROWSER = 'File browser',
@@ -134,6 +135,9 @@ export enum AnalyticsErrorEventSource {
     ANNOUNCEMENT_BANNER = 'Announcement Banner',
     ADD_COMPUTE_SSH_KEY_MODAL = 'Add Compute SSH Key Modal',
     COMPUTE_SSH_KEYS_TABLE = 'Compute SSH Keys Table',
+    CREATE_COMPUTE_INSTANCE_DIALOG = 'Create Compute Instance Dialog',
+    COMPUTE_INSTANCES_TABLE = 'Compute Instances Table',
+    COMPUTE_INSTANCE_DETAILS_MODAL = 'Compute Instance Details Modal',
 }
 
 export enum PageVisitSource {

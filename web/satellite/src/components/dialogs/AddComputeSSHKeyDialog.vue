@@ -7,6 +7,7 @@
         max-width="400px"
         min-width="400px"
         transition="fade-transition"
+        :persistent="isLoading"
     >
         <v-card rounded="xlg">
             <v-sheet>
@@ -48,7 +49,7 @@
                     v-model="publicKey"
                     label="Public SSH Key"
                     :rules="[RequiredRule, PublicSSHKeyRule]"
-                    hint="Paste your public SSH key (usually starts with 'ssh-rsa' or 'ssh-ed25519')"
+                    hint="Paste your public SSH key (usually starts with 'ssh-rsa', 'ssh-dss' or 'ssh-ed25519')"
                     persistent-hint
                     variant="outlined"
                     auto-grow
@@ -65,6 +66,7 @@
                     persistent-hint
                     variant="outlined"
                     class="mb-4"
+                    :maxlength="100"
                     @update:model-value="val => name = val.trim()"
                 />
             </v-form>
@@ -142,6 +144,7 @@ function submit(): void {
                 publicKey: publicKey.value,
             });
 
+            notify.success('SSH Key added successfully');
             model.value = false;
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ADD_COMPUTE_SSH_KEY_MODAL);

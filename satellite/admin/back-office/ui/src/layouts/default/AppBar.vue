@@ -20,6 +20,14 @@
         </v-app-bar-title>
 
         <template #append>
+            <v-btn
+                class="mr-2"
+                variant="outlined"
+                color="default"
+                rounded="lg"
+                :icon="Search"
+                @click="globalSearch = true"
+            />
             <v-menu offset-y width="200" class="rounded-xl">
                 <template #activator="{ props: activatorProps }">
                     <v-btn
@@ -210,6 +218,9 @@
             </v-list>
         </v-sheet>
     </v-navigation-drawer>
+
+    <FullScreenLoader :model-value="appStore.state.loading" />
+    <GlobalSearchDialog v-model="globalSearch" />
 </template>
 
 <script setup lang="ts">
@@ -231,12 +242,15 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { Monitor, MoonStar, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
+import { Monitor, MoonStar, Search, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useThemeStore } from '@/store/theme';
 import { ROUTES } from '@/router';
+
+import FullScreenLoader from '@/components/FullScreenLoader.vue';
+import GlobalSearchDialog from '@/components/GlobalSearchDialog.vue';
 
 const appStore = useAppStore();
 const themeStore = useThemeStore();
@@ -244,6 +258,7 @@ const { mdAndUp, smAndDown } = useDisplay();
 
 const drawer = ref<boolean>(true);
 const rail = ref<boolean>(true);
+const globalSearch = ref<boolean>(false);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {

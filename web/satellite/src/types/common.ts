@@ -130,6 +130,10 @@ export function PublicSSHKeyRule(value: string): string | boolean {
     return Validator.publicSSHKey(value) || 'SSH public key must be valid.';
 }
 
+export function HostnameRule(value: string): string | boolean {
+    return Validator.hostname(value) || 'Hostname must be valid.';
+}
+
 export interface IDialogFlowStep {
     onEnter?: () => void;
     onExit?: (to: 'next' | 'prev') => void;

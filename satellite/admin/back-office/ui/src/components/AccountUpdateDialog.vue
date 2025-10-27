@@ -2,63 +2,19 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" width="600" transition="fade-transition">
-        <v-card rounded="xlg">
-            <template #title>
-                Update Account
-            </template>
-            <template v-if="account.freezeStatus" #subtitle>
-                This account is frozen, so updates to status and kind are disabled.
-            </template>
-            <template #append>
-                <v-btn
-                    icon="$close" :disabled="isLoading"
-                    variant="text" size="small" color="default" @click="model = false"
-                />
-            </template>
-
-            <v-form v-model="valid" :disabled="isLoading" @submit.prevent="update">
-                <div class="pa-6">
-                    <DynamicFormBuilder
-                        ref="formBuilder"
-                        :config="formConfig"
-                        :initial-data="initialFormData"
-                    />
-                </div>
-
-                <v-card-actions class="pa-6">
-                    <v-row>
-                        <v-col>
-                            <v-btn
-                                variant="outlined" color="default"
-                                :disabled="isLoading"
-                                block @click="model = false"
-                            >
-                                Cancel
-                            </v-btn>
-                        </v-col>
-                        <v-col>
-                            <v-btn
-                                color="primary"
-                                variant="flat"
-                                type="submit"
-                                block
-                                :disabled="!valid || !hasFormChanged"
-                                :loading="isLoading"
-                                @click="update"
-                            >
-                                Update
-                            </v-btn>
-                        </v-col>
-                    </v-row>
-                </v-card-actions>
-            </v-form>
-        </v-card>
-    </v-dialog>
+    <RequireReasonFormDialog
+        v-model="model"
+        :loading="isLoading"
+        :initial-form-data="initialFormData"
+        :form-config="formConfig"
+        title="Update Account"
+        :subtitle="account.freezeStatus ? 'This account is frozen, so updates to status and kind are disabled.' : ''"
+        width="600"
+        @submit="update"
+    />
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCard, VCardActions, VCol, VDialog, VForm, VRow } from 'vuetify/components';
 import { computed, ref, watch } from 'vue';
 import { useDate } from 'vuetify/framework';
 
@@ -69,9 +25,9 @@ import { EmailRule, RequiredRule } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/app';
 import { UserKind } from '@/types/user';
-import { FieldType, FormBuilderExpose, FormConfig, FormField } from '@/types/forms';
+import { FieldType, FormConfig, FormField } from '@/types/forms';
 
-import DynamicFormBuilder from '@/components/form-builder/DynamicFormBuilder.vue';
+import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -85,9 +41,6 @@ const props = defineProps<{
     account: UserAccount;
 }>();
 
-const valid = ref(false);
-const formBuilder = ref<FormBuilderExpose>();
-
 const emailErrorMsg = ref<string>();
 let emailCheckTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -100,7 +53,7 @@ const initialFormData = computed(() => ({
     name: props.account?.fullName ?? '',
     kind: props.account?.kind?.value ?? UserKind.Free.valueOf(),
     status: props.account?.status?.value ?? 0,
-    trialExpiration: props.account?.trialExpiration ? new Date(props.account.trialExpiration) : null,
+    trialExpiration: props.account?.trialExpiration,
     userAgent: props.account?.userAgent ?? '',
 }));
 
@@ -163,6 +116,12 @@ const formConfig = computed((): FormConfig => {
             prependIcon: '',
             min: date.addDays(new Date(), 1) as Date,
             visible: (formData) => (formData as { kind: UserKind }).kind === UserKind.Free,
+            transform: {
+                forward: (value) => value ? date.date(value): null,
+                back: (value) => {
+                    return value ? (date.date(value) as Date).toISOString() : '';
+                },
+            },
         });
     if (featureFlags.value.updateUserAgent) thirdRowFields.push({
         key: 'userAgent',
@@ -178,34 +137,13 @@ const formConfig = computed((): FormConfig => {
     return config;
 });
 
-const hasFormChanged = computed(() => {
-    const formData = formBuilder.value?.getData() as Record<string, unknown> | undefined;
-    if (!formData) return false;
-
-    for (const key in initialFormData.value) {
-        if (formData[key] !== initialFormData.value[key]) {
-            return true;
-        }
-    }
-    return false;
-});
-
-function update() {
-    if (!valid.value)
-        return;
-
+function update(formData: Record<string, unknown>) {
     withLoading(async () => {
         const request = new UpdateUserRequest();
-        const formData = formBuilder.value?.getData() as UpdateUserRequest & { trialExpiration: Date } | undefined;
-        if (!formData) return;
-
         for (const key in request) {
             if (!Object.hasOwn(formData, key)) continue;
             if (formData[key] === initialFormData.value[key]) continue;
             // set only changed fields
-            if (key === 'trialExpiration' && formData.trialExpiration && formData.kind === UserKind.Free) {
-                request.trialExpiration = (date.date(formData.trialExpiration) as Date).toISOString();
-            }
             request[key] = formData[key];
         }
 
@@ -248,7 +186,6 @@ watch(model, (newValue) => {
     usersStore.getUserStatuses();
 
     if (!newValue) return;
-    formBuilder.value?.reset();
     emailErrorMsg.value = undefined;
 });
 </script>

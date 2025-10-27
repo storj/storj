@@ -18,11 +18,11 @@
         />
 
         <v-data-table
-            v-model="selected"
             :headers="headers"
             :items="instances"
             :search="search"
-            item-value="title"
+            :loading="isLoading"
+            no-data-text="No results found"
             hover
         >
             <template #item.title="{ item }">
@@ -30,16 +30,7 @@
                     <template #prepend>
                         <v-icon :icon="Computer" color="primary" :size="18" class="mr-2" />
                     </template>
-                    {{ item.title }}
-                </v-list-item>
-            </template>
-
-            <template #item.name="{ item }">
-                <v-list-item class="pl-0">
-                    {{ item.gpu }}
-                </v-list-item>
-                <v-list-item class="pl-0 mt-n4 text-caption text-medium-emphasis">
-                    {{ item.cpu }} | {{ item.ram }} | {{ item.storage }}
+                    {{ item.name }}
                 </v-list-item>
             </template>
 
@@ -60,40 +51,67 @@
                 </div>
             </template>
 
-            <template #item.actions>
+            <template #item.created="{ item }">
+                <span class="text-no-wrap">
+                    {{ Time.formattedDate(item.created) }}
+                </span>
+            </template>
+
+            <template #item.updated="{ item }">
+                <span class="text-no-wrap">
+                    {{ Time.formattedDate(item.updated) }}
+                </span>
+            </template>
+
+            <template #item.ipv4Address="{ item }">
+                <span class="text-no-wrap">
+                    {{ item.remote.ipv4Address }}:{{ item.remote.port }}
+                </span>
+            </template>
+
+            <template #item.actions="{ item }">
                 <v-btn
+                    title="Instance Actions"
                     variant="outlined"
                     color="default"
+                    size="small"
+                    rounded="md"
                     class="mr-1 text-caption"
                     density="comfortable"
-                    :append-icon="ArrowRight"
-                    router
+                    icon
                 >
-                    View
+                    <v-icon :icon="Ellipsis" />
+                    <v-menu activator="parent">
+                        <v-list class="pa-1">
+                            <v-list-item density="comfortable" link @click="() => viewDetails(item)">
+                                <template #prepend>
+                                    <component :is="Computer" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    View Details
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item class="text-error" density="comfortable" link @click="() => onDelete(item)">
+                                <template #prepend>
+                                    <component :is="Trash2" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Remove
+                                </v-list-item-title>
+                            </v-list-item>
+                        </v-list>
+                    </v-menu>
                 </v-btn>
-                <v-menu>
-                    <template #activator="{ props }">
-                        <v-btn :icon="EllipsisVertical" v-bind="props" variant="text" />
-                    </template>
-                    <v-list>
-                        <v-list-item>
-                            <v-list-item-title>Start</v-list-item-title>
-                        </v-list-item>
-                        <v-list-item>
-                            <v-list-item-title>Stop</v-list-item-title>
-                        </v-list-item>
-                        <v-list-item>
-                            <v-list-item-title>Restart</v-list-item-title>
-                        </v-list-item>
-                    </v-list>
-                </v-menu>
             </template>
         </v-data-table>
     </v-card>
+
+    <delete-compute-instance-dialog v-model="isDeleteDialog" :instance="instanceToDelete" />
+    <compute-instance-details-dialog v-model="isDetailsDialog" :instance="instanceToView" />
 </template>
 
 <script setup lang="ts">
-import { FunctionalComponent, ref } from 'vue';
+import { computed, FunctionalComponent, onMounted, ref } from 'vue';
 import {
     VCard,
     VDataTable,
@@ -102,85 +120,92 @@ import {
     VChip,
     VIcon,
     VBtn,
-    VMenu,
     VList,
     VListItemTitle,
+    VMenu,
 } from 'vuetify/components';
 import {
-    ArrowRight,
     Computer,
-    EllipsisVertical,
     Search,
     CheckCircle,
     StopCircle,
     Cog,
     HelpCircle,
+    Ellipsis,
+    Trash2,
 } from 'lucide-vue-next';
 
 import { DataTableHeader } from '@/types/common';
+import { useComputeStore } from '@/store/modules/computeStore';
+import { Instance } from '@/types/compute';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/composables/useNotify';
+import { Time } from '@/utils/time';
+
+import DeleteComputeInstanceDialog from '@/components/dialogs/DeleteComputeInstanceDialog.vue';
+import ComputeInstanceDetailsDialog from '@/components/dialogs/ComputeInstanceDetailsDialog.vue';
+
+const computeStore = useComputeStore();
+
+const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
 
 const headers: DataTableHeader[] = [
-    { title: 'Name', key: 'title' },
+    { title: 'Name', key: 'name' },
+    { title: 'Hostname', key: 'hostname' },
     { title: 'Status', key: 'status' },
-    { title: 'Configuration', key: 'name' },
-    { title: 'Location', key: 'location' },
+    { title: 'Address', key: 'ipv4Address' },
+    { title: 'Date Updated', key: 'updated' },
+    { title: 'Date Created', key: 'created' },
     { title: '', key: 'actions', align: 'end', sortable: false },
-];
-const instances = [
-    {
-        title: 'AI-VM-1',
-        gpu: '6x NVIDIA H100 SXM5 80GB',
-        cpu: 'Intel Xeon Platinum 8470 (52 vCPUs)',
-        storage: '6140 GB NVMe SSD',
-        ram: '488 GB',
-        location: 'Norway',
-        status: 'Online',
-    },
-    {
-        title: 'Production-VM-1',
-        gpu: '4x NVIDIA H100 SXM5 80GB',
-        cpu: 'Intel Xeon Platinum 8470 (32 vCPUs)',
-        storage: '888 GB NVMe SSD',
-        ram: '320 GB',
-        location: 'Canada',
-        status: 'Online',
-    },
-    {
-        title: 'Test-VM-1',
-        gpu: '10x NVIDIA H100 SXM5 80GB',
-        cpu: 'Intel Xeon Platinum 8470 (80 vCPUs)',
-        storage: '3240 GB NVMe SSD',
-        ram: '820 GB',
-        location: 'USA',
-        status: 'Offline',
-    },
-    {
-        title: 'Dev-VM-4',
-        gpu: '1x NVIDIA A100',
-        cpu: 'AMD EPYC 7763 (16 vCPUs)',
-        storage: '512 GB NVMe SSD',
-        ram: '128 GB',
-        location: 'Germany',
-        status: 'Building',
-    },
 ];
 
 const search = ref<string>('');
-const selected = ref([]);
+const isDeleteDialog = ref<boolean>(false);
+const isDetailsDialog = ref<boolean>(false);
+const instanceToDelete = ref<Instance>(new Instance());
+const instanceToView = ref<Instance>(new Instance());
+
+const instances = computed<Instance[]>(() => computeStore.state.instances);
+
+function fetch(): void {
+    withLoading(async () => {
+        try {
+            await computeStore.getInstances();
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.COMPUTE_INSTANCES_TABLE);
+        }
+    });
+}
+
+function onDelete(instance: Instance): void {
+    instanceToDelete.value = instance;
+    isDeleteDialog.value = true;
+}
+
+function viewDetails(instance: Instance): void {
+    instanceToView.value = instance;
+    isDetailsDialog.value = true;
+}
 
 function getStatusColor(status: string): string {
-    if (status === 'Online') return 'success';
-    if (status === 'Offline') return 'default';
-    if (status === 'Building') return 'info';
+    if (status === 'complete') return 'success';
+    if (status === 'offline') return 'default';
+    if (status === 'pending') return 'info';
     return 'default';
 }
 
 function getStatusIcon(status: string): FunctionalComponent {
-    if (status === 'Online') return CheckCircle;
-    if (status === 'Offline') return StopCircle;
-    if (status === 'Building') return Cog;
+    if (status === 'complete') return CheckCircle;
+    if (status === 'offline') return StopCircle;
+    if (status === 'pending') return Cog;
     return HelpCircle;
 }
+
+onMounted(() => {
+    fetch();
+});
 </script>
 
 <style scoped lang="scss">

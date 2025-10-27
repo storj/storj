@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { VNumberInput, VSelect, VTextField } from 'vuetify/components';
+import { VNumberInput, VSelect, VTextarea, VTextField } from 'vuetify/components';
 import { VDateInput } from 'vuetify/labs/VDateInput';
 
 import { FieldType, FormField } from '@/types/forms';
@@ -53,6 +53,8 @@ const fieldComponent = computed(() => {
         return VSelect;
     case FieldType.Date:
         return VDateInput;
+    case FieldType.TextArea:
+        return VTextarea;
     case FieldType.Text:
     default:
         return VTextField;

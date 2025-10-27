@@ -22,6 +22,7 @@ var ErrSettingsAPI = errs.Class("admin settings api")
 var ErrPlacementsAPI = errs.Class("admin placements api")
 var ErrUsersAPI = errs.Class("admin users api")
 var ErrProjectsAPI = errs.Class("admin projects api")
+var ErrSearchAPI = errs.Class("admin search api")
 
 type SettingsService interface {
 	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
@@ -39,16 +40,21 @@ type UserManagementService interface {
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
-	DeleteUser(ctx context.Context, userID uuid.UUID) api.HTTPError
-	FreezeUser(ctx context.Context, userID uuid.UUID, request FreezeUserRequest) api.HTTPError
-	UnfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError
-	DisableMFA(ctx context.Context, userID uuid.UUID) api.HTTPError
+	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) api.HTTPError
+	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
+	ToggleMFA(ctx context.Context, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
 	CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
 }
 
 type ProjectManagementService interface {
+	GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError)
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
+	UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectRequest) (*Project, api.HTTPError)
 	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
+}
+
+type SearchService interface {
+	SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo, term string) (*SearchResult, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -79,6 +85,14 @@ type ProjectManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service ProjectManagementService
+	auth    *Authorizer
+}
+
+// SearchHandler is an api handler that implements all Search API endpoints functionality.
+type SearchHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service SearchService
 	auth    *Authorizer
 }
 
@@ -125,10 +139,9 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/email/{email}", handler.handleGetUserByEmail).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
-	usersRouter.HandleFunc("/{userID}", handler.handleDeleteUser).Methods("DELETE")
-	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleFreezeUser).Methods("POST")
-	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleUnfreezeUser).Methods("DELETE")
-	usersRouter.HandleFunc("/mfa/{userID}", handler.handleDisableMFA).Methods("DELETE")
+	usersRouter.HandleFunc("/{userID}", handler.handleDisableUser).Methods("PUT")
+	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
+	usersRouter.HandleFunc("/{userID}/mfa", handler.handleToggleMFA).Methods("PUT")
 	usersRouter.HandleFunc("/rest-keys/{userID}", handler.handleCreateRestKey).Methods("POST")
 
 	return handler
@@ -143,8 +156,24 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 	}
 
 	projectsRouter := router.PathPrefix("/back-office/api/v1/projects").Subrouter()
+	projectsRouter.HandleFunc("/statuses", handler.handleGetProjectStatuses).Methods("GET")
 	projectsRouter.HandleFunc("/{publicID}", handler.handleGetProject).Methods("GET")
-	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PUT")
+	projectsRouter.HandleFunc("/{publicID}", handler.handleUpdateProject).Methods("PATCH")
+	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PATCH")
+
+	return handler
+}
+
+func NewSearch(log *zap.Logger, mon *monkit.Scope, service SearchService, router *mux.Router, auth *Authorizer) *SearchHandler {
+	handler := &SearchHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	searchRouter := router.PathPrefix("/back-office/api/v1/search").Subrouter()
+	searchRouter.HandleFunc("/", handler.handleSearchUsersOrProjects).Methods("GET")
 
 	return handler
 }
@@ -434,7 +463,7 @@ func (h *UserManagementHandler) handleUpdateUser(w http.ResponseWriter, r *http.
 	}
 }
 
-func (h *UserManagementHandler) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserManagementHandler) handleDisableUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -453,41 +482,7 @@ func (h *UserManagementHandler) handleDeleteUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err = h.auth.VerifyHost(r); err != nil {
-		api.ServeError(h.log, w, http.StatusForbidden, err)
-		return
-	}
-
-	if h.auth.IsRejected(w, r, 16384) {
-		return
-	}
-
-	httpErr := h.service.DeleteUser(ctx, userID)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
-	}
-}
-
-func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer h.mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	userIDParam, ok := mux.Vars(r)["userID"]
-	if !ok {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
-		return
-	}
-
-	userID, err := uuid.FromString(userIDParam)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
-	}
-
-	payload := FreezeUserRequest{}
+	payload := DisableUserRequest{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -498,17 +493,23 @@ func (h *UserManagementHandler) handleFreezeUser(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1024) {
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	httpErr := h.service.FreezeUser(ctx, userID, payload)
+	if h.auth.IsRejected(w, r, 16384) {
+		return
+	}
+
+	httpErr := h.service.DisableUser(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 
-func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *http.Request) {
+func (h *UserManagementHandler) handleToggleFreezeUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -527,22 +528,30 @@ func (h *UserManagementHandler) handleUnfreezeUser(w http.ResponseWriter, r *htt
 		return
 	}
 
+	payload := ToggleFreezeUserRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
 	if err = h.auth.VerifyHost(r); err != nil {
 		api.ServeError(h.log, w, http.StatusForbidden, err)
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 2048) {
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	httpErr := h.service.UnfreezeUser(ctx, userID)
+	httpErr := h.service.ToggleFreezeUser(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 
-func (h *UserManagementHandler) handleDisableMFA(w http.ResponseWriter, r *http.Request) {
+func (h *UserManagementHandler) handleToggleMFA(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -557,6 +566,12 @@ func (h *UserManagementHandler) handleDisableMFA(w http.ResponseWriter, r *http.
 
 	userID, err := uuid.FromString(userIDParam)
 	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := ToggleMfaRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
@@ -570,7 +585,7 @@ func (h *UserManagementHandler) handleDisableMFA(w http.ResponseWriter, r *http.
 		return
 	}
 
-	httpErr := h.service.DisableMFA(ctx, userID)
+	httpErr := h.service.ToggleMFA(ctx, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
@@ -622,6 +637,34 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 	}
 }
 
+func (h *ProjectManagementHandler) handleGetProjectStatuses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 131072) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetProjectStatuses(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetProjectStatuses response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
 func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -659,6 +702,54 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	publicIDParam, ok := mux.Vars(r)["publicID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing publicID route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(publicIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateProjectRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateProject(ctx, authInfo, publicID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
 	}
 }
 
@@ -705,5 +796,41 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json UpdateProjectLimits response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *SearchHandler) handleSearchUsersOrProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	term := r.URL.Query().Get("term")
+	if term == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'term' can't be empty"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	retVal, httpErr := h.service.SearchUsersOrProjects(ctx, authInfo, term)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json SearchUsersOrProjects response", zap.Error(ErrSearchAPI.Wrap(err)))
 	}
 }

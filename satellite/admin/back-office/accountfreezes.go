@@ -9,14 +9,26 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/console"
 )
 
-// FreezeUserRequest represents a request to freeze a user account.
-type FreezeUserRequest struct {
-	Type console.AccountFreezeEventType `json:"type"`
+const (
+	// FreezeActionFreeze is the action to freeze a user account.
+	FreezeActionFreeze = "freeze"
+	// FreezeActionUnfreeze is the action to unfreeze a user account.
+	FreezeActionUnfreeze = "unfreeze"
+)
+
+// ToggleFreezeUserRequest represents a request to freeze a user account.
+type ToggleFreezeUserRequest struct {
+	Action string                         `json:"action"` // should be "freeze" or "unfreeze"
+	Type   console.AccountFreezeEventType `json:"type"`
+
+	Reason string `json:"reason"`
 }
 
 // FreezeEventType represents a type of freeze event.
@@ -40,10 +52,45 @@ func (s *Service) GetFreezeEventTypes(ctx context.Context) ([]FreezeEventType, a
 	return freezeEventTypes, api.HTTPError{}
 }
 
-// FreezeUser freezes a user account by email address and freeze type.
-func (s *Service) FreezeUser(ctx context.Context, userID uuid.UUID, request FreezeUserRequest) api.HTTPError {
+// ToggleFreezeUser freezes or unfreezes a user account by email address.
+func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) api.HTTPError {
+		return api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	if authInfo == nil || len(authInfo.Groups) == 0 {
+		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	}
+
+	hasPerm := func(perm Permission) bool {
+		for _, g := range authInfo.Groups {
+			if s.authorizer.HasPermissions(g, perm) {
+				return true
+			}
+		}
+		return false
+	}
+
+	if request.Reason == "" {
+		return apiError(http.StatusBadRequest, Error.New("reason is required"))
+	}
+
+	if request.Action == FreezeActionFreeze && !hasPerm(PermAccountSuspendTemporary) {
+		return apiError(http.StatusForbidden, errs.New("not authorized to freeze accounts"))
+	} else if request.Action == FreezeActionUnfreeze && !hasPerm(PermAccountReActivateTemporary) {
+		return apiError(http.StatusForbidden, errs.New("not authorized to unfreeze accounts"))
+	} else if request.Action != FreezeActionFreeze && request.Action != FreezeActionUnfreeze {
+		return apiError(http.StatusBadRequest, Error.New("invalid action %q", request.Action))
+	}
+
+	if request.Action == FreezeActionUnfreeze {
+		return s.unfreezeUser(ctx, userID)
+	}
 
 	switch request.Type {
 	case console.LegalFreeze:
@@ -76,8 +123,8 @@ func (s *Service) FreezeUser(ctx context.Context, userID uuid.UUID, request Free
 	return api.HTTPError{}
 }
 
-// UnfreezeUser unfreezes a user account by user ID and freeze type.
-func (s *Service) UnfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError {
+// unfreezeUser unfreezes a user account by user ID and freeze type.
+func (s *Service) unfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 

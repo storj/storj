@@ -16,14 +16,17 @@
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
-  * [Delete user](#usermanagement-delete-user)
-  * [Freeze User](#usermanagement-freeze-user)
-  * [Unfreeze User](#usermanagement-unfreeze-user)
-  * [Disable MFA](#usermanagement-disable-mfa)
+  * [Disable user](#usermanagement-disable-user)
+  * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
+  * [Toggle MFA](#usermanagement-toggle-mfa)
   * [Create Rest Key](#usermanagement-create-rest-key)
 * ProjectManagement
+  * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
+  * [Update project](#projectmanagement-update-project)
   * [Update project limits](#projectmanagement-update-project-limits)
+* Search
+  * [Search users or projects](#search-search-users-or-projects)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -357,12 +360,13 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	name: string
 	kind: number
 	status: number
-	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	trialExpiration: string
 	userAgent: string
 	projectLimit: number
 	storageLimit: number
 	bandwidthLimit: number
 	segmentLimit: number
+	reason: string
 }
 
 ```
@@ -418,23 +422,11 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 
 ```
 
-<h3 id='usermanagement-delete-user'>Delete user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='usermanagement-disable-user'>Disable user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Deletes user by ID. User can only be deleted if they have no active projects and pending invoices.
+Disables user by ID. User can only be disabled if they have no active projects and pending invoices.
 
-`DELETE /back-office/api/v1/users/{userID}`
-
-**Path Params:**
-
-| name | type | elaboration |
-|---|---|---|
-| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
-
-<h3 id='usermanagement-freeze-user'>Freeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
-
-Freeze a user account
-
-`POST /back-office/api/v1/users/{userID}/freeze-events`
+`PUT /back-office/api/v1/users/{userID}`
 
 **Path Params:**
 
@@ -446,16 +438,39 @@ Freeze a user account
 
 ```typescript
 {
-	type: number
+	reason: string
 }
 
 ```
 
-<h3 id='usermanagement-unfreeze-user'>Unfreeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='usermanagement-freezeunfreeze-user'>Freeze/Unfreeze User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Unfreeze a user account
+Freeze or unfreeze a user account
 
-`DELETE /back-office/api/v1/users/{userID}/freeze-events`
+`PUT /back-office/api/v1/users/{userID}/freeze-events`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	action: string
+	type: number
+	reason: string
+}
+
+```
+
+<h3 id='usermanagement-toggle-mfa'>Toggle MFA (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Toggles MFA for a user. Only disabling is supported.
+
+`PUT /back-office/api/v1/users/{userID}/mfa`
 
 **Path Params:**
 
@@ -463,17 +478,14 @@ Unfreeze a user account
 |---|---|---|
 | `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
 
-<h3 id='usermanagement-disable-mfa'>Disable MFA (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+**Request body:**
 
-Disables MFA for a user
+```typescript
+{
+	reason: string
+}
 
-`DELETE /back-office/api/v1/users/mfa/{userID}`
-
-**Path Params:**
-
-| name | type | elaboration |
-|---|---|---|
-| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+```
 
 <h3 id='usermanagement-create-rest-key'>Create Rest Key (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -492,6 +504,7 @@ Creates a rest API key a user
 ```typescript
 {
 	expiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	reason: string
 }
 
 ```
@@ -500,6 +513,25 @@ Creates a rest API key a user
 
 ```typescript
 string
+```
+
+<h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets available project statuses
+
+`GET /back-office/api/v1/projects/statuses`
+
+**Response body:**
+
+```typescript
+[
+	{
+		name: string
+		value: number
+	}
+
+]
+
 ```
 
 <h3 id='projectmanagement-get-project'>Get project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
@@ -551,15 +583,16 @@ Gets project by ID
 	storageUsed: number
 	segmentLimit: number
 	segmentUsed: number
+	status: unknown
 }
 
 ```
 
-<h3 id='projectmanagement-update-project-limits'>Update project limits (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+<h3 id='projectmanagement-update-project'>Update project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Updates project limits by ID
+Updates project name, user agent and default placement by ID
 
-`PUT /back-office/api/v1/projects/{publicID}/limits`
+`PATCH /back-office/api/v1/projects/{publicID}`
 
 **Path Params:**
 
@@ -571,24 +604,12 @@ Updates project limits by ID
 
 ```typescript
 {
-	maxBuckets: number
-	storageLimit: number
-	bandwidthLimit: number
-	segmentLimit: number
-	rateLimit: number
-	burstLimit: number
-	userSetStorageLimit: number
-	userSetBandwidthLimit: number
-	rateLimitHead: number
-	burstLimitHead: number
-	rateLimitGet: number
-	burstLimitGet: number
-	rateLimitPut: number
-	burstLimitPut: number
-	rateLimitDelete: number
-	burstLimitDelete: number
-	rateLimitList: number
-	burstLimitList: number
+	name: string
+	description: string
+	userAgent: string
+	status: number
+	defaultPlacement: number
+	reason: string
 }
 
 ```
@@ -630,6 +651,130 @@ Updates project limits by ID
 	storageUsed: number
 	segmentLimit: number
 	segmentUsed: number
+	status: unknown
+}
+
+```
+
+<h3 id='projectmanagement-update-project-limits'>Update project limits (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates project limits by ID
+
+`PATCH /back-office/api/v1/projects/{publicID}/limits`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	maxBuckets: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	rateLimit: number
+	burstLimit: number
+	userSetStorageLimit: number
+	userSetBandwidthLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitDelete: number
+	burstLimitDelete: number
+	rateLimitList: number
+	burstLimitList: number
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	name: string
+	description: string
+	userAgent: string
+	owner: 	{
+		id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+		fullName: string
+		email: string
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	defaultPlacement: number
+	rateLimit: number
+	burstLimit: number
+	rateLimitHead: number
+	burstLimitHead: number
+	rateLimitGet: number
+	burstLimitGet: number
+	rateLimitPut: number
+	burstLimitPut: number
+	rateLimitDelete: number
+	burstLimitDelete: number
+	rateLimitList: number
+	burstLimitList: number
+	maxBuckets: number
+	bandwidthLimit: number
+	userSetBandwidthLimit: number
+	bandwidthUsed: number
+	storageLimit: number
+	userSetStorageLimit: number
+	storageUsed: number
+	segmentLimit: number
+	segmentUsed: number
+	status: unknown
+}
+
+```
+
+<h3 id='search-search-users-or-projects'>Search users or projects (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Searches for users by email or name and projects by ID. Results are limited to 100 users.
+
+`GET /back-office/api/v1/search/`
+
+**Query Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `term` | `string` |  |
+
+**Response body:**
+
+```typescript
+{
+	project: unknown
+	accounts: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			fullName: string
+			email: string
+			kind: 			{
+				value: number
+				name: string
+				hasPaidPrivileges: boolean
+			}
+
+			status: 			{
+				name: string
+				value: number
+			}
+
+			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		}
+
+	]
+
 }
 
 ```
