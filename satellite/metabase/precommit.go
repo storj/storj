@@ -610,6 +610,10 @@ type ExcludeFromPending struct {
 	// We want to exclude it during object commit where we know expiration value but
 	// don't want to exclude it for copy/move operations.
 	ExpiresAt bool
+	// EncryptedUserData indicates whether encrypted user data fields should be excluded from read.
+	// We want to exclude it during object commit when data is provided explicitly but
+	// don't want to exclude it for copy/move operations.
+	EncryptedUserData bool
 }
 
 // PrecommitQuery is used for querying precommit info.
@@ -730,7 +734,6 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 		var pending PrecommitPendingObject
 		values := []any{
 			&pending.CreatedAt,
-			&pending.EncryptedMetadata, &pending.EncryptedMetadataNonce, &pending.EncryptedMetadataEncryptedKey, &pending.EncryptedETag,
 			&pending.Encryption, &pending.RetentionMode, &pending.RetainUntil,
 		}
 
@@ -740,13 +743,14 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 
 			values = append(values, &pending.ExpiresAt)
 		}
+		if !opts.ExcludeFromPending.EncryptedUserData {
+			additionalColumns += ", encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag"
+
+			values = append(values, &pending.EncryptedMetadata, &pending.EncryptedMetadataNonce, &pending.EncryptedMetadataEncryptedKey, &pending.EncryptedETag)
+		}
 
 		err := ptx.tx.QueryRowContext(ctx, `
 			SELECT created_at,
-				encrypted_metadata,
-				encrypted_metadata_nonce,
-				encrypted_metadata_encrypted_key,
-				encrypted_etag,
 				encryption,
 				retention_mode,
 				retain_until
@@ -863,16 +867,15 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 	if opts.Pending {
 		additionalColumns := ""
 		if !opts.ExcludeFromPending.ExpiresAt {
-			additionalColumns = ", expires_at"
+			additionalColumns += ", expires_at"
+		}
+		if !opts.ExcludeFromPending.EncryptedUserData {
+			additionalColumns += ", encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag"
 		}
 
 		stmt.SQL += `,(SELECT ARRAY(
 				SELECT AS STRUCT
 					created_at,
-					encrypted_metadata,
-					encrypted_metadata_nonce,
-					encrypted_metadata_encrypted_key,
-					encrypted_etag,
 					encryption,
 					retention_mode,
 					retain_until

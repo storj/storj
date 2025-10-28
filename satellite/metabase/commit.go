@@ -1140,7 +1140,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			ObjectStream: opts.ObjectStream,
 			Pending:      true,
 			ExcludeFromPending: ExcludeFromPending{
-				ExpiresAt: true, // we are getting ExpiresAt from opts
+				ExpiresAt:         true,                           // we are getting ExpiresAt from opts
+				EncryptedUserData: opts.OverrideEncryptedMetadata, // we are getting EncryptedUserData from opts
 			},
 			Unversioned:    !opts.Versioned,
 			HighestVisible: opts.IfNoneMatch.All(),
@@ -1227,11 +1228,15 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 			// values from the database
 			object.CreatedAt = query.Pending.CreatedAt
-			object.EncryptedMetadata = query.Pending.EncryptedMetadata
-			object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
-			object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
-			object.EncryptedETag = query.Pending.EncryptedETag
 			object.Encryption = query.Pending.Encryption
+			if opts.OverrideEncryptedMetadata {
+				object.EncryptedUserData = opts.EncryptedUserData
+			} else {
+				object.EncryptedMetadata = query.Pending.EncryptedMetadata
+				object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
+				object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
+				object.EncryptedETag = query.Pending.EncryptedETag
+			}
 
 			object.Retention.Mode = query.Pending.RetentionMode.Mode
 			object.LegalHold = query.Pending.RetentionMode.LegalHold
@@ -1248,9 +1253,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 					return ErrInvalidRequest.New("Encryption is missing")
 				}
 				object.Encryption = opts.Encryption
-			}
-			if opts.OverrideEncryptedMetadata {
-				object.EncryptedUserData = opts.EncryptedUserData
 			}
 
 			// determine the best version to use
