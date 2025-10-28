@@ -107,6 +107,7 @@ func CreateExpiredObject(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	return CommitObject{
 		Opts: metabase.CommitObject{
 			ObjectStream: obj,
+			ExpiresAt:    &expiresAt,
 		},
 	}.Check(ctx, t, db)
 }
@@ -428,6 +429,10 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	}
 	if co.CommitObject != nil {
 		coOpts = *co.CommitObject
+	}
+
+	if boeOpts.ExpiresAt != nil && coOpts.ExpiresAt == nil {
+		coOpts.ExpiresAt = boeOpts.ExpiresAt
 	}
 
 	createdObject := CommitObject{

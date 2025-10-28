@@ -145,104 +145,76 @@ func TestPrecommitQuery(t *testing.T) {
 			}
 		}
 
-		t.Run("positive-pending", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			obj := metabasetest.RandObjectStream()
-
-			expiration := time.Now().Add(48 * time.Hour)
-			encryptedUserData := metabasetest.RandEncryptedUserData()
-
-			pending := metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					ExpiresAt:    &expiration,
-					Retention:    metabase.Retention{},
-					LegalHold:    false,
-
-					EncryptedUserData: encryptedUserData,
-					Encryption:        metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
-
-			info, err := precommit(metabase.PrecommitQuery{
-				Pending:        true,
-				ObjectStream:   obj,
-				Unversioned:    true,
-				HighestVisible: true,
-			})
-			require.NoError(t, err)
-
-			expect := &metabase.PrecommitInfo{
-				ObjectStream:     obj,
-				HighestVersion:   pending.Version,
-				TimestampVersion: info.TimestampVersion,
-				Pending: &metabase.PrecommitPendingObject{
-					CreatedAt:                     pending.CreatedAt,
-					ExpiresAt:                     pending.ExpiresAt,
-					Encryption:                    pending.Encryption,
-					EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
-					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
-					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
-					EncryptedETag:                 encryptedUserData.EncryptedETag,
-				},
-				Segments:       []metabase.PrecommitSegment{},
-				HighestVisible: 0,
-				Unversioned:    nil,
+		for _, tc := range []struct {
+			Version          metabase.Version
+			WithoutExpiresAt bool
+		}{{12345, true}, {-12345, true}, {12345, false}, {-12345, false}} {
+			label := "positive"
+			if tc.Version < 0 {
+				label = "negative"
 			}
 
-			require.EqualExportedValues(t, expect, info)
-		})
+			t.Run(fmt.Sprintf("pending-version-%s-without-expires-at-%v", label, tc.WithoutExpiresAt), func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-		t.Run("negative-pending", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				obj := metabasetest.RandObjectStream()
+				obj.Version = tc.Version
 
-			obj := metabasetest.RandObjectStream()
-			obj.Version = -12345
+				expiration := time.Now().Add(48 * time.Hour)
+				encryptedUserData := metabasetest.RandEncryptedUserData()
 
-			expiration := time.Now().Add(48 * time.Hour)
-			encryptedUserData := metabasetest.RandEncryptedUserData()
+				pending := metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: obj,
+						ExpiresAt:    &expiration,
+						Retention:    metabase.Retention{},
+						LegalHold:    false,
 
-			pending := metabasetest.BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
-					ExpiresAt:    &expiration,
-					Retention:    metabase.Retention{},
-					LegalHold:    false,
+						EncryptedUserData: encryptedUserData,
+						Encryption:        metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
 
-					EncryptedUserData: encryptedUserData,
-					Encryption:        metabasetest.DefaultEncryption,
-				},
-			}.Check(ctx, t, db)
+				info, err := precommit(metabase.PrecommitQuery{
+					Pending: true,
+					ExcludeFromPending: metabase.ExcludeFromPending{
+						ExpiresAt: tc.WithoutExpiresAt,
+					},
+					ObjectStream:   obj,
+					Unversioned:    true,
+					HighestVisible: true,
+				})
+				require.NoError(t, err)
 
-			info, err := precommit(metabase.PrecommitQuery{
-				Pending:        true,
-				ObjectStream:   obj,
-				Unversioned:    true,
-				HighestVisible: true,
+				expectedVersion := pending.Version
+				if tc.Version < 0 {
+					expectedVersion = 0 // we don't return negative versions
+				}
+
+				expect := &metabase.PrecommitInfo{
+					ObjectStream:     obj,
+					HighestVersion:   expectedVersion,
+					TimestampVersion: info.TimestampVersion,
+					Pending: &metabase.PrecommitPendingObject{
+						CreatedAt:                     pending.CreatedAt,
+						Encryption:                    pending.Encryption,
+						EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
+						EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
+						EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
+						EncryptedETag:                 encryptedUserData.EncryptedETag,
+					},
+					Segments:       []metabase.PrecommitSegment{},
+					HighestVisible: 0,
+					Unversioned:    nil,
+				}
+
+				if !tc.WithoutExpiresAt {
+					expect.Pending.ExpiresAt = pending.ExpiresAt
+				}
+
+				require.EqualExportedValues(t, expect, info)
 			})
-			require.NoError(t, err)
-
-			expect := &metabase.PrecommitInfo{
-				ObjectStream:     obj,
-				HighestVersion:   0, // we don't return negative versions
-				TimestampVersion: info.TimestampVersion,
-				Pending: &metabase.PrecommitPendingObject{
-					CreatedAt:                     pending.CreatedAt,
-					ExpiresAt:                     pending.ExpiresAt,
-					Encryption:                    pending.Encryption,
-					EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
-					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
-					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
-					EncryptedETag:                 encryptedUserData.EncryptedETag,
-				},
-				Segments:       []metabase.PrecommitSegment{},
-				HighestVisible: 0,
-				Unversioned:    nil,
-			}
-
-			require.EqualExportedValues(t, expect, info)
-		})
+		}
 
 		t.Run("existing-unversioned", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
