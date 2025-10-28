@@ -1034,6 +1034,7 @@ type CommitObject struct {
 	ObjectStream
 
 	Encryption storj.EncryptionParameters
+	ExpiresAt  *time.Time
 
 	// OverrideEncryptedMedata flag controls if we want to set metadata fields with CommitObject
 	// it's possible to set metadata with BeginObject request so we need to
@@ -1136,8 +1137,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		query, err := adapter.precommitQuery(ctx, PrecommitQuery{
-			ObjectStream:   opts.ObjectStream,
-			Pending:        true,
+			ObjectStream: opts.ObjectStream,
+			Pending:      true,
+			ExcludeFromPending: ExcludeFromPending{
+				ExpiresAt: true, // we are getting ExpiresAt from opts
+			},
 			Unversioned:    !opts.Versioned,
 			HighestVisible: opts.IfNoneMatch.All(),
 		})
@@ -1219,10 +1223,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			object.TotalPlainSize = totalPlainSize
 			object.TotalEncryptedSize = totalEncryptedSize
 			object.FixedSegmentSize = fixedSegmentSize
+			object.ExpiresAt = opts.ExpiresAt
 
 			// values from the database
 			object.CreatedAt = query.Pending.CreatedAt
-			object.ExpiresAt = query.Pending.ExpiresAt
 			object.EncryptedMetadata = query.Pending.EncryptedMetadata
 			object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
 			object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
@@ -1352,6 +1356,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			"object_key":               initial.ObjectKey,
 			"version":                  initial.Version,
 			"status":                   object.Status,
+			"expires_at":               object.ExpiresAt,
 			"segment_count":            int64(object.SegmentCount),
 			"total_plain_size":         object.TotalPlainSize,
 			"total_encrypted_size":     object.TotalEncryptedSize,
