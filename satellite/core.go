@@ -23,6 +23,7 @@ import (
 	"storj.io/common/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
@@ -48,7 +49,6 @@ import (
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
@@ -141,8 +141,13 @@ type Core struct {
 		Cache accounting.Cache
 	}
 
+	AccountFreeze struct {
+		BillingFreezeChore *accountfreeze.Chore
+		BotFreezeChore     *accountfreeze.BotFreezeChore
+		TrialFreezeChore   *accountfreeze.TrialFreezeChore
+	}
+
 	Payments struct {
-		AccountFreeze    *accountfreeze.Chore
 		Accounts         payments.Accounts
 		BillingChore     *billing.Chore
 		StorjscanClient  *storjscan.Client
@@ -634,27 +639,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
-			peer.Payments.AccountFreeze = accountfreeze.NewChore(
-				peer.Log.Named("payments.accountfreeze:chore"),
-				peer.DB.StripeCoinPayments(),
-				peer.Payments.Accounts,
-				peer.DB.Console().Users(),
-				peer.DB.Wallets(),
-				peer.DB.StorjscanPayments(),
-				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
-				peer.Analytics.Service,
-				peer.Mail.Service,
-				config.Console.AccountFreeze,
-				config.AccountFreeze,
-				config.Console.Captcha.FlagBotsEnabled,
-				config.Console.ExternalAddress,
-				config.Console.GeneralRequestURL,
-			)
+			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
+			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, config.Console.Captcha.FlagBotsEnabled)
+			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
 
 			peer.Services.Add(lifecycle.Item{
-				Name:  "accountfreeze:chore",
-				Run:   peer.Payments.AccountFreeze.Run,
-				Close: peer.Payments.AccountFreeze.Close,
+				Name:  "accountfreeze:billingfreezechore",
+				Run:   peer.AccountFreeze.BillingFreezeChore.Run,
+				Close: peer.AccountFreeze.BillingFreezeChore.Close,
+			})
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accountfreeze:botfreezechore",
+				Run:   peer.AccountFreeze.BotFreezeChore.Run,
+				Close: peer.AccountFreeze.BotFreezeChore.Close,
+			})
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accountfreeze:trialfreezechore",
+				Run:   peer.AccountFreeze.TrialFreezeChore.Run,
+				Close: peer.AccountFreeze.TrialFreezeChore.Close,
 			})
 		}
 	}
