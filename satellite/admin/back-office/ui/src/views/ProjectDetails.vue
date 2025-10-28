@@ -271,7 +271,7 @@
         :project="project"
     />
     <EntitlementsDialog
-        v-if="project?.entitlements"
+        v-if="project"
         v-model="viewEntitlementsDialog"
         :project="project"
     />

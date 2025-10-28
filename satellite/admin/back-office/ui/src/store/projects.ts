@@ -6,9 +6,11 @@ import { defineStore } from 'pinia';
 
 import {
     Project,
+    ProjectEntitlements,
     ProjectLimitsUpdateRequest,
     ProjectManagementHttpApiV1,
     ProjectStatusInfo,
+    UpdateProjectEntitlementsRequest,
     UpdateProjectRequest,
 } from '@/api/client.gen';
 
@@ -54,6 +56,10 @@ export const useProjectsStore = defineStore('projects', () => {
         state.projectStatuses = await projectApi.getProjectStatuses();
     }
 
+    async function updateEntitlements(projectID: string, request: UpdateProjectEntitlementsRequest): Promise<ProjectEntitlements> {
+        return await projectApi.updateProjectEntitlements(request, projectID);
+    }
+
     return {
         state,
         getProject,
@@ -62,5 +68,6 @@ export const useProjectsStore = defineStore('projects', () => {
         updateProjectLimits,
         updateProject,
         getProjectStatuses,
+        updateEntitlements,
     };
 });

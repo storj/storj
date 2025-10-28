@@ -19,10 +19,20 @@
                 <v-divider>
                     <span class="text-caption">Compute access token</span>
                 </v-divider>
-                <v-chip class="mt-3">
-                    <template v-if="entitlements?.computeAccessToken">***************************</template>
-                    <template v-else>Not Set</template>
-                </v-chip>
+                <div class="d-flex flex-wrap ga-2 mt-3">
+                    <v-chip>
+                        <template v-if="entitlements?.computeAccessToken">***************************</template>
+                        <template v-else>Not Set</template>
+                    </v-chip>
+                    <v-btn
+                        class="align-self-center"
+                        density="compact"
+                        flat
+                        @click="computeAccessTokenDialog = true"
+                    >
+                        Update
+                    </v-btn>
+                </div>
 
                 <v-divider class="my-5">
                     <span class="text-caption">New bucket placements</span>
@@ -33,6 +43,15 @@
                         {{ placement }}
                     </v-chip>
                     <v-chip v-if="!entitlements?.newBucketPlacements?.length">Not Set</v-chip>
+
+                    <v-btn
+                        class="align-self-center"
+                        density="compact"
+                        flat
+                        @click="newBucketsPlacementsDialog = true"
+                    >
+                        Update
+                    </v-btn>
                 </div>
 
                 <v-divider class="my-5">
@@ -42,22 +61,45 @@
                 <v-data-table :items="placementProductMappings" :headers="headers">
                     <template #no-data> No mappings set </template>
                     <template #bottom>
-                        <div class="v-data-table-footer" />
+                        <div class="v-data-table-footer">
+                            <div class="d-flex justify-end w-100">
+                                <v-btn density="compact" flat @click="placementProductMappingsDialog = true">
+                                    Update
+                                </v-btn>
+                            </div>
+                        </div>
                     </template>
                 </v-data-table>
             </div>
         </v-card>
+
+        <UpdateComputeAccessTokenDialog
+            v-model="computeAccessTokenDialog"
+            :project="project"
+        />
+        <UpdateNewBucketsPlacementsDialog
+            v-model="newBucketsPlacementsDialog"
+            :project="project"
+        />
+        <UpdatePlacementProductMappingsDialog
+            v-model="placementProductMappingsDialog"
+            :project="project"
+        />
     </v-dialog>
 </template>
 
 <script setup lang="ts">
 import { VBtn, VCard, VChip, VDataTable, VDialog, VDivider } from 'vuetify/components';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { X } from 'lucide-vue-next';
 
 import { Project, ProjectEntitlements } from '@/api/client.gen';
 import { DataTableHeader } from '@/types/common';
 import { centsToDollars } from '@/utils/strings';
+
+import UpdateComputeAccessTokenDialog from '@/components/UpdateComputeAccessTokenDialog.vue';
+import UpdateNewBucketsPlacementsDialog from '@/components/UpdateNewBucketsPlacementsDialog.vue';
+import UpdatePlacementProductMappingsDialog from '@/components/UpdatePlacementProductMappingsDialog.vue';
 
 const props = defineProps<{
     project: Project;
@@ -73,6 +115,10 @@ const headers: DataTableHeader[] = [
     { title: 'Storage / MB / Month', key: 'storage', sortable: false, align: 'end' },
     { title: 'Segment / Month', key: 'segmentMonthCents', sortable: false, align: 'end' },
 ];
+
+const computeAccessTokenDialog = ref<boolean>(false);
+const newBucketsPlacementsDialog = ref<boolean>(false);
+const placementProductMappingsDialog = ref<boolean>(false);
 
 const entitlements = computed<ProjectEntitlements | null>(() => props.project.entitlements);
 
