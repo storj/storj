@@ -214,6 +214,7 @@ func (p *PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel,
 type ProductUsagePrice struct {
 	ID                     int32
 	Name                   string
+	ShortName              string
 	SmallObjectFee         string
 	MinimumRetentionFee    string
 	SmallObjectFeeSKU      string
@@ -246,6 +247,7 @@ func (*ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPric
 type ProductUsagePriceYaml struct {
 	ID                     int32  `yaml:"id" json:"id"`
 	Name                   string `yaml:"name" json:"name"`
+	ShortName              string `yaml:"short-name" json:"short_name"`
 	Storage                string `yaml:"storage" json:"storage"`
 	StorageSKU             string `yaml:"storage-sku" json:"storage_sku"`
 	Egress                 string `yaml:"egress" json:"egress"`
@@ -276,6 +278,7 @@ func (p *ProductPriceOverrides) String() string {
 		pricesConv[i] = ProductUsagePriceYaml{
 			ID:                     price.ID,
 			Name:                   price.Name,
+			ShortName:              price.ShortName,
 			Storage:                price.StorageTB,
 			StorageSKU:             price.StorageSKU,
 			Egress:                 price.EgressTB,
@@ -347,8 +350,9 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			}
 		}
 		prices[i] = ProductUsagePrice{
-			ID:   price.ID,
-			Name: price.Name,
+			ID:        price.ID,
+			Name:      price.Name,
+			ShortName: price.ShortName,
 			ProductSKUs: ProductSKUs{
 				StorageSKU: price.StorageSKU,
 				EgressSKU:  price.EgressSKU,
@@ -426,6 +430,7 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 		models[prices.ID] = payments.ProductUsagePriceModel{
 			ProductID:                prices.ID,
 			ProductName:              prices.Name,
+			ProductShortName:         prices.ShortName,
 			StorageSKU:               prices.StorageSKU,
 			EgressSKU:                prices.EgressSKU,
 			SegmentSKU:               prices.SegmentSKU,
@@ -438,6 +443,7 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			IncludedEgressSKU:        prices.IncludedEgressSKU,
 			StorageRemainderBytes:    storageRemainderBytes,
 			UseGBUnits:               prices.UseGBUnits,
+			PriceSummary:             prices.PriceSummary,
 		}
 	}
 	return models, nil

@@ -142,6 +142,8 @@ func TestSignupCouponCodes(t *testing.T) {
 			pc.PackagePlans.Packages,
 			sat.Config.Entitlements,
 			nil,
+			pc.PlacementPriceOverrides.ToMap(),
+			productPrices,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

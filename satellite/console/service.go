@@ -238,6 +238,8 @@ type Service struct {
 	attributions               attribution.DB
 	placements                 nodeselection.PlacementDefinitions
 	placementNameLookup        map[string]storj.PlacementConstraint
+	placementProductMap        map[int]int32
+	productConfigs             map[int32]payments.ProductUsagePriceModel
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
 	billing                    billing.TransactionsDB
@@ -309,7 +311,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
-	entitlementsService *entitlements.Service, config Config) (*Service, error) {
+	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -371,6 +373,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		attributions:                  attributions,
 		placements:                    placements,
 		placementNameLookup:           placementNameLookup,
+		placementProductMap:           placementProductMap,
+		productConfigs:                productConfigs,
 		accounts:                      accounts,
 		depositWallets:                depositWallets,
 		billing:                       billingDb,
@@ -5246,6 +5250,48 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 	return projectUsage, nil
 }
 
+// getLocationName returns the product short name if available, otherwise the placement name.
+func (s *Service) getLocationName(ctx context.Context, projectPublicID uuid.UUID, placementID storj.PlacementConstraint) string {
+	// Check if showNewPricingTiers is enabled and we have product configs
+	if s.config.ShowNewPricingTiers && s.productConfigs != nil {
+		var productID int32
+		var found bool
+
+		// First, check per-project entitlements if enabled
+		if s.entitlementsConfig.Enabled && s.entitlementsService != nil {
+			features, err := s.entitlementsService.Projects().GetByPublicID(ctx, projectPublicID)
+			if err == nil && features.PlacementProductMappings != nil {
+				if pid, ok := features.PlacementProductMappings[placementID]; ok {
+					productID = pid
+					found = true
+				}
+			}
+		}
+
+		// Fall back to global placement product map if no entitlement mapping found
+		if !found && s.placementProductMap != nil {
+			if pid, ok := s.placementProductMap[int(placementID)]; ok {
+				productID = pid
+				found = true
+			}
+		}
+
+		// If we found a product mapping, look up the product configuration
+		if found {
+			if product, ok := s.productConfigs[productID]; ok && product.ProductShortName != "" {
+				return product.ProductShortName
+			}
+		}
+	}
+
+	// Fall back to placement name
+	placement, ok := s.placements[placementID]
+	if !ok {
+		return fmt.Sprintf("unknown(%d)", placementID)
+	}
+	return placement.Name
+}
+
 // GetBucketTotals retrieves paged bucket total usages since project creation.
 func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -5271,7 +5317,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 
 	for i := range usage.BucketUsages {
 		placementID := usage.BucketUsages[i].DefaultPlacement
-		usage.BucketUsages[i].Location = s.placements[placementID].Name
+		usage.BucketUsages[i].Location = s.getLocationName(ctx, isMember.project.PublicID, placementID)
 	}
 
 	return usage, nil
@@ -5296,7 +5342,7 @@ func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	usage.Location = s.placements[usage.DefaultPlacement].Name
+	usage.Location = s.getLocationName(ctx, isMember.project.PublicID, usage.DefaultPlacement)
 
 	return usage, nil
 }
