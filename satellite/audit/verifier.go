@@ -678,7 +678,7 @@ func recordStats(report Report, totalPieces int, verifyErr error) {
 	}
 
 	mon.Meter("audit_success_nodes_global", tags...).Mark(numSuccessful)
-	mon.Meter("audit_fail_nodes_global", tags...).Mark(numFailed)     
+	mon.Meter("audit_fail_nodes_global", tags...).Mark(numFailed)
 	mon.Meter("audit_offline_nodes_global", tags...).Mark(numOffline)
 	mon.Meter("audit_contained_nodes_global", tags...).Mark(numContained)
 	mon.Meter("audit_unknown_nodes_global", tags...).Mark(numUnknown)
@@ -686,7 +686,7 @@ func recordStats(report Report, totalPieces int, verifyErr error) {
 	mon.Meter("audit_total_pointer_nodes_global", tags...).Mark(totalPieces)
 
 	mon.IntVal("audit_success_nodes", tags...).Observe(int64(numSuccessful))
-	mon.IntVal("audit_fail_nodes", tags...).Observe(int64(numFailed))           
+	mon.IntVal("audit_fail_nodes", tags...).Observe(int64(numFailed))
 	mon.IntVal("audit_offline_nodes", tags...).Observe(int64(numOffline))
 	mon.IntVal("audit_contained_nodes", tags...).Observe(int64(numContained))
 	mon.IntVal("audit_unknown_nodes", tags...).Observe(int64(numUnknown))

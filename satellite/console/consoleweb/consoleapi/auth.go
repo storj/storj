@@ -735,7 +735,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		penaltyThreshold := a.service.GetLoginAttemptsWithoutPenalty()
 
 		if user.FailedLoginCount == penaltyThreshold {
-			mon.Counter("account_activation_lockout_initiated").Inc(1) 
+			mon.Counter("account_activation_lockout_initiated").Inc(1)
 		}
 
 		if user.FailedLoginCount > penaltyThreshold {
