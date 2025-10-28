@@ -604,11 +604,21 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 	return result, nil
 }
 
+// ExcludeFromPending contains fields to exclude from the pending object.
+type ExcludeFromPending struct {
+	// ExpiresAt indicates whether the expires_at field should be excluded from read
+	// We want to exclude it during object commit where we know expiration value but
+	// don't want to exclude it for copy/move operations.
+	ExpiresAt bool
+}
+
 // PrecommitQuery is used for querying precommit info.
 type PrecommitQuery struct {
 	ObjectStream
 	// Pending returns the pending object and segments at the location. Precommit returns an error when it does not exist.
 	Pending bool
+	// ExcludeFromPending contains fields to exclude from the pending object.
+	ExcludeFromPending ExcludeFromPending
 	// Unversioned returns the unversioned object at the location.
 	Unversioned bool
 	// HighestVisible returns the highest committed object or delete marker at the location.
@@ -718,9 +728,21 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 	// pending object
 	if opts.Pending {
 		var pending PrecommitPendingObject
+		values := []any{
+			&pending.CreatedAt,
+			&pending.EncryptedMetadata, &pending.EncryptedMetadataNonce, &pending.EncryptedMetadataEncryptedKey, &pending.EncryptedETag,
+			&pending.Encryption, &pending.RetentionMode, &pending.RetainUntil,
+		}
+
+		additionalColumns := ""
+		if !opts.ExcludeFromPending.ExpiresAt {
+			additionalColumns = ", expires_at"
+
+			values = append(values, &pending.ExpiresAt)
+		}
+
 		err := ptx.tx.QueryRowContext(ctx, `
 			SELECT created_at,
-				expires_at,
 				encrypted_metadata,
 				encrypted_metadata_nonce,
 				encrypted_metadata_encrypted_key,
@@ -728,6 +750,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 				encryption,
 				retention_mode,
 				retain_until
+				`+additionalColumns+`
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
 				AND stream_id = $5
@@ -735,10 +758,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 			ORDER BY version DESC
 			LIMIT 1
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID).
-			Scan(&pending.CreatedAt, &pending.ExpiresAt,
-				&pending.EncryptedMetadata, &pending.EncryptedMetadataNonce, &pending.EncryptedMetadataEncryptedKey, &pending.EncryptedETag,
-				&pending.Encryption, &pending.RetentionMode, &pending.RetainUntil)
-
+			Scan(values...)
 		if errors.Is(err, sql.ErrNoRows) {
 			// TODO: should we return different error when the object is already committed?
 			return nil, ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
@@ -841,10 +861,14 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 	}
 
 	if opts.Pending {
+		additionalColumns := ""
+		if !opts.ExcludeFromPending.ExpiresAt {
+			additionalColumns = ", expires_at"
+		}
+
 		stmt.SQL += `,(SELECT ARRAY(
 				SELECT AS STRUCT
 					created_at,
-					expires_at,
 					encrypted_metadata,
 					encrypted_metadata_nonce,
 					encrypted_metadata_encrypted_key,
@@ -852,6 +876,7 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 					encryption,
 					retention_mode,
 					retain_until
+					` + additionalColumns + `
 				FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 					AND stream_id = @stream_id
