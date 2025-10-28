@@ -399,6 +399,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
 	}
 
+	var expiresAt *time.Time
+	if !streamID.ExpirationDate.IsZero() {
+		expiresAt = &streamID.ExpirationDate
+	}
+
 	request := metabase.CommitObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -408,6 +413,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			Version:    metabase.Version(streamID.Version),
 		},
 		Encryption: encryption,
+		ExpiresAt:  expiresAt,
 
 		DisallowDelete: !allowDelete,
 

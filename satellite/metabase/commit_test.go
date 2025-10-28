@@ -3336,7 +3336,6 @@ func TestCommitObject(t *testing.T) {
 						Mode:        storj.ComplianceMode,
 						RetainUntil: future,
 					},
-					ExpiresAt:           &future,
 					TestingBypassVerify: true,
 				},
 			}.Check(ctx, t, db)
@@ -3344,6 +3343,7 @@ func TestCommitObject(t *testing.T) {
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
+					ExpiresAt:    &future,
 				},
 				ErrClass: &metabase.Error,
 				ErrText:  "object expiration must not be set if Object Lock configuration is set",
