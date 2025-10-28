@@ -71,6 +71,7 @@ type ProjectUsage = accounting.ProjectUsage
 type ProductUsagePriceModel struct {
 	ProductID                int32           `json:"productID"`
 	ProductName              string          `json:"productName"`
+	ProductShortName         string          `json:"productShortName"`
 	StorageSKU               string          `json:"storageSKU"`
 	EgressSKU                string          `json:"egressSKU"`
 	SegmentSKU               string          `json:"segmentSKU"`
@@ -86,5 +87,7 @@ type ProductUsagePriceModel struct {
 	StorageRemainderBytes int64 `json:"-"`
 	// UseGBUnits when true, invoice line items will use GB units instead of MB units.
 	UseGBUnits bool `json:"useGBUnits"`
+	// PriceSummary will be displayed on the Pro Account info card in the UI.
+	PriceSummary string `json:"-"`
 	ProjectUsagePriceModel
 }

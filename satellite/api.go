@@ -866,7 +866,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 			consoleConfig.SkuEnabled = config.Payments.StripeCoinPayments.SkuEnabled
 
-			for _, model := range config.Payments.Products {
+			productModels, err := config.Payments.Products.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			for _, model := range productModels {
 				if model.PriceSummary != "" {
 					consoleConfig.ProductPriceSummaries = append(consoleConfig.ProductPriceSummaries, model.PriceSummary)
 				}
@@ -907,6 +912,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.Payments.PackagePlans.Packages,
 				config.Entitlements,
 				peer.Entitlements.Service,
+				config.Payments.PlacementPriceOverrides.ToMap(),
+				productModels,
 				consoleConfig.Config,
 			)
 			if err != nil {
