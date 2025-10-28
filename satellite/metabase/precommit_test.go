@@ -145,16 +145,19 @@ func TestPrecommitQuery(t *testing.T) {
 			}
 		}
 
-		for _, tc := range []struct {
-			Version          metabase.Version
-			WithoutExpiresAt bool
-		}{{12345, true}, {-12345, true}, {12345, false}, {-12345, false}} {
-			label := "positive"
-			if tc.Version < 0 {
-				label = "negative"
-			}
-
-			t.Run(fmt.Sprintf("pending-version-%s-without-expires-at-%v", label, tc.WithoutExpiresAt), func(t *testing.T) {
+		for i, tc := range []struct {
+			Version                  metabase.Version
+			WithoutExpiresAt         bool
+			WithoutEncryptedUserData bool
+		}{
+			{Version: 12345, WithoutExpiresAt: true, WithoutEncryptedUserData: true},
+			{Version: 12345, WithoutExpiresAt: false, WithoutEncryptedUserData: true},
+			{Version: 12345, WithoutExpiresAt: true, WithoutEncryptedUserData: false},
+			{Version: -12345, WithoutExpiresAt: true, WithoutEncryptedUserData: true},
+			{Version: -12345, WithoutExpiresAt: false, WithoutEncryptedUserData: true},
+			{Version: -12345, WithoutExpiresAt: true, WithoutEncryptedUserData: false},
+		} {
+			t.Run(fmt.Sprintf("pending-version-%d", i), func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 				obj := metabasetest.RandObjectStream()
@@ -178,7 +181,8 @@ func TestPrecommitQuery(t *testing.T) {
 				info, err := precommit(metabase.PrecommitQuery{
 					Pending: true,
 					ExcludeFromPending: metabase.ExcludeFromPending{
-						ExpiresAt: tc.WithoutExpiresAt,
+						ExpiresAt:         tc.WithoutExpiresAt,
+						EncryptedUserData: tc.WithoutEncryptedUserData,
 					},
 					ObjectStream:   obj,
 					Unversioned:    true,
@@ -196,12 +200,8 @@ func TestPrecommitQuery(t *testing.T) {
 					HighestVersion:   expectedVersion,
 					TimestampVersion: info.TimestampVersion,
 					Pending: &metabase.PrecommitPendingObject{
-						CreatedAt:                     pending.CreatedAt,
-						Encryption:                    pending.Encryption,
-						EncryptedMetadata:             encryptedUserData.EncryptedMetadata,
-						EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
-						EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
-						EncryptedETag:                 encryptedUserData.EncryptedETag,
+						CreatedAt:  pending.CreatedAt,
+						Encryption: pending.Encryption,
 					},
 					Segments:       []metabase.PrecommitSegment{},
 					HighestVisible: 0,
@@ -210,6 +210,12 @@ func TestPrecommitQuery(t *testing.T) {
 
 				if !tc.WithoutExpiresAt {
 					expect.Pending.ExpiresAt = pending.ExpiresAt
+				}
+				if !tc.WithoutEncryptedUserData {
+					expect.Pending.EncryptedMetadata = encryptedUserData.EncryptedMetadata
+					expect.Pending.EncryptedMetadataNonce = encryptedUserData.EncryptedMetadataNonce
+					expect.Pending.EncryptedMetadataEncryptedKey = encryptedUserData.EncryptedMetadataEncryptedKey
+					expect.Pending.EncryptedETag = encryptedUserData.EncryptedETag
 				}
 
 				require.EqualExportedValues(t, expect, info)
