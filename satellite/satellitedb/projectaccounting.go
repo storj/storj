@@ -1603,6 +1603,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	bucketsQuery := db.db.Rebind(`
 		SELECT
 			bm.name,
+			bm.user_agent,
 			bm.versioning,
 			bm.placement,
 			bm.object_lock_enabled,
@@ -1638,6 +1639,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	for rows.Next() {
 		var (
 			bucket                string
+			userAgent             []byte
 			versioning            satbuckets.Versioning
 			objectLockEnabled     bool
 			placement             storj.PlacementConstraint
@@ -1649,6 +1651,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		)
 		err = rows.Scan(
 			&bucket,
+			&userAgent,
 			&versioning,
 			&placement,
 			&objectLockEnabled,
@@ -1665,6 +1668,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		usage := accounting.BucketUsage{
 			ProjectID:             projectID,
 			BucketName:            bucket,
+			UserAgent:             userAgent,
 			Versioning:            versioning,
 			ObjectLockEnabled:     objectLockEnabled,
 			DefaultPlacement:      placement,

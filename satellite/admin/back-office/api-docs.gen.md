@@ -23,6 +23,7 @@
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
+  * [Get project buckets](#projectmanagement-get-project-buckets)
   * [Update project](#projectmanagement-update-project)
   * [Update project limits](#projectmanagement-update-project-limits)
 * Search
@@ -584,6 +585,54 @@ Gets project by ID
 	segmentLimit: number
 	segmentUsed: number
 	status: unknown
+}
+
+```
+
+<h3 id='projectmanagement-get-project-buckets'>Get project buckets (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets a project's buckets
+
+`GET /back-office/api/v1/projects/{publicID}/buckets`
+
+**Query Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `search` | `string` |  |
+| `page` | `string` |  |
+| `limit` | `string` |  |
+| `since` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `before` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	items: 	[
+		{
+			name: string
+			userAgent: string
+			placement: string
+			storage: number
+			egress: number
+			segmentCount: number
+			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		}
+
+	]
+
+	limit: number
+	offset: number
+	pageCount: number
+	currentPage: number
+	totalCount: number
 }
 
 ```

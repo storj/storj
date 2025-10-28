@@ -47,6 +47,8 @@ export type DataTableHeader = {
     align?: 'start' | 'end' | 'center';
     sortable?: boolean;
     width?: number | string;
+    maxWidth?: number | string;
+    value?: (item: unknown) => string | number | boolean;
 };
 
 export type SortItem = {

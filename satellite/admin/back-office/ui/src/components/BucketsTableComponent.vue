@@ -2,16 +2,28 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="flat" :border="true" rounded="xlg">
-        <v-text-field
-            v-model="search" label="Search" prepend-inner-icon="mdi-magnify" single-line variant="solo-filled" flat
-            hide-details clearable density="compact" rounded="lg" class="mx-2 mt-2"
-        />
-
-        <v-data-table
-            v-model="selected" :sort-by="sortBy" :headers="headers" :items="files" :search="search"
-            class="elevation-1" item-key="path" density="comfortable" hover
+    <v-card variant="flat" border rounded="xlg" elevation="0">
+        <v-data-table-server
+            :headers="headers"
+            :items="bucketPage?.items ?? []"
+            :search="search"
+            :loading="isLoading"
+            :items-length="bucketPage?.totalCount ?? 0"
+            :items-per-page="pageSize"
+            items-per-page-text="Buckets per page"
+            no-data-text="No buckets found"
+            class="border-0"
+            hover
+            @update:items-per-page="onUpdateLimit"
+            @update:page="onUpdatePage"
         >
+            <template #top>
+                <v-text-field
+                    v-model="search" label="Search" :prepend-inner-icon="Search" single-line variant="solo-filled" flat
+                    hide-details clearable density="compact" rounded="lg" class="mx-2 mt-2 mb-2"
+                />
+            </template>
+
             <template #item.name="{ item }">
                 <div class="text-no-wrap">
                     <v-btn
@@ -19,9 +31,9 @@
                         width="24" height="24"
                     >
                         <BucketActionsMenu />
-                        <v-icon icon="mdi-dots-horizontal" />
+                        <v-icon :icon="MoreHorizontal" />
                     </v-btn>
-                    <v-chip variant="text" size="small" router-link to="/bucket-details" class="font-weight-bold pl-1 ml-1">
+                    <v-chip variant="text" size="small" class="font-weight-bold pl-1 ml-1">
                         <template #prepend>
                             <svg class="mr-2" width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <rect width="32" height="32" rx="10" />
@@ -36,153 +48,104 @@
                     </v-chip>
                 </div>
             </template>
-
             <template #item.placement="{ item }">
                 <v-chip variant="tonal" color="default" size="small" rounded="lg" class="text-capitalize">
                     {{ item.placement }}
                 </v-chip>
             </template>
-
-            <template #item.agent="{ item }">
-                <v-chip variant="tonal" color="default" size="small" rounded="lg" @click="setSearch(item.agent)">
-                    {{ item.agent }}
-                </v-chip>
-            </template>
-
-            <template #item.date="{ item }">
-                <span class="text-no-wrap">
-                    {{ item.date }}
-                </span>
-            </template>
-        </v-data-table>
+        </v-data-table-server>
     </v-card>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { VCard, VTextField, VDataTable, VBtn, VIcon, VChip } from 'vuetify/components';
+import { onMounted, ref, watch } from 'vue';
+import { VBtn, VCard, VChip, VDataTableServer, VIcon, VTextField } from 'vuetify/components';
+import { MoreHorizontal, Search } from 'lucide-vue-next';
+import { useDate } from 'vuetify';
 
-import { DataTableHeader, SortItem } from '@/types/common';
+import { DataTableHeader } from '@/types/common';
+import { BucketInfoPage, Project } from '@/api/client.gen';
+import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/composables/useNotify';
+import { Memory, Size } from '@/utils/bytesSize';
+import { useBucketsStore } from '@/store/buckets';
 
 import BucketActionsMenu from '@/components/BucketActionsMenu.vue';
 
+const bucketsStore = useBucketsStore();
+
+const date = useDate();
+const { isLoading, withLoading } = useLoading();
+const notify = useNotify();
+
+const props = defineProps<{
+    project: Project;
+}>();
+
 const search = ref<string>('');
-const selected = ref<string[]>([]);
-const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
+const pageSize = ref<number>(10);
+const searchTimer = ref<NodeJS.Timeout>();
+const bucketPage = ref<BucketInfoPage>();
 
 const headers: DataTableHeader[] = [
     { title: 'Bucket', key: 'name' },
-    { title: 'Storage', key: 'storage' },
-    { title: 'Download', key: 'download' },
-    { title: 'Segments', key: 'segments' },
+    {
+        title: 'Storage', key: 'storage',
+        value: item => Size.toBase10String((item as { storage: number }).storage * Memory.GB),
+    },
+    {
+        title: 'Download', key: 'egress',
+        value: item => Size.toBase10String((item as { egress: number }).egress * Memory.GB),
+    },
+    { title: 'Segments', key: 'segmentCount' },
     { title: 'Placement', key: 'placement' },
-    { title: 'Value', key: 'agent' },
-    { title: 'Created', key: 'date' },
-];
-const files = [
+    { title: 'User Agent', key: 'userAgent', maxWidth: '300' },
     {
-        name: 'First',
-        placement: 'global',
-        bucketid: '1Q284JF',
-        storage: '300TB',
-        download: '100TB',
-        segments: '23,456',
-        agent: 'Test Agent',
-        date: '02 Mar 2023',
-    },
-    {
-        name: 'Personal',
-        placement: 'global',
-        bucketid: '82SR21Q',
-        storage: '30TB',
-        download: '10TB',
-        segments: '123,456',
-        agent: 'Agent',
-        date: '21 Apr 2023',
-    },
-    {
-        name: 'Invitation',
-        placement: 'global',
-        bucketid: '4JFF82S',
-        storage: '500TB',
-        download: '200TB',
-        segments: '456',
-        agent: 'Random',
-        date: '24 Mar 2023',
-    },
-    {
-        name: 'Videos',
-        placement: 'global',
-        bucketid: '1Q223JA',
-        storage: '300TB',
-        download: '100TB',
-        segments: '3,456',
-        agent: 'Test Agent',
-        date: '11 Mar 2023',
-    },
-    {
-        name: 'App',
-        placement: 'global',
-        bucketid: 'R21Q284',
-        storage: '300TB',
-        download: '100TB',
-        segments: '56',
-        agent: 'Test Agent',
-        date: '11 Mar 2023',
-    },
-    {
-        name: 'Backup',
-        placement: 'global',
-        bucketid: '42SR20S',
-        storage: '30TB',
-        download: '10TB',
-        segments: '1,456',
-        agent: 'Agent',
-        date: '21 Apr 2023',
-    },
-    {
-        name: 'My Bucket',
-        placement: 'global',
-        bucketid: '4JFF8FF',
-        storage: '500TB',
-        download: '200TB',
-        segments: '6',
-        agent: 'Random',
-        date: '24 Mar 2023',
-    },
-    {
-        name: 'Sync',
-        placement: 'global',
-        bucketid: '4JFF8ZZ',
-        storage: '500TB',
-        download: '200TB',
-        segments: '3,123,456',
-        agent: 'Random',
-        date: '24 Mar 2023',
-    },
-    {
-        name: 'Backupss',
-        placement: 'global',
-        bucketid: '4JFF8TS',
-        storage: '500TB',
-        download: '200TB',
-        segments: '10,123,456',
-        agent: 'Random',
-        date: '24 Mar 2023',
-    },
-    {
-        name: 'Destiny',
-        placement: 'global',
-        bucketid: '4IF42TM',
-        storage: '500TB',
-        download: '200TB',
-        segments: '3,456',
-        agent: 'Random',
-        date: '29 Mar 2023',
+        title: 'Created', key: 'createdAt',
+        value: item => date.format(date.date((item as { createdAt: string }).createdAt), 'fullDate'),
     },
 ];
 
-function setSearch(searchText: string) {
-    search.value = searchText;
+/**
+ * Handles update table rows limit event.
+ */
+function onUpdateLimit(limit: number): void {
+    pageSize.value = limit;
+    fetchBuckets(1, limit);
 }
+
+/**
+ * Handles update table page event.
+ */
+function onUpdatePage(page: number): void {
+    fetchBuckets(page, pageSize.value);
+}
+
+/**
+ * Fetches bucket using api.
+ */
+function fetchBuckets(page = 1, limit = 10): void {
+    withLoading(async () => {
+        try {
+            bucketPage.value = await bucketsStore.getBuckets(props.project.id, { search: search.value, page, limit });
+        } catch (error) {
+            notify.error(`Failed to fetch buckets: ${error.message}`);
+        }
+    });
+}
+
+/**
+ * Handles update table search.
+ */
+watch(search, () => {
+    clearTimeout(searchTimer.value);
+
+    searchTimer.value = setTimeout(() => {
+        fetchBuckets();
+    }, 500); // 500ms delay for every new call.
+});
+
+onMounted(() => {
+    fetchBuckets();
+});
 </script>
