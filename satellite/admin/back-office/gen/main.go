@@ -195,7 +195,8 @@ func main() {
 		},
 		Request: backoffice.ToggleMfaRequest{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountDisableMFA},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountDisableMFA},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -210,7 +211,8 @@ func main() {
 		Request:  backoffice.CreateRestKeyRequest{},
 		Response: "",
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountCreateRestKey},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountCreateRestKey},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -269,7 +271,8 @@ func main() {
 		Request:  backoffice.ProjectLimitsUpdateRequest{},
 		Response: backoffice.Project{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermProjectSetLimits},
+			authPermsKey:     []backoffice.Permission{backoffice.PermProjectSetLimits},
+			passAuthParamKey: true,
 		},
 	})
 

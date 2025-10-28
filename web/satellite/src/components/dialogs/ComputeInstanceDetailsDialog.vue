@@ -28,7 +28,7 @@
 
                     <template #append>
                         <v-btn
-                            icon="$close"
+                            :icon="X"
                             variant="text"
                             size="small"
                             color="default"
@@ -127,7 +127,7 @@ import {
     VListItemTitle,
     VListItemSubtitle,
 } from 'vuetify/components';
-import { CalendarCheck, Computer, FolderPen, GlobeLock, Loader, MapPinHouse, ScreenShare } from 'lucide-vue-next';
+import { CalendarCheck, Computer, FolderPen, GlobeLock, Loader, MapPinHouse, ScreenShare, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';

@@ -258,6 +258,11 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// Find a new set of storage nodes, excluding any already represented in
 	// the current list of order limits.
 	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
+	// We use this slice to excluded the already used nodes to store part of the pieces and the ones
+	// that failed to store a piece, which are the ones that we are going to retry. The method, that
+	// receives this list, distinguishes between both receiving them in two separated slices, but we
+	// use one because we need to perform a considerable amount of changes before we can split them.
+	// See https://github.com/storj/storj/issues/7675
 	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
 	dedicatedSuccessTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
 	globalSuccessTracker := endpoint.successTrackers.GetGlobalTracker()

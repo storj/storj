@@ -812,9 +812,16 @@ func (s *Service) hasUnpaidInvoices(ctx context.Context, userID uuid.UUID) (_ bo
 }
 
 // ToggleMFA toggles MFA for a user. Only disabling is supported by admin.
-func (s *Service) ToggleMFA(ctx context.Context, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError {
+func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if authInfo == nil {
+		return api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.New("not authorized"),
+		}
+	}
 
 	if request.Reason == "" {
 		return api.HTTPError{
@@ -835,13 +842,12 @@ func (s *Service) ToggleMFA(ctx context.Context, userID uuid.UUID, request Toggl
 		}
 	}
 
-	user.MFAEnabled = false
-	user.MFASecretKey = ""
-	mfaSecretKeyPtr := &user.MFASecretKey
+	disabledMFA := false
+	mfaSecretKeyPtr := new(string)
 	var mfaRecoveryCodes []string
 
 	err = s.consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{
-		MFAEnabled:       &user.MFAEnabled,
+		MFAEnabled:       &disabledMFA,
 		MFASecretKey:     &mfaSecretKeyPtr,
 		MFARecoveryCodes: &mfaRecoveryCodes,
 	})
@@ -852,11 +858,27 @@ func (s *Service) ToggleMFA(ctx context.Context, userID uuid.UUID, request Toggl
 		}
 	}
 
+	afterState, err := s.consoleDB.Users().Get(ctx, user.ID)
+	if err != nil {
+		s.log.Error("Failed to retrieve user after toggling MFA", zap.Stringer("userId", user.ID), zap.Error(err))
+	} else {
+		s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+			Action:     "toggle_mfa",
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeUser,
+			ItemID:     user.ID,
+			Reason:     request.Reason,
+			Before:     user,
+			After:      afterState,
+			Timestamp:  s.nowFn(),
+		})
+	}
+
 	return api.HTTPError{}
 }
 
 // CreateRestKey creates a new REST API key for a user.
-func (s *Service) CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError) {
+func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -900,6 +922,17 @@ func (s *Service) CreateRestKey(ctx context.Context, userID uuid.UUID, request C
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+		Action:     "create_rest_key",
+		AdminEmail: authInfo.Email,
+		ItemType:   auditlogger.ItemTypeUser,
+		ItemID:     user.ID,
+		Reason:     request.Reason,
+		Before:     nil,
+		After:      apiKey[:5] + "*****",
+		Timestamp:  s.nowFn(),
+	})
 
 	return &apiKey, api.HTTPError{}
 }

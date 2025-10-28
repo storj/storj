@@ -10,9 +10,11 @@ import (
 	"net/http"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/console"
 )
 
@@ -88,8 +90,16 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusBadRequest, Error.New("invalid action %q", request.Action))
 	}
 
+	beforeState, err := s.accountFreeze.GetAll(ctx, userID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
 	if request.Action == FreezeActionUnfreeze {
-		return s.unfreezeUser(ctx, userID)
+		return s.unfreezeUser(ctx, authInfo, userID, request.Reason)
 	}
 
 	switch request.Type {
@@ -120,11 +130,27 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		}
 	}
 
+	afterState, err := s.accountFreeze.GetAll(ctx, userID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.log.Error("failed to get account freeze state after change", zap.String("userID", userID.String()), zap.Error(err))
+	} else {
+		s.auditLogger.LogChangeEvent(userID, auditlogger.Event{
+			Action:     "toggle_freeze_user",
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeUser,
+			ItemID:     userID,
+			Reason:     request.Reason,
+			Before:     beforeState,
+			After:      afterState,
+			Timestamp:  s.nowFn(),
+		})
+	}
+
 	return api.HTTPError{}
 }
 
 // unfreezeUser unfreezes a user account by user ID and freeze type.
-func (s *Service) unfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPError {
+func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, reason string) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -180,6 +206,22 @@ func (s *Service) unfreezeUser(ctx context.Context, userID uuid.UUID) api.HTTPEr
 			Status: status,
 			Err:    Error.Wrap(err),
 		}
+	}
+
+	afterState, err := s.accountFreeze.GetAll(ctx, userID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.log.Error("failed to get account freeze state after change", zap.String("userID", userID.String()), zap.Error(err))
+	} else {
+		s.auditLogger.LogChangeEvent(userID, auditlogger.Event{
+			Action:     "unfreeze_user",
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeUser,
+			ItemID:     userID,
+			Reason:     reason,
+			Before:     freezes,
+			After:      afterState,
+			Timestamp:  s.nowFn(),
+		})
 	}
 
 	return api.HTTPError{}

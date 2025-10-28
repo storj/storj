@@ -13,7 +13,7 @@
         scrollable
         @update:model-value="v => model = v"
     >
-        <v-card ref="innerContent">
+        <v-card>
             <v-card-item class="pa-6">
                 <template #prepend>
                     <v-sheet
@@ -45,7 +45,7 @@
 
             <v-divider />
 
-            <v-window v-if="!billingEnabled || !isProjectLimitReached" v-model="createStep" :touch="false">
+            <v-window v-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached))" v-model="createStep" :touch="false">
                 <v-window-item :value="CreateSteps.Info">
                     <v-form v-model="formValid" class="pa-6" @submit.prevent>
                         <v-row>
@@ -184,6 +184,13 @@
                 </v-row>
             </v-form>
 
+            <v-row v-else-if="isMemberAccount && billingEnabled" class="pa-6">
+                <v-col>
+                    Your account is currently a Member account with access to shared projects.
+                    To create your own project, you'll need to start a free trial or upgrade to a Pro account.
+                </v-col>
+            </v-row>
+
             <v-row v-else class="pa-6">
                 <v-col>
                     Upgrade to Pro Account to create more projects and gain access to higher limits.
@@ -205,7 +212,7 @@
                             {{ createStep === CreateSteps.ManageMode ? 'Back' : 'Cancel' }}
                         </v-btn>
                     </v-col>
-                    <v-col v-if="(!billingEnabled || !isProjectLimitReached) && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
+                    <v-col v-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached)) && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
                         <v-btn
                             color="primary"
                             variant="flat"
@@ -237,6 +244,7 @@
 
     <upgrade-account-dialog
         :scrim="false"
+        :is-member-upgrade="isMemberAccount && billingEnabled"
         :model-value="model && isUpgradeDialogShown"
         @update:model-value="v => model = isUpgradeDialogShown = v"
     />
@@ -274,7 +282,8 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/composables/useNotify';
 import {
-    AnalyticsErrorEventSource, AnalyticsEvent,
+    AnalyticsErrorEventSource,
+    AnalyticsEvent,
     PageVisitSource,
     SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
 } from '@/utils/constants/analyticsEventNames';
@@ -300,7 +309,6 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 const router = useRouter();
 
-const innerContent = ref<VCard | null>(null);
 const formValid = ref<boolean>(false);
 const inputText = ref<string>('');
 const name = ref<string>('');
@@ -322,6 +330,8 @@ const descriptionRules: ValidationRule<string>[] = [
     v => v.length <= MAX_DESCRIPTION_LENGTH || 'Description is too long',
 ];
 
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
+
 /**
  * Indicates if billing features are enabled.
  */
@@ -341,7 +351,12 @@ const isLimitIncreaseRequestEnabled = computed<boolean>(() => configStore.state.
  * Handles primary button click.
  */
 async function onPrimaryClick(): Promise<void> {
-    if (!isProjectLimitReached.value || !billingEnabled.value) {
+    if (isMemberAccount.value && billingEnabled.value) {
+        isUpgradeDialogShown.value = true;
+        return;
+    }
+
+    if (!(isProjectLimitReached.value && billingEnabled.value)) {
         if (!formValid.value) return;
         await withLoading(async () => {
             let project: Project;
@@ -404,7 +419,7 @@ function goToDocs() {
     window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
 }
 
-/*
+/**
  * Returns an array of validation rules applied to the text input.
  */
 const projectLimitRules = computed<ValidationRule<string>[]>(() => {
@@ -423,7 +438,10 @@ function updateInputText(value: string): void {
 }
 
 const buttonTitle = computed((): string => {
-    if (!isProjectLimitReached.value || !billingEnabled.value) {
+    if (isMemberAccount.value && billingEnabled.value) {
+        return 'Update Account';
+    }
+    if (!(isProjectLimitReached.value && billingEnabled.value)) {
         return 'Create Project';
     }
     if (usersStore.state.user.isPaid) {
@@ -436,7 +454,10 @@ const buttonTitle = computed((): string => {
 });
 
 const cardTitle = computed((): string => {
-    if (!isProjectLimitReached.value || !billingEnabled.value) {
+    if (isMemberAccount.value && billingEnabled.value) {
+        return 'Create Your Own Project';
+    }
+    if (!(isProjectLimitReached.value && billingEnabled.value)) {
         return 'Create New Project';
     }
     if (usersStore.state.user.isPaid && showLimitIncreaseDialog.value) {
@@ -445,8 +466,8 @@ const cardTitle = computed((): string => {
     return 'Get More Projects';
 });
 
-watch(innerContent, comp => {
-    if (comp) {
+watch(model, val => {
+    if (val) {
         const ownedProjects = projectsStore.projects.filter((p) => p.ownerId === usersStore.state.user.id);
         isProjectLimitReached.value = ownedProjects.length >= usersStore.state.user.projectLimit;
         isDescriptionShown.value = false;

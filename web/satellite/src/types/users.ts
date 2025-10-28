@@ -171,6 +171,10 @@ export class User {
         return this.kind.value === UserKind.NFR;
     }
 
+    public get isMember(): boolean {
+        return this.kind.value === UserKind.Member;
+    }
+
     public get hasPaidPrivileges(): boolean {
         return this.kind.hasPaidPrivileges;
     }
@@ -432,7 +436,7 @@ export class KindInfo {
 }
 
 export enum UserKind {
-    Free, Paid, NFR,
+    Free, Paid, NFR, Member,
 }
 
 /**
@@ -451,9 +455,8 @@ export class FreezeStatus {
  * OnboardingStep are the steps in the account setup dialog and onboarding stepper.
  */
 export enum OnboardingStep {
-    AccountTypeSelection = 'AccountTypeSelection',
-    PlanTypeSelection = 'PlanTypeSelection',
     AccountInfo = 'AccountInfo',
+    PlanTypeSelection = 'PlanTypeSelection',
     PaymentMethodSelection = 'PaymentMethodSelection',
     // left here for backward compatibility
     PricingPlanSelection = 'PricingPlanSelection',

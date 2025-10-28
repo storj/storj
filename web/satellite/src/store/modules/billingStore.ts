@@ -348,6 +348,10 @@ export const useBillingStore = defineStore('billing', () => {
         state.pricingPlanInfo = info;
     }
 
+    async function startFreeTrial(): Promise<void> {
+        await api.startFreeTrial(csrfToken.value);
+    }
+
     function clear(): void {
         stopPaymentsPolling();
         paymentsPollingInterval.value = undefined;
@@ -408,6 +412,7 @@ export const useBillingStore = defineStore('billing', () => {
         purchasePricingPackage,
         purchaseUpgradedAccount,
         setPricingPlansAvailable,
+        startFreeTrial,
         clear,
     };
 });

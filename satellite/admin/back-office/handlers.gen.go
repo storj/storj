@@ -42,15 +42,15 @@ type UserManagementService interface {
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
 	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) api.HTTPError
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
-	ToggleMFA(ctx context.Context, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
-	CreateRestKey(ctx context.Context, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
+	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
+	CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
 }
 
 type ProjectManagementService interface {
 	GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError)
 	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
 	UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectRequest) (*Project, api.HTTPError)
-	UpdateProjectLimits(ctx context.Context, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
+	UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
 }
 
 type SearchService interface {
@@ -581,11 +581,17 @@ func (h *UserManagementHandler) handleToggleMFA(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 32) {
 		return
 	}
 
-	httpErr := h.service.ToggleMFA(ctx, userID, payload)
+	httpErr := h.service.ToggleMFA(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
@@ -621,11 +627,17 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 32768) {
 		return
 	}
 
-	retVal, httpErr := h.service.CreateRestKey(ctx, userID, payload)
+	retVal, httpErr := h.service.CreateRestKey(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -783,11 +795,17 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 
-	retVal, httpErr := h.service.UpdateProjectLimits(ctx, publicID, payload)
+	retVal, httpErr := h.service.UpdateProjectLimits(ctx, authInfo, publicID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return

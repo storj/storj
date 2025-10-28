@@ -71,6 +71,23 @@ func (p *Payments) SetupAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// StartFreeTrial starts a free trial for the Member user.
+func (p *Payments) StartFreeTrial(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	err = p.service.Payments().StartFreeTrial(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // AccountBalance returns an integer amount in cents that represents the current balance of payment account.
 func (p *Payments) AccountBalance(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

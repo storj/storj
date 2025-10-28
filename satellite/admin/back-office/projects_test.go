@@ -186,16 +186,18 @@ func TestUpdateProjectLimits(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		authInfo := &admin.AuthInfo{Email: "test@example.com"}
+
 		t.Run("unexisting project", func(t *testing.T) {
 			sat := planet.Satellites[0]
 			service := sat.Admin.Admin.Service
 
-			_, apiErr := service.UpdateProjectLimits(ctx, testrand.UUID(), admin.ProjectLimitsUpdateRequest{})
+			_, apiErr := service.UpdateProjectLimits(ctx, authInfo, testrand.UUID(), admin.ProjectLimitsUpdateRequest{})
 			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Error(t, apiErr.Err)
 			require.Contains(t, apiErr.Err.Error(), "reason is required")
 
-			_, apiErr = service.UpdateProjectLimits(ctx, testrand.UUID(), admin.ProjectLimitsUpdateRequest{
+			_, apiErr = service.UpdateProjectLimits(ctx, authInfo, testrand.UUID(), admin.ProjectLimitsUpdateRequest{
 				Reason: "reason",
 			})
 			require.Error(t, apiErr.Err)
@@ -274,7 +276,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 			expectBuckets := 100
 			expectRate := 2000
 			expectBurst := 500
-			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+			project, apiErr = service.UpdateProjectLimits(ctx, authInfo, projPublicID, admin.ProjectLimitsUpdateRequest{
 				MaxBuckets:     intPtr(expectBuckets),
 				StorageLimit:   int64Ptr(expectStorage),
 				BandwidthLimit: int64Ptr(expectBandwidth),
@@ -295,7 +297,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 			require.Nil(t, project.RateLimitList)
 
 			// test setting to zero.
-			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+			project, apiErr = service.UpdateProjectLimits(ctx, authInfo, projPublicID, admin.ProjectLimitsUpdateRequest{
 				MaxBuckets:     intPtr(0),
 				StorageLimit:   int64Ptr(0),
 				BandwidthLimit: int64Ptr(0),
@@ -313,7 +315,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 			require.Equal(t, intPtr(0), project.BurstLimit)
 
 			// revert
-			_, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+			_, apiErr = service.UpdateProjectLimits(ctx, authInfo, projPublicID, admin.ProjectLimitsUpdateRequest{
 				MaxBuckets:     intPtr(expectBuckets),
 				StorageLimit:   int64Ptr(expectStorage),
 				BandwidthLimit: int64Ptr(expectBandwidth),
@@ -326,7 +328,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 
 			// test setting nullable limits to admin.NullableLimitValue (-1) which should make them null in DB
 			// first set all nullable fields to non-zero values
-			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+			project, apiErr = service.UpdateProjectLimits(ctx, authInfo, projPublicID, admin.ProjectLimitsUpdateRequest{
 				UserSetStorageLimit:   int64Ptr(expectStorage),
 				UserSetBandwidthLimit: int64Ptr(expectBandwidth),
 				RateLimitHead:         intPtr(expectRate),
@@ -363,7 +365,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 			require.Equal(t, intPtr(expectBurst), project.BurstLimit)
 
 			// now set all nullable fields to 0 to make them null
-			project, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+			project, apiErr = service.UpdateProjectLimits(ctx, authInfo, projPublicID, admin.ProjectLimitsUpdateRequest{
 				UserSetStorageLimit:   int64Ptr(admin.NullableLimitValue),
 				UserSetBandwidthLimit: int64Ptr(admin.NullableLimitValue),
 				RateLimitHead:         intPtr(admin.NullableLimitValue),
@@ -399,7 +401,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 			require.Equal(t, intPtr(expectRate), project.RateLimit)
 			require.Equal(t, intPtr(expectBurst), project.BurstLimit)
 
-			_, apiErr = service.UpdateProjectLimits(ctx, projPublicID, admin.ProjectLimitsUpdateRequest{
+			_, apiErr = service.UpdateProjectLimits(ctx, authInfo, projPublicID, admin.ProjectLimitsUpdateRequest{
 				MaxBuckets:          intPtr(-2),
 				StorageLimit:        int64Ptr(-1),
 				UserSetStorageLimit: int64Ptr(-2),

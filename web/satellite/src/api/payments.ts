@@ -844,4 +844,21 @@ export class PaymentsHttpApi implements PaymentsApi {
             requestID: response.headers.get('x-request-id'),
         });
     }
+
+    public async startFreeTrial(csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/start-trial`;
+        const response = await this.client.post(path, null, { csrfProtectionToken });
+
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not start free trial',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
 }

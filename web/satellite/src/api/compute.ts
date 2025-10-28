@@ -145,6 +145,54 @@ export class ComputeAPI implements IComputeAPI {
         }
     }
 
+    public async getAvailableInstanceTypes(baseURL: string, authToken: string): Promise<string[]> {
+        const path = `${baseURL}/api/v1/instance-type`;
+        const response = await this.http.get(path, { authToken });
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.message || 'Can not get instance types',
+                requestID: result.requestID,
+            });
+        }
+
+        return (result ?? []).map((type => type.name));
+    }
+
+    public async getAvailableImages(baseURL: string, authToken: string): Promise<string[]> {
+        const path = `${baseURL}/api/v1/image`;
+        const response = await this.http.get(path, { authToken });
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.message || 'Can not get images',
+                requestID: result.requestID,
+            });
+        }
+
+        return (result ?? []).map((image => image.name));
+    }
+
+    public async getAvailableLocations(baseURL: string, authToken: string): Promise<string[]> {
+        const path = `${baseURL}/api/v1/location`;
+        const response = await this.http.get(path, { authToken });
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: result.message || 'Can not get locations',
+                requestID: result.requestID,
+            });
+        }
+
+        return (result ?? []).map((loc => loc.name));
+    }
+
     private instanceFromJSON(instance: Record<string, never>): Instance {
         return new Instance(
             instance.id,

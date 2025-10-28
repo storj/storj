@@ -143,26 +143,27 @@ type UserInfo struct {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	ExternalId       *string  `json:"-"`
-	FullName         string   `json:"fullName"`
-	ShortName        string   `json:"shortName"`
-	Email            string   `json:"email"`
-	UserAgent        []byte   `json:"userAgent"`
-	Password         string   `json:"password"`
-	IsProfessional   bool     `json:"isProfessional"`
-	Position         string   `json:"position"`
-	CompanyName      string   `json:"companyName"`
-	WorkingOn        string   `json:"workingOn"`
-	EmployeeCount    string   `json:"employeeCount"`
-	HaveSalesContact bool     `json:"haveSalesContact"`
-	CaptchaResponse  string   `json:"captchaResponse"`
-	IP               string   `json:"ip"`
-	SignupPromoCode  string   `json:"signupPromoCode"`
-	CaptchaScore     *float64 `json:"-"`
-	ActivationCode   string   `json:"-"`
-	SignupId         string   `json:"-"`
-	AllowNoName      bool     `json:"-"`
-	Kind             UserKind `json:"-"`
+	ExternalId        *string  `json:"-"`
+	FullName          string   `json:"fullName"`
+	ShortName         string   `json:"shortName"`
+	Email             string   `json:"email"`
+	UserAgent         []byte   `json:"userAgent"`
+	Password          string   `json:"password"`
+	IsProfessional    bool     `json:"isProfessional"`
+	Position          string   `json:"position"`
+	CompanyName       string   `json:"companyName"`
+	WorkingOn         string   `json:"workingOn"`
+	EmployeeCount     string   `json:"employeeCount"`
+	HaveSalesContact  bool     `json:"haveSalesContact"`
+	CaptchaResponse   string   `json:"captchaResponse"`
+	IP                string   `json:"ip"`
+	SignupPromoCode   string   `json:"signupPromoCode"`
+	CaptchaScore      *float64 `json:"-"`
+	ActivationCode    string   `json:"-"`
+	SignupId          string   `json:"-"`
+	AllowNoName       bool     `json:"-"`
+	NoTrialExpiration bool     `json:"-"`
+	Kind              UserKind `json:"-"`
 }
 
 // CreateSsoUser struct holds info for SSO User creation.
@@ -265,10 +266,12 @@ const (
 	// NFRUser - not-for-resale user is one that has paid privileges
 	// but is not paying for the account.
 	NFRUser UserKind = 2
+	// MemberUser is a kind of user that is a member of a project.
+	MemberUser UserKind = 3
 )
 
 // UserKinds holds all supported user kinds.
-var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser}
+var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser}
 
 // UserStatuses holds all supported user statuses.
 var UserStatuses = []UserStatus{Inactive, Active, Deleted, PendingDeletion, LegalHold, PendingBotVerification, UserRequestedDeletion}
@@ -318,6 +321,8 @@ func (k UserKind) String() string {
 		return "Pro Account"
 	case NFRUser:
 		return "Not-For-Resale"
+	case MemberUser:
+		return "Member Account"
 	default:
 		return ""
 	}
@@ -453,6 +458,16 @@ func (u *User) IsPaid() bool {
 // IsFree returns whether it's a free user.
 func (u *User) IsFree() bool {
 	return u.Kind == FreeUser
+}
+
+// IsMember returns whether it's a member user.
+func (u *User) IsMember() bool {
+	return u.Kind == MemberUser
+}
+
+// IsFreeOrMember returns whether it's a free or member user.
+func (u *User) IsFreeOrMember() bool {
+	return u.IsFree() || u.IsMember()
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.

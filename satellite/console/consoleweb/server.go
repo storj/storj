@@ -332,7 +332,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -421,6 +421,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		paymentsRouter.HandleFunc("/countries", paymentController.GetTaxCountries).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/countries/{countryCode}/taxes", paymentController.GetCountryTaxes).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.Handle("/purchase", server.withCSRFProtection(server.addCardRateLimiter.Limit(http.HandlerFunc(paymentController.Purchase)))).Methods(http.MethodPost, http.MethodOptions)
+		if config.MemberAccountsEnabled {
+			paymentsRouter.Handle("/start-trial", server.withCSRFProtection(http.HandlerFunc(paymentController.StartFreeTrial))).Methods(http.MethodPost, http.MethodOptions)
+		}
 		if config.PricingPackagesEnabled {
 			paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet, http.MethodOptions)
 		}

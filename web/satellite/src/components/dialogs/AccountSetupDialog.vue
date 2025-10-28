@@ -211,10 +211,17 @@ const accountInfoNextStep = computed<OnboardingStep>(() => {
     if (!billingEnabled.value) return defaultNextStep.value;
     return OnboardingStep.PlanTypeSelection;
 });
+const isMemberAccount = computed<boolean>(() => userStore.state.user.isMember);
 
 const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     [OnboardingStep.AccountInfo]: new StepInfo<OnboardingStep>({
-        next: () => accountInfoNextStep.value,
+        next: () => {
+            if (isMemberAccount.value) {
+                return OnboardingStep.SetupComplete; // Skip to the end for member accounts.
+            } else {
+                return accountInfoNextStep.value;
+            }
+        },
         beforeNext: async () => {
             await stepInfos[OnboardingStep.AccountInfo].ref.value?.setup?.();
 
@@ -222,6 +229,11 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
             if (!userSettings.value.onboardingStart) {
                 update.onboardingStart = true;
             }
+
+            if (isMemberAccount.value) {
+                update.onboardingStep = OnboardingStep.SetupComplete; // Skip to the end for member accounts.
+            }
+
             await userStore.updateSettings(update);
         },
     }),
@@ -255,6 +267,11 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     }),
     [OnboardingStep.SetupComplete]: new StepInfo<OnboardingStep>({
         beforeNext: async () => {
+            if (isMemberAccount.value) {
+                await userStore.updateSettings({ onboardingEnd: true });
+                return;
+            }
+
             await stepInfos[OnboardingStep.SetupComplete].ref.value?.setup?.();
         },
     }),

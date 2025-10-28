@@ -103,7 +103,7 @@ node('node') {
 
     stage('Publish Modular Storagenode Images') {
           lastStage = env.STAGE_NAME
-          env.MODULE="SATELLITE"
+          env.MODULE="STORAGENODE"
           sh './scripts/bake.sh -f docker-bake.hcl ' + imageBuildType + ' storagenode-modular --push'
     }
 
@@ -138,10 +138,10 @@ node('node') {
 
       echo "Current build result: ${currentBuild.result}"
     }
-    stage('Draft Release') {
+    stage('Publish Release') {
       withCredentials([string(credentialsId: 'GITHUB_RELEASE_TOKEN', variable: 'GITHUB_TOKEN')]) {
         lastStage = env.STAGE_NAME
-        sh 'make draft-release'
+        sh 'make publish-release'
 
         echo "Current build result: ${currentBuild.result}"
       }

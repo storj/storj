@@ -495,6 +495,32 @@ func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key 
 	return key, status, Error.Wrap(err)
 }
 
+// StartFreeTrial starts free trial for authorized Member user.
+func (payment Payments) StartFreeTrial(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "start free trial")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if !user.IsMember() {
+		return ErrUnauthorized.New("only Member users can start new free trial")
+	}
+
+	freeKind := FreeUser
+	request := UpdateUserRequest{
+		Kind: &freeKind,
+	}
+	if payment.service.config.FreeTrialDuration != 0 {
+		expiration := payment.service.nowFn().Add(payment.service.config.FreeTrialDuration)
+		expirationPtr := &expiration
+		request.TrialExpiration = &expirationPtr
+	}
+
+	return payment.service.store.Users().Update(ctx, user.ID, request)
+}
+
 // SetupAccount creates payment account for authorized user.
 func (payment Payments) SetupAccount(ctx context.Context) (_ payments.CouponType, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -622,7 +648,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFree() && payment.service.config.UpgradePayUpfrontAmount == 0 {
+	if user.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount == 0 {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
@@ -686,7 +712,7 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFree() && payment.service.config.UpgradePayUpfrontAmount == 0 {
+	if user.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount == 0 {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, err
@@ -967,7 +993,7 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 	if err != nil {
 		payment.service.log.Error("Failed to get user for payment intent succeeded event", zap.String("ID", userID.String()), zap.Error(err))
 	} else {
-		if user.IsFree() {
+		if user.IsFreeOrMember() {
 			// If the user is on a free tier, we upgrade them to paid tier.
 			err = payment.upgradeToPaidTier(ctx, user)
 			if err != nil {
@@ -1360,7 +1386,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
 		}
 
-		if s.config.FreeTrialDuration != 0 {
+		if !user.NoTrialExpiration && s.config.FreeTrialDuration != 0 {
 			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 			newUser.TrialExpiration = &expiration
 		}
@@ -1470,6 +1496,7 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 		ActivationCode:   &requestData.ActivationCode,
 		SignupId:         &requestData.SignupId,
 		SignupPromoCode:  &requestData.SignupPromoCode,
+		Kind:             &requestData.Kind,
 	}
 	if requestData.ShortName != "" {
 		shortNamePtr := &requestData.ShortName
@@ -1479,7 +1506,10 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 		updatedUser.UserAgent = requestData.UserAgent
 	}
 
-	if s.config.FreeTrialDuration != 0 {
+	if requestData.NoTrialExpiration {
+		noExpiration := new(time.Time)
+		updatedUser.TrialExpiration = &noExpiration
+	} else if s.config.FreeTrialDuration != 0 {
 		expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 		expirationPtr := &expiration
 		updatedUser.TrialExpiration = &expirationPtr
@@ -3475,6 +3505,33 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
 }
 
+// JoinProjectNoAuth adds a user to a project with a specified role.
+func (s *Service) JoinProjectNoAuth(ctx context.Context, projectID uuid.UUID, user *User, role ProjectMemberRole) {
+	// should not happen in practice, but just in case.
+	if user == nil {
+		return
+	}
+
+	_, err := s.store.ProjectMembers().Insert(ctx, user.ID, projectID, role)
+	if err != nil {
+		s.log.Warn("error adding user to project",
+			zap.Error(err),
+			zap.String("email", user.Email),
+			zap.String("projectID", projectID.String()),
+		)
+		return
+	}
+
+	err = s.store.ProjectInvitations().Delete(ctx, projectID, user.Email)
+	if err != nil {
+		s.log.Warn("error deleting project invitation",
+			zap.Error(err),
+			zap.String("email", user.Email),
+			zap.String("projectID", projectID.String()),
+		)
+	}
+}
+
 // EmissionImpactResponse represents emission impact response to be returned to client.
 type EmissionImpactResponse struct {
 	StorjImpact       float64 `json:"storjImpact"`
@@ -4356,7 +4413,7 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		return Error.Wrap(err)
 	}
 
-	if user.IsFree() {
+	if user.IsFreeOrMember() {
 		return ErrNotPaidTier.New("Only Pro users may request project limit increases")
 	}
 
@@ -6457,7 +6514,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		return err
 	}
 
-	if params.User.IsFree() && payment.service.config.UpgradePayUpfrontAmount > 0 {
+	if params.User.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount > 0 {
 		err = payment.upgradeToPaidTier(ctx, params.User)
 		if err != nil {
 			return err

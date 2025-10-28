@@ -109,7 +109,7 @@ export const useUsersStore = defineStore('users', () => {
 
     function getShouldPromptPassphrase(isProjectOwner: boolean): boolean {
         const settings = state.settings;
-        const step = settings.onboardingStep as OnboardingStep || OnboardingStep.AccountTypeSelection;
+        const step = settings.onboardingStep as OnboardingStep || OnboardingStep.AccountInfo;
         if (!settings.passphrasePrompt) {
             return false;
         }

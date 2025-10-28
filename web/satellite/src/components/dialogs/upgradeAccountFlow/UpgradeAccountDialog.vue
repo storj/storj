@@ -22,7 +22,7 @@
                         variant="text"
                         size="small"
                         color="default"
-                        :disabled="loading"
+                        :disabled="isLoading"
                         @click="model = false"
                     />
                 </template>
@@ -34,8 +34,10 @@
                 <v-window v-model="step" :touch="false" class="no-overflow">
                     <v-window-item :value="UpgradeAccountStep.Info">
                         <UpgradeInfoStep
-                            :loading="loading"
+                            :loading="isLoading"
+                            :is-member-upgrade="isMemberUpgrade"
                             @upgrade="upgrade"
+                            @start-free-trial="onStartFreeTrial"
                         />
                     </v-window-item>
 
@@ -56,16 +58,16 @@
                         <v-window v-model="paymentTab" :touch="false">
                             <v-window-item :value="PaymentOption.CreditCard">
                                 <PricingPlanStep
-                                    v-model:loading="loading"
+                                    v-model:loading="isLoading"
                                     :plan="plan"
                                     @back="setStep(UpgradeAccountStep.Info)"
                                     @success="() => setStep(UpgradeAccountStep.Success)"
                                 />
                             </v-window-item>
                             <v-window-item :value="PaymentOption.StorjTokens">
-                                <v-card :loading="loading" class="pa-1" variant="flat" :class="{'no-border pa-0': !loading}">
+                                <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
                                     <AddTokensStep
-                                        v-if="!loading"
+                                        v-if="!isLoading"
                                         @back="() => setStep(UpgradeAccountStep.Info)"
                                         @success="onAddTokensSuccess"
                                     />
@@ -80,7 +82,7 @@
 
                     <v-window-item :value="UpgradeAccountStep.PricingPlan">
                         <PricingPlanStep
-                            v-model:loading="loading"
+                            v-model:loading="isLoading"
                             :plan="plan"
                             @close="model = false"
                             @back="setStep(UpgradeAccountStep.Info)"
@@ -116,6 +118,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { Wallet } from '@/types/payments';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useLoading } from '@/composables/useLoading';
 
 import UpgradeInfoStep from '@/components/dialogs/upgradeAccountFlow/UpgradeInfoStep.vue';
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
@@ -139,7 +142,6 @@ const { smAndDown, md } = useDisplay();
 const notify = useNotify();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
-const loading = ref<boolean>(false);
 const plan = ref<PricingPlanInfo>();
 const content = ref<HTMLElement | null>(null);
 const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);
@@ -149,15 +151,19 @@ enum PaymentOption {
     StorjTokens,
 }
 
-const paymentTab = ref<PaymentOption>(PaymentOption.CreditCard);
-
 withDefaults(defineProps<{
     scrim?: boolean,
+    isMemberUpgrade?: boolean,
 }>(), {
     scrim: true,
+    isMemberUpgrade: false,
 });
 
+const { isLoading, withLoading } = useLoading();
+
 const model = defineModel<boolean>({ required: true });
+
+const paymentTab = ref<PaymentOption>(PaymentOption.CreditCard);
 
 const stepTitles = computed(() => {
     return {
@@ -192,22 +198,35 @@ const maxWidth = computed(() => {
 const isPaidTier = computed((): boolean => usersStore.state.user.isPaid);
 
 /**
+ * Handles starting free trial for Member accounts.
+ */
+function onStartFreeTrial(): void {
+    withLoading(async () => {
+        try {
+            await billingStore.startFreeTrial();
+            await usersStore.getUser();
+
+            notify.success('Your free trial has started!');
+            model.value = false;
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        }
+    });
+}
+
+/**
  * Claims wallet and sets add token step.
  */
-async function onAddTokens(): Promise<void> {
-    if (loading.value) return;
+function onAddTokens(): void {
+    withLoading(async () => {
+        try {
+            await billingStore.claimWallet();
 
-    loading.value = true;
-
-    try {
-        await billingStore.claimWallet();
-
-        analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
-    } catch (error) {
-        notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
-    }
-
-    loading.value = false;
+            analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+        }
+    });
 }
 
 function onAddTokensSuccess(): void {
@@ -227,7 +246,8 @@ function setStep(s: UpgradeAccountStep) {
 }
 
 function upgrade(p: PricingPlanInfo) {
-    if (loading.value) return;
+    if (isLoading.value) return;
+
     plan.value = p;
 
     setStep(p.type === PricingPlanType.PARTNER ? UpgradeAccountStep.PricingPlan : UpgradeAccountStep.Options);

@@ -5,8 +5,9 @@
     <PricingPlans
         :loading="loading"
         is-upgrade-flow
-        :custom-free-plan="freePlan"
-        :hide-free-plan="smAndDown"
+        :custom-free-plan="isMemberUpgrade ? undefined : freePlan"
+        :hide-free-plan="!isMemberUpgrade && smAndDown"
+        @free-click="isMemberUpgrade ? emit('startFreeTrial') : () => {}"
         @pro-click="emit('upgrade', proPlan)"
         @pkg-click="pricingPlan ? emit('upgrade', pricingPlan) : null"
     />
@@ -28,10 +29,12 @@ const { isExpired, expirationInfo } = usePreCheck();
 
 defineProps<{
     loading: boolean;
+    isMemberUpgrade: boolean;
 }>();
 
 const emit = defineEmits<{
     upgrade: [PricingPlanInfo];
+    startFreeTrial: [];
 }>();
 
 const proPlan = computed(() => billingStore.proPlanInfo);

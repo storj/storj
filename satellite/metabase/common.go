@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/zeebo/errs"
 
@@ -511,56 +510,6 @@ func (v *Version) Scan(val any) error {
 	}
 }
 
-// Retention represents an object version's Object Lock retention configuration.
-type Retention struct {
-	Mode        storj.RetentionMode
-	RetainUntil time.Time
-}
-
-// Enabled returns whether the retention configuration is enabled.
-func (r *Retention) Enabled() bool {
-	return r.Mode != storj.NoRetention
-}
-
-// Active returns whether the retention configuration is enabled and active as of the given time.
-func (r *Retention) Active(now time.Time) bool {
-	return r.Enabled() && now.Before(r.RetainUntil)
-}
-
-// ActiveNow returns whether the retention configuration is enabled and active as of the current time.
-func (r *Retention) ActiveNow() bool {
-	return r.Active(time.Now())
-}
-
-// Verify verifies the retention configuration.
-func (r *Retention) Verify() error {
-	if r.Mode == storj.GovernanceMode {
-		if r.RetainUntil.IsZero() {
-			return errs.New("retention period expiration must be set if retention mode is set")
-		}
-		return nil
-	}
-	return r.verifyWithoutGovernance()
-}
-
-// verifyWithoutGovernance verifies the retention configuration. It's used by metabase DB methods that haven't
-// yet been adjusted to support governance mode, so it treats governance mode as invalid.
-func (r *Retention) verifyWithoutGovernance() error {
-	switch r.Mode {
-	case storj.ComplianceMode:
-		if r.RetainUntil.IsZero() {
-			return errs.New("retention period expiration must be set if retention mode is set")
-		}
-	case storj.NoRetention:
-		if !r.RetainUntil.IsZero() {
-			return errs.New("retention period expiration must not be set if retention mode is not set")
-		}
-	default:
-		return errs.New("invalid retention mode %d", r.Mode)
-	}
-	return nil
-}
-
 // StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
 // First 8 bytes represents Version and rest are object StreamID suffix.
 // TODO(ver): we may consider renaming this type to VersionID but to do that
@@ -668,13 +617,6 @@ const (
 	statusesUnversioned           = "(" + statusCommittedUnversioned + "," + statusDeleteMarkerUnversioned + ")"
 	statusesVersioned             = "(" + statusCommittedVersioned + "," + statusDeleteMarkerVersioned + ")"
 	statusesVisible               = "(" + statusCommittedUnversioned + "," + statusCommittedVersioned + "," + statusDeleteMarkerUnversioned + "," + statusDeleteMarkerVersioned + ")"
-
-	retentionModeNone                        = "0"
-	retentionModeCompliance                  = "1"
-	retentionModeGovernance                  = "2"
-	retentionModeComplianceAndGovernanceMask = "3"
-	retentionModeLegalHold                   = "4"
-	retentionModesComplianceAndGovernance    = "(" + retentionModeCompliance + "," + retentionModeGovernance + ")"
 
 	// DefaultStatus is the default status for new objects.
 	DefaultStatus = Pending

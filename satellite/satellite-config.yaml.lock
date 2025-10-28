@@ -541,6 +541,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # additional values for Content Security Policy media-src, space separated
 # console.media-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
 
+# whether member accounts are enabled
+# console.member-accounts-enabled: false
+
 # minimum amount (in cents) allowed to be added to an account balance.
 # console.min-add-funds-amount: 1000
 
