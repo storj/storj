@@ -15,6 +15,17 @@
             </v-list-item>
 
             <v-list-item
+                v-if="featureFlags.project.updatePlacement"
+                density="comfortable" rounded="lg"
+                link
+                @click="emit('viewEntitlements', projectId)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    View Entitlements
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
                 v-if="hasUpdateProjectPerm"
                 density="comfortable" rounded="lg"
                 link
@@ -92,6 +103,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'updateLimits', projectId: string): void;
     (e: 'update', projectId: string): void;
+    (e: 'viewEntitlements', projectId: string): void;
 }>();
 
 const isCurrentRouteViewProject = computed(() => {

@@ -6,7 +6,7 @@ import { defineStore } from 'pinia';
 
 import {
     PlacementInfo,
-    PlacementManagementHttpApiV1,
+    PlacementManagementHttpApiV1, ProductInfo, ProductManagementHttpApiV1,
     SearchHttpApiV1,
     SearchResult,
     Settings,
@@ -15,6 +15,7 @@ import {
 
 class AppState {
     public placements: PlacementInfo[];
+    public products: ProductInfo[];
     public settings: Settings;
     public loading: boolean = false;
 }
@@ -23,6 +24,7 @@ export const useAppStore = defineStore('app', () => {
     const state = reactive<AppState>(new AppState());
 
     const placementApi = new PlacementManagementHttpApiV1();
+    const productApi = new ProductManagementHttpApiV1();
     const settingsApi = new SettingsHttpApiV1();
     const searchApi = new SearchHttpApiV1();
 
@@ -35,6 +37,10 @@ export const useAppStore = defineStore('app', () => {
 
     async function getPlacements(): Promise<void> {
         state.placements = await placementApi.getPlacements();
+    }
+
+    async function getProducts(): Promise<void> {
+        state.products = await productApi.getProducts();
     }
 
     function getPlacementText(code: number): string {
@@ -63,6 +69,7 @@ export const useAppStore = defineStore('app', () => {
         getPlacements,
         getPlacementText,
         getSettings,
+        getProducts,
         search,
     };
 });

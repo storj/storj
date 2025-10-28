@@ -42,6 +42,7 @@
                     :project-id="project.id" :owner="project.owner"
                     @update-limits="onUpdateLimitsClicked"
                     @update="updateDialog = true"
+                    @view-entitlements="viewEntitlementsDialog = true"
                 />
             </v-btn>
         </div>
@@ -59,7 +60,7 @@
         </v-row>
 
         <v-row>
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
                 <v-card :title="project.name" variant="flat" :border="true" rounded="xlg">
                     <template v-if="featureFlags.project.updateInfo" #append>
                         <v-btn
@@ -83,7 +84,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
                 <v-card title="User agent" variant="flat" :border="true" rounded="xlg" class="mb-3">
                     <template v-if="featureFlags.project.updateValueAttribution" #append>
                         <v-btn
@@ -99,7 +100,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" md="4">
+            <v-col cols="12" md="3">
                 <v-card title="Placement" variant="flat" :border="true" rounded="xlg">
                     <template v-if="featureFlags.project.updatePlacement" #append>
                         <v-btn
@@ -112,6 +113,27 @@
                     <v-card-text>
                         <v-chip variant="tonal" class="mr-2">
                             {{ placementText }}
+                        </v-chip>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
+            <v-col cols="12" md="3">
+                <v-card title="Entitlements" variant="flat" :border="true" rounded="xlg">
+                    <template #append>
+                        <v-btn
+                            variant="outlined"
+                            size="small"
+                            density="comfortable"
+                            color="default"
+                            @click="viewEntitlementsDialog = true"
+                        >
+                            View
+                        </v-btn>
+                    </template>
+                    <v-card-text>
+                        <v-chip variant="tonal" class="mr-2">
+                            {{ project.entitlements ? 'Set' : 'Not Set' }}
                         </v-chip>
                     </v-card-text>
                 </v-card>
@@ -248,6 +270,11 @@
         v-model="updateDialog"
         :project="project"
     />
+    <EntitlementsDialog
+        v-if="project?.entitlements"
+        v-model="viewEntitlementsDialog"
+        :project="project"
+    />
 </template>
 
 <script setup lang="ts">
@@ -273,6 +300,7 @@ import UsersTableComponent from '@/components/UsersTableComponent.vue';
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
 import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
+import EntitlementsDialog from '@/components/EntitlementsDialog.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
@@ -284,6 +312,7 @@ const notify = useNotificationsStore();
 
 const updateLimitsDialog = ref<boolean>(false);
 const updateDialog = ref<boolean>(false);
+const viewEntitlementsDialog = ref<boolean>(false);
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 

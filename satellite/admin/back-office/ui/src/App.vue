@@ -43,6 +43,7 @@ onMounted(async () => {
         await Promise.all([
             appStore.getSettings(),
             appStore.getPlacements(),
+            appStore.getProducts(),
         ]);
     } catch (error) {
         notify.error(`Failed to initialise app. ${error.message}`);
