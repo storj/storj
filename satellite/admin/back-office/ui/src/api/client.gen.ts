@@ -98,6 +98,14 @@ export class KindInfo {
     hasPaidPrivileges: boolean;
 }
 
+export class MiniProductInfo {
+    productName: string;
+    storageMBMonthCents: string;
+    egressMBCents: string;
+    segmentMonthCents: string;
+    egressDiscountRatio: string;
+}
+
 export class PlacementInfo {
     id: number;
     location: string;
@@ -142,6 +150,13 @@ export class Project {
     segmentLimit: number | null;
     segmentUsed: number | null;
     status: ProjectStatusInfo | null;
+    entitlements: ProjectEntitlements | null;
+}
+
+export class ProjectEntitlements {
+    newBucketPlacements: string[] | null;
+    computeAccessToken: string;
+    placementProductMappings: Record<string, MiniProductInfo> | null;
 }
 
 export class ProjectFlags {
@@ -153,6 +168,7 @@ export class ProjectFlags {
     updateLimits: boolean;
     updatePlacement: boolean;
     updateValueAttribution: boolean;
+    setEntitlements: boolean;
     view: boolean;
     memberList: boolean;
     memberAdd: boolean;
@@ -212,6 +228,13 @@ export class ToggleMfaRequest {
 export class UpdateBucketRequest {
     userAgent: string | null;
     placement: number | null;
+    reason: string;
+}
+
+export class UpdateProjectEntitlementsRequest {
+    newBucketPlacements: number[] | null;
+    computeAccessToken: string | null;
+    placementProductMappings: Record<number, number> | null;
     reason: string;
 }
 
@@ -530,6 +553,16 @@ export class ProjectManagementHttpApiV1 {
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateProjectEntitlements(request: UpdateProjectEntitlementsRequest, publicID: UUID): Promise<ProjectEntitlements> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}/entitlements`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as ProjectEntitlements);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

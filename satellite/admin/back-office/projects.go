@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 )
 
 // NullableLimitValue is the value used to indicate that a limit should be set to null.
@@ -53,7 +55,8 @@ type Project struct {
 	// Maxbuckets is `nil` when satellite applies the configured default max buckets.
 	MaxBuckets *int `json:"maxBuckets"`
 	ProjectUsageLimits[*int64]
-	Status *ProjectStatusInfo `json:"status"`
+	Status       *ProjectStatusInfo   `json:"status"`
+	Entitlements *ProjectEntitlements `json:"entitlements"`
 }
 
 // ProjectUsageLimits holds project usage limits and current usage. It uses generics for allowing
@@ -113,6 +116,23 @@ type UpdateProjectRequest struct {
 	DefaultPlacement *storj.PlacementConstraint `json:"defaultPlacement"`
 
 	Reason string `json:"reason"` // Reason for the change, for audit logging
+}
+
+// UpdateProjectEntitlementsRequest contains the fields that can be updated in a project's entitlements.
+type UpdateProjectEntitlementsRequest struct {
+	NewBucketPlacements      []storj.PlacementConstraint           `json:"newBucketPlacements"`
+	ComputeAccessToken       *string                               `json:"computeAccessToken"`
+	PlacementProductMappings entitlements.PlacementProductMappings `json:"placementProductMappings"`
+
+	// Reason for the change, for audit logging
+	Reason string `json:"reason"`
+}
+
+// ProjectEntitlements holds a project's entitlements.
+type ProjectEntitlements struct {
+	NewBucketPlacements      []string                   `json:"newBucketPlacements"`
+	ComputeAccessToken       string                     `json:"computeAccessToken"`
+	PlacementProductMappings map[string]MiniProductInfo `json:"placementProductMappings"`
 }
 
 // GetProject gets the project info by either private or public ID.
@@ -183,6 +203,20 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		status = &ProjectStatusInfo{Name: p.Status.String(), Value: *p.Status}
 	}
 
+	var ents *ProjectEntitlements
+	feats, err := s.entitlements.Projects().GetByPublicID(ctx, p.PublicID)
+	if err != nil && !entitlements.ErrNotFound.Has(err) {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	} else if err == nil {
+		ents, apiErr = s.toProjectEntitlements(feats)
+		if apiErr.Err != nil {
+			return nil, apiErr
+		}
+	}
+
 	return &Project{
 		ID:          p.ID,
 		PublicID:    p.PublicID,
@@ -219,7 +253,8 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 			SegmentLimit:          p.SegmentLimit,
 			SegmentUsed:           segmentu,
 		},
-		Status: status,
+		Status:       status,
+		Entitlements: ents,
 	}, api.HTTPError{}
 }
 
@@ -695,4 +730,165 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 	}
 
 	return api.HTTPError{}
+}
+
+// UpdateProjectEntitlements updates the entitlements for a project by its public ID.
+// only one of new bucket placements, placement:product mappings and compute access token
+// can be updated at a time
+func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectEntitlementsRequest) (*ProjectEntitlements, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) (*ProjectEntitlements, api.HTTPError) {
+		return nil, api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	if request.Reason == "" {
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
+	fieldCount := 0
+	if request.NewBucketPlacements != nil {
+		fieldCount++
+	}
+	if request.PlacementProductMappings != nil {
+		fieldCount++
+	}
+	if request.ComputeAccessToken != nil {
+		fieldCount++
+	}
+	if fieldCount == 0 {
+		return apiError(http.StatusBadRequest, errs.New("no fields to update"))
+	}
+	if fieldCount > 1 {
+		return apiError(http.StatusBadRequest, errs.New("only one field can be updated at a time"))
+	}
+
+	var errGroup errs.Group
+
+	if request.NewBucketPlacements != nil {
+		if len(request.NewBucketPlacements) == 0 {
+			errGroup = append(errGroup, errs.New("new bucket placements cannot be empty"))
+		}
+
+		for _, placement := range request.NewBucketPlacements {
+			if _, exists := s.placement[placement]; !exists {
+				errGroup = append(errGroup, errs.New("invalid placement constraint in new bucket placements: %v", placement))
+			}
+		}
+	}
+
+	if request.PlacementProductMappings != nil {
+		if len(request.PlacementProductMappings) == 0 {
+			errGroup = append(errGroup, errs.New("placement:product mappings cannot be empty"))
+		}
+		for placement, productID := range request.PlacementProductMappings {
+			if _, exists := s.placement[placement]; !exists {
+				errGroup = append(errGroup, errs.New("invalid placement constraint in placement:product mapping: %v", placement))
+			}
+			if _, exists := s.products[productID]; !exists {
+				errGroup = append(errGroup, errs.New("invalid product ID in placement:product mapping: %d", productID))
+			}
+		}
+	}
+
+	if errGroup != nil {
+		return apiError(http.StatusBadRequest, errGroup.Err())
+	}
+
+	p, err := s.consoleDB.Projects().GetByPublicID(ctx, publicID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("project not found")
+		}
+		return apiError(status, err)
+	}
+
+	feats, err := s.entitlements.Projects().GetByPublicID(ctx, publicID)
+	if err != nil {
+		if entitlements.ErrNotFound.Has(err) {
+			feats = entitlements.ProjectFeatures{}
+		} else {
+			return apiError(http.StatusInternalServerError, err)
+		}
+	}
+
+	if request.ComputeAccessToken != nil {
+		newAccessToken := []byte(*request.ComputeAccessToken)
+		if *request.ComputeAccessToken == "" {
+			newAccessToken = nil
+		}
+
+		err = s.entitlements.Projects().SetComputeAccessTokenByPublicID(ctx, publicID, newAccessToken)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+	} else if request.NewBucketPlacements != nil {
+		err = s.entitlements.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, request.NewBucketPlacements)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+	} else if request.PlacementProductMappings != nil {
+		err = s.entitlements.Projects().SetPlacementProductMappingsByPublicID(ctx, publicID, request.PlacementProductMappings)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+	}
+
+	newEntitlements, err := s.entitlements.Projects().GetByPublicID(ctx, publicID)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+		Action:     "update_project_entitlements",
+		AdminEmail: authInfo.Email,
+		ItemType:   auditlogger.ItemTypeEntitlement,
+		ItemID:     p.PublicID,
+		Reason:     request.Reason,
+		Before:     feats,
+		After:      newEntitlements,
+		Timestamp:  s.nowFn(),
+	})
+
+	return s.toProjectEntitlements(newEntitlements)
+}
+
+func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*ProjectEntitlements, api.HTTPError) {
+	mappedProducts := make(map[string]MiniProductInfo)
+	for placementID, productID := range feats.PlacementProductMappings {
+		productInfo, err := s.getProductByID(productID)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		var placement string
+		if pc, ok := s.placement[placementID]; ok {
+			placement = fmt.Sprintf("(%d) - %s", pc.ID, pc.Name)
+		}
+		mappedProducts[placement] = productInfo.MiniInfo()
+	}
+	var computeAccessToken string
+	if len(feats.ComputeAccessToken) > 0 {
+		computeAccessToken = string(feats.ComputeAccessToken)
+	}
+
+	var newBucketPlacements []string
+	for _, placement := range feats.NewBucketPlacements {
+		if pc, ok := s.placement[placement]; ok {
+			newBucketPlacements = append(newBucketPlacements, fmt.Sprintf("(%d) - %s", pc.ID, pc.Name))
+		}
+	}
+
+	return &ProjectEntitlements{
+		NewBucketPlacements:      newBucketPlacements,
+		ComputeAccessToken:       computeAccessToken,
+		PlacementProductMappings: mappedProducts,
+	}, api.HTTPError{}
 }

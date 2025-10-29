@@ -30,6 +30,7 @@
   * [Get bucket state](#projectmanagement-get-bucket-state)
   * [Update project](#projectmanagement-update-project)
   * [Update project limits](#projectmanagement-update-project-limits)
+  * [Update project entitlements](#projectmanagement-update-project-entitlements)
 * Search
   * [Search users or projects](#search-search-users-or-projects)
 
@@ -75,6 +76,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateLimits: boolean
 				updatePlacement: boolean
 				updateValueAttribution: boolean
+				setEntitlements: boolean
 				view: boolean
 				memberList: boolean
 				memberAdd: boolean
@@ -612,6 +614,7 @@ Gets project by ID
 	segmentLimit: number
 	segmentUsed: number
 	status: unknown
+	entitlements: unknown
 }
 
 ```
@@ -774,6 +777,7 @@ Updates project name, user agent and default placement by ID
 	segmentLimit: number
 	segmentUsed: number
 	status: unknown
+	entitlements: unknown
 }
 
 ```
@@ -855,6 +859,48 @@ Updates project limits by ID
 	segmentLimit: number
 	segmentUsed: number
 	status: unknown
+	entitlements: unknown
+}
+
+```
+
+<h3 id='projectmanagement-update-project-entitlements'>Update project entitlements (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates project entitlements by ID. Only one entitlement can be updated at a time.
+
+`PATCH /back-office/api/v1/projects/{publicID}/entitlements`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	newBucketPlacements: 	[
+number
+	]
+
+	computeAccessToken: string
+	placementProductMappings: unknown
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	newBucketPlacements: 	[
+string
+	]
+
+	computeAccessToken: string
+	placementProductMappings: unknown
 }
 
 ```

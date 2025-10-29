@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restapikeys"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments"
@@ -45,6 +46,7 @@ type Service struct {
 	accounting    *accounting.Service
 	buckets       *buckets.Service
 	analytics     *analytics.Service
+	entitlements  *entitlements.Service
 	restKeys      restapikeys.Service
 	payments      payments.Accounts
 
@@ -67,6 +69,7 @@ func NewService(
 	accountFreeze *console.AccountFreezeService,
 	analytics *analytics.Service,
 	buckets *buckets.Service,
+	entitlements *entitlements.Service,
 	metabaseDB *metabase.DB,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
@@ -89,6 +92,7 @@ func NewService(
 		authorizer:    authorizer,
 		auditLogger:   auditlogger.New(log.Named("audit-logger"), analytics, auditLoggerConfig),
 		buckets:       buckets,
+		entitlements:  entitlements,
 		metabase:      metabaseDB,
 		payments:      payments,
 		placement:     placement,

@@ -70,6 +70,7 @@ type ProjectFlags struct {
 	UpdateLimits           bool `json:"updateLimits"`
 	UpdatePlacement        bool `json:"updatePlacement"`
 	UpdateValueAttribution bool `json:"updateValueAttribution"`
+	SetEntitlements        bool `json:"setEntitlements"`
 	View                   bool `json:"view"`
 	MemberList             bool `json:"memberList"`
 	MemberAdd              bool `json:"memberAdd"`
@@ -147,6 +148,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermProjectSetDataPlacement) {
 			settings.Admin.Features.Project.UpdatePlacement = true
+		}
+		if s.authorizer.HasPermissions(g, PermProjectSetEntitlements) {
+			settings.Admin.Features.Project.SetEntitlements = true
 		}
 
 		// bucket permission features

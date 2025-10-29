@@ -56,6 +56,7 @@ func TestGetSettings(t *testing.T) {
 						UpdateLimits:           true,
 						UpdatePlacement:        true,
 						UpdateValueAttribution: true,
+						SetEntitlements:        true,
 					},
 					Bucket: backoffice.BucketFlags{
 						List:                   true,

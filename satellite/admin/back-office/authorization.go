@@ -37,6 +37,7 @@ const (
 	PermProjectSetLimits
 	PermProjectUpdate
 	PermProjectSetDataPlacement
+	PermProjectSetEntitlements
 	PermProjectRemoveDataPlacement
 	PermProjectSetUserAgent
 	PermProjectSendInvitation
@@ -56,7 +57,7 @@ const (
 			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountSuspendPermanently |
 			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectUpdate |
-			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
+			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent,
 	)
@@ -65,7 +66,7 @@ const (
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
 			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountDeleteNoData |
-			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement |
+			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectSetEntitlements |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent,

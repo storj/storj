@@ -4,6 +4,7 @@
 package admin_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 func TestGetProject(t *testing.T) {
@@ -624,6 +626,173 @@ func TestUpdateProject(t *testing.T) {
 			require.Error(t, apiErr.Err)
 			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
 			assert.Contains(t, apiErr.Err.Error(), "invalid placement ID")
+		})
+	})
+}
+
+func TestEntitlements(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location","global");10:annotation("location", "placement10")`}
+				config.Entitlements.Enabled = true
+
+				defaultPrice := paymentsconfig.ProjectUsagePrice{
+					StorageTB: "1", EgressTB: "2", Segment: "3",
+				}
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {
+						Name: "Standard Product 1", ProjectUsagePrice: defaultPrice,
+					},
+					2: {
+						Name: "Standard Product 2", ProjectUsagePrice: defaultPrice,
+					},
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			Email:    "test@test.test",
+			FullName: "Test User",
+		}, 1)
+		require.NoError(t, err)
+
+		project, err := sat.AddProject(ctx, user.ID, "test project")
+		require.NoError(t, err)
+
+		authInfo := &admin.AuthInfo{Email: "test@test.test"}
+
+		t.Run("non-existing project", func(t *testing.T) {
+			_, apiErr := service.UpdateProjectEntitlements(ctx, authInfo, testrand.UUID(), admin.UpdateProjectEntitlementsRequest{
+				NewBucketPlacements: []storj.PlacementConstraint{0},
+				Reason:              "test",
+			})
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("existing project", func(t *testing.T) {
+			placement0Name := fmt.Sprintf("(%d) - global", 0)
+			placement10Name := fmt.Sprintf("(%d) - placement10", 10)
+
+			product1Name := "(1) - Standard Product 1"
+			product2Name := "(2) - Standard Product 2"
+
+			p, apiErr := service.GetProject(ctx, project.PublicID)
+			require.NoError(t, apiErr.Err)
+			require.Nil(t, p.Entitlements)
+
+			request := admin.UpdateProjectEntitlementsRequest{Reason: "test"}
+
+			// Set new bucket placements
+			request.NewBucketPlacements = []storj.PlacementConstraint{0, 10}
+			entitlements, apiErr := service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, 2, len(entitlements.NewBucketPlacements))
+			require.Contains(t, entitlements.NewBucketPlacements, placement0Name)
+			require.Contains(t, entitlements.NewBucketPlacements, placement10Name)
+			require.Empty(t, entitlements.ComputeAccessToken)
+			require.Empty(t, entitlements.PlacementProductMappings)
+
+			// Set placement product mappings
+			request.NewBucketPlacements = nil
+			request.PlacementProductMappings = map[storj.PlacementConstraint]int32{0: 1, 10: 2}
+			entitlements, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, 2, len(entitlements.PlacementProductMappings))
+			require.Contains(t, entitlements.PlacementProductMappings, placement0Name)
+			require.Contains(t, entitlements.PlacementProductMappings, placement10Name)
+			require.Equal(t, product1Name, entitlements.PlacementProductMappings[placement0Name].ProductName)
+			require.Equal(t, product2Name, entitlements.PlacementProductMappings[placement10Name].ProductName)
+			// New bucket placements should still be present
+			require.Equal(t, 2, len(entitlements.NewBucketPlacements))
+
+			// Set compute access token
+			tokenValue := "SomeToken"
+			request.ComputeAccessToken = &tokenValue
+			request.PlacementProductMappings = nil
+			entitlements, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, tokenValue, entitlements.ComputeAccessToken)
+			// Previous entitlements should still be present
+			require.Equal(t, 2, len(entitlements.NewBucketPlacements))
+			require.Equal(t, 2, len(entitlements.PlacementProductMappings))
+
+			// Clear compute access token (set to empty string). This sets it to null in DB.
+			tokenValue = ""
+			request.ComputeAccessToken = &tokenValue
+			entitlements, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+			require.Empty(t, entitlements.ComputeAccessToken)
+
+			// verify in DB if token is null
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, project.PublicID)
+			require.NoError(t, err)
+			require.Nil(t, feats.ComputeAccessToken)
+
+			p, apiErr = service.GetProject(ctx, project.PublicID)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, entitlements, p.Entitlements)
+		})
+
+		t.Run("validation", func(t *testing.T) {
+			request := admin.UpdateProjectEntitlementsRequest{}
+
+			// Test empty request
+			_, apiErr := service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "reason is required")
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+			request.Reason = "test"
+			_, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "no fields to update")
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+			// Test updating multiple fields at once
+			tokenValue := "token"
+			request.ComputeAccessToken = &tokenValue
+			request.NewBucketPlacements = []storj.PlacementConstraint{0}
+			_, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "only one field can be updated at a time")
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+			// Test empty new bucket placements
+			request.ComputeAccessToken = nil
+			request.NewBucketPlacements = []storj.PlacementConstraint{}
+			_, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "new bucket placements cannot be empty")
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+			// Test invalid placement in new bucket placements
+			request.NewBucketPlacements = []storj.PlacementConstraint{0, 11}
+			_, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "invalid placement constraint in new bucket placements: 11")
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+			// Test empty placement product mappings
+			request.NewBucketPlacements = nil
+			request.PlacementProductMappings = map[storj.PlacementConstraint]int32{}
+			_, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "placement:product mappings cannot be empty")
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+			// Test invalid placement and product in mappings
+			request.PlacementProductMappings = map[storj.PlacementConstraint]int32{0: 3, 11: 2}
+			_, apiErr = service.UpdateProjectEntitlements(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "invalid product ID in placement:product mapping: 3")
+			require.Contains(t, apiErr.Err.Error(), "invalid placement constraint in placement:product mapping: 11")
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		})
 	})
 }

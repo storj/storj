@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/payments"
 )
 
 // ProductInfo contains the price model of a product.
@@ -47,15 +48,28 @@ func (s *Service) GetProducts(ctx context.Context) ([]ProductInfo, api.HTTPError
 
 	infos := make([]ProductInfo, 0, len(s.placement))
 	for _, product := range s.products {
-		infos = append(infos, ProductInfo{
-			ProductID:           product.ProductID,
-			ProductName:         product.ProductName,
-			StorageMBMonthCents: product.StorageMBMonthCents.String(),
-			EgressMBCents:       product.EgressMBCents.String(),
-			SegmentMonthCents:   product.SegmentMonthCents.String(),
-			EgressDiscountRatio: fmt.Sprintf("%.2f", product.EgressDiscountRatio),
-		})
+		infos = append(infos, getProductInfo(product))
 	}
 
 	return infos, api.HTTPError{}
+}
+
+func (s *Service) getProductByID(productID int32) (ProductInfo, error) {
+	product, exists := s.products[productID]
+	if !exists {
+		return ProductInfo{}, fmt.Errorf("product with ID %d not found", productID)
+	}
+
+	return getProductInfo(product), nil
+}
+
+func getProductInfo(product payments.ProductUsagePriceModel) ProductInfo {
+	return ProductInfo{
+		ProductID:           product.ProductID,
+		ProductName:         product.ProductName,
+		StorageMBMonthCents: product.StorageMBMonthCents.String(),
+		EgressMBCents:       product.EgressMBCents.String(),
+		SegmentMonthCents:   product.SegmentMonthCents.String(),
+		EgressDiscountRatio: fmt.Sprintf("%.2f", product.EgressDiscountRatio),
+	}
 }

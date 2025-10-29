@@ -339,6 +339,22 @@ func main() {
 		},
 	})
 
+	group.Patch("/{publicID}/entitlements", &apigen.Endpoint{
+		Name:           "Update project entitlements",
+		Description:    "Updates project entitlements by ID. Only one entitlement can be updated at a time.",
+		GoName:         "UpdateProjectEntitlements",
+		TypeScriptName: "updateProjectEntitlements",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		Request:  backoffice.UpdateProjectEntitlementsRequest{},
+		Response: backoffice.ProjectEntitlements{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermProjectSetEntitlements},
+			passAuthParamKey: true,
+		},
+	})
+
 	// generic api group that handles searching for users and projects together
 	group = api.Group("Search", "search")
 	group.Middleware = append(group.Middleware, authMiddleware{})
