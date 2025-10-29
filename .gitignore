@@ -32,6 +32,7 @@
 *.swp
 /bin
 resource.syso
+resource_*.syso
 
 *.resource.go
 
