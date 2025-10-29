@@ -307,6 +307,11 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 		adminConfig.BackOffice.AllowedOauthHost = adminConfig.AllowedOauthHost
 
+		productPrices, err := config.Payments.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Admin.Service = backoffice.NewService(
 			log.Named("back-office:service"),
 			peer.DB.Console(),
@@ -320,6 +325,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.Payments.Accounts,
 			peer.REST.Keys,
 			placement,
+			productPrices,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,
 			config.Admin.BackOffice.AuditLogger,

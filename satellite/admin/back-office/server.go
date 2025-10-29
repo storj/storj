@@ -89,6 +89,7 @@ func NewServer(
 	// API endpoints.
 	// API generator already add the PathPrefix.
 	NewPlacementManagement(log, mon, service, root)
+	NewProductManagement(log, mon, service, root)
 	NewUserManagement(log, mon, service, root, service.authorizer)
 	NewProjectManagement(log, mon, service, root, service.authorizer)
 	NewSettings(log, mon, service, root, service.authorizer)

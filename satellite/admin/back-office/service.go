@@ -49,6 +49,7 @@ type Service struct {
 	payments      payments.Accounts
 
 	placement nodeselection.PlacementDefinitions
+	products  map[int32]payments.ProductUsagePriceModel
 	defaults  Defaults
 
 	consoleConfig console.Config
@@ -70,6 +71,7 @@ func NewService(
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
 	placement nodeselection.PlacementDefinitions,
+	products map[int32]payments.ProductUsagePriceModel,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
 	auditLoggerConfig auditlogger.Config,
@@ -90,6 +92,7 @@ func NewService(
 		metabase:      metabaseDB,
 		payments:      payments,
 		placement:     placement,
+		products:      products,
 		defaults: Defaults{
 			MaxBuckets: defaultMaxBuckets,
 			RateLimit:  int(defaultRateLimit),

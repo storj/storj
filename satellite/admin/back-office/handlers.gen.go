@@ -23,6 +23,7 @@ const dateLayout = "2006-01-02T15:04:05.999Z"
 
 var ErrSettingsAPI = errs.Class("admin settings api")
 var ErrPlacementsAPI = errs.Class("admin placements api")
+var ErrProductsAPI = errs.Class("admin products api")
 var ErrUsersAPI = errs.Class("admin users api")
 var ErrProjectsAPI = errs.Class("admin projects api")
 var ErrSearchAPI = errs.Class("admin search api")
@@ -33,6 +34,10 @@ type SettingsService interface {
 
 type PlacementManagementService interface {
 	GetPlacements(ctx context.Context) ([]PlacementInfo, api.HTTPError)
+}
+
+type ProductManagementService interface {
+	GetProducts(ctx context.Context) ([]ProductInfo, api.HTTPError)
 }
 
 type UserManagementService interface {
@@ -76,6 +81,13 @@ type PlacementManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service PlacementManagementService
+}
+
+// ProductManagementHandler is an api handler that implements all ProductManagement API endpoints functionality.
+type ProductManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service ProductManagementService
 }
 
 // UserManagementHandler is an api handler that implements all UserManagement API endpoints functionality.
@@ -125,6 +137,19 @@ func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service Placemen
 
 	placementsRouter := router.PathPrefix("/back-office/api/v1/placements").Subrouter()
 	placementsRouter.HandleFunc("/", handler.handleGetPlacements).Methods("GET")
+
+	return handler
+}
+
+func NewProductManagement(log *zap.Logger, mon *monkit.Scope, service ProductManagementService, router *mux.Router) *ProductManagementHandler {
+	handler := &ProductManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+	}
+
+	productsRouter := router.PathPrefix("/back-office/api/v1/products").Subrouter()
+	productsRouter.HandleFunc("/", handler.handleGetProducts).Methods("GET")
 
 	return handler
 }
@@ -233,6 +258,25 @@ func (h *PlacementManagementHandler) handleGetPlacements(w http.ResponseWriter, 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetPlacements response", zap.Error(ErrPlacementsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProductManagementHandler) handleGetProducts(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	retVal, httpErr := h.service.GetProducts(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetProducts response", zap.Error(ErrProductsAPI.Wrap(err)))
 	}
 }
 

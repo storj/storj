@@ -103,6 +103,15 @@ export class PlacementInfo {
     location: string;
 }
 
+export class ProductInfo {
+    productID: number;
+    productName: string;
+    storageMBMonthCents: string;
+    egressMBCents: string;
+    segmentMonthCents: string;
+    egressDiscountRatio: string;
+}
+
 export class Project {
     id: UUID;
     name: string;
@@ -308,6 +317,21 @@ export class PlacementManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as PlacementInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class ProductManagementHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/back-office/api/v1/products';
+
+    public async getProducts(): Promise<ProductInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as ProductInfo[]);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

@@ -8,6 +8,8 @@
   * [Get settings](#settings-get-settings)
 * PlacementManagement
   * [Get placements](#placementmanagement-get-placements)
+* ProductManagement
+  * [Get products](#productmanagement-get-products)
 * UserManagement
   * [Get freeze event types](#usermanagement-get-freeze-event-types)
   * [Get user kinds](#usermanagement-get-user-kinds)
@@ -115,6 +117,29 @@ Gets placement rule IDs and their locations
 	{
 		id: number
 		location: string
+	}
+
+]
+
+```
+
+<h3 id='productmanagement-get-products'>Get products (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets all defined product definitions
+
+`GET /back-office/api/v1/products/`
+
+**Response body:**
+
+```typescript
+[
+	{
+		productID: number
+		productName: string
+		storageMBMonthCents: string
+		egressMBCents: string
+		segmentMonthCents: string
+		egressDiscountRatio: string
 	}
 
 ]

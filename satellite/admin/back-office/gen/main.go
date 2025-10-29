@@ -59,6 +59,16 @@ func main() {
 		Response:       []backoffice.PlacementInfo{},
 	})
 
+	group = api.Group("ProductManagement", "products")
+
+	group.Get("/", &apigen.Endpoint{
+		Name:           "Get products",
+		Description:    "Gets all defined product definitions",
+		GoName:         "GetProducts",
+		TypeScriptName: "getProducts",
+		Response:       []backoffice.ProductInfo{},
+	})
+
 	group = api.Group("UserManagement", "users")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 
