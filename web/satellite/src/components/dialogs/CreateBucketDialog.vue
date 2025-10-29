@@ -986,7 +986,7 @@ watch(innerContent, newContent => {
             }
         });
 
-        if (!selfPlacementEnabled.value) return;
+        if (!selfPlacementEnabled.value || !placementDetails.value.length) return;
         let defaultIndex = placementDetails.value.findIndex(p => p.id === project.value.placement);
         defaultIndex = defaultIndex === -1 ? 0 : defaultIndex;
         bucketLocation.value = placementDetails.value[defaultIndex].idName;
