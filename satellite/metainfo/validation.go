@@ -466,7 +466,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, apiKeyInfo *console.API
 			)
 		}
 
-		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
+		mon.Event("metainfo_rate_limit_exceeded")
 
 		if rateKind != console.RateLimitPutNoError {
 			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")

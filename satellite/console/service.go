@@ -1333,7 +1333,7 @@ func (s *Service) ValidateSecurityToken(value string) error {
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	mon.Counter("create_user_attempt").Inc(1) //mon:locked
+	mon.Counter("create_user_attempt").Inc(1)
 
 	if err := user.IsValid(user.AllowNoName); err != nil {
 		// NOTE: error is already wrapped with an appropriated class.
@@ -1413,7 +1413,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			if err != nil {
 				return err
 			}
-			mon.Counter("create_user_duplicate_verified").Inc(1) //mon:locked
+			mon.Counter("create_user_duplicate_verified").Inc(1)
 			return ErrEmailUsed.New(emailUsedErrMsg)
 		}
 
@@ -1425,7 +1425,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 				if err != nil {
 					return err
 				}
-				mon.Counter("create_user_duplicate_unverified").Inc(1) //mon:locked
+				mon.Counter("create_user_duplicate_unverified").Inc(1)
 				return ErrEmailUsed.New(emailUsedErrMsg)
 			}
 		}
@@ -1445,7 +1445,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	s.auditLog(ctx, "create user", nil, user.Email)
-	mon.Counter("create_user_success").Inc(1) //mon:locked
+	mon.Counter("create_user_success").Inc(1)
 
 	return u, nil
 }
@@ -1535,7 +1535,7 @@ func (s *Service) ShouldRequireSsoByUser(user *User) bool {
 func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	mon.Counter("create_user_attempt").Inc(1) //mon:locked
+	mon.Counter("create_user_attempt").Inc(1)
 
 	if _, err = mail.ParseAddress(user.Email); err != nil {
 		// NOTE: error is already wrapped with an appropriated class.
@@ -1626,7 +1626,7 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 	}
 
 	s.auditLog(ctx, "create sso user", nil, user.Email)
-	mon.Counter("create_user_success").Inc(1) //mon:locked
+	mon.Counter("create_user_success").Inc(1)
 
 	return u, nil
 }
@@ -1922,7 +1922,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	if user.MFAEnabled {
 		now := time.Now()
 		if user.LoginLockoutExpiration.After(now) {
-			mon.Counter("reset_password_2fa_locked_out").Inc(1) //mon:locked
+			mon.Counter("reset_password_2fa_locked_out").Inc(1)
 			s.auditLog(ctx, "reset password: 2fa failed account locked out", &user.ID, user.Email)
 			return ErrTooManyAttempts.New(tooManyAttemptsErrMsg)
 		}
@@ -1944,16 +1944,16 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 				)
 			}
 
-			mon.Counter("reset_password_2fa_failed").Inc(1)                                     //mon:locked
-			mon.IntVal("reset_password_2fa_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+			mon.Counter("reset_password_2fa_failed").Inc(1)
+			mon.IntVal("reset_password_2fa_failed_count").Observe(int64(user.FailedLoginCount))
 
 			if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
-				mon.Counter("reset_password_2fa_lockout_initiated").Inc(1) //mon:locked
+				mon.Counter("reset_password_2fa_lockout_initiated").Inc(1)
 				s.auditLog(ctx, "reset password: failed reset password 2fa count reached maximum attempts", &user.ID, user.Email)
 			}
 
 			if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
-				mon.Counter("reset_password_2fa_lockout_reinitiated").Inc(1) //mon:locked
+				mon.Counter("reset_password_2fa_lockout_reinitiated").Inc(1)
 				s.auditLog(ctx, "reset password: 2fa failed locked account", &user.ID, user.Email)
 			}
 
@@ -2050,17 +2050,17 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	mon.Counter("login_attempt").Inc(1) //mon:locked
+	mon.Counter("login_attempt").Inc(1)
 
 	verifyCaptcha := func() error {
 		if s.config.Captcha.Login.Recaptcha.Enabled || s.config.Captcha.Login.Hcaptcha.Enabled {
 			valid, _, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
 			if err != nil {
-				mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
+				mon.Counter("login_user_captcha_error").Inc(1)
 				return ErrCaptcha.Wrap(err)
 			}
 			if !valid {
-				mon.Counter("login_user_captcha_unsuccessful").Inc(1) //mon:locked
+				mon.Counter("login_user_captcha_unsuccessful").Inc(1)
 				return ErrCaptcha.New("captcha validation unsuccessful")
 			}
 		}
@@ -2092,10 +2092,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 
 		if !shouldProceed {
 			if len(nonActiveUsers) > 0 {
-				mon.Counter("login_email_unverified").Inc(1) //mon:locked
+				mon.Counter("login_email_unverified").Inc(1)
 				s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
 			} else {
-				mon.Counter("login_email_invalid").Inc(1) //mon:locked
+				mon.Counter("login_email_invalid").Inc(1)
 				s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
 			}
 			return nil, ErrLoginCredentials.New(credentialsErrMsg)
@@ -2103,7 +2103,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	}
 
 	if user.LoginLockoutExpiration.After(time.Now()) {
-		mon.Counter("login_locked_out").Inc(1) //mon:locked
+		mon.Counter("login_locked_out").Inc(1)
 		s.auditLog(ctx, "login: failed account locked out", &user.ID, request.Email)
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
@@ -2119,7 +2119,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		if err != nil {
 			return nil, err
 		}
-		mon.Counter("login_invalid_password").Inc(1) //mon:locked
+		mon.Counter("login_invalid_password").Inc(1)
 		s.auditLog(ctx, "login: failed password invalid", &user.ID, user.Email)
 		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
@@ -2167,7 +2167,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		return nil, err
 	}
 
-	mon.Counter("login_success").Inc(1) //mon:locked
+	mon.Counter("login_success").Inc(1)
 
 	return response, nil
 }
@@ -2194,16 +2194,16 @@ func (s *Service) handleLogInLockAccount(ctx context.Context, user *User) error 
 		)
 	}
 
-	mon.Counter("login_failed").Inc(1)                                          //mon:locked
-	mon.IntVal("login_user_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+	mon.Counter("login_failed").Inc(1)
+	mon.IntVal("login_user_failed_count").Observe(int64(user.FailedLoginCount))
 
 	if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
+		mon.Counter("login_lockout_initiated").Inc(1)
 		s.auditLog(ctx, "login: failed login count reached maximum attempts", &user.ID, user.Email)
 	}
 
 	if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
+		mon.Counter("login_lockout_reinitiated").Inc(1)
 		s.auditLog(ctx, "login: failed locked account", &user.ID, user.Email)
 	}
 
@@ -2214,7 +2214,7 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 	defer mon.Task()(&ctx)(&err)
 
 	if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
-		mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
+		mon.Counter("login_mfa_conflict").Inc(1)
 		s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
 		return ErrMFAConflict.New(mfaConflictErrMsg)
 	}
@@ -2234,12 +2234,12 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 			if err != nil {
 				return err
 			}
-			mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
+			mon.Counter("login_mfa_recovery_failure").Inc(1)
 			s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
 			return ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 		}
 
-		mon.Counter("login_mfa_recovery_success").Inc(1) //mon:locked
+		mon.Counter("login_mfa_recovery_success").Inc(1)
 
 		user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
 
@@ -2264,13 +2264,13 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 			if err != nil {
 				return err
 			}
-			mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
+			mon.Counter("login_mfa_passcode_failure").Inc(1)
 			s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
 			return ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 		}
-		mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
+		mon.Counter("login_mfa_passcode_success").Inc(1)
 	} else {
-		mon.Counter("login_mfa_missing").Inc(1) //mon:locked
+		mon.Counter("login_mfa_missing").Inc(1)
 		s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
 		return ErrMFAMissing.New(mfaRequiredErrMsg)
 	}
@@ -2518,7 +2518,7 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 	}
 
 	if user.LoginLockoutExpiration.After(s.nowFn()) {
-		mon.Counter("delete_account_locked_out").Inc(1) //mon:locked
+		mon.Counter("delete_account_locked_out").Inc(1)
 		s.auditLog(ctx, "delete account: failed account locked out", &user.ID, user.Email)
 		return nil, ErrUnauthorized.New("please try again later")
 	}
@@ -2641,7 +2641,7 @@ func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data 
 	}
 
 	if user.LoginLockoutExpiration.After(s.nowFn()) {
-		mon.Counter("change_email_locked_out").Inc(1) //mon:locked
+		mon.Counter("change_email_locked_out").Inc(1)
 		s.auditLog(ctx, "change email: failed account locked out", &user.ID, user.Email)
 		return ErrUnauthorized.New("please try again later")
 	}
@@ -2770,7 +2770,7 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string, ac
 		if err != nil {
 			return err
 		}
-		mon.Counter("change_email_2fa_passcode_failure").Inc(1) //mon:locked
+		mon.Counter("change_email_2fa_passcode_failure").Inc(1)
 		s.auditLog(ctx, "change email: failed 2fa passcode invalid", &user.ID, user.Email)
 		return ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 	}
@@ -3182,16 +3182,16 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Accoun
 		action += "_verify_new_email"
 	}
 
-	mon.Counter(action + "_failed").Inc(1)                                     //mon:locked
-	mon.IntVal(action + "_failed_count").Observe(int64(user.FailedLoginCount)) //mon:locked
+	mon.Counter(action + "_failed").Inc(1)
+	mon.IntVal(action + "_failed_count").Observe(int64(user.FailedLoginCount))
 
 	if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter(action + "_lockout_initiated").Inc(1) //mon:locked
+		mon.Counter(action + "_lockout_initiated").Inc(1)
 		s.auditLog(ctx, fmt.Sprintf("account action: failed %s count reached maximum attempts", action), &user.ID, user.Email)
 	}
 
 	if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
-		mon.Counter(action + "_lockout_reinitiated").Inc(1) //mon:locked
+		mon.Counter(action + "_lockout_reinitiated").Inc(1)
 		s.auditLog(ctx, fmt.Sprintf("account action: %s failed locked account", action), &user.ID, user.Email)
 	}
 
@@ -4121,7 +4121,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 	projectID = p.ID
 
 	if user.LoginLockoutExpiration.After(s.nowFn()) {
-		mon.Counter("delete_project_locked_out").Inc(1) //mon:locked
+		mon.Counter("delete_project_locked_out").Inc(1)
 		s.auditLog(ctx, "delete project: failed account locked out", &user.ID, user.Email)
 		return nil, ErrUnauthorized.New("please try again later")
 	}

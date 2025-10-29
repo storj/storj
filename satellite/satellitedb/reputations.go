@@ -527,11 +527,11 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	// offline results affect only the total count.
 	updatedTotalAuditCount := totalAuditCount + int64(updates.OfflineResults+updates.UnknownResults+updates.FailureResults+updates.PositiveResults)
 
-	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)                //mon:locked
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //mon:locked
-	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //mon:locked
-	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
-	mon.FloatVal("audit_online_score").Observe(historyResponse.NewScore)      //mon:locked
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
+	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha)
+	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)
+	mon.FloatVal("audit_online_score").Observe(historyResponse.NewScore)
 
 	updateFields := updateNodeStats{
 		NodeID:                      dbNode.Id,
@@ -555,7 +555,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= config.AuditDQ {
 		logger.Info("Disqualified", zap.String("DQ type", "audit failure"))
-		mon.Meter("bad_audit_dqs").Mark(1) //mon:locked
+		mon.Meter("bad_audit_dqs").Mark(1)
 		updateFields.Disqualified = timeField{set: true, value: now}
 		updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonAuditFailure)}
 	}
@@ -581,7 +581,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 			time.Since(*dbNode.UnknownAuditSuspended) > config.SuspensionGracePeriod &&
 			config.SuspensionDQEnabled {
 			logger.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"))
-			mon.Meter("unknown_suspension_dqs").Mark(1) //mon:locked
+			mon.Meter("unknown_suspension_dqs").Mark(1)
 			updateFields.Disqualified = timeField{set: true, value: now}
 			updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonSuspension)}
 			updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
@@ -630,7 +630,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 			if penalizeOfflineNode {
 				if config.AuditHistory.OfflineDQEnabled {
 					logger.Info("Disqualified", zap.String("DQ type", "node offline"))
-					mon.Meter("offline_dqs").Mark(1) //mon:locked
+					mon.Meter("offline_dqs").Mark(1)
 					updateFields.Disqualified = timeField{set: true, value: now}
 					updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonNodeOffline)}
 				}
