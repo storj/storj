@@ -24,6 +24,8 @@
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
   * [Get project buckets](#projectmanagement-get-project-buckets)
+  * [Update bucket](#projectmanagement-update-bucket)
+  * [Get bucket state](#projectmanagement-get-bucket-state)
   * [Update project](#projectmanagement-update-project)
   * [Update project limits](#projectmanagement-update-project-limits)
 * Search
@@ -633,6 +635,52 @@ Gets a project's buckets
 	pageCount: number
 	currentPage: number
 	totalCount: number
+}
+
+```
+
+<h3 id='projectmanagement-update-bucket'>Update bucket (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates a bucket's user agent, and placement if the bucket is empty
+
+`PATCH /back-office/api/v1/projects/{publicID}/buckets/{bucketName}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+| `bucketName` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	userAgent: string
+	placement: number
+	reason: string
+}
+
+```
+
+<h3 id='projectmanagement-get-bucket-state'>Get bucket state (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets a bucket's state that is not stored in the buckets table and requires additional queries.
+
+`GET /back-office/api/v1/projects/{publicID}/buckets/{bucketName}/state`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+| `bucketName` | `string` |  |
+
+**Response body:**
+
+```typescript
+{
+	empty: boolean
 }
 
 ```

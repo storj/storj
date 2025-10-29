@@ -153,6 +153,12 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {
 			settings.Admin.Features.Bucket.List = true
 		}
+		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketSetDataPlacement) {
+			settings.Admin.Features.Bucket.UpdatePlacement = true
+		}
+		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketSetUserAgent) {
+			settings.Admin.Features.Bucket.UpdateValueAttribution = true
+		}
 	}
 
 	return &settings, api.HTTPError{}

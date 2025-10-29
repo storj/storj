@@ -115,7 +115,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <template v-if="!hasManagedPassphrase">
+                    <template v-if="!selectedProjectConfig.hasManagedPassphrase">
                         <v-divider class="my-2" />
 
                         <!-- Manage Passphrase -->
@@ -340,7 +340,7 @@ import {
     FileKey,
 } from 'lucide-vue-next';
 
-import { Project } from '@/types/projects';
+import { Project, ProjectConfig } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -380,7 +380,9 @@ const isCloudGpuDialogShown = ref<boolean>(false);
 const openedList = ref<string[]>(['Compute']);
 
 const domainsPageEnabled = computed<boolean>(() => configStore.state.config.domainsPageEnabled);
-const computeUIEnabled = computed<boolean>(() => configStore.state.config.computeUIEnabled);
+const computeUIEnabled = computed<boolean>(() => {
+    return configStore.state.config.computeUIEnabled && !!selectedProjectConfig.value.computeAuthToken;
+});
 
 const isProjectAdmin = computed<boolean>(() => projectsStore.selectedProjectConfig.role === ProjectRole.Admin);
 
@@ -433,12 +435,7 @@ const sharedProjects = computed((): Project[] => {
     return projects.sort(compareProjects);
 });
 
-/**
- * Returns whether this project has passphrase managed by the satellite.
- */
-const hasManagedPassphrase = computed((): boolean => {
-    return projectsStore.state.selectedProjectConfig.hasManagedPassphrase;
-});
+const selectedProjectConfig = computed<ProjectConfig>(() => projectsStore.state.selectedProjectConfig);
 
 const valdiSignUpURL = computed<string>(() => configStore.state.config.valdiSignUpURL);
 

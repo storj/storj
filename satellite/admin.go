@@ -315,6 +315,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			backoffice.NewAuthorizer(log.Named("back-office:auth"), adminConfig.BackOffice),
 			peer.FreezeAccounts.Service,
 			peer.Analytics.Service,
+			peer.Buckets.Service,
+			metabaseDB,
 			peer.Payments.Accounts,
 			peer.REST.Keys,
 			placement,

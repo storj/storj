@@ -110,8 +110,9 @@ export class BucketsPage {
 
     async verifyShareBucket(): Promise<void> {
         await this.page.locator(BucketsPageObjects.SHARE_BUCKET_BUTTON_XPATH).click();
-        const loader = this.page.locator(ObjectBrowserPageObjects.SHARE_MODAL_LOADER_CLASS);
-        await expect(loader).toBeHidden();
+        await this.page.locator(ObjectBrowserPageObjects.SHARE_MODAL_NEXT_BUTTON_XPATH).click();
+        const title = this.page.locator(ObjectBrowserPageObjects.SHARE_MODAL_PREVIEW_LINK_TITLE_XPATH);
+        await expect(title).toBeVisible();
         await this.page.locator(ObjectBrowserPageObjects.COPY_LINK_BUTTON_XPATH).click();
         await this.page.locator('span').filter({ hasText: ObjectBrowserPageObjects.COPIED_TEXT }).isVisible();
         await this.page.locator(ObjectBrowserPageObjects.CLOSE_SHARE_MODAL_BUTTON_XPATH).click();

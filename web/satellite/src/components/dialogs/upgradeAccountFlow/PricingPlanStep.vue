@@ -242,9 +242,16 @@ async function onCardAdded(res: string): Promise<void> {
     // We fetch User one more time to update their Paid Tier status.
     usersStore.getUser().catch((_) => {});
 
-    if (route.name === ROUTES.Dashboard.name || route.name === ROUTES.Domains.name) {
-        projectsStore.getProjectConfig().catch((_) => {});
-        projectsStore.getProjectLimits(projectsStore.state.selectedProject.id).catch((_) => {});
+    if (
+        route.name === ROUTES.Dashboard.name ||
+        route.name === ROUTES.Domains.name ||
+        route.name === ROUTES.Buckets.name ||
+        route.name === ROUTES.Bucket.name
+    ) {
+        Promise.all([
+            projectsStore.getProjectConfig(),
+            projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
+        ]).catch(_ => {});
     }
 
     if (route.name === ROUTES.Billing.name) {
@@ -257,10 +264,11 @@ function onSuccess() {
     loading.value = false;
     notify.success('Card successfully added and account upgraded');
 
-    if (props.plan.type === PricingPlanType.PARTNER)
-        isSuccess.value = true;
-    else
+    if (props.isAccountSetup || props.plan.type !== PricingPlanType.PARTNER) {
         emit('success');
+    } else {
+        isSuccess.value = true;
+    }
 }
 </script>
 

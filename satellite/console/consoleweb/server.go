@@ -202,6 +202,8 @@ type Server struct {
 	// Key: userID, Value: timestamp of last email sent
 	ghostSessionEmailSent  map[uuid.UUID]time.Time
 	ghostSessionEmailMutex sync.Mutex
+
+	entitlementsEnabled bool
 }
 
 // NewServer creates new instance of console server.
@@ -210,7 +212,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config,
-	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel) *Server {
+	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, entitlementsEnabled bool) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -235,6 +237,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		usagePrices:                     usagePrices,
 		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 		ghostSessionEmailSent:           make(map[uuid.UUID]time.Time),
+		entitlementsEnabled:             entitlementsEnabled,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -1154,7 +1157,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UserFeedbackEnabled:               server.config.UserFeedbackEnabled,
 		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,
 		Announcement:                      server.config.Announcement,
-		ComputeUIEnabled:                  server.config.ComputeUiEnabled,
+		ComputeUIEnabled:                  server.config.ComputeUiEnabled && server.entitlementsEnabled,
 		EntitlementsEnabled:               server.config.EntitlementsEnabled,
 		ShowNewPricingTiers:               server.config.ShowNewPricingTiers,
 		ComputeGatewayURL:                 server.config.ComputeGatewayURL,

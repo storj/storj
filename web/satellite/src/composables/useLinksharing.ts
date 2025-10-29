@@ -49,32 +49,22 @@ export function useLinksharing() {
         return selectedProject.value.edgeURLOverrides?.publicLinksharing || configStore.state.config.publicLinksharingURL;
     });
 
-    async function generateFileOrFolderShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<ShareInfo> {
-        return generateShareURL(bucketName, prefix, objectKey, type);
+    async function generateFileOrFolderShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType, accessName: string, expiration: Date | null): Promise<ShareInfo> {
+        return generateShareURL(bucketName, prefix, objectKey, type, accessName, expiration);
     }
 
-    async function generateBucketShareURL(bucketName: string): Promise<ShareInfo> {
-        return generateShareURL(bucketName, '', '', ShareType.Bucket);
+    async function generateBucketShareURL(bucketName: string, accessName: string, expiration: Date | null): Promise<ShareInfo> {
+        return generateShareURL(bucketName, '', '', ShareType.Bucket, accessName, expiration);
     }
 
-    async function generateShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType): Promise<ShareInfo> {
+    async function generateShareURL(bucketName: string, prefix: string, objectKey: string, type: ShareType, accessName: string, expiration: Date | null): Promise<ShareInfo> {
         let fullPath = bucketName;
         if (prefix) fullPath = `${fullPath}/${prefix}`;
         if (objectKey) fullPath = `${fullPath}/${objectKey}`;
         if (type === ShareType.Folder) fullPath = `${fullPath}/`;
 
-        // Use the object key as the access name for objects and folders.
-        let accessName = objectKey;
-        if (type === ShareType.Bucket) {
-            accessName = bucketName;
-        }
-
-        let linksharingAGName = `${accessName}_shared-${type}_${new Date().toISOString()}`;
-        if (linksharingAGName.length > configStore.state.config.maxNameCharacters) {
-            linksharingAGName = `shared-${type}_${new Date().toISOString()}`;
-        }
-        const grant: AccessGrant = await agStore.createAccessGrant(linksharingAGName, selectedProject.value.id);
-        const creds: EdgeCredentials = await generatePublicCredentials(grant.secret, fullPath, null);
+        const grant: AccessGrant = await agStore.createAccessGrant(accessName, selectedProject.value.id);
+        const creds: EdgeCredentials = await generatePublicCredentials(grant.secret, fullPath, expiration);
 
         let url = `${publicLinksharingURL.value}/s/${creds.accessKeyId}/${bucketName}`;
         if (prefix) url = `${url}/${encodeURIComponent(prefix.trim())}`;
