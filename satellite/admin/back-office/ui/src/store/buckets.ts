@@ -6,7 +6,9 @@ import { defineStore } from 'pinia';
 
 import {
     BucketInfoPage,
+    BucketState,
     ProjectManagementHttpApiV1,
+    UpdateBucketRequest,
 } from '@/api/client.gen';
 import { BucketCursor } from '@/types/bucket';
 
@@ -29,8 +31,18 @@ export const useBucketsStore = defineStore('buckets', () => {
         );
     }
 
+    async function getBucketState(projectID: string, bucket: string): Promise<BucketState> {
+        return await projectApi.getBucketState(projectID, bucket);
+    }
+
+    async function updateBucket(projectID: string, bucket: string, req: UpdateBucketRequest): Promise<void> {
+        await projectApi.updateBucket(req, projectID, bucket);
+    }
+
     return {
         state,
         getBuckets,
+        getBucketState,
+        updateBucket,
     };
 });

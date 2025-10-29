@@ -346,6 +346,7 @@ func deleteObjects(
 	}
 
 	return rows.ForEachWithProjects(ctx, func(log *zap.Logger, user *console.User, projects []console.Project) error {
+		log.Debug("processing account", zap.String("email", user.Email))
 		if user.Status != console.PendingDeletion {
 			log.Info("skipping not pending deletion user's account", zap.String("email", user.Email))
 			return nil
@@ -406,6 +407,7 @@ func deleteAccounts(
 	}
 
 	return rows.ForEachWithProjects(ctx, func(log *zap.Logger, user *console.User, projects []console.Project) error {
+		log.Debug("processing account", zap.String("email", user.Email))
 		if user.Status != console.PendingDeletion {
 			log.Info("skipping not pending deletion user's account", zap.String("email", user.Email))
 			return nil
@@ -462,7 +464,7 @@ func deleteAccounts(
 					log.Error(
 						"cannot mark as deleted the account because the project has usage",
 						zap.String("email", user.Email),
-						zap.String("project_id", p.ID.String()),
+						zap.Stringer("project_id", p.ID),
 					)
 					return nil
 				}
@@ -487,7 +489,7 @@ func deleteAccounts(
 						log.Error(
 							"cannot mark as deleted the account because the project has usage last month and not invoiced yet",
 							zap.String("email", user.Email),
-							zap.String("project_id", p.ID.String()),
+							zap.Stringer("project_id", p.ID),
 						)
 						return nil
 					}
@@ -496,6 +498,7 @@ func deleteAccounts(
 		}
 
 		for _, p := range projects {
+			log.Debug("processing project", zap.String("email", user.Email), zap.Stringer("project_id", p.ID))
 			bcks, err := satDB.Buckets().ListBuckets(ctx,
 				p.ID, buckets.ListOptions{
 					Direction: buckets.DirectionForward,
@@ -510,7 +513,7 @@ func deleteAccounts(
 				log.Error(
 					"cannot mark as deleted the account because the project has buckets",
 					zap.String("email", user.Email),
-					zap.String("project", p.ID.String()),
+					zap.Stringer("project", p.ID),
 				)
 				return nil
 			}
@@ -530,7 +533,7 @@ func deleteAccounts(
 
 		emptyName := ""
 		emptyNamePtr := &emptyName
-		deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+		deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID)
 		status := console.Deleted
 
 		err := satDB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
@@ -571,6 +574,7 @@ func setAccountsStatusPendingDeletion(
 	}
 
 	return rows.ForEach(ctx, func(log *zap.Logger, user *console.User) error {
+		log.Debug("processing account", zap.String("email", user.Email))
 		err := satDB.Console().Users().SetStatusPendingDeletion(ctx, user.ID, defaultDaysTillEscalation)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
@@ -710,6 +714,7 @@ func deleteAllBucketsAndObjects(
 				)
 			}
 
+			log.Debug("deleting bucket", zap.Stringer("project_id", projectID), zap.String("bucket_name", b.Name))
 			if err := bucketsDB.DeleteBucket(ctx, []byte(b.Name), projectID); err != nil {
 				return errs.New("error deleting bucket %q (project: %q): %+v", b.Name, projectID, err)
 			}

@@ -111,5 +111,5 @@ export default defineConfig({
             headless: true,
         },
     },
-    workers: process.env.CI ? 3 : undefined,
+    workers: process.env.CI ? 4 : undefined,
 });
