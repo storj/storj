@@ -400,6 +400,20 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 					*trialExpiration = &expiration
 				}
 			}
+		} else if *request.Kind == console.MemberUser {
+			if beforeState != nil {
+				for _, p := range beforeState.Projects {
+					if !p.Active {
+						continue
+					}
+					return nil, api.HTTPError{
+						Status: http.StatusForbidden,
+						Err:    Error.New("cannot change to member user while having active projects"),
+					}
+				}
+			}
+
+			trialExpiration = new(*time.Time)
 		} else {
 			trialExpiration = new(*time.Time)
 			ptrInt := func(i int64) *int64 { return &i }

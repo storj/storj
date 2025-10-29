@@ -516,6 +516,22 @@ func TestUpdateUser(t *testing.T) {
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.Error(t, apiErr.Err)
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+		// test MemberUser kind.
+		newKind = console.MemberUser
+		req = backoffice.UpdateUserRequest{Kind: &newKind, Reason: "reason"}
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Equal(t, http.StatusForbidden, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "cannot change to member user while having active projects")
+
+		err = sat.DB.Console().Projects().Delete(ctx, p.ID)
+		require.NoError(t, err)
+
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.Equal(t, console.MemberUser.Info(), u.Kind)
+		require.Nil(t, u.TrialExpiration)
 	})
 }
 
