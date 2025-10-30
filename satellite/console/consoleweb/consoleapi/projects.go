@@ -717,6 +717,41 @@ func (p *Projects) GetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// MigratePricing migrates classic project to use new storage tiers.
+func (p *Projects) MigratePricing(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+	}
+
+	err = p.service.MigrateProjectPricing(ctx, id)
+	if err != nil {
+		status := http.StatusInternalServerError
+
+		switch {
+		case console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err):
+			status = http.StatusUnauthorized
+		case console.ErrConflict.Has(err):
+			status = http.StatusConflict
+		case console.ErrForbidden.Has(err):
+			status = http.StatusForbidden
+		}
+		p.serveJSONError(ctx, w, status, err)
+	}
+}
+
 // InviteUser sends a project invitation to a user.
 func (p *Projects) InviteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

@@ -62,7 +62,9 @@ type Config struct {
 	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	ProductPriceSummaries             []string                  `help:"the pricing summaries gotten from configured products" default:"" hidden:"true"`
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
-	LegacyPlacements                  []string                  `help:"list of placement IDs that are considered legacy placements" default:""`
+
+	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
+	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig
@@ -337,4 +339,47 @@ func (pd *PlacementDetails) Get(placement storj.PlacementConstraint) (details Pl
 		}
 	}
 	return PlacementDetail{}, false
+}
+
+// PlacementProductMappings represents a mapping between placement IDs and product IDs.
+type PlacementProductMappings struct {
+	mappings map[storj.PlacementConstraint]int32
+}
+
+// Ensure that PlacementProductMappings implements pflag.Value.
+var _ pflag.Value = (*PlacementProductMappings)(nil)
+
+// Type returns the type of the pflag.Value.
+func (*PlacementProductMappings) Type() string { return "entitlements.PlacementProductMappings" }
+
+// String returns a string representation of the PlacementProductMappings.
+func (ppm *PlacementProductMappings) String() string {
+	if ppm == nil || len(ppm.mappings) == 0 {
+		return ""
+	}
+
+	data, err := json.Marshal(ppm.mappings)
+	if err != nil {
+		return ""
+	}
+
+	return string(data)
+}
+
+// Set parses and sets the PlacementProductMappings from a string.
+func (ppm *PlacementProductMappings) Set(value string) error {
+	if value == "" {
+		return nil
+	}
+
+	value = strings.TrimSpace(value)
+
+	mappings := make(map[storj.PlacementConstraint]int32)
+	if err := json.Unmarshal([]byte(value), &mappings); err != nil {
+		return errs.New("failed to parse PlacementProductMappings: %w", err)
+	}
+
+	ppm.mappings = mappings
+
+	return nil
 }

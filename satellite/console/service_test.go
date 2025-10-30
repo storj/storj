@@ -7530,3 +7530,170 @@ func TestStartFreeTrial(t *testing.T) {
 		})
 	})
 }
+
+func TestMigrateProjectPricing(t *testing.T) {
+	var (
+		legacyPlacement0  = storj.DefaultPlacement
+		legacyPlacement12 = storj.PlacementConstraint(12)
+		legacyPlacements  = []storj.PlacementConstraint{legacyPlacement0, legacyPlacement12}
+
+		newPlacement10 = storj.PlacementConstraint(10)
+		newPlacement20 = storj.PlacementConstraint(20)
+		newPlacement30 = storj.PlacementConstraint(30)
+		newPlacements  = []storj.PlacementConstraint{newPlacement10, newPlacement20, newPlacement30}
+
+		// Legacy products (old billing before migration).
+		legacyProduct100 = int32(100)
+		legacyProduct200 = int32(200)
+
+		// New products (used after migration).
+		product1 = int32(1)
+		product2 = int32(2)
+		product3 = int32(3)
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "legacy-global");12:annotation("location", "legacy-us");10:annotation("location", "new-global");20:annotation("location", "new-us");30:annotation("location", "new-archive");`,
+				}
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = newPlacements
+				config.Console.LegacyPlacements = []string{"0", "12"}
+				config.Entitlements.Enabled = true
+
+				var mappingForMigration console.PlacementProductMappings
+				err := mappingForMigration.Set(`{"0":1,"12":2}`)
+				require.NoError(t, err)
+				config.Console.LegacyPlacementProductMappingForMigration = mappingForMigration
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					int(newPlacement10): product1,
+					int(newPlacement20): product2,
+					int(newPlacement30): product3,
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+
+				price := paymentsconfig.ProjectUsagePrice{
+					StorageTB: "4",
+					EgressTB:  "7",
+					Segment:   "0.0000088",
+				}
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					product1:         {ProjectUsagePrice: price},
+					product2:         {ProjectUsagePrice: price},
+					product3:         {ProjectUsagePrice: price},
+					legacyProduct100: {ProjectUsagePrice: price},
+					legacyProduct200: {ProjectUsagePrice: price},
+				})
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@example.com",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "legacy-project"})
+		require.NoError(t, err)
+
+		feats := entitlements.ProjectFeatures{
+			NewBucketPlacements: legacyPlacements,
+			PlacementProductMappings: entitlements.PlacementProductMappings{
+				legacyPlacement0:  legacyProduct100,
+				legacyPlacement12: legacyProduct200,
+			},
+		}
+		featBytes, err := json.Marshal(feats)
+		require.NoError(t, err)
+
+		_, err = sat.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+			Scope:     entitlements.ConvertPublicIDToProjectScope(p.PublicID),
+			Features:  featBytes,
+			UpdatedAt: time.Now(),
+		})
+		require.NoError(t, err)
+
+		entitlement, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+		require.NoError(t, err)
+		require.Equal(t, legacyPlacements, entitlement.NewBucketPlacements)
+		require.Equal(t, legacyProduct100, entitlement.PlacementProductMappings[legacyPlacement0])
+		require.Equal(t, legacyProduct200, entitlement.PlacementProductMappings[legacyPlacement12])
+
+		t.Run("successful migration as admin", func(t *testing.T) {
+			err = service.MigrateProjectPricing(userCtx, p.PublicID)
+			require.NoError(t, err)
+
+			updatedEnt, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, newPlacements, updatedEnt.NewBucketPlacements)
+			require.NotNil(t, updatedEnt.PlacementProductMappings)
+
+			// Verify legacy placements are mapped to new products.
+			require.Equal(t, product1, updatedEnt.PlacementProductMappings[legacyPlacement0])
+			require.Equal(t, product2, updatedEnt.PlacementProductMappings[legacyPlacement12])
+
+			// Verify new placements are still mapped to new products.
+			require.Equal(t, product1, updatedEnt.PlacementProductMappings[newPlacement10])
+			require.Equal(t, product2, updatedEnt.PlacementProductMappings[newPlacement20])
+			require.Equal(t, product3, updatedEnt.PlacementProductMappings[newPlacement30])
+		})
+
+		t.Run("cannot migrate non-legacy project", func(t *testing.T) {
+			err = service.MigrateProjectPricing(userCtx, p.PublicID)
+			require.Error(t, err)
+			require.True(t, console.ErrConflict.Has(err))
+			require.Contains(t, err.Error(), "classic projects")
+		})
+
+		t.Run("member without admin role cannot migrate", func(t *testing.T) {
+			legacyProject, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "legacy-project-2"})
+			require.NoError(t, err)
+
+			feats := entitlements.ProjectFeatures{
+				NewBucketPlacements: legacyPlacements,
+				PlacementProductMappings: entitlements.PlacementProductMappings{
+					legacyPlacement0:  legacyProduct100,
+					legacyPlacement12: legacyProduct200,
+				},
+			}
+			featBytes, err := json.Marshal(feats)
+			require.NoError(t, err)
+
+			_, err = sat.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+				Scope:     entitlements.ConvertPublicIDToProjectScope(legacyProject.PublicID),
+				Features:  featBytes,
+				UpdatedAt: time.Now(),
+			})
+			require.NoError(t, err)
+
+			memberUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Member User",
+				Email:    "member@example.com",
+			}, 1)
+			require.NoError(t, err)
+
+			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, memberUser.ID, legacyProject.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			memberCtx, err := sat.UserContext(ctx, memberUser.ID)
+			require.NoError(t, err)
+
+			err = service.MigrateProjectPricing(memberCtx, legacyProject.PublicID)
+			require.Error(t, err)
+			require.True(t, console.ErrForbidden.Has(err))
+			require.Contains(t, err.Error(), "only project owner or admin")
+		})
+	})
+}

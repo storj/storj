@@ -313,6 +313,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	projectsRouter.Handle("/{id}/invite-link", http.HandlerFunc(projectsController.GetInviteLink)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/emission", http.HandlerFunc(projectsController.GetEmissionImpact)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/{id}/config", http.HandlerFunc(projectsController.GetConfig)).Methods(http.MethodGet, http.MethodOptions)
+	if entitlementsEnabled {
+		projectsRouter.Handle("/{id}/migrate-pricing", server.withCSRFProtection(http.HandlerFunc(projectsController.MigratePricing))).Methods(http.MethodPost, http.MethodOptions)
+	}
+
 	projectsRouter.Handle("/invitations", http.HandlerFunc(projectsController.GetUserInvitations)).Methods(http.MethodGet, http.MethodOptions)
 	projectsRouter.Handle("/invitations/{id}/respond", server.withCSRFProtection(http.HandlerFunc(projectsController.RespondToInvitation))).Methods(http.MethodPost, http.MethodOptions)
 

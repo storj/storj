@@ -508,6 +508,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
+# mapping of legacy placement IDs to product IDs for migration
+# console.legacy-placement-product-mapping-for-migration: ""
+
 # list of placement IDs that are considered legacy placements
 # console.legacy-placements: []
 

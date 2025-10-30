@@ -4412,6 +4412,71 @@ func (s *Service) validateLimits(ctx context.Context, project *Project, updatedL
 	return nil
 }
 
+// MigrateProjectPricing is a method for migrating project pricing to new model.
+func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "migrate project pricing")
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, publicProjectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+	if isMember.membership.Role != RoleAdmin {
+		return ErrForbidden.New("only project owner or admin may migrate project pricing")
+	}
+
+	if !s.entitlementsConfig.Enabled || s.legacyPlacements == nil {
+		return ErrForbidden.New("project pricing migration is not available")
+	}
+
+	p := isMember.project
+
+	if ent, err := s.entitlementsService.Projects().GetByPublicID(ctx, p.PublicID); err == nil && ent.NewBucketPlacements != nil {
+		if !slices.Equal(ent.NewBucketPlacements, s.legacyPlacements) {
+			return ErrConflict.New("project pricing migration is only available for classic projects")
+		}
+	}
+
+	partnerMap, defaultMap := s.accounts.GetPlacementProductMappings(string(p.UserAgent))
+
+	mapping := entitlements.PlacementProductMappings{}
+	for placement, productID := range partnerMap {
+		mapping[storj.PlacementConstraint(placement)] = productID
+	}
+	for placement, productID := range defaultMap {
+		if _, exists := mapping[storj.PlacementConstraint(placement)]; !exists {
+			mapping[storj.PlacementConstraint(placement)] = productID
+		}
+	}
+	for placement, productID := range s.config.LegacyPlacementProductMappingForMigration.mappings {
+		mapping[placement] = productID
+	}
+
+	feats := entitlements.ProjectFeatures{
+		NewBucketPlacements:      s.config.Placement.AllowedPlacementIdsForNewProjects,
+		PlacementProductMappings: mapping,
+	}
+	featBytes, err := json.Marshal(feats)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.store.Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+		Scope:     entitlements.ConvertPublicIDToProjectScope(p.PublicID),
+		Features:  featBytes,
+		UpdatedAt: s.nowFn(),
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // RequestLimitIncrease is a method for requesting limit increase for a project.
 func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID, info LimitRequestInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
