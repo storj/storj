@@ -178,6 +178,8 @@ type Project struct {
 	PassphraseEnc      []byte                    `json:"-"`
 	PassphraseEncKeyID *int                      `json:"-"`
 	PathEncryption     *bool                     `json:"-"`
+
+	IsClassic bool `json:"isClassic"`
 }
 
 // ProjectStatus - is used to indicate status of the user's project.
@@ -245,6 +247,7 @@ type ProjectInfo struct {
 	Versioning           DefaultVersioning         `json:"versioning"`
 	Placement            storj.PlacementConstraint `json:"placement"`
 	HasManagedPassphrase bool                      `json:"hasManagedPassphrase"`
+	IsClassic            bool                      `json:"isClassic"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.

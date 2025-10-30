@@ -82,6 +82,7 @@ export class Project {
     burstLimitDelete?: number | null;
     defaultPlacement: number;
     defaultVersioning: number;
+    isClassic: boolean;
 }
 
 export class ResponseUser {

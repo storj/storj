@@ -62,6 +62,7 @@ type Config struct {
 	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	ProductPriceSummaries             []string                  `help:"the pricing summaries gotten from configured products" default:"" hidden:"true"`
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
+	LegacyPlacements                  []string                  `help:"list of placement IDs that are considered legacy placements" default:""`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig

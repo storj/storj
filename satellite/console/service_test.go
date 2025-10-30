@@ -81,6 +81,7 @@ func TestService(t *testing.T) {
 				config.Metainfo.UseBucketLevelObjectVersioning = true
 				config.Entitlements.Enabled = true
 				config.Console.ComputeUiEnabled = true
+				config.Console.LegacyPlacements = []string{"0", "1"}
 			},
 		},
 	},
@@ -244,6 +245,69 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, settledAmount, projects[0].BandwidthUsed)
 				require.EqualValues(t, segments[0].EncryptedSize, projects[0].StorageUsed)
+
+				// Test IsClassic flag functionality.
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Test User",
+					Email:    "getuserprojects@example.com",
+					Password: "password",
+				}, 2)
+				require.NoError(t, err)
+
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				classicName := "classic project"
+				classicProject, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: classicName})
+				require.NoError(t, err)
+				require.NotNil(t, classicProject)
+
+				scope := entitlements.ConvertPublicIDToProjectScope(classicProject.PublicID)
+				classicFeatures := entitlements.ProjectFeatures{
+					NewBucketPlacements: []storj.PlacementConstraint{0, 1},
+				}
+				classicFeatBytes, err := json.Marshal(classicFeatures)
+				require.NoError(t, err)
+				_, err = sat.API.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+					Scope:    scope,
+					Features: classicFeatBytes,
+				})
+				require.NoError(t, err)
+
+				modernName := "modern project"
+				modernProject, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: modernName})
+				require.NoError(t, err)
+				require.NotNil(t, modernProject)
+
+				modernScope := entitlements.ConvertPublicIDToProjectScope(modernProject.PublicID)
+				modernFeatures := entitlements.ProjectFeatures{
+					NewBucketPlacements: []storj.PlacementConstraint{2, 3},
+				}
+				modernFeatBytes, err := json.Marshal(modernFeatures)
+				require.NoError(t, err)
+				_, err = sat.API.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+					Scope:    modernScope,
+					Features: modernFeatBytes,
+				})
+				require.NoError(t, err)
+
+				projects, err = service.GetUsersProjects(userCtx)
+				require.NoError(t, err)
+				require.Len(t, projects, 2)
+
+				var foundClassic, foundModern bool
+				for _, proj := range projects {
+					switch proj.Name {
+					case classicName:
+						require.True(t, proj.IsClassic, "classic project should have IsClassic=true")
+						foundClassic = true
+					case modernName:
+						require.False(t, proj.IsClassic, "modern project should have IsClassic=false")
+						foundModern = true
+					}
+				}
+				require.True(t, foundClassic, "classic project should be in the list")
+				require.True(t, foundModern, "modern project should be in the list")
 			})
 
 			t.Run("GetSalt", func(t *testing.T) {

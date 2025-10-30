@@ -30,6 +30,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/currency"
@@ -277,6 +278,8 @@ type Service struct {
 
 	packagePlans map[string]payments.PackagePlan
 
+	legacyPlacements []storj.PlacementConstraint
+
 	nowFn func() time.Time
 }
 
@@ -294,6 +297,12 @@ func init() {
 	for _, id := range c.Placement.AllowedPlacementIdsForNewProjects {
 		if _, ok := c.Placement.SelfServeDetails.Get(id); !ok {
 			panic(fmt.Sprintf("allowed placement ID %d not found in self-serve placement details", id))
+		}
+	}
+
+	for _, id := range c.LegacyPlacements {
+		if _, err := strconv.ParseUint(id, 0, 16); err != nil {
+			panic(fmt.Sprintf("invalid legacy placement ID: %s", id))
 		}
 	}
 }
@@ -361,6 +370,16 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		auditableAPIKeyProjects[projectID] = struct{}{}
 	}
 
+	var legacyPlacements []storj.PlacementConstraint
+	for _, id := range config.LegacyPlacements {
+		parsed, err := strconv.ParseUint(id, 0, 16)
+		if err != nil {
+			return nil, errs.New("invalid legacy placement ID: %s", id)
+		}
+
+		legacyPlacements = append(legacyPlacements, storj.PlacementConstraint(parsed))
+	}
+
 	return &Service{
 		log:                           log,
 		auditLogger:                   log.Named("auditlog"),
@@ -404,6 +423,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 
 		entitlementsService: entitlementsService,
 		entitlementsConfig:  entitlementsConfig,
+
+		legacyPlacements: legacyPlacements,
 
 		nowFn: time.Now,
 	}, nil
@@ -3681,6 +3702,7 @@ func (s *Service) GetObjectLockUIEnabled() bool {
 // GetUsersProjects is a method for querying all projects.
 func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	user, err := s.getUserAndAuditLog(ctx, "get users projects")
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -3695,6 +3717,12 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 		project.StorageUsed, project.BandwidthUsed, err = s.getStorageAndBandwidthUse(ctx, project.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
+		}
+
+		if s.entitlementsConfig.Enabled && s.legacyPlacements != nil {
+			if ent, err := s.entitlementsService.Projects().GetByPublicID(ctx, project.PublicID); err == nil && ent.NewBucketPlacements != nil {
+				project.IsClassic = slices.Equal(ent.NewBucketPlacements, s.legacyPlacements)
+			}
 		}
 
 		ps[i] = project
@@ -3717,6 +3745,7 @@ func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 		Versioning:           project.DefaultVersioning,
 		Placement:            project.DefaultPlacement,
 		HasManagedPassphrase: project.PassphraseEnc != nil,
+		IsClassic:            project.IsClassic,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {

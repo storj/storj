@@ -73,6 +73,7 @@ Creates new Project with given info
 	burstLimitDelete: number
 	defaultPlacement: number
 	defaultVersioning: number
+	isClassic: boolean
 }
 
 ```
@@ -136,6 +137,7 @@ Updates project with given info
 	burstLimitDelete: number
 	defaultPlacement: number
 	defaultVersioning: number
+	isClassic: boolean
 }
 
 ```
@@ -192,6 +194,7 @@ Gets all projects user has
 		burstLimitDelete: number
 		defaultPlacement: number
 		defaultVersioning: number
+		isClassic: boolean
 	}
 
 ]

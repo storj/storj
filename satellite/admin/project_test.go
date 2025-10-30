@@ -49,7 +49,7 @@ func TestProjectGet(t *testing.T) {
 		t.Run("OK", func(t *testing.T) {
 			link := "http://" + address.String() + "/api/projects/" + project.ID.String()
 			expected := fmt.Sprintf(
-				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","maxBuckets":null,"createdAt":"%s","memberCount":0,"status":1,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"rateLimit":null,"burstLimit":null,"defaultPlacement":0,"defaultVersioning":1}`,
+				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","maxBuckets":null,"createdAt":"%s","memberCount":0,"status":1,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"rateLimit":null,"burstLimit":null,"defaultPlacement":0,"defaultVersioning":1,"isClassic":false}`,
 				project.ID.String(),
 				project.PublicID.String(),
 				project.Name,
@@ -99,7 +99,7 @@ func TestProjectGetByAnyID(t *testing.T) {
 		testGetProject := func(pid string) {
 			link := "http://" + address.String() + "/api/projects/" + pid
 			expected := fmt.Sprintf(
-				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","maxBuckets":null,"createdAt":"%s","memberCount":0,"status":1,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"rateLimit":null,"burstLimit":null,"defaultPlacement":0,"defaultVersioning":1}`,
+				`{"id":"%s","publicId":"%s","name":"%s","description":"%s","userAgent":null,"ownerId":"%s","maxBuckets":null,"createdAt":"%s","memberCount":0,"status":1,"storageLimit":"25.00 GB","bandwidthLimit":"25.00 GB","userSpecifiedStorageLimit":null,"userSpecifiedBandwidthLimit":null,"segmentLimit":10000,"rateLimit":null,"burstLimit":null,"defaultPlacement":0,"defaultVersioning":1,"isClassic":false}`,
 				project.ID.String(),
 				project.PublicID.String(),
 				project.Name,

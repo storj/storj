@@ -508,6 +508,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
+# list of placement IDs that are considered legacy placements
+# console.legacy-placements: []
+
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
