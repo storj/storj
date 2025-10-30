@@ -260,6 +260,10 @@ export const useProjectsStore = defineStore('projects', () => {
         });
     }
 
+    async function migratePricing(projectID: string): Promise<void> {
+        await api.migratePricing(projectID, csrfToken.value);
+    }
+
     async function getProjectLimits(projectID: string): Promise<void> {
         state.currentLimits = await api.getLimits(projectID);
     }
@@ -335,6 +339,7 @@ export const useProjectsStore = defineStore('projects', () => {
         getEmissionImpact,
         getUserInvitations,
         respondToInvitation,
+        migratePricing,
         clear,
         projects,
         projectsWithoutSelected,

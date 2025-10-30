@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card class="pa-2">
+    <v-card class="pa-2 h-100">
         <div class="h-100 d-flex flex-column justify-space-between">
             <v-card-item>
                 <div class="d-flex justify-space-between">
@@ -12,7 +12,10 @@
                     </v-chip>
                     <v-chip v-if="item && item.isClassic" variant="tonal" color="warning" size="small" class="font-weight-bold">
                         Classic
-                        <v-tooltip activator="parent" location="top">Pricing from before Nov 2025.</v-tooltip>
+                        <v-tooltip activator="parent" location="top">
+                            Pricing from before Nov 2025.
+                            <a class="link" @click="isMigrateDialog = true">Migrate Now</a>
+                        </v-tooltip>
                     </v-chip>
                 </div>
                 <v-card-title :class="{ 'text-primary': item && item.role !== ProjectRole.Invited }">
@@ -46,76 +49,90 @@
                     </v-btn>
                 </template>
                 <v-btn v-else color="primary" class="mr-2" @click="openProject">Open Project</v-btn>
-                <v-btn v-if="item?.role === ProjectRole.Owner" color="default" variant="outlined" density="comfortable" icon>
-                    <v-icon :icon="Ellipsis" />
 
-                    <v-menu activator="parent" location="bottom" transition="fade-transition">
-                        <v-list class="pa-1">
-                            <v-list-item link @click="emit('inviteClick')">
-                                <template #prepend>
-                                    <component :is="UserPlus" :size="18" />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Add Members
-                                </v-list-item-title>
-                            </v-list-item>
+                <v-menu v-if="item?.role === ProjectRole.Owner" location="bottom" transition="fade-transition">
+                    <template #activator="{ props: menuProps }">
+                        <v-btn v-bind="menuProps" color="default" variant="outlined" density="comfortable" icon>
+                            <v-icon :icon="Ellipsis" />
+                        </v-btn>
+                    </template>
 
-                            <v-divider />
+                    <v-list class="pa-1">
+                        <v-list-item link @click="emit('inviteClick')">
+                            <template #prepend>
+                                <component :is="UserPlus" :size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Add Members
+                            </v-list-item-title>
+                        </v-list-item>
 
-                            <v-list-item link @click="() => editClick(FieldToChange.Name)">
-                                <template #prepend>
-                                    <component :is="Pencil" :size="18" />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Edit Name
-                                </v-list-item-title>
-                            </v-list-item>
+                        <v-divider />
 
-                            <v-list-item link @click="() => editClick(FieldToChange.Description)">
-                                <template #prepend>
-                                    <component :is="NotebookPen" :size="18" />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Edit Description
-                                </v-list-item-title>
-                            </v-list-item>
+                        <v-list-item link @click="() => editClick(FieldToChange.Name)">
+                            <template #prepend>
+                                <component :is="Pencil" :size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Edit Name
+                            </v-list-item-title>
+                        </v-list-item>
 
-                            <v-divider />
+                        <v-list-item link @click="() => editClick(FieldToChange.Description)">
+                            <template #prepend>
+                                <component :is="NotebookPen" :size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Edit Description
+                            </v-list-item-title>
+                        </v-list-item>
 
-                            <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Storage)">
-                                <template #prepend>
-                                    <component :is="Cloud" :size="18" />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Edit Storage Limit
-                                </v-list-item-title>
-                            </v-list-item>
+                        <v-divider />
 
-                            <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Bandwidth)">
-                                <template #prepend>
-                                    <component :is="DownloadCloud" :size="18" />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Edit Download Limit
-                                </v-list-item-title>
-                            </v-list-item>
+                        <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Storage)">
+                            <template #prepend>
+                                <component :is="Cloud" :size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Edit Storage Limit
+                            </v-list-item-title>
+                        </v-list-item>
 
-                            <v-divider />
+                        <v-list-item v-if="isPaidTier" link @click="() => updateLimitsClick(LimitToChange.Bandwidth)">
+                            <template #prepend>
+                                <component :is="DownloadCloud" :size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Edit Download Limit
+                            </v-list-item-title>
+                        </v-list-item>
 
-                            <v-list-item link @click="() => onSettingsClick()">
-                                <template #prepend>
-                                    <component :is="Settings" :size="18" />
-                                </template>
-                                <v-list-item-title class="text-body-2 ml-3">
-                                    Project Settings
-                                </v-list-item-title>
-                            </v-list-item>
-                        </v-list>
-                    </v-menu>
-                </v-btn>
+                        <v-divider />
+
+                        <v-list-item link @click="() => onSettingsClick()">
+                            <template #prepend>
+                                <component :is="Settings" :size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Project Settings
+                            </v-list-item-title>
+                        </v-list-item>
+
+                        <v-list-item link @click="isMigrateDialog = true">
+                            <template #prepend>
+                                <component :is="CircleFadingArrowUp" :size="18" />
+                            </template>
+                            <v-list-item-title class="text-body-2 ml-3">
+                                Migrate Project
+                            </v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-menu>
             </v-card-text>
         </div>
     </v-card>
+
+    <migrate-project-pricing-dialog v-if="props.item" v-model="isMigrateDialog" :project-id="props.item.id" />
 </template>
 
 <script setup lang="ts">
@@ -137,7 +154,17 @@ import {
     VDivider,
     VTooltip,
 } from 'vuetify/components';
-import { Box, Cloud, DownloadCloud, Ellipsis, Pencil, NotebookPen, Settings, UserPlus } from 'lucide-vue-next';
+import {
+    Box,
+    Cloud,
+    DownloadCloud,
+    Ellipsis,
+    Pencil,
+    NotebookPen,
+    Settings,
+    UserPlus,
+    CircleFadingArrowUp,
+} from 'lucide-vue-next';
 
 import {
     FieldToChange,
@@ -154,6 +181,8 @@ import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+
+import MigrateProjectPricingDialog from '@/components/dialogs/MigrateProjectPricingDialog.vue';
 
 const props = defineProps<{
     item?: ProjectItemModel,
@@ -175,6 +204,7 @@ const router = useRouter();
 const notify = useNotify();
 
 const isDeclining = ref<boolean>(false);
+const isMigrateDialog = ref<boolean>(false);
 
 const isPaidTier = computed(() => userStore.state.user.isPaid);
 

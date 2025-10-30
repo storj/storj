@@ -40,7 +40,10 @@
                 {{ item.name }}
                 <v-chip v-if="item.isClassic" variant="tonal" color="warning" size="small" class="font-weight-bold ml-2">
                     Classic
-                    <v-tooltip activator="parent" location="top">Pricing from before Nov 2025.</v-tooltip>
+                    <v-tooltip activator="parent" location="top">
+                        Pricing from before Nov 2025.
+                        <a class="link" @click="() => onMigrateClick(item.id)">Migrate Now</a>
+                    </v-tooltip>
                 </v-chip>
             </v-btn>
             <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
@@ -166,6 +169,15 @@
                                         Project Settings
                                     </v-list-item-title>
                                 </v-list-item>
+
+                                <v-list-item v-if="item.isClassic" link @click="() => onMigrateClick(item.id)">
+                                    <template #prepend>
+                                        <component :is="CircleFadingArrowUp" :size="18" />
+                                    </template>
+                                    <v-list-item-title class="text-body-2 ml-3">
+                                        Migrate Project
+                                    </v-list-item-title>
+                                </v-list-item>
                             </template>
                             <v-list-item v-else link @click="declineInvitation(item)">
                                 <template #prepend>
@@ -181,6 +193,8 @@
             </div>
         </template>
     </v-data-table>
+
+    <migrate-project-pricing-dialog v-model="isMigrateDialog" :project-id="projectIDToMigrate" />
 </template>
 
 <script setup lang="ts">
@@ -209,6 +223,7 @@ import {
     DownloadCloud,
     Pencil,
     NotebookPen,
+    CircleFadingArrowUp,
 } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
@@ -231,6 +246,8 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';
 
+import MigrateProjectPricingDialog from '@/components/dialogs/MigrateProjectPricingDialog.vue';
+
 defineProps<{
     items: ProjectItemModel[],
 }>();
@@ -244,6 +261,8 @@ const emit = defineEmits<{
 
 const search = ref<string>('');
 const decliningIds = ref(new Set<string>());
+const projectIDToMigrate = ref<string>('');
+const isMigrateDialog = ref<boolean>(false);
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
@@ -316,6 +335,11 @@ function onSettingsClick(item: ProjectItemModel): void {
         name: ROUTES.ProjectSettings.name,
         params: { id: projectsStore.state.selectedProject.urlId },
     });
+}
+
+function onMigrateClick(id: string): void {
+    projectIDToMigrate.value = id;
+    isMigrateDialog.value = true;
 }
 
 /**

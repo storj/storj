@@ -133,6 +133,15 @@ export interface ProjectsApi {
      * @throws Error
      */
     respondToInvitation(projectID: string, response: ProjectInvitationResponse, csrfProtectionToken: string): Promise<void>;
+
+    /**
+     * Migrates project pricing from legacy to new pricing model.
+     * @param projectID
+     * @param csrfProtectionToken
+     *
+     * @throws Error
+     */
+    migratePricing(projectID: string, csrfProtectionToken: string): Promise<void>;
 }
 
 /**

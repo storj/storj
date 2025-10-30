@@ -137,6 +137,20 @@
             </v-row>
 
             <v-row>
+                <v-col v-if="project.isClassic" cols="12" sm="6" lg="4">
+                    <v-card title="Migrate to new storage tiers" class="pa-2">
+                        <v-card-subtitle>
+                            This project uses legacy pricing tiers.
+                        </v-card-subtitle>
+
+                        <v-card-text>
+                            <v-btn color="primary" @click="isMigrateDialogShown = true">
+                                Migrate Project
+                            </v-btn>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+
                 <v-col cols="12" sm="6" lg="4">
                     <v-card title="Object Versioning" class="pa-2">
                         <v-card-subtitle>
@@ -198,6 +212,7 @@
     <edit-project-details-dialog v-model="isEditDetailsDialogShown" :field="fieldToChange" />
     <edit-project-limit-dialog v-model="isEditLimitDialogShown" :limit-type="limitToChange" />
     <delete-project-dialog v-model="isDeleteProjectDialogShown" />
+    <migrate-project-pricing-dialog v-model="isMigrateDialogShown" :project-id="project.id" @success="() => projectsStore.selectProject(project.id)" />
 </template>
 
 <script setup lang="ts">
@@ -239,12 +254,14 @@ import ProjectEncryptionInformationDialog from '@/components/dialogs/ProjectEncr
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import DeleteProjectDialog  from '@/components/dialogs/DeleteProjectDialog.vue';
 import ObjectLockInfoDialog from '@/components/dialogs/ObjectLockInfoDialog.vue';
+import MigrateProjectPricingDialog from '@/components/dialogs/MigrateProjectPricingDialog.vue';
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isDeleteProjectDialogShown = ref<boolean>(false);
 const isEditDetailsDialogShown = ref<boolean>(false);
 const isEditLimitDialogShown = ref<boolean>(false);
 const isVersioningDialogShown = ref<boolean>(false);
+const isMigrateDialogShown = ref<boolean>(false);
 const fieldToChange = ref<FieldToChange>(FieldToChange.Name);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 

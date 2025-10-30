@@ -85,12 +85,11 @@
 
         <v-row v-else>
             <v-col v-if="!items.length" cols="12" sm="6" md="4" lg="3">
-                <ProjectCard class="h-100" @create-click="newProjectClicked" />
+                <ProjectCard @create-click="newProjectClicked" />
             </v-col>
             <v-col v-for="item in items" v-else :key="item.id" cols="12" sm="6" md="4" lg="3">
                 <ProjectCard
                     :item="item"
-                    class="h-100"
                     @join-click="onJoinClicked(item)"
                     @invite-click="onInviteClicked(item)"
                     @edit-click="(field) => editClick(item, field)"

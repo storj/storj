@@ -448,4 +448,26 @@ export class ProjectsHttpApi implements ProjectsApi {
             requestID: httpResponse.headers.get('x-request-id'),
         });
     }
+
+    /**
+     * Migrates project pricing from legacy to new pricing model.
+     * @param projectID
+     * @param csrfProtectionToken
+     *
+     * @throws Error
+     */
+    public async migratePricing(projectID: string, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectID}/migrate-pricing`;
+        const response = await this.http.post(path, null, { csrfProtectionToken });
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not migrate project pricing',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
 }
