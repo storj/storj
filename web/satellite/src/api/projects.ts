@@ -97,6 +97,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.storageUsed,
             p.bandwidthUsed,
             p.hasManagedPassphrase ? ProjectEncryption.Automatic : ProjectEncryption.Manual,
+            p.isClassic,
         ));
     }
 

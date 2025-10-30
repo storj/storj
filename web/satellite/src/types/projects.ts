@@ -169,6 +169,7 @@ export class Project {
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
         public encryption: ProjectEncryption = ProjectEncryption.Manual,
+        public isClassic: boolean = false,
     ) {}
 }
 
@@ -382,6 +383,7 @@ export class ProjectItemModel {
         public storageUsed: number = 0,
         public bandwidthUsed: number = 0,
         public encryption: ProjectEncryption | undefined = undefined,
+        public isClassic: boolean = false,
     ) {}
 }
 

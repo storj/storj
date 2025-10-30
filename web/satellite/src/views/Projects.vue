@@ -219,6 +219,7 @@ const items = computed((): ProjectItemModel[] => {
         project.storageUsed,
         project.bandwidthUsed,
         project.encryption,
+        project.isClassic,
     )).sort((projA, projB) => {
         if (projA.role === ProjectRole.Owner && projB.role === ProjectRole.Member) return -1;
         if (projA.role === ProjectRole.Member && projB.role === ProjectRole.Owner) return 1;

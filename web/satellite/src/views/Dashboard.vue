@@ -22,6 +22,10 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
+                <v-chip v-if="selectedProject.isClassic" variant="tonal" color="warning" size="large" class="font-weight-bold">
+                    Classic
+                    <v-tooltip activator="parent" location="top">Pricing from before Nov 2025.</v-tooltip>
+                </v-chip>
                 <PageTitleComponent
                     title="Project Dashboard"
                     extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
@@ -313,6 +317,7 @@ import {
     VRow,
     VIcon,
     VTooltip,
+    VChip,
 } from 'vuetify/components';
 import { VDateInput } from 'vuetify/labs/components';
 import { useRouter } from 'vue-router';

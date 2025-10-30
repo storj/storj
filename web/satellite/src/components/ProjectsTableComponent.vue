@@ -38,6 +38,10 @@
             >
                 <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
                 {{ item.name }}
+                <v-chip v-if="item.isClassic" variant="tonal" color="warning" size="small" class="font-weight-bold ml-2">
+                    Classic
+                    <v-tooltip activator="parent" location="top">Pricing from before Nov 2025.</v-tooltip>
+                </v-chip>
             </v-btn>
             <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
                 <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
@@ -193,6 +197,7 @@ import {
     VListItemTitle,
     VDataTable,
     VDivider,
+    VTooltip,
 } from 'vuetify/components';
 import {
     Ellipsis,

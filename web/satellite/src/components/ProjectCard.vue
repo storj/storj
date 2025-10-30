@@ -10,6 +10,10 @@
                         <component :is="Box" :size="12" class="mr-1" />
                         {{ item?.role || 'Project' }}
                     </v-chip>
+                    <v-chip v-if="item && item.isClassic" variant="tonal" color="warning" size="small" class="font-weight-bold">
+                        Classic
+                        <v-tooltip activator="parent" location="top">Pricing from before Nov 2025.</v-tooltip>
+                    </v-chip>
                 </div>
                 <v-card-title :class="{ 'text-primary': item && item.role !== ProjectRole.Invited }">
                     <a v-if="item && item.role !== ProjectRole.Invited" class="link text-decoration-none" @click="openProject">
@@ -131,6 +135,7 @@ import {
     VListItemTitle,
     VMenu,
     VDivider,
+    VTooltip,
 } from 'vuetify/components';
 import { Box, Cloud, DownloadCloud, Ellipsis, Pencil, NotebookPen, Settings, UserPlus } from 'lucide-vue-next';
 
