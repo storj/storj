@@ -16,7 +16,7 @@ FOLDER="${2-}"
 
 FLAGS=""
 if [[ "$TAG" =~ -rc$ ]]; then
-  FLAGS="--draft"
+  FLAGS="--prerelease"
 fi
 
 echo "Creating release"
