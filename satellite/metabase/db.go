@@ -672,6 +672,18 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 				Version:     23,
 				Action:      migrate.SQL{},
 			},
+			{
+				DB:          &db,
+				Description: "watch stream_id in bucket eventing change stream",
+				Version:     24,
+				Action:      migrate.SQL{},
+			},
+			{
+				DB:          &db,
+				Description: "change value capture type for the bucket eventing change stream",
+				Version:     25,
+				Action:      migrate.SQL{},
+			},
 		},
 	}
 }
@@ -725,7 +737,7 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				Description: "change value capture type for the bucket eventing change stream",
 				Version:     25,
 				Action: migrate.SQL{
-					`ALTER CHANGE STREAM bucket_eventing SET FOR OPTIONS (value_capture_type = 'NEW_ROW_AND_OLD_VALUES')`,
+					`ALTER CHANGE STREAM bucket_eventing SET OPTIONS (value_capture_type = 'NEW_ROW_AND_OLD_VALUES')`,
 				},
 			},
 		},
