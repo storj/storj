@@ -168,16 +168,12 @@ type RecordTail [5]Record
 
 // Push adds a record to the tail if it has a larger offset then any record already in the tail.
 func (r *RecordTail) Push(rec Record) {
-	// clear the expires field because it's not relevant for tail comparison.
-	rec.Expires = 0
-
 	mi, moff := 0, r[0].Offset
 	for i := 1; i < len(r); i++ {
 		if r[i].IsZero() || r[i].Offset < moff {
 			mi, moff = i, r[i].Offset
 		}
 	}
-
 	if rec.Offset >= moff {
 		r[mi] = rec
 	}
@@ -195,4 +191,18 @@ func (r *RecordTail) Sort() {
 			return string(r[i].Key[:]) > string(r[j].Key[:])
 		}
 	})
+}
+
+// RecordTailsEqualish returns true if the two record tails are equalish. RecordTails are equalish
+// if their records are equalish.
+func RecordTailsEqualish(a, b *RecordTail) bool {
+	if a == nil || b == nil {
+		return (a == nil) == (b == nil)
+	}
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if !RecordsEqualish(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
 }

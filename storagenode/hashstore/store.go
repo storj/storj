@@ -41,12 +41,13 @@ var (
 // Store is a hash table based key-value store with compaction.
 type Store struct {
 	// immutable data
-	cfg       Config        // configuration for the store
-	logsPath  string        // directory containing log files
-	tablePath string        // directory containing meta files (lock + hashtbl)
-	log       *zap.Logger   // logger for unhandleable errors
-	today     func() uint32 // hook for getting the current timestamp
-	lock      *os.File      // lock file to prevent multiple processes from using the same store
+	cfg       Config                 // configuration for the store
+	logsPath  string                 // directory containing log files
+	tablePath string                 // directory containing meta files (lock + hashtbl)
+	log       *zap.Logger            // logger for unhandleable errors
+	today     func() uint32          // hook for getting the current timestamp
+	lock      *os.File               // lock file to prevent multiple processes from using the same store
+	valid     func(Key, []byte) bool // valid callback for reconciliation.
 
 	lfc *logCollection                   // collection of log files ready to be written into
 	lru *multiLRUCache[string, *os.File] // cache of open file handles
@@ -107,8 +108,10 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 		tablePath: tablePath,
 		log:       log,
 		today:     func() uint32 { return TimeToDateDown(time.Now()) },
-		lfc:       newLogCollection(),
-		lru:       newMultiLRUCache[string, *os.File](cfg.Store.OpenFileCache),
+		valid:     func(k Key, b []byte) bool { return true },
+
+		lfc: newLogCollection(),
+		lru: newMultiLRUCache[string, *os.File](cfg.Store.OpenFileCache),
 
 		flushMu:   newRWMutex(cfg.Store.FlushSemaphore, cfg.SyncLifo),
 		compactMu: newMutex(),
@@ -257,23 +260,30 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 				return nil
 			}
 
-			logTail, err := recordTailFromLog(ctx, lf, nil)
+			logTail, err := recordTailFromLog(ctx, lf, s.valid)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 
-			tableTail := tails[lf.id]
-			if tableTail == nil {
-				tableTail = new(RecordTail)
-			}
-
-			if *logTail != *tableTail {
+			if tableTail := tails[lf.id]; !RecordTailsEqualish(tableTail, logTail) {
 				s.log.Warn("mismatched log tail",
 					zap.Uint64("id", lf.id),
 					zap.String("path", lf.path),
 					zap.Any("table", tableTail),
 					zap.Any("log", logTail),
 				)
+
+				invalid, err := s.reconcileLog(ctx, lf)
+				if err != nil {
+					return Error.Wrap(err)
+				} else if len(invalid) > 0 {
+					// TODO: amnesty these invalid keys
+					s.log.Warn("reconciled log with invalid records",
+						zap.Uint64("id", lf.id),
+						zap.String("path", lf.path),
+						zap.Int("invalid count", len(invalid)),
+					)
+				}
 			} else {
 				s.log.Info("matched log tail",
 					zap.Uint64("id", lf.id),
@@ -970,8 +980,7 @@ func (s *Store) compactOnce(
 	s.stats.logsRewritten.Add(uint64(len(rewrite)))
 
 	// create a new hash table sized for the number of records.
-	tblPath := filepath.Join(s.tablePath, createHashtblName(s.maxTbl.Add(1)))
-	af, err := newAtomicFile(tblPath)
+	af, err := newAtomicFile(filepath.Join(s.tablePath, createHashtblName(s.maxTbl.Add(1))))
 	if err != nil {
 		return false, Error.Wrap(err)
 	}
@@ -984,18 +993,17 @@ func (s *Store) compactOnce(
 	defer cons.Cancel()
 
 	// keep track of statistics about some events that can happen to records during the compaction.
-	totalRecords := uint64(0)
-	totalBytes := uint64(0)
-	rewrittenRecords := uint64(0)
-	rewrittenBytes := uint64(0)
-	trashedRecords := uint64(0)
-	trashedBytes := uint64(0)
-	restoredRecords := uint64(0)
-	restoredBytes := uint64(0)
-	expiredRecords := uint64(0)
-	expiredBytes := uint64(0)
-	reclaimedLogs := uint64(0)
-	reclaimedBytes := uint64(0)
+	var (
+		totalCtr     bytesCounter
+		rewrittenCtr bytesCounter
+		trashedCtr   bytesCounter
+		restoredCtr  bytesCounter
+		expiredCtr   bytesCounter
+		reclaimedCtr bytesCounter
+
+		// recDiskLength returns the length on disk of a record including the footer.
+		recDiskLength = func(rec Record) uint64 { return uint64(rec.Length) + RecordSize }
+	)
 
 	// keep track of all of the rewritten records
 	ri := new(rewrittenIndex)
@@ -1046,12 +1054,8 @@ func (s *Store) compactOnce(
 				}
 				ri.records[i] = rec
 
-				// bump the amount of data we rewrote.
-				s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
-
-				// keep track of the number of records and bytes we rewrote for logs.
-				rewrittenRecords++
-				rewrittenBytes += uint64(rec.Length) + RecordSize
+				s.stats.dataRewritten.Add(recDiskLength(rec))
+				rewrittenCtr.Add(recDiskLength(rec))
 
 				return nil
 			}()
@@ -1066,8 +1070,8 @@ func (s *Store) compactOnce(
 		// log about the time we took rewriting the records.
 		if ce := s.log.Check(zapcore.InfoLevel, "records rewritten"); ce != nil {
 			ce.Write(
-				zap.Uint64("records", rewrittenRecords),
-				zapHumanBytes("bytes", rewrittenBytes),
+				zap.Uint64("records", rewrittenCtr.count),
+				zapHumanBytes("bytes", rewrittenCtr.bytes),
 				zap.Duration("duration", time.Since(rewriteStart)),
 			)
 		}
@@ -1102,8 +1106,7 @@ func (s *Store) compactOnce(
 			if exp := NewExpiration(expiresTime, true); !restored(exp) {
 				rec.Expires = exp
 
-				trashedRecords++
-				trashedBytes += uint64(rec.Length) + RecordSize
+				trashedCtr.Add(recDiskLength(rec))
 			}
 		}
 
@@ -1117,15 +1120,12 @@ func (s *Store) compactOnce(
 			// with the system and it has more details about the bloom filter.
 			rec.Created = today
 
-			restoredRecords++
-			restoredBytes += uint64(rec.Length) + RecordSize
+			restoredCtr.Add(recDiskLength(rec))
 		}
 
 		// totally ignore any expired records.
 		if expired(rec.Expires) {
-			expiredRecords++
-			expiredBytes += uint64(rec.Length) + RecordSize
-
+			expiredCtr.Add(recDiskLength(rec))
 			return true, nil
 		}
 
@@ -1144,12 +1144,8 @@ func (s *Store) compactOnce(
 				}
 				rec = rewrittenRec
 
-				// bump the amount of data we rewrote.
-				s.stats.dataRewritten.Add(uint64(rec.Length) + RecordSize)
-
-				// keep track of the number of records and bytes we rewrote for logs.
-				rewrittenRecords++
-				rewrittenBytes += uint64(rec.Length) + RecordSize
+				s.stats.dataRewritten.Add(recDiskLength(rec))
+				rewrittenCtr.Add(recDiskLength(rec))
 			}
 		}
 
@@ -1160,8 +1156,7 @@ func (s *Store) compactOnce(
 			return false, Error.New("compaction hash table is full")
 		}
 
-		totalRecords++
-		totalBytes += uint64(rec.Length) + RecordSize
+		totalCtr.Add(recDiskLength(rec))
 
 		return true, nil
 	}); err != nil {
@@ -1215,8 +1210,7 @@ func (s *Store) compactOnce(
 		size := dead[lf.id]
 		s.stats.dataReclaimed.Add(size)
 
-		reclaimedLogs++
-		reclaimedBytes += size
+		reclaimedCtr.Add(size)
 	}
 
 	// best effort sync the directories now that we are done with mutations.
@@ -1236,19 +1230,19 @@ func (s *Store) compactOnce(
 	if ce := s.log.Check(zapcore.InfoLevel, "hashtbl rewritten"); ce != nil {
 		ce.Write(
 			zap.Duration("duration", time.Since(s.stats.writeTime.Load().(time.Time))),
-			zap.Uint64("total_records", totalRecords),
-			zapHumanBytes("total bytes", totalBytes),
-			zap.Uint64("rewritten_records", rewrittenRecords),
-			zapHumanBytes("rewritten bytes", rewrittenBytes),
-			zap.Uint64("trashed_records", trashedRecords),
-			zapHumanBytes("trashed bytes", trashedBytes),
-			zap.Uint64("restored_records", restoredRecords),
-			zapHumanBytes("restored bytes", restoredBytes),
-			zap.Uint64("expired_records", expiredRecords),
-			zapHumanBytes("expired bytes", expiredBytes),
-			zap.Uint64("reclaimed_logs", reclaimedLogs),
-			zapHumanBytes("reclaimed bytes", reclaimedBytes),
-			zap.Float64("reclaim_ratio", float64(reclaimedBytes)/float64(rewrittenBytes)),
+			zap.Uint64("total_records", totalCtr.count),
+			zapHumanBytes("total_bytes", totalCtr.bytes),
+			zap.Uint64("rewritten_records", rewrittenCtr.count),
+			zapHumanBytes("rewritten_bytes", rewrittenCtr.bytes),
+			zap.Uint64("trashed_records", trashedCtr.count),
+			zapHumanBytes("trashed_bytes", trashedCtr.bytes),
+			zap.Uint64("restored_records", restoredCtr.count),
+			zapHumanBytes("restored_bytes", restoredCtr.bytes),
+			zap.Uint64("expired_records", expiredCtr.count),
+			zapHumanBytes("expired_bytes", expiredCtr.bytes),
+			zap.Uint64("reclaimed_logs", reclaimedCtr.count),
+			zapHumanBytes("reclaimed_bytes", reclaimedCtr.bytes),
+			zap.Float64("reclaim_ratio", float64(reclaimedCtr.bytes)/float64(rewrittenCtr.bytes)),
 		)
 	}
 
@@ -1426,4 +1420,144 @@ func parseHintFile(path string) *hintExcluder {
 	}
 
 	return h
+}
+
+// reconcileLog reads through a log file and inserts any missing records into the current table
+// before rewriting the table to remove any invalid records the table thinks are present. it returns
+// the Keys for those Records so that they can be handled. it can only be called before any other
+// operations are performed on the Store, so during the initial constructor.
+func (s *Store) reconcileLog(ctx context.Context, lf *logFile) (_ []Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// collect the set of valid records from the log file, keeping the largest offset. the records
+	// are returned in largest offset order, so only insert into the map if it doesn't exist.
+	logRecordsByKey := make(map[Key]Record)
+	if err := readRecordsFromLogFile(lf, s.valid, func(rec Record) bool {
+		if _, ok := logRecordsByKey[rec.Key]; !ok {
+			logRecordsByKey[rec.Key] = rec
+		}
+		return true
+	}); err != nil {
+		return nil, err
+	}
+
+	// compare against the current table removing any records from our valid set that the table
+	// already has, and collecting any records from the table that are not in the valid set or
+	// differ from what the log has.
+	invalidByKey := make(map[Key]struct{})
+	if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+		if rec.Log != lf.id {
+			return true, nil
+		}
+
+		logRec, ok := logRecordsByKey[rec.Key]
+		if !ok || !RecordsEqualish(rec, logRec) {
+			invalidByKey[rec.Key] = struct{}{}
+		}
+		delete(logRecordsByKey, rec.Key)
+
+		return true, nil
+	}); err != nil {
+		return nil, err
+	}
+
+	// any records still remaining in logRecordsByKey are missing from the table, so insert them.
+	// since they aren't in the table, the only way it errors is an i/o error and the only way it's
+	// not ok is if the table is full. either is a problem because we try to grow the table as
+	// needed.
+	for _, rec := range logRecordsByKey {
+		if s.tbl.Load() >= db_CompactLoad {
+			if err := s.doubleTableSize(ctx); err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
+		if ok, err := s.tbl.Insert(ctx, rec); err != nil {
+			return nil, Error.Wrap(err)
+		} else if !ok {
+			return nil, Error.New("unable to insert record during log reconciliation")
+		}
+	}
+
+	// if we have any invalid records in the table, we have to rewrite the table to remove them.
+	if len(invalidByKey) > 0 {
+		af, err := newAtomicFile(filepath.Join(s.tablePath, createHashtblName(s.maxTbl.Add(1))))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		defer af.Cancel()
+
+		cons, err := CreateTable(ctx, af.File, s.tbl.LogSlots(), s.today(), s.cfg.TableDefaultKind.Kind, s.cfg)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		defer cons.Cancel()
+
+		if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
+			if _, ok := invalidByKey[rec.Key]; ok {
+				return true, nil
+			}
+			return cons.Append(ctx, rec)
+		}); err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		ntbl, err := cons.Done(ctx)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		if err := af.Commit(); err != nil {
+			return nil, Error.New("unable to commit reconciled hashtbl: %w", err)
+		}
+
+		// close the old table and remove it's file. we don't care about errors here on close
+		// because the table is no longer in use, and removing the file is best effort.
+		_ = s.tbl.Close()
+		_ = os.Remove(strings.TrimSuffix(s.tbl.Handle().Name(), ".tmp"))
+
+		s.tbl = ntbl
+	}
+
+	return maps.Keys(invalidByKey), nil
+}
+
+// doubleTableSize creates a new hashtbl file with double the size of the current table and copies
+// all of the records into it. it can only be called before any other operations are performed on
+// the Store, so during the initial constructor.
+func (s *Store) doubleTableSize(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	af, err := newAtomicFile(filepath.Join(s.tablePath, createHashtblName(s.maxTbl.Add(1))))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer af.Cancel()
+
+	cons, err := CreateTable(ctx, af.File, s.tbl.LogSlots()+1, s.today(), s.cfg.TableDefaultKind.Kind, s.cfg)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer cons.Cancel()
+
+	if err := s.tbl.Range(ctx, cons.Append); err != nil {
+		return Error.Wrap(err)
+	}
+
+	ntbl, err := cons.Done(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err := af.Commit(); err != nil {
+		return Error.New("unable to commit reconciled hashtbl: %w", err)
+	}
+
+	// close the old table and remove it's file. we don't care about errors here on close
+	// because the table is no longer in use, and removing the file is best effort.
+	_ = s.tbl.Close()
+	_ = os.Remove(strings.TrimSuffix(s.tbl.Handle().Name(), ".tmp"))
+
+	s.tbl = ntbl
+
+	return nil
 }

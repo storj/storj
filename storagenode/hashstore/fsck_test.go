@@ -52,7 +52,7 @@ func testRecordTailFromLog(t *testing.T, cfg Config) {
 		}
 		pushed.Sort()
 
-		logTail, err := recordTailFromLog(ctx, lf, nil)
+		logTail, err := recordTailFromLog(ctx, lf, func(k Key, b []byte) bool { return true })
 		assert.NoError(t, err)
 		_, tails, err := OpenTable(ctx, s.tbl.Handle(), cfg)
 		assert.NoError(t, err)

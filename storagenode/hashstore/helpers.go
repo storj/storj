@@ -77,6 +77,16 @@ func zapHumanBytes[T ~int | ~int64 | ~uint | ~uint64](key string, v T) zap.Field
 	return zap.String(key, memory.FormatBytes(int64(v)))
 }
 
+type bytesCounter struct {
+	count uint64
+	bytes uint64
+}
+
+func (b *bytesCounter) Add(length uint64) {
+	b.count++
+	b.bytes += length
+}
+
 //
 // date/time helpers
 //

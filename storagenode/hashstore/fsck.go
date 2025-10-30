@@ -11,21 +11,6 @@ var (
 	test_fsck_errorOnInvalidRecord = false
 )
 
-func recordTailFromLog(ctx context.Context, lf *logFile, valid func(Key, []byte) bool) (_ *RecordTail, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rt, n := new(RecordTail), 0
-	if err := readRecordsFromLogFile(lf, valid, func(rec Record) bool {
-		rt.Push(rec)
-		n++
-		return n < len(rt)
-	}); err != nil {
-		return nil, err
-	}
-	rt.Sort()
-	return rt, nil
-}
-
 func readRecordsFromLogFile(
 	lf *logFile,
 	valid func(Key, []byte) bool,
@@ -67,7 +52,7 @@ func readRecordsFromLogFile(
 		if err != nil {
 			return err
 		}
-		if valid == nil || valid(rec.Key, contents[:rec.Length]) {
+		if valid(rec.Key, contents[:rec.Length]) {
 			if !cb(rec) {
 				return nil
 			}
@@ -77,4 +62,19 @@ func readRecordsFromLogFile(
 	}
 
 	return nil
+}
+
+func recordTailFromLog(ctx context.Context, lf *logFile, valid func(Key, []byte) bool) (_ *RecordTail, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rt, n := new(RecordTail), 0
+	if err := readRecordsFromLogFile(lf, valid, func(rec Record) bool {
+		rt.Push(rec)
+		n++
+		return n < len(rt)
+	}); err != nil {
+		return nil, err
+	}
+	rt.Sort()
+	return rt, nil
 }

@@ -733,8 +733,16 @@ func newTestStore(t testing.TB, cfg Config) *testStore {
 
 func (ts *testStore) Close() { assert.NoError(ts.t, ts.Store.Close()) }
 
-func (ts *testStore) AssertReopen() {
+func (ts *testStore) AssertReopen(opts ...any) {
 	assert.NoError(ts.t, ts.Store.Close())
+
+	checkOptionsBool(opts, func(t WithoutHintFile) {
+		assert.NotEqual(ts.t, "", ts.Store.tablePath)
+		for parsed, err := range parseFiles(parseHint, ts.Store.tablePath) {
+			assert.NoError(ts.t, err)
+			assert.NoError(ts.t, os.Remove(parsed.path))
+		}
+	})
 
 	s, err := NewStore(ts.t.Context(), ts.cfg, ts.logsPath, ts.tablePath, ts.log)
 	assert.NoError(ts.t, err)
@@ -793,10 +801,8 @@ func (ts *testStore) AssertRead(key Key, opts ...any) {
 	assert.Equal(ts.t, r.Size(), len(data))
 	assert.NoError(ts.t, iotest.TestReader(r, data))
 
-	checkOptions(opts, func(wr WithRevive) {
-		if wr {
-			assert.NoError(ts.t, r.Revive(ts.t.Context()))
-		}
+	checkOptionsBool(opts, func(wr WithRevive) {
+		assert.NoError(ts.t, r.Revive(ts.t.Context()))
 	})
 
 	assert.NoError(ts.t, r.Close())
@@ -819,6 +825,16 @@ func (ts *testStore) LogFile(key Key) uint64 {
 	assert.NoError(ts.t, err)
 	assert.True(ts.t, ok)
 	return rec.Log
+}
+
+func (ts *testStore) TableRecords() map[Record]struct{} {
+	rs := make(map[Record]struct{})
+	assert.NoError(ts.t, ts.tbl.Range(ts.t.Context(),
+		func(ctx context.Context, rec Record) (bool, error) {
+			rs[rec] = struct{}{}
+			return true, nil
+		}))
+	return rs
 }
 
 //
@@ -848,8 +864,17 @@ func newTestDB(
 
 func (td *testDB) Close() { assert.NoError(td.t, td.DB.Close()) }
 
-func (td *testDB) AssertReopen() {
+func (td *testDB) AssertReopen(opts ...any) {
 	assert.NoError(td.t, td.DB.Close())
+
+	checkOptionsBool(opts, func(t WithoutHintFile) {
+		assert.NotEqual(td.t, "", td.active.tablePath)
+		assert.NotEqual(td.t, "", td.passive.tablePath)
+		for parsed, err := range parseFiles(parseHint, td.active.tablePath, td.passive.tablePath) {
+			assert.NoError(td.t, err)
+			assert.NoError(td.t, os.Remove(parsed.path))
+		}
+	})
 
 	db, err := New(td.t.Context(), td.cfg, td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
 	assert.NoError(td.t, err)
@@ -911,7 +936,16 @@ type (
 	WithRecord      Record
 	WithRevive      bool
 	WithConstructor func(TblConstructor)
+	WithoutHintFile bool
 )
+
+func checkOptionsBool[T ~bool](opts []any, cb func(T)) {
+	for _, opt := range opts {
+		if v, ok := opt.(T); ok && bool(v) {
+			cb(v)
+		}
+	}
+}
 
 func checkOptions[T any](opts []any, cb func(T)) {
 	for _, opt := range opts {

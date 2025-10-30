@@ -1513,6 +1513,150 @@ func TestStore_HintFileCreation(t *testing.T) {
 	assert.Equal(t, writable, []uint64{2})
 }
 
+func TestStore_ReconcileLog(t *testing.T) {
+	run := func(t *testing.T, mutate func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key)) {
+		s := newTestStore(t, CreateDefaultConfig(TableKind_HashTbl, false))
+		defer s.Close()
+
+		// create something in the log file and the table and grab the log file it
+		// went into. we ensure all future creates go into the same log file.
+		key := s.AssertCreate()
+		lf, ok := s.lfs.Lookup(s.LogFile(key))
+		assert.True(t, ok)
+
+		readable := []Key{key}
+		missing := []Key{}
+
+		// perform mutations to the log and table.
+		mutate(t, s, lf, &readable, &missing)
+
+		// helper function to get all the records from a log file for comparison.
+		getLogRecords := func(lf *logFile) map[Record]struct{} {
+			rs := make(map[Record]struct{})
+			assert.NoError(t, readRecordsFromLogFile(lf, s.valid, func(rec Record) bool {
+				rs[rec] = struct{}{}
+				return true
+			}))
+			return rs
+		}
+
+		// reopen to trigger reconciliation.
+		s.AssertReopen(WithoutHintFile(true))
+
+		// we have to regrab the log file because reopen closes all the old log files.
+		lf, ok = s.lfs.Lookup(lf.id)
+		assert.True(t, ok)
+
+		// reconciling the log should end up with the same set of records in both.
+		assert.Equal(t, getLogRecords(lf), s.TableRecords())
+
+		// all the readable keys should be readable, and all the missing keys should be missing.
+		for _, key := range readable {
+			s.AssertRead(key)
+		}
+		for _, key := range missing {
+			s.AssertNotExist(key)
+		}
+	}
+
+	// helper function to add a valid record to both the log and table.
+	addValid := func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
+		key := s.AssertCreate()
+
+		assert.Equal(t, s.LogFile(key), lf.id)
+
+		*valid = append(*valid, key)
+	}
+
+	// helper function to add a valid record to only the log.
+	addValidToLogOnly := func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
+		key := newKey()
+
+		var buf [RecordSize]byte
+		(&Record{
+			Key:     key,
+			Offset:  lf.size.Load(),
+			Log:     lf.id,
+			Length:  uint32(len(key)),
+			Created: s.Store.today(),
+		}).WriteTo(&buf)
+
+		_, err := lf.fh.Write(key[:])
+		assert.NoError(t, err)
+		_, err = lf.fh.Write(buf[:])
+		assert.NoError(t, err)
+
+		lf.size.Add(uint64(len(key)) + RecordSize)
+
+		*valid = append(*valid, key)
+	}
+
+	// helper function to add invalid data to the log.
+	addInvalidToLog := func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
+		n, err := lf.fh.Write(make([]byte, mwc.Intn(128)+1))
+		assert.NoError(t, err)
+
+		lf.size.Add(uint64(n))
+	}
+
+	// helper function to add a valid record to only the table.
+	addToTableOnly := func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
+		key := newKey()
+
+		ok, err := s.tbl.Insert(t.Context(), Record{
+			Key:     key,
+			Offset:  lf.size.Load(),
+			Log:     lf.id,
+			Length:  uint32(len(key)),
+			Created: s.Store.today(),
+		})
+		assert.NoError(t, err)
+		assert.True(t, ok)
+
+		*invalid = append(*invalid, key)
+	}
+
+	// test the individual mutations work.
+	t.Run("AddValid", func(t *testing.T) { run(t, addValid) })
+	t.Run("AddValidToLogOnly", func(t *testing.T) { run(t, addValidToLogOnly) })
+	t.Run("AddInvalidToLog", func(t *testing.T) { run(t, addInvalidToLog) })
+	t.Run("AddToTableOnly", func(t *testing.T) { run(t, addToTableOnly) })
+
+	// test a combination of all mutations.
+	t.Run("Basic", func(t *testing.T) {
+		run(t, func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
+			addValid(t, s, lf, valid, invalid)
+			addValidToLogOnly(t, s, lf, valid, invalid)
+			addInvalidToLog(t, s, lf, valid, invalid)
+			addToTableOnly(t, s, lf, valid, invalid)
+		})
+	})
+
+	// test many combinations of mutations.
+	t.Run("Fuzz", func(t *testing.T) {
+		run(t, func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
+			options := [...]func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key){
+				addValid,
+				addValidToLogOnly,
+				addInvalidToLog,
+				addToTableOnly,
+			}
+
+			for range 1000 {
+				options[mwc.Intn(len(options))](t, s, lf, valid, invalid)
+			}
+		})
+	})
+
+	t.Run("Growth", func(t *testing.T) {
+		run(t, func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
+			for range 1 << tbl_minLogSlots {
+				addValidToLogOnly(t, s, lf, valid, invalid)
+			}
+		})
+	})
+}
+
 //
 // benchmarks
 //
