@@ -1043,7 +1043,7 @@ func (s *Store) compactOnce(
 		for i := range ri.records {
 			s.stats.processedRecords.Add(1) // bump the number of records processed for progress reporting.
 
-			err := func() error {
+			if err := func() error {
 				if err := ctx.Err(); err != nil {
 					return err
 				}
@@ -1058,8 +1058,7 @@ func (s *Store) compactOnce(
 				rewrittenCtr.Add(recDiskLength(rec))
 
 				return nil
-			}()
-			if err != nil {
+			}(); err != nil {
 				return false, Error.Wrap(err)
 			}
 		}
@@ -1349,7 +1348,7 @@ func (s *Store) writeHintFile() {
 	name := createHintName(s.maxHint.Add(1))
 
 	// write out the contents atomically.
-	err := func() error {
+	if err := func() error {
 		af, err := newAtomicFile(filepath.Join(s.tablePath, name))
 		if err != nil {
 			return Error.Wrap(err)
@@ -1367,8 +1366,7 @@ func (s *Store) writeHintFile() {
 		}
 
 		return nil
-	}()
-	if err != nil {
+	}(); err != nil {
 		s.log.Error("unable to write hint file", zap.Error(err))
 		return
 	}

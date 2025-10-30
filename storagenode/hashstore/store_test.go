@@ -36,6 +36,7 @@ func TestStore_BasicOperation(t *testing.T) {
 }
 func testStore_BasicOperation(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -48,8 +49,8 @@ func testStore_BasicOperation(t *testing.T, cfg Config) {
 	var keys []Key
 
 	// write a bunch of keys and compact a couple of times.
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 1024; j++ {
+	for range 4 {
+		for range 1024 {
 			key := s.AssertCreate()
 			keys = append(keys, key)
 			s.AssertRead(key)
@@ -110,11 +111,12 @@ func TestStore_FileLocking(t *testing.T) {
 	forAllTables(t, testStore_FileLocking)
 }
 func testStore_FileLocking(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
 	if !platform.FlockSupported {
 		t.Skip("flock not supported on this platform")
 	}
 
-	ctx := t.Context()
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -149,11 +151,12 @@ func TestStore_ReadFromCompactedFile(t *testing.T) {
 }
 func testStore_ReadFromCompactedFile(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
 	// add some already expired entries to the store so the log file is compacted.
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		s.AssertCreate(WithTTL(time.Unix(1, 0)))
 	}
 
@@ -291,6 +294,7 @@ func TestReader_ReviveOnNonTrash(t *testing.T) {
 }
 func testReader_ReviveOnNonTrash(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -391,13 +395,14 @@ func TestStore_CompactLogFile(t *testing.T) {
 
 func testStore_CompactLogFile(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
 	// add some entries to the store that we will expire with a compaction. this is to ensure they
 	// are added to the same log file as the live keys we add next.
 	var expired []Key
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		expired = append(expired, s.AssertCreate())
 	}
 	s.AssertCompact(alwaysTrash, time.Time{})
@@ -406,7 +411,7 @@ func testStore_CompactLogFile(t *testing.T, cfg Config) {
 	// hashtbl so that we can ensure they are in a new log file after compaction.
 	var live []Key
 	var recs []Record
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		key := s.AssertCreate()
 		live = append(live, key)
 
@@ -446,6 +451,7 @@ func TestStore_ClumpObjectsByTTL(t *testing.T) {
 }
 func testStore_ClumpObjectsByTTL(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -460,9 +466,9 @@ func testStore_ClumpObjectsByTTL(t *testing.T, cfg Config) {
 	s.today = TimeToDateDown(now)
 
 	// run twice with a reopen to ensure the ttl is persisted.
-	for runs := 0; runs < 2; runs++ {
+	for range 2 {
 		// add some entries to the store with different ttls and ensure they get different log files.
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			key := s.AssertCreate(WithTTL(now.Add(24 * time.Hour * time.Duration(i))))
 			check(key, i+1)
 		}
@@ -486,7 +492,7 @@ func testStore_WriteCancel(t *testing.T, cfg Config) {
 
 	// grab a writer for the key and cancel it a bunch.
 	var keys []Key
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		key := newKey()
 		keys = append(keys, key)
 
@@ -497,7 +503,7 @@ func testStore_WriteCancel(t *testing.T, cfg Config) {
 		assert.NoError(t, err)
 
 		// cancel and close should be idempotent.
-		for j := 0; j < 5; j++ {
+		for range 5 {
 			wr.Cancel()
 			assert.Error(t, wr.Close()) // close after cancel is an error
 		}
@@ -565,7 +571,7 @@ func testStore_LogFilesFull(t *testing.T, cfg Config) {
 
 	// Create enough data to fill multiple log files
 	var keys []Key
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		key := s.AssertCreate()
 		keys = append(keys, key)
 	}
@@ -576,7 +582,7 @@ func testStore_LogFilesFull(t *testing.T, cfg Config) {
 	}
 
 	// Create additional data after reads
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		key := s.AssertCreate()
 		keys = append(keys, key)
 	}
@@ -593,7 +599,8 @@ func testStore_LogFilesFull(t *testing.T, cfg Config) {
 
 func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	ctx := t.Context()
-	s := newTestStore(t, CreateDefaultConfig(TableKind_HashTbl, false))
+
+	s := newTestStore(t, defaultConfig())
 	defer s.Close()
 
 	// create two keys that collide at the end of the first page.
@@ -647,6 +654,7 @@ func TestStore_ReviveDuringCompaction(t *testing.T) {
 func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
 	run := func(t *testing.T, future uint32) {
 		ctx := t.Context()
+
 		s := newTestStore(t, cfg)
 		defer s.Close()
 
@@ -713,6 +721,7 @@ func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
 }
 func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -763,7 +772,7 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
 	go read(key1)
 
 	// compaction and the two reads should finish without error.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		assert.NoError(t, <-errCh)
 	}
 
@@ -781,7 +790,7 @@ func testStore_CloseCancelsCompaction(t *testing.T, cfg Config) {
 	defer s.Close()
 
 	// insert some keys for compaction to attempt to process.
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		s.AssertCreate()
 	}
 
@@ -883,17 +892,18 @@ func testStore_LogContainsDataToReconstruct(t *testing.T, cfg Config) {
 	const parallelism = 4
 
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
 	// write a bunch of keys in parallel and try to spread them across log files. we also write
 	// random sizes so stress the reading code some.
 	done := make(chan error, parallelism)
-	for i := 0; i < parallelism; i++ {
+	for range parallelism {
 		go func() {
 			done <- func() error {
 				rng := mwc.Rand()
-				for j := 0; j < 128; j++ {
+				for range 128 {
 					buf := make([]byte, rng.Intn(1024))
 					_, _ = rng.Read(buf)
 
@@ -909,7 +919,7 @@ func testStore_LogContainsDataToReconstruct(t *testing.T, cfg Config) {
 			}()
 		}()
 	}
-	for i := 0; i < parallelism; i++ {
+	for range parallelism {
 		assert.NoError(t, <-done)
 	}
 
@@ -982,12 +992,12 @@ func testStore_RaceConcurrentWriteAndStats(t *testing.T, cfg Config) {
 	go func() {
 		defer close(done)
 
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			_ = s.Stats()
 		}
 	}()
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		s.AssertCreate()
 	}
 	<-done
@@ -998,6 +1008,7 @@ func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
 }
 func testStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -1040,7 +1051,7 @@ func testStore_CompactionMakesForwardProgress(t *testing.T, cfg Config) {
 	// triggering compaction.
 
 	large := s.AssertCreate(WithDataSize(10 << 20))
-	for i := 0; i < 1<<10; i++ {
+	for range 1 << 10 {
 		s.AssertCreate(WithDataSize(10 << 10))
 	}
 	s.AssertCompact(func(ctx context.Context, key Key, created time.Time) bool {
@@ -1113,6 +1124,7 @@ func TestStore_TableFull(t *testing.T) {
 }
 func testStore_TableFull(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -1207,10 +1219,11 @@ func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T, cfg Config) {
 }
 
 func TestStore_FlushSemaphore(t *testing.T) {
-	cfg := CreateDefaultConfig(TableKind_HashTbl, false)
+	ctx := t.Context()
+
+	cfg := defaultConfig()
 	cfg.Store.FlushSemaphore = 1
 
-	ctx := t.Context()
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -1266,12 +1279,12 @@ func TestStore_FlushSemaphore(t *testing.T) {
 
 func TestStore_SwapDifferentBackends(t *testing.T) {
 	backends := []TableKind{TableKind_HashTbl, TableKind_MemTbl}
-	cfg := CreateDefaultConfig(TableKind_HashTbl, false)
-	s := newTestStore(t, cfg)
+
+	s := newTestStore(t, defaultConfig())
 	defer s.Close()
 
 	var keys []Key
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		func() {
 			s.cfg.TableDefaultKind.Kind = backends[i%len(backends)]
 
@@ -1297,12 +1310,13 @@ func TestStore_WriteRandomSizes(t *testing.T) {
 }
 func testStore_WriteRandomSizes(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
 	data := make([]byte, 1024)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		key := newKey()
 		_, _ = mwc.Rand().Read(data)
 
@@ -1345,7 +1359,7 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T, cfg Config)
 
 	// no matter how many times we compact, fully dead should be removed and partially dead should
 	// not be rewritten.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		s.AssertCompact(nil, time.Time{})
 
 		assert.Equal(t, s.LogFile(alive), 1)
@@ -1360,7 +1374,7 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T, cfg Config)
 }
 
 func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
-	s := newTestStore(t, CreateDefaultConfig(TableKind_HashTbl, false))
+	s := newTestStore(t, defaultConfig())
 	defer s.Close()
 
 	var keys []Key
@@ -1405,7 +1419,7 @@ func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
 }
 
 func TestStore_RewriteMultipleLogFilesInOneCompaction(t *testing.T) {
-	cfg := CreateDefaultConfig(TableKind_HashTbl, false)
+	cfg := defaultConfig()
 	cfg.Compaction.MaxLogSize = 1024
 
 	s := newTestStore(t, cfg)
@@ -1414,7 +1428,7 @@ func TestStore_RewriteMultipleLogFilesInOneCompaction(t *testing.T) {
 	// fill up 10 logs with an empty alive key and large dead key.
 	var alive []Key
 	var dead []Key
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		alive = append(alive, s.AssertCreate(WithDataSize(0)))
 		dead = append(dead, s.AssertCreate(WithDataSize(1024), WithTTL(time.Unix(1, 0))))
 	}
@@ -1438,7 +1452,7 @@ func TestStore_RewriteMultipleLogFilesInOneCompaction(t *testing.T) {
 }
 
 func TestStore_CompactionMakesProgressEvenIfSmallRewriteMultiple(t *testing.T) {
-	cfg := CreateDefaultConfig(TableKind_HashTbl, false)
+	cfg := defaultConfig()
 	cfg.Compaction.RewriteMultiple = 1e-10
 
 	s := newTestStore(t, cfg)
@@ -1475,7 +1489,7 @@ func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T, cfg Config) {
 }
 
 func TestStore_HintFileCreation(t *testing.T) {
-	cfg := CreateDefaultConfig(TableKind_HashTbl, false)
+	cfg := defaultConfig()
 	cfg.Compaction.MaxLogSize = 1024
 
 	s := newTestStore(t, cfg)
@@ -1515,7 +1529,7 @@ func TestStore_HintFileCreation(t *testing.T) {
 
 func TestStore_ReconcileLog(t *testing.T) {
 	run := func(t *testing.T, mutate func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key)) {
-		s := newTestStore(t, CreateDefaultConfig(TableKind_HashTbl, false))
+		s := newTestStore(t, defaultConfig())
 		defer s.Close()
 
 		// create something in the log file and the table and grab the log file it
@@ -1680,7 +1694,7 @@ func benchmarkStore(b *testing.B, cfg Config) {
 
 		now := time.Now()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			s.AssertCreate(WithData(buf))
 			if s.Load() > db_CompactLoad {
 				s.AssertCompact(nil, time.Time{})
@@ -1706,7 +1720,7 @@ func benchmarkStore(b *testing.B, cfg Config) {
 		b.ResetTimer()
 		now := time.Now()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			var once sync.Once
 			trashOne := func(ctx context.Context, key Key, created time.Time) (trash bool) {
 				once.Do(func() { trash = true })
@@ -1731,7 +1745,7 @@ func benchmarkStore(b *testing.B, cfg Config) {
 		b.ReportAllocs()
 		b.ResetTimer()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			rec, err = s.rewriteRecord(ctx, rec, nil)
 			assert.NoError(b, err)
 		}

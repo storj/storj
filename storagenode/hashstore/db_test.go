@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -23,13 +24,14 @@ func TestDB_BasicOperation(t *testing.T) {
 }
 func testDB_BasicOperation(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	db := newTestDB(t, cfg, nil, nil)
 	defer db.Close()
 
 	var keys []Key
 
 	// add keys and ensure we can read them back
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		keys = append(keys, db.AssertCreate())
 	}
 	for _, key := range keys {
@@ -252,6 +254,7 @@ func TestDB_CompactionOnOpen(t *testing.T) {
 }
 func testDB_CompactionOnOpen(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	db := newTestDB(t, cfg, nil, nil)
 	defer db.Close()
 
@@ -340,6 +343,73 @@ func testDB_CloseCancelsCompaction(t *testing.T, cfg Config) {
 	}
 }
 
+func TestDB_CloseCancelsCompactCall(t *testing.T) {
+	forAllTables(t, testDB_CloseCancelsCompactCall)
+}
+func testDB_CloseCancelsCompactCall(t *testing.T, cfg Config) {
+	activity := make(chan bool)
+	errCh := make(chan error)
+
+	db := newTestDB(t, cfg, func(ctx context.Context, k Key, t time.Time) bool {
+		for !<-activity { // wait until we are sent true to continue
+		}
+		<-ctx.Done() // wait for the context to be canceled
+		return false
+	}, nil)
+	defer db.Close()
+
+	// create a key to ensure something is in the db to be compacted.
+	db.AssertCreate()
+
+	// begin compaction.
+	go func() { errCh <- db.Compact(t.Context()) }()
+
+	// wait until compaction is asked to trash our key and allow it to proceed to block on the
+	// context being canceled.
+	activity <- true
+
+	// close the db to unblock the compaction.
+	db.Close()
+
+	// compaction should have errored.
+	assert.Error(t, <-errCh)
+}
+
+func TestDB_ContextCancelsCompactCall(t *testing.T) {
+	forAllTables(t, testDB_ContextCancelsCompactCall)
+}
+func testDB_ContextCancelsCompactCall(t *testing.T, cfg Config) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	activity := make(chan bool)
+	errCh := make(chan error)
+
+	db := newTestDB(t, cfg, func(ctx context.Context, k Key, t time.Time) bool {
+		for !<-activity { // wait until we are sent true to continue
+		}
+		<-ctx.Done() // wait for the context to be canceled
+		return false
+	}, nil)
+	defer db.Close()
+
+	// create a key to ensure something is in the db to be compacted.
+	db.AssertCreate()
+
+	// begin compaction.
+	go func() { errCh <- db.Compact(ctx) }()
+
+	// wait until compaction is asked to trash our key and allow it to proceed to block on the
+	// context being canceled.
+	activity <- true
+
+	// close the db to unblock the compaction.
+	cancel()
+
+	// compaction should have errored.
+	assert.Error(t, <-errCh)
+}
+
 func TestDB_ContextCancelsCreate(t *testing.T) {
 	forAllTables(t, testDB_ContextCancelsCreate)
 }
@@ -425,6 +495,23 @@ func testDB_BackgroundCompaction(t *testing.T, cfg Config) {
 	})
 }
 
+func TestDB_BackgroundCompactionLoop(t *testing.T) {
+	forAllTables(t, testDB_BackgroundCompactionLoop)
+}
+func testDB_BackgroundCompactionLoop(t *testing.T, cfg Config) {
+	synctest.Test(t, func(t *testing.T) {
+		db := newTestDB(t, cfg, nil, nil)
+		defer db.Close()
+
+		for func() bool {
+			db, s0, s1 := db.Stats()
+			return db.Compactions < 10 || s0.Compactions < 5 || s1.Compactions < 5
+		}() {
+			time.Sleep(time.Hour)
+		}
+	})
+}
+
 func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
 	forAllTables(t, testDB_CompactCallWaitsForCurrentCompaction)
 }
@@ -482,7 +569,7 @@ func benchmarkDB(b *testing.B, cfg Config) {
 
 		now := time.Now()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			wr, err := db.Create(ctx, newKey(), time.Time{})
 			assert.NoError(b, err)
 
@@ -504,13 +591,10 @@ func benchmarkDB(b *testing.B, cfg Config) {
 
 		// write at most ~100MB of keys or 1000 keys, whichever is smaller. this keeps the benchmark
 		// time reasonable.
-		numKeys := 100 << 20 / (int(size) + 64)
-		if numKeys > 1000 {
-			numKeys = 1000
-		}
+		numKeys := min(100<<20/(int(size)+RecordSize), 1000)
 
 		var keys []Key
-		for i := 0; i < numKeys; i++ {
+		for range numKeys {
 			key := newKey()
 			keys = append(keys, key)
 
@@ -528,7 +612,7 @@ func benchmarkDB(b *testing.B, cfg Config) {
 
 		now := time.Now()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			r, err := db.Read(ctx, keys[mwc.Intn(len(keys))])
 			assert.NoError(b, err)
 			assert.NotNil(b, r)

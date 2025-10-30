@@ -8,15 +8,13 @@ import (
 	"testing"
 
 	"github.com/zeebo/assert"
-
-	"storj.io/storj/storagenode/hashstore/platform"
 )
 
 func TestMemTbl_ShortCollision(t *testing.T) {
-	mmapMatrixTest(t, testMemTbl_ShortCollision)
+	forAllMMAP(t, testMemTbl_ShortCollision)
 }
-func testMemTbl_ShortCollision(t *testing.T, mmap bool) {
-	m := newTestMemTbl(t, MmapCfg{Mmap: mmap, Mlock: true}, tbl_minLogSlots)
+func testMemTbl_ShortCollision(t *testing.T, cfg MmapCfg) {
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots)
 	defer m.Close()
 
 	// make two keys that collide on short but are not equal.
@@ -55,24 +53,13 @@ func testMemTbl_ShortCollision(t *testing.T, mmap bool) {
 	m.AssertLookupMiss(k2)
 }
 
-func mmapMatrixTest(t *testing.T, fn func(t *testing.T, mmap bool)) {
-	t.Run("mmap=false", func(t *testing.T) {
-		fn(t, false)
-	})
-	if platform.MmapSupported {
-		t.Run("mmap=true", func(t *testing.T) {
-			fn(t, true)
-		})
-	}
-}
-
 func TestMemTbl_ConstructorSometimesFlushes(t *testing.T) {
-	mmapMatrixTest(t, testMemTbl_ConstructorSometimesFlushes)
+	forAllMMAP(t, testMemTbl_ConstructorSometimesFlushes)
 }
-
-func testMemTbl_ConstructorSometimesFlushes(t *testing.T, mmap bool) {
+func testMemTbl_ConstructorSometimesFlushes(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
-	newTestMemTbl(t, MmapCfg{Mmap: mmap, Mlock: true}, tbl_minLogSlots, WithConstructor(func(tc TblConstructor) {
+
+	newTestMemTbl(t, cfg, tbl_minLogSlots, WithConstructor(func(tc TblConstructor) {
 		// make two keys that collide on short but are not equal.
 		k0, k1 := newShortCollidingKeys()
 
@@ -89,22 +76,21 @@ func testMemTbl_ConstructorSometimesFlushes(t *testing.T, mmap bool) {
 }
 
 func TestMemTbl_LoadWithCollisions(t *testing.T) {
-	mmapMatrixTest(t, testMemTbl_LoadWithCollisions)
+	forAllMMAP(t, testMemTbl_LoadWithCollisions)
 }
-
-func testMemTbl_LoadWithCollisions(t *testing.T, mmap bool) {
+func testMemTbl_LoadWithCollisions(t *testing.T, cfg MmapCfg) {
 	// Create a new memtbl
-	m := newTestMemTbl(t, MmapCfg{Mmap: mmap, Mlock: true}, tbl_minLogSlots)
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots)
 	defer m.Close()
 
 	// Insert some normal keys
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		m.AssertInsert()
 	}
 
 	// Now insert some keys that will collide on their shortKey
 	baseKey := newKey()
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		collisionKey := baseKey
 		collisionKey[0] = byte(i) // Modify a byte that won't affect the shortKey
 		assert.Equal(t, shortKeyFrom(collisionKey), shortKeyFrom(baseKey))
@@ -122,11 +108,12 @@ func testMemTbl_LoadWithCollisions(t *testing.T, mmap bool) {
 }
 
 func TestMemTbl_UpdateCollisions(t *testing.T) {
-	mmapMatrixTest(t, testMemTbl_UpdateCollisions)
+	forAllMMAP(t, testMemTbl_UpdateCollisions)
 }
-func testMemTbl_UpdateCollisions(t *testing.T, mmap bool) {
+func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
-	m := newTestMemTbl(t, MmapCfg{Mmap: mmap, Mlock: true}, tbl_minLogSlots)
+
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots)
 	defer m.Close()
 
 	k0, k1 := newShortCollidingKeys()
@@ -187,14 +174,17 @@ func testMemTbl_UpdateCollisions(t *testing.T, mmap bool) {
 	assert.Equal(t, m.AssertLookup(k1), r(k1, 6))
 }
 
-func TestMemTbl_MMAPWithUnalignedEntries(t *testing.T) {
+func TestMemTbl_UnalignedEntries(t *testing.T) {
+	forAllMMAP(t, testMemTbl_UnalignedEntries)
+}
+func testMemTbl_UnalignedEntries(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
 
 	var keys []Key
-	m := newTestMemTbl(t, MmapCfg{Mmap: true, Mlock: true}, tbl_minLogSlots, withEntries(t, 1, &keys))
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots, withEntries(t, 1, &keys))
 	defer m.Close()
 
-	for i := 0; i < 128; i++ {
+	for range 128 {
 		keys = append(keys, m.AssertInsert().Key)
 
 		for _, key := range keys {
@@ -212,12 +202,12 @@ func TestMemTbl_MMAPWithUnalignedEntries(t *testing.T) {
 }
 
 func TestMemTbl_OpenUnaligned(t *testing.T) {
-	mmapMatrixTest(t, testMemTbl_OpenUnaligned)
+	forAllMMAP(t, testMemTbl_OpenUnaligned)
 }
-func testMemTbl_OpenUnaligned(t *testing.T, mmap bool) {
+func testMemTbl_OpenUnaligned(t *testing.T, cfg MmapCfg) {
 	// create a table with 128 records (8192 bytes of data) so that if we're in mmap mode it has
 	// some pages to read.
-	m := newTestMemTbl(t, MmapCfg{Mmap: mmap, Mlock: true}, tbl_minLogSlots, withEntries(t, 128, nil))
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots, withEntries(t, 128, nil))
 	defer m.Close()
 
 	// insert a new record.
@@ -226,7 +216,7 @@ func testMemTbl_OpenUnaligned(t *testing.T, mmap bool) {
 
 	// unalign the table by every possible amount, reopen, and ensure we can still read all the keys
 	// including new ones we add after it realigns.
-	for i := 0; i < RecordSize; i++ {
+	for i := range RecordSize {
 		_, err := m.fh.Write(make([]byte, i+1))
 		assert.NoError(t, err)
 
@@ -240,13 +230,13 @@ func testMemTbl_OpenUnaligned(t *testing.T, mmap bool) {
 }
 
 func TestMemTbl_ConstructorFull(t *testing.T) {
-	mmapMatrixTest(t, testMemTbl_ConstructorFull)
+	forAllMMAP(t, testMemTbl_ConstructorFull)
 }
-func testMemTbl_ConstructorFull(t *testing.T, mmap bool) {
+func testMemTbl_ConstructorFull(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
 
 	var keys []Key
-	m := newTestMemTbl(t, MmapCfg{Mmap: mmap, Mlock: true}, tbl_minLogSlots, withFilledTable(t, &keys))
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots, withFilledTable(t, &keys))
 	defer m.Close()
 
 	// ensure we can read all of the keys we inserted.
@@ -274,10 +264,10 @@ func testMemTbl_ConstructorFull(t *testing.T, mmap bool) {
 }
 
 func TestMemTbl_ReopenWithCorruptRecord(t *testing.T) {
-	mmapMatrixTest(t, testMemTbl_ReopenWithCorruptRecord)
+	forAllMMAP(t, testMemTbl_ReopenWithCorruptRecord)
 }
-func testMemTbl_ReopenWithCorruptRecord(t *testing.T, mmap bool) {
-	m := newTestMemTbl(t, MmapCfg{Mmap: mmap, Mlock: true}, tbl_minLogSlots)
+func testMemTbl_ReopenWithCorruptRecord(t *testing.T, cfg MmapCfg) {
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots)
 	defer m.Close()
 
 	k0 := m.AssertInsert().Key
@@ -300,7 +290,10 @@ func testMemTbl_ReopenWithCorruptRecord(t *testing.T, mmap bool) {
 }
 
 func TestMemTbl_ReopenWithTooManyEntries(t *testing.T) {
-	m := newTestMemTbl(t, MmapCfg{}, tbl_minLogSlots, withFilledTable(t, nil))
+	forAllMMAP(t, testMemTbl_ReopenWithTooManyEntries)
+}
+func testMemTbl_ReopenWithTooManyEntries(t *testing.T, cfg MmapCfg) {
+	m := newTestMemTbl(t, cfg, tbl_minLogSlots, withFilledTable(t, nil))
 	defer m.Close()
 
 	// add a record to the end of the log file directly.
@@ -311,6 +304,6 @@ func TestMemTbl_ReopenWithTooManyEntries(t *testing.T) {
 	_, err := m.fh.Write(buf[:])
 	assert.NoError(t, err)
 
-	_, _, err = OpenMemTbl(t.Context(), m.fh, MmapCfg{})
+	_, _, err = OpenMemTbl(t.Context(), m.fh, cfg)
 	assert.Error(t, err)
 }

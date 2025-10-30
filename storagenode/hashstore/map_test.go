@@ -18,14 +18,14 @@ func TestFlatMap_InsertAndLookup(t *testing.T) {
 
 	m := newFlatMap(make([]byte, flatMapSize(1000)))
 
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		binary.LittleEndian.PutUint32(val[:], uint32(i))
 		key := shortKeyFrom(newKey())
 		keys = append(keys, key)
 		m.find(key).set(val)
 	}
 
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		binary.LittleEndian.PutUint32(val[:], uint32(i))
 		assert.Equal(t, m.find(keys[i]).Value(), val)
 	}
@@ -46,7 +46,7 @@ func TestFlatMap_Update(t *testing.T) {
 	}
 
 	// Insert initial values
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		key := uniqueKey()
 
 		// Initial value
@@ -87,12 +87,12 @@ func TestFlatMap_LookupMissingKeys(t *testing.T) {
 	}
 
 	// Insert some keys
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		m.find(uniqueKey()).set([4]byte{0: byte(i)})
 	}
 
 	// Verify that looking up missing keys works as expected
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		op := m.find(uniqueKey())
 		assert.That(t, !op.Exists())
 		assert.That(t, op.Valid())
@@ -103,14 +103,14 @@ func TestFlatMap_FullMap(t *testing.T) {
 	m := newFlatMap(make([]byte, flatMapSize(8)))
 
 	// Fill the map
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		op := m.find(shortKey{0: byte(i)})
 		assert.That(t, op.Valid())
 		op.set([4]byte{0: byte(i)})
 	}
 
 	// Verify all entries can be found
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		op := m.find(shortKey{0: byte(i)})
 		assert.That(t, op.Exists())
 		assert.Equal(t, op.Value(), [4]byte{0: byte(i)})
@@ -173,7 +173,7 @@ func TestFlatMap_RandomOperations(t *testing.T) {
 	rng := mwc.Rand()
 	expect := make(map[shortKey][4]byte)
 
-	for i := 0; i < 5000; i++ {
+	for range 5000 {
 		key := shortKeyFrom(newKey())
 
 		switch rng.Uint64n(3) {
@@ -220,13 +220,13 @@ func BenchmarkMaps(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				b.StopTimer()
 				m := newFlatMap(make([]byte, flatMapSize(1<<u)))
 				b.StartTimer()
 
 				var key shortKey
-				for j := 0; j < nrec; j++ {
+				for range nrec {
 					_, _ = rng.Read(key[:])
 					m.find(key).set([4]byte{0xde, 0xad, 0xbe, 0xef})
 				}
@@ -245,13 +245,13 @@ func BenchmarkMaps(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				b.StopTimer()
 				m := make(map[shortKey][4]byte, nrec)
 				b.StartTimer()
 
 				var key shortKey
-				for j := 0; j < nrec; j++ {
+				for range nrec {
 					_, _ = rng.Read(key[:])
 					m[key] = [4]byte{0xde, 0xad, 0xbe, 0xef}
 				}

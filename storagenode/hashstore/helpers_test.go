@@ -38,20 +38,20 @@ func TestClampTTL(t *testing.T) {
 	assert.Equal(t, clampDate(1<<23), 1<<23-1)
 
 	rng := mwc.Rand()
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		// a negative timestamp still goes into the future
 		ttl := time.Unix(-rng.Int63(), 0)
 		assert.That(t, NormalizeTTL(ttl).After(ttl))
 	}
 
 	largestTTL := uint64(DateToTime(clampDate(1<<63 - 1)).Unix())
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		// a positive timestamp smaller than largestTTL goes into the future
 		ttl := time.Unix(int64(rng.Uint64n(largestTTL)), 0)
 		assert.That(t, !NormalizeTTL(ttl).Before(ttl))
 	}
 
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		// anything larger than largestTTL goes into the past, but that's a problem for someone in
 		// the year 24937.
 		ttl := time.Unix(int64(largestTTL)+int64(i*i*i), 0)
@@ -104,7 +104,7 @@ func TestRewrittenIndex(t *testing.T) {
 	var ri rewrittenIndex
 	var recs []Record
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		rec := newRecord(newKey())
 
 		ri.add(rec)
@@ -119,7 +119,7 @@ func TestRewrittenIndex(t *testing.T) {
 		assert.Equal(t, ri.records[i], rec)
 	}
 
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		i, ok := ri.findKey(newKey())
 		assert.False(t, ok)
 		assert.Equal(t, i, -1)
@@ -394,8 +394,7 @@ func touch(t *testing.T, name ...string) {
 	assert.NoError(t, os.WriteFile(path, nil, 0644))
 }
 
-// allFiles recursively collects all files in the given directory and returns
-// their full path.
+// allFiles recursively collects all files in the given directory and returns their full path.
 func allFiles(t *testing.T, dir string) (paths []string) {
 	all := func(name string) (struct{}, bool) { return struct{}{}, true }
 	for parsed, err := range parseFiles(all, dir) {
@@ -404,6 +403,9 @@ func allFiles(t *testing.T, dir string) (paths []string) {
 	}
 	return paths
 }
+
+func defaultMMAP() MmapCfg  { return MmapCfg{Mmap: false, Mlock: true} }
+func defaultConfig() Config { return CreateDefaultConfig(TableKind_HashTbl, false) }
 
 func assertClose(t testing.TB, cl io.Closer) { assert.NoError(t, cl.Close()) }
 
@@ -424,6 +426,17 @@ func forAllTables[T interface {
 	}
 }
 
+func forAllMMAP(t *testing.T, fn func(t *testing.T, cfg MmapCfg)) {
+	t.Run("mmap=false", func(t *testing.T) {
+		fn(t, MmapCfg{Mmap: false, Mlock: true})
+	})
+	if platform.MmapSupported {
+		t.Run("mmap=true", func(t *testing.T) {
+			fn(t, MmapCfg{Mmap: true, Mlock: true})
+		})
+	}
+}
+
 func ifFailed(t testing.TB, fn func()) {
 	if t.Failed() {
 		fn()
@@ -432,10 +445,9 @@ func ifFailed(t testing.TB, fn func()) {
 
 func withEntries(t *testing.T, entries int, keys *[]Key) WithConstructor {
 	return WithConstructor(func(tc TblConstructor) {
-		ctx := t.Context()
-		for i := 0; i < entries; i++ {
+		for range entries {
 			k := newKey()
-			ok, err := tc.Append(ctx, newRecord(k))
+			ok, err := tc.Append(t.Context(), newRecord(k))
 			assert.NoError(t, err)
 			assert.True(t, ok)
 			if keys != nil {
@@ -447,10 +459,9 @@ func withEntries(t *testing.T, entries int, keys *[]Key) WithConstructor {
 
 func withFilledTable(t *testing.T, keys *[]Key) WithConstructor {
 	return WithConstructor(func(tc TblConstructor) {
-		ctx := t.Context()
 		for {
 			k := newKey()
-			ok, err := tc.Append(ctx, newRecord(k))
+			ok, err := tc.Append(t.Context(), newRecord(k))
 			assert.NoError(t, err)
 			if !ok {
 				break
@@ -1026,7 +1037,7 @@ func waitForGoroutines(count int, frames ...string) {
 		matches := 0
 		stacks := string(buf[:runtime.Stack(buf[:], true)])
 	goroutine:
-		for _, g := range strings.Split(stacks, "\n\n") {
+		for g := range strings.SplitSeq(stacks, "\n\n") {
 			for _, frame := range frames {
 				if !strings.Contains(g, frame) {
 					continue goroutine

@@ -19,12 +19,13 @@ func TestTable_BasicOperation(t *testing.T) {
 }
 func testTable_BasicOperation(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
 	var keys []Key
 	var expLength uint64
-	for i := 0; i < 1<<tbl_minLogSlots/2; i++ {
+	for range 1 << tbl_minLogSlots / 2 {
 		// insert the record.
 		r := tbl.AssertInsert()
 
@@ -81,6 +82,7 @@ func TestTable_OverwriteRecords(t *testing.T) {
 }
 func testTable_OverwriteMergeRecords(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
@@ -135,11 +137,12 @@ func TestTable_RangeExitEarly(t *testing.T) {
 }
 func testTable_RangeExitEarly(t *testing.T, cfg Config) {
 	ctx := t.Context()
-	h := newTestHashTbl(t, DefaultMmapConfig, tbl_minLogSlots)
+
+	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
 	defer h.Close()
 
 	// insert some records to range over.
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		h.AssertInsert()
 	}
 
@@ -156,11 +159,12 @@ func TestTable_Full(t *testing.T) {
 }
 func testTable_Full(t *testing.T, cfg Config) {
 	ctx := t.Context()
+
 	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
 	defer tbl.Close()
 
 	// fill the table completely.
-	for i := 0; i < 1<<tbl_minLogSlots; i++ {
+	for range 1 << tbl_minLogSlots {
 		tbl.AssertInsert()
 	}
 	assert.Equal(t, tbl.Load(), 1.0)
@@ -243,10 +247,10 @@ func TestTable_LRecBounds(t *testing.T) {
 func testTable_LRecBounds(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	_, err := CreateTable(ctx, nil, tbl_maxLogSlots+1, 0, TableKind_HashTbl, cfg)
+	_, err := CreateTable(ctx, nil, tbl_maxLogSlots+1, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.Error(t, err)
 
-	_, err = CreateTable(ctx, nil, tbl_minLogSlots-1, 0, TableKind_HashTbl, cfg)
+	_, err = CreateTable(ctx, nil, tbl_minLogSlots-1, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.Error(t, err)
 }
 
@@ -260,7 +264,7 @@ func testTable_ConstructorAPIAfterClose(t *testing.T, cfg Config) {
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, TableKind_HashTbl, cfg)
+	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.NoError(t, err)
 	defer cons.Cancel()
 
@@ -290,7 +294,7 @@ func testTable_ConstructorAPIAfterDone(t *testing.T, cfg Config) {
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, TableKind_HashTbl, cfg)
+	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.NoError(t, err)
 	defer cons.Cancel()
 
@@ -326,7 +330,7 @@ func TestTable_InvalidHeaders(t *testing.T) {
 	}
 
 	// ensure modifying every byte in the header is an error
-	for offset := int64(0); offset < tbl_headerSize; offset++ {
+	for offset := range int64(tbl_headerSize) {
 		assert.NoError(t, WriteTblHeader(fh, hdr))
 		_, err = fh.WriteAt([]byte{0xde}, offset)
 		assert.NoError(t, err)
@@ -338,16 +342,16 @@ func TestTable_InvalidHeaders(t *testing.T) {
 func TestTable_OpenIncorrectKind(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, DefaultMmapConfig, tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
 	defer h.Close()
 
-	m := newTestMemTbl(t, DefaultMmapConfig, tbl_minLogSlots)
+	m := newTestMemTbl(t, defaultMMAP(), tbl_minLogSlots)
 	defer m.Close()
 
-	_, _, err := OpenMemTbl(ctx, h.fh, DefaultMmapConfig)
+	_, _, err := OpenMemTbl(ctx, h.fh, defaultMMAP())
 	assert.Error(t, err)
 
-	_, _, err = OpenHashTbl(ctx, m.fh, DefaultMmapConfig)
+	_, _, err = OpenHashTbl(ctx, m.fh, defaultMMAP())
 	assert.Error(t, err)
 }
 
@@ -373,7 +377,7 @@ func benchmarkTable(b *testing.B, cfg Config) {
 		b.ResetTimer()
 		now := time.Now()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			tbl.AssertLookup(keys[mwc.Intn(len(keys))])
 		}
 
@@ -387,11 +391,11 @@ func benchmarkTable(b *testing.B, cfg Config) {
 		b.ResetTimer()
 		now := time.Now()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			func() {
 				tbl := newTestTbl(b, cfg, lrec)
 				defer tbl.Close()
-				for i := 0; i < inserts; i++ {
+				for range inserts {
 					tbl.AssertInsert()
 				}
 			}()
@@ -402,13 +406,14 @@ func benchmarkTable(b *testing.B, cfg Config) {
 	})
 
 	benchmarkLRecs(b, "Compact", func(b *testing.B, lrec uint64) {
+		ctx := b.Context()
+
 		inserts := 1 << lrec / 2
 
-		ctx := b.Context()
 		tbl := newTestTbl(b, cfg, lrec)
 		defer tbl.Close()
 
-		for i := 0; i < inserts; i++ {
+		for range inserts {
 			tbl.AssertInsert()
 		}
 
@@ -416,7 +421,7 @@ func benchmarkTable(b *testing.B, cfg Config) {
 		b.ResetTimer()
 		now := time.Now()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			newTestTbl(b, cfg, lrec+1, WithConstructor(func(tc TblConstructor) {
 				assert.NoError(b, tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
 					ok, err := tc.Append(ctx, rec)

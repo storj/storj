@@ -42,7 +42,7 @@ func TestPage_BasicOperation(t *testing.T) {
 		var recs []Record
 
 		// can write all of the in bounds records
-		for i := uint64(0); i < recordsPerPage; i++ {
+		for i := range recordsPerPage {
 			rec := newRecord(newKey())
 			recs = append(recs, rec)
 			assert.True(t, p.writeRecord(i, &rec))
@@ -52,7 +52,7 @@ func TestPage_BasicOperation(t *testing.T) {
 		assert.False(t, p.writeRecord(recordsPerPage, nil))
 
 		// can read all of the in bounds records
-		for i := uint64(0); i < recordsPerPage; i++ {
+		for i := range recordsPerPage {
 			var tmp Record
 			assert.True(t, p.readRecord(i, &tmp))
 			assert.Equal(t, tmp, recs[i])

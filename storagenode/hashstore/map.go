@@ -145,7 +145,7 @@ func (m *flatMap) find(key shortKey) (op flatOp) {
 	hash := uint64(binary.LittleEndian.Uint32(key[0:4])) | uint64(key[4])<<32
 	groups := m.groups
 	numGroups := uint64(len(groups))
-	for offset := uint64(0); offset < numGroups; offset++ {
+	for offset := range numGroups {
 		op.group = &groups[(hash+offset)%numGroups]
 		op.entry, op.match = op.group.find(key)
 		if op.entry != nil {

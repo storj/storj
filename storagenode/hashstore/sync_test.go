@@ -25,7 +25,7 @@ func TestMutex(t *testing.T) {
 	var wg sync.WaitGroup
 
 	wg.Add(100)
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		go func() {
 			defer wg.Done()
 
@@ -109,7 +109,7 @@ func TestRWMutex(t *testing.T) {
 		const N = 100
 
 		wg.Add(2 * N)
-		for i := 0; i < N; i++ {
+		for range N {
 			go func() {
 				defer wg.Done()
 
@@ -119,7 +119,7 @@ func TestRWMutex(t *testing.T) {
 				state++
 			}()
 		}
-		for i := 0; i < N; i++ {
+		for range N {
 			go func() {
 				defer wg.Done()
 
@@ -272,7 +272,7 @@ func TestRWMutex_ReleaseCancelRace(t *testing.T) {
 	mu := newRWMutex(0, false)
 	sig := new(drpcsignal.Signal)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		func() {
 			// Create new context for each iteration
 			ctx, cancel := context.WithCancel(t.Context())
@@ -346,7 +346,7 @@ func TestRWMutex_PendingWriteDoesntPreventMultipleReads(t *testing.T) {
 	})
 
 	// add and wait for some pending read locks
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() { active <- result{true, mu.RLock(ctx, closed)} }()
 	}
 	waitFor(func(m *rwMutex) bool {
@@ -365,14 +365,14 @@ func TestRWMutex_PendingWriteDoesntPreventMultipleReads(t *testing.T) {
 	mu.Unlock()
 
 	// all of the read locks should acquire
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		res := <-active
 		assert.That(t, res.read)
 		assert.NoError(t, res.err)
 	}
 
 	// unlocking all of the read locks should let the write lock acquire
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		mu.RUnlock()
 	}
 
@@ -389,7 +389,7 @@ func BenchmarkRWMutex(b *testing.B) {
 
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_ = mu.RLock(ctx, closed)
 			mu.RUnlock()
 		}
@@ -402,7 +402,7 @@ func BenchmarkRWMutex(b *testing.B) {
 
 		b.ReportAllocs()
 
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			_ = mu.Lock(ctx, closed)
 			mu.Unlock()
 		}
