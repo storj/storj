@@ -55,4 +55,12 @@ func TestAccessRegister_FreeTierCredentialsExpiration(t *testing.T) {
 			aws configure  set s3.endpoint_url endpoint
 		`)
 	})
+
+	t.Run("OM configuration commands format", func(t *testing.T) {
+		state.Succeed(t, "access", "register", "--auth-service", authAddr, "--format", "om").RequireStdout(t, `
+			aws_access_key_id = accesskeyid
+			aws_secret_access_key = secretkey
+			endpoint = endpoint
+		`)
+	})
 }

@@ -31,7 +31,7 @@ func (c *cmdAccessRegister) Setup(params clingy.Parameters) {
 	c.authService = params.Flag("auth-service", "The address to the service you wish to register your access with", "auth.storjshare.io:7777").(string)
 	c.caCert = params.Flag("ca-cert", "path to a file in PEM format with certificate(s) or certificate chain(s) to validate the auth service against", "").(string)
 	c.public = params.Flag("public", "If true, the access will be public", false, clingy.Transform(strconv.ParseBool)).(bool)
-	c.format = params.Flag("format", "Format of the output credentials, use 'env' or 'aws' when using in scripts", "").(string)
+	c.format = params.Flag("format", "Format of the output credentials, use 'env', 'aws' or `om` (Object Mount) when using in scripts", "").(string)
 	c.awsProfile = params.Flag("aws-profile", "If using --format=aws, output the --profile tag using this profile", "").(string)
 
 	c.accessNameOrValue = params.Arg("access", "The name or value of the access grant we're registering with the auth service", clingy.Optional).(*string)

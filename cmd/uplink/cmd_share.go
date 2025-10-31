@@ -355,6 +355,14 @@ func DisplayGatewayCredentials(ctx context.Context, credentials privateEdge.Cred
 		if err != nil {
 			return err
 		}
+	case "om", "objectmount", "object-mount": // object mount compatible format
+		_, err = fmt.Fprintf(clingy.Stdout(ctx), "aws_access_key_id = %s\n"+
+			"aws_secret_access_key = %s\n"+
+			"endpoint = %s\n",
+			credentials.AccessKeyID, credentials.SecretKey, credentials.Endpoint)
+		if err != nil {
+			return err
+		}
 	default: // plain text
 		_, err = fmt.Fprintln(clingy.Stdout(ctx), "========== GATEWAY CREDENTIALS ===========================================================")
 		if err != nil {
