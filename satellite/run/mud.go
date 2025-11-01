@@ -48,4 +48,8 @@ func Module(ball *mud.Ball) {
 		return &GcBfOnce{}
 	})
 	cli.RegisterSubcommand[*GcBfOnce](ball, "gc-bf-once", "run the ranged-loop with bloom filter generation only, stop after one iteration")
+	mud.Provide[*Console](ball, func() *Console {
+		return &Console{}
+	})
+	cli.RegisterSubcommand[*Console](ball, "console", "run console (web ui)")
 }

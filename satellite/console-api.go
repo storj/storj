@@ -344,7 +344,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup legacy and hubspot mail services
-		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+		peer.Mail.Service, err = setupMailService(peer.Log, config.Mail)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

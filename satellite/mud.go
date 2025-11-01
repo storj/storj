@@ -4,6 +4,10 @@
 package satellite
 
 import (
+	"net"
+	"time"
+
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
@@ -13,28 +17,51 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
+	"storj.io/common/storj"
+	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
+	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/csrf"
+	"storj.io/storj/satellite/console/consoleauth/sso"
+	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/restapikeys"
+	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/valdi"
+	"storj.io/storj/satellite/console/valdi/valdiclient"
+	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/jobq"
+	"storj.io/storj/satellite/kms"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/storjscan"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/piecelist"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
@@ -55,6 +82,17 @@ func Module(ball *mud.Ball) {
 		sndebug.Module(ball)
 	}
 	mud.Provide[signing.Signer](ball, signing.SignerFromFullIdentity)
+	mud.Provide[storj.NodeURL](ball, func(id storj.NodeID, cfg contact.Config) storj.NodeURL {
+		return storj.NodeURL{
+			ID:      id,
+			Address: cfg.ExternalAddress,
+		}
+	})
+
+	contact.Module(ball)
+
+	// initialize here due to circular dependencies
+	mud.Provide[*consoleweb.Server](ball, CreateServer)
 	consoleweb.Module(ball)
 	{
 		mud.Provide[extensions.RevocationDB](ball, revocation.OpenDBFromCfg)
@@ -107,10 +145,44 @@ func Module(ball *mud.Ball) {
 		return db
 	})
 
+	mud.Provide[*console.Service](ball, CreateService)
 	console.Module(ball)
+	// TODO: need to define here due to circular dependencies
+	mud.Provide[console.ObjectLockAndVersioningConfig](ball, func(cfg metainfo.Config) console.ObjectLockAndVersioningConfig {
+		return console.ObjectLockAndVersioningConfig{
+			ObjectLockEnabled:              cfg.ObjectLockEnabled,
+			UseBucketLevelObjectVersioning: cfg.UseBucketLevelObjectVersioning,
+		}
+	})
+	mud.Provide[restapikeys.Service](ball, func(log *zap.Logger, db restapikeys.DB, tokens oidc.OAuthTokens, config console.Config) restapikeys.Service {
+		return console.NewRestKeysService(log, db, restkeys.NewService(tokens, config.RestAPIKeys.DefaultExpiration), time.Now, config)
+	})
+	consoleservice.Module(ball)
+	consoleauth.Module(ball)
+	// need to define here due to circular dependencies
+	mud.Provide[consoleauth.Signer](ball, func(configw consoleweb.Config) consoleauth.Signer {
+		return &consoleauth.Hmac{Secret: []byte(configw.AuthTokenSecret)}
+	})
+	sso.Module(ball)
+	// TODO: we must keep it here as it uses consoleweb.Config from sso package.
+	mud.Provide[*sso.Service](ball, func(consoleConfig consoleweb.Config, tokens *consoleauth.Service, config sso.Config) *sso.Service {
+		return sso.NewService(consoleConfig.ExternalAddress, tokens, config)
+	})
+	csrf.Module(ball)
+	valdi.Module(ball)
+	valdiclient.Module(ball)
+	restkeys.Module(ball)
+	mailservice.Module(ball)
+	analytics.Module(ball)
+	// TODO: we must keep it here as it uses consoleweb.Config from analytics package.
+	mud.Provide[*analytics.Service](ball, func(log *zap.Logger, config analytics.Config, consoleConfig consoleweb.Config) *analytics.Service {
+		return analytics.NewService(log, config, consoleConfig.SatelliteName, consoleConfig.ExternalAddress)
+	})
+	abtesting.Module(ball)
+	hubspotmails.Module(ball)
 	mud.RegisterInterfaceImplementation[metainfo.APIKeys, console.APIKeys](ball)
 
-	// should be defined here due to circular dependencies (accounting vs live/console config)
+	// TODO: should be defined here due to circular dependencies (accounting vs live/console config)
 	mud.Provide[*accounting.Service](ball, func(log *zap.Logger, projectAccountingDB accounting.ProjectAccounting, liveAccounting accounting.Cache, metabaseDB metabase.DB, cc console.Config, config, lc live.Config) *accounting.Service {
 		return accounting.NewService(log, projectAccountingDB, liveAccounting, metabaseDB, lc.BandwidthCacheTTL, cc.UsageLimits.Storage.Free, cc.UsageLimits.Bandwidth.Free, cc.UsageLimits.Segment.Free, lc.AsOfSystemInterval)
 	})
@@ -168,9 +240,11 @@ func Module(ball *mud.Ball) {
 	repaircsv.Module(ball)
 	reputation.Module(ball)
 	jobq.Module(ball)
+	healthcheck.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
 	eventing.Module(ball)
-
+	mud.View[DB, oidc.DB](ball, DB.OIDC)
+	oidc.Module(ball)
 	mud.View[metabase.Adapter, changestream.Adapter](ball, func(adapter metabase.Adapter) changestream.Adapter {
 		csAdapter, ok := adapter.(changestream.Adapter)
 		if !ok {
@@ -178,8 +252,148 @@ func Module(ball *mud.Ball) {
 		}
 		return csAdapter
 	})
+	mud.Provide[*mailservice.Service](ball, setupMailService)
+	mud.View[DB, stripe.DB](ball, DB.StripeCoinPayments)
+	mud.View[DB, storjscan.WalletsDB](ball, DB.Wallets)
+	mud.View[DB, billing.TransactionsDB](ball, DB.Billing)
+	paymentsconfig.Module(ball)
+	mud.Provide[stripe.ServiceConfig](ball, func(cfg console.Config, pc paymentsconfig.Config, ec entitlements.Config) stripe.ServiceConfig {
+		return stripe.ServiceConfig{
+			DeleteAccountEnabled:       cfg.SelfServeAccountDeleteEnabled,
+			DeleteProjectCostThreshold: pc.DeleteProjectCostThreshold,
+			EntitlementsEnabled:        ec.Enabled,
+		}
+	})
+
+	// TODO: due to circular dependencies, we couldn't put these to stripe.Module
+	mud.Provide[stripe.PricingConfig](ball, func(pc paymentsconfig.Config, placements nodeselection.PlacementDefinitions) (stripe.PricingConfig, error) {
+		minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+		if err != nil {
+			return stripe.PricingConfig{}, err
+		}
+		productPrices, err := pc.Products.ToModels()
+		if err != nil {
+			return stripe.PricingConfig{}, err
+		}
+		placementOverrideMap := pc.PlacementPriceOverrides.ToMap()
+		err = paymentsconfig.ValidatePlacementOverrideMap(placementOverrideMap, productPrices, placements)
+		if err != nil {
+			return stripe.PricingConfig{}, err
+		}
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return stripe.PricingConfig{}, err
+		}
+		partnerPlacementOverrideMap := pc.PartnersPlacementPriceOverrides.ToMap()
+		for _, overrideMap := range partnerPlacementOverrideMap {
+			err = paymentsconfig.ValidatePlacementOverrideMap(overrideMap, productPrices, placements)
+			if err != nil {
+				return stripe.PricingConfig{}, err
+			}
+		}
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return stripe.PricingConfig{}, err
+		}
+		return stripe.PricingConfig{
+			UsagePrices:         prices,
+			UsagePriceOverrides: priceOverrides,
+			ProductPriceMap:     productPrices,
+			PartnerPlacementMap: partnerPlacementOverrideMap,
+			PlacementProductMap: placementOverrideMap,
+			PackagePlans:        pc.PackagePlans.Packages,
+			BonusRate:           pc.BonusRate,
+			MinimumChargeAmount: pc.MinimumCharge.Amount,
+			MinimumChargeDate:   minimumChargeDate,
+		}, nil
+	})
+	stripe.Module(ball)
+	emission.Module(ball)
+	kms.Module(ball)
+
+	// TODO: remove circular dependency and move it to storjscan.Module
+	mud.View[paymentsconfig.Config, storjscan.Config](ball, func(pc paymentsconfig.Config) storjscan.Config {
+		return pc.Storjscan
+	})
+	mud.View[DB, storjscan.PaymentsDB](ball, DB.StorjscanPayments)
+	mud.Provide[*storjscan.Service](ball, func(log *zap.Logger, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, client *storjscan.Client, pc paymentsconfig.Config, cfg storjscan.Config) *storjscan.Service {
+		return storjscan.NewService(log, walletsDB, paymentsDB, client, cfg.Confirmations, pc.BonusRate)
+	})
+	storjscan.Module(ball)
 
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
 type EndpointRegistration struct{}
+
+// CreateServer creates and configures a console web server with all required dependencies.
+func CreateServer(logger *zap.Logger,
+	service *console.Service,
+	consoleService *consoleservice.Service,
+	oidcService *oidc.Service,
+	mailService *mailservice.Service,
+	hubspotMailService *hubspotmails.Service,
+	analytics *analytics.Service,
+	abTesting *abtesting.Service,
+	accountFreezeService *console.AccountFreezeService,
+	ssoService *sso.Service,
+	csrfService *csrf.Service,
+
+	nodeURL storj.NodeURL,
+
+	cwconfig *consoleweb.Config,
+	analyticsConfig analytics.Config,
+	olavc console.ObjectLockAndVersioningConfig,
+	ecfg entitlements.Config,
+	ssoCfg sso.Config,
+	stripeCfg stripe.Config,
+	storjscanCfg storjscan.Config,
+	pc paymentsconfig.Config) (*consoleweb.Server, error) {
+
+	cwconfig.SsoEnabled = ssoCfg.Enabled
+	listener, err := net.Listen("tcp", cwconfig.Address)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	if cwconfig.AuthTokenSecret == "" {
+		return nil, errs.New("Auth token secret required")
+	}
+
+	prices, err := pc.UsagePrice.ToModel()
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	stripePublicKey := stripeCfg.StripePublicKey
+
+	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
+		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
+		olavc, analyticsConfig, pc.MinimumCharge, prices, ecfg.Enabled), nil
+}
+
+// CreateService creates console service.
+// TODO: due to circular dependencies, we couldn't put this to console.Module (consoleweb.Config)
+func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, oauthRestKeys restapikeys.Service, projectAccounting accounting.ProjectAccounting,
+	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
+	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
+	accountFreezeService *console.AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service,
+	placements nodeselection.PlacementDefinitions, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, valdiService *valdi.Service,
+	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config) (*console.Service, error) {
+
+	productModels, err := pc.Products.ToModels()
+	if err != nil {
+		return nil, err
+	}
+
+	minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
+	if err != nil {
+		return nil, err
+	}
+
+	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
+		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
+		cw.ExternalAddress, cw.SatelliteName, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements, objectLockAndVersioningConfig,
+		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
+		pc.PlacementPriceOverrides.ToMap(), productModels, cfg)
+}

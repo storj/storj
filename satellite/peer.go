@@ -267,7 +267,7 @@ type Config struct {
 	StandaloneConsoleAPIEnabled bool `help:"indicates whether the console API should be served as a standalone service" default:"false"`
 }
 
-func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {
+func setupMailService(log *zap.Logger, mailConfig mailservice.Config) (*mailservice.Service, error) {
 	fromAndHost := func(cfg mailservice.Config) (*mail.Address, string, error) {
 		// validate from mail address
 		from, err := mail.ParseAddress(cfg.From)
@@ -284,7 +284,6 @@ func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, err
 	}
 
 	// TODO(yar): test multiple satellites using same OAUTH credentials
-	mailConfig := config.Mail
 
 	var sender mailservice.Sender
 	switch mailConfig.AuthType {

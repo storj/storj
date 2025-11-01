@@ -42,6 +42,10 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 			panic(fmt.Sprintf("cannot addr field %s in %s", field.Name, typ))
 		}
 
+		if field.Tag.Get("internal") == "true" {
+			continue
+		}
+
 		if field.Tag.Get("noflag") == "true" {
 			err := cfg.GetSubtree(flagname, fieldval.Addr().Interface())
 			if err != nil {

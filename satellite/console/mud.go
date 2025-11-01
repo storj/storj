@@ -4,6 +4,7 @@
 package console
 
 import (
+	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/shared/mud"
 )
 
@@ -14,4 +15,11 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, Projects](ball, DB.Projects)
 	mud.View[DB, ProjectMembers](ball, DB.ProjectMembers)
 	mud.View[DB, Users](ball, DB.Users)
+
+	mud.View[DB, restapikeys.DB](ball, DB.RestApiKeys)
+	mud.Provide[*AccountFreezeService](ball, NewAccountFreezeService)
+	mud.View[Config, AccountFreezeConfig](ball, func(c Config) AccountFreezeConfig {
+		return c.AccountFreeze
+	})
+
 }
