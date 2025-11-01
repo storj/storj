@@ -35,6 +35,8 @@ type Component struct {
 	close *Stage
 
 	tags []any
+
+	definition string
 }
 
 // Name returns with the human friendly name of the component.

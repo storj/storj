@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -45,7 +47,7 @@ func RegisterManual[T any](
 	factory func(ctx context.Context) (T, error),
 ) {
 	if component := lookup[T](ball); component != nil {
-		panic("duplicate registration, " + name[T]())
+		panic("duplicate registration, " + name[T]() + "\n    previous: " + component.definition + "\n    new: " + findDefintionLocation())
 	}
 	component := &Component{}
 	component.create = &Stage{
@@ -57,6 +59,28 @@ func RegisterManual[T any](
 
 	component.target = reflect.TypeOf((*T)(nil)).Elem()
 	ball.registry = append(ball.registry, component)
+
+	component.definition = findDefintionLocation()
+}
+
+func findDefintionLocation() string {
+	b := make([]byte, 2048)
+	n := runtime.Stack(b, false)
+	lines := strings.Split(string(b[:n]), "\n")
+	for ix, line := range lines {
+		if ix == 0 {
+			continue
+		}
+		if !strings.Contains(line, ":") {
+			continue
+		}
+		if strings.Contains(line, "shared/mud") || strings.Contains(line, "shared/modular") {
+			continue
+		}
+		return line
+
+	}
+	return ""
 }
 
 // Tag attaches a tag to the component registration.

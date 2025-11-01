@@ -68,7 +68,16 @@ func sortedComponents(ball *Ball) (sorted []*Component) {
 			problems += c.String()
 			problems += " > "
 			for _, dep := range deps {
-				problems += dep.String() + " "
+				found := false
+				for _, s := range sorted {
+					if s.target == dep {
+						found = true
+						break
+					}
+				}
+				if !found {
+					problems += dep.String() + " "
+				}
 			}
 			problems += ";\n    "
 		}
