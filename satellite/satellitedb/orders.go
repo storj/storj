@@ -391,29 +391,36 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 	}
 }
 
-// GetBucketBandwidth gets total bucket bandwidth from period of time.
-func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var sum *int64
-	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND bucket_name = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&sum)
-	if errors.Is(err, sql.ErrNoRows) || sum == nil {
-		return 0, nil
-	}
-	return *sum, Error.Wrap(err)
-}
-
 // TestGetBucketBandwidth gets total bucket bandwidth (allocated,inline,settled).
 func (db *ordersDB) TestGetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (allocated int64, inline int64, settled int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT SUM(allocated),SUM(inline), SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND bucket_name = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&allocated, &inline, &settled)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, 0, nil
+
+	var (
+		a sql.NullInt64
+		i sql.NullInt64
+		s sql.NullInt64
+	)
+	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID, bucketName, from.UTC(), to.UTC()).Scan(&a, &i, &s)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, 0, nil
+		}
+
+		return 0, 0, 0, Error.Wrap(err)
 	}
-	return allocated, inline, settled, Error.Wrap(err)
+
+	if a.Valid {
+		allocated = a.Int64
+	}
+	if i.Valid {
+		inline = i.Int64
+	}
+	if s.Valid {
+		settled = s.Int64
+	}
+	return allocated, inline, settled, nil
 }
 
 // GetStorageNodeBandwidth gets total storage node bandwidth from period of time.

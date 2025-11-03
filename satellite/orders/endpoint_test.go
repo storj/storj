@@ -47,7 +47,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), snbw)
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		_, _, bucketbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 		require.NoError(t, err)
 		require.Equal(t, int64(0), bucketbw)
 
@@ -168,7 +168,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				require.NoError(t, err)
 				require.EqualValues(t, tt.settledAmt, snbw)
 
-				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, tt.orderCreation)
+				_, _, newBbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, tt.orderCreation)
 				require.NoError(t, err)
 				require.EqualValues(t, tt.settledAmt, newBbw)
 			}()
@@ -202,7 +202,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 0, snbw)
 
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		_, _, bucketbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bucketbw)
 
@@ -292,7 +292,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, dataAmount, snbw)
 
-				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+				_, _, newBbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 				require.NoError(t, err)
 				require.Equal(t, dataAmount, newBbw)
 			}()
@@ -324,7 +324,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 0, snbw)
 
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		_, _, bucketbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bucketbw)
 
@@ -423,7 +423,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 				require.NoError(t, err)
 				require.EqualValues(t, 0, snbw)
 
-				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+				_, _, newBbw, err := ordersDB.TestGetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
 				require.NoError(t, err)
 				require.EqualValues(t, 0, newBbw)
 			})
