@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -41,6 +42,10 @@ const (
 
 // BeginObject begins object.
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
+	return endpoint.beginObject(ctx, req, true)
+}
+
+func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRequest, multipartUpload bool) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
@@ -193,83 +198,86 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
 	}
 
-	objectStream := metabase.ObjectStream{
-		ProjectID:  keyInfo.ProjectID,
-		BucketName: metabase.BucketName(req.Bucket),
-		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-		StreamID:   streamID,
-		Version:    metabase.NextVersion,
-	}
-
-	encryptedUserData := metabase.EncryptedUserData{
-		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-		EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
-		EncryptedETag:                 req.EncryptedEtag,
-	}
-
 	var object metabase.Object
-	if _, ok := endpoint.config.TestingAlternativeBeginObjectProjects[keyInfo.ProjectID]; ok || endpoint.config.TestingAlternativeBeginObject {
-		opts := metabase.BeginObjectExactVersion{
-			ObjectStream: objectStream,
-			Encryption:   encryptionParameters,
-
-			EncryptedUserData: encryptedUserData,
-
-			Retention: retention,
-			LegalHold: req.LegalHold,
-
-			MaxCommitDelay: maxCommitDelay,
-		}
-		if !expiresAt.IsZero() {
-			opts.ExpiresAt = &expiresAt
+	if !multipartUpload && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID) {
+		object.CreatedAt = time.Now()
+	} else {
+		objectStream := metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: metabase.BucketName(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			StreamID:   streamID,
+			Version:    metabase.NextVersion,
 		}
 
-		const maxRetries = 5
+		encryptedUserData := metabase.EncryptedUserData{
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
+			EncryptedETag:                 req.EncryptedEtag,
+		}
+		if _, ok := endpoint.config.TestingAlternativeBeginObjectProjects[keyInfo.ProjectID]; ok || endpoint.config.TestingAlternativeBeginObject {
+			opts := metabase.BeginObjectExactVersion{
+				ObjectStream: objectStream,
+				Encryption:   encryptionParameters,
 
-		for i := range maxRetries {
-			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-			opts.Version = metabase.Version(-1 * rng.Int63())
+				EncryptedUserData: encryptedUserData,
 
-			object, err = endpoint.metabase.BeginObjectExactVersion(ctx, opts)
-			if err != nil {
-				if metabase.ErrObjectAlreadyExists.Has(err) && i < maxRetries-1 {
-					continue
+				Retention: retention,
+				LegalHold: req.LegalHold,
+
+				MaxCommitDelay: maxCommitDelay,
+			}
+			if !expiresAt.IsZero() {
+				opts.ExpiresAt = &expiresAt
+			}
+
+			const maxRetries = 5
+
+			for i := range maxRetries {
+				rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+				opts.Version = metabase.Version(-1 * rng.Int63())
+
+				object, err = endpoint.metabase.BeginObjectExactVersion(ctx, opts)
+				if err != nil {
+					if metabase.ErrObjectAlreadyExists.Has(err) && i < maxRetries-1 {
+						continue
+					}
+					return nil, endpoint.ConvertMetabaseErr(err)
 				}
+				break
+			}
+		} else {
+			opts := metabase.BeginObjectNextVersion{
+				ObjectStream: objectStream,
+				Encryption:   encryptionParameters,
+
+				EncryptedUserData: encryptedUserData,
+
+				Retention: retention,
+				LegalHold: req.LegalHold,
+
+				MaxCommitDelay: maxCommitDelay,
+			}
+			if !expiresAt.IsZero() {
+				opts.ExpiresAt = &expiresAt
+			}
+
+			object, err = endpoint.metabase.BeginObjectNextVersion(ctx, opts)
+			if err != nil {
 				return nil, endpoint.ConvertMetabaseErr(err)
 			}
-			break
-		}
-	} else {
-		opts := metabase.BeginObjectNextVersion{
-			ObjectStream: objectStream,
-			Encryption:   encryptionParameters,
-
-			EncryptedUserData: encryptedUserData,
-
-			Retention: retention,
-			LegalHold: req.LegalHold,
-
-			MaxCommitDelay: maxCommitDelay,
-		}
-		if !expiresAt.IsZero() {
-			opts.ExpiresAt = &expiresAt
-		}
-
-		object, err = endpoint.metabase.BeginObjectNextVersion(ctx, opts)
-		if err != nil {
-			return nil, endpoint.ConvertMetabaseErr(err)
 		}
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:               []byte(object.BucketName),
-		EncryptedObjectKey:   []byte(object.ObjectKey),
+		Bucket:               req.Bucket,
+		EncryptedObjectKey:   req.EncryptedObjectKey,
 		Version:              int64(object.Version),
 		CreationDate:         object.CreatedAt,
 		ExpirationDate:       expiresAt, // TODO make ExpirationDate nullable
-		StreamId:             object.StreamID[:],
-		MultipartObject:      object.FixedSegmentSize <= 0,
+		StreamId:             streamID.Bytes(),
+		MultipartObject:      multipartUpload || !endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(bucket.Placement),
 		Versioned:            bucket.Versioning == buckets.VersioningEnabled,
@@ -281,7 +289,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	endpoint.log.Debug("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
-	mon.Meter("req_put_object").Mark(1)
+	mon.Meter("req_put_object", monkit.NewSeriesTag("multipart", strconv.FormatBool(multipartUpload))).Mark(1)
 
 	return &pb.ObjectBeginResponse{
 		Bucket:             req.Bucket,
