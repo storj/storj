@@ -28,6 +28,25 @@ type BillingInformation struct {
 	InvoiceReference string          `json:"invoiceReference"`
 }
 
+// PurchaseParams holds purchase request parameters.
+type PurchaseParams struct {
+	Token   string            `json:"token"`
+	Intent  PurchaseIntent    `json:"intent"`
+	Address *AddAddressParams `json:"address,omitempty"`
+	Tax     *AddTaxParams     `json:"tax,omitempty"`
+}
+
+// AddAddressParams holds address information for adding to a customer.
+type AddAddressParams struct {
+	Name       string `json:"name"`
+	Line1      string `json:"line1"`
+	Line2      string `json:"line2"`
+	City       string `json:"city"`
+	State      string `json:"state"`
+	PostalCode string `json:"postalCode"`
+	Country    string `json:"country"`
+}
+
 // AddTaxParams holds tax information for adding to a customer.
 type AddTaxParams struct {
 	Type  string `json:"type"`

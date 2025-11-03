@@ -710,12 +710,6 @@ func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.
 	}
 }
 
-// PurchaseParams holds purchase request parameters.
-type PurchaseParams struct {
-	Token  string                  `json:"token"`
-	Intent payments.PurchaseIntent `json:"intent"`
-}
-
 // Purchase makes a purchase action using an invoice.
 // Is used for purchasing package plan or upgraded account.
 func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
@@ -725,7 +719,7 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var params PurchaseParams
+	var params payments.PurchaseParams
 
 	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
@@ -737,7 +731,7 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = p.service.Payments().Purchase(ctx, params.Token, params.Intent); err != nil {
+	if err = p.service.Payments().Purchase(ctx, &params); err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return

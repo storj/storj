@@ -6550,14 +6550,20 @@ func TestPaymentsPurchase(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, pm)
 
-		err = p.Purchase(userCtx, pm.ID, payments.PurchaseIntent(999))
+		params := payments.PurchaseParams{
+			Intent: payments.PurchaseIntent(999),
+			Token:  pm.ID,
+		}
+
+		err = p.Purchase(userCtx, &params)
 		require.NoError(t, err)
 
 		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
 		require.NoError(t, err)
 		require.True(t, user.IsFree())
 
-		err = p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent)
+		params.Intent = payments.PurchasePackageIntent
+		err = p.Purchase(userCtx, &params)
 		require.NoError(t, err)
 
 		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
@@ -6574,7 +6580,8 @@ func TestPaymentsPurchase(t *testing.T) {
 		userCtx, err = sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
-		err = p.Purchase(userCtx, pm.ID, payments.PurchaseUpgradedAccountIntent)
+		params.Intent = payments.PurchaseUpgradedAccountIntent
+		err = p.Purchase(userCtx, &params)
 		require.NoError(t, err)
 
 		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
@@ -6639,7 +6646,12 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Len(t, invs, 1)
 		require.Equal(t, draftInv, invs[0].ID)
 
-		require.NoError(t, p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent))
+		params := payments.PurchaseParams{
+			Intent: payments.PurchasePackageIntent,
+			Token:  pm.ID,
+		}
+
+		require.NoError(t, p.Purchase(userCtx, &params))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
@@ -6663,7 +6675,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Len(t, invs, 1)
 		require.Equal(t, payments.InvoiceStatusOpen, invs[0].Status)
 
-		require.NoError(t, p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent))
+		require.NoError(t, p.Purchase(userCtx, &params))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
@@ -6671,7 +6683,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
 
 		// purchase with paid invoice skips creating and or paying invoice
-		require.NoError(t, p.Purchase(userCtx, pm.ID, payments.PurchasePackageIntent))
+		require.NoError(t, p.Purchase(userCtx, &params))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)

@@ -6523,10 +6523,10 @@ func (payment Payments) WalletPaymentsWithConfirmations(ctx context.Context) (pa
 	return
 }
 
-// Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `paymentMethodID`.
+// Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `token`.
 // If a paid invoice with the same description exists, then we assume this is a retried request and don't create and pay
 // another invoice.
-func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, intent payments.PurchaseIntent) (err error) {
+func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := GetUser(ctx)
@@ -6534,7 +6534,12 @@ func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, in
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	switch intent {
+	// Unlikely to happen.
+	if params == nil {
+		return Error.New("purchase params are empty")
+	}
+
+	switch params.Intent {
 	case payments.PurchasePackageIntent:
 		if !payment.service.config.PricingPackagesEnabled {
 			return ErrForbidden.New("pricing packages are not enabled")
@@ -6545,7 +6550,7 @@ func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, in
 			return ErrNotFound.Wrap(err)
 		}
 
-		card, err := payment.AddCardByPaymentMethodID(ctx, paymentMethodID, true)
+		card, err := payment.AddCardByPaymentMethodID(ctx, params.Token, true)
 		if err != nil {
 			return err
 		}
@@ -6573,7 +6578,12 @@ func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, in
 			return ErrForbidden.New("upgrade to paid account via purchase is not enabled")
 		}
 
-		card, err := payment.AddCardByPaymentMethodID(ctx, paymentMethodID, false)
+		err = payment.updateCustomerBillingInfo(ctx, user.ID, params)
+		if err != nil {
+			return err
+		}
+
+		card, err := payment.AddCardByPaymentMethodID(ctx, params.Token, false)
 		if err != nil {
 			return err
 		}
@@ -6591,6 +6601,41 @@ func (payment Payments) Purchase(ctx context.Context, paymentMethodID string, in
 				payment.service.log.Warn("failed to remove credit card after failed purchase", zap.Error(removeErr), zap.String("cardID", card.ID), zap.String("userID", user.ID.String()))
 			}
 
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (payment Payments) updateCustomerBillingInfo(ctx context.Context, userID uuid.UUID, params *payments.PurchaseParams) error {
+	if params.Address == nil && params.Tax == nil {
+		return nil
+	}
+
+	cusID, err := payment.service.store.Users().GetCustomerID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if params.Address != nil {
+		if _, err = payment.service.accounts.SaveBillingAddress(ctx, cusID, userID, payments.BillingAddress{
+			Name:       params.Address.Name,
+			Line1:      params.Address.Line1,
+			Line2:      params.Address.Line2,
+			City:       params.Address.City,
+			PostalCode: params.Address.PostalCode,
+			State:      params.Address.State,
+			Country: payments.TaxCountry{
+				Code: payments.CountryCode(params.Address.Country),
+			},
+		}); err != nil {
+			return err
+		}
+	}
+
+	if params.Tax != nil {
+		if _, err = payment.service.accounts.AddTaxID(ctx, cusID, userID, *params.Tax); err != nil {
 			return err
 		}
 	}

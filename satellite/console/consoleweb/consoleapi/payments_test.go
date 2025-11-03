@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
 )
@@ -98,7 +97,7 @@ func TestPurchasePackage(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				payload, err := json.Marshal(consoleapi.PurchaseParams{Token: tt.cardToken, Intent: payments.PurchasePackageIntent})
+				payload, err := json.Marshal(payments.PurchaseParams{Token: tt.cardToken, Intent: payments.PurchasePackageIntent})
 				require.NoError(t, err)
 
 				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "payments/purchase", bytes.NewBuffer(payload))
