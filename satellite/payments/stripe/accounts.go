@@ -280,12 +280,14 @@ func (accounts *accounts) ChangeCustomerEmail(ctx context.Context, userID uuid.U
 }
 
 // SaveBillingAddress saves billing address for a user and returns the updated billing information.
-func (accounts *accounts) SaveBillingAddress(ctx context.Context, userID uuid.UUID, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
+func (accounts *accounts) SaveBillingAddress(ctx context.Context, customerID string, userID uuid.UUID, address payments.BillingAddress) (_ *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	if customerID == "" {
+		customerID, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	customerParams := &stripe.CustomerParams{

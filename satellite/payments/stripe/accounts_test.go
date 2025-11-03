@@ -253,7 +253,7 @@ func TestBillingInformation(t *testing.T) {
 			State:      "Some state",
 			Country:    us,
 		}
-		newInfo, err := accounts.SaveBillingAddress(ctx, userID, address)
+		newInfo, err := accounts.SaveBillingAddress(ctx, "", userID, address)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
 		require.Empty(t, newInfo.TaxIDs)
@@ -267,7 +267,7 @@ func TestBillingInformation(t *testing.T) {
 
 		address.Name = "New Company"
 		address.City = "New City"
-		newInfo, err = accounts.SaveBillingAddress(ctx, userID, address)
+		newInfo, err = accounts.SaveBillingAddress(ctx, "", userID, address)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
 		require.Empty(t, newInfo.TaxIDs)

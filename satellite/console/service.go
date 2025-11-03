@@ -574,7 +574,7 @@ func (payment Payments) SaveBillingAddress(ctx context.Context, address payments
 		return nil, Error.Wrap(err)
 	}
 
-	newInfo, err := payment.service.accounts.SaveBillingAddress(ctx, user.ID, address)
+	newInfo, err := payment.service.accounts.SaveBillingAddress(ctx, "", user.ID, address)
 
 	return newInfo, Error.Wrap(err)
 }

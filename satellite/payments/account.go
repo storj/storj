@@ -53,7 +53,7 @@ type Accounts interface {
 	ShouldSkipMinimumCharge(ctx context.Context, cusID string, userID uuid.UUID) (bool, error)
 
 	// SaveBillingAddress saves billing address for a user and returns the updated billing information.
-	SaveBillingAddress(ctx context.Context, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
+	SaveBillingAddress(ctx context.Context, cusID string, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
 
 	// AddTaxID adds a new tax ID for a user and returns the updated billing information.
 	AddTaxID(ctx context.Context, userID uuid.UUID, taxID TaxID) (*BillingInformation, error)
