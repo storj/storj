@@ -70,6 +70,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
+	objectJustCreated = objectJustCreated || !streamID.MultipartObject
 	if !objectJustCreated {
 		// we need check limits only if object wasn't just created,
 		// begin object is checking limits on it' own
@@ -481,6 +482,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Pieces:      pieces,
 		Placement:   storj.PlacementConstraint(streamID.Placement),
 
+		SkipPendingObject: !streamID.MultipartObject,
+
 		MaxCommitDelay:      maxCommitDelay,
 		TestingUseMutations: endpoint.config.TestingCommitSegmentUseMutations,
 	}
@@ -624,6 +627,8 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		EncryptedETag: req.EncryptedETag,
 
 		InlineData: req.EncryptedInlineData,
+
+		SkipPendingObject: !streamID.MultipartObject,
 
 		MaxCommitDelay: maxCommitDelay,
 	})
