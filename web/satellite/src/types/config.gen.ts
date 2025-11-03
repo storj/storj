@@ -106,6 +106,7 @@ export class FrontendConfig {
     computeGatewayURL: string;
     newPricingStartDate: Time | null;
     productPriceSummaries: string[] | null;
+    collectBillingInfoOnOnboarding: boolean;
 }
 
 export class MinimumChargeConfig {

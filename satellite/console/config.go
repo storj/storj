@@ -62,6 +62,7 @@ type Config struct {
 	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	ProductPriceSummaries             []string                  `help:"the pricing summaries gotten from configured products" default:"" hidden:"true"`
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
+	CollectBillingInfoOnOnboarding    bool                      `help:"whether to collect billing information during onboarding" default:"false"`
 
 	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`

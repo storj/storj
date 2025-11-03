@@ -406,6 +406,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to enable cloud GPU functionality
 # console.cloud-gpus-enabled: false
 
+# whether to collect billing information during onboarding
+# console.collect-billing-info-on-onboarding: false
+
 # url link for compute gateway requests
 # console.compute-gateway-url: ""
 
