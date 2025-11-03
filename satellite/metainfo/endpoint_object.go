@@ -399,9 +399,14 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	err = pb.Unmarshal(req.EncryptedMetadata, streamMeta)
 	if err != nil {
 		// TODO: what if this is an error we don't expect?
-	} else {
+
 		encryption.CipherSuite = storj.CipherSuite(streamMeta.EncryptionType)
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
+	} else {
+		encryption = storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(streamID.EncryptionParameters.CipherSuite),
+			BlockSize:   int32(streamID.EncryptionParameters.BlockSize), // TODO unsafe conversion
+		}
 	}
 
 	var maxCommitDelay *time.Duration
@@ -425,6 +430,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		Encryption: encryption,
 		ExpiresAt:  expiresAt,
 
+		Retention: protobufRetentionToMetabase(streamID.Retention),
+		LegalHold: streamID.LegalHold,
+
 		DisallowDelete: !allowDelete,
 
 		Versioned: streamID.Versioned,
@@ -434,6 +442,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		IfNoneMatch: req.IfNoneMatch,
 
 		TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(streamID.Bucket)),
+
+		SkipPendingObject: !streamID.MultipartObject,
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be

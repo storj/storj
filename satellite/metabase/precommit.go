@@ -606,6 +606,11 @@ func (stx *spannerTransactionAdapter) precommitDeleteUnversionedWithNonPendingUs
 
 // ExcludeFromPending contains fields to exclude from the pending object.
 type ExcludeFromPending struct {
+	// Object indicates whether the entire object should be excluded from read.
+	// We want to exclude it during segment commit where pending object was not
+	// created at the beginning of upload.
+	// Segments are not excluded in this case.
+	Object bool
 	// ExpiresAt indicates whether the expires_at field should be excluded from read
 	// We want to exclude it during object commit where we know expiration value but
 	// don't want to exclude it for copy/move operations.
@@ -873,25 +878,30 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 			additionalColumns += ", encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag"
 		}
 
-		stmt.SQL += `,(SELECT ARRAY(
-				SELECT AS STRUCT
-					created_at,
-					encryption,
-					retention_mode,
-					retain_until
-					` + additionalColumns + `
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-					AND stream_id = @stream_id
-					AND status = ` + statusPending + `
-			)),
-			(SELECT ARRAY(
-				SELECT AS STRUCT position, encrypted_size, plain_offset, plain_size
-				FROM segments
-				WHERE stream_id = @stream_id
-				ORDER BY position
+		if !opts.ExcludeFromPending.Object {
+			stmt.SQL += `
+				,(SELECT ARRAY(
+					SELECT AS STRUCT
+						created_at,
+						encryption,
+						retention_mode,
+						retain_until
+						` + additionalColumns + `
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
+						AND stream_id = @stream_id
+						AND status = ` + statusPending + `
+				))				`
+			stmt.Params["version"] = opts.Version
+		}
+
+		stmt.SQL += `
+			,(SELECT ARRAY(
+					SELECT AS STRUCT position, encrypted_size, plain_offset, plain_size
+					FROM segments
+					WHERE stream_id = @stream_id
+					ORDER BY position
 			))`
-		stmt.Params["version"] = opts.Version
 		stmt.Params["stream_id"] = opts.StreamID
 	}
 
@@ -932,19 +942,21 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 
 		column := 2
 		if opts.Pending {
-			var pending []*PrecommitPendingObject
-			if err := row.Column(column, &pending); err != nil {
-				return Error.Wrap(err)
+			if !opts.ExcludeFromPending.Object {
+				var pending []*PrecommitPendingObject
+				if err := row.Column(column, &pending); err != nil {
+					return Error.Wrap(err)
+				}
+				column++
+				if len(pending) > 1 {
+					return Error.New("internal error: multiple pending objects with the same key")
+				}
+				if len(pending) == 0 {
+					// TODO: should we return different error when the object is already committed?
+					return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+				}
+				result.Pending = pending[0]
 			}
-			column++
-			if len(pending) > 1 {
-				return Error.New("internal error: multiple pending objects with the same key")
-			}
-			if len(pending) == 0 {
-				// TODO: should we return different error when the object is already committed?
-				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-			}
-			result.Pending = pending[0]
 
 			var segments []*struct {
 				Position      SegmentPosition `spanner:"position"`
