@@ -323,7 +323,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 						startTime[i])
 
 					if err != nil {
-						return errs.New("bucket bandwidth rollup batch update failed: %w", err)
+						return errs.New("accounting rollups batch update failed: %w", err)
 					}
 				}
 
