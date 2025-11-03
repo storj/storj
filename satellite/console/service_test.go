@@ -7203,6 +7203,77 @@ func TestProjectInvitations(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, console.ErrBotUser.Has(err))
 		})
+
+		// test inviting a user and removing inviter before invite is accepted
+		t.Run("remove inviter before invite accepted", func(t *testing.T) {
+			owner, ownerCtx := getUserAndCtx(t)
+			admin, adminCtx := getUserAndCtx(t)
+			invitee, inviteeCtx := getUserAndCtx(t)
+
+			project, err := sat.AddProject(ownerCtx, owner.ID, "Test Project")
+			require.NoError(t, err)
+
+			_, err = service.InviteNewProjectMember(ownerCtx, project.ID, admin.Email)
+			require.NoError(t, err)
+
+			require.NoError(t, service.RespondToProjectInvitation(adminCtx, project.ID, console.ProjectInvitationAccept))
+
+			_, err = service.UpdateProjectMemberRole(ownerCtx, admin.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+
+			// invitee is invited by admin
+			_, err = service.InviteNewProjectMember(adminCtx, project.ID, invitee.Email)
+			require.NoError(t, err)
+
+			// remove admin from project before invitee accepts invite
+			err = service.DeleteProjectMembersAndInvitations(ownerCtx, project.ID, []string{admin.Email})
+			require.NoError(t, err)
+
+			// invitee cannot accept invite since inviter has been removed
+
+			someToken, err := service.CreateInviteToken(ctx, project.PublicID, invitee.Email, invitee.CreatedAt)
+			require.NoError(t, err)
+
+			_, err = service.GetInviteByToken(ctx, someToken)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			err = service.RespondToProjectInvitation(inviteeCtx, project.ID, console.ProjectInvitationAccept)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			// add admin again but set status to deleted
+			_, err = service.InviteNewProjectMember(ownerCtx, project.ID, admin.Email)
+			require.NoError(t, err)
+
+			require.NoError(t, service.RespondToProjectInvitation(adminCtx, project.ID, console.ProjectInvitationAccept))
+
+			newStatus := console.Deleted
+			err = sat.DB.Console().Users().Update(ctx, admin.ID, console.UpdateUserRequest{Status: &newStatus})
+			require.NoError(t, err)
+
+			// invitee cannot accept invite since inviter has been deleted
+
+			_, err = service.GetInviteByToken(ctx, someToken)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			err = service.RespondToProjectInvitation(inviteeCtx, project.ID, console.ProjectInvitationAccept)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			// confirm that if inviter is re-added and active, invitee can accept invite
+
+			newStatus = console.Active
+			err = sat.DB.Console().Users().Update(ctx, admin.ID, console.UpdateUserRequest{Status: &newStatus})
+			require.NoError(t, err)
+
+			_, err = service.GetInviteByToken(ctx, someToken)
+			require.NoError(t, err)
+
+			err = service.RespondToProjectInvitation(inviteeCtx, project.ID, console.ProjectInvitationAccept)
+			require.NoError(t, err)
+		})
 	})
 }
 

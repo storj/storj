@@ -100,6 +100,7 @@ const (
 	projLimitErrMsg                      = "Sorry, project creation is limited for your account. Please contact support!"
 	projNameErrMsg                       = "The new project must have a name you haven't used before!"
 	projInviteInvalidErrMsg              = "The invitation has expired or is invalid"
+	projInviterInvalidErrMsg             = "The inviter is no longer part of the project"
 	projInviteAlreadyMemberErrMsg        = "You are already a member of the project"
 	projInviteResponseInvalidErrMsg      = "Invalid project member invitation response"
 	activeProjInviteExistsErrMsg         = "An active invitation for '%s' already exists"
@@ -7047,6 +7048,29 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		return Error.Wrap(s.store.ProjectInvitations().Delete(ctx, projectID, user.Email))
 	}
 
+	// check inviter status
+
+	if invite.InviterID != nil {
+		inviter, err := s.store.Users().Get(ctx, *invite.InviterID)
+		if err != nil {
+			if errs.Is(err, sql.ErrNoRows) {
+				return ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
+			}
+			return Error.Wrap(err)
+		}
+		if inviter.Status != Active {
+			return ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
+		}
+
+		_, err = s.store.ProjectMembers().GetByMemberIDAndProjectID(ctx, *invite.InviterID, invite.ProjectID)
+		if err != nil {
+			if !errs.Is(err, sql.ErrNoRows) {
+				return Error.Wrap(err)
+			}
+			return ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
+		}
+	}
+
 	// All the new team members have regular Member role, which can be updated by the project owner later.
 	_, err = s.store.ProjectMembers().Insert(ctx, user.ID, projectID, RoleMember)
 	if err != nil {
@@ -7298,6 +7322,27 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 	}
 	if s.IsProjectInvitationExpired(invite) {
 		return nil, ErrProjectInviteInvalid.New(projInviteInvalidErrMsg)
+	}
+
+	if invite.InviterID != nil {
+		inviter, err := s.store.Users().Get(ctx, *invite.InviterID)
+		if err != nil {
+			if errs.Is(err, sql.ErrNoRows) {
+				return nil, ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
+			}
+			return nil, Error.Wrap(err)
+		}
+		if inviter.Status != Active {
+			return nil, ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
+		}
+
+		_, err = s.store.ProjectMembers().GetByMemberIDAndProjectID(ctx, *invite.InviterID, invite.ProjectID)
+		if err != nil {
+			if errs.Is(err, sql.ErrNoRows) {
+				return nil, ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
+			}
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	return invite, nil
