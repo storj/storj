@@ -3702,6 +3702,324 @@ func TestCommitObject(t *testing.T) {
 	})
 }
 
+func TestCommitObjectWithSkipPendingObject(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		t.Run("commit without pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("commit without pending object with metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:              obj,
+					Encryption:                metabasetest.DefaultEncryption,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+					SkipPendingObject:         true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("commit without pending object with segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Index: 0},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+
+					Redundancy: metabasetest.DefaultRedundancy,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: metabasetest.ObjectsToRaw(object),
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Index: 0},
+						CreatedAt: object.CreatedAt,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: 1024,
+						PlainSize:     512,
+						PlainOffset:   0,
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit without pending object with multiple segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Index: 0},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   999999,
+
+					Redundancy: metabasetest.DefaultRedundancy,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Index: 1},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   999999,
+
+					Redundancy: metabasetest.DefaultRedundancy,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: metabasetest.ObjectsToRaw(object),
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Index: 0},
+						CreatedAt: object.CreatedAt,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: 1024,
+						PlainSize:     512,
+						PlainOffset:   0,
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+					{
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Index: 1},
+						CreatedAt: object.CreatedAt,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: 1024,
+						PlainSize:     512,
+						PlainOffset:   512,
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit without pending object with retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: now.Add(time.Minute),
+			}
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					Retention:         retention,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("commit without pending object with legal hold", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					LegalHold:         true,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("commit without pending object with expires at", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			expiresAt := now.Add(time.Hour)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					ExpiresAt:         &expiresAt,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("commit replaces existing unversioned object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// create existing unversioned object
+			metabasetest.CreateObject(ctx, t, db, obj, 0)
+
+			// commit new object with SkipPendingObject
+			newObj := obj
+			newObj.StreamID = testrand.UUID()
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      newObj,
+					Encryption:        metabasetest.DefaultEncryption,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: metabasetest.ObjectsToRaw(object),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("double commit with SkipPendingObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			// second commit should succeed and replace the first
+			newObj := obj
+			newObj.StreamID = testrand.UUID()
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      newObj,
+					Encryption:        metabasetest.DefaultEncryption,
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with SkipPendingObject + retention + expires_at", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			now := time.Now()
+			retention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: now.Add(time.Minute),
+			}
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					SkipPendingObject: true,
+					Retention:         retention,
+					ExpiresAt:         &now,
+				},
+				ErrText: "metabase: object expiration must not be set if Object Lock configuration is set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestCommitObjectVersioned(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()

@@ -1216,6 +1216,11 @@ type CommitObject struct {
 	OverrideEncryptedMetadata bool
 	EncryptedUserData
 
+	// Retention and LegalHold are used only for regular uploads (when SkipPendingObject is true).
+	// For multipart uploads, these values are retrieved from the pending object in the database.
+	Retention Retention // optional
+	LegalHold bool
+
 	// TODO: maybe this should use segment ranges rather than individual items
 	SpecificSegments bool
 	OnlySegments     []SegmentPosition
@@ -1231,6 +1236,10 @@ type CommitObject struct {
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
+
+	// SkipPendingObject indicates whether to skip checking for the existence of a pending object.
+	// It's used for regular (non-multipart) uploads where we directly commit the object without a prior pending state.
+	SkipPendingObject bool
 }
 
 // Verify verifies request fields.
@@ -1248,6 +1257,10 @@ func (c *CommitObject) Verify() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if err := c.Retention.Verify(); err != nil {
+		return ErrInvalidRequest.Wrap(err)
 	}
 
 	if c.SpecificSegments {
@@ -1313,6 +1326,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			ObjectStream: opts.ObjectStream,
 			Pending:      true,
 			ExcludeFromPending: ExcludeFromPending{
+				Object:            opts.SkipPendingObject,
 				ExpiresAt:         true,                           // we are getting ExpiresAt from opts
 				EncryptedUserData: opts.OverrideEncryptedMetadata, // we are getting EncryptedUserData from opts
 			},
@@ -1399,21 +1413,33 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			object.FixedSegmentSize = fixedSegmentSize
 			object.ExpiresAt = opts.ExpiresAt
 
-			// values from the database
-			object.CreatedAt = query.Pending.CreatedAt
-			object.Encryption = query.Pending.Encryption
-			if opts.OverrideEncryptedMetadata {
-				object.EncryptedUserData = opts.EncryptedUserData
+			if query.Pending == nil {
+				// values from options (no pending object)
+				object.CreatedAt = time.Now()
+				object.Retention = opts.Retention
+				object.LegalHold = opts.LegalHold
+				object.Encryption = opts.Encryption
+				if opts.OverrideEncryptedMetadata {
+					object.EncryptedUserData = opts.EncryptedUserData
+				}
 			} else {
-				object.EncryptedMetadata = query.Pending.EncryptedMetadata
-				object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
-				object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
-				object.EncryptedETag = query.Pending.EncryptedETag
-			}
+				// values from the database (pending object exists)
+				object.CreatedAt = query.Pending.CreatedAt
+				object.Encryption = query.Pending.Encryption
 
-			object.Retention.Mode = query.Pending.RetentionMode.Mode
-			object.LegalHold = query.Pending.RetentionMode.LegalHold
-			object.Retention.RetainUntil = query.Pending.RetainUntil.Time
+				object.Retention.Mode = query.Pending.RetentionMode.Mode
+				object.LegalHold = query.Pending.RetentionMode.LegalHold
+				object.Retention.RetainUntil = query.Pending.RetainUntil.Time
+
+				if opts.OverrideEncryptedMetadata {
+					object.EncryptedUserData = opts.EncryptedUserData
+				} else {
+					object.EncryptedMetadata = query.Pending.EncryptedMetadata
+					object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
+					object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
+					object.EncryptedETag = query.Pending.EncryptedETag
+				}
+			}
 
 			// TODO: is this check actually necessary?
 			if err := object.verifyObjectLockAndRetention(); err != nil {
@@ -1427,28 +1453,12 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				}
 				object.Encryption = opts.Encryption
 			}
-
-			// determine the best version to use
-			if opts.Version == query.HighestVersion {
-				// If we don't need to change the version, then let's not do it.
-				object.Version = opts.Version
-			} else {
-				if db.config.TestingTimestampVersioning {
-					object.Version = query.TimestampVersion
-					if query.HighestVersion >= query.TimestampVersion {
-						// this should never happen
-						object.Version = query.HighestVersion + 1
-					}
-				} else {
-					object.Version = query.HighestVersion + 1
-				}
-			}
 		}
 
 		return adapter.finalizeObjectCommit(ctx, finalizeObjectCommit{
-			Initial: opts.ObjectStream,
-			Object:  &object,
-
+			Initial:                  opts.ObjectStream,
+			Object:                   &object,
+			HasPendingObject:         query.Pending != nil,
 			EncryptedMetadataChanged: opts.OverrideEncryptedMetadata,
 		})
 	})
@@ -1466,8 +1476,9 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 }
 
 type finalizeObjectCommit struct {
-	Initial ObjectStream
-	Object  *Object
+	Initial          ObjectStream
+	Object           *Object
+	HasPendingObject bool
 
 	EncryptedMetadataChanged bool
 }
@@ -1524,19 +1535,25 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	initial := opts.Initial
 	object := opts.Object
 
-	if object.Version == initial.Version {
+	// Pending object exists
+	if object.Version == initial.Version && opts.HasPendingObject {
 		updateMap := map[string]any{
-			"project_id":               initial.ProjectID,
-			"bucket_name":              initial.BucketName,
-			"object_key":               initial.ObjectKey,
-			"version":                  initial.Version,
-			"status":                   object.Status,
-			"expires_at":               object.ExpiresAt,
-			"segment_count":            int64(object.SegmentCount),
-			"total_plain_size":         object.TotalPlainSize,
-			"total_encrypted_size":     object.TotalEncryptedSize,
-			"fixed_segment_size":       int64(object.FixedSegmentSize),
-			"encryption":               object.Encryption,
+			"project_id":           initial.ProjectID,
+			"bucket_name":          initial.BucketName,
+			"object_key":           initial.ObjectKey,
+			"version":              initial.Version,
+			"status":               object.Status,
+			"expires_at":           object.ExpiresAt,
+			"segment_count":        int64(object.SegmentCount),
+			"total_plain_size":     object.TotalPlainSize,
+			"total_encrypted_size": object.TotalEncryptedSize,
+			"fixed_segment_size":   int64(object.FixedSegmentSize),
+			"encryption":           object.Encryption,
+			"retention_mode": lockModeWrapper{
+				retentionMode: &object.Retention.Mode,
+				legalHold:     &object.LegalHold,
+			},
+			"retain_until":             timeWrapper{&object.Retention.RetainUntil},
 			"zombie_deletion_deadline": nil,
 		}
 
@@ -1557,15 +1574,19 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 		return nil
 	}
 
-	err = stx.tx.BufferWrite([]*spanner.Mutation{
-		spanner.Delete("objects", spanner.Key{
+	mutations := make([]*spanner.Mutation, 0, 2)
+	mutations = append(mutations, spannerInsertObject(RawObject(*object)))
+
+	if opts.HasPendingObject {
+		mutations = append(mutations, spanner.Delete("objects", spanner.Key{
 			initial.ProjectID,
 			initial.BucketName,
 			initial.ObjectKey,
 			int64(initial.Version),
-		}),
-		spannerInsertObject(RawObject(*object)),
-	})
+		}))
+	}
+
+	err = stx.tx.BufferWrite(mutations)
 	if err != nil {
 		return Error.New("failed to update object: %w", err)
 	}
