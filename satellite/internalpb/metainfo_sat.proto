@@ -32,6 +32,9 @@ message StreamID {
     int32 placement = 13;
 
     bool versioned = 15;
+
+    .metainfo.Retention retention = 16;
+    bool legal_hold = 17;
 }
 
 message SegmentID {

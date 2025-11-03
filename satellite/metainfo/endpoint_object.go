@@ -273,6 +273,8 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(bucket.Placement),
 		Versioned:            bucket.Versioning == buckets.VersioningEnabled,
+		Retention:            req.Retention,
+		LegalHold:            req.LegalHold,
 	})
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create stream id")
@@ -2323,6 +2325,11 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
 		},
+		Retention: &pb.Retention{
+			Mode:        pb.Retention_Mode(object.Retention.Mode),
+			RetainUntil: object.Retention.RetainUntil,
+		},
+		LegalHold: object.LegalHold,
 		// TODO: this is the only one place where placement is not added to the StreamID
 		// bucket info  would be required to add placement here
 	})
