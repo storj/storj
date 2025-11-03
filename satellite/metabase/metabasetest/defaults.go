@@ -134,6 +134,24 @@ func DefaultRawSegment(obj metabase.ObjectStream, segmentPosition metabase.Segme
 	}
 }
 
+// DefaultRawInlineSegment returns default inline raw segment.
+func DefaultRawInlineSegment(obj metabase.ObjectStream, segmentPosition metabase.SegmentPosition) metabase.RawSegment {
+	return metabase.RawSegment{
+		StreamID:  obj.StreamID,
+		Position:  segmentPosition,
+		CreatedAt: time.Now(),
+
+		EncryptedKey:      []byte{3},
+		EncryptedKeyNonce: []byte{4},
+		EncryptedETag:     []byte{5},
+
+		EncryptedSize: 3,
+		PlainSize:     2,
+		PlainOffset:   0,
+		InlineData:    []byte{1, 2, 3},
+	}
+}
+
 // DefaultRemoteRawSegment returns default remote raw segment.
 func DefaultRemoteRawSegment(obj metabase.ObjectStream, segmentPosition metabase.SegmentPosition) metabase.RawSegment {
 	pieces := metabase.Pieces{}

@@ -1890,30 +1890,51 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 		t.Run("commit segment of missing object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			rootPieceID := testrand.PieceID()
-			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
-			encryptedKey := testrand.Bytes(32)
-			encryptedKeyNonce := testrand.Bytes(32)
+			exptectedSegment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+			exptectedSegment.Pieces = metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
-					RootPieceID:  rootPieceID,
-					Pieces:       pieces,
+					RootPieceID:  exptectedSegment.RootPieceID,
+					Pieces:       exptectedSegment.Pieces,
 
-					EncryptedKey:      encryptedKey,
-					EncryptedKeyNonce: encryptedKeyNonce,
+					EncryptedKey:      exptectedSegment.EncryptedKey,
+					EncryptedKeyNonce: exptectedSegment.EncryptedKeyNonce,
+					EncryptedETag:     exptectedSegment.EncryptedETag,
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					Redundancy:          metabasetest.DefaultRedundancy,
+					EncryptedSize:       exptectedSegment.EncryptedSize,
+					PlainSize:           exptectedSegment.PlainSize,
+					PlainOffset:         exptectedSegment.PlainOffset,
+					Redundancy:          exptectedSegment.Redundancy,
 					TestingUseMutations: useMutations,
 				},
 				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					RootPieceID:  exptectedSegment.RootPieceID,
+					Pieces:       exptectedSegment.Pieces,
+
+					EncryptedKey:      exptectedSegment.EncryptedKey,
+					EncryptedKeyNonce: exptectedSegment.EncryptedKeyNonce,
+					EncryptedETag:     exptectedSegment.EncryptedETag,
+
+					EncryptedSize:       exptectedSegment.EncryptedSize,
+					PlainSize:           exptectedSegment.PlainSize,
+					PlainOffset:         exptectedSegment.PlainOffset,
+					Redundancy:          exptectedSegment.Redundancy,
+					TestingUseMutations: useMutations,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Segments: []metabase.RawSegment{exptectedSegment}}.Check(ctx, t, db)
 		})
 
 		t.Run("commit segment of committed object", func(t *testing.T) {
@@ -1967,6 +1988,50 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					},
 				},
 			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit segment of committed object with SkipPendingObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			exptectedSegment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			// Should fail when trying to commit segment to committed object with SkipPendingObject
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					RootPieceID:  exptectedSegment.RootPieceID,
+					Pieces:       exptectedSegment.Pieces,
+
+					EncryptedKey:      exptectedSegment.EncryptedKey,
+					EncryptedKeyNonce: exptectedSegment.EncryptedKeyNonce,
+					EncryptedETag:     exptectedSegment.EncryptedETag,
+
+					EncryptedSize:       exptectedSegment.EncryptedSize,
+					PlainSize:           exptectedSegment.PlainSize,
+					PlainOffset:         exptectedSegment.PlainOffset,
+					Redundancy:          exptectedSegment.Redundancy,
+					TestingUseMutations: useMutations,
+
+					SkipPendingObject: true,
+				},
+				ErrClass: &metabase.ErrPendingObjectMissing,
+			}.Check(ctx, t, db)
+
+			// Verify object is still committed without segments
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("commit segment of object with expires at", func(t *testing.T) {
@@ -2108,6 +2173,102 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("update segment with SkipPendingObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			segment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+
+			// First commit a segment with SkipPendingObject
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					RootPieceID:  segment.RootPieceID,
+					Pieces:       segment.Pieces,
+
+					EncryptedKey:      segment.EncryptedKey,
+					EncryptedKeyNonce: segment.EncryptedKeyNonce,
+					EncryptedETag:     segment.EncryptedETag,
+
+					EncryptedSize:       segment.EncryptedSize,
+					PlainSize:           segment.PlainSize,
+					PlainOffset:         segment.PlainOffset,
+					Redundancy:          segment.Redundancy,
+					TestingUseMutations: useMutations,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Segments: []metabase.RawSegment{segment}}.Check(ctx, t, db)
+
+			// Update the segment with new data
+			newSegment := segment
+			newSegment.RootPieceID = testrand.PieceID()
+			newSegment.Pieces = metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			newSegment.EncryptedKey = testrand.Bytes(32)
+			newSegment.EncryptedKeyNonce = testrand.Bytes(32)
+			newSegment.EncryptedETag = testrand.Bytes(32)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					RootPieceID:  newSegment.RootPieceID,
+					Pieces:       newSegment.Pieces,
+
+					EncryptedKey:      newSegment.EncryptedKey,
+					EncryptedKeyNonce: newSegment.EncryptedKeyNonce,
+					EncryptedETag:     newSegment.EncryptedETag,
+
+					EncryptedSize:       newSegment.EncryptedSize,
+					PlainSize:           newSegment.PlainSize,
+					PlainOffset:         newSegment.PlainOffset,
+					Redundancy:          newSegment.Redundancy,
+					TestingUseMutations: useMutations,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			// Verify the segment was updated
+			metabasetest.Verify{Segments: []metabase.RawSegment{newSegment}}.Check(ctx, t, db)
+		})
+
+		t.Run("commit segment with SkipPendingObject and ExpiresAt", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			segment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+			segment.Pieces = metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+
+			now := time.Now()
+			expectedExpiresAt := now.Add(33 * time.Hour)
+			segment.ExpiresAt = &expectedExpiresAt
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					ExpiresAt:    &expectedExpiresAt,
+					RootPieceID:  segment.RootPieceID,
+					Pieces:       segment.Pieces,
+
+					EncryptedKey:      segment.EncryptedKey,
+					EncryptedKeyNonce: segment.EncryptedKeyNonce,
+					EncryptedETag:     segment.EncryptedETag,
+
+					EncryptedSize:       segment.EncryptedSize,
+					PlainSize:           segment.PlainSize,
+					PlainOffset:         segment.PlainOffset,
+					Redundancy:          segment.Redundancy,
+					TestingUseMutations: useMutations,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Segments: []metabase.RawSegment{segment},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -2220,11 +2381,39 @@ func TestCommitInlineSegment(t *testing.T) {
 
 					PlainSize:   512,
 					PlainOffset: 0,
+
+					SkipPendingObject: false,
 				},
 				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
+
+			segment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+			segment.RootPieceID = storj.PieceID{}
+			segment.InlineData = []byte{1, 2, 3}
+			segment.EncryptedSize = int32(len(segment.InlineData))
+			segment.Redundancy = storj.RedundancyScheme{}
+			segment.Pieces = nil
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+
+					InlineData: segment.InlineData,
+
+					EncryptedKey:      segment.EncryptedKey,
+					EncryptedKeyNonce: segment.EncryptedKeyNonce,
+					EncryptedETag:     segment.EncryptedETag,
+
+					PlainSize:   segment.PlainSize,
+					PlainOffset: segment.PlainOffset,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Segments: []metabase.RawSegment{segment}}.Check(ctx, t, db)
 		})
 
 		t.Run("duplicate", func(t *testing.T) {
@@ -2593,6 +2782,138 @@ func TestCommitInlineSegment(t *testing.T) {
 						EncryptedETag: encryptedETag,
 					},
 				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit inline segment of committed object with SkipPendingObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			segment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+			segment.InlineData = []byte{1, 2, 3}
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			// Should fail when trying to commit inline segment to committed object with SkipPendingObject
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+
+					InlineData: segment.InlineData,
+
+					EncryptedKey:      segment.EncryptedKey,
+					EncryptedKeyNonce: segment.EncryptedKeyNonce,
+					EncryptedETag:     segment.EncryptedETag,
+
+					PlainSize:   segment.PlainSize,
+					PlainOffset: segment.PlainOffset,
+
+					SkipPendingObject: true,
+				},
+				ErrClass: &metabase.ErrPendingObjectMissing,
+			}.Check(ctx, t, db)
+
+			// Verify object is still committed without segments
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("update inline segment with SkipPendingObject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			segment := metabasetest.DefaultRawInlineSegment(obj, metabase.SegmentPosition{})
+
+			// First commit an inline segment with SkipPendingObject
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+
+					InlineData: segment.InlineData,
+
+					EncryptedKey:      segment.EncryptedKey,
+					EncryptedKeyNonce: segment.EncryptedKeyNonce,
+					EncryptedETag:     segment.EncryptedETag,
+
+					PlainSize:   segment.PlainSize,
+					PlainOffset: segment.PlainOffset,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			// Update the inline segment with new data
+			newSegment := segment
+			newSegment.InlineData = []byte{4, 5, 6}
+			newSegment.EncryptedKey = testrand.Bytes(32)
+			newSegment.EncryptedKeyNonce = testrand.Bytes(32)
+			newSegment.EncryptedETag = testrand.Bytes(32)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+
+					InlineData: newSegment.InlineData,
+
+					EncryptedKey:      newSegment.EncryptedKey,
+					EncryptedKeyNonce: newSegment.EncryptedKeyNonce,
+					EncryptedETag:     newSegment.EncryptedETag,
+
+					PlainSize:   newSegment.PlainSize,
+					PlainOffset: newSegment.PlainOffset,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			// Verify the inline segment was updated (not duplicated)
+			metabasetest.Verify{
+				Segments: []metabase.RawSegment{newSegment},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit inline segment with SkipPendingObject and ExpiresAt", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			segment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+			segment.RootPieceID = storj.PieceID{}
+			segment.InlineData = []byte{1, 2, 3}
+			segment.EncryptedSize = int32(len(segment.InlineData))
+			segment.Redundancy = storj.RedundancyScheme{}
+			segment.Pieces = nil
+
+			now := time.Now()
+			expectedExpiresAt := now.Add(33 * time.Hour)
+			segment.ExpiresAt = &expectedExpiresAt
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					ExpiresAt:    &expectedExpiresAt,
+
+					InlineData: segment.InlineData,
+
+					EncryptedKey:      segment.EncryptedKey,
+					EncryptedKeyNonce: segment.EncryptedKeyNonce,
+					EncryptedETag:     segment.EncryptedETag,
+
+					PlainSize:   segment.PlainSize,
+					PlainOffset: segment.PlainOffset,
+
+					SkipPendingObject: true,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Segments: []metabase.RawSegment{segment},
 			}.Check(ctx, t, db)
 		})
 	})
