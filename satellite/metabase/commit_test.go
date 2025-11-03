@@ -3349,26 +3349,19 @@ func TestCommitObject(t *testing.T) {
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
-					Retention:    retention,
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObject{
+			object := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
+					Retention:    retention,
+					LegalHold:    true,
 				},
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.CommittedUnversioned,
-						Encryption:   metabasetest.DefaultEncryption,
-						Retention:    retention,
-					},
-				},
+				Objects: []metabase.RawObject{metabase.RawObject(object)},
 			}.Check(ctx, t, db)
 		})
 
@@ -3385,7 +3378,6 @@ func TestCommitObject(t *testing.T) {
 						Mode:        storj.ComplianceMode,
 						RetainUntil: future,
 					},
-					TestingBypassVerify: true,
 				},
 			}.Check(ctx, t, db)
 

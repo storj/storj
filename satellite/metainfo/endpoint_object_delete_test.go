@@ -631,6 +631,7 @@ func TestEndpoint_DeleteObjects(t *testing.T) {
 				EncryptedObjectKey: objectKey,
 				EncryptionParameters: &pb.EncryptionParameters{
 					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+					BlockSize:   256,
 				},
 			})
 			require.NoError(t, err)
