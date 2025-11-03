@@ -17,7 +17,6 @@ import {
     BillingInformation,
     BillingAddress,
     TaxCountry,
-    TaxID,
     UpdateCardParams,
     PriceModelForPlacementRequest,
     AddFundsResponse,
@@ -758,13 +757,14 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * add a tax ID to a user's account.
      *
-     * @param taxID - the tax ID to save
+     * @param type - tax ID type
+     * @param value - tax ID value
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async addTaxID(taxID: TaxID, csrfProtectionToken: string): Promise<BillingInformation> {
+    public async addTaxID(type: string, value: string, csrfProtectionToken: string): Promise<BillingInformation> {
         const path = `${this.ROOT_PATH}/account/tax-ids`;
-        const response = await this.client.post(path, JSON.stringify(taxID), { csrfProtectionToken });
+        const response = await this.client.post(path, JSON.stringify({ type, value }), { csrfProtectionToken });
 
         const result = await response.json();
         if (!response.ok) {

@@ -140,12 +140,7 @@ function addTaxID() {
     }
     withLoading(async () => {
         try {
-            await billingStore.addTaxID({
-                value: taxId.value ?? '',
-                tax: {
-                    code: tax.value?.code ?? '',
-                },
-            });
+            await billingStore.addTaxID(tax.value?.code ?? '', taxId.value ?? '');
             notify.success('Tax ID added successfully');
             model.value = false;
         } catch (error) {

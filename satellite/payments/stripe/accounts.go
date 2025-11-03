@@ -319,40 +319,46 @@ func (accounts *accounts) SaveBillingAddress(ctx context.Context, customerID str
 }
 
 // AddTaxID adds a new tax ID for a user and returns the updated billing information.
-func (accounts *accounts) AddTaxID(ctx context.Context, userID uuid.UUID, taxID payments.TaxID) (_ *payments.BillingInformation, err error) {
+func (accounts *accounts) AddTaxID(ctx context.Context, customerID string, userID uuid.UUID, params payments.AddTaxParams) (_ *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	if customerID == "" {
+		customerID, err = accounts.service.db.Customers().GetCustomerID(ctx, userID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
 	taxIDParams := stripe.TaxIDParams{
 		Params: stripe.Params{
 			Context: ctx,
 		},
-		Customer: &customerID,
-		Type:     stripe.String(string(taxID.Tax.Code)),
-		Value:    &taxID.Value,
+		Customer: stripe.String(customerID),
+		Type:     stripe.String(params.Type),
+		Value:    stripe.String(params.Value),
 	}
 	_, err = accounts.service.stripeClient.TaxIDs().New(&taxIDParams)
 	if err != nil {
 		stripeErr := &stripe.Error{}
 		if errors.As(err, &stripeErr) {
-			if stripeErr.Code == stripe.ErrorCodeTaxIDInvalid {
-				err = Error.Wrap(payments.ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
-			} else {
-				err = errs.Wrap(errors.New(stripeErr.Msg))
+			switch stripeErr.Code {
+			case stripe.ErrorCodeResourceAlreadyExists:
+				// Ignore duplicate tax ID error.
+			case stripe.ErrorCodeTaxIDInvalid:
+				return nil, Error.Wrap(payments.ErrInvalidTaxID.New("Tax validation error: %s", stripeErr.Msg))
+			default:
+				return nil, Error.Wrap(errs.Wrap(errors.New(stripeErr.Msg)))
 			}
+		} else {
+			return nil, Error.Wrap(err)
 		}
-		return nil, Error.Wrap(err)
 	}
 
-	params := &stripe.CustomerParams{
+	cusParams := &stripe.CustomerParams{
 		Params: stripe.Params{Context: ctx},
 	}
-	params.AddExpand("tax_ids")
-	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
+	cusParams.AddExpand("tax_ids")
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, cusParams)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

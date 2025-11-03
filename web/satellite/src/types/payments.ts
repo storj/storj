@@ -226,11 +226,12 @@ export interface PaymentsApi {
     /**
      * add a tax ID to a user's account.
      *
-     * @param taxID - the tax ID to save
+     * @param type - tax type
+     * @param value - tax value
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addTaxID(taxID: TaxID, csrfProtectionToken: string): Promise<BillingInformation>;
+    addTaxID(type: string, value: string, csrfProtectionToken: string): Promise<BillingInformation>;
 
     /**
      * remove a tax ID from a user's account.

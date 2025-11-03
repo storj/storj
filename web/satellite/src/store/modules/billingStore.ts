@@ -24,7 +24,6 @@ import {
     PurchaseIntent,
     Tax,
     TaxCountry,
-    TaxID,
     UpdateCardParams,
     UsagePriceModel,
     Wallet,
@@ -192,8 +191,8 @@ export const useBillingStore = defineStore('billing', () => {
         return await api.getCardSetupSecret();
     }
 
-    async function addTaxID(taxID: TaxID): Promise<void> {
-        state.billingInformation = await api.addTaxID(taxID, csrfToken.value);
+    async function addTaxID(type: string, value: string): Promise<void> {
+        state.billingInformation = await api.addTaxID(type, value, csrfToken.value);
     }
 
     async function removeTaxID(ID: string): Promise<void> {

@@ -233,16 +233,12 @@ func TestBillingInformation(t *testing.T) {
 				break
 			}
 		}
-		var usTax payments.Tax
+		taxParams := payments.AddTaxParams{Value: "123456789"}
 		for _, tax := range payments.Taxes {
 			if tax.CountryCode == "US" {
-				usTax = tax
+				taxParams.Type = string(tax.Code)
 				break
 			}
-		}
-		taxID := payments.TaxID{
-			Tax:   usTax,
-			Value: "123456789",
 		}
 		address := payments.BillingAddress{
 			Name:       "Some Company",
@@ -273,13 +269,13 @@ func TestBillingInformation(t *testing.T) {
 		require.Empty(t, newInfo.TaxIDs)
 		require.Empty(t, newInfo.InvoiceReference)
 
-		newInfo, err = accounts.AddTaxID(ctx, userID, taxID)
+		newInfo, err = accounts.AddTaxID(ctx, "", userID, taxParams)
 		require.NoError(t, err)
 		require.Equal(t, address, *newInfo.Address)
 		require.NotEmpty(t, newInfo.TaxIDs)
 		require.NotEmpty(t, newInfo.TaxIDs[0].ID)
-		require.Equal(t, taxID.Tax.Code, newInfo.TaxIDs[0].Tax.Code)
-		require.Equal(t, taxID.Value, newInfo.TaxIDs[0].Value)
+		require.EqualValues(t, taxParams.Type, newInfo.TaxIDs[0].Tax.Code)
+		require.Equal(t, taxParams.Value, newInfo.TaxIDs[0].Value)
 		require.Empty(t, newInfo.InvoiceReference)
 
 		newInfo, err = accounts.RemoveTaxID(ctx, userID, newInfo.TaxIDs[0].ID)

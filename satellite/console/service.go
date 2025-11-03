@@ -594,7 +594,7 @@ func (payment Payments) AddInvoiceReference(ctx context.Context, reference strin
 }
 
 // AddTaxID adds a new tax ID for a user and returns the updated billing information.
-func (payment Payments) AddTaxID(ctx context.Context, taxID payments.TaxID) (_ *payments.BillingInformation, err error) {
+func (payment Payments) AddTaxID(ctx context.Context, params payments.AddTaxParams) (_ *payments.BillingInformation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "add tax ID")
@@ -602,7 +602,7 @@ func (payment Payments) AddTaxID(ctx context.Context, taxID payments.TaxID) (_ *
 		return nil, Error.Wrap(err)
 	}
 
-	newInfo, err := payment.service.accounts.AddTaxID(ctx, user.ID, taxID)
+	newInfo, err := payment.service.accounts.AddTaxID(ctx, "", user.ID, params)
 
 	return newInfo, Error.Wrap(err)
 }

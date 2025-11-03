@@ -1052,18 +1052,18 @@ func (p *Payments) AddTaxID(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var taxID payments.TaxID
-	if err = json.NewDecoder(r.Body).Decode(&taxID); err != nil {
+	var params payments.AddTaxParams
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
-	if taxID.Tax.Code == "" || taxID.Value == "" {
+	if params.Type == "" || params.Value == "" {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing required tax ID fields"))
 		return
 	}
 
-	newInfo, err := p.service.Payments().AddTaxID(ctx, taxID)
+	newInfo, err := p.service.Payments().AddTaxID(ctx, params)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

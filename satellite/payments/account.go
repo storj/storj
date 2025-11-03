@@ -56,7 +56,7 @@ type Accounts interface {
 	SaveBillingAddress(ctx context.Context, cusID string, userID uuid.UUID, address BillingAddress) (*BillingInformation, error)
 
 	// AddTaxID adds a new tax ID for a user and returns the updated billing information.
-	AddTaxID(ctx context.Context, userID uuid.UUID, taxID TaxID) (*BillingInformation, error)
+	AddTaxID(ctx context.Context, cusID string, userID uuid.UUID, params AddTaxParams) (*BillingInformation, error)
 
 	// AddDefaultInvoiceReference adds a new default invoice reference to be displayed on each invoice and returns the updated billing information.
 	AddDefaultInvoiceReference(ctx context.Context, userID uuid.UUID, reference string) (*BillingInformation, error)

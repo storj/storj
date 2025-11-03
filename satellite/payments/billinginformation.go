@@ -27,3 +27,9 @@ type BillingInformation struct {
 	TaxIDs           []TaxID         `json:"taxIDs"`
 	InvoiceReference string          `json:"invoiceReference"`
 }
+
+// AddTaxParams holds tax information for adding to a customer.
+type AddTaxParams struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
