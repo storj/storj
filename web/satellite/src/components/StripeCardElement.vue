@@ -9,12 +9,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import {
     Stripe,
     StripeElements,
-    StripeElementsOptions,
+    StripeElementsOptionsMode,
     StripePaymentElement,
 } from '@stripe/stripe-js';
 import { useTheme } from 'vuetify';
@@ -47,8 +47,6 @@ const paymentElement = ref<StripePaymentElement>();
 const stripe = ref<Stripe | null>(null);
 const elements = ref<StripeElements | null>(null);
 
-const cardAuthorizationEnabled = computed(() => configStore.state.config.addCardAuthorizationEnabled);
-
 /**
  * Stripe initialization.
  */
@@ -56,21 +54,15 @@ async function initStripe(): Promise<void> {
     const stripePublicKey = configStore.state.config.stripePublicKey;
 
     try {
-        const options: StripeElementsOptions = {
+        const options: StripeElementsOptionsMode = {
             currency:'usd',
             appearance: {
                 theme: theme.global.current.value.dark ? 'night' : 'stripe',
                 labels: 'floating',
             },
-        };
-        if (cardAuthorizationEnabled.value) {
             // @ts-expect-error clientSecret can be assigned a string but is defined as undefined in the type.
-            options.clientSecret = await billingStore.getCardSetupSecret();
-        } else {
-            options.mode = 'setup';
-            options.paymentMethodCreation = 'manual';
-            options.paymentMethodTypes = ['card'];
-        }
+            clientSecret: await billingStore.getCardSetupSecret(),
+        };
 
         if (!stripe.value) {
             // load stripe library
@@ -113,47 +105,33 @@ async function onSubmit(): Promise<string> {
     const stripeValue = stripe.value;
     const elementsValue = elements.value;
 
-    // Trigger form validation
+    // Trigger form validation.
     const res = await elements.value.submit();
     if (res.error) {
         throw new Error(res.error.message ?? 'There is an issue with the card');
     }
 
-    if (cardAuthorizationEnabled.value) {
-        const { error, setupIntent } = await stripeValue.confirmSetup({
-            elements: elementsValue,
-            redirect: 'if_required',
-            confirmParams: {
-                expand: ['payment_method'],
-            },
-        });
-
-        if (error || !setupIntent.payment_method || setupIntent.status !== 'succeeded') {
-            throw new Error(error?.message ?? 'There is an issue with the card');
-        }
-
-        const paymentMethod = setupIntent.payment_method;
-
-        if (typeof paymentMethod === 'string') {
-            return paymentMethod;
-        }
-        if (paymentMethod.card?.funding === 'prepaid') {
-            throw new Error('Prepaid cards are not supported');
-        }
-        return paymentMethod.id;
-    }
-
-    // Create the PaymentMethod using the details collected by the Payment Element
-    const { error, paymentMethod } = await stripe.value.createPaymentMethod({
-        elements: elements.value,
+    const { error, setupIntent } = await stripeValue.confirmSetup({
+        elements: elementsValue,
+        redirect: 'if_required',
+        confirmParams: {
+            expand: ['payment_method'],
+        },
     });
-    if (error) {
-        throw new Error(error.message ?? 'There is an issue with the card');
+
+    if (error || !setupIntent.payment_method || setupIntent.status !== 'succeeded') {
+        throw new Error(error?.message ?? 'There is an issue with the card');
     }
 
+    const paymentMethod = setupIntent.payment_method;
+
+    if (typeof paymentMethod === 'string') {
+        return paymentMethod;
+    }
     if (paymentMethod.card?.funding === 'prepaid') {
         throw new Error('Prepaid cards are not supported');
     }
+
     return paymentMethod.id;
 }
 

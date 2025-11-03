@@ -280,9 +280,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether active sessions table view should be shown
 # console.active-sessions-view-enabled: false
 
-# whether card authorization is enabled when adding a card
-# console.add-card-authorization-enabled: false
-
 # number of add card events before the limit kicks in
 # console.add-card-rate-limiter.burst: 3
 

@@ -80,7 +80,6 @@ type FrontendConfig struct {
 	ObjectMountConsultationEnabled    bool                        `json:"objectMountConsultationEnabled"`
 	CSRFToken                         string                      `json:"csrfToken"`
 	BillingStripeCheckoutEnabled      bool                        `json:"billingStripeCheckoutEnabled"`
-	AddCardAuthorizationEnabled       bool                        `json:"addCardAuthorizationEnabled"`
 	MaxAddFundsAmount                 int                         `json:"maxAddFundsAmount"`
 	MinAddFundsAmount                 int                         `json:"minAddFundsAmount"`
 	DownloadPrefixEnabled             bool                        `json:"downloadPrefixEnabled"`

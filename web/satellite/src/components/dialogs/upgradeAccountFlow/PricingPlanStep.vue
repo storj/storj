@@ -182,8 +182,6 @@ const loading = defineModel<boolean>('loading');
  */
 const isFree = computed<boolean>(() => props.plan?.type === PricingPlanType.FREE);
 
-const cardAuthorizationEnabled = computed(() => configStore.state.config.addCardAuthorizationEnabled);
-
 const upgradePayUpfrontAmount = computed(() => configStore.state.config.upgradePayUpfrontAmount);
 
 function onBack(): void {
@@ -211,11 +209,9 @@ async function onActivateClick() {
     } catch (error) {
         const source = props.isAccountSetup ? AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG : AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL;
         notify.notifyError(error, source);
-        if (cardAuthorizationEnabled.value) {
-            // initStripe will get a new card setup secret if there's an error.
-            stripeCardInput.value?.initStripe();
-        }
-        notify.notifyError(error);
+
+        // initStripe will get a new card setup secret if there's an error.
+        stripeCardInput.value?.initStripe();
     }
     loading.value = false;
 }
