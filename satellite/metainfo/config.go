@@ -265,6 +265,9 @@ type Config struct {
 	TestingAlternativeBeginObject         bool      `default:"true" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
 	TestingAlternativeBeginObjectProjects UUIDsFlag `default:""  help:"list of project IDs for which will use alternative (negative version) begin object implementation" hidden:"true"`
 
+	TestingNoPendingObjectUpload         bool      `default:"false" help:"enable alternative upload flow where pending object is not created" hidden:"true"`
+	TestingNoPendingObjectUploadProjects UUIDsFlag `default:""  help:"list of project IDs for which will use alternative upload flow where pending object is not created" hidden:"true"`
+
 	// TODO we need to split this into separate config with other metabase related flags
 	MetabaseCompression string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
 }
@@ -381,4 +384,15 @@ func (m *MigrationModeFlagExtension) Handler(w http.ResponseWriter, r *http.Requ
 // Enabled returns true if migration mode is enabled.
 func (m *MigrationModeFlagExtension) Enabled() bool {
 	return m.migrationMode.Load()
+}
+
+func (c *Config) isNoPendingObjectUploadEnabled(projectID uuid.UUID) bool {
+	if c.TestingNoPendingObjectUpload {
+		return true
+	}
+	if len(c.TestingNoPendingObjectUploadProjects) == 0 {
+		return false
+	}
+	_, exists := c.TestingNoPendingObjectUploadProjects[projectID]
+	return exists
 }

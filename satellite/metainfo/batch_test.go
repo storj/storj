@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -18,6 +19,8 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/uplink/private/metaclient"
 )
 
@@ -232,6 +235,146 @@ func TestBatch(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
+		})
+	})
+}
+
+func TestBatchBeginObjectMultipartDetection(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.TestingNoPendingObjectUpload = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
+
+		bucketName := testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName))
+
+		endpoint := planet.Satellites[0].Metainfo.Endpoint
+
+		t.Run("multipart", func(t *testing.T) {
+			response, err := endpoint.Batch(peerctx, &pb.BatchRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Requests: []*pb.BatchRequestItem{
+					{
+						Request: &pb.BatchRequestItem_ObjectBegin{
+							ObjectBegin: &pb.BeginObjectRequest{
+								Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Bucket:             []byte(bucketName),
+								EncryptedObjectKey: []byte("some-key"),
+								EncryptionParameters: &pb.EncryptionParameters{
+									CipherSuite: pb.CipherSuite_ENC_AESGCM,
+									BlockSize:   256,
+								},
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, response.Responses, 1)
+
+			satStreamID := &internalpb.StreamID{}
+			err = pb.Unmarshal(response.Responses[0].GetObjectBegin().StreamId.Bytes(), satStreamID)
+			require.NoError(t, err)
+			require.True(t, satStreamID.MultipartObject)
+		})
+
+		t.Run("non multipart", func(t *testing.T) {
+			response, err := endpoint.Batch(peerctx, &pb.BatchRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Requests: []*pb.BatchRequestItem{
+					{
+						Request: &pb.BatchRequestItem_ObjectBegin{
+							ObjectBegin: &pb.BeginObjectRequest{
+								Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Bucket:             []byte(bucketName),
+								EncryptedObjectKey: []byte("some-key"),
+								EncryptionParameters: &pb.EncryptionParameters{
+									CipherSuite: pb.CipherSuite_ENC_AESGCM,
+									BlockSize:   256,
+								},
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_SegmentBegin{
+							SegmentBegin: &pb.BeginSegmentRequest{
+								Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Position:      &pb.SegmentPosition{},
+								MaxOrderLimit: memory.MiB.Int64(),
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, response.Responses, 2)
+
+			satStreamID := &internalpb.StreamID{}
+			err = pb.Unmarshal(response.Responses[0].GetObjectBegin().StreamId.Bytes(), satStreamID)
+			require.NoError(t, err)
+			require.False(t, satStreamID.MultipartObject)
+
+			// upload around other requests
+			response, err = endpoint.Batch(peerctx, &pb.BatchRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Requests: []*pb.BatchRequestItem{
+					{
+						Request: &pb.BatchRequestItem_BucketList{
+							BucketList: &pb.ListBucketsRequest{
+								Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Direction: pb.ListDirection_AFTER,
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_ObjectBegin{
+							ObjectBegin: &pb.BeginObjectRequest{
+								Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Bucket:             []byte(bucketName),
+								EncryptedObjectKey: []byte("some-key"),
+								EncryptionParameters: &pb.EncryptionParameters{
+									CipherSuite: pb.CipherSuite_ENC_AESGCM,
+									BlockSize:   256,
+								},
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_SegmentBegin{
+							SegmentBegin: &pb.BeginSegmentRequest{
+								Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Position:      &pb.SegmentPosition{},
+								MaxOrderLimit: memory.MiB.Int64(),
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_BucketList{
+							BucketList: &pb.ListBucketsRequest{
+								Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Direction: pb.ListDirection_AFTER,
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, response.Responses, 4)
+
+			satStreamID = &internalpb.StreamID{}
+			err = pb.Unmarshal(response.Responses[1].GetObjectBegin().StreamId.Bytes(), satStreamID)
+			require.NoError(t, err)
+			require.False(t, satStreamID.MultipartObject)
 		})
 	})
 }

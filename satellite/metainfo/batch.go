@@ -243,7 +243,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				continue
 			}
 
-			response, err := endpoint.BeginObject(ctx, singleRequest.ObjectBegin)
+			response, err := endpoint.beginObject(ctx, singleRequest.ObjectBegin, multipartUpload(i, req.Requests))
 			if err != nil {
 				return resp, err
 			}
@@ -629,4 +629,11 @@ func shouldDoInlineObject(index int, requests []*pb.BatchRequestItem) (_ *pb.Seg
 	}
 
 	return makeInlineSegReq.SegmentMakeInline, commitObjReq.ObjectCommit, true
+}
+
+// multipartUpload checks whether the current ObjectBegin request is part of a multipart upload
+// or regular upload. We can detect that by checking if the next request is SegmentBegin which is
+// never the case for multipart uploads.
+func multipartUpload(index int, requests []*pb.BatchRequestItem) bool {
+	return !(len(requests) > index+1 && requests[index+1].GetSegmentBegin() != nil)
 }
