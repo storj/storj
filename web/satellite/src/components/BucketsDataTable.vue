@@ -84,7 +84,7 @@
                 <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
                     <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
                 </v-icon>
-                <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize">
+                <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize font-weight-semibold">
                     {{ item.location || `unknown(${item.defaultPlacement})` }}
                 </v-chip>
             </div>
@@ -96,8 +96,8 @@
                         <v-icon v-bind="props" size="28" :icon="getVersioningIcon(item.versioning)" class="mr-1 pa-1 rounded-lg border" />
                     </template>
                 </v-tooltip>
-                <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small">
-                    {{ item.versioning }}
+                <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small" class="font-weight-semibold">
+                    {{ getVersioningFormattedStatus(item.versioning) }}
                 </v-chip>
             </div>
         </template>
@@ -108,8 +108,8 @@
                         <v-icon v-bind="props" size="28" :icon="item.objectLockEnabled ? LockKeyhole : LockKeyholeOpen" class="mr-1 pa-1 rounded-lg border" />
                     </template>
                 </v-tooltip>
-                <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small">
-                    {{ item.objectLockEnabled ? 'Enabled' : 'Disabled' }}
+                <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small" class="font-weight-semibold">
+                    {{ item.objectLockEnabled ? 'On' : 'Off' }}
                 </v-chip>
             </div>
         </template>
@@ -385,10 +385,6 @@ const headers = computed<DataTableHeader[]>(() => {
         },
     ];
 
-    if (hasOtherMembers.value) {
-        hdrs.push({ title: 'Creator', key: 'creatorEmail', sortable: isTableSortable.value });
-    }
-
     hdrs.push(
         { title: 'Objects', key: 'objectCount', sortable: isTableSortable.value },
     );
@@ -415,10 +411,13 @@ const headers = computed<DataTableHeader[]>(() => {
         hdrs.push({ title: 'Lock', key: 'objectLockEnabled', sortable: isTableSortable.value });
     }
 
-    hdrs.push(
-        { title: 'Date Created', key: 'since', sortable: isTableSortable.value },
-        { title: '', key: 'actions', width: '0', sortable: false },
-    );
+    hdrs.push({ title: 'Date Created', key: 'since', sortable: isTableSortable.value });
+
+    if (hasOtherMembers.value) {
+        hdrs.push({ title: 'Created By', key: 'creatorEmail', sortable: isTableSortable.value });
+    }
+
+    hdrs.push({ title: '', key: 'actions', width: '0', sortable: false });
 
     return hdrs;
 });
@@ -597,6 +596,21 @@ function getVersioningChipColor(status: Versioning): string {
         return 'warning';
     default:
         return 'default';
+    }
+}
+
+function getVersioningFormattedStatus(status: Versioning): string {
+    switch (status) {
+    case Versioning.Unversioned:
+        return 'Off';
+    case Versioning.Enabled:
+        return 'On';
+    case Versioning.NotSupported:
+        return 'No';
+    case Versioning.Suspended:
+        return 'Paused';
+    default:
+        return status;
     }
 }
 

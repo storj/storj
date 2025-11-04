@@ -60,7 +60,7 @@ test.describe('buckets', () => {
         await bucketsPage.createBucketWithVersioning(bucketName);
         await bucketsPage.openBucketSettings();
         await bucketsPage.openBucketDetails();
-        await bucketsPage.verifyEnabledStatus(2);
+        await bucketsPage.verifyEnabledStatus(1);
         await bucketsPage.closeBucketDetails();
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyDeleteBucket(bucketName);
@@ -76,7 +76,7 @@ test.describe('buckets', () => {
         await bucketsPage.createBucketWithObjectLock(bucketName);
         await bucketsPage.openBucketSettings();
         await bucketsPage.openBucketDetails();
-        await bucketsPage.verifyEnabledStatus(4); // 4 is expected here because "Enabled" appears twice in details dialog and twice in buckets table
+        await bucketsPage.verifyEnabledStatus(2); // 2 indicates object lock and versioning are enabled.
         await bucketsPage.closeBucketDetails();
         await bucketsPage.openBucketSettings();
         await bucketsPage.verifyDeleteBucket(bucketName);

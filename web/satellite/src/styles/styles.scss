@@ -756,6 +756,10 @@ table {
   pointer-events: none;
 }
 
+.font-weight-semibold {
+  font-weight: 600 !important;
+}
+
 .white-link {
   color: #fff;
 
@@ -812,8 +816,8 @@ table {
 
 // Target autofilled input fields in WebKit browsers (Chrome, Safari, Edge)
 input:-webkit-autofill,
-input:-webkit-autofill:hover, 
-input:-webkit-autofill:focus, 
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
     -webkit-box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
     box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
