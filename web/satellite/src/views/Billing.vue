@@ -235,7 +235,7 @@
                         <StorjTokenCardComponent ref="tokenCardComponent" @history-clicked="tab = TABS.transactions" />
                     </v-col>
 
-                    <v-col v-for="(card, i) in creditCards" :key="i" cols="12" sm="12" md="6" lg="6" xl="4">
+                    <v-col v-for="card in creditCards" :key="card.id" cols="12" sm="12" md="6" lg="6" xl="4">
                         <CreditCardComponent :card="card" />
                     </v-col>
 
@@ -343,9 +343,11 @@ const isAddFundsDialogShown = ref<boolean>(false);
 
 const tokenCardComponent = ref<IStorjTokenCardComponent>();
 
-const creditCards = computed((): CreditCard[] => {
-    return billingStore.state.creditCards;
-});
+const creditCards = computed((): CreditCard[] =>
+    billingStore.state.creditCards
+        .slice()
+        .sort((a, b) => Number(b.isDefault) - Number(a.isDefault)),
+);
 
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);

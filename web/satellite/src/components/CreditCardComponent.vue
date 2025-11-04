@@ -67,7 +67,7 @@
         </v-card-text>
     </v-card>
     <remove-credit-card-dialog v-model="isRemoveCCDialog" :card="card" @edit-default="isEditDefaultCCDialog = true" />
-    <edit-default-credit-card-dialog v-model="isEditDefaultCCDialog" />
+    <edit-default-credit-card-dialog v-model="isEditDefaultCCDialog" :scrim="!isRemoveCCDialog" />
 </template>
 
 <script setup lang="ts">

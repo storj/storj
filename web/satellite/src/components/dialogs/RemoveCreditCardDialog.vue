@@ -140,7 +140,6 @@ async function attemptPayments() {
 }
 
 function onEditDefault(): void {
-    model.value = false;
     emit('editDefault');
 }
 </script>

@@ -6,6 +6,7 @@
         v-model="model"
         max-width="420px"
         transition="fade-transition"
+        :scrim
         :persistent="isLoading"
     >
         <v-card>
@@ -88,6 +89,10 @@ import { useUsersStore } from '@/store/modules/usersStore';
 
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';
 import IconCard from '@/components/icons/IconCard.vue';
+
+defineProps<{
+    scrim: boolean,
+}>();
 
 const model = defineModel<boolean>({ required: true });
 
