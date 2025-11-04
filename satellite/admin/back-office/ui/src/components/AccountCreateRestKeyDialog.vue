@@ -63,7 +63,7 @@
                         <v-textarea
                             v-model="reason"
                             :rules="[RequiredRule]"
-                            placeholder="Enter reason for deleting this account"
+                            placeholder="Enter reason for creating this API key"
                             label="Reason"
                             variant="solo-filled"
                             hide-details="auto"
