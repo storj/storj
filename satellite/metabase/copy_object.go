@@ -756,7 +756,7 @@ func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Contex
 				"project_id", "bucket_name", "object_key", "version", "stream_id",
 				"status", "zombie_deletion_deadline",
 			}, []any{
-				object.ProjectID, object.BucketName, object.ObjectKey, int64(object.Version), object.StreamID,
+				object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
 				object.Status, nil,
 			}),
 		})

@@ -876,7 +876,7 @@ func (s *SpannerAdapter) commitSegmentWithMutations(ctx context.Context, mutatio
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		row, err := txn.ReadRow(ctx,
 			"objects",
-			spanner.Key{opts.ProjectID, opts.BucketName, opts.ObjectKey, int64(opts.Version)},
+			spanner.Key{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version},
 			[]string{"stream_id", "status"},
 		)
 		if err != nil && !errors.Is(err, spanner.ErrRowNotFound) {
@@ -1705,7 +1705,7 @@ func (stx *spannerTransactionAdapter) precommitDeleteExactObject(ctx context.Con
 			opts.ProjectID,
 			opts.BucketName,
 			opts.ObjectKey,
-			int64(opts.Version),
+			opts.Version,
 		}),
 		spanner.Delete("segments", spanner.KeyRange{
 			Start: spanner.Key{opts.StreamID},

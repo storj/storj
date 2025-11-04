@@ -510,6 +510,33 @@ func (v *Version) Scan(val any) error {
 	}
 }
 
+// Value converts a Version to a database field.
+func (v Version) Value() (driver.Value, error) {
+	return int64(v), nil
+}
+
+// EncodeSpanner implements spanner.Encoder.
+func (v Version) EncodeSpanner() (any, error) {
+	return v.Value()
+}
+
+// DecodeSpanner implements spanner.Decoder.
+func (v *Version) DecodeSpanner(val any) error {
+	switch value := val.(type) {
+	case int64:
+		*v = Version(value)
+	case string:
+		parsedValue, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return Error.New("unable to scan %T into Version: %v", val, err)
+		}
+		*v = Version(parsedValue)
+	default:
+		return Error.New("unable to scan %T into Version", val)
+	}
+	return nil
+}
+
 // StreamVersionID represents combined Version and StreamID suffix for purposes of public API.
 // First 8 bytes represents Version and rest are object StreamID suffix.
 // TODO(ver): we may consider renaming this type to VersionID but to do that

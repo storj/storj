@@ -887,7 +887,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 					object.ProjectID,
 					object.BucketName,
 					object.ObjectKey,
-					int64(object.Version),
+					object.Version,
 				}),
 				spanner.Delete("segments", spanner.KeyRange{
 					Start: spanner.Key{object.StreamID},
