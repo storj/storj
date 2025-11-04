@@ -265,7 +265,7 @@ type Config struct {
 	TestingAlternativeBeginObject         bool      `default:"true" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
 	TestingAlternativeBeginObjectProjects UUIDsFlag `default:"" help:"list of project IDs for which will use alternative (negative version) begin object implementation" hidden:"true"`
 
-	TestingNoPendingObjectUpload         bool      `default:"false" help:"enable alternative upload flow where pending object is not created" hidden:"true"`
+	TestingNoPendingObjectUpload         bool      `default:"true" help:"enable alternative upload flow where pending object is not created" hidden:"true"`
 	TestingNoPendingObjectUploadProjects UUIDsFlag `default:"" help:"list of project IDs for which will use alternative upload flow where pending object is not created" hidden:"true"`
 
 	// TODO we need to split this into separate config with other metabase related flags
