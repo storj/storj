@@ -54,7 +54,7 @@
             <v-col v-if="!emissionImpactViewEnabled && !newPricingEnabled" cols="6" md="4" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Segments" color="info" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
-            <v-col v-if="!newPricingEnabled" cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col cols="6" md="4" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Buckets" color="info" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" :lg="statsRowLgColSize">
@@ -441,9 +441,8 @@ const usageRowXlColSize = computed(() => {
  * Calculates stats row column size based on enabled cards.
  */
 const statsRowLgColSize = computed(() => {
-    let cards = 3;
+    let cards = 4;
     if (!emissionImpactViewEnabled.value && !newPricingEnabled.value) cards++;
-    if (!newPricingEnabled.value) cards++;
     if (emissionImpactViewEnabled.value) cards += 2;
     if (billingEnabled.value && !emissionImpactViewEnabled.value) cards++;
     return Math.floor(12 / cards);
