@@ -48,6 +48,7 @@ type Store struct {
 	today     func() uint32          // hook for getting the current timestamp
 	lock      *os.File               // lock file to prevent multiple processes from using the same store
 	valid     func(Key, []byte) bool // valid callback for reconciliation.
+	amnesty   func(context.Context, []Key)
 
 	lfc *logCollection                   // collection of log files ready to be written into
 	lru *multiLRUCache[string, *os.File] // cache of open file handles
@@ -91,7 +92,15 @@ func (s *Store) compactionProbabilityFactor() float64 {
 }
 
 // NewStore creates or opens a store in the given directory.
-func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string, log *zap.Logger) (_ *Store, err error) {
+func NewStore(
+	ctx context.Context,
+	cfg Config,
+	logsPath string,
+	tablePath string,
+	log *zap.Logger,
+	valid func(Key, []byte) bool,
+	amnesty func(context.Context, []Key),
+) (_ *Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if log == nil {
@@ -102,13 +111,21 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 		tablePath = filepath.Join(logsPath, "meta")
 	}
 
+	if valid == nil {
+		valid = func(k Key, b []byte) bool { return true }
+	}
+	if amnesty == nil {
+		amnesty = func(context.Context, []Key) {}
+	}
+
 	s := &Store{
 		cfg:       cfg,
 		logsPath:  logsPath,
 		tablePath: tablePath,
 		log:       log,
 		today:     func() uint32 { return TimeToDateDown(time.Now()) },
-		valid:     func(k Key, b []byte) bool { return true },
+		valid:     valid,
+		amnesty:   amnesty,
 
 		lfc: newLogCollection(),
 		lru: newMultiLRUCache[string, *os.File](cfg.Store.OpenFileCache),
@@ -277,12 +294,12 @@ func NewStore(ctx context.Context, cfg Config, logsPath string, tablePath string
 				if err != nil {
 					return Error.Wrap(err)
 				} else if len(invalid) > 0 {
-					// TODO: amnesty these invalid keys
 					s.log.Warn("reconciled log with invalid records",
 						zap.Uint64("id", lf.id),
 						zap.String("path", lf.path),
 						zap.Int("invalid count", len(invalid)),
 					)
+					s.amnesty(ctx, invalid)
 				}
 			} else {
 				s.log.Info("matched log tail",

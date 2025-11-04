@@ -121,12 +121,12 @@ func testStore_FileLocking(t *testing.T, cfg Config) {
 	defer s.Close()
 
 	// flock should stop a second store from being created with the same hashdir.
-	_, err := NewStore(ctx, cfg, s.logsPath, "", nil)
+	_, err := NewStore(ctx, cfg, s.logsPath, "", nil, nil, nil)
 	assert.Error(t, err)
 
 	// it should still be locked even after compact makes a new hashtbl file.
 	s.AssertCompact(nil, time.Time{})
-	_, err = NewStore(ctx, cfg, s.logsPath, "", nil)
+	_, err = NewStore(ctx, cfg, s.logsPath, "", nil, nil, nil)
 	assert.Error(t, err)
 }
 
@@ -1484,7 +1484,7 @@ func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T, cfg Config) {
 
 	assert.NoError(t, os.Remove(filepath.Join(s.tablePath, "hashtbl")))
 
-	_, err := NewStore(t.Context(), cfg, s.logsPath, s.tablePath, s.log)
+	_, err := NewStore(t.Context(), cfg, s.logsPath, s.tablePath, s.log, s.valid, s.amnesty)
 	assert.Error(t, err)
 }
 

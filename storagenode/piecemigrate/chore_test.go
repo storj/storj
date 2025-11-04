@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
-	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/satstore"
 )
 
@@ -51,13 +50,8 @@ func TestHashMismatch(t *testing.T) {
 
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 
-	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
-	require.NoError(t, err)
-
-	rtm := retain.NewRestoreTimeManager(t.TempDir())
-
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", nil, nil, log, nil)
 	require.NoError(t, err)
 	defer ctx.Check(new.Close)
 
@@ -142,13 +136,8 @@ func TestExpiredPiecesRemoval(t *testing.T) {
 
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 
-	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
-	require.NoError(t, err)
-
-	rtm := retain.NewRestoreTimeManager(t.TempDir())
-
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", nil, nil, log, nil)
 	require.NoError(t, err)
 	defer ctx.Check(new.Close)
 
@@ -211,13 +200,8 @@ func TestDuplicates(t *testing.T) {
 
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 
-	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
-	require.NoError(t, err)
-
-	rtm := retain.NewRestoreTimeManager(t.TempDir())
-
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", nil, nil, log, nil)
 	require.NoError(t, err)
 	defer ctx.Check(new.Close)
 
@@ -268,13 +252,8 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 
-	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
-	require.NoError(t, err)
-
-	rtm := retain.NewRestoreTimeManager(t.TempDir())
-
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), filepath.Join(t.TempDir(), "foo"), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), filepath.Join(t.TempDir(), "foo"), nil, nil, log, nil)
 	require.NoError(t, err)
 	defer ctx.Check(new.Close)
 
@@ -381,13 +360,8 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 
 	fw := pieces.NewFileWalker(log, blobs, nil, nil, nil)
 
-	bfm, err := retain.NewBloomFilterManager(t.TempDir(), 0)
-	require.NoError(t, err)
-
-	rtm := retain.NewRestoreTimeManager(t.TempDir())
-
 	old := pieces.NewStore(log, fw, nil, blobs, nil, nil, pieces.DefaultConfig)
-	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), t.TempDir(), bfm, rtm, log)
+	new, err := piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), t.TempDir(), nil, nil, log, nil)
 	require.NoError(t, err)
 	defer ctx.Check(new.Close)
 

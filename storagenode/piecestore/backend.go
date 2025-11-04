@@ -4,6 +4,7 @@
 package piecestore
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -24,6 +25,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/pieces"
@@ -64,9 +66,10 @@ type HashStoreBackend struct {
 	tablePath string
 	cfg       hashstore.Config
 
-	bfm *retain.BloomFilterManager
-	rtm *retain.RestoreTimeManager
-	log *zap.Logger
+	bfm     *retain.BloomFilterManager
+	rtm     *retain.RestoreTimeManager
+	log     *zap.Logger
+	amnesty *contact.AmnestyClient
 
 	mu  sync.Mutex
 	dbs map[storj.NodeID]*hashstore.DB
@@ -82,6 +85,7 @@ func NewHashStoreBackend(
 	bfm *retain.BloomFilterManager,
 	rtm *retain.RestoreTimeManager,
 	log *zap.Logger,
+	amnesty *contact.AmnestyClient,
 ) (*HashStoreBackend, error) {
 
 	if tablePath == "" {
@@ -95,6 +99,7 @@ func NewHashStoreBackend(
 		bfm:       bfm,
 		rtm:       rtm,
 		log:       log,
+		amnesty:   amnesty,
 
 		dbs: map[storj.NodeID]*hashstore.DB{},
 	}
@@ -238,8 +243,9 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 	}
 
 	var (
-		shouldTrash func(ctx context.Context, pieceID storj.PieceID, created time.Time) bool
-		lastRestore func(ctx context.Context) time.Time
+		shouldTrash   func(ctx context.Context, pieceID storj.PieceID, created time.Time) bool
+		lastRestore   func(ctx context.Context) time.Time
+		amnestyReport func(context.Context, []storj.PieceID)
 	)
 	if hsb.bfm != nil {
 		shouldTrash = hsb.bfm.GetBloomFilter(satellite)
@@ -249,6 +255,18 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 			return hsb.rtm.GetRestoreTime(ctx, satellite, time.Now())
 		}
 	}
+	if hsb.amnesty != nil {
+		amnestyReport = func(ctx context.Context, pieceIDs []storj.PieceID) {
+			for _, pieceID := range pieceIDs {
+				if err := hsb.amnesty.ReportBadPiece(ctx, satellite, pieceID); err != nil {
+					log.Error("failed to report bad piece to amnesty",
+						zap.Stringer("piece_id", pieceID),
+						zap.Error(err),
+					)
+				}
+			}
+		}
+	}
 
 	db, err := hashstore.New(
 		ctx,
@@ -256,8 +274,12 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 		filepath.Join(hsb.logsPath, satellite.String()),
 		filepath.Join(hsb.tablePath, satellite.String()),
 		log,
-		shouldTrash,
-		lastRestore,
+		hashstore.Callbacks{
+			ShouldTrash: shouldTrash,
+			LastRestore: lastRestore,
+			Valid:       pieceValid,
+			Amnesty:     amnestyReport,
+		},
 	)
 	if err != nil {
 		return nil, err
@@ -402,6 +424,41 @@ func (hr *hashStoreReader) GetPieceHeader() (_ *pb.PieceHeader, err error) {
 		return nil, err
 	}
 	return &header, nil
+}
+
+func pieceValid(pieceID storj.PieceID, contents []byte) bool {
+	// we need at least enough data for the footer
+	if len(contents) < 512 {
+		return false
+	}
+
+	// split the contents into the data portion and the footer portion
+	data, suffix := contents[:len(contents)-512], contents[len(contents)-512:]
+	if len(suffix) < 512 {
+		return false
+	}
+
+	// read the footer length
+	l := uint(binary.BigEndian.Uint16(suffix[0:2]))
+	if l > 510 {
+		return false
+	}
+
+	// unmarshal the header
+	var header pb.PieceHeader
+	if err := pb.Unmarshal(suffix[2:2+l], &header); err != nil {
+		return false
+	}
+
+	// verify the piece ID matches
+	if header.OrderLimit.PieceId != pieceID {
+		return false
+	}
+
+	// verify the hash matches
+	hasher := pb.NewHashFromAlgorithm(header.HashAlgorithm)
+	hasher.Write(data)
+	return bytes.Equal(hasher.Sum(nil), header.Hash)
 }
 
 //

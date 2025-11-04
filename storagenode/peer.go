@@ -252,11 +252,12 @@ type Peer struct {
 	}
 
 	Contact struct {
-		Service   *contact.Service
-		Chore     *contact.Chore
-		Endpoint  *contact.Endpoint
-		PingStats *contact.PingStats
-		QUICStats *contact.QUICStats
+		Service       *contact.Service
+		Chore         *contact.Chore
+		Endpoint      *contact.Endpoint
+		PingStats     *contact.PingStats
+		QUICStats     *contact.QUICStats
+		AmnestyClient *contact.AmnestyClient
 	}
 
 	Estimation struct {
@@ -521,6 +522,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Contact.Service = contact.NewService(process.NamedLog(peer.Log, "contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, tags)
 
+		peer.Contact.AmnestyClient = contact.NewAmnestyClient(process.NamedLog(peer.Log, "contact:amnesty"), peer.Dialer, peer.Storage2.Trust)
+
 		peer.Contact.Chore = contact.NewChore(process.NamedLog(peer.Log, "contact:chore"), config.Contact.Interval, config.Contact.CheckInTimeout, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:chore",
@@ -609,6 +612,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.BloomFilterManager,
 			peer.Storage2.RestoreTimeManager,
 			process.NamedLog(peer.Log, "hashstore"),
+			peer.Contact.AmnestyClient,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

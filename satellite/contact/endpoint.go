@@ -271,6 +271,38 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 	return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid transport: %v", req.Transport)
 }
 
+// AmnestyReport handles storage nodes reporting pieces they have lost or detected as corrupted.
+func (endpoint *Endpoint) AmnestyReport(ctx context.Context, req *pb.AmnestyReportRequest) (_ *pb.AmnestyReportResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peerID, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Info("failed to get node ID from context", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
+	}
+	nodeID := peerID.ID
+
+	endpoint.log.Info("received amnesty report",
+		zap.Stringer("node_id", nodeID),
+		zap.Int("lost_pieces", len(req.LostPieces)))
+
+	// Report each lost piece to eventkit for monitoring and analysis for now
+	for _, lostPiece := range req.LostPieces {
+		ek.Event("amnesty_report",
+			eventkit.String("node_id", nodeID.String()),
+			eventkit.String("piece_id", lostPiece.PieceId.String()),
+			eventkit.String("reason", lostPiece.Reason.String()),
+		)
+
+		endpoint.log.Debug("piece reported as lost",
+			zap.Stringer("node_id", nodeID),
+			zap.String("piece_id", lostPiece.PieceId.String()),
+			zap.String("reason", lostPiece.Reason.String()))
+	}
+
+	return &pb.AmnestyReportResponse{}, nil
+}
+
 func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) error {
 	endpoint.log.Info("failed to ping back address", zap.String("node_address", nodeURL.Address), zap.Stringer("node_id", nodeURL.ID), zap.Error(err))
 	if errPingBackDial.Has(err) {

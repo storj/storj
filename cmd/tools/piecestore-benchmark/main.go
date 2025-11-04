@@ -168,7 +168,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 
 	rtm := retain.NewRestoreTimeManager("rtm")
 	// TODO: use injected configuration
-	hsb := try.E1(piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), "hashstore", "", bfm, rtm, log))
+	hsb := try.E1(piecestore.NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), "hashstore", "", bfm, rtm, log, nil))
 	mon.Chain(hsb)
 
 	var spaceReport monitor.SpaceReport

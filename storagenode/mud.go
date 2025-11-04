@@ -255,6 +255,8 @@ func Module(ball *mud.Ball) {
 
 		mud.Provide[*contact.Service](ball, contact.NewService)
 
+		mud.Provide[*contact.AmnestyClient](ball, contact.NewAmnestyClient)
+
 		mud.Provide[*contact.Chore](ball, func(log *zap.Logger, contactConfig contact.Config, service *contact.Service) *contact.Chore {
 			return contact.NewChore(log, contactConfig.Interval, contactConfig.CheckInTimeout, service)
 		})
@@ -345,9 +347,9 @@ func Module(ball *mud.Ball) {
 			return satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate")
 		})
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
-		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg hashstore.Config, old piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger) (*piecestore.HashStoreBackend, error) {
+		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg hashstore.Config, old piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger, amnesty *contact.AmnestyClient) (*piecestore.HashStoreBackend, error) {
 			logsPath, tablePath := cfg.Directories(old.Path)
-			backend, err := piecestore.NewHashStoreBackend(ctx, cfg, logsPath, tablePath, bfm, rtm, log)
+			backend, err := piecestore.NewHashStoreBackend(ctx, cfg, logsPath, tablePath, bfm, rtm, log, amnesty)
 			if err != nil {
 				return nil, err
 			}

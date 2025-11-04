@@ -731,8 +731,14 @@ type testStore struct {
 	today uint32
 }
 
-func newTestStore(t testing.TB, cfg Config) *testStore {
-	s, err := NewStore(t.Context(), cfg, t.TempDir(), "", newMemoryLogger())
+func newTestStore(t testing.TB, cfg Config, opts ...any) *testStore {
+	var valid func(Key, []byte) bool
+	checkOptions(opts, func(t WithValid) { valid = t })
+
+	var amnesty func(context.Context, []Key)
+	checkOptions(opts, func(t WithAmnesty) { amnesty = t })
+
+	s, err := NewStore(t.Context(), cfg, t.TempDir(), "", newMemoryLogger(), valid, amnesty)
 	assert.NoError(t, err)
 
 	ts := &testStore{t: t, Store: s, today: s.today()}
@@ -755,7 +761,7 @@ func (ts *testStore) AssertReopen(opts ...any) {
 		}
 	})
 
-	s, err := NewStore(ts.t.Context(), ts.cfg, ts.logsPath, ts.tablePath, ts.log)
+	s, err := NewStore(ts.t.Context(), ts.cfg, ts.logsPath, ts.tablePath, ts.log, ts.valid, ts.amnesty)
 	assert.NoError(ts.t, err)
 
 	s.today = func() uint32 { return ts.today }
@@ -862,10 +868,15 @@ type testDB struct {
 func newTestDB(
 	t testing.TB,
 	cfg Config,
-	dead func(context.Context, Key, time.Time) bool,
-	restore func(context.Context) time.Time,
+	opts ...any,
 ) *testDB {
-	db, err := New(t.Context(), cfg, t.TempDir(), "", newMemoryLogger(), dead, restore)
+	var cbs Callbacks
+	checkOptions(opts, func(t WithShouldTrash) { cbs.ShouldTrash = t })
+	checkOptions(opts, func(t WithLastRestore) { cbs.LastRestore = t })
+	checkOptions(opts, func(t WithValid) { cbs.Valid = t })
+	checkOptions(opts, func(t WithAmnesty) { cbs.Amnesty = t })
+
+	db, err := New(t.Context(), cfg, t.TempDir(), "", newMemoryLogger(), cbs)
 	assert.NoError(t, err)
 
 	td := &testDB{t: t, DB: db, cfg: cfg}
@@ -887,7 +898,7 @@ func (td *testDB) AssertReopen(opts ...any) {
 		}
 	})
 
-	db, err := New(td.t.Context(), td.cfg, td.logsPath, td.tablePath, td.log, td.shouldTrash, td.lastRestore)
+	db, err := New(td.t.Context(), td.cfg, td.logsPath, td.tablePath, td.log, td.cbs)
 	assert.NoError(td.t, err)
 
 	td.DB = db
@@ -948,6 +959,10 @@ type (
 	WithRevive      bool
 	WithConstructor func(TblConstructor)
 	WithoutHintFile bool
+	WithShouldTrash func(context.Context, Key, time.Time) bool
+	WithLastRestore func(context.Context) time.Time
+	WithValid       func(Key, []byte) bool
+	WithAmnesty     func(context.Context, []Key)
 )
 
 func checkOptionsBool[T ~bool](opts []any, cb func(T)) {

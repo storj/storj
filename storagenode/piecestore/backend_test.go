@@ -4,6 +4,7 @@
 package piecestore
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ func TestHashstoreBackendTrash(t *testing.T) {
 	// allocate a hash backend
 	bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
-	backend, err := NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", bfm, rtm, nil)
+	backend, err := NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", bfm, rtm, nil, nil)
 	require.NoError(t, err)
 	defer ctx.Check(backend.Close)
 
@@ -52,6 +53,57 @@ func TestHashstoreBackendTrash(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(rd.Close)
 	require.True(t, rd.Trash())
+}
+
+func TestPieceValid(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	backend, err := NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer ctx.Check(backend.Close)
+
+	var satellite storj.NodeID
+	_, _ = mwc.Rand().Read(satellite[:])
+	var pieceID storj.PieceID
+	_, _ = mwc.Rand().Read(pieceID[:])
+
+	// write a piece with like 1024 bytes of data
+	wr, err := backend.Writer(ctx, satellite, pieceID, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+	require.NoError(t, err)
+	data := make([]byte, 1024)
+	_, _ = mwc.Rand().Read(data)
+	_, err = wr.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, wr.Commit(ctx, &pb.PieceHeader{
+		OrderLimit:    pb.OrderLimit{PieceId: pieceID},
+		HashAlgorithm: pb.PieceHashAlgorithm_BLAKE3,
+		Hash:          wr.Hash(),
+	}))
+
+	// read back the piece data directly from the db so that we get the full contents
+	r, err := backend.dbs[satellite].Read(ctx, pieceID)
+	require.NoError(t, err)
+	defer ctx.Check(r.Close)
+
+	contents, err := io.ReadAll(r)
+	require.NoError(t, err)
+
+	// verify that the pieceValid function agrees that the data is valid
+	require.True(t, pieceValid(pieceID, contents))
+
+	// check that any byte modification of the data portion causes pieceValid to return false
+	for i := range 1024 {
+		original := contents[i]
+		contents[i] ^= 0xFF
+		require.False(t, pieceValid(pieceID, contents), "modification at byte %d not detected", i)
+		contents[i] = original
+	}
+
+	// check that any truncation causes pieceValid to return false
+	for l := range contents {
+		truncated := contents[:l]
+		require.False(t, pieceValid(pieceID, truncated), "truncation to length %d not detected", l)
+	}
 }
 
 func BenchmarkPieceStore(b *testing.B) {
@@ -92,7 +144,7 @@ func BenchmarkPieceStore(b *testing.B) {
 		run(b, func(b *testing.B) PieceBackend {
 			bfm, _ := retain.NewBloomFilterManager(b.TempDir(), 0)
 			rtm := retain.NewRestoreTimeManager(b.TempDir())
-			backend, err := NewHashStoreBackend(b.Context(), hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), b.TempDir(), "", bfm, rtm, nil)
+			backend, err := NewHashStoreBackend(b.Context(), hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), b.TempDir(), "", bfm, rtm, nil, nil)
 			require.NoError(b, err)
 			return backend
 		}, 64*1024)
