@@ -22,7 +22,7 @@ import {
     AddFundsResponse,
     ProductCharges,
     ChargeCardIntent,
-    PurchaseIntent,
+    PurchaseRequest,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -803,14 +803,13 @@ export class PaymentsHttpApi implements PaymentsApi {
      * Purchases makes a purchase using a credit card action.
      * Used for pricing packages and upgrade account.
      *
-     * @param pmID - the Stripe payment method id or token of the credit card
-     * @param intent - the intent of the purchase, either to purchase a package plan or upgrade account
+     * @param request - purchase request
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async purchase(pmID: string, intent: PurchaseIntent, csrfProtectionToken: string): Promise<void> {
+    public async purchase(request: PurchaseRequest, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/purchase`;
-        const response = await this.client.post(path, JSON.stringify({ token: pmID, intent }), { csrfProtectionToken });
+        const response = await this.client.post(path, JSON.stringify(request), { csrfProtectionToken });
 
         if (response.ok) {
             return;

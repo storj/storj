@@ -25,6 +25,10 @@
                 ref="stripeCardInput"
                 @ready="stripeReady = true"
             />
+            <StripeBillingInfo
+                v-if="collectBillingInfo"
+                ref="stripeInfoForm"
+            />
         </div>
 
         <template v-if="isAccountSetup">
@@ -139,12 +143,17 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { PurchaseBillingInfo, PurchaseIntent, PurchaseRequest } from '@/types/payments';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
+import StripeBillingInfo from '@/components/StripeBillingInfo.vue';
 
 interface StripeForm {
     onSubmit(): Promise<string>;
     initStripe(): Promise<string>;
+}
+interface StripeBillingInfoForm {
+    onSubmit(): Promise<PurchaseBillingInfo>;
 }
 
 const analyticsStore = useAnalyticsStore();
@@ -159,6 +168,7 @@ const route = useRoute();
 const isSuccess = ref<boolean>(false);
 
 const stripeCardInput = ref<StripeForm | null>(null);
+const stripeInfoForm = ref<StripeBillingInfoForm | null>(null);
 const stripeReady = ref<boolean>(false);
 
 const props = withDefaults(defineProps<{
@@ -184,6 +194,8 @@ const isFree = computed<boolean>(() => props.plan?.type === PricingPlanType.FREE
 
 const upgradePayUpfrontAmount = computed(() => configStore.state.config.upgradePayUpfrontAmount);
 
+const collectBillingInfo = computed(() => configStore.state.config.collectBillingInfoOnOnboarding && props.isAccountSetup);
+
 function onBack(): void {
     stripeReady.value = false;
     emit('back');
@@ -201,36 +213,61 @@ async function onActivateClick() {
     }
 
     if (!stripeCardInput.value) return;
+    if (collectBillingInfo.value && !stripeInfoForm.value) return;
+
+    const errorSource = props.isAccountSetup ? AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG : AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL;
+
+    let info: PurchaseBillingInfo | undefined;
+    let token = '';
 
     loading.value = true;
+
     try {
-        const response = await stripeCardInput.value.onSubmit();
-        await onCardAdded(response);
+        if (collectBillingInfo.value && stripeInfoForm.value) {
+            info = await stripeInfoForm.value.onSubmit();
+        }
+
+        token = await stripeCardInput.value.onSubmit();
     } catch (error) {
-        const source = props.isAccountSetup ? AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG : AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL;
-        notify.notifyError(error, source);
+        notify.notifyError(error, errorSource);
+        loading.value = false;
+        return;
+    }
+
+    try {
+        const request: PurchaseRequest = {
+            token,
+            intent: PurchaseIntent.PackagePlan,
+            address: info?.address,
+            tax: info?.tax,
+        };
+
+        await onCardAdded(request);
+    } catch (error) {
+        notify.notifyError(error, errorSource);
 
         // initStripe will get a new card setup secret if there's an error.
         stripeCardInput.value?.initStripe();
     }
+
     loading.value = false;
 }
 
 /**
  * Adds card after Stripe confirmation.
- * @param res - the response from stripe. Could be a token or a payment method id.
- * depending on the paymentElementEnabled flag.
+ * @param request - Purchase request info.
  */
-async function onCardAdded(res: string): Promise<void> {
+async function onCardAdded(request: PurchaseRequest): Promise<void> {
     if (!props.plan) return;
 
     if (props.plan.type === PricingPlanType.PARTNER) {
-        await billingStore.purchasePricingPackage(res);
+        await billingStore.purchasePricingPackage(request);
     } else {
         if (upgradePayUpfrontAmount.value > 0) {
-            await billingStore.purchaseUpgradedAccount(res);
+            request.intent = PurchaseIntent.UpgradeAccount;
+            await billingStore.purchaseUpgradedAccount(request);
         } else {
-            await billingStore.addCardByPaymentMethodID(res);
+            await billingStore.addCardByPaymentMethodID(request.token);
         }
     }
     onSuccess();

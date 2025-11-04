@@ -21,7 +21,7 @@ import {
     PaymentWithConfirmations,
     PriceModelForPlacementRequest,
     ProductCharges,
-    PurchaseIntent,
+    PurchaseRequest,
     Tax,
     TaxCountry,
     UpdateCardParams,
@@ -328,12 +328,12 @@ export const useBillingStore = defineStore('billing', () => {
         return await api.pricingPackageAvailable();
     }
 
-    async function purchasePricingPackage(dataStr: string): Promise<void> {
-        await api.purchase(dataStr, PurchaseIntent.PackagePlan, csrfToken.value);
+    async function purchasePricingPackage(request: PurchaseRequest): Promise<void> {
+        await api.purchase(request, csrfToken.value);
     }
 
-    async function purchaseUpgradedAccount(dataStr: string): Promise<void> {
-        await api.purchase(dataStr, PurchaseIntent.UpgradeAccount, csrfToken.value);
+    async function purchaseUpgradedAccount(request: PurchaseRequest): Promise<void> {
+        await api.purchase(request, csrfToken.value);
     }
 
     function setPricingPlansAvailable(available: boolean, info: PricingPlanInfo | null = null): void {

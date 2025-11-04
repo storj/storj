@@ -73,6 +73,7 @@ export enum AnalyticsErrorEventSource {
     BILLING_PAYMENT_METHODS_TAB = 'Billing payment methods tab',
     BILLING_APPLY_COUPON_CODE_INPUT = 'Billing apply coupon code input',
     BILLING_STRIPE_CARD_INPUT = 'Billing stripe card input',
+    BILLING_STRIPE_INFO_FORM = 'Billing stripe info form',
     BILLING_AREA = 'Billing area',
     BILLING_STORJ_TOKEN_CONTAINER = 'Billing STORJ token container',
     BUCKET_DETAILS_MODAL = 'Bucket details modal',

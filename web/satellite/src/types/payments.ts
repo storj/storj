@@ -246,12 +246,11 @@ export interface PaymentsApi {
      * Purchases makes a purchase using a credit card action.
      * Used for pricing packages and upgrade account.
      *
-     * @param pmID - the Stripe payment method id or token of the credit card
-     * @param intent - the intent of the purchase, either to purchase a package plan or upgrade account
+     * @param request - purchase request
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    purchase(pmID: string, intent: PurchaseIntent, csrfProtectionToken: string): Promise<void>;
+    purchase(request: PurchaseRequest, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Returns whether there is a pricing package configured for the user's partner.
@@ -424,6 +423,33 @@ export enum ChargeCardIntent {
 export enum PurchaseIntent {
     PackagePlan = 1,
     UpgradeAccount = 2,
+}
+
+export interface PurchaseRequest {
+    token: string;
+    intent: PurchaseIntent;
+    address?: PurchaseAddress;
+    tax?: PurchaseTax;
+}
+
+export interface PurchaseAddress {
+    name: string;
+    line1: string;
+    line2?: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+}
+
+export interface PurchaseTax {
+    type: string;
+    value: string;
+}
+
+export interface PurchaseBillingInfo {
+    address?: PurchaseAddress;
+    tax?: PurchaseTax
 }
 
 /**
