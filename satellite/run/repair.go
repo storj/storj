@@ -5,7 +5,6 @@ package root
 
 import (
 	"storj.io/storj/satellite/repair/repairer"
-	"storj.io/storj/shared/debug"
 	"storj.io/storj/shared/mud"
 )
 
@@ -16,6 +15,6 @@ type Repair struct {
 // GetSelector implements mud.ComponentSelectorProvider.
 func (a *Repair) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	return mud.Or(
-		mud.Select[debug.Wrapper](ball),
+		Observability(ball),
 		mud.Select[*repairer.Service](ball))
 }

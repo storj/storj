@@ -5,7 +5,6 @@ package root
 
 import (
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/shared/debug"
 	"storj.io/storj/shared/mud"
 )
 
@@ -16,7 +15,7 @@ type Auditor struct {
 // GetSelector implements mud.ComponentSelectorProvider.
 func (a *Auditor) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	return mud.Or(
-		mud.Select[debug.Wrapper](ball),
+		Observability(ball),
 		mud.Select[*audit.Worker](ball),
 		mud.Select[*audit.ReverifyWorker](ball))
 

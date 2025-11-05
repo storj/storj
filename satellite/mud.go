@@ -46,6 +46,8 @@ import (
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/eventkit"
+	"storj.io/storj/shared/modular/profiler"
+	"storj.io/storj/shared/modular/tracing"
 	"storj.io/storj/shared/mud"
 )
 
@@ -56,6 +58,8 @@ func Module(ball *mud.Ball) {
 		sndebug.Module(ball)
 	}
 
+	profiler.Module(ball)
+	tracing.Module(ball)
 	eventkit.Module(ball)
 
 	mud.Provide[signing.Signer](ball, signing.SignerFromFullIdentity)
