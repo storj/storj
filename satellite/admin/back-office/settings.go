@@ -156,6 +156,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermProjectSetEntitlements) {
 			settings.Admin.Features.Project.SetEntitlements = true
 		}
+		if s.authorizer.HasPermissions(g, PermProjectDeleteNoData) {
+			settings.Admin.Features.Project.Delete = true
+		}
 
 		// bucket permission features
 		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {

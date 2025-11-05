@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -431,7 +432,6 @@ func TestUpdateProject(t *testing.T) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location","global");10:annotation("location", "defaultPlacement")`}
 				config.Admin.BackOffice.UserGroupsRoleAdmin = []string{"admin"}
 				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
-				config.Admin.BackOffice.AuditLogger.Enabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -793,6 +793,196 @@ func TestEntitlements(t *testing.T) {
 			require.Contains(t, apiErr.Err.Error(), "invalid product ID in placement:product mapping: 3")
 			require.Contains(t, apiErr.Err.Error(), "invalid placement constraint in placement:product mapping: 11")
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		})
+	})
+}
+
+func TestDisableProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		authInfo := &admin.AuthInfo{Email: "admin@test.test"}
+		request := admin.DisableProjectRequest{Reason: "testing"}
+
+		t.Run("missing auth", func(t *testing.T) {
+			apiErr := service.DisableProject(ctx, nil, testrand.UUID(), request)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusUnauthorized, apiErr.Status)
+		})
+
+		t.Run("non-existent project", func(t *testing.T) {
+			apiErr := service.DisableProject(ctx, authInfo, testrand.UUID(), request)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("disable empty project", func(t *testing.T) {
+			// Create user and project
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "user1@test.test",
+				FullName: "Test User",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "test project")
+			require.NoError(t, err)
+
+			// disable the project
+			apiErr := service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+
+			// Verify project status is set to disabled
+			updated, err := consoleDB.Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, updated.Status)
+			assert.Equal(t, console.ProjectDisabled, *updated.Status)
+		})
+
+		t.Run("disable project with buckets fails", func(t *testing.T) {
+			// Create user and project
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "user2@test.test",
+				FullName: "Test User 2",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "test project with bucket")
+			require.NoError(t, err)
+
+			// Create a bucket
+			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      testrand.BucketName(),
+				ProjectID: project.ID,
+			})
+			require.NoError(t, err)
+
+			// Attempt to delete the project should fail
+			apiErr := service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusConflict, apiErr.Status)
+			assert.Contains(t, apiErr.Err.Error(), "buckets still exist")
+
+			// Verify project is not disabled
+			_, err = consoleDB.Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+		})
+
+		t.Run("disable project fails with unpaid invoice", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "usage@test.test",
+				FullName: "Usage User",
+			}, 1)
+			require.NoError(t, err)
+
+			newKind := console.PaidUser
+			err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &newKind})
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "project with usage")
+			require.NoError(t, err)
+
+			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("bucket"), pb.PieceAction_GET, 1000000, 0, time.Now().Add(-2*time.Hour)))
+
+			apiErr := service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "usage for current month exists")
+
+			_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, time.Now(), 1)
+			require.NoError(t, err)
+
+			apiErr = service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+
+			updated, err := consoleDB.Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, updated.Status)
+			assert.Equal(t, console.ProjectDisabled, *updated.Status)
+		})
+
+		t.Run("force disable project with buckets and objects", func(t *testing.T) {
+			service.TestToggleSelfServeAccountDelete(true)
+			// Create user with UserRequestedDeletion status
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Requested Deletion User",
+				Email:    "force-delete@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			newStatus := console.UserRequestedDeletion
+			err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &newStatus})
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "force delete project")
+			require.NoError(t, err)
+
+			// Create a bucket with objects
+			bucket, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      testrand.BucketName(),
+				ProjectID: project.ID,
+			})
+			require.NoError(t, err)
+
+			// Create an object in the bucket
+			_ = metabasetest.CreateObject(ctx, t, sat.Metabase.DB, metabase.ObjectStream{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucket.Name),
+				ObjectKey:  metabasetest.RandObjectKey(),
+				Version:    1,
+				StreamID:   testrand.UUID(),
+			}, 4)
+
+			// Force disable should succeed even with buckets and objects
+			apiErr := service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+
+			// Verify project status is disabled
+			updated, err := consoleDB.Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, updated.Status)
+			assert.Equal(t, console.ProjectDisabled, *updated.Status)
+
+			// Verify bucket is deleted
+			_, err = sat.DB.Buckets().GetBucket(ctx, []byte(bucket.Name), project.ID)
+			require.Error(t, err)
+		})
+
+		t.Run("disable project with API keys", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "user3@test.test",
+				FullName: "Test User 3",
+			}, 1)
+			require.NoError(t, err)
+
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "test project with api key")
+			require.NoError(t, err)
+
+			// Create an API key
+			keyInfo, _, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			// disable the project
+			apiErr := service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+
+			// Verify project is disabled
+			updated, err := consoleDB.Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, updated.Status)
+			require.Equal(t, console.ProjectDisabled, *updated.Status)
+
+			// Verify API key is deleted
+			_, err = consoleDB.APIKeys().Get(ctx, keyInfo.ID)
+			require.Error(t, err)
 		})
 	})
 }

@@ -60,6 +60,7 @@ func TestGetSettings(t *testing.T) {
 						UpdatePlacement:        true,
 						UpdateValueAttribution: true,
 						SetEntitlements:        true,
+						Delete:                 true,
 					},
 					Bucket: backoffice.BucketFlags{
 						List:                   true,

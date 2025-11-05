@@ -14,14 +14,18 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/payments"
 )
 
 // NullableLimitValue is the value used to indicate that a limit should be set to null.
@@ -133,6 +137,11 @@ type ProjectEntitlements struct {
 	NewBucketPlacements      []string                   `json:"newBucketPlacements"`
 	ComputeAccessToken       string                     `json:"computeAccessToken"`
 	PlacementProductMappings map[string]MiniProductInfo `json:"placementProductMappings"`
+}
+
+// DisableProjectRequest contains the fields required to delete a project.
+type DisableProjectRequest struct {
+	Reason string `json:"reason"` // Reason for the deletion, for audit logging
 }
 
 // GetProject gets the project info by either private or public ID.
@@ -732,9 +741,225 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 	return api.HTTPError{}
 }
 
+// DisableProject deletes a project by ID.
+func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uuid.UUID, request DisableProjectRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if authInfo == nil {
+		return api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.New("not authorized"),
+		}
+	}
+
+	if request.Reason == "" {
+		return api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("reason is required"),
+		}
+	}
+
+	p, err := s.consoleDB.Projects().GetByPublicOrPrivateID(ctx, id)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("project not found")
+		}
+		return api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	user, err := s.consoleDB.Users().Get(ctx, p.OwnerID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	afterState := *p
+	disabledStatus := console.ProjectDisabled
+	afterState.Status = &disabledStatus
+
+	auditLog := func(action string) {
+		s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+			Action:     action,
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeProject,
+			ItemID:     p.PublicID,
+			Reason:     request.Reason,
+			Before:     *p,
+			After:      afterState,
+			Timestamp:  s.nowFn(),
+		})
+	}
+
+	// Check if the project should be force deleted
+	if s.consoleConfig.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsFree() || user.FinalInvoiceGenerated) {
+		err = s.forceDisableProject(ctx, p.ID)
+		if err != nil {
+			return api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+
+		auditLog("force_disable_project")
+
+		return api.HTTPError{}
+	}
+
+	// Check for existing buckets
+	options := buckets.ListOptions{Limit: 1, Direction: buckets.DirectionForward}
+	bucketsList, err := s.buckets.ListBuckets(ctx, p.ID, options, macaroon.AllowedBuckets{All: true})
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+	if len(bucketsList.Items) > 0 {
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.New("buckets still exist"),
+		}
+	}
+
+	apiErr := s.checkProjectUsageForDisabling(ctx, user, p)
+	if apiErr.Err != nil {
+		return apiErr
+	}
+
+	err = s.completeProjectDisabling(ctx, p.ID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	auditLog("disable_project")
+
+	return api.HTTPError{}
+}
+
+func (s *Service) checkProjectUsageForDisabling(ctx context.Context, u *console.User, p *console.Project) api.HTTPError {
+	if u.Kind != console.PaidUser {
+		return api.HTTPError{}
+	}
+
+	// Check project usage status
+	_, invoicingIncomplete, _, err := s.payments.CheckProjectUsageStatus(ctx, p.ID, p.PublicID)
+	if err != nil {
+		if payments.ErrUnbilledUsage.Has(err) {
+			return api.HTTPError{
+				Status: http.StatusConflict,
+				Err:    Error.New("usage for current month exists"),
+			}
+		}
+		return api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+	if invoicingIncomplete {
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.New("usage for last month exists but is not billed yet"),
+		}
+	}
+
+	// Check for open invoice items
+	err = s.payments.CheckProjectInvoicingStatus(ctx, p.ID)
+	if err != nil {
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return api.HTTPError{}
+}
+
+// forceDisableProject deletes all of a project's buckets and data.
+func (s *Service) forceDisableProject(ctx context.Context, projectID uuid.UUID) error {
+	listOptions := buckets.ListOptions{Direction: buckets.DirectionForward}
+	allowedBuckets := macaroon.AllowedBuckets{All: true}
+
+	bucketsList, err := s.buckets.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	if err != nil {
+		return err
+	}
+
+	if len(bucketsList.Items) > 0 {
+		var errList errs.Group
+		for _, bucket := range bucketsList.Items {
+			bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: metabase.BucketName(bucket.Name)}
+			_, err = s.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
+				Bucket: bucketLocation,
+			})
+			if err != nil {
+				errList.Add(err)
+				continue
+			}
+
+			empty, err := s.metabase.BucketEmpty(ctx, metabase.BucketEmpty{
+				ProjectID:  projectID,
+				BucketName: metabase.BucketName(bucket.Name),
+			})
+			if err != nil {
+				errList.Add(err)
+				continue
+			}
+			if !empty {
+				errList.Add(errs.New("bucket not empty: %s", bucket.Name))
+				continue
+			}
+
+			err = s.buckets.DeleteBucket(ctx, []byte(bucket.Name), projectID)
+			if err != nil {
+				errList.Add(err)
+			}
+		}
+		if errList.Err() != nil {
+			return errList.Err()
+		}
+	}
+
+	return s.completeProjectDisabling(ctx, projectID)
+}
+
+func (s *Service) completeProjectDisabling(ctx context.Context, projectID uuid.UUID) error {
+	return s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		err := tx.APIKeys().DeleteAllByProjectID(ctx, projectID)
+		if err != nil {
+			return err
+		}
+
+		err = tx.Domains().DeleteAllByProjectID(ctx, projectID)
+		if err != nil {
+			s.log.Error("failed to delete all domains for project",
+				zap.String("project_id", projectID.String()),
+				zap.Error(err),
+			)
+		}
+
+		err = tx.Projects().UpdateStatus(ctx, projectID, console.ProjectDisabled)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 // UpdateProjectEntitlements updates the entitlements for a project by its public ID.
-// only one of new bucket placements, placement:product mappings and compute access token
-// can be updated at a time
+// Only one of new bucket placements, placement:product mappings and compute access token
+// can be updated at a time.
 func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectEntitlementsRequest) (*ProjectEntitlements, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -891,4 +1116,9 @@ func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*Pr
 		ComputeAccessToken:       computeAccessToken,
 		PlacementProductMappings: mappedProducts,
 	}, api.HTTPError{}
+}
+
+// TestToggleSelfServeAccountDelete is a test helper to toggle self-serve account deletion.
+func (s *Service) TestToggleSelfServeAccountDelete(enabled bool) {
+	s.consoleConfig.SelfServeAccountDeleteEnabled = enabled
 }

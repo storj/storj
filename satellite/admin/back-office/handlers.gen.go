@@ -61,6 +61,7 @@ type ProjectManagementService interface {
 	UpdateBucket(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, bucketName string, request UpdateBucketRequest) api.HTTPError
 	GetBucketState(ctx context.Context, publicID uuid.UUID, bucketName string) (*BucketState, api.HTTPError)
 	UpdateProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectRequest) (*Project, api.HTTPError)
+	DisableProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request DisableProjectRequest) api.HTTPError
 	UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request ProjectLimitsUpdateRequest) (*Project, api.HTTPError)
 	UpdateProjectEntitlements(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, request UpdateProjectEntitlementsRequest) (*ProjectEntitlements, api.HTTPError)
 }
@@ -194,6 +195,7 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 	projectsRouter.HandleFunc("/{publicID}/buckets/{bucketName}", handler.handleUpdateBucket).Methods("PATCH")
 	projectsRouter.HandleFunc("/{publicID}/buckets/{bucketName}/state", handler.handleGetBucketState).Methods("GET")
 	projectsRouter.HandleFunc("/{publicID}", handler.handleUpdateProject).Methods("PATCH")
+	projectsRouter.HandleFunc("/{publicID}", handler.handleDisableProject).Methods("PUT")
 	projectsRouter.HandleFunc("/{publicID}/limits", handler.handleUpdateProjectLimits).Methods("PATCH")
 	projectsRouter.HandleFunc("/{publicID}/entitlements", handler.handleUpdateProjectEntitlements).Methods("PATCH")
 
@@ -840,7 +842,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144, 67108864) {
+	if h.auth.IsRejected(w, r, 262144, 134217728) {
 		return
 	}
 
@@ -934,7 +936,7 @@ func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144, 67108864) {
+	if h.auth.IsRejected(w, r, 262144, 134217728) {
 		return
 	}
 
@@ -995,6 +997,52 @@ func (h *ProjectManagementHandler) handleUpdateProject(w http.ResponseWriter, r 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json UpdateProject response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
+func (h *ProjectManagementHandler) handleDisableProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	publicIDParam, ok := mux.Vars(r)["publicID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing publicID route param"))
+		return
+	}
+
+	publicID, err := uuid.FromString(publicIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := DisableProjectRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 67108864) {
+		return
+	}
+
+	httpErr := h.service.DisableProject(ctx, authInfo, publicID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 

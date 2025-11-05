@@ -29,6 +29,7 @@
   * [Update bucket](#projectmanagement-update-bucket)
   * [Get bucket state](#projectmanagement-get-bucket-state)
   * [Update project](#projectmanagement-update-project)
+  * [Disable project](#projectmanagement-disable-project)
   * [Update project limits](#projectmanagement-update-project-limits)
   * [Update project entitlements](#projectmanagement-update-project-entitlements)
 * Search
@@ -827,6 +828,27 @@ Updates project name, user agent and default placement by ID
 	segmentUsed: number
 	status: unknown
 	entitlements: unknown
+}
+
+```
+
+<h3 id='projectmanagement-disable-project'>Disable project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Disables a project by ID.
+
+`PUT /back-office/api/v1/projects/{publicID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	reason: string
 }
 
 ```

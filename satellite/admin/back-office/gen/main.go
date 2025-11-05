@@ -324,6 +324,21 @@ func main() {
 		},
 	})
 
+	group.Put("/{publicID}", &apigen.Endpoint{
+		Name:           "Disable project",
+		Description:    "Disables a project by ID.",
+		GoName:         "DisableProject",
+		TypeScriptName: "disableProject",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		Request: backoffice.DisableProjectRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermProjectDeleteNoData},
+			passAuthParamKey: true,
+		},
+	})
+
 	group.Patch("/{publicID}/limits", &apigen.Endpoint{
 		Name:           "Update project limits",
 		Description:    "Updates project limits by ID",

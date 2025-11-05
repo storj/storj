@@ -74,6 +74,10 @@ export class CreateRestKeyRequest {
     reason: string;
 }
 
+export class DisableProjectRequest {
+    reason: string;
+}
+
 export class DisableUserRequest {
     setPendingDeletion: boolean;
     reason: string;
@@ -544,6 +548,16 @@ export class ProjectManagementHttpApiV1 {
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as Project);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async disableProject(request: DisableProjectRequest, publicID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${publicID}`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
