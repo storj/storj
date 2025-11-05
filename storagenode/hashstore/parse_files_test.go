@@ -70,7 +70,7 @@ func TestParseHelpers(t *testing.T) {
 			// Valid test cases
 			{name: "hashtbl-0000000000000001", data: 1, ok: true},
 			{name: "hashtbl-ffffffffffffffff", data: 0xffffffffffffffff, ok: true},
-			{name: "hashtbl-0000000000000000", data: 0, ok: true},
+			{name: "hashtbl", data: 0, ok: true},
 
 			// Test cases with capital letters in hex digits (should work - hex is case-insensitive)
 			{name: "hashtbl-000000000000000A", data: 0xa, ok: true},

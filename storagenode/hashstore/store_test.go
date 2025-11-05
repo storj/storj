@@ -1671,6 +1671,31 @@ func TestStore_ReconcileLog(t *testing.T) {
 	})
 }
 
+func TestStore_ReconstructFromLogOnStartup(t *testing.T) {
+	forAllTables(t, testStore_ReconstructFromLogOnStartup)
+}
+func testStore_ReconstructFromLogOnStartup(t *testing.T, cfg Config) {
+	cfg.Store.ReconstructTable = true
+	cfg.Compaction.MaxLogSize = 10 * 1024
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// create a bunch of keys to ensure we have multiple log files.
+	var keys []Key
+	for s.Stats().NumLogs < 5 {
+		keys = append(keys, s.AssertCreate())
+	}
+
+	// reopen the store deleting the hashtbl files while it is closed to force reconstruction.
+	s.AssertReopen(WithoutHashtbl(true))
+
+	// ensure we can read all the keys.
+	for _, key := range keys {
+		s.AssertRead(key)
+	}
+}
+
 //
 // benchmarks
 //

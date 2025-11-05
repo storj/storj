@@ -387,7 +387,7 @@ func TestMultiLRUCache_SingleCapacity(t *testing.T) {
 // test helpers
 //
 
-func touch(t *testing.T, name ...string) {
+func touch(t testing.TB, name ...string) {
 	path := filepath.Join(name...)
 	dir := filepath.Dir(path)
 	assert.NoError(t, os.MkdirAll(dir, 0755))
@@ -395,7 +395,7 @@ func touch(t *testing.T, name ...string) {
 }
 
 // allFiles recursively collects all files in the given directory and returns their full path.
-func allFiles(t *testing.T, dir string) (paths []string) {
+func allFiles(t testing.TB, dir string) (paths []string) {
 	all := func(name string) (struct{}, bool) { return struct{}{}, true }
 	for parsed, err := range parseFiles(all, dir) {
 		assert.NoError(t, err)
@@ -761,6 +761,14 @@ func (ts *testStore) AssertReopen(opts ...any) {
 		}
 	})
 
+	checkOptionsBool(opts, func(t WithoutHashtbl) {
+		assert.NotEqual(ts.t, "", ts.Store.tablePath)
+		for parsed, err := range parseFiles(parseHashtbl, ts.Store.tablePath) {
+			assert.NoError(ts.t, err)
+			assert.NoError(ts.t, os.Remove(parsed.path))
+		}
+	})
+
 	s, err := NewStore(ts.t.Context(), ts.cfg, ts.logsPath, ts.tablePath, ts.log, ts.valid, ts.amnesty)
 	assert.NoError(ts.t, err)
 
@@ -959,6 +967,7 @@ type (
 	WithRevive      bool
 	WithConstructor func(TblConstructor)
 	WithoutHintFile bool
+	WithoutHashtbl  bool
 	WithShouldTrash func(context.Context, Key, time.Time) bool
 	WithLastRestore func(context.Context) time.Time
 	WithValid       func(Key, []byte) bool

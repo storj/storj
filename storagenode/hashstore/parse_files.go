@@ -97,15 +97,19 @@ func parseLog(name string) (logInfo, bool) {
 //
 
 func createHashtblName(id uint64) string {
+	if id == 0 {
+		return "hashtbl"
+	}
 	return fmt.Sprintf("hashtbl-%016x", id)
 }
 
 func parseHashtbl(name string) (uint64, bool) {
 	// skip any files that don't look like hashtbl files. hashtbl file names are always
+	//     hashtbl
 	//     hashtbl-<16 bytes of id>
-	// so they always begin with "hashtbl-" and are 24 bytes long.
+	// so they always (begin with "hashtbl-" and are 24 bytes long) or are exactly "hashtbl".
 	if len(name) != 24 || name[0:8] != "hashtbl-" {
-		return 0, false
+		return 0, name == "hashtbl"
 	}
 
 	id, err := strconv.ParseUint(name[8:24], 16, 64)

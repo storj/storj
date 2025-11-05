@@ -68,9 +68,10 @@ type CompactionCfg struct {
 
 // StoreCfg is the configuration for the store.
 type StoreCfg struct {
-	FlushSemaphore int  `help:"controls the number of concurrent flushes to log files" default:"0" hidden:"true"`
-	SyncWrites     bool `help:"if set, writes to the log file and table are fsync'd to disk" default:"false"`
-	OpenFileCache  int  `help:"number of open file handles to cache for reads" default:"10"`
+	FlushSemaphore   int  `help:"controls the number of concurrent flushes to log files" default:"0" hidden:"true"`
+	SyncWrites       bool `help:"if set, writes to the log file and table are fsync'd to disk" default:"false"`
+	OpenFileCache    int  `help:"number of open file handles to cache for reads" default:"10"`
+	ReconstructTable bool `help:"if set, reconstructs the table from the log files on startup if table is missing and logs are present" default:"false" hidden:"true"`
 }
 
 // MmapCfg is the configuration for mmap usage.
@@ -106,9 +107,10 @@ func CreateDefaultConfig(kind TableKind, mmap bool) Config {
 			Kind: kind,
 		},
 		Store: StoreCfg{
-			FlushSemaphore: 0,
-			SyncWrites:     false,
-			OpenFileCache:  10,
+			FlushSemaphore:   0,
+			SyncWrites:       false,
+			OpenFileCache:    10,
+			ReconstructTable: false,
 		},
 		Compaction: CompactionCfg{
 			MaxLogSize:             1073741824,

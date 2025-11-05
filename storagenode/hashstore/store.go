@@ -178,7 +178,7 @@ func NewStore(
 	excluder := parseHintFile(maxHintPath)
 
 	// get the name and path of the largest hashtbl file.
-	maxTableName := "hashtbl" // backwards compatible with old hashtbl files
+	maxTableName := createHashtblName(0)
 	for parsed, err := range parseFiles(parseHashtbl, s.tablePath) {
 		if err != nil {
 			return nil, err
@@ -195,10 +195,16 @@ func NewStore(
 	fh, err := os.OpenFile(maxTablePath, os.O_RDWR, 0)
 	if os.IsNotExist(err) {
 		// file did not exist, so try to create it with an initial hashtbl but only if we have no
-		// log files which is a good indicator that the store is actually empty.
+		// log files which is a good indicator that the store is actually empty. but, if we do have
+		// log files and the ReconstructTable option is set, then we try to reconstruct the table
+		// from the log files instead.
 		for _, err := range parseFiles(parseLog, s.logsPath) {
 			if err != nil {
 				return nil, err
+			}
+			if s.cfg.Store.ReconstructTable {
+				excluder = nil
+				break
 			}
 			return nil, Error.New("missing hashtbl when log files exist")
 		}
@@ -1405,21 +1411,21 @@ type hintExcluder struct {
 
 // Excluded returns whether the given log id should be excluded from fsck based on the hint file.
 func (h *hintExcluder) Excluded(id uint64) bool {
-	return id <= h.largest && !h.writable[id]
+	return h != nil && id <= h.largest && !h.writable[id]
 }
 
 // parseHintFile parses the hint file at the given path and returns a hintExcluder. the default
 // behavior if the file cannot be opened or parsed is to return an excluder that excludes nothing.
 func parseHintFile(path string) *hintExcluder {
+	fh, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = fh.Close() }()
+
 	h := &hintExcluder{
 		writable: make(map[uint64]bool),
 	}
-
-	fh, err := os.Open(path)
-	if err != nil {
-		return h
-	}
-	defer func() { _ = fh.Close() }()
 
 	for scanner := bufio.NewScanner(fh); scanner.Scan(); {
 		switch line := strings.TrimSpace(scanner.Text()); {
