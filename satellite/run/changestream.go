@@ -5,7 +5,6 @@ package root
 
 import (
 	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/shared/debug"
 	"storj.io/storj/shared/mud"
 )
 
@@ -16,6 +15,6 @@ type ChangeStream struct {
 // GetSelector implements mud.ComponentSelectorProvider.
 func (a *ChangeStream) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	return mud.Or(
-		mud.Select[debug.Wrapper](ball),
+		Observability(ball),
 		mud.Select[*eventing.Service](ball))
 }
