@@ -5,6 +5,7 @@ import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
+    DisableProjectRequest,
     Project,
     ProjectEntitlements,
     ProjectLimitsUpdateRequest,
@@ -48,6 +49,13 @@ export const useProjectsStore = defineStore('projects', () => {
         return await projectApi.updateProject(request, projectID);
     }
 
+    async function disableProject(projectID: string, setPendingDeletion: boolean, reason: string): Promise<void> {
+        const request = new DisableProjectRequest();
+        request.reason = reason;
+        request.setPendingDeletion = setPendingDeletion;
+        return await projectApi.disableProject(request, projectID);
+    }
+
     async function getProjectStatuses(): Promise<void> {
         if (state.projectStatuses.length) {
             return;
@@ -63,6 +71,7 @@ export const useProjectsStore = defineStore('projects', () => {
         state,
         getProject,
         updateCurrentProject,
+        disableProject,
         clearCurrentProject,
         updateProjectLimits,
         updateProject,

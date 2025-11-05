@@ -61,10 +61,26 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.project.delete" density="comfortable" link rounded="lg" base-color="error">
+            <v-list-item
+                v-if="featureFlags.project.delete && active"
+                density="comfortable" link
+                rounded="lg" base-color="error"
+                @click="emit('delete', projectId)"
+            >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Delete
-                    <ProjectDeleteDialog />
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
+                v-if="featureFlags.project.markPendingDeletion && active"
+                density="comfortable"
+                rounded="lg" link
+                base-color="error"
+                @click="emit('markPendingDeletion', projectId)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Mark Pending Deletion
                 </v-list-item-title>
             </v-list-item>
         </v-list>
@@ -80,7 +96,6 @@ import { FeatureFlags, User } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 
-import ProjectDeleteDialog from '@/components/ProjectDeleteDialog.vue';
 import ProjectNewBucketDialog from '@/components/ProjectNewBucketDialog.vue';
 import ProjectAddUserDialog from '@/components/ProjectAddUserDialog.vue';
 
@@ -97,6 +112,7 @@ const hasUpdateProjectPerm = computed(() => {
 
 const props = defineProps<{
     projectId: string;
+    active: boolean;
     owner: User;
 }>();
 
@@ -104,6 +120,8 @@ const emit = defineEmits<{
     (e: 'updateLimits', projectId: string): void;
     (e: 'update', projectId: string): void;
     (e: 'viewEntitlements', projectId: string): void;
+    (e: 'delete', projectId: string): void;
+    (e: 'markPendingDeletion', projectId: string): void;
 }>();
 
 const isCurrentRouteViewProject = computed(() => {

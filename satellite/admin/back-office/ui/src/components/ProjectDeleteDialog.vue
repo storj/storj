@@ -1,113 +1,149 @@
-// Copyright (C) 2023 Storj Labs, Inc.
+// Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="dialog" activator="parent" width="auto" transition="fade-transition">
-        <v-card rounded="xlg">
-            <v-sheet>
-                <v-card-item class="pl-7 py-4">
-                    <template #prepend>
-                        <v-card-title class="font-weight-bold">
-                            Delete Project
-                        </v-card-title>
-                    </template>
+    <v-dialog v-model="model" width="auto" transition="fade-transition">
+        <v-card
+            rounded="xlg"
+            :title="markPendingDeletion ? 'Mark Pending Deletion': 'Delete Project'"
+            :subtitle="`Enter a reason for ${ markPendingDeletion ? 'marking' : 'deleting'} this project ${ markPendingDeletion ? 'for deletion' : '' }`"
+        >
+            <template #append>
+                <v-btn
+                    :icon="X" :disabled="isLoading"
+                    variant="text" size="small" color="default" @click="model = false"
+                />
+            </template>
 
-                    <template #append>
-                        <v-btn icon="$close" variant="text" size="small" color="default" @click="dialog = false" />
-                    </template>
-                </v-card-item>
-            </v-sheet>
-
-            <v-divider />
-
-            <v-form class="pa-7">
-                <v-row>
-                    <v-col cols="12">
-                        <p>Please enter the reason for deleting this project.</p>
-                    </v-col>
-                </v-row>
-                <v-row>
-                    <v-col cols="12">
-                        <v-select
-                            label="Deleting reason" placeholder="Select one or more reasons"
-                            :items="['Reason 1', 'Reason 2', 'Reason 3', 'Other']" multiple variant="outlined" autofocus required
-                            hide-details="auto"
-                        />
-                    </v-col>
-                </v-row>
-
+            <div class="pa-6">
                 <v-row>
                     <v-col cols="12">
                         <v-text-field
-                            model-value="56F82SR21Q284" label="Project ID" variant="solo-filled" flat readonly
+                            :model-value="project.id"
+                            label="Project ID"
+                            variant="solo-filled"
                             hide-details="auto"
+                            flat readonly
                         />
                     </v-col>
                     <v-col cols="12">
                         <v-text-field
-                            model-value="itacker@gmail.com" label="Account Email" variant="solo-filled" flat readonly
+                            :model-value="project.owner.email"
+                            label="Owner Email"
+                            variant="solo-filled"
                             hide-details="auto"
+                            flat readonly
+                        />
+                    </v-col>
+                    <v-col cols="12">
+                        <v-textarea
+                            v-model="reason"
+                            :rules="[RequiredRule]"
+                            label="Reason"
+                            :placeholder="`Enter a reason for ${ markPendingDeletion ? 'marking' : 'deleting'} this project ${ markPendingDeletion ? 'for deletion' : '' }`"
+                            variant="solo-filled"
+                            hide-details="auto"
+                            autofocus
+                            flat
                         />
                     </v-col>
                 </v-row>
 
+                <v-alert class="mt-6" title="Warning" variant="tonal" color="error" rounded="lg">
+                    <template v-if="markPendingDeletion">
+                        This will set status to "<strong>Pending Deletion</strong>".
+                        <br>
+                        The project will be deleted later by a chore.
+                    </template>
+                    <template v-else>
+                        This will delete the project and data.
+                    </template>
+                </v-alert>
+            </div>
+
+            <v-card-actions class="pa-6">
                 <v-row>
                     <v-col>
-                        <v-alert variant="tonal" color="error" rounded="lg">This will delete the project and all it's data.</v-alert>
-                    </v-col>
-                </v-row>
-            </v-form>
-
-            <v-divider />
-
-            <v-card-actions class="pa-7">
-                <v-row>
-                    <v-col>
-                        <v-btn variant="outlined" color="default" block @click="dialog = false">Cancel</v-btn>
+                        <v-btn variant="outlined" color="default" block @click="model = false">Cancel</v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="error" variant="flat" block @click="onButtonClick">Delete Project</v-btn>
+                        <v-btn
+                            color="error" variant="flat"
+                            :loading="isLoading"
+                            :disabled="!reason"
+                            block
+                            @click="disableProject"
+                        >
+                            {{ markPendingDeletion ? 'Mark Pending Deletion' : 'Delete Project' }}
+                        </v-btn>
                     </v-col>
                 </v-row>
             </v-card-actions>
         </v-card>
     </v-dialog>
-
-    <v-snackbar v-model="snackbar" :timeout="7000" color="success">
-        The project was deleted successfully.
-        <template #actions>
-            <v-btn color="default" variant="text" @click="snackbar = false">
-                Close
-            </v-btn>
-        </template>
-    </v-snackbar>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import {
-    VDialog,
-    VCard,
-    VSheet,
-    VCardItem,
-    VCardTitle,
-    VBtn,
-    VDivider,
-    VForm,
-    VRow,
-    VCol,
-    VSelect,
-    VTextField,
-    VCardActions,
-    VSnackbar,
-    VAlert,
-} from 'vuetify/components';
+import { VAlert, VBtn, VCard, VCardActions, VCol, VDialog, VRow, VTextarea, VTextField } from 'vuetify/components';
+import { X } from 'lucide-vue-next';
+import { ref, watch } from 'vue';
 
-const snackbar = ref<boolean>(false);
-const dialog = ref<boolean>(false);
+import { useLoading } from '@/composables/useLoading';
+import { Project } from '@/api/client.gen';
+import { useNotify } from '@/composables/useNotify';
+import { RequiredRule } from '@/types/common';
+import { useProjectsStore } from '@/store/projects';
+import { useUsersStore } from '@/store/users';
+import { ProjectStatus } from '@/types/project';
 
-function onButtonClick() {
-    snackbar.value = true;
-    dialog.value = false;
+const notify = useNotify();
+const projectsStore = useProjectsStore();
+const usersStore = useUsersStore();
+const { isLoading, withLoading } = useLoading();
+
+const model = defineModel<boolean>({ required: true });
+const markPendingDeletion = defineModel<boolean>('markPendingDeletion', { default: false });
+
+const props = defineProps<{
+    project: Project;
+}>();
+
+const reason = ref('');
+
+function disableProject() {
+    withLoading(async () => {
+        try {
+            await projectsStore.disableProject(props.project.id, markPendingDeletion.value, reason.value);
+            notify.success(`Project ${markPendingDeletion.value ? 'marked for deletion' : 'deleted'} successfully`);
+
+            const currentUser = usersStore.state.currentAccount;
+            if (!currentUser) return;
+            const user = { ...currentUser };
+            if (!user.projects) return;
+
+            const index = user.projects?.findIndex(p => p.id === props.project.id) ?? -1;
+            if (index === -1) return;
+
+            user.projects[index].active = false;
+            await usersStore.updateCurrentUser(user);
+            model.value = false;
+
+            if (projectsStore.state.currentProject?.id !== props.project.id) return;
+            const project = { ...props.project };
+            if (project.status === undefined || project.status === null) return;
+
+            project.status.value = markPendingDeletion.value ?
+                ProjectStatus.PendingDeletion :
+                ProjectStatus.Disabled;
+            await projectsStore.updateCurrentProject(project);
+        } catch (e) {
+            notify.error(e);
+        }
+    });
 }
+
+watch(model, (newVal) => {
+    if (!newVal && markPendingDeletion.value) markPendingDeletion.value = false;
+    if (newVal) reason.value = '';
+});
 </script>

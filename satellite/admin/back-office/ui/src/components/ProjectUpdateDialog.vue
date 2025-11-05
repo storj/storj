@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, onMounted } from 'vue';
 
 import { Project, UpdateProjectRequest, UserAccount, UserProject } from '@/api/client.gen';
 import { useUsersStore } from '@/store/users';
@@ -24,6 +24,7 @@ import { FieldType, FormConfig, FormField } from '@/types/forms';
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
+import { ProjectStatus } from '@/types/project';
 
 import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
 
@@ -83,7 +84,9 @@ const formConfig = computed((): FormConfig => {
             type: FieldType.Select,
             label: 'Project Status',
             placeholder: 'Select project status',
-            items: projectStatuses.value,
+            items: props.project.status?.value === ProjectStatus.PendingDeletion ?
+                projectStatuses.value :
+                projectStatuses.value.filter(s => s.value !== ProjectStatus.PendingDeletion),
             itemTitle: 'name',
             itemValue: 'value',
             rules: [RequiredRule],
@@ -144,6 +147,7 @@ function update(formData: Record<string, unknown>) {
             if (index === -1) return;
             const accountProject = account.projects[index] as UserProject;
             accountProject.name = project.name;
+            accountProject.active = project.status?.value === ProjectStatus.Active;
 
             await usersStore.updateCurrentUser(account);
         } catch (e) {
@@ -152,7 +156,13 @@ function update(formData: Record<string, unknown>) {
     });
 }
 
-watch(model, (_) => {
-    projectsStore.getProjectStatuses();
+onMounted(() => {
+    withLoading(async () => {
+        try {
+            await projectsStore.getProjectStatuses();
+        } catch (e) {
+            notify.error(e);
+        }
+    });
 });
 </script>

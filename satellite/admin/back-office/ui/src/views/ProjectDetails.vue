@@ -40,9 +40,15 @@
                 </template>
                 <ProjectActionsMenu
                     :project-id="project.id" :owner="project.owner"
+                    :active="project.status?.value === UserStatus.Active"
                     @update-limits="onUpdateLimitsClicked"
                     @update="updateDialog = true"
                     @view-entitlements="viewEntitlementsDialog = true"
+                    @delete="deleteProjectDialog = true"
+                    @mark-pending-deletion="_ => {
+                        deleteProjectDialog = true;
+                        markPendingDeletion = true;
+                    }"
                 />
             </v-btn>
         </div>
@@ -275,6 +281,12 @@
         v-model="viewEntitlementsDialog"
         :project="project"
     />
+    <ProjectDeleteDialog
+        v-if="project && featureFlags.project.delete"
+        v-model="deleteProjectDialog"
+        v-model:mark-pending-deletion="markPendingDeletion"
+        :project="project"
+    />
 </template>
 
 <script setup lang="ts">
@@ -289,7 +301,7 @@ import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { useNotificationsStore } from '@/store/notifications';
-import { userIsNFR, userIsPaid } from '@/types/user';
+import { userIsNFR, userIsPaid, UserStatus } from '@/types/user';
 import { useProjectsStore } from '@/store/projects';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -301,6 +313,7 @@ import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
 import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
 import EntitlementsDialog from '@/components/EntitlementsDialog.vue';
+import ProjectDeleteDialog from '@/components/ProjectDeleteDialog.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
@@ -313,6 +326,8 @@ const notify = useNotificationsStore();
 const updateLimitsDialog = ref<boolean>(false);
 const updateDialog = ref<boolean>(false);
 const viewEntitlementsDialog = ref<boolean>(false);
+const deleteProjectDialog = ref<boolean>(false);
+const markPendingDeletion = ref<boolean>(false);
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 

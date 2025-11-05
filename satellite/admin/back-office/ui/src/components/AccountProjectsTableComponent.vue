@@ -22,13 +22,18 @@
             <template #item.name="{ item }: ProjectTableSlotProps">
                 <div class="text-no-wrap">
                     <v-btn
+                        :loading="isLoading"
                         variant="outlined" color="default" size="small" class="mr-1 text-caption" density="comfortable" icon
                         width="24" height="24"
                     >
                         <ProjectActionsMenu
                             :project-id="item.id" :owner="item.owner"
+                            :active="item.active"
                             @update-limits="onUpdateLimitsClicked"
                             @update="onUpdateClicked"
+                            @view-entitlements="viewEntitlementsClicked"
+                            @delete="deleteProjectClicked"
+                            @mark-pending-deletion="id => deleteProjectClicked(id, true)"
                         />
                         <v-icon :icon="MoreHorizontal" />
                     </v-btn>
@@ -111,8 +116,17 @@
                 </v-tooltip>
             </template>
 
-            <template #item.id="{ item }: ProjectTableSlotProps">
-                <div class="text-caption text-no-wrap text-uppercase">{{ item.id }}</div>
+            <template #item.active="{ item }: ProjectTableSlotProps">
+                <v-chip
+                    v-if="item.segment.percent !== null"
+                    variant="tonal"
+                    :color="item.active ? 'success' : 'error'"
+                    size="small"
+                    rounded="lg"
+                    class="font-weight-bold"
+                >
+                    {{ item.active ? 'YES' : 'NO' }}
+                </v-chip>
             </template>
 
             <!--
@@ -132,19 +146,30 @@
     </v-card>
 
     <ProjectUpdateLimitsDialog
-        v-if="projectToUpdate && featureFlags.project.updateLimits"
+        v-if="selectedProject && featureFlags.project.updateLimits"
         v-model="updateLimitsDialog"
-        :project="projectToUpdate"
+        :project="selectedProject"
     />
     <ProjectUpdateDialog
-        v-if="projectToUpdate && hasUpdateProjectPerm"
+        v-if="selectedProject && hasUpdateProjectPerm"
         v-model="updateProjectDialog"
-        :project="projectToUpdate"
+        :project="selectedProject"
+    />
+    <EntitlementsDialog
+        v-if="selectedProject"
+        v-model="viewEntitlementsDialog"
+        :project="selectedProject"
+    />
+    <ProjectDeleteDialog
+        v-if="selectedProject && featureFlags.project.delete"
+        v-model="deleteProjectDialog"
+        v-model:mark-pending-deletion="markPendingDeletion"
+        :project="selectedProject"
     />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VCard, VTextField, VBtn, VIcon, VDataTable, VTooltip, VChip } from 'vuetify/components';
 import { AlertCircle, Box, MoreHorizontal, Search } from 'lucide-vue-next';
@@ -155,10 +180,14 @@ import { DataTableHeader, SortItem } from '@/types/common';
 import { Project, User, UserAccount } from '@/api/client.gen';
 import { useProjectsStore } from '@/store/projects';
 import { ROUTES } from '@/router';
+import { useLoading } from '@/composables/useLoading';
+import { useNotify } from '@/composables/useNotify';
 
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
 import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
+import EntitlementsDialog from '@/components/EntitlementsDialog.vue';
+import ProjectDeleteDialog from '@/components/ProjectDeleteDialog.vue';
 
 type UsageStats = {
     used: number | null;
@@ -176,6 +205,7 @@ type ProjectTableItem = {
     storage: UsageStats;
     download: RequiredUsageStats;
     segment: UsageStats;
+    active: boolean;
     owner: User;
 };
 
@@ -185,16 +215,23 @@ const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const router = useRouter();
 
+const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
+
 const search = ref<string>('');
 const selected = ref<string[]>([]);
-const projectToUpdate = ref<Project>();
+const selectedProject = ref<Project>();
 const updateLimitsDialog = ref<boolean>(false);
 const updateProjectDialog = ref<boolean>(false);
+const viewEntitlementsDialog = ref<boolean>(false);
+const deleteProjectDialog = ref<boolean>(false);
+const markPendingDeletion = ref<boolean>(false);
 
 const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
 const headers: DataTableHeader[] = [
     { title: 'Name', key: 'name' },
+    { title: 'Active?', key: 'active' },
     { title: 'Storage Used', key: 'storage.percent' },
     { title: 'Storage Used', key: 'storage.used' },
     { title: 'Storage Limit', key: 'storage.limit' },
@@ -202,7 +239,6 @@ const headers: DataTableHeader[] = [
     { title: 'Download Used', key: 'download.used' },
     { title: 'Download Limit', key: 'download.limit' },
     { title: 'Segments Used', key: 'segment.percent' },
-    { title: 'Project ID', key: 'id', align: 'start' },
     // { title: 'Value Attribution', key: 'agent' },
     // { title: 'Date Created', key: 'date' },
 ];
@@ -253,17 +289,53 @@ const projects = computed<ProjectTableItem[]>(() => {
         download: makeUsageStats(project.bandwidthUsed, project.bandwidthLimit),
         segment: makeUsageStats(project.segmentUsed, project.segmentLimit),
         owner: props.account,
+        active: project.active,
     }));
 });
 
-async function onUpdateLimitsClicked(projectId: string) {
-    projectToUpdate.value = await projectsStore.getProject(projectId);
-    updateLimitsDialog.value = true;
+function onUpdateLimitsClicked(projectId: string) {
+    withLoading(async () => {
+        try {
+            selectedProject.value = await projectsStore.getProject(projectId);
+            updateLimitsDialog.value = true;
+        } catch (error) {
+            notify.error(error);
+        }
+    });
 }
 
-async function onUpdateClicked(projectId: string) {
-    projectToUpdate.value = await projectsStore.getProject(projectId);
-    updateProjectDialog.value = true;
+function onUpdateClicked(projectId: string) {
+    withLoading(async () => {
+        try {
+            selectedProject.value = await projectsStore.getProject(projectId);
+            updateProjectDialog.value = true;
+        } catch (error) {
+            notify.error(error);
+        }
+    });
+}
+
+function viewEntitlementsClicked(projectId: string) {
+    withLoading(async () => {
+        try {
+            selectedProject.value = await projectsStore.getProject(projectId);
+            viewEntitlementsDialog.value = true;
+        } catch (error) {
+            notify.error(error);
+        }
+    });
+}
+
+function deleteProjectClicked(projectId: string, pendingDeletion = false) {
+    withLoading(async () => {
+        try {
+            selectedProject.value = await projectsStore.getProject(projectId);
+            markPendingDeletion.value = pendingDeletion;
+            deleteProjectDialog.value = true;
+        } catch (error) {
+            notify.error(error);
+        }
+    });
 }
 
 /**
@@ -285,20 +357,4 @@ function getPercentColor(percent: number) {
         return 'success';
     }
 }
-
-watch(updateLimitsDialog, async (shown) => {
-    if (shown) return;
-
-    // wait for the dialog to close
-    await new Promise(resolve => setTimeout(resolve, 300));
-    projectToUpdate.value = undefined;
-});
-
-watch(updateProjectDialog, async (shown) => {
-    if (shown) return;
-
-    // wait for the dialog to close
-    await new Promise(resolve => setTimeout(resolve, 300));
-    projectToUpdate.value = undefined;
-});
 </script>
