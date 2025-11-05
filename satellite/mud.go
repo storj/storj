@@ -72,6 +72,7 @@ import (
 	srevocation "storj.io/storj/satellite/revocation"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/modular/eventkit"
 	"storj.io/storj/shared/mud"
 )
 
@@ -81,6 +82,9 @@ func Module(ball *mud.Ball) {
 		config.RegisterConfig[debug.Config](ball, "debug")
 		sndebug.Module(ball)
 	}
+
+	eventkit.Module(ball)
+
 	mud.Provide[signing.Signer](ball, signing.SignerFromFullIdentity)
 	mud.Provide[storj.NodeURL](ball, func(id storj.NodeID, cfg contact.Config) storj.NodeURL {
 		return storj.NodeURL{
