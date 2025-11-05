@@ -49,14 +49,6 @@ export interface PaymentsApi {
     getPlacementPriceModel(params: PriceModelForPlacementRequest): Promise<UsagePriceModel>;
 
     /**
-     * Add credit card
-     * @param token - stripe token used to add a credit card as a payment method
-     * @param csrfProtectionToken - CSRF token
-     * @throws Error
-     */
-    addCreditCard(token: string, csrfProtectionToken: string): Promise<void>;
-
-    /**
      * Add funds from a credit card.
      * @param cardID - the ID of the credit card to charge
      * @param amount - the amount of funds to add, in cents
@@ -93,11 +85,11 @@ export interface PaymentsApi {
 
     /**
      * Add payment method.
-     * @param pmID - stripe payment method id of the credit card
+     * @param request - add card request
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    addCardByPaymentMethodID(pmID: string, csrfProtectionToken: string): Promise<void>;
+    addCardByPaymentMethodID(request: AddCardRequest, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Attempt to pay overdue invoices.
@@ -420,16 +412,19 @@ export enum ChargeCardIntent {
     AddFunds = 1,
 }
 
+export interface AddCardRequest {
+    token: string;
+    address?: PurchaseAddress;
+    tax?: PurchaseTax;
+}
+
 export enum PurchaseIntent {
     PackagePlan = 1,
     UpgradeAccount = 2,
 }
 
-export interface PurchaseRequest {
-    token: string;
+export interface PurchaseRequest extends AddCardRequest {
     intent: PurchaseIntent;
-    address?: PurchaseAddress;
-    tax?: PurchaseTax;
 }
 
 export interface PurchaseAddress {

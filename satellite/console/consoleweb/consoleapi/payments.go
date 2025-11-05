@@ -281,15 +281,21 @@ func (p *Payments) AddCardByPaymentMethodID(w http.ResponseWriter, r *http.Reque
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+
+	var params payments.AddCardParams
+
+	if err = json.NewDecoder(r.Body).Decode(&params); err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
-	pmID := string(bodyBytes)
+	if params.Token == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("credit card ID is required"))
+		return
+	}
 
-	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, pmID, false)
+	_, err = p.service.Payments().AddCardByPaymentMethodID(ctx, &params, false)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			web.ServeCustomJSONError(ctx, p.log, w, http.StatusUnauthorized, err, rootError(err).Error())
@@ -726,6 +732,10 @@ func (p *Payments) Purchase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if params.Token == "" {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("credit card ID is required"))
+		return
+	}
 	if params.Intent != payments.PurchasePackageIntent && params.Intent != payments.PurchaseUpgradedAccountIntent {
 		p.serveJSONError(ctx, w, http.StatusForbidden, errs.New("invalid intent: %d", params.Intent))
 		return

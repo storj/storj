@@ -28,12 +28,17 @@ type BillingInformation struct {
 	InvoiceReference string          `json:"invoiceReference"`
 }
 
-// PurchaseParams holds purchase request parameters.
-type PurchaseParams struct {
+// AddCardParams holds add card request parameters.
+type AddCardParams struct {
 	Token   string            `json:"token"`
-	Intent  PurchaseIntent    `json:"intent"`
 	Address *AddAddressParams `json:"address,omitempty"`
 	Tax     *AddTaxParams     `json:"tax,omitempty"`
+}
+
+// PurchaseParams holds purchase request parameters.
+type PurchaseParams struct {
+	AddCardParams
+	Intent PurchaseIntent `json:"intent"`
 }
 
 // AddAddressParams holds address information for adding to a customer.

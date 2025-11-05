@@ -6,6 +6,7 @@ import { defineStore } from 'pinia';
 
 import {
     AccountBalance,
+    AddCardRequest,
     AddFundsResponse,
     BillingAddress,
     BillingInformation,
@@ -235,8 +236,8 @@ export const useBillingStore = defineStore('billing', () => {
         await api.updateCreditCard(params, csrfToken.value);
     }
 
-    async function addCardByPaymentMethodID(pmID: string): Promise<void> {
-        await api.addCardByPaymentMethodID(pmID, csrfToken.value);
+    async function addCardByPaymentMethodID(request: AddCardRequest): Promise<void> {
+        await api.addCardByPaymentMethodID(request, csrfToken.value);
     }
 
     async function attemptPayments(): Promise<void> {
@@ -378,6 +379,7 @@ export const useBillingStore = defineStore('billing', () => {
         storagePrice,
         egressPrice,
         segmentPrice,
+        upgradePayUpfrontAmount,
         getBalance,
         getWallet,
         getTaxCountries,

@@ -23,6 +23,7 @@ import {
     ProductCharges,
     ChargeCardIntent,
     PurchaseRequest,
+    AddCardRequest,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
@@ -225,13 +226,13 @@ export class PaymentsHttpApi implements PaymentsApi {
 
     /**
      * Add payment method.
-     * @param pmID - stripe payment method id of the credit card
+     * @param request - the parameters to add the card with.
      * @param csrfProtectionToken - CSRF token
      * @throws Error
      */
-    public async addCardByPaymentMethodID(pmID: string, csrfProtectionToken: string): Promise<void> {
+    public async addCardByPaymentMethodID(request: AddCardRequest, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/payment-methods`;
-        const response = await this.client.post(path, pmID, { csrfProtectionToken });
+        const response = await this.client.post(path, JSON.stringify(request), { csrfProtectionToken });
 
         if (response.ok) {
             return;
@@ -260,30 +261,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         throw new APIError({
             status: response.status,
             message: result.error || 'Can not attempt payments.',
-            requestID: response.headers.get('x-request-id'),
-        });
-    }
-
-    /**
-     * Add credit card.
-     *
-     * @param token - stripe token used to add a credit card as a payment method
-     * @param csrfProtectionToken - CSRF token
-     * @throws Error
-     */
-    public async addCreditCard(token: string, csrfProtectionToken: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/cards`;
-        const response = await this.client.post(path, token, { csrfProtectionToken });
-
-        if (response.ok) {
-            return;
-        }
-
-        const result = await response.json();
-
-        throw new APIError({
-            status: response.status,
-            message: result.error || 'Can not add credit card',
             requestID: response.headers.get('x-request-id'),
         });
     }

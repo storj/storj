@@ -654,6 +654,7 @@ func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Ba
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
+// TODO: this method should be removed/reworked as it's used only in tests to upgrade users or add mocked cards.
 func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken string) (card payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
@@ -674,7 +675,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount == 0 {
+	if user.IsFreeOrMember() {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, ErrFailedToUpgrade.Wrap(err)
@@ -718,10 +719,15 @@ func (payment Payments) UpdateCreditCard(ctx context.Context, params payments.Ca
 }
 
 // AddCardByPaymentMethodID is used to save new credit card and attach it to payment account.
-func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID string, force bool) (card payments.CreditCard, err error) {
-	defer mon.Task()(&ctx, pmID)(&err)
+func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *payments.AddCardParams, force bool) (card payments.CreditCard, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
+	// Unlikely to happen, but just in case.
+	if params == nil {
+		return payments.CreditCard{}, Error.New("card params are empty")
+	}
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "add card by payment method ID")
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -731,7 +737,12 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, pmID strin
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	card, err = payment.service.accounts.CreditCards().AddByPaymentMethodID(ctx, user.ID, pmID, force)
+	err = payment.updateCustomerBillingInfo(ctx, user.ID, params.Address, params.Tax)
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	card, err = payment.service.accounts.CreditCards().AddByPaymentMethodID(ctx, user.ID, params.Token, force)
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -6550,7 +6561,7 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			return ErrNotFound.Wrap(err)
 		}
 
-		card, err := payment.AddCardByPaymentMethodID(ctx, params.Token, true)
+		card, err := payment.AddCardByPaymentMethodID(ctx, &params.AddCardParams, true)
 		if err != nil {
 			return err
 		}
@@ -6578,22 +6589,19 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			return ErrForbidden.New("upgrade to paid account via purchase is not enabled")
 		}
 
-		err = payment.updateCustomerBillingInfo(ctx, user.ID, params)
+		card, err := payment.AddCardByPaymentMethodID(ctx, &params.AddCardParams, false)
 		if err != nil {
 			return err
 		}
 
-		card, err := payment.AddCardByPaymentMethodID(ctx, params.Token, false)
-		if err != nil {
-			return err
-		}
+		payUpfrontAmount := payment.service.config.UpgradePayUpfrontAmount
 
 		err = payment.applyCreditFromPaidInvoice(ctx, addCreditFromPaidInvoiceParams{
 			User:            user,
 			PaymentMethodID: card.ID,
-			Price:           int64(payment.service.config.UpgradePayUpfrontAmount),
-			Credit:          int64(payment.service.config.UpgradePayUpfrontAmount),
-			Description:     "Upgrade account - $" + strconv.Itoa(payment.service.config.UpgradePayUpfrontAmount/100) + " credits added to your account balance.",
+			Price:           int64(payUpfrontAmount),
+			Credit:          int64(payUpfrontAmount),
+			Description:     "Upgrade account - $" + strconv.Itoa(payUpfrontAmount/100) + " credits added to your account balance.",
 		})
 		if err != nil {
 			removeErr := payment.service.accounts.CreditCards().Remove(ctx, user.ID, card.ID, true)
@@ -6608,8 +6616,8 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 	return nil
 }
 
-func (payment Payments) updateCustomerBillingInfo(ctx context.Context, userID uuid.UUID, params *payments.PurchaseParams) error {
-	if params.Address == nil && params.Tax == nil {
+func (payment Payments) updateCustomerBillingInfo(ctx context.Context, userID uuid.UUID, address *payments.AddAddressParams, tax *payments.AddTaxParams) error {
+	if address == nil && tax == nil {
 		return nil
 	}
 
@@ -6618,24 +6626,24 @@ func (payment Payments) updateCustomerBillingInfo(ctx context.Context, userID uu
 		return err
 	}
 
-	if params.Address != nil {
+	if address != nil {
 		if _, err = payment.service.accounts.SaveBillingAddress(ctx, cusID, userID, payments.BillingAddress{
-			Name:       params.Address.Name,
-			Line1:      params.Address.Line1,
-			Line2:      params.Address.Line2,
-			City:       params.Address.City,
-			PostalCode: params.Address.PostalCode,
-			State:      params.Address.State,
+			Name:       address.Name,
+			Line1:      address.Line1,
+			Line2:      address.Line2,
+			City:       address.City,
+			PostalCode: address.PostalCode,
+			State:      address.State,
 			Country: payments.TaxCountry{
-				Code: payments.CountryCode(params.Address.Country),
+				Code: payments.CountryCode(address.Country),
 			},
 		}); err != nil {
 			return err
 		}
 	}
 
-	if params.Tax != nil {
-		if _, err = payment.service.accounts.AddTaxID(ctx, cusID, userID, *params.Tax); err != nil {
+	if tax != nil {
+		if _, err = payment.service.accounts.AddTaxID(ctx, cusID, userID, *tax); err != nil {
 			return err
 		}
 	}
@@ -6699,7 +6707,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		return err
 	}
 
-	if params.User.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount > 0 {
+	if params.User.IsFreeOrMember() {
 		err = payment.upgradeToPaidTier(ctx, params.User)
 		if err != nil {
 			return err

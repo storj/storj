@@ -192,8 +192,6 @@ const loading = defineModel<boolean>('loading');
  */
 const isFree = computed<boolean>(() => props.plan?.type === PricingPlanType.FREE);
 
-const upgradePayUpfrontAmount = computed(() => configStore.state.config.upgradePayUpfrontAmount);
-
 const collectBillingInfo = computed(() => configStore.state.config.collectBillingInfoOnOnboarding && props.isAccountSetup);
 
 function onBack(): void {
@@ -263,11 +261,15 @@ async function onCardAdded(request: PurchaseRequest): Promise<void> {
     if (props.plan.type === PricingPlanType.PARTNER) {
         await billingStore.purchasePricingPackage(request);
     } else {
-        if (upgradePayUpfrontAmount.value > 0) {
+        if (billingStore.upgradePayUpfrontAmount > 0) {
             request.intent = PurchaseIntent.UpgradeAccount;
             await billingStore.purchaseUpgradedAccount(request);
         } else {
-            await billingStore.addCardByPaymentMethodID(request.token);
+            await billingStore.addCardByPaymentMethodID({
+                token: request.token,
+                address: request.address,
+                tax: request.tax,
+            });
         }
     }
     onSuccess();

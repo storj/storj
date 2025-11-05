@@ -138,7 +138,7 @@ function onSaveCardClick(): void {
  */
 async function addCardToDB(res: string) {
     try {
-        await billingStore.addCardByPaymentMethodID(res);
+        await billingStore.addCardByPaymentMethodID({ token: res });
         notify.success('Card successfully added');
         isCardInputShown.value = false;
 

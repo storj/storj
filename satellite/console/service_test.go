@@ -430,15 +430,10 @@ func TestService(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					card, err := service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID, false)
+					card, err := service.Payments().AddCardByPaymentMethodID(userCtx3, &payments.AddCardParams{Token: pm.ID}, false)
 					require.NoError(t, err)
 					require.NotEmpty(t, card)
 				}
-
-				// user should be in paid tier
-				user, err = service.GetUser(ctx, up3Proj.OwnerID)
-				require.NoError(t, err)
-				require.Equal(t, console.PaidUser, user.Kind)
 
 				cards, err := service.Payments().ListCreditCards(userCtx3)
 				require.NoError(t, err)
@@ -452,7 +447,7 @@ func TestService(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				_, err = service.Payments().AddCardByPaymentMethodID(userCtx3, pm.ID, false)
+				_, err = service.Payments().AddCardByPaymentMethodID(userCtx3, &payments.AddCardParams{Token: pm.ID}, false)
 				require.True(t, payments.ErrMaxCreditCards.Has(err))
 			})
 
@@ -6552,7 +6547,9 @@ func TestPaymentsPurchase(t *testing.T) {
 
 		params := payments.PurchaseParams{
 			Intent: payments.PurchaseIntent(999),
-			Token:  pm.ID,
+			AddCardParams: payments.AddCardParams{
+				Token: pm.ID,
+			},
 		}
 
 		err = p.Purchase(userCtx, &params)
@@ -6648,7 +6645,9 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 
 		params := payments.PurchaseParams{
 			Intent: payments.PurchasePackageIntent,
-			Token:  pm.ID,
+			AddCardParams: payments.AddCardParams{
+				Token: pm.ID,
+			},
 		}
 
 		require.NoError(t, p.Purchase(userCtx, &params))

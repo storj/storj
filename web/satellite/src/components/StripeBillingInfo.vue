@@ -155,7 +155,7 @@ async function onSubmit(): Promise<PurchaseBillingInfo> {
         throw new Error('Stripe is not initialized');
     }
 
-    if (!addressElement.value) {
+    if (!(addressElement.value && addressElementReady.value)) {
         return {
             address: undefined,
             tax: undefined,
@@ -163,6 +163,9 @@ async function onSubmit(): Promise<PurchaseBillingInfo> {
     }
 
     const { complete, value } = await addressElement.value.getValue();
+    if (!complete) {
+        throw new Error('Please fill out the form or skip it.');
+    }
 
     return {
         address: complete ? {

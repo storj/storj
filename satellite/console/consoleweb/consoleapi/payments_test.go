@@ -97,7 +97,10 @@ func TestPurchasePackage(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				payload, err := json.Marshal(payments.PurchaseParams{Token: tt.cardToken, Intent: payments.PurchasePackageIntent})
+				payload, err := json.Marshal(payments.PurchaseParams{
+					AddCardParams: payments.AddCardParams{Token: tt.cardToken},
+					Intent:        payments.PurchasePackageIntent,
+				})
 				require.NoError(t, err)
 
 				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "payments/purchase", bytes.NewBuffer(payload))
