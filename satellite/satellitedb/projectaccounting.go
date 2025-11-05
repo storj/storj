@@ -22,7 +22,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	satbuckets "storj.io/storj/satellite/buckets"
@@ -1034,7 +1033,7 @@ func (db *ProjectAccounting) GetProjectSegmentLimit(ctx context.Context, project
 // GetProjectTotal retrieves project usage for a given period.
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usages, err := db.GetProjectTotalByPartnerAndPlacement(ctx, projectID, nil, since, before, true)
+	usages, err := db.GetProjectTotalByPlacement(ctx, projectID, since, before, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1044,11 +1043,10 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 	return &accounting.ProjectUsage{Since: since, Before: before}, nil
 }
 
-// GetProjectTotalByPartnerAndPlacement retrieves project usage for a given period categorized by partner name and placement constraint.
-// Unpartnered usage or usage for a partner not present in partnerNames is mapped to "|<placement>".
+// GetProjectTotalByPlacement retrieves project usage for a given period categorized by placement constraint.
 //
-// If aggregate is true, the function ignores partners and placements and returns aggregated usage
-// values with an empty string key instead of the partner|placement format.
+// If aggregate is true, the function ignores placements and returns aggregated usage
+// values with an empty string key instead of the placement format.
 //
 // Storage tallies are calculated on intervals of two consecutive entries by multiplying the hours
 // between the periods of the 2 entries by the bytes stored, number of segments, and number of
@@ -1067,7 +1065,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 //     the storage since the last period of March until April, which will be included in the next
 //     monthly calculation (1st of April to 1st of May) as it happened with the last February entry
 //     for this period.
-func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time, aggregate bool) (usages map[string]accounting.ProjectUsage, err error) {
+func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, projectID uuid.UUID, since, before time.Time, aggregate bool) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 	buckets, err := db.GetBucketsSinceAndBefore(ctx, projectID, since, before, false)
@@ -1127,9 +1125,8 @@ func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Co
 			action = ?;
 	`)
 
-	// Map to track usages by partner and placement
-	// Key format: "partner|placement" where placement is the numeric value
-	// If no partner, key is "|placement"
+	// Map to track usages by placement
+	// Key format: placement number as string (e.g., "0", "1")
 	usages = make(map[string]accounting.ProjectUsage)
 
 	for _, bucket := range buckets {
@@ -1143,25 +1140,17 @@ func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Co
 				return nil, err
 			}
 
-			var partner string
 			var placement int
 
 			if valueAttr != nil {
-				if valueAttr.UserAgent != nil {
-					partner, err = tryFindPartnerByUserAgent(valueAttr.UserAgent, partnerNames)
-					if err != nil {
-						return nil, err
-					}
-				}
-
 				// Get placement from value attribution
 				if valueAttr.Placement != nil {
 					placement = *valueAttr.Placement
 				}
 			}
 
-			// Create a key that combines partner and placement
-			key = fmt.Sprintf("%s|%d", partner, placement)
+			// Create a key using just the placement
+			key = fmt.Sprintf("%d", placement)
 		}
 
 		if _, ok := usages[key]; !ok {
@@ -1219,43 +1208,12 @@ func (db *ProjectAccounting) GetProjectTotalByPartnerAndPlacement(ctx context.Co
 		usages[key] = usage
 	}
 
-	// We search for project user_agent for cases when buckets haven't been created yet.
+	// If no usages were found, initialize with default placement 0
 	if len(usages) == 0 {
-		userAgentRow, err := db.db.Get_Project_UserAgent_By_Id(ctx, dbx.Project_Id(projectID[:]))
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return nil, err
-		}
-		if userAgentRow != nil && userAgentRow.UserAgent != nil {
-			partner, err := tryFindPartnerByUserAgent(userAgentRow.UserAgent, partnerNames)
-			if err != nil {
-				return nil, err
-			}
-			// Use the standard partner|placement format with default placement 0
-			key := fmt.Sprintf("%s|%d", partner, 0)
-			usages[key] = accounting.ProjectUsage{}
-		}
+		usages["0"] = accounting.ProjectUsage{}
 	}
 
 	return usages, nil
-}
-
-func tryFindPartnerByUserAgent(userAgent []byte, partnerNames []string) (string, error) {
-	entries, err := useragent.ParseEntries(userAgent)
-	if err != nil {
-		return "", err
-	}
-
-	var partner string
-	if len(entries) != 0 {
-		for _, iterPartner := range partnerNames {
-			if entries[0].Product == iterPartner {
-				partner = iterPartner
-				break
-			}
-		}
-	}
-
-	return partner, nil
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.

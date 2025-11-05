@@ -4138,15 +4138,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 
 		if s.entitlementsConfig.Enabled {
 			// We have to use a direct DB call here because we are in a transaction.
-			partnerMap, defaultMap := s.accounts.GetPlacementProductMappings(string(newProject.UserAgent))
+			placementMap := s.accounts.GetPlacementProductMappings()
 			mapping := entitlements.PlacementProductMappings{}
-			for placement, productID := range partnerMap {
+			for placement, productID := range placementMap {
 				mapping[storj.PlacementConstraint(placement)] = productID
-			}
-			for placement, productID := range defaultMap {
-				if _, exists := mapping[storj.PlacementConstraint(placement)]; !exists {
-					mapping[storj.PlacementConstraint(placement)] = productID
-				}
 			}
 			feats := entitlements.ProjectFeatures{
 				NewBucketPlacements:      s.config.Placement.AllowedPlacementIdsForNewProjects,
@@ -4515,16 +4510,11 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 		}
 	}
 
-	partnerMap, defaultMap := s.accounts.GetPlacementProductMappings(string(p.UserAgent))
+	placementMap := s.accounts.GetPlacementProductMappings()
 
 	mapping := entitlements.PlacementProductMappings{}
-	for placement, productID := range partnerMap {
+	for placement, productID := range placementMap {
 		mapping[storj.PlacementConstraint(placement)] = productID
-	}
-	for placement, productID := range defaultMap {
-		if _, exists := mapping[storj.PlacementConstraint(placement)]; !exists {
-			mapping[storj.PlacementConstraint(placement)] = productID
-		}
 	}
 	for placement, productID := range s.config.LegacyPlacementProductMappingForMigration.mappings {
 		mapping[placement] = productID
@@ -5610,7 +5600,7 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 }
 
 func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]PlacementDetail, error) {
-	placements, entitlementsHasPlacements, err := s.accounts.GetPartnerPlacements(ctx, project.PublicID, string(project.UserAgent))
+	placements, entitlementsHasPlacements, err := s.accounts.GetPlacements(ctx, project.PublicID)
 	if err != nil {
 		return nil, err
 	}
@@ -5715,7 +5705,7 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 				reportUsages = append(reportUsages, item)
 			}
 		} else {
-			usages, err := s.projectAccounting.GetProjectTotalByPartnerAndPlacement(ctx, p.ID, s.accounts.GetPartnerNames(), param.Since, param.Before, false)
+			usages, err := s.projectAccounting.GetProjectTotalByPlacement(ctx, p.ID, param.Since, param.Before, false)
 			if err != nil {
 				return nil, err
 			}
@@ -5739,22 +5729,15 @@ func (s *Service) GetUsageReport(ctx context.Context, param GetUsageReportParam)
 
 				_, priceModel := s.accounts.ProductIdAndPriceForUsageKey(ctx, p.PublicID, key)
 
-				partner := ""
 				placement := int(storj.DefaultPlacement)
 
-				// Split the key to extract partner and placement.
-				parts := strings.Split(key, "|")
-				if len(parts) >= 1 {
-					partner = parts[0]
-				}
-				if len(parts) >= 2 {
-					placement64, err := strconv.ParseInt(parts[1], 10, 32)
-					if err == nil {
-						placement = int(placement64)
-					}
+				// The key format is now just "placement" (e.g., "11").
+				// Parse the placement directly from the key.
+				placement64, err := strconv.ParseInt(key, 10, 32)
+				if err == nil {
+					placement = int(placement64)
 				}
 				item.Placement = storj.PlacementConstraint(placement)
-				item.UserAgent = []byte(partner)
 
 				item, err = s.transformProjectReportItem(ctx, item, param.IncludeCost, priceModel)
 				if err != nil {
@@ -5877,7 +5860,7 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 func (s *Service) transformProjectReportItem(ctx context.Context, item accounting.ProjectReportItem, addCost bool, priceModel payments.ProductUsagePriceModel) (_ accounting.ProjectReportItem, err error) {
 	hoursPerMonthDecimal := decimal.NewFromInt(hoursPerMonth)
 	if priceModel == (payments.ProductUsagePriceModel{}) {
-		_, priceModel = s.accounts.GetPartnerPlacementPriceModel(ctx, item.ProjectPublicID, string(item.UserAgent), item.Placement)
+		_, priceModel = s.accounts.GetPlacementPriceModel(ctx, item.ProjectPublicID, item.Placement)
 	}
 	item.ProductName = priceModel.ProductName
 	if s.skuEnabled {
@@ -6866,14 +6849,8 @@ func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc stri
 	return nil
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for the partner.
-func (payment Payments) GetProjectUsagePriceModel(partner string) (_ *payments.ProjectUsagePriceModel) {
-	model := payment.service.accounts.GetProjectUsagePriceModel(partner)
-	return &model
-}
-
-// GetPartnerPlacementPriceModel returns the product ID and related project usage price model for the project's user agent and placement.
-func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
+// GetPlacementPriceModel returns the product ID and related project usage price model for the project's placement.
+func (payment Payments) GetPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
 	user, err := GetUser(ctx)
 	if err != nil {
 		return 0, payments.ProjectUsagePriceModel{}, ErrUnauthorized.Wrap(err)
@@ -6884,7 +6861,7 @@ func (payment Payments) GetPartnerPlacementPriceModel(ctx context.Context, proje
 	}
 
 	project := isMember.project
-	productID, model := payment.service.accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID, string(project.UserAgent), placement)
+	productID, model := payment.service.accounts.GetPlacementPriceModel(ctx, project.PublicID, placement)
 
 	return productID, model.ProjectUsagePriceModel, nil
 }

@@ -287,13 +287,6 @@ func Module(ball *mud.Ball) {
 		if err != nil {
 			return stripe.PricingConfig{}, err
 		}
-		partnerPlacementOverrideMap := pc.PartnersPlacementPriceOverrides.ToMap()
-		for _, overrideMap := range partnerPlacementOverrideMap {
-			err = paymentsconfig.ValidatePlacementOverrideMap(overrideMap, productPrices, placements)
-			if err != nil {
-				return stripe.PricingConfig{}, err
-			}
-		}
 		prices, err := pc.UsagePrice.ToModel()
 		if err != nil {
 			return stripe.PricingConfig{}, err
@@ -302,7 +295,6 @@ func Module(ball *mud.Ball) {
 			UsagePrices:         prices,
 			UsagePriceOverrides: priceOverrides,
 			ProductPriceMap:     productPrices,
-			PartnerPlacementMap: partnerPlacementOverrideMap,
 			PlacementProductMap: placementOverrideMap,
 			PackagePlans:        pc.PackagePlans.Packages,
 			BonusRate:           pc.BonusRate,

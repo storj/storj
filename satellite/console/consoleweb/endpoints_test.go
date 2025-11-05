@@ -323,7 +323,6 @@ func TestAnalytics(t *testing.T) {
 
 func TestPayments(t *testing.T) {
 	var (
-		partner         = ""
 		placement       = storj.PlacementConstraint(10)
 		placementDetail = console.PlacementDetail{
 			ID:          10,
@@ -356,9 +355,6 @@ func TestPayments(t *testing.T) {
 					productID: productPrice,
 				})
 				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(placement): productID})
-				config.Payments.PartnersPlacementPriceOverrides.SetMap(map[string]paymentsconfig.PlacementProductMap{
-					partner: config.Payments.PlacementPriceOverrides,
-				})
 				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
 					0:         {ID: 0},
 					placement: placementDetail,

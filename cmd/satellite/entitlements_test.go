@@ -216,15 +216,14 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 			t.Run("SetPlacementProductMap", func(t *testing.T) {
 				args.action = actionSetPlacementProductMap
 				args.placementProductMap = nil // Use default logic
-				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
-					"":           {1: 3, 2: 4},
-					"test-agent": {1: 4},
+				args.defaultPlacementProductMap = payments.PlacementProductIdMap{
+					1: 3, 2: 4,
 				}
 
 				err = processUserEmail(ctx, user4.Email, args, true)
 				require.NoError(t, err)
 
-				// Verify that user4's project got partner overridden placement mapping
+				// Verify that user4's project got global placement mapping
 				features, err := entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
 				require.EqualValues(t, entitlements.PlacementProductMappings{
@@ -241,8 +240,8 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				err = processUserEmail(ctx, user4.Email, args, true)
 				require.NoError(t, err)
 
-				// verify that user4's project gets mapping for the default partner ("")
-				// because "unknown-agent" is not in defaultPartnerMap
+				// verify that user4's project gets the same global placement mapping
+				// regardless of UserAgent
 				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
 				require.EqualValues(t, entitlements.PlacementProductMappings{
@@ -256,12 +255,12 @@ func TestSetEntitlement_UserEmail(t *testing.T) {
 				err = processUserEmail(ctx, user4.Email, args, true)
 				require.NoError(t, err)
 
-				// verify that user4's project gets mapping for test-agent with non-overridden
-				// placements added to the mapping
+				// verify that user4's project gets the same global placement mapping
+				// even with "test-agent" UserAgent
 				features, err = entService.Projects().GetByPublicID(ctx, user4Project.PublicID)
 				require.NoError(t, err)
 				require.EqualValues(t, entitlements.PlacementProductMappings{
-					1: 4, 2: 4,
+					1: 3, 2: 4,
 				}, features.PlacementProductMappings)
 			})
 		})
@@ -403,32 +402,21 @@ func TestSetEntitlement_AllUsers(t *testing.T) {
 			t.Run("SetPlacementProductMap", func(t *testing.T) {
 				args.action = actionSetPlacementProductMap
 				args.placementProductMap = nil // use default logic
-				args.defaultPartnerMap = map[string]payments.PlacementProductIdMap{
-					"":           {1: 3, 2: 4},
-					"test-agent": {1: 4},
+				args.defaultPlacementProductMap = payments.PlacementProductIdMap{
+					1: 3, 2: 4,
 				}
 
 				err = processAllUsers(ctx, args)
 				require.NoError(t, err)
 
-				// Verify that projects with no partner got {1:3, 2:4} mapping.
-				noPartnerProjects := []uuid.UUID{user2Project.PublicID, user2Project2.PublicID}
-				for _, publicID := range noPartnerProjects {
+				// Verify that all projects get the same global placement mapping
+				// regardless of UserAgent
+				allProjects := []uuid.UUID{user1Project.PublicID, user2Project.PublicID, user2Project2.PublicID, user3Project.PublicID}
+				for _, publicID := range allProjects {
 					features, err := entService.Projects().GetByPublicID(ctx, publicID)
 					require.NoError(t, err)
 					require.EqualValues(t, entitlements.PlacementProductMappings{
 						1: 3, 2: 4,
-					}, features.PlacementProductMappings)
-				}
-
-				// Verify that projects with "test-agent" partner got {1:4} mapping
-				// with non-overridden placements added to the mapping {1:4, 2:4}
-				testAgentProjects := []uuid.UUID{user1Project.PublicID, user3Project.PublicID}
-				for _, publicID := range testAgentProjects {
-					features, err := entService.Projects().GetByPublicID(ctx, publicID)
-					require.NoError(t, err)
-					require.EqualValues(t, entitlements.PlacementProductMappings{
-						1: 4, 2: 4,
 					}, features.PlacementProductMappings)
 				}
 			})
@@ -691,14 +679,6 @@ func TestSetEntitlement_Validation(t *testing.T) {
 				})
 				config.Payments.PlacementPriceOverrides = placementProductMap
 
-				var part1Map paymentsconfig.PlacementProductMap
-				part1Map.SetMap(map[int]int32{
-					0: 2,
-				})
-				partnersMap := make(map[string]paymentsconfig.PlacementProductMap)
-				partnersMap["part1"] = part1Map
-				config.Payments.PartnersPlacementPriceOverrides.SetMap(partnersMap)
-
 				price := paymentsconfig.ProjectUsagePrice{
 					StorageTB: "4",
 					EgressTB:  "7",
@@ -827,7 +807,7 @@ func TestSetEntitlement_Validation(t *testing.T) {
 					features, err = entService.Projects().GetByPublicID(ctx, p2.PublicID)
 					require.NoError(t, err)
 					require.EqualValues(t, entitlements.PlacementProductMappings{
-						0: 2,
+						0: 1,
 					}, features.PlacementProductMappings)
 				})
 			})

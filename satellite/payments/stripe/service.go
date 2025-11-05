@@ -77,7 +77,6 @@ type PricingConfig struct {
 	UsagePrices         payments.ProjectUsagePriceModel
 	UsagePriceOverrides map[string]payments.ProjectUsagePriceModel
 	ProductPriceMap     map[int32]payments.ProductUsagePriceModel
-	PartnerPlacementMap payments.PartnersPlacementProductMap
 	PlacementProductMap payments.PlacementProductIdMap
 	PackagePlans        map[string]payments.PackagePlan
 	BonusRate           int64
@@ -131,15 +130,8 @@ func NewService(
 ) (*Service, error) {
 	var partners []string
 	addedPartners := make(map[string]struct{})
-	// partners relevant to billing may be defined as part of `usagePriceOverrides`, or `partnerPlacementMap`. Eventually, `usagePriceOverrides` will become legacy, and be replaced with `partnerPlacementMap`.
+	// partners relevant to billing may be defined as part of `usagePriceOverrides`.
 	for partner := range pricing.UsagePriceOverrides {
-		if _, ok := addedPartners[partner]; ok {
-			continue
-		}
-		partners = append(partners, partner)
-		addedPartners[partner] = struct{}{}
-	}
-	for partner := range pricing.PartnerPlacementMap {
 		if _, ok := addedPartners[partner]; ok {
 			continue
 		}
@@ -643,12 +635,12 @@ func (service *Service) getAndProcessUsages(
 	productInfos map[int32]payments.ProductUsagePriceModel,
 	from, to time.Time,
 ) error {
-	usages, err := service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, service.partnerNames, from, to, false)
+	usages, err := service.usageDB.GetProjectTotalByPlacement(ctx, projectID, from, to, false)
 	if err != nil {
 		return err
 	}
 
-	// Process each partner/placement usage entry.
+	// Process each placement usage entry.
 	for key, usage := range usages {
 		if key == "" {
 			return errs.New("invalid usage key format")
@@ -708,23 +700,17 @@ func (service *Service) getAndProcessUsages(
 }
 
 func (service *Service) productIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, payments.ProductUsagePriceModel) {
-	partner := ""
 	placement := int(storj.DefaultPlacement)
 
-	// Split the key to extract partner and placement.
-	parts := strings.Split(key, "|")
-	if len(parts) >= 1 {
-		partner = parts[0]
-	}
-	if len(parts) >= 2 {
-		placement64, err := strconv.ParseInt(parts[1], 10, 32)
-		if err == nil {
-			placement = int(placement64)
-		}
+	// The key format is now just "placement" (e.g., "25").
+	// Parse the placement directly from the key.
+	placement64, err := strconv.ParseInt(key, 10, 32)
+	if err == nil {
+		placement = int(placement64)
 	}
 
-	// Get price model for the partner and placement.
-	return service.Accounts().GetPartnerPlacementPriceModel(ctx, projectPublicID, partner, storj.PlacementConstraint(placement))
+	// Get price model for the placement.
+	return service.Accounts().GetPlacementPriceModel(ctx, projectPublicID, storj.PlacementConstraint(placement))
 }
 
 // InvoiceItemsFromTotalProjectUsages calculates per-product Stripe invoice items from total project usages.

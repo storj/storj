@@ -701,23 +701,15 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 	return charges, nil
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for a partner name.
-func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.ProjectUsagePriceModel {
-	if override, ok := accounts.service.pricingConfig.UsagePriceOverrides[partner]; ok {
-		return override
-	}
-	return accounts.service.pricingConfig.UsagePrices
-}
-
-// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement,
+// GetPlacementPriceModel returns the productID and related usage price model for a placement,
 // if there is none defined for the project ID.
-func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {
+func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {
 	if accounts.service.config.EntitlementsEnabled {
 		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
 		if err != nil {
 			accounts.service.log.Error(
 				"could not get pricing entitlements for project, falling back to defaults",
-				zap.String("partner", partner), zap.Int("placement", int(placement)), zap.Error(err))
+				zap.Int("placement", int(placement)), zap.Error(err))
 		}
 		for placementConstraint, productID := range feats.PlacementProductMappings {
 			if placementConstraint != placement {
@@ -727,48 +719,43 @@ func (accounts *accounts) GetPartnerPlacementPriceModel(ctx context.Context, pro
 				return productID, price
 			}
 			accounts.service.log.Info(
-				"no product definition for product and partner, falling back to defaults",
-				zap.String("partner", partner), zap.Int("placement", int(placement)))
+				"no product definition for product, falling back to defaults",
+				zap.Int("placement", int(placement)))
 			// fall through to global pricing
 		}
 	}
 
-	productID, ok := accounts.service.pricingConfig.PartnerPlacementMap.GetProductByPartnerAndPlacement(partner, int(placement))
+	productID, ok := accounts.service.pricingConfig.PlacementProductMap.GetProductByPlacement(int(placement))
 	if !ok {
-		productID, _ = accounts.service.pricingConfig.PlacementProductMap.GetProductByPlacement(int(placement))
+		accounts.service.log.Info(
+			"no product mapping for placement, falling back to defaults",
+			zap.Int("placement", int(placement)))
+		return 0, payments.ProductUsagePriceModel{
+			ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
+		}
 	}
+
 	if price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]; ok {
 		return productID, price
 	}
 
 	accounts.service.log.Info(
-		"no product definition for product and partner, falling back to defaults",
-		zap.String("partner", partner), zap.Int("placement", int(placement)))
+		"no product definition for product, falling back to defaults",
+		zap.Int("placement", int(placement)))
 
-	// fall back to default pricing for partner
+	// fall back to default pricing
 	return 0, payments.ProductUsagePriceModel{
-		ProjectUsagePriceModel: accounts.GetProjectUsagePriceModel(partner),
+		ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
 	}
 }
 
-// GetPlacementProductMappings returns the placement to product ID mappings for a partner
-// and the default mappings.
-func (accounts *accounts) GetPlacementProductMappings(partner string) (partnerMap payments.PlacementProductIdMap, defaultMap payments.PlacementProductIdMap) {
-	partnerMap = make(payments.PlacementProductIdMap)
-	for placement, productID := range accounts.service.pricingConfig.PartnerPlacementMap[partner] {
-		partnerMap[placement] = productID
-	}
-
-	defaultMap = make(payments.PlacementProductIdMap)
+// GetPlacementProductMappings returns the placement to product ID mappings.
+func (accounts *accounts) GetPlacementProductMappings() payments.PlacementProductIdMap {
+	placementMap := make(payments.PlacementProductIdMap)
 	for placement, productID := range accounts.service.pricingConfig.PlacementProductMap {
-		defaultMap[placement] = productID
+		placementMap[placement] = productID
 	}
-	return partnerMap, defaultMap
-}
-
-// GetPartnerNames returns the partners relevant to billing.
-func (accounts *accounts) GetPartnerNames() []string {
-	return accounts.service.partnerNames
+	return placementMap
 }
 
 // ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key
@@ -777,13 +764,11 @@ func (accounts *accounts) ProductIdAndPriceForUsageKey(ctx context.Context, proj
 	return accounts.service.productIdAndPriceForUsageKey(ctx, projectPublicID, key)
 }
 
-// GetPartnerPlacements returns the placements for a project or partner. It will return the placements allowed for the
-// project on the entitlements level or those allowed globally for the partner if entitlements are disabled.
-// In the case of disabled entitlements, it also includes the placements for the default product price
-// config that have not been overridden for the partner.
+// GetPlacements returns the placements for a project. It will return the placements allowed for the
+// project on the entitlements level or those allowed globally if entitlements are disabled.
 // It also returns a boolean, entitlementHasPlacement, indicating if the project's entitlement has any new buckets
 // placements defined.
-func (accounts *accounts) GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error) {
+func (accounts *accounts) GetPlacements(ctx context.Context, projectPublicID uuid.UUID) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error) {
 	placements := make([]storj.PlacementConstraint, 0)
 
 	if accounts.service.config.EntitlementsEnabled {
@@ -796,26 +781,17 @@ func (accounts *accounts) GetPartnerPlacements(ctx context.Context, projectPubli
 			})
 			return placements, true, nil
 		case entitlements.ErrNotFound.Has(err):
-			// fall through to global level partner placements
+			// fall through to global level placements
 			// log at info level, as this is not an error case
 			accounts.service.log.Info(
-				"no entitlements found for project, falling back to partner placements",
-				zap.String("partner", partner), zap.String("projectPublicID", projectPublicID.String()))
+				"no entitlements found for project, falling back to global placements",
+				zap.String("projectPublicID", projectPublicID.String()))
 		default:
 			return nil, false, err
 		}
 	}
 
-	placementMap, ok := accounts.service.pricingConfig.PartnerPlacementMap[partner]
-	if !ok {
-		placementMap = make(payments.PlacementProductIdMap)
-	}
-	for i, i2 := range accounts.service.pricingConfig.PlacementProductMap {
-		if _, ok = placementMap[i]; !ok {
-			placementMap[i] = i2
-		}
-	}
-	for placement := range placementMap {
+	for placement := range accounts.service.pricingConfig.PlacementProductMap {
 		placements = append(placements, storj.PlacementConstraint(placement))
 	}
 	sort.SliceStable(placements, func(i, j int) bool {
@@ -887,7 +863,7 @@ func (accounts *accounts) CheckProjectUsageStatus(ctx context.Context, projectID
 	}
 
 	getCostTotal := func(start, before time.Time) (decimal.Decimal, error) {
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartnerAndPlacement(ctx, projectID, accounts.service.partnerNames, start, before, false)
+		usages, err := accounts.service.usageDB.GetProjectTotalByPlacement(ctx, projectID, start, before, false)
 		if err != nil {
 			return decimal.Zero, err
 		}

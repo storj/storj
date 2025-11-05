@@ -95,13 +95,11 @@ func TestInvoiceByProduct(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// expected behavior:
-				// partner | placement | expected product ID
-				// ""      | 0         | 1
-				// ""      | 12        | 2
-				// "part1" | 0         | 3
-				// "part1" | 12        | 4
-				// entitle | 0         | 2 // entitled project for any partner
-				// entitle | 12        | 3 // entitled project for any partner
+				// placement | expected product ID
+				// 0         | 1
+				// 12        | 2
+				// entitle:0 | 2 // entitled project overrides placement mapping
+				// entitle:12| 3 // entitled project overrides placement mapping
 
 				config.Placement = nodeselection.ConfigurablePlacementRule{
 					PlacementRules: `0:annotation("location", "global");12:annotation("location", "testplacement")`,
@@ -114,19 +112,6 @@ func TestInvoiceByProduct(t *testing.T) {
 					12: 2,
 				})
 				config.Payments.PlacementPriceOverrides = placementProductMap
-
-				// Set up partner placement product map (maps partners to placement->product maps)
-				var part1Map paymentsconfig.PlacementProductMap
-				part1Map.SetMap(map[int]int32{
-					0:  3,
-					12: 4,
-				})
-				partnersMap := make(map[string]paymentsconfig.PlacementProductMap)
-				partnersMap["part1"] = part1Map
-
-				var partnerPlacementProductMap paymentsconfig.PartnersPlacementProductMap
-				partnerPlacementProductMap.SetMap(partnersMap)
-				config.Payments.PartnersPlacementPriceOverrides = partnerPlacementProductMap
 				config.Payments.Products = productOverrides
 
 				config.Entitlements.Enabled = true
@@ -166,7 +151,7 @@ func TestInvoiceByProduct(t *testing.T) {
 			{
 				name:               "with partner",
 				partner:            "part1",
-				expectedProductIDs: []int32{3, 4},
+				expectedProductIDs: []int32{1, 2},
 			},
 			{
 				name:                "with partner - entitlement override",

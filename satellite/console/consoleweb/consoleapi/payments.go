@@ -646,29 +646,8 @@ func (p *Payments) WalletPaymentsWithConfirmations(w http.ResponseWriter, r *htt
 	}
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for the user.
-func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	user, err := console.GetUser(ctx)
-	if err != nil {
-		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-
-	pricing := p.service.Payments().GetProjectUsagePriceModel(string(user.UserAgent))
-
-	if err = json.NewEncoder(w).Encode(pricing); err != nil {
-		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
-	}
-}
-
-// GetPartnerPlacementPriceModel returns the bucket usage price model for the user and placement.
-func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.Request) {
+// GetPlacementPriceModel returns the bucket usage price model for the placement.
+func (p *Payments) GetPlacementPriceModel(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -705,7 +684,7 @@ func (p *Payments) GetPartnerPlacementPriceModel(w http.ResponseWriter, r *http.
 		return
 	}
 
-	_, pricing, err := p.service.Payments().GetPartnerPlacementPriceModel(ctx, projectID, placement)
+	_, pricing, err := p.service.Payments().GetPlacementPriceModel(ctx, projectID, placement)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return

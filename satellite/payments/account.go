@@ -17,18 +17,6 @@ import (
 // ErrAccountNotSetup is an error type which indicates that payment account is not created.
 var ErrAccountNotSetup = errs.Class("payment account is not set up")
 
-// PartnersPlacementProductMap maps partners to placements to products map.
-type PartnersPlacementProductMap map[string]PlacementProductIdMap
-
-// GetProductByPartnerAndPlacement returns the product mapped to the given partner and placement.
-func (p PartnersPlacementProductMap) GetProductByPartnerAndPlacement(partner string, placement int) (int32, bool) {
-	placementProductMap, ok := p[partner]
-	if !ok {
-		return 0, false
-	}
-	return placementProductMap.GetProductByPlacement(placement)
-}
-
 // PlacementProductIdMap maps placements to products.
 type PlacementProductIdMap map[int]int32
 
@@ -90,31 +78,22 @@ type Accounts interface {
 	// CalculateProjectUsagePrice calculates the price for given project usage and price model.
 	CalculateProjectUsagePrice(usage ProjectUsage, priceModel ProjectUsagePriceModel) UsageCost
 
-	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
-	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
-
-	// GetPartnerPlacementPriceModel returns the productID and related usage price model for a partner and placement,
+	// GetPlacementPriceModel returns the productID and related usage price model for a placement,
 	// if there is none defined for the project ID.
-	GetPartnerPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, partner string, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)
+	GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)
 
-	// GetPlacementProductMappings returns the placement to product ID mappings for a partner
-	// and the default mappings.
-	GetPlacementProductMappings(partner string) (partnerMap PlacementProductIdMap, defaultMap PlacementProductIdMap)
-
-	// GetPartnerNames returns the partners relevant to billing.
-	GetPartnerNames() []string
+	// GetPlacementProductMappings returns the placement to product ID mappings.
+	GetPlacementProductMappings() PlacementProductIdMap
 
 	// ProductIdAndPriceForUsageKey returns the product ID and usage price model for a given usage key
 	// if there is none defined for the project ID.
 	ProductIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, ProductUsagePriceModel)
 
-	// GetPartnerPlacements returns the placements for a project or partner. It will return the placements allowed for the
-	// project on the entitlements level or those allowed globally for the partner if entitlements are disabled.
-	// In the case of disabled entitlements, it also includes the placements for the default product price
-	// config that have not been overridden for the partner.
+	// GetPlacements returns the placements for a project. It will return the placements allowed for the
+	// project on the entitlements level or those allowed globally if entitlements are disabled.
 	// It also returns a boolean, entitlementHasPlacement, indicating if the project's entitlement has any new buckets
 	// placements defined.
-	GetPartnerPlacements(ctx context.Context, projectPublicID uuid.UUID, partner string) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error)
+	GetPlacements(ctx context.Context, projectPublicID uuid.UUID) (_ []storj.PlacementConstraint, entitlementsHasPlacements bool, _ error)
 
 	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).

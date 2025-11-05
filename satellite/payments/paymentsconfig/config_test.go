@@ -253,12 +253,6 @@ var placementOverrides = paymentsconfig.PlacementOverrides{
 	ProductPlacements: map[int32][]int{
 		1: {0},
 	},
-	PartnerProductPlacements: map[string]map[int32][]int{
-		"somepartner": {
-			1: {3},
-			3: {1},
-		},
-	},
 }
 
 func TestPlacementPriceOverrides(t *testing.T) {
@@ -319,79 +313,6 @@ func TestPlacementPriceOverrides(t *testing.T) {
 		t.Run(tt.id, func(t *testing.T) {
 			mapFromCfg := &paymentsconfig.PlacementProductMap{}
 			err := mapFromCfg.Set(tt.config)
-			if tt.expectErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			if tt.expectStr != "" {
-				require.Equal(t, tt.expectStr, mapFromCfg.String())
-				return
-			}
-			require.Equal(t, tt.config, mapFromCfg.String())
-		})
-	}
-}
-
-func TestPartnerPlacementPriceOverrides(t *testing.T) {
-	bytes, err := yaml.Marshal(placementOverrides.PartnerProductPlacements)
-	require.NoError(t, err)
-	validYaml := string(bytes)
-
-	bytes, err = json.Marshal(placementOverrides.PartnerProductPlacements)
-	require.NoError(t, err)
-	jsonStr := string(bytes)
-
-	tmpFile, err := os.CreateTemp(t.TempDir(), "mapping_*.yaml")
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, os.Remove(tmpFile.Name()))
-		require.NoError(t, tmpFile.Close())
-	}()
-
-	bytes, err = yaml.Marshal(placementOverrides)
-	require.NoError(t, err)
-	_, err = tmpFile.Write(bytes)
-	require.NoError(t, err)
-
-	tests := []struct {
-		id     string
-		config string
-		// in the case of JSON, we only allow using it for backwards compatibility
-		// the expected config string of cfg.String() will be in YAML format.
-		expectStr string
-		expectErr bool
-	}{
-		{
-			id:     "empty string",
-			config: "",
-		},
-		{
-			id:     "valid YAML",
-			config: validYaml,
-		},
-		{
-			id:        "YAML file",
-			config:    tmpFile.Name(),
-			expectStr: validYaml,
-		},
-		{
-			id:        "valid JSON",
-			config:    jsonStr,
-			expectStr: validYaml,
-		},
-		{
-			id:        "invalid YAML",
-			config:    "invalid string",
-			expectErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.id, func(t *testing.T) {
-			mapFromCfg := &paymentsconfig.PartnersPlacementProductMap{}
-			err := mapFromCfg.Set(tt.config)
-
 			if tt.expectErr {
 				require.Error(t, err)
 				return

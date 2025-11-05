@@ -43,9 +43,8 @@ type Config struct {
 	DeleteProjectCostThreshold int64 `help:"the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold." default:"0"`
 
 	// TODO: if we decide to put default product in here and change away from overrides, change the type name.
-	Products                        ProductPriceOverrides       `help:"a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details."`
-	PlacementPriceOverrides         PlacementProductMap         `help:"a YAML mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details."`
-	PartnersPlacementPriceOverrides PartnersPlacementProductMap `help:"a YAML mapping of partners to a mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details."`
+	Products                ProductPriceOverrides `help:"a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details."`
+	PlacementPriceOverrides PlacementProductMap   `help:"a YAML mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details."`
 
 	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
@@ -462,12 +461,11 @@ func (p *ProductPriceOverrides) Get(id int32) (prices ProductUsagePrice, ok bool
 	return ProductUsagePrice{}, false
 }
 
-// PlacementOverrides holds the placement overrides for products and partners defined in a common file.
+// PlacementOverrides holds the placement overrides for products defined in a common file.
 // This format is to be used if placement override configurations are to be defined in a single file.
 // Exported for testing purposes.
 type PlacementOverrides struct {
-	ProductPlacements        map[int32][]int            `yaml:"product-placements"`
-	PartnerProductPlacements map[string]map[int32][]int `yaml:"partner-product-placements"`
+	ProductPlacements map[int32][]int `yaml:"product-placements"`
 }
 
 // Ensure that PlacementProductMap implements pflag.Value.
@@ -554,108 +552,6 @@ func (p *PlacementProductMap) Set(s string) error {
 		}
 	}
 	p.placementProductMap = placementProductMap
-	return nil
-}
-
-// Ensure that PartnersPlacementProductMap implements pflag.Value.
-var _ pflag.Value = (*PartnersPlacementProductMap)(nil)
-
-// PartnersPlacementProductMap maps partners to placements to products map.
-type PartnersPlacementProductMap struct {
-	partnerPlacementProductMap map[string]PlacementProductMap
-}
-
-// SetMap sets the internal mapping between partners, placements and products.
-func (p *PartnersPlacementProductMap) SetMap(partnerPlacementProductMap map[string]PlacementProductMap) {
-	p.partnerPlacementProductMap = partnerPlacementProductMap
-}
-
-// ToMap flattens the partners to placements to product map
-// typed as payments.PartnersPlacementProductMap.
-func (p *PartnersPlacementProductMap) ToMap() payments.PartnersPlacementProductMap {
-	productMap := make(payments.PartnersPlacementProductMap)
-	for partner, placementProductMap := range p.partnerPlacementProductMap {
-		productMap[partner] = placementProductMap.ToMap()
-	}
-	return productMap
-}
-
-// Type returns the type of the pflag.Value.
-func (PartnersPlacementProductMap) Type() string { return "paymentsconfig.PartnersPlacementProductMap" }
-
-// String returns the JSON string representation of the partners to placements to product map.
-func (p *PartnersPlacementProductMap) String() string {
-	if p == nil || len(p.partnerPlacementProductMap) == 0 {
-		return ""
-	}
-
-	mapping := make(map[string]map[int32][]int)
-	for partner, placementProduct := range p.partnerPlacementProductMap {
-		productPlacements := make(map[int32][]int)
-		for placement, product := range placementProduct.placementProductMap {
-			productPlacements[product] = append(productPlacements[product], placement)
-		}
-		mapping[partner] = productPlacements
-	}
-
-	data, err := yaml.Marshal(mapping)
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
-// Set sets the partners placements to products mappings to the JSON string.
-func (p *PartnersPlacementProductMap) Set(s string) error {
-	if s == "" {
-		return nil
-	}
-
-	s = strings.TrimSpace(s)
-	strBytes := []byte(s)
-
-	var partnerProductPlacements map[string]map[int32][]int
-	switch {
-	case strings.HasSuffix(s, ".yaml"):
-		// YAML file path
-		data, err := os.ReadFile(s)
-		if err != nil {
-			return errs.New("Couldn't read product config file from %s: %v", s, err)
-		}
-
-		var overrides PlacementOverrides
-		err = yaml.Unmarshal(data, &overrides)
-		if err != nil {
-			return errs.New("failed to parse override config YAML file: %v", err)
-		}
-		partnerProductPlacements = overrides.PartnerProductPlacements
-	case strings.HasPrefix(s, "{") && strings.HasSuffix(s, "}"):
-		// JSON string
-		err := json.Unmarshal(strBytes, &partnerProductPlacements)
-		if err != nil {
-			return errs.New("failed to parse override config JSON: %v", err)
-		}
-	default:
-		// YAML string
-		err := yaml.Unmarshal(strBytes, &partnerProductPlacements)
-		if err != nil {
-			return errs.New("failed to parse override config YAML: %v", err)
-		}
-	}
-
-	partnerPlacementProductMap := make(map[string]PlacementProductMap)
-	for partner, productPlacement := range partnerProductPlacements {
-		placementProductMap := PlacementProductMap{
-			placementProductMap: make(map[int]int32),
-		}
-		for product, placements := range productPlacement {
-			for _, placement := range placements {
-				placementProductMap.placementProductMap[placement] = product
-			}
-		}
-		partnerPlacementProductMap[partner] = placementProductMap
-	}
-	p.partnerPlacementProductMap = partnerPlacementProductMap
 	return nil
 }
 

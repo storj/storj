@@ -1972,8 +1972,7 @@ func TestGetUsageReport(t *testing.T) {
 			}
 
 			testCosts := func(item accounting.ProjectReportItem, rollup accounting.BucketUsageRollup) {
-				_, priceModel := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
-					string(project.UserAgent), item.Placement)
+				_, priceModel := sat.API.Payments.Accounts.GetPlacementPriceModel(ctx, project.PublicID, item.Placement)
 				require.Equal(t, priceModel.StorageSKU, item.StorageSKU)
 				require.Equal(t, priceModel.EgressSKU, item.EgressSKU)
 				require.Equal(t, priceModel.SegmentSKU, item.SegmentSKU)
@@ -2160,8 +2159,7 @@ func TestGetUsageReport(t *testing.T) {
 			require.Len(t, items, numbBuckets+1)
 			for _, item := range items {
 				if item.Placement == placement13 {
-					_, priceModel := sat.API.Payments.Accounts.GetPartnerPlacementPriceModel(ctx, project.PublicID,
-						string(project.UserAgent), item.Placement)
+					_, priceModel := sat.API.Payments.Accounts.GetPlacementPriceModel(ctx, project.PublicID, item.Placement)
 					defaultModel, err := defaultPrice.ToModel()
 					require.NoError(t, err)
 					require.Equal(t, defaultModel, priceModel.ProjectUsagePriceModel)
@@ -2466,11 +2464,7 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 			IdName: "0",
 		}
 		allowedPlacements = []storj.PlacementConstraint{storj.DefaultPlacement, placement10}
-		partnersMapping   = entitlements.PlacementProductMappings{
-			storj.DefaultPlacement:        2,
-			storj.PlacementConstraint(12): 2,
-		}
-		defaultMapping = entitlements.PlacementProductMappings{
+		defaultMapping    = entitlements.PlacementProductMappings{
 			storj.DefaultPlacement:        1,
 			storj.PlacementConstraint(12): 2,
 		}
@@ -2495,14 +2489,6 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 					0: 1, 12: 2,
 				})
 				config.Payments.PlacementPriceOverrides = placementProductMap
-
-				var part1Map paymentsconfig.PlacementProductMap
-				part1Map.SetMap(map[int]int32{
-					0: 2,
-				})
-				partnersMap := make(map[string]paymentsconfig.PlacementProductMap)
-				partnersMap["part1"] = part1Map
-				config.Payments.PartnersPlacementPriceOverrides.SetMap(partnersMap)
 
 				price := paymentsconfig.ProjectUsagePrice{
 					StorageTB: "4",
@@ -2565,7 +2551,7 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 		require.NotNil(t, feats.NewBucketPlacements)
 		require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
 		require.NotNil(t, feats.PlacementProductMappings)
-		require.EqualValues(t, partnersMapping, feats.PlacementProductMappings)
+		require.EqualValues(t, defaultMapping, feats.PlacementProductMappings)
 		require.Contains(t, feats.NewBucketPlacements, p.DefaultPlacement)
 
 		config, err = service.GetProjectConfig(userCtx, p.ID)

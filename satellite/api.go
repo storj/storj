@@ -726,14 +726,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				return nil, errs.Combine(err, peer.Close())
 			}
 
-			partnerPlacementOverrideMap := pc.PartnersPlacementPriceOverrides.ToMap()
-			for _, overrideMap := range partnerPlacementOverrideMap {
-				err = paymentsconfig.ValidatePlacementOverrideMap(overrideMap, productPrices, placements)
-				if err != nil {
-					return nil, errs.Combine(err, peer.Close())
-				}
-			}
-
 			minimumChargeDate, err := pc.MinimumCharge.GetEffectiveDate()
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
@@ -763,7 +755,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 					UsagePrices:         prices,
 					UsagePriceOverrides: priceOverrides,
 					ProductPriceMap:     productPrices,
-					PartnerPlacementMap: partnerPlacementOverrideMap,
 					PlacementProductMap: placementOverrideMap,
 					PackagePlans:        pc.PackagePlans.Packages,
 					BonusRate:           pc.BonusRate,

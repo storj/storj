@@ -97,7 +97,6 @@ func TestSignupCouponCodes(t *testing.T) {
 				UsagePrices:         prices,
 				UsagePriceOverrides: priceOverrides,
 				ProductPriceMap:     productPrices,
-				PartnerPlacementMap: pc.PartnersPlacementPriceOverrides.ToMap(),
 				PlacementProductMap: pc.PlacementPriceOverrides.ToMap(),
 				PackagePlans:        pc.PackagePlans.Packages,
 				BonusRate:           pc.BonusRate,

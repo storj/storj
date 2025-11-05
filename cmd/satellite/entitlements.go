@@ -48,8 +48,8 @@ type processingArgs struct {
 	skipConfirm       bool
 	verbose           bool
 
-	placementProductMap entitlements.PlacementProductMappings
-	defaultPartnerMap   payments.PartnersPlacementProductMap
+	placementProductMap        entitlements.PlacementProductMappings
+	defaultPlacementProductMap payments.PlacementProductIdMap
 
 	action int
 }
@@ -162,17 +162,16 @@ func setPlacementProductMap(ctx context.Context, log *zap.Logger, satDB satellit
 		}
 	}
 
-	var partnerMapping payments.PartnersPlacementProductMap
+	var placementMapping payments.PlacementProductIdMap
 	if mappings == nil {
 
-		partnerMapping = runCfg.Payments.PartnersPlacementPriceOverrides.ToMap()
-		partnerMapping[""] = runCfg.Payments.PlacementPriceOverrides.ToMap()
+		placementMapping = runCfg.Payments.PlacementPriceOverrides.ToMap()
 
 		logArgs := make([]zap.Field, 0)
 		if entitlementVerbose {
-			logArgs = append(logArgs, zap.Any("mapping", partnerMapping))
+			logArgs = append(logArgs, zap.Any("mapping", placementMapping))
 		}
-		log.Info("Setting new bucket placements using default partner mappings", logArgs...)
+		log.Info("Setting new bucket placements using default placement mappings", logArgs...)
 	} else {
 		productPrices, err := runCfg.Payments.Products.ToModels()
 		if err != nil {
@@ -210,14 +209,14 @@ func setPlacementProductMap(ctx context.Context, log *zap.Logger, satDB satellit
 
 	entitlementsService := entitlements.NewService(log.Named("entitlements"), satDB.Console().Entitlements())
 	args := processingArgs{
-		log:                 log,
-		satDB:               satDB,
-		entService:          entitlementsService,
-		placementProductMap: mappings,
-		defaultPartnerMap:   partnerMapping,
-		skipConfirm:         entitlementSkipConfirm,
-		verbose:             entitlementVerbose,
-		action:              actionSetPlacementProductMap,
+		log:                        log,
+		satDB:                      satDB,
+		entService:                 entitlementsService,
+		placementProductMap:        mappings,
+		defaultPlacementProductMap: placementMapping,
+		skipConfirm:                entitlementSkipConfirm,
+		verbose:                    entitlementVerbose,
+		action:                     actionSetPlacementProductMap,
 	}
 
 	// Determine which users/projects to target.
@@ -271,19 +270,9 @@ func processProject(ctx context.Context, project console.Project, args processin
 	if args.action == actionSetPlacementProductMap {
 		placementProductMap := args.placementProductMap
 		if placementProductMap == nil {
-			partner := ""
-			if project.UserAgent != nil {
-				partner = string(project.UserAgent)
-			}
 			placementProductMap = entitlements.PlacementProductMappings{}
-			for placement, productID := range args.defaultPartnerMap[partner] {
+			for placement, productID := range args.defaultPlacementProductMap {
 				placementProductMap[storj.PlacementConstraint(placement)] = productID
-			}
-			// add mappings for default ("") partner that are missing in the specific partner mappings
-			for placement, productID := range args.defaultPartnerMap[""] {
-				if _, ok := placementProductMap[storj.PlacementConstraint(placement)]; !ok {
-					placementProductMap[storj.PlacementConstraint(placement)] = productID
-				}
 			}
 		}
 

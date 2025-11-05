@@ -6,7 +6,6 @@ package accounting_test
 import (
 	"fmt"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -638,7 +637,7 @@ func TestGetSingleBucketTotal(t *testing.T) {
 	)
 }
 
-func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
+func TestGetProjectTotalByPlacement(t *testing.T) {
 	const (
 		epsilon          = 1e-8
 		usagePeriod      = time.Hour
@@ -671,17 +670,17 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 				egress   int64
 			}
 
-			// Keys are in the format "partner|placement"
+			// Keys are in the format of placement number as string (e.g., "0", "1")
 			expectedTotals := make(map[string]expectedTotal)
 
 			partnerNames := []string{"", "partner1", "partner2"}
 			placements := []storj.PlacementConstraint{storj.DefaultPlacement, storj.PlacementConstraint(1), storj.PlacementConstraint(2)}
 
 			// Create buckets for all combinations of partner and placement
+			// Since we no longer track partners separately, usages will be aggregated by placement only
 			for _, name := range partnerNames {
 				for _, placement := range placements {
-					key := fmt.Sprintf("%s|%d", name, placement)
-					expectedTotals[key] = expectedTotal{}
+					key := fmt.Sprintf("%d", placement)
 
 					bucket := buckets.Bucket{
 						ID:        testrand.UUID(),
@@ -705,7 +704,7 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 					require.NoError(t, err)
 
 					// We use multiple tallies and rollups to ensure that
-					// GetProjectTotalByPartnerAndPlacement is capable of summing them.
+					// GetProjectTotalByPlacement is capable of summing them.
 					total := expectedTotals[key]
 					for i := 0; i <= tallyRollupCount; i++ {
 						// Create storage tallies with non-zero values that we can track
@@ -762,10 +761,10 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 				require.Equal(t, expectedBefore, actual.Before)
 			}
 
-			t.Run("get usages by partner and placement", func(t *testing.T) {
+			t.Run("get usages by placement", func(t *testing.T) {
 				ctx := testcontext.New(t)
 
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, partnerNames, since, before, false)
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPlacement(ctx, project.ID, since, before, false)
 				require.NoError(t, err)
 
 				// Verify that entries exist and match expected values for all the keys
@@ -780,47 +779,19 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 				}
 			})
 
-			t.Run("with specific partner subset", func(t *testing.T) {
+			t.Run("verify placement aggregation", func(t *testing.T) {
 				ctx := testcontext.New(t)
-				// Only include one partner in the filter
-				filteredPartners := []string{partnerNames[1]}
 
-				// Debug first how GetProjectTotalByPartner works
-				usagesByPartner, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before, false)
-				require.NoError(t, err)
-				for key, usage := range usagesByPartner {
-					t.Logf("Partner '%s': storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
-						key, usage.Storage, usage.SegmentCount, usage.ObjectCount, usage.Egress)
-				}
-
-				// Now test our new function
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, filteredPartners, since, before, false)
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPlacement(ctx, project.ID, since, before, false)
 				require.NoError(t, err)
 
-				// Check specific entries
+				// Verify we get exactly 3 placements (0, 1, 2)
+				require.Len(t, usages, len(placements), "Should have one entry per placement")
+
+				// Verify each placement key exists
 				for _, placement := range placements {
-					// Selected partner should be in the results
-					partnerKey := fmt.Sprintf("%s|%d", filteredPartners[0], placement)
-					require.Contains(t, usages, partnerKey, "Selected partner key %s should be in results", partnerKey)
-					requireTotal(t, expectedTotals[partnerKey], since, before, usages[partnerKey])
-
-					// Empty partner should be in the results
-					emptyKey := fmt.Sprintf("|%d", placement)
-					require.Contains(t, usages, emptyKey, "Empty partner key %s should be in results", emptyKey)
-				}
-
-				// Partner not in the filter should not be in the results
-				for _, placement := range placements {
-					unwantedKey := fmt.Sprintf("%s|%d", partnerNames[2], placement)
-					require.NotContains(t, usages, unwantedKey, "Unwanted key %s should not be in results", unwantedKey)
-				}
-
-				// Verify that all keys in the results are expected
-				for key := range usages {
-					// The key should either be for the filtered partner or for empty partner
-					isFilteredPartner := strings.HasPrefix(key, filteredPartners[0]+"|")
-					isEmptyPartner := strings.HasPrefix(key, "|")
-					require.True(t, isFilteredPartner || isEmptyPartner, "Unexpected key %s in results", key)
+					key := fmt.Sprintf("%d", placement)
+					require.Contains(t, usages, key, "Placement %s should be in results", key)
 				}
 			})
 
@@ -835,7 +806,7 @@ func TestGetProjectTotalByPartnerAndPlacement(t *testing.T) {
 					expected.egress += usage.egress
 				}
 
-				aggregatedUsages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartnerAndPlacement(ctx, project.ID, partnerNames, since, before, true)
+				aggregatedUsages, err := sat.DB.ProjectAccounting().GetProjectTotalByPlacement(ctx, project.ID, since, before, true)
 				require.NoError(t, err)
 				require.Len(t, aggregatedUsages, 1)
 
