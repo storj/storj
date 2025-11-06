@@ -14,7 +14,7 @@ import (
 )
 
 func TestHashTbl_TrashStats(t *testing.T) {
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	rec := newRecord(newKey())
@@ -30,7 +30,7 @@ func TestHashTbl_TrashStats(t *testing.T) {
 func TestHashTbl_Full(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	// fill the table completely.
@@ -53,7 +53,7 @@ func TestHashTbl_Full(t *testing.T) {
 func TestHashTbl_LostPage(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	// create two keys that collide at the end of the first page.
@@ -92,33 +92,33 @@ func TestHashTbl_SmallFileSizes(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	_, _, err = OpenHashTbl(ctx, fh, defaultMMAP())
+	_, _, err = OpenHashTbl(ctx, fh, defaultMmap())
 	assert.Error(t, err)
 
 	assert.NoError(t, fh.Truncate(tbl_headerSize))
-	_, _, err = OpenHashTbl(ctx, fh, defaultMMAP())
+	_, _, err = OpenHashTbl(ctx, fh, defaultMmap())
 	assert.Error(t, err)
 
 	assert.NoError(t, fh.Truncate(tbl_headerSize+(pageSize-1)))
-	_, _, err = OpenHashTbl(ctx, fh, defaultMMAP())
+	_, _, err = OpenHashTbl(ctx, fh, defaultMmap())
 	assert.Error(t, err)
 }
 
 func TestHashTbl_LRecBounds(t *testing.T) {
 	ctx := t.Context()
 
-	_, err := CreateHashTbl(ctx, nil, tbl_maxLogSlots+1, 0, defaultMMAP())
+	_, err := CreateHashTbl(ctx, nil, tbl_maxLogSlots+1, 0, defaultMmap())
 	assert.Error(t, err)
 
-	_, err = CreateHashTbl(ctx, nil, tbl_minLogSlots-1, 0, defaultMMAP())
+	_, err = CreateHashTbl(ctx, nil, tbl_minLogSlots-1, 0, defaultMmap())
 	assert.Error(t, err)
 }
 
 func TestHashTbl_GrowthRetainsOrder(t *testing.T) {
-	h0 := newTestHashTbl(t, defaultMMAP(), 14)
+	h0 := newTestHashTbl(t, defaultMmap(), 14)
 	defer h0.Close()
 
-	h1 := newTestHashTbl(t, defaultMMAP(), 15)
+	h1 := newTestHashTbl(t, defaultMmap(), 15)
 	defer h1.Close()
 
 	for range 1000 {
@@ -130,7 +130,7 @@ func TestHashTbl_GrowthRetainsOrder(t *testing.T) {
 }
 
 func TestHashTbl_Wraparound(t *testing.T) {
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	// insert a bunch of keys that collide into the last slot.
@@ -150,14 +150,14 @@ func TestHashTbl_Wraparound(t *testing.T) {
 func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
 	ctx := t.Context()
 
-	h0 := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h0 := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h0.Close()
 
 	for range 1 << tbl_minLogSlots / 2 {
 		h0.AssertInsert()
 	}
 
-	h1 := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots+1)
+	h1 := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots+1)
 	defer h1.Close()
 
 	assert.NoError(t, h0.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
@@ -174,7 +174,7 @@ func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
 }
 
 func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	// load keys into the hash table that would be sequential with no hashing.
@@ -197,7 +197,7 @@ func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
 }
 
 func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	// completely fill the table.
@@ -218,9 +218,9 @@ func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
 	assert.That(t, h.Load() != 1)
 }
 
-func TestMMAPCache(t *testing.T) {
+func TestMmapCache(t *testing.T) {
 	data := make([]byte, tbl_headerSize+RecordSize)
-	c := newMMAPCache(data)
+	c := newMmapCache(data)
 
 	exp := newRecord(newKey())
 	got := Record{}
@@ -245,11 +245,11 @@ func TestMMAPCache(t *testing.T) {
 func TestHashTbl_IncorrectLogSlots(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	assert.NoError(t, h.fh.Truncate(int64(hashtblSize(tbl_minLogSlots+1))))
 
-	_, _, err := OpenHashTbl(ctx, h.fh, defaultMMAP())
+	_, _, err := OpenHashTbl(ctx, h.fh, defaultMmap())
 	assert.Error(t, err)
 }

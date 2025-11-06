@@ -5,13 +5,18 @@ package hashstore
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
 )
 
 func TestRecordTailFromLog(t *testing.T) {
-	forAllTables(t, testRecordTailFromLog)
+	forAllMmapWrapper(t, func(t *testing.T) {
+		forAllTables(t, func(t *testing.T, c Config) {
+			testRecordTailFromLog(t, c)
+		})
+	})
 }
 func testRecordTailFromLog(t *testing.T, cfg Config) {
 	run := func(t *testing.T, count int, mutate func(t *testing.T, lf *logFile, i int)) {
@@ -80,6 +85,9 @@ func testRecordTailFromLog(t *testing.T, cfg Config) {
 }
 
 func TestReadRecordsFromLogFile(t *testing.T) {
+	forAllMmapWrapper(t, testReadRecordsFromLogFile)
+}
+func testReadRecordsFromLogFile(t *testing.T) {
 	run := func(
 		t *testing.T,
 		count int,
@@ -118,7 +126,7 @@ func TestReadRecordsFromLogFile(t *testing.T) {
 		defer temporarily(&test_fsck_errorOnInvalidRecord, true)()
 		run(t, 10, nil, func(t *testing.T, lf *logFile, keys []Key) {
 			var got []Key
-			assert.NoError(t, readRecordsFromLogFile(lf,
+			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf,
 				func(k Key, b []byte) bool { return true },
 				func(rec Record) bool { got = append(got, rec.Key); return true }))
 			assert.Equal(t, got, keys)
@@ -129,7 +137,7 @@ func TestReadRecordsFromLogFile(t *testing.T) {
 		defer temporarily(&test_fsck_errorOnInvalidRecord, false)()
 		run(t, 10, alwaysAddGarbage, func(t *testing.T, lf *logFile, keys []Key) {
 			var got []Key
-			assert.NoError(t, readRecordsFromLogFile(lf,
+			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf,
 				func(k Key, b []byte) bool { return true },
 				func(rec Record) bool { got = append(got, rec.Key); return true }))
 			assert.Equal(t, got, keys)
@@ -141,7 +149,7 @@ func TestReadRecordsFromLogFile(t *testing.T) {
 		run(t, 10, nil, func(t *testing.T, lf *logFile, keys []Key) {
 			var parity bool
 			var got []Key
-			assert.NoError(t, readRecordsFromLogFile(lf,
+			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf,
 				func(k Key, b []byte) bool { parity = !parity; return parity },
 				func(rec Record) bool { got = append(got, rec.Key); return true }))
 			assert.Equal(t, got, []Key{keys[0], keys[2], keys[4], keys[6], keys[8]})
@@ -151,7 +159,7 @@ func TestReadRecordsFromLogFile(t *testing.T) {
 	t.Run("SkipAll", func(t *testing.T) {
 		defer temporarily(&test_fsck_errorOnInvalidRecord, true)()
 		run(t, 10, nil, func(t *testing.T, lf *logFile, keys []Key) {
-			assert.NoError(t, readRecordsFromLogFile(lf,
+			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf,
 				func(k Key, b []byte) bool { return false },
 				func(rec Record) bool { panic("should not be called") }))
 		})
@@ -160,7 +168,7 @@ func TestReadRecordsFromLogFile(t *testing.T) {
 	t.Run("GarbageDetected", func(t *testing.T) {
 		defer temporarily(&test_fsck_errorOnInvalidRecord, true)()
 		run(t, 1, alwaysAddGarbage, func(t *testing.T, lf *logFile, keys []Key) {
-			assert.Error(t, readRecordsFromLogFile(lf,
+			assert.Error(t, readRecordsFromLogFile(t.Context(), lf,
 				func(k Key, b []byte) bool { return true },
 				func(rec Record) bool { panic("should not be called") }))
 		})
@@ -172,9 +180,71 @@ func TestReadRecordsFromLogFile(t *testing.T) {
 //
 
 func alwaysAddGarbage(t *testing.T, lf *logFile, i int) {
-	buf := make([]byte, mwc.Intn(10))
+	buf := make([]byte, mwc.Intn(10)+1)
 	_, _ = mwc.Rand().Read(buf)
 	n, err := lf.fh.Write(buf)
 	assert.NoError(t, err)
 	lf.size.Add(uint64(n))
+}
+
+//
+// benchmarks
+//
+
+func BenchmarkRecordTailFromLog(b *testing.B) {
+	forAllMmapWrapper(b, benchmarkRecordTailFromLog)
+}
+func benchmarkRecordTailFromLog(b *testing.B) {
+	const records = 10000
+
+	s := newTestStore(b, defaultConfig())
+	defer s.Close()
+
+	for range records {
+		s.AssertCreate()
+	}
+
+	lf, _ := s.lfs.Lookup(1)
+	b.SetBytes(int64(lf.size.Load()))
+	b.ReportAllocs()
+
+	now := time.Now()
+
+	for b.Loop() {
+		_, err := recordTailFromLog(b.Context(), lf, func(k Key, b []byte) bool { return true })
+		assert.NoError(b, err)
+	}
+
+	b.ReportMetric(float64(len(RecordTail{}))*float64(b.N)/time.Since(now).Seconds(), "rec/sec")
+}
+
+func BenchmarkReadRecordsFromLogFile(b *testing.B) {
+	forAllMmapWrapper(b, benchmarkReadRecordsFromLogFile)
+}
+func benchmarkReadRecordsFromLogFile(b *testing.B) {
+	const records = 10000
+
+	s := newTestStore(b, defaultConfig())
+	defer s.Close()
+
+	for range records {
+		s.AssertCreate()
+	}
+
+	lf, _ := s.lfs.Lookup(1)
+	b.SetBytes(int64(lf.size.Load()))
+	b.ReportAllocs()
+
+	now := time.Now()
+
+	for b.Loop() {
+		assert.NoError(b, readRecordsFromLogFile(
+			b.Context(),
+			lf,
+			func(k Key, b []byte) bool { return true },
+			func(rec Record) bool { return true },
+		))
+	}
+
+	b.ReportMetric(records*float64(b.N)/time.Since(now).Seconds(), "rec/sec")
 }

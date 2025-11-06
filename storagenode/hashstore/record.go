@@ -180,17 +180,21 @@ func (r *RecordTail) Push(rec Record) {
 }
 
 // Sort sorts the records in the tail by offset, breaking ties by key.
-func (r *RecordTail) Sort() {
-	sort.Slice(r[:], func(i, j int) bool {
-		switch {
-		case r[i].Offset > r[j].Offset:
-			return true
-		case r[i].Offset < r[j].Offset:
-			return false
-		default:
-			return string(r[i].Key[:]) > string(r[j].Key[:])
-		}
-	})
+func (r *RecordTail) Sort() { sort.Sort((*tailSorter)(r)) }
+
+type tailSorter RecordTail
+
+func (r *tailSorter) Len() int      { return len(r) }
+func (r *tailSorter) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
+func (r *tailSorter) Less(i, j int) bool {
+	switch {
+	case r[i].Offset > r[j].Offset:
+		return true
+	case r[i].Offset < r[j].Offset:
+		return false
+	default:
+		return string(r[i].Key[:]) > string(r[j].Key[:])
+	}
 }
 
 // RecordTailsEqualish returns true if the two record tails are equalish. RecordTails are equalish

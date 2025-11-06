@@ -1547,10 +1547,11 @@ func TestStore_ReconcileLog(t *testing.T) {
 		// helper function to get all the records from a log file for comparison.
 		getLogRecords := func(lf *logFile) map[Record]struct{} {
 			rs := make(map[Record]struct{})
-			assert.NoError(t, readRecordsFromLogFile(lf, s.valid, func(rec Record) bool {
-				rs[rec] = struct{}{}
-				return true
-			}))
+			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf, s.valid,
+				func(rec Record) bool {
+					rs[rec] = struct{}{}
+					return true
+				}))
 			return rs
 		}
 

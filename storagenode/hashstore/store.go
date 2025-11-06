@@ -1453,7 +1453,7 @@ func (s *Store) reconcileLog(ctx context.Context, lf *logFile) (_ []Key, err err
 	// collect the set of valid records from the log file, keeping the largest offset. the records
 	// are returned in largest offset order, so only insert into the map if it doesn't exist.
 	logRecordsByKey := make(map[Key]Record)
-	if err := readRecordsFromLogFile(lf, s.valid, func(rec Record) bool {
+	if err := readRecordsFromLogFile(ctx, lf, s.valid, func(rec Record) bool {
 		if _, ok := logRecordsByKey[rec.Key]; !ok {
 			logRecordsByKey[rec.Key] = rec
 		}

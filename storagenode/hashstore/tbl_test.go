@@ -138,7 +138,7 @@ func TestTable_RangeExitEarly(t *testing.T) {
 func testTable_RangeExitEarly(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
 	// insert some records to range over.
@@ -342,16 +342,16 @@ func TestTable_InvalidHeaders(t *testing.T) {
 func TestTable_OpenIncorrectKind(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMMAP(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer h.Close()
 
-	m := newTestMemTbl(t, defaultMMAP(), tbl_minLogSlots)
+	m := newTestMemTbl(t, defaultMmap(), tbl_minLogSlots)
 	defer m.Close()
 
-	_, _, err := OpenMemTbl(ctx, h.fh, defaultMMAP())
+	_, _, err := OpenMemTbl(ctx, h.fh, defaultMmap())
 	assert.Error(t, err)
 
-	_, _, err = OpenHashTbl(ctx, m.fh, defaultMMAP())
+	_, _, err = OpenHashTbl(ctx, m.fh, defaultMmap())
 	assert.Error(t, err)
 }
 

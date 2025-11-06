@@ -11,7 +11,7 @@ import (
 )
 
 func TestMemTbl_ShortCollision(t *testing.T) {
-	forAllMMAP(t, testMemTbl_ShortCollision)
+	forAllMmap(t, testMemTbl_ShortCollision)
 }
 func testMemTbl_ShortCollision(t *testing.T, cfg MmapCfg) {
 	m := newTestMemTbl(t, cfg, tbl_minLogSlots)
@@ -54,7 +54,7 @@ func testMemTbl_ShortCollision(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ConstructorSometimesFlushes(t *testing.T) {
-	forAllMMAP(t, testMemTbl_ConstructorSometimesFlushes)
+	forAllMmap(t, testMemTbl_ConstructorSometimesFlushes)
 }
 func testMemTbl_ConstructorSometimesFlushes(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
@@ -76,7 +76,7 @@ func testMemTbl_ConstructorSometimesFlushes(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_LoadWithCollisions(t *testing.T) {
-	forAllMMAP(t, testMemTbl_LoadWithCollisions)
+	forAllMmap(t, testMemTbl_LoadWithCollisions)
 }
 func testMemTbl_LoadWithCollisions(t *testing.T, cfg MmapCfg) {
 	// Create a new memtbl
@@ -108,7 +108,7 @@ func testMemTbl_LoadWithCollisions(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_UpdateCollisions(t *testing.T) {
-	forAllMMAP(t, testMemTbl_UpdateCollisions)
+	forAllMmap(t, testMemTbl_UpdateCollisions)
 }
 func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
@@ -175,7 +175,7 @@ func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_UnalignedEntries(t *testing.T) {
-	forAllMMAP(t, testMemTbl_UnalignedEntries)
+	forAllMmap(t, testMemTbl_UnalignedEntries)
 }
 func testMemTbl_UnalignedEntries(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
@@ -202,7 +202,7 @@ func testMemTbl_UnalignedEntries(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_OpenUnaligned(t *testing.T) {
-	forAllMMAP(t, testMemTbl_OpenUnaligned)
+	forAllMmap(t, testMemTbl_OpenUnaligned)
 }
 func testMemTbl_OpenUnaligned(t *testing.T, cfg MmapCfg) {
 	// create a table with 128 records (8192 bytes of data) so that if we're in mmap mode it has
@@ -230,7 +230,7 @@ func testMemTbl_OpenUnaligned(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ConstructorFull(t *testing.T) {
-	forAllMMAP(t, testMemTbl_ConstructorFull)
+	forAllMmap(t, testMemTbl_ConstructorFull)
 }
 func testMemTbl_ConstructorFull(t *testing.T, cfg MmapCfg) {
 	ctx := t.Context()
@@ -264,7 +264,7 @@ func testMemTbl_ConstructorFull(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ReopenWithCorruptRecord(t *testing.T) {
-	forAllMMAP(t, testMemTbl_ReopenWithCorruptRecord)
+	forAllMmap(t, testMemTbl_ReopenWithCorruptRecord)
 }
 func testMemTbl_ReopenWithCorruptRecord(t *testing.T, cfg MmapCfg) {
 	m := newTestMemTbl(t, cfg, tbl_minLogSlots)
@@ -290,7 +290,7 @@ func testMemTbl_ReopenWithCorruptRecord(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ReopenWithTooManyEntries(t *testing.T) {
-	forAllMMAP(t, testMemTbl_ReopenWithTooManyEntries)
+	forAllMmap(t, testMemTbl_ReopenWithTooManyEntries)
 }
 func testMemTbl_ReopenWithTooManyEntries(t *testing.T, cfg MmapCfg) {
 	m := newTestMemTbl(t, cfg, tbl_minLogSlots, withFilledTable(t, nil))

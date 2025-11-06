@@ -161,7 +161,7 @@ func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, _ m
 		if err != nil {
 			return nil, nil, Error.Wrap(err)
 		}
-		h.mmap = newMMAPCache(data)
+		h.mmap = newMmapCache(data)
 
 		if cfg.Mlock && platform.MmapSupported {
 			_ = platform.Mlock(data)
@@ -582,7 +582,7 @@ func (c *HashTblConstructor) Done(ctx context.Context) (t Tbl, err error) {
 
 type mmapCache struct{ data []byte }
 
-func newMMAPCache(data []byte) *mmapCache { return &mmapCache{data: data} }
+func newMmapCache(data []byte) *mmapCache { return &mmapCache{data: data} }
 
 func (c *mmapCache) ReadRecord(slot slotIdxT, rec *Record) (valid bool, err error) {
 	start := uint64(slot.Offset())

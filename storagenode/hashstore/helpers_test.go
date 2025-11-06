@@ -404,14 +404,14 @@ func allFiles(t testing.TB, dir string) (paths []string) {
 	return paths
 }
 
-func defaultMMAP() MmapCfg  { return MmapCfg{Mmap: false, Mlock: true} }
+func defaultMmap() MmapCfg  { return MmapCfg{Mmap: false, Mlock: true} }
 func defaultConfig() Config { return CreateDefaultConfig(TableKind_HashTbl, false) }
 
 func assertClose(t testing.TB, cl io.Closer) { assert.NoError(t, cl.Close()) }
 
-func forAllTables[T interface {
-	Run(string, func(T)) bool
-}](t T, fn func(T, Config)) {
+type testingRun[T any] interface{ Run(string, func(T)) bool }
+
+func forAllTables[T testingRun[T]](t T, fn func(T, Config)) {
 	run := func(t T, kind TableKind, mmap bool) {
 		t.Run(fmt.Sprintf("tbl=%s/mmap=%v", kind, mmap), func(t T) {
 			fn(t, CreateDefaultConfig(kind, mmap))
@@ -426,15 +426,20 @@ func forAllTables[T interface {
 	}
 }
 
-func forAllMMAP(t *testing.T, fn func(t *testing.T, cfg MmapCfg)) {
-	t.Run("mmap=false", func(t *testing.T) {
-		fn(t, MmapCfg{Mmap: false, Mlock: true})
+func forAllBool[T testingRun[T]](t T, name string, fn func(T, bool)) {
+	t.Run(name+"=true", func(t T) { fn(t, true) })
+	t.Run(name+"=false", func(t T) { fn(t, false) })
+}
+
+func forAllMmap[T testingRun[T]](t T, fn func(T, MmapCfg)) {
+	forAllBool(t, "mmap", func(t T, mmap bool) { fn(t, MmapCfg{Mmap: mmap, Mlock: true}) })
+}
+
+func forAllMmapWrapper[T testingRun[T]](t T, cb func(t T)) {
+	forAllBool(t, "mmapWrapper", func(t T, mmapWrapper bool) {
+		defer temporarily(&test_fsck_skipMmapWrapper, !mmapWrapper)()
+		cb(t)
 	})
-	if platform.MmapSupported {
-		t.Run("mmap=true", func(t *testing.T) {
-			fn(t, MmapCfg{Mmap: true, Mlock: true})
-		})
-	}
 }
 
 func ifFailed(t testing.TB, fn func()) {
