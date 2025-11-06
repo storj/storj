@@ -162,7 +162,6 @@ function onPrimaryClick(): void {
 
             email.value = '';
         } catch (error) {
-            error.message = `Error inviting project member. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
             return;
         }
@@ -172,7 +171,6 @@ function onPrimaryClick(): void {
         try {
             await pmStore.getProjectMembers(1, props.projectId);
         } catch (error) {
-            error.message = `Unable to fetch project members. ${error.message}`;
             notify.notifyError(error, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         }
 

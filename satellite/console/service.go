@@ -7242,6 +7242,11 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 					oldest = u
 				}
 			}
+
+			if oldest.Status != Inactive {
+				return nil, errs.New("there was an error inviting user %s. Please contact support", email)
+			}
+
 			unverifiedUsers = append(unverifiedUsers, oldest)
 		} else if s.config.UnregisteredInviteEmailsEnabled {
 			newUserEmails = append(newUserEmails, email)
