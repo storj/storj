@@ -22,6 +22,48 @@ Storj is a decentralized cloud storage network where data is encrypted, split in
 - Lint only one package: `make llint LINT_TARGET=./<directory>`
 - Format imports: `gci write --section Standard --section Default --section 'Prefix(storj.io/)' <file>`
 
+### Running Unit Tests with Spanner
+
+Unit tests require the Spanner emulator to be running. First, check if your environment is already configured:
+
+```bash
+# Check if Spanner emulator environment is already set up
+if [ -n "$SPANNER_EMULATOR_HOST" ] && [ -n "$STORJ_TEST_SPANNER" ]; then
+    echo "Spanner emulator environment already configured"
+    echo "SPANNER_EMULATOR_HOST: $SPANNER_EMULATOR_HOST"
+    echo "STORJ_TEST_SPANNER: $STORJ_TEST_SPANNER"
+    # You can run tests directly
+    go test -v ./satellite/metabase -run TestCommitObject
+else
+    echo "Spanner emulator environment not configured"
+    # Follow the setup steps below
+fi
+```
+
+If the environment variables are **not** already set, follow this workflow:
+
+1. Start the Spanner emulator: `spanner_emulator --host_port 127.0.0.1:10008`
+2. Set required environment variables:
+   - `SPANNER_EMULATOR_HOST=localhost:10008`
+   - `STORJ_TEST_SPANNER=spanner://127.0.0.1:10008?emulator`
+3. Run tests: `go test -v ./package/path -run TestName`
+4. Stop the emulator when done
+
+Example workflow (when environment is not configured):
+```bash
+# Start emulator in background
+spanner_emulator --host_port 127.0.0.1:10008 &
+EMULATOR_PID=$!
+
+# Run tests with environment variables
+SPANNER_EMULATOR_HOST=localhost:10008 \
+STORJ_TEST_SPANNER=spanner://127.0.0.1:10008?emulator \
+go test -v ./satellite/metabase -run TestCommitObject
+
+# Stop emulator
+kill $EMULATOR_PID
+```
+
 ## Code Style Guidelines
 
 - Packages: Use `storj.io/storj/...` import paths
