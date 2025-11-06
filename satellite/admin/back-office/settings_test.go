@@ -29,6 +29,7 @@ func TestGetSettings(t *testing.T) {
 				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
 				config.PendingDeleteCleanup.Enabled = true
 				config.PendingDeleteCleanup.User.Enabled = true
+				config.PendingDeleteCleanup.Project.Enabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -61,6 +62,7 @@ func TestGetSettings(t *testing.T) {
 						UpdateValueAttribution: true,
 						SetEntitlements:        true,
 						Delete:                 true,
+						MarkPendingDeletion:    true,
 					},
 					Bucket: backoffice.BucketFlags{
 						List:                   true,

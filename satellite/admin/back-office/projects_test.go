@@ -614,6 +614,13 @@ func TestUpdateProject(t *testing.T) {
 			require.Error(t, apiErr.Err)
 			assert.Equal(t, http.StatusBadRequest, apiErr.Status)
 			assert.Contains(t, apiErr.Err.Error(), "invalid project status")
+
+			invalidStatus = console.ProjectPendingDeletion
+			req.Status = &invalidStatus
+			_, apiErr = service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusForbidden, apiErr.Status)
+			assert.Contains(t, apiErr.Err.Error(), "not authorized to set project status to pending deletion")
 		})
 
 		t.Run("invalid placement validation", func(t *testing.T) {
@@ -800,18 +807,52 @@ func TestEntitlements(t *testing.T) {
 func TestDisableProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.BackOffice.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
 		consoleDB := sat.DB.Console()
 
-		authInfo := &admin.AuthInfo{Email: "admin@test.test"}
-		request := admin.DisableProjectRequest{Reason: "testing"}
+		authInfo := &admin.AuthInfo{Groups: []string{"admin"}}
+		request := admin.DisableProjectRequest{Reason: "reason"}
 
-		t.Run("missing auth", func(t *testing.T) {
-			apiErr := service.DisableProject(ctx, nil, testrand.UUID(), request)
+		t.Run("authorization", func(t *testing.T) {
+			req := admin.DisableProjectRequest{Reason: "reason"}
+			testFailAuth := func(groups []string) {
+				apiErr := service.DisableProject(ctx, &admin.AuthInfo{Groups: groups}, testrand.UUID(), req)
+				require.True(t, apiErr.Status == http.StatusUnauthorized || apiErr.Status == http.StatusForbidden)
+				require.Error(t, apiErr.Err)
+				require.Contains(t, apiErr.Err.Error(), "not authorized")
+			}
+
+			testFailAuth(nil)
+			testFailAuth([]string{})
+			testFailAuth([]string{"viewer"}) // insufficient permissions
+			req.SetPendingDeletion = true
+			testFailAuth([]string{"viewer"}) // insufficient permissions
+			req.SetPendingDeletion = false
+
+			apiErr := service.DisableProject(ctx, authInfo, testrand.UUID(), req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
 			require.Error(t, apiErr.Err)
-			assert.Equal(t, http.StatusUnauthorized, apiErr.Status)
+
+			req.SetPendingDeletion = true
+			apiErr = service.DisableProject(ctx, authInfo, testrand.UUID(), req)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "abbreviated project deletion is not enabled")
+
+			service.TestToggleAbbreviatedProjectDelete(true)
+			defer service.TestToggleAbbreviatedProjectDelete(false)
+
+			apiErr = service.DisableProject(ctx, authInfo, testrand.UUID(), req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.Error(t, apiErr.Err)
 		})
 
 		t.Run("non-existent project", func(t *testing.T) {
@@ -907,6 +948,8 @@ func TestDisableProject(t *testing.T) {
 
 		t.Run("force disable project with buckets and objects", func(t *testing.T) {
 			service.TestToggleSelfServeAccountDelete(true)
+			defer service.TestToggleSelfServeAccountDelete(false)
+
 			// Create user with UserRequestedDeletion status
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Requested Deletion User",
@@ -983,6 +1026,64 @@ func TestDisableProject(t *testing.T) {
 			// Verify API key is deleted
 			_, err = consoleDB.APIKeys().Get(ctx, keyInfo.ID)
 			require.Error(t, err)
+		})
+
+		t.Run("abbreviated project disabling (mark pending deletion)", func(t *testing.T) {
+			service.TestToggleAbbreviatedProjectDelete(true)
+			request.SetPendingDeletion = true
+			defer func() {
+				service.TestToggleAbbreviatedProjectDelete(false)
+				request.SetPendingDeletion = false
+			}()
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "abbreviated@test.test",
+				FullName: "Abbreviated User",
+			}, 1)
+			require.NoError(t, err)
+
+			newKind := console.PaidUser
+			err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &newKind})
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "project with usage")
+			require.NoError(t, err)
+
+			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("bucket"), pb.PieceAction_GET, 1000000, 0, time.Now().Add(-2*time.Hour)))
+
+			// Test that disabling fails due to existing usage
+			// even for abbreviated deletion
+			apiErr := service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "usage for current month exists")
+
+			_, err = sat.DB.ProjectAccounting().ArchiveRollupsBefore(ctx, time.Now(), 1)
+			require.NoError(t, err)
+
+			bucket, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      testrand.BucketName(),
+				ProjectID: project.ID,
+			})
+			require.NoError(t, err)
+
+			_ = metabasetest.CreateObject(ctx, t, sat.Metabase.DB, metabase.ObjectStream{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucket.Name),
+				ObjectKey:  metabasetest.RandObjectKey(),
+				Version:    1,
+				StreamID:   testrand.UUID(),
+			}, 4)
+
+			// abbreviated disabling should succeed even with buckets and objects
+			apiErr = service.DisableProject(ctx, authInfo, project.PublicID, request)
+			require.NoError(t, apiErr.Err)
+
+			updated, err := consoleDB.Projects().Get(ctx, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, updated.Status)
+			assert.Equal(t, console.ProjectPendingDeletion, *updated.Status)
 		})
 	})
 }

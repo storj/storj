@@ -75,6 +75,7 @@ export class CreateRestKeyRequest {
 }
 
 export class DisableProjectRequest {
+    setPendingDeletion: boolean;
     reason: string;
 }
 
@@ -168,6 +169,7 @@ export class ProjectEntitlements {
 export class ProjectFlags {
     create: boolean;
     delete: boolean;
+    markPendingDeletion: boolean;
     history: boolean;
     list: boolean;
     updateInfo: boolean;

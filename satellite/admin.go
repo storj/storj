@@ -308,6 +308,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig.BackOffice.AllowedOauthHost = adminConfig.AllowedOauthHost
 		if config.PendingDeleteCleanup.Enabled {
 			adminConfig.BackOffice.PendingDeleteUserCleanupEnabled = config.PendingDeleteCleanup.User.Enabled
+			adminConfig.BackOffice.PendingDeleteProjectCleanupEnabled = config.PendingDeleteCleanup.Project.Enabled
 		}
 
 		productPrices, err := config.Payments.Products.ToModels()

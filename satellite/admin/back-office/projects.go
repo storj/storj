@@ -141,7 +141,8 @@ type ProjectEntitlements struct {
 
 // DisableProjectRequest contains the fields required to delete a project.
 type DisableProjectRequest struct {
-	Reason string `json:"reason"` // Reason for the deletion, for audit logging
+	SetPendingDeletion bool   `json:"setPendingDeletion"`
+	Reason             string `json:"reason"` // Reason for the deletion, for audit logging
 }
 
 // GetProject gets the project info by either private or public ID.
@@ -685,6 +686,10 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 		if !hasPerm(PermProjectUpdate) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to change project status"))
 		}
+		if *request.Status == console.ProjectPendingDeletion {
+			// this is because setting to pending deletion may lead to data deletion by a chore
+			return apiError(http.StatusForbidden, errs.New("not authorized to set project status to pending deletion"))
+		}
 		for _, ps := range console.ProjectStatuses {
 			if *request.Status == ps {
 				valid = true
@@ -746,17 +751,39 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if authInfo == nil {
+	apiError := func(status int, err error) api.HTTPError {
 		return api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.New("not authorized"),
+			Status: status, Err: Error.Wrap(err),
 		}
 	}
 
+	if authInfo == nil {
+		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	}
+
 	if request.Reason == "" {
-		return api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.New("reason is required"),
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
+	hasPerm := func(perm ...Permission) bool {
+		for _, g := range authInfo.Groups {
+			if s.authorizer.HasPermissions(g, perm...) {
+				return true
+			}
+		}
+		return false
+	}
+
+	if request.SetPendingDeletion {
+		if !hasPerm(PermProjectMarkPendingDeletion) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to mark project pending deletion"))
+		}
+		if !s.adminConfig.PendingDeleteProjectCleanupEnabled {
+			return apiError(http.StatusConflict, errs.New("abbreviated project deletion is not enabled"))
+		}
+	} else {
+		if !hasPerm(PermProjectDeleteNoData) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to disable project"))
 		}
 	}
 
@@ -767,22 +794,21 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 			status = http.StatusNotFound
 			err = errs.New("project not found")
 		}
-		return api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
+		return apiError(status, err)
 	}
 
 	user, err := s.consoleDB.Users().Get(ctx, p.OwnerID)
 	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return apiError(http.StatusInternalServerError, err)
 	}
 
 	afterState := *p
 	disabledStatus := console.ProjectDisabled
+	if request.SetPendingDeletion {
+		// for abbreviated project deletion, status is set to ProjectPendingDeletion
+		// so a cleanup chore can later finalize the deletion
+		disabledStatus = console.ProjectPendingDeletion
+	}
 	afterState.Status = &disabledStatus
 
 	auditLog := func(action string) {
@@ -802,13 +828,26 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 	if s.consoleConfig.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsFree() || user.FinalInvoiceGenerated) {
 		err = s.forceDisableProject(ctx, p.ID)
 		if err != nil {
-			return api.HTTPError{
-				Status: http.StatusInternalServerError,
-				Err:    Error.Wrap(err),
-			}
+			return apiError(http.StatusInternalServerError, err)
 		}
 
 		auditLog("force_disable_project")
+
+		return api.HTTPError{}
+	}
+
+	apiErr := s.checkProjectUsageForDisabling(ctx, user, p)
+	if apiErr.Err != nil {
+		return apiErr
+	}
+
+	if request.SetPendingDeletion {
+		err = s.completeProjectDisabling(ctx, p.ID, false)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+
+		auditLog("mark_project_pending_deletion")
 
 		return api.HTTPError{}
 	}
@@ -823,23 +862,12 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 		}
 	}
 	if len(bucketsList.Items) > 0 {
-		return api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    Error.New("buckets still exist"),
-		}
+		return apiError(http.StatusConflict, errs.New("buckets still exist"))
 	}
 
-	apiErr := s.checkProjectUsageForDisabling(ctx, user, p)
-	if apiErr.Err != nil {
-		return apiErr
-	}
-
-	err = s.completeProjectDisabling(ctx, p.ID)
+	err = s.completeProjectDisabling(ctx, p.ID, false)
 	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return apiError(http.StatusInternalServerError, err)
 	}
 
 	auditLog("disable_project")
@@ -930,10 +958,14 @@ func (s *Service) forceDisableProject(ctx context.Context, projectID uuid.UUID) 
 		}
 	}
 
-	return s.completeProjectDisabling(ctx, projectID)
+	return s.completeProjectDisabling(ctx, projectID, true)
 }
 
-func (s *Service) completeProjectDisabling(ctx context.Context, projectID uuid.UUID) error {
+func (s *Service) completeProjectDisabling(ctx context.Context, projectID uuid.UUID, forced bool) error {
+	if !forced && s.adminConfig.PendingDeleteProjectCleanupEnabled {
+		return s.consoleDB.Projects().UpdateStatus(ctx, projectID, console.ProjectPendingDeletion)
+	}
+
 	return s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
 		err := tx.APIKeys().DeleteAllByProjectID(ctx, projectID)
 		if err != nil {
@@ -1121,4 +1153,9 @@ func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*Pr
 // TestToggleSelfServeAccountDelete is a test helper to toggle self-serve account deletion.
 func (s *Service) TestToggleSelfServeAccountDelete(enabled bool) {
 	s.consoleConfig.SelfServeAccountDeleteEnabled = enabled
+}
+
+// TestToggleAbbreviatedProjectDelete is a test helper to toggle abbreviated project deletion.
+func (s *Service) TestToggleAbbreviatedProjectDelete(enabled bool) {
+	s.adminConfig.PendingDeleteProjectCleanupEnabled = enabled
 }

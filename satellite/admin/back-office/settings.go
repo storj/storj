@@ -65,6 +65,7 @@ type AccountFlags struct {
 type ProjectFlags struct {
 	Create                 bool `json:"create"`
 	Delete                 bool `json:"delete"`
+	MarkPendingDeletion    bool `json:"markPendingDeletion"`
 	History                bool `json:"history"`
 	List                   bool `json:"list"`
 	UpdateInfo             bool `json:"updateInfo"`
@@ -158,6 +159,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermProjectDeleteNoData) {
 			settings.Admin.Features.Project.Delete = true
+		}
+		if s.adminConfig.PendingDeleteProjectCleanupEnabled && s.authorizer.HasPermissions(g, PermProjectMarkPendingDeletion) {
+			settings.Admin.Features.Project.MarkPendingDeletion = true
 		}
 
 		// bucket permission features

@@ -842,7 +842,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144, 134217728) {
+	if h.auth.IsRejected(w, r, 262144, 268435456) {
 		return
 	}
 
@@ -936,7 +936,7 @@ func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144, 134217728) {
+	if h.auth.IsRejected(w, r, 262144, 268435456) {
 		return
 	}
 
@@ -1033,10 +1033,6 @@ func (h *ProjectManagementHandler) handleDisableProject(w http.ResponseWriter, r
 	authInfo := h.auth.GetAuthInfo(r)
 	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
-		return
-	}
-
-	if h.auth.IsRejected(w, r, 67108864) {
 		return
 	}
 

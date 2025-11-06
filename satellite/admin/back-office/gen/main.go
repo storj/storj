@@ -326,7 +326,7 @@ func main() {
 
 	group.Put("/{publicID}", &apigen.Endpoint{
 		Name:           "Disable project",
-		Description:    "Disables a project by ID.",
+		Description:    "Disables a project by ID. It can also set status to pending deletion.",
 		GoName:         "DisableProject",
 		TypeScriptName: "disableProject",
 		PathParams: []apigen.Param{
@@ -334,7 +334,7 @@ func main() {
 		},
 		Request: backoffice.DisableProjectRequest{},
 		Settings: map[any]any{
-			authPermsKey:     []backoffice.Permission{backoffice.PermProjectDeleteNoData},
+			authPermsKey:     []backoffice.Permission{},
 			passAuthParamKey: true,
 		},
 	})

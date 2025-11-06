@@ -43,6 +43,7 @@ const (
 	PermProjectSetUserAgent
 	PermProjectSendInvitation
 	PermProjectDeleteNoData
+	PermProjectMarkPendingDeletion
 	PermBucketView
 	PermBucketSetDataPlacement
 	PermBucketRemoveDataPlacement
@@ -60,7 +61,7 @@ const (
 			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData | PermAccountMarkPendingDeletion |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectUpdate |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
-			PermProjectDeleteNoData |
+			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent,
 	)

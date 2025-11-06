@@ -72,6 +72,7 @@ Gets the settings of the service and relevant Storj services settings
 			project: 			{
 				create: boolean
 				delete: boolean
+				markPendingDeletion: boolean
 				history: boolean
 				list: boolean
 				updateInfo: boolean
@@ -834,7 +835,7 @@ Updates project name, user agent and default placement by ID
 
 <h3 id='projectmanagement-disable-project'>Disable project (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Disables a project by ID.
+Disables a project by ID. It can also set status to pending deletion.
 
 `PUT /back-office/api/v1/projects/{publicID}`
 
@@ -848,6 +849,7 @@ Disables a project by ID.
 
 ```typescript
 {
+	setPendingDeletion: boolean
 	reason: string
 }
 
