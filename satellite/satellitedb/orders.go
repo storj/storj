@@ -469,6 +469,17 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		defer mon.Task()(&ctx)(&err)
 
+		var (
+			bucketUpdates  = int(0)
+			projectUpdates = int(0)
+		)
+		defer func() {
+			if err != nil {
+				mon.Meter("update_bandwidth_batch_bucket_items_successful").Mark(bucketUpdates)
+				mon.Meter("update_bandwidth_batch_project_items_successful").Mark(projectUpdates)
+			}
+		}()
+
 		// TODO reorg code to make clear what we are inserting/updating to
 		// bucket_bandwidth_rollups and project_bandwidth_daily_rollups
 
@@ -503,6 +514,7 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 		// allocated must be not-null so lets keep slice until we will change DB schema
 		emptyAllocatedSlice := make([]int64, len(projectIDs))
 
+		bucketUpdates = len(projectIDs)
 		if len(projectIDs) > 0 {
 			_, err = tx.Tx.ExecContext(ctx, `
 				INSERT INTO bucket_bandwidth_rollups (
@@ -552,6 +564,7 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 			deadSlice = append(deadSlice, usage.Dead)
 		}
 
+		projectUpdates = len(projectIDs)
 		if len(projectIDs) > 0 {
 			// TODO: explore updating project_bandwidth_daily_rollups table to use "timestamp with time zone" for interval_day
 			_, err = tx.Tx.ExecContext(ctx, `
@@ -574,6 +587,17 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 // updateBandwidthBatchSpanner updates bucket and project bandwidth rollups in the database.
 func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []orders.BucketBandwidthRollup) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	var (
+		bucketUpdates  = int(0)
+		projectUpdates = int(0)
+	)
+	defer func() {
+		if err != nil {
+			mon.Meter("update_bandwidth_batch_bucket_items_successful").Mark(bucketUpdates)
+			mon.Meter("update_bandwidth_batch_project_items_successful").Mark(projectUpdates)
+		}
+	}()
 
 	statements := []spanner.Statement{}
 
@@ -627,6 +651,7 @@ func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []o
 			})
 		}
 
+		bucketUpdates = len(updates)
 		if len(updates) > 0 {
 			for i := range updates {
 				up := &updates[i]
@@ -701,6 +726,7 @@ func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []o
 			})
 		}
 
+		projectUpdates = len(updates)
 		if len(updates) > 0 {
 			for i := range updates {
 				up := &updates[i]
