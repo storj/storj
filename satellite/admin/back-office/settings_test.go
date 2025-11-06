@@ -27,6 +27,8 @@ func TestGetSettings(t *testing.T) {
 				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.BackOffice.UserGroupsRoleAdmin = []string{"admin"}
 				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
+				config.PendingDeleteCleanup.Enabled = true
+				config.PendingDeleteCleanup.User.Enabled = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -35,20 +37,21 @@ func TestGetSettings(t *testing.T) {
 			Admin: backoffice.SettingsAdmin{
 				Features: backoffice.FeatureFlags{
 					Account: backoffice.AccountFlags{
-						CreateRestKey:   true,
-						Delete:          true,
-						DisableMFA:      true,
-						View:            true,
-						Search:          true,
-						Projects:        true,
-						Suspend:         true,
-						Unsuspend:       true,
-						UpdateKind:      true,
-						UpdateName:      true,
-						UpdateEmail:     true,
-						UpdateStatus:    true,
-						UpdateLimits:    true,
-						UpdateUserAgent: true,
+						CreateRestKey:       true,
+						Delete:              true,
+						MarkPendingDeletion: true,
+						DisableMFA:          true,
+						View:                true,
+						Search:              true,
+						Projects:            true,
+						Suspend:             true,
+						Unsuspend:           true,
+						UpdateKind:          true,
+						UpdateName:          true,
+						UpdateEmail:         true,
+						UpdateStatus:        true,
+						UpdateLimits:        true,
+						UpdateUserAgent:     true,
 					},
 					Project: backoffice.ProjectFlags{
 						View:                   true,

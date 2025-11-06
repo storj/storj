@@ -40,24 +40,25 @@ type FeatureFlags struct {
 
 // AccountFlags are the feature flags related to user's accounts.
 type AccountFlags struct {
-	Create          bool `json:"create"`
-	CreateRestKey   bool `json:"createRestKey"`
-	Delete          bool `json:"delete"`
-	History         bool `json:"history"`
-	List            bool `json:"list"`
-	Projects        bool `json:"projects"`
-	Search          bool `json:"search"`
-	Suspend         bool `json:"suspend"`
-	Unsuspend       bool `json:"unsuspend"`
-	DisableMFA      bool `json:"disableMFA"`
-	UpdateLimits    bool `json:"updateLimits"`
-	UpdatePlacement bool `json:"updatePlacement"`
-	UpdateStatus    bool `json:"updateStatus"`
-	UpdateEmail     bool `json:"updateEmail"`
-	UpdateKind      bool `json:"updateKind"`
-	UpdateName      bool `json:"updateName"`
-	UpdateUserAgent bool `json:"updateUserAgent"`
-	View            bool `json:"view"`
+	Create              bool `json:"create"`
+	CreateRestKey       bool `json:"createRestKey"`
+	Delete              bool `json:"delete"`
+	MarkPendingDeletion bool `json:"markPendingDeletion"`
+	History             bool `json:"history"`
+	List                bool `json:"list"`
+	Projects            bool `json:"projects"`
+	Search              bool `json:"search"`
+	Suspend             bool `json:"suspend"`
+	Unsuspend           bool `json:"unsuspend"`
+	DisableMFA          bool `json:"disableMFA"`
+	UpdateLimits        bool `json:"updateLimits"`
+	UpdatePlacement     bool `json:"updatePlacement"`
+	UpdateStatus        bool `json:"updateStatus"`
+	UpdateEmail         bool `json:"updateEmail"`
+	UpdateKind          bool `json:"updateKind"`
+	UpdateName          bool `json:"updateName"`
+	UpdateUserAgent     bool `json:"updateUserAgent"`
+	View                bool `json:"view"`
 }
 
 // ProjectFlags are the feature flags related to projects.
@@ -123,8 +124,11 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountChangeEmail) {
 			settings.Admin.Features.Account.UpdateEmail = true
 		}
-		if s.authorizer.HasPermissions(g, PermAccountDeleteWithData, PermAccountDeleteNoData) {
+		if s.authorizer.HasPermissions(g, PermAccountDeleteNoData) {
 			settings.Admin.Features.Account.Delete = true
+		}
+		if s.adminConfig.PendingDeleteUserCleanupEnabled && s.authorizer.HasPermissions(g, PermAccountMarkPendingDeletion, PermAccountDeleteWithData) {
+			settings.Admin.Features.Account.MarkPendingDeletion = true
 		}
 		if s.authorizer.HasPermissions(g, PermAccountDisableMFA) {
 			settings.Admin.Features.Account.DisableMFA = true

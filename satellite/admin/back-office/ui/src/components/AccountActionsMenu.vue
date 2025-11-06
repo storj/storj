@@ -82,16 +82,9 @@
                 density="comfortable"
                 rounded="lg" link
                 base-color="error"
-                @click="user.hasUnpaidInvoices || hasActiveProjects ? ()=>{} : emit('delete', user)"
+                @click="emit('delete', user)"
             >
-                <v-list-item-title
-                    v-if="cantDeleteText"
-                    v-tooltip="cantDeleteText"
-                    class="text-body-2 font-weight-medium text-disabled"
-                >
-                    Delete
-                </v-list-item-title>
-                <v-list-item-title v-else class="text-body-2 font-weight-medium">
+                <v-list-item-title class="text-body-2 font-weight-medium">
                     Delete
                 </v-list-item-title>
             </v-list-item>
@@ -130,21 +123,6 @@ const hasAnyUpdateFlags = computed(() => {
 
 const isCurrentRouteViewAccount = computed(() => {
     return router.currentRoute.value.name === ROUTES.Account.name;
-});
-
-const hasActiveProjects = computed(() =>  props.user.projects?.some(p => p.active) ?? false);
-
-const cantDeleteText = computed(() => {
-    if (props.user.hasUnpaidInvoices && hasActiveProjects.value) {
-        return 'User has unpaid invoices and active projects so cannot be deleted';
-    }
-    if (props.user.hasUnpaidInvoices) {
-        return 'User has unpaid invoices so cannot be deleted';
-    }
-    if (hasActiveProjects.value) {
-        return 'User has active projects so cannot be deleted';
-    }
-    return '';
 });
 
 const emit = defineEmits<{

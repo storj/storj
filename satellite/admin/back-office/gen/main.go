@@ -166,15 +166,16 @@ func main() {
 	group.Put("/{userID}", &apigen.Endpoint{
 		Name: "Disable user",
 		Description: "Disables user by ID. User can only be disabled if they have no active projects" +
-			" and pending invoices.",
+			" and pending invoices. It can also set status to pending deletion.",
 		GoName:         "DisableUser",
 		TypeScriptName: "disableUser",
 		PathParams: []apigen.Param{
 			apigen.NewParam("userID", uuid.UUID{}),
 		},
-		Request: backoffice.DisableUserRequest{},
+		Request:  backoffice.DisableUserRequest{},
+		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
-			authPermsKey:     []backoffice.Permission{backoffice.PermAccountDeleteNoData},
+			authPermsKey:     []backoffice.Permission{},
 			passAuthParamKey: true,
 		},
 	})

@@ -48,7 +48,7 @@ type UserManagementService interface {
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
-	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) api.HTTPError
+	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) (*UserAccount, api.HTTPError)
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
 	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
 	CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
@@ -554,13 +554,15 @@ func (h *UserManagementHandler) handleDisableUser(w http.ResponseWriter, r *http
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 16384) {
+	retVal, httpErr := h.service.DisableUser(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
 	}
 
-	httpErr := h.service.DisableUser(ctx, authInfo, userID, payload)
-	if httpErr.Err != nil {
-		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json DisableUser response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 
@@ -688,7 +690,7 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 32768) {
+	if h.auth.IsRejected(w, r, 65536) {
 		return
 	}
 
@@ -716,7 +718,7 @@ func (h *ProjectManagementHandler) handleGetProjectStatuses(w http.ResponseWrite
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072) {
+	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 
@@ -756,7 +758,7 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072) {
+	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 
@@ -838,7 +840,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072, 33554432) {
+	if h.auth.IsRejected(w, r, 262144, 67108864) {
 		return
 	}
 
@@ -932,7 +934,7 @@ func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072, 33554432) {
+	if h.auth.IsRejected(w, r, 262144, 67108864) {
 		return
 	}
 
@@ -1032,7 +1034,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144) {
+	if h.auth.IsRejected(w, r, 524288) {
 		return
 	}
 
@@ -1084,7 +1086,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectEntitlements(w http.Respon
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 2097152) {
+	if h.auth.IsRejected(w, r, 4194304) {
 		return
 	}
 

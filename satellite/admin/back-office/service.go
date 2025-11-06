@@ -54,6 +54,7 @@ type Service struct {
 	products  map[int32]payments.ProductUsagePriceModel
 	defaults  Defaults
 
+	adminConfig   Config
 	consoleConfig console.Config
 
 	nowFn func() time.Time
@@ -78,6 +79,7 @@ func NewService(
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
 	auditLoggerConfig auditlogger.Config,
+	adminConfig Config,
 	consoleConfig console.Config,
 	nowFn func() time.Time,
 ) *Service {
@@ -101,6 +103,7 @@ func NewService(
 			MaxBuckets: defaultMaxBuckets,
 			RateLimit:  int(defaultRateLimit),
 		},
+		adminConfig:   adminConfig,
 		consoleConfig: consoleConfig,
 		nowFn:         nowFn,
 	}

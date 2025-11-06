@@ -30,6 +30,7 @@ const (
 	PermAccountReActivateTemporary
 	PermAccountSuspendPermanently
 	PermAccountReActivatePermanently
+	PermAccountMarkPendingDeletion
 	PermAccountDeleteNoData
 	PermAccountCreateRestKey
 	PermAccountDeleteWithData
@@ -55,7 +56,7 @@ const (
 			PermAccountChangeName | PermAccountChangeKind | PermAccountChangeStatus | PermAccountCreateRestKey |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
 			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountSuspendPermanently |
-			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData |
+			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData | PermAccountMarkPendingDeletion |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectUpdate |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |

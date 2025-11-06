@@ -50,6 +50,7 @@ Gets the settings of the service and relevant Storj services settings
 				create: boolean
 				createRestKey: boolean
 				delete: boolean
+				markPendingDeletion: boolean
 				history: boolean
 				list: boolean
 				projects: boolean
@@ -301,7 +302,6 @@ Gets user by email address
 	segmentLimit: number
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
-	hasUnpaidInvoices: boolean
 	mfaEnabled: boolean
 }
 
@@ -364,7 +364,6 @@ Gets user by ID
 	segmentLimit: number
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
-	hasUnpaidInvoices: boolean
 	mfaEnabled: boolean
 }
 
@@ -446,7 +445,6 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	segmentLimit: number
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
-	hasUnpaidInvoices: boolean
 	mfaEnabled: boolean
 }
 
@@ -454,7 +452,7 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 
 <h3 id='usermanagement-disable-user'>Disable user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Disables user by ID. User can only be disabled if they have no active projects and pending invoices.
+Disables user by ID. User can only be disabled if they have no active projects and pending invoices. It can also set status to pending deletion.
 
 `PUT /back-office/api/v1/users/{userID}`
 
@@ -468,7 +466,58 @@ Disables user by ID. User can only be disabled if they have no active projects a
 
 ```typescript
 {
+	setPendingDeletion: boolean
 	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	fullName: string
+	email: string
+	kind: 	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	status: 	{
+		name: string
+		value: number
+	}
+
+	userAgent: string
+	defaultPlacement: number
+	projects: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			name: string
+			active: boolean
+			bandwidthLimit: number
+			userSetBandwidthLimit: number
+			bandwidthUsed: number
+			storageLimit: number
+			userSetStorageLimit: number
+			storageUsed: number
+			segmentLimit: number
+			segmentUsed: number
+		}
+
+	]
+
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	freezeStatus: unknown
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	mfaEnabled: boolean
 }
 
 ```

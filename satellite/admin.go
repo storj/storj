@@ -306,6 +306,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 		adminConfig.BackOffice.AllowedOauthHost = adminConfig.AllowedOauthHost
+		if config.PendingDeleteCleanup.Enabled {
+			adminConfig.BackOffice.PendingDeleteUserCleanupEnabled = config.PendingDeleteCleanup.User.Enabled
+		}
 
 		productPrices, err := config.Payments.Products.ToModels()
 		if err != nil {
@@ -330,6 +333,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,
 			config.Admin.BackOffice.AuditLogger,
+			adminConfig.BackOffice,
 			config.Console.Config,
 			time.Now,
 		)

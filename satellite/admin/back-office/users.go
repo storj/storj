@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
-	"storj.io/storj/satellite/payments/stripe"
 )
 
 // User holds the user's information.
@@ -44,21 +43,20 @@ type AccountMin struct {
 // UserAccount holds information about a user's account.
 type UserAccount struct {
 	User
-	Kind              console.KindInfo          `json:"kind"`
-	CreatedAt         time.Time                 `json:"createdAt"`
-	UpgradeTime       *time.Time                `json:"upgradeTime"`
-	Status            console.UserStatusInfo    `json:"status"`
-	UserAgent         string                    `json:"userAgent"`
-	DefaultPlacement  storj.PlacementConstraint `json:"defaultPlacement"`
-	Projects          []UserProject             `json:"projects"`
-	ProjectLimit      int                       `json:"projectLimit"`
-	StorageLimit      int64                     `json:"storageLimit"`
-	BandwidthLimit    int64                     `json:"bandwidthLimit"`
-	SegmentLimit      int64                     `json:"segmentLimit"`
-	FreezeStatus      *FreezeEventType          `json:"freezeStatus"`
-	TrialExpiration   *time.Time                `json:"trialExpiration"`
-	HasUnpaidInvoices bool                      `json:"hasUnpaidInvoices"`
-	MFAEnabled        bool                      `json:"mfaEnabled"`
+	Kind             console.KindInfo          `json:"kind"`
+	CreatedAt        time.Time                 `json:"createdAt"`
+	UpgradeTime      *time.Time                `json:"upgradeTime"`
+	Status           console.UserStatusInfo    `json:"status"`
+	UserAgent        string                    `json:"userAgent"`
+	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+	Projects         []UserProject             `json:"projects"`
+	ProjectLimit     int                       `json:"projectLimit"`
+	StorageLimit     int64                     `json:"storageLimit"`
+	BandwidthLimit   int64                     `json:"bandwidthLimit"`
+	SegmentLimit     int64                     `json:"segmentLimit"`
+	FreezeStatus     *FreezeEventType          `json:"freezeStatus"`
+	TrialExpiration  *time.Time                `json:"trialExpiration"`
+	MFAEnabled       bool                      `json:"mfaEnabled"`
 }
 
 // UpdateUserRequest represents a request to update a user.
@@ -97,7 +95,8 @@ func (r *UpdateUserRequest) parseTrialExpiration() (**time.Time, error) {
 
 // DisableUserRequest represents a request to disable a user.
 type DisableUserRequest struct {
-	Reason string `json:"reason"` // reason for audit log
+	SetPendingDeletion bool   `json:"setPendingDeletion"`
+	Reason             string `json:"reason"` // reason for audit log
 }
 
 // CreateRestKeyRequest represents a request to create rest key.
@@ -555,9 +554,9 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 	}
 
 	groups := authInfo.Groups
-	hasPerm := func(perm Permission) bool {
+	hasPerm := func(perm ...Permission) bool {
 		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
+			if s.authorizer.HasPermissions(g, perm...) {
 				return true
 			}
 		}
@@ -573,6 +572,10 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 	if request.Status != nil {
 		if !hasPerm(PermAccountChangeStatus) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to change user status"))
+		}
+		if *request.Status == console.PendingDeletion {
+			// this is because setting to pending deletion may lead to data deletion by a chore
+			return apiError(http.StatusForbidden, errs.New("not authorized to set user status to pending deletion"))
 		}
 		for _, us := range console.UserStatuses {
 			if *request.Status == us {
@@ -675,56 +678,66 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 		return nil, apiErr
 	}
 
-	hasUnpaidInvoices, err := s.hasUnpaidInvoices(ctx, user.ID)
-	if err != nil {
-		if !errors.Is(err, stripe.ErrNoCustomer) {
-			return nil, api.HTTPError{
-				Status: http.StatusInternalServerError,
-				Err:    Error.Wrap(err),
-			}
-		}
-	}
-
 	return &UserAccount{
 		User: User{
 			ID:       user.ID,
 			FullName: user.FullName,
 			Email:    user.Email,
 		},
-		Kind:              user.Kind.Info(),
-		CreatedAt:         user.CreatedAt,
-		UpgradeTime:       user.UpgradeTime,
-		Status:            user.Status.Info(),
-		UserAgent:         string(user.UserAgent),
-		DefaultPlacement:  user.DefaultPlacement,
-		ProjectLimit:      user.ProjectLimit,
-		StorageLimit:      user.ProjectStorageLimit,
-		BandwidthLimit:    user.ProjectBandwidthLimit,
-		SegmentLimit:      user.ProjectSegmentLimit,
-		TrialExpiration:   user.TrialExpiration,
-		MFAEnabled:        user.MFAEnabled,
-		Projects:          usageLimits,
-		FreezeStatus:      freezeStatus,
-		HasUnpaidInvoices: hasUnpaidInvoices,
+		Kind:             user.Kind.Info(),
+		CreatedAt:        user.CreatedAt,
+		UpgradeTime:      user.UpgradeTime,
+		Status:           user.Status.Info(),
+		UserAgent:        string(user.UserAgent),
+		DefaultPlacement: user.DefaultPlacement,
+		ProjectLimit:     user.ProjectLimit,
+		StorageLimit:     user.ProjectStorageLimit,
+		BandwidthLimit:   user.ProjectBandwidthLimit,
+		SegmentLimit:     user.ProjectSegmentLimit,
+		TrialExpiration:  user.TrialExpiration,
+		MFAEnabled:       user.MFAEnabled,
+		Projects:         usageLimits,
+		FreezeStatus:     freezeStatus,
 	}, api.HTTPError{}
 }
 
 // DisableUser deactivates a user if they have no active projects or unpaid invoices.
-func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) api.HTTPError {
+func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) (*UserAccount, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	if authInfo == nil {
-		return api.HTTPError{
-			Status: http.StatusUnauthorized,
-			Err:    Error.New("not authorized"),
+	apiError := func(status int, err error) (*UserAccount, api.HTTPError) {
+		return nil, api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
 		}
 	}
 
+	if authInfo == nil {
+		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	}
+
 	if request.Reason == "" {
-		return api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.New("reason is required"),
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
+	hasPerm := func(perm ...Permission) bool {
+		for _, g := range authInfo.Groups {
+			if s.authorizer.HasPermissions(g, perm...) {
+				return true
+			}
+		}
+		return false
+	}
+	if request.SetPendingDeletion {
+		if !hasPerm(PermAccountDeleteWithData, PermAccountMarkPendingDeletion) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to mark user pending deletion"))
+		}
+		if !s.adminConfig.PendingDeleteUserCleanupEnabled {
+			return apiError(http.StatusConflict, errs.New("marking user as pending deletion is not enabled"))
+		}
+	} else {
+		if !hasPerm(PermAccountDeleteNoData) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to delete user"))
 		}
 	}
 
@@ -735,56 +748,84 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 			status = http.StatusNotFound
 			err = errs.New("user not found")
 		}
-		return api.HTTPError{Status: status, Err: Error.Wrap(err)}
+		return apiError(status, err)
 	}
 
-	projects, err := s.consoleDB.Projects().GetOwnActive(ctx, user.ID)
-	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
+	if !request.SetPendingDeletion {
+		projects, err := s.consoleDB.Projects().GetOwnActive(ctx, user.ID)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
 		}
-	}
-	if len(projects) > 0 {
-		return api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    Error.New("user has active projects"),
+		if len(projects) > 0 {
+			return apiError(http.StatusConflict, errs.New("user has active projects"))
 		}
 	}
 
 	// ensure no unpaid invoices exist.
 	hasUnpaid, err := s.hasUnpaidInvoices(ctx, user.ID)
 	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return apiError(http.StatusInternalServerError, err)
 	}
 	if hasUnpaid {
-		return api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    Error.New("user has unpaid invoices or pending items"),
+		return apiError(http.StatusConflict, errs.New("user has unpaid invoices"))
+	}
+
+	auditLog := func(action string, before, after console.User) {
+		s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+			Action:     action,
+			AdminEmail: authInfo.Email,
+			ItemType:   auditlogger.ItemTypeUser,
+			ItemID:     user.ID,
+			Reason:     request.Reason,
+			Before:     before,
+			After:      after,
+			Timestamp:  s.nowFn(),
+		})
+	}
+
+	status := console.Deleted
+	if request.SetPendingDeletion {
+		status = console.PendingDeletion
+		err = s.consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &status})
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
 		}
+
+		after := *user
+		after.Status = status
+
+		auditLog("mark_user_pending_deletion", *user, after)
+
+		return s.getUserAccount(ctx, &after)
 	}
 
 	emptyName := ""
 	emptyNamePtr := &emptyName
 	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
-	status := console.Deleted
 	var externalID *string // nil - no external ID.
 
-	err = s.consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{
-		FullName:   &emptyName,
-		ShortName:  &emptyNamePtr,
-		Email:      &deactivatedEmail,
-		Status:     &status,
-		ExternalID: &externalID,
+	var afterState *console.User
+	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		err = tx.Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			FullName:   &emptyName,
+			ShortName:  &emptyNamePtr,
+			Email:      &deactivatedEmail,
+			Status:     &status,
+			ExternalID: &externalID,
+		})
+		if err != nil {
+			return err
+		}
+
+		afterState, err = tx.Users().Get(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 	if err != nil {
-		return api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return apiError(http.StatusInternalServerError, err)
 	}
 
 	err = s.payments.CreditCards().RemoveAll(ctx, user.ID)
@@ -792,23 +833,9 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 		s.log.Error("Failed to remove credit cards for deleted user", zap.Stringer("userId", user.ID), zap.Error(err))
 	}
 
-	afterState, err := s.consoleDB.Users().Get(ctx, user.ID)
-	if err != nil {
-		s.log.Error("Failed to retrieve user after disabling", zap.Stringer("userId", user.ID), zap.Error(err))
-	} else {
-		s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
-			Action:     "disable_user",
-			AdminEmail: authInfo.Email,
-			ItemType:   auditlogger.ItemTypeUser,
-			ItemID:     user.ID,
-			Reason:     request.Reason,
-			Before:     user,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
-	}
+	auditLog("disable_user", *user, *afterState)
 
-	return api.HTTPError{}
+	return s.getUserAccount(ctx, afterState)
 }
 
 func (s *Service) hasUnpaidInvoices(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
@@ -953,4 +980,9 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 	})
 
 	return &apiKey, api.HTTPError{}
+}
+
+// TestToggleAbbreviatedUserDelete is a test helper to toggle abbreviated user deletion.
+func (s *Service) TestToggleAbbreviatedUserDelete(enabled bool) {
+	s.adminConfig.PendingDeleteUserCleanupEnabled = enabled
 }

@@ -44,7 +44,8 @@ type Config struct {
 
 	BypassAuth bool `help:"ignore authentication for local development" default:"false" hidden:"true"`
 	// hidden for now because it is provided by the legacy admin server.
-	AllowedOauthHost string `help:"the oauth host allowed to host the backoffice." default:"" hidden:"true"`
+	AllowedOauthHost                string `help:"the oauth host allowed to host the backoffice." default:"" hidden:"true"`
+	PendingDeleteUserCleanupEnabled bool   `help:"whether the pending delete data deletion chore is enabled." default:"false" hidden:"true"`
 
 	UserGroupsRoleAdmin           []string `help:"the list of groups whose users has the administration role"   releaseDefault:"" devDefault:""`
 	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`

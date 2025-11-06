@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestGetUser(t *testing.T) {
@@ -195,36 +194,6 @@ func TestGetUser(t *testing.T) {
 		require.NotNil(t, user)
 		require.Len(t, user.Projects, len(projects))
 		testProjectsFields(user)
-
-		require.False(t, user.HasUnpaidInvoices)
-
-		// create an unpaid invoice
-		_, err = sat.Admin.Payments.Accounts.Invoices().Create(ctx, consoleUser.ID, 1000, "test invoice 1")
-		require.NoError(t, err)
-
-		user, apiErr = service.GetUser(ctx, consoleUser.ID)
-		require.NoError(t, apiErr.Err)
-		require.NotNil(t, user)
-		require.True(t, user.HasUnpaidInvoices)
-
-		// create a user with no stripe customer ID
-		consoleUser = &console.User{
-			ID:           testrand.UUID(),
-			FullName:     "Test User",
-			Email:        "test2@test.test",
-			PasswordHash: testrand.Bytes(8),
-			Status:       console.Active,
-		}
-		consoleUser, err = consoleDB.Users().Insert(ctx, consoleUser)
-		require.NoError(t, err)
-
-		_, err = sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, consoleUser.ID)
-		require.ErrorIs(t, err, stripe.ErrNoCustomer)
-
-		user, apiErr = service.GetUser(ctx, consoleUser.ID)
-		require.NoError(t, apiErr.Err)
-		require.NotNil(t, user)
-		require.False(t, user.HasUnpaidInvoices)
 	})
 }
 
@@ -532,61 +501,146 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, apiErr.Err)
 		require.Equal(t, console.MemberUser.Info(), u.Kind)
 		require.Nil(t, u.TrialExpiration)
+
+		// test setting status to pending deletion fails
+		newStatus = console.PendingDeletion
+		req.Status = &newStatus
+		req.Kind = nil
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.Equal(t, http.StatusForbidden, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "not authorized to set user status to pending deletion")
 	})
 }
 
 func TestDisableUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.BackOffice.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.BackOffice.UserGroupsRoleViewer = []string{"viewer"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
 
-		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "Test User", Email: "test@test.test",
-		}, 1)
-		require.NoError(t, err)
+		t.Run("authorization", func(t *testing.T) {
+			req := backoffice.DisableUserRequest{Reason: "reason"}
+			testFailAuth := func(groups []string) {
+				_, apiErr := service.DisableUser(ctx, &backoffice.AuthInfo{Groups: groups}, testrand.UUID(), req)
+				require.True(t, apiErr.Status == http.StatusUnauthorized || apiErr.Status == http.StatusForbidden)
+				require.Error(t, apiErr.Err)
+				require.Contains(t, apiErr.Err.Error(), "not authorized")
+			}
 
-		p, err := sat.AddProject(ctx, user.ID, "Project")
-		require.NoError(t, err)
+			testFailAuth(nil)
+			testFailAuth([]string{})
+			testFailAuth([]string{"viewer"}) // insufficient permissions
+			req.SetPendingDeletion = true
+			testFailAuth([]string{"viewer"}) // insufficient permissions
+			req.SetPendingDeletion = false
 
-		authInfo := &backoffice.AuthInfo{Email: "test@example.com"}
+			authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
 
-		apiErr := service.DisableUser(ctx, authInfo, testrand.UUID(), backoffice.DisableUserRequest{})
-		require.Equal(t, http.StatusBadRequest, apiErr.Status)
-		require.Error(t, apiErr.Err)
-		require.Contains(t, apiErr.Err.Error(), "reason is required")
+			_, apiErr := service.DisableUser(ctx, authInfo, testrand.UUID(), req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.Error(t, apiErr.Err)
 
-		request := backoffice.DisableUserRequest{Reason: "reason"}
-		apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), request)
-		require.Equal(t, http.StatusNotFound, apiErr.Status)
-		require.Error(t, apiErr.Err)
+			req.SetPendingDeletion = true
+			_, apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), req)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "pending deletion is not enabled")
 
-		apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
-		require.Equal(t, http.StatusConflict, apiErr.Status)
-		require.Error(t, apiErr.Err)
-		require.Contains(t, apiErr.Err.Error(), "active projects")
+			service.TestToggleAbbreviatedUserDelete(true)
+			defer service.TestToggleAbbreviatedUserDelete(false)
 
-		err = sat.DB.Console().Projects().Delete(ctx, p.ID)
-		require.NoError(t, err)
+			_, apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.Error(t, apiErr.Err)
+		})
 
-		inv, err := sat.Admin.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "test invoice 1")
-		require.NoError(t, err)
+		t.Run("full disable flow", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User", Email: "test@test.test",
+			}, 1)
+			require.NoError(t, err)
 
-		apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
-		require.Equal(t, http.StatusConflict, apiErr.Status)
-		require.Error(t, apiErr.Err)
-		require.Contains(t, apiErr.Err.Error(), "unpaid invoices")
+			p, err := sat.AddProject(ctx, user.ID, "Project")
+			require.NoError(t, err)
 
-		_, err = sat.Admin.Payments.Accounts.Invoices().Delete(ctx, inv.ID)
-		require.NoError(t, err)
+			authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
 
-		require.NoError(t, service.DisableUser(ctx, authInfo, user.ID, request).Err)
+			_, apiErr := service.DisableUser(ctx, authInfo, testrand.UUID(), backoffice.DisableUserRequest{})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "reason is required")
 
-		u, apiErr := service.GetUser(ctx, user.ID)
-		require.NoError(t, apiErr.Err)
-		require.Contains(t, u.Email, "deactivated")
-		require.Equal(t, console.Deleted, u.Status.Value)
+			request := backoffice.DisableUserRequest{Reason: "reason"}
+			_, apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), request)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.Error(t, apiErr.Err)
+
+			_, apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "active projects")
+
+			err = sat.DB.Console().Projects().Delete(ctx, p.ID)
+			require.NoError(t, err)
+
+			inv, err := sat.Admin.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "test invoice 1")
+			require.NoError(t, err)
+
+			_, apiErr = service.DisableUser(ctx, authInfo, user.ID, request)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "unpaid invoices")
+
+			_, err = sat.Admin.Payments.Accounts.Invoices().Delete(ctx, inv.ID)
+			require.NoError(t, err)
+
+			u, apiErr := service.DisableUser(ctx, authInfo, user.ID, request)
+			require.NoError(t, apiErr.Err)
+			require.Contains(t, u.Email, "deactivated")
+			require.Equal(t, console.Deleted, u.Status.Value)
+		})
+
+		t.Run("abbreviated disable flow", func(t *testing.T) {
+			service.TestToggleAbbreviatedUserDelete(true)
+			defer service.TestToggleAbbreviatedUserDelete(false)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User", Email: "test@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
+
+			inv, err := sat.Admin.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "test invoice 1")
+			require.NoError(t, err)
+
+			request := backoffice.DisableUserRequest{Reason: "reason", SetPendingDeletion: true}
+
+			_, apiErr := service.DisableUser(ctx, authInfo, user.ID, request)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			// invoices are still checked in the abbreviated flow
+			require.Contains(t, apiErr.Err.Error(), "unpaid invoices")
+
+			_, err = sat.Admin.Payments.Accounts.Invoices().Delete(ctx, inv.ID)
+			require.NoError(t, err)
+
+			_, err = sat.AddProject(ctx, user.ID, "Project")
+			require.NoError(t, err)
+
+			// projects existing will not block abbreviated deletion
+			u, apiErr := service.DisableUser(ctx, authInfo, user.ID, request)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, console.PendingDeletion, u.Status.Value)
+		})
 	})
 }
 

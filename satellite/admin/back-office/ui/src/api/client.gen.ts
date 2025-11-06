@@ -8,6 +8,7 @@ export class AccountFlags {
     create: boolean;
     createRestKey: boolean;
     delete: boolean;
+    markPendingDeletion: boolean;
     history: boolean;
     list: boolean;
     projects: boolean;
@@ -74,6 +75,7 @@ export class CreateRestKeyRequest {
 }
 
 export class DisableUserRequest {
+    setPendingDeletion: boolean;
     reason: string;
 }
 
@@ -284,7 +286,6 @@ export class UserAccount {
     segmentLimit: number;
     freezeStatus: FreezeEventType | null;
     trialExpiration: Time | null;
-    hasUnpaidInvoices: boolean;
     mfaEnabled: boolean;
 }
 
@@ -437,11 +438,11 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
-    public async disableUser(request: DisableUserRequest, userID: UUID): Promise<void> {
+    public async disableUser(request: DisableUserRequest, userID: UUID): Promise<UserAccount> {
         const fullPath = `${this.ROOT_PATH}/${userID}`;
         const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
-            return;
+            return response.json().then((body) => body as UserAccount);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
