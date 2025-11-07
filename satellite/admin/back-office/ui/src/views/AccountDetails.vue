@@ -31,6 +31,10 @@
                     @disable-mfa="disableMFADialogEnabled = true"
                     @toggle-freeze="toggleFreeze"
                     @create-rest-key="createRestKeyDialogEnabled = true"
+                    @mark-pending-deletion="_ => {
+                        deleteAccountDialogEnabled = true;
+                        markPendingDeletion = true;
+                    }"
                 />
             </v-btn>
         </div>
@@ -212,7 +216,7 @@
     <AccountFreezeDialog v-if="userAccount" v-model="freezeDialogEnabled" :account="userAccount" />
     <AccountUpdateDialog v-if="userAccount" v-model="updateAccountDialogEnabled" :account="userAccount" />
     <AccountUpdateLimitsDialog v-if="userAccount" v-model="updateLimitsDialogEnabled" :account="userAccount" />
-    <AccountDeleteDialog v-if="userAccount" v-model="deleteAccountDialogEnabled" :account="userAccount" />
+    <AccountDeleteDialog v-if="userAccount" v-model="deleteAccountDialogEnabled" v-model:mark-pending-deletion="markPendingDeletion" :account="userAccount" />
     <AccountDisableMFADialog v-if="userAccount" v-model="disableMFADialogEnabled" :account="userAccount" />
     <AccountCreateRestKeyDialog v-if="userAccount" v-model="createRestKeyDialogEnabled" :account="userAccount" />
     <AccountUnfreezeDialog v-if="userAccount" v-model="unfreezeDialogEnabled" :account="userAccount" />
@@ -271,6 +275,7 @@ const unfreezeDialogEnabled = ref<boolean>(false);
 const updateAccountDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
 const deleteAccountDialogEnabled = ref<boolean>(false);
+const markPendingDeletion = ref<boolean>(false);
 const disableMFADialogEnabled = ref<boolean>(false);
 const createRestKeyDialogEnabled = ref<boolean>(false);
 

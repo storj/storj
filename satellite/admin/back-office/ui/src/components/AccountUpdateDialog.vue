@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useDate } from 'vuetify/framework';
 
 import { UpdateUserRequest, UserAccount } from '@/api/client.gen';
@@ -24,7 +24,7 @@ import { useUsersStore } from '@/store/users';
 import { EmailRule, RequiredRule } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/app';
-import { UserKind } from '@/types/user';
+import { UserKind, UserStatus } from '@/types/user';
 import { FieldType, FormConfig, FormField } from '@/types/forms';
 
 import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
@@ -98,7 +98,9 @@ const formConfig = computed((): FormConfig => {
             type: FieldType.Select,
             label: 'User Status',
             placeholder: 'Select user status',
-            items: userStatuses.value,
+            items: props.account.status.value === UserStatus.PendingDeletion ?
+                userStatuses.value :
+                userStatuses.value.filter(s => s.value !== UserStatus.PendingDeletion),
             itemTitle: 'name',
             itemValue: 'value',
             rules: [RequiredRule],
@@ -182,10 +184,20 @@ function checkEmailAvailability(newEmail: string) {
 }
 
 watch(model, (newValue) => {
-    usersStore.getUserKinds();
-    usersStore.getUserStatuses();
-
     if (!newValue) return;
     emailErrorMsg.value = undefined;
+});
+
+onMounted(() => {
+    withLoading(async () => {
+        try {
+            await Promise.all([
+                usersStore.getUserKinds(),
+                usersStore.getUserStatuses(),
+            ]);
+        } catch (e) {
+            notify.error(e);
+        }
+    });
 });
 </script>

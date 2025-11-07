@@ -78,7 +78,7 @@
             </v-list-item>
 
             <v-list-item
-                v-if="featureFlags.account.delete"
+                v-if="featureFlags.account.delete && notAlreadyDeleted"
                 density="comfortable"
                 rounded="lg" link
                 base-color="error"
@@ -86,6 +86,18 @@
             >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Delete
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
+                v-if="featureFlags.account.markPendingDeletion && notAlreadyDeleted"
+                density="comfortable"
+                rounded="lg" link
+                base-color="error"
+                @click="emit('markPendingDeletion', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Mark Pending Deletion
                 </v-list-item-title>
             </v-list-item>
         </v-list>
@@ -100,6 +112,7 @@ import { useRouter } from 'vue-router';
 import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
+import { UserStatus } from '@/types/user';
 
 import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
@@ -125,11 +138,17 @@ const isCurrentRouteViewAccount = computed(() => {
     return router.currentRoute.value.name === ROUTES.Account.name;
 });
 
+const notAlreadyDeleted = computed(() => {
+    return props.user.status.value !== UserStatus.Deleted &&
+        props.user.status.value !== UserStatus.PendingDeletion;
+});
+
 const emit = defineEmits<{
     (e: 'toggleFreeze', user: UserAccount): void;
     (e: 'update', user: UserAccount): void;
     (e: 'updateLimits', user: UserAccount): void;
     (e: 'delete', user: UserAccount): void;
+    (e: 'markPendingDeletion', user: UserAccount): void;
     (e: 'disableMfa', user: UserAccount): void;
     (e: 'createRestKey', user: UserAccount): void;
 }>();

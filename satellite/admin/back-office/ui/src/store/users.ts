@@ -94,10 +94,11 @@ export const useUsersStore = defineStore('users', () => {
         return await userApi.updateUser(request, userID);
     }
 
-    async function deleteUser(userID: string, reason: string): Promise<void> {
+    async function deleteUser(userID: string, markPendingDeletion: boolean, reason: string): Promise<UserAccount> {
         const request = new DisableUserRequest();
         request.reason = reason;
-        await userApi.disableUser(request, userID);
+        request.setPendingDeletion = markPendingDeletion;
+        return await userApi.disableUser(request, userID);
     }
 
     async function disableMFA(userID: string, reason: string): Promise<void> {

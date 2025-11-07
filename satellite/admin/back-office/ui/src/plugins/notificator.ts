@@ -15,9 +15,13 @@ export class Notificator {
         notificationsStore.notifySuccess(message, title, remainingTime);
     }
 
-    public error(message: NotificationMessage, title?: string, remainingTime?: number): void {
+    public error(message: NotificationMessage | Error, title?: string, remainingTime?: number): void {
         const notificationsStore = useNotificationsStore();
-        notificationsStore.notifyError(message, title, remainingTime);
+
+        let msg: NotificationMessage;
+        if (message instanceof Error) msg = message.message;
+        else msg = message;
+        notificationsStore.notifyError(msg, title, remainingTime);
     }
 
     public notify(message: NotificationMessage, title?: string, remainingTime?: number): void {
