@@ -31,3 +31,13 @@ target "storagenode-ui" {
     }
   ]
 }
+
+target "satellite-ui" {
+  cache-to = [
+    {
+      type = "registry",
+      mode = "min",
+      ref  = "ghcr.io/storj/satellite-ui-cache:main"
+    }
+  ]
+}

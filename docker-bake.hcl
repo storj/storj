@@ -69,6 +69,9 @@ target "satellite-modular" {
 
   dockerfile = "./satellite/satellite/Dockerfile"
   context    = "."
+  contexts = {
+    webui = "target:satellite-ui"
+  }
   target = "build"
   cache-from = [
     {
@@ -82,6 +85,27 @@ target "satellite-modular" {
   ]
 }
 
+target "satellite-ui" {
+  args = {
+    BUILD_COMMIT  = "${BUILD_COMMIT}"
+    BUILD_VERSION = "${BUILD_VERSION}"
+    BUILD_DATE    = "${BUILD_DATE}"
+  }
+
+  dockerfile = "./web/satellite/Dockerfile"
+  context    = "."
+  target = "ui"
+  cache-from = [
+    {
+      type = "registry",
+      ref  = "ghcr.io/storj/satellite-ui-cache:main"
+    }
+  ]
+
+  tags = [
+    "ghcr.io/storj/satellite-ui:${BUILD_VERSION}"
+  ]
+}
 
 target "storagenode-modular-all-platform" {
   inherits = ["storagenode-modular"]

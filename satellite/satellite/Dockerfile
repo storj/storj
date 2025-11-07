@@ -25,9 +25,13 @@ RUN --mount=type=cache,target="/root/.cache/go-build" \
       -X storj.io/common/version.buildTimestamp=$BUILD_DATE" ./satellite/satellite
 
 FROM base AS build
+ENV STORJ_CONSOLE_STATIC_DIR=/app
+ENV STORJ_MAIL_TEMPLATE_PATH=/app/static/emails
 RUN apt-get install -y graphviz
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /go/bin/satellite /app/satellite
+COPY --from=webui /var/www/html /app/dist
+COPY --from=webui /var/www/static /app/static
 WORKDIR /app
 
 
