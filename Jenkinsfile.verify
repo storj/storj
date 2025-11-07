@@ -112,7 +112,8 @@ pipeline {
                     'spanner://127.0.0.1:9013?emulator|' +
                     'spanner://127.0.0.1:9014?emulator|' +
                     'spanner://127.0.0.1:9015?emulator|' +
-                    'spanner://127.0.0.1:9016?emulator'
+                    'spanner://127.0.0.1:9016?emulator|' +
+                    'spanner://127.0.0.1:9017?emulator'
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
                 CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG='--override_change_stream_partition_token_alive_seconds=1'
             }
@@ -124,10 +125,11 @@ pipeline {
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
                 sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9016 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
+                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9017 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
-                sh 'go test -parallel 6 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                sh 'go test -parallel 7 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
             }
 
             post {
