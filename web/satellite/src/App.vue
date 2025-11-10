@@ -111,19 +111,12 @@ async function getPricingPlansAvailable() {
         return;
     }
 
-    let config;
     try {
-        config = (await import('@/configs/pricingPlanConfig.json')).default;
+        const config = await configStore.getPartnerPricingPlanConfig(user.partner);
+        billingStore.setPricingPlansAvailable(true, config);
     } catch {
         return;
     }
-
-    const info = (config[user.partner] as PricingPlanInfo);
-    if (!info) {
-        notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
-        return;
-    }
-    billingStore.setPricingPlansAvailable(true, info);
 }
 
 /**

@@ -64,13 +64,13 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCol, VRow } from 'vuetify/components';
-import { computed, FunctionalComponent, onMounted, ref, watch } from 'vue';
+import { computed, FunctionalComponent, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowRight, Check } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { ONBOARDING_STEPPER_STEPS, OnboardingStep, User } from '@/types/users';
+import { ONBOARDING_STEPPER_STEPS, OnboardingStep } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -81,6 +81,7 @@ import { OnboardingInfo } from '@/types/common';
 import { SetupStep } from '@/types/setupAccess';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import EnterBucketPassphraseDialog from '@/components/dialogs/EnterBucketPassphraseDialog.vue';
@@ -102,6 +103,7 @@ interface StepData {
 
 const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
@@ -193,7 +195,9 @@ const steps = computed<StepData[]>(() => {
  * based on a configured partner. This will remain
  * undefined if the user is not associated with a partner.
  */
-const onboardingInfo = ref<OnboardingInfo>();
+const onboardingInfo = computed<OnboardingInfo | null>(() =>
+    (configStore.onboardingConfig.get(userStore.state.user.partner ?? '') ?? null) as OnboardingInfo | null,
+);
 
 const userSettings = computed(() => userStore.state.settings);
 
@@ -414,24 +418,20 @@ async function endOnboarding(): Promise<void> {
     }
 }
 
-onMounted(async () => {
-    const user: User = userStore.state.user;
-    if (!user.partner) {
-        return;
-    }
-
-    try {
-        const config = (await import('@/configs/onboardingConfig.json')).default;
-        onboardingInfo.value = config[user.partner] as OnboardingInfo;
-    } catch { /* empty */ }
-});
-
 watch(() => projectsStore.state.selectedProjectConfig, config => {
     const hasSatelliteManagedEncryption = config.hasManagedPassphrase;
     if (hasSatelliteManagedEncryption && currentStep.value === OnboardingStep.EncryptionPassphrase) {
     // Skip the passphrase step if the project passphrase is satellite managed
         progressStep();
     }
+}, { immediate: true });
+
+watch(() => userStore.state.user.partner, async (newPartner) => {
+    if (!newPartner) return;
+
+    try {
+        await configStore.getPartnerOnboardingConfig(newPartner);
+    } catch { /* empty */ }
 }, { immediate: true });
 
 defineExpose({ endOnboarding });

@@ -14,4 +14,12 @@ export interface FrontendConfigApi {
      * @throws Error
      */
     get(): Promise<FrontendConfig>;
+
+    /**
+     * Returns UI config of some kind for a partner.
+     *
+     * @param kind
+     * @param partner
+     */
+    getPartnerUIConfig(kind: string, partner: string): Promise<unknown>;
 }

@@ -28,4 +28,22 @@ export class FrontendConfigHttpApi implements FrontendConfigApi {
         }
         return await response.json() as FrontendConfig;
     }
+
+    /**
+     * Returns UI config of some kind for a partner.
+     *
+     * @param kind
+     * @param partner
+     */
+    public async getPartnerUIConfig(kind: string, partner: string): Promise<unknown> {
+        const response = await this.http.get(`/api/v0/${kind}-config/${partner}`);
+        if (!response.ok) {
+            throw new APIError({
+                status: response.status,
+                message: 'Cannot get partner UI config',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+        return await response.json();
+    }
 }

@@ -356,7 +356,6 @@ const inviterEmail = queryRef('inviter_email');
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const form = ref<VForm | null>(null);
 const repPasswordField = ref<VTextField | null>(null);
-const partnerConfig = ref<PartnerConfig | null>(null);
 const ssoCheckTimeout = ref<NodeJS.Timeout>();
 
 const satellitesHints = [
@@ -371,6 +370,10 @@ const emailRules: ((_: string) => boolean | string)[] = [
     RequiredRule,
     (value) => EmailRule(value, true),
 ];
+
+const partnerConfig = computed<PartnerConfig | null>(() =>
+    (configStore.signupConfig.get(route.query.partner?.toString() ?? '') ?? null) as PartnerConfig | null,
+);
 
 const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
 const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
@@ -658,17 +661,6 @@ onBeforeMount(async () => {
 
     if (queryEmail.value) {
         checkSSO(queryEmail.value);
-    }
-
-    // If partner.value is true, attempt to load the partner-specific configuration
-    if (partner.value) {
-        try {
-            const config = (await import('@/configs/registrationViewConfig.json')).default;
-            partnerConfig.value = config[partner.value];
-        } catch {
-            // Handle errors, such as a missing configuration file
-            notify.error('No configuration file for registration page.');
-        }
     }
 });
 

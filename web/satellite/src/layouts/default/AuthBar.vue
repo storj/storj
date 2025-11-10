@@ -95,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { VAppBar, VBtn, VList, VListItem, VListItemTitle, VMenu } from 'vuetify/components';
 import { Sun, MoonStar, Monitor, Smartphone } from 'lucide-vue-next';
@@ -104,12 +104,17 @@ import { useDisplay } from 'vuetify';
 import { PartnerConfig } from '@/types/partners';
 import { ROUTES } from '@/router';
 import { useThemeStore } from '@/store/modules/themeStore';
+import { useConfigStore } from '@/store/modules/configStore';
+
+const configStore = useConfigStore();
+const themeStore = useThemeStore();
 
 const route = useRoute();
-const themeStore = useThemeStore();
 const { smAndDown } = useDisplay();
 
-const partnerConfig = ref<PartnerConfig | null>(null);
+const partnerConfig = computed<PartnerConfig | null>(() =>
+    (configStore.signupConfig.get(route.query.partner?.toString() ?? '') ?? null) as PartnerConfig | null,
+);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {
@@ -133,22 +138,10 @@ const activeThemeIcon = computed(() => {
     }
 });
 
-onBeforeMount(async () => {
-    // if on signup page, and has partner in route, see if there is a partner config to display logo
-    if (route.name !== ROUTES.Signup.name) {
-        return;
-    }
-    let partner = '';
-    if (route.query.partner) {
-        partner = route.query.partner.toString();
-    }
-    // If partner.value is true, attempt to load the partner-specific configuration
-    if (partner !== '') {
-        try {
-            const config = (await import('@/configs/registrationViewConfig.json')).default;
-            partnerConfig.value = config[partner];
-            // eslint-disable-next-line no-empty
-        } catch {}
-    }
-});
+watch(() => route.query.partner?.toString(), async (value) => {
+    if (!value) return;
+    try {
+        await configStore.getPartnerSignupConfig(value);
+    } catch { /* empty */ }
+}, { immediate: true });
 </script>

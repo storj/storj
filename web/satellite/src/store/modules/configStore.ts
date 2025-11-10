@@ -9,6 +9,7 @@ import { FrontendConfigHttpApi } from '@/api/config';
 import { centsToDollars } from '@/utils/strings';
 import { Time } from '@/utils/time';
 import { User } from '@/types/users';
+import { PricingPlanInfo } from '@/types/common';
 
 export class ConfigState {
     public config: FrontendConfig = new FrontendConfig();
@@ -40,6 +41,28 @@ export const useConfigStore = defineStore('config', () => {
         return result;
     }
 
+    const signupConfig = ref<Map<string, unknown>>(new Map());
+    const onboardingConfig = ref<Map<string, unknown>>(new Map());
+
+    async function getPartnerSignupConfig(partner: string): Promise<void> {
+        if (!partner || signupConfig.value.has(partner)) return;
+
+        const conf = await configApi.getPartnerUIConfig('signup', partner);
+        signupConfig.value.set(partner, conf);
+    }
+
+    async function getPartnerOnboardingConfig(partner: string): Promise<void> {
+        if (!partner || onboardingConfig.value.has(partner)) return;
+
+        const conf = await configApi.getPartnerUIConfig('onboarding', partner);
+        onboardingConfig.value.set(partner, conf);
+    }
+
+    async function getPartnerPricingPlanConfig(partner: string): Promise<PricingPlanInfo | null> {
+        if (!partner) return null;
+        return (await configApi.getPartnerUIConfig('pricing-plan', partner)) as PricingPlanInfo;
+    }
+
     function getBillingEnabled(user: User): boolean {
         return state.config.billingFeaturesEnabled && !user.hasVarPartner && !user.isNFR;
     }
@@ -64,7 +87,12 @@ export const useConfigStore = defineStore('config', () => {
         state,
         minimumCharge,
         minimumChargeBannerDismissed,
+        signupConfig,
+        onboardingConfig,
         getConfig,
+        getPartnerSignupConfig,
+        getPartnerOnboardingConfig,
+        getPartnerPricingPlanConfig,
         getBillingEnabled,
         getProjectHasNewPricing,
     };
