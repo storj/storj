@@ -16,4 +16,6 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Client](ball, func(log *zap.Logger, config Config) (*Client, error) {
 		return New(log, http.DefaultClient, config)
 	})
+	mud.Tag[*Client](ball, mud.Optional{})
+	mud.Tag[*Client](ball, mud.Nullable{})
 }

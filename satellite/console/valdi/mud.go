@@ -16,4 +16,6 @@ func Module(ball *mud.Ball) {
 	mud.View[Config, valdiclient.Config](ball, func(c Config) valdiclient.Config {
 		return c.Config
 	})
+	mud.Tag[*Service](ball, mud.Optional{})
+	mud.Tag[*Service](ball, mud.Nullable{})
 }
