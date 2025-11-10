@@ -684,6 +684,12 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 				Version:     25,
 				Action:      migrate.SQL{},
 			},
+			{
+				DB:          &db,
+				Description: "add table for change stream metadata",
+				Version:     26,
+				Action:      migrate.SQL{},
+			},
 		},
 	}
 }
@@ -738,6 +744,27 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				Version:     25,
 				Action: migrate.SQL{
 					`ALTER CHANGE STREAM bucket_eventing SET OPTIONS (value_capture_type = 'NEW_ROW_AND_OLD_VALUES')`,
+				},
+			},
+			{
+				DB:          &db,
+				Description: "add table for change stream metadata",
+				Version:     26,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS bucket_eventing_metadata
+					(
+						partition_token STRING(MAX) NOT NULL,
+						parent_tokens   ARRAY<STRING(MAX)>,
+						start_timestamp TIMESTAMP NOT NULL,
+						state           INT64     NOT NULL DEFAULT (0),
+						watermark       TIMESTAMP NOT NULL,
+						created_at      TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
+						scheduled_at    TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+						running_at      TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+						finished_at     TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+					)
+					PRIMARY KEY (partition_token), ROW DELETION POLICY (OLDER_THAN(finished_at, INTERVAL 7 DAY));`,
+					`CREATE INDEX IF NOT EXISTS bucket_eventing_metadata_state ON bucket_eventing_metadata(state);`,
 				},
 			},
 		},

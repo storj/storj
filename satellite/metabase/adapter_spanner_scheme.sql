@@ -52,3 +52,19 @@ CREATE TABLE IF NOT EXISTS node_aliases
 CREATE UNIQUE INDEX IF NOT EXISTS node_aliases_node_alias_key ON node_aliases(node_alias);
 
 CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( value_capture_type = 'NEW_ROW_AND_OLD_VALUES', exclude_ttl_deletes = TRUE );
+
+CREATE TABLE IF NOT EXISTS bucket_eventing_metadata
+(
+    partition_token STRING(MAX) NOT NULL,
+    parent_tokens   ARRAY<STRING(MAX)>,
+    start_timestamp TIMESTAMP NOT NULL,
+    state           INT64     NOT NULL DEFAULT (0),
+    watermark       TIMESTAMP NOT NULL,
+    created_at      TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
+    scheduled_at    TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+    running_at      TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+    finished_at     TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+)
+PRIMARY KEY (partition_token), ROW DELETION POLICY (OLDER_THAN(finished_at, INTERVAL 7 DAY));
+
+CREATE INDEX IF NOT EXISTS bucket_eventing_metadata_state ON bucket_eventing_metadata(state);

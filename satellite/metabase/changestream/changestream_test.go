@@ -66,15 +66,25 @@ func TestChangeStream(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		change := <-changes
-		require.Equal(t, "objects", change.TableName)
-		require.Equal(t, "INSERT", change.ModType)
+
+		select {
+		case change := <-changes:
+			require.Equal(t, "objects", change.TableName)
+			require.Equal(t, "INSERT", change.ModType)
+		case err := <-feedErr:
+			require.NoError(t, err)
+		}
 
 		err = adapter.TestingDeleteAll(ctx)
 		require.NoError(t, err)
-		change = <-changes
-		require.Equal(t, "objects", change.TableName)
-		require.Equal(t, "DELETE", change.ModType)
+
+		select {
+		case change := <-changes:
+			require.Equal(t, "objects", change.TableName)
+			require.Equal(t, "DELETE", change.ModType)
+		case err := <-feedErr:
+			require.NoError(t, err)
+		}
 
 		cancel()
 		err = <-feedErr

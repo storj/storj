@@ -257,7 +257,7 @@ func testNoEventsForTransmitEventFalse(ctx context.Context, t *testing.T, db *me
 	totalRelevantEvents := len(relevantCreateEvents) + len(relevantDeleteEvents)
 
 	if totalRelevantEvents > 0 {
-		t.Log("⚠️  TransmitEvent=false still generated events - flag may not be implemented yet")
+		t.Log("⚠️ TransmitEvent=false still generated events - flag may not be implemented yet")
 
 		// Log details of any events that were generated
 		for i, event := range relevantCreateEvents {
@@ -464,6 +464,8 @@ func startChangeStreamReader(ctx context.Context, log *zap.Logger, adapter *meta
 	eventCh := make(chan changestream.DataChangeRecord, 100) // Buffer to avoid blocking
 	errCh := make(chan error, 1)
 
+	startTime := time.Now()
+
 	// Create a cancellable context for the processor
 	processorCtx, cancel := context.WithCancel(ctx)
 
@@ -471,8 +473,6 @@ func startChangeStreamReader(ctx context.Context, log *zap.Logger, adapter *meta
 	go func() {
 		defer close(eventCh)
 		defer cancel()
-
-		startTime := time.Now()
 
 		err := changestream.Processor(processorCtx, log, adapter, streamName, startTime, func(record changestream.DataChangeRecord) error {
 			select {

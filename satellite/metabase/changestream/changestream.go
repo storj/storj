@@ -13,8 +13,10 @@ import (
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/shared/dbutil/recordeddb"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // ChangeRecord represents a record from Spanner change stream.
@@ -79,28 +81,72 @@ type ChildPartitionsRecord struct {
 	ChildPartitions []*ChildPartition `spanner:"child_partitions"`
 }
 
+// PartitionState represents the processing state of a partition.
+type PartitionState int
+
+// Possible states for a partition in its processing lifecycle.
+const (
+	StateCreated   PartitionState = 0
+	StateScheduled PartitionState = 1
+	StateRunning   PartitionState = 2
+	StateFinished  PartitionState = 3
+)
+
+// Valid returns whether the PartitionState is a valid state.
+func (s PartitionState) Valid() bool {
+	switch s {
+	case StateCreated, StateScheduled, StateRunning, StateFinished:
+		return true
+	default:
+		return false
+	}
+}
+
+// EncodeSpanner implements spanner.Encoder for PartitionState.
+func (s PartitionState) EncodeSpanner() (interface{}, error) {
+	if !s.Valid() {
+		return nil, errs.New("invalid PartitionState value: %d", s)
+	}
+
+	return int64(s), nil
+}
+
+// DecodeSpanner implements spanner.Decoder for PartitionState.
+func (s *PartitionState) DecodeSpanner(val interface{}) error {
+	v, ok := val.(int64)
+	if !ok {
+		return errs.New("failed to decode PartitionState: expected int64, got %T", val)
+	}
+
+	state := PartitionState(v)
+	if !state.Valid() {
+		return errs.New("invalid PartitionState value in database: %d", v)
+	}
+
+	*s = state
+
+	return nil
+}
+
 // Adapter provides methods for working with Spanner change streams.
 type Adapter interface {
-	ChangeStream(ctx context.Context, name string, partitionToken string, from time.Time, callback func(record DataChangeRecord) error) ([]ChildPartitionsRecord, error)
+	ReadChangeStreamPartition(ctx context.Context, name string, partitionToken string, from time.Time, callback func(record ChangeRecord) error) error
+	ChangeStreamNoPartitionMetadata(ctx context.Context, feedName string) (bool, error)
+	GetChangeStreamPartitionsByState(ctx context.Context, name string, state PartitionState) (map[string]time.Time, error)
+	AddChangeStreamPartition(ctx context.Context, feedName, childToken string, parentTokens []string, start time.Time) error
+	ScheduleChangeStreamPartitions(ctx context.Context, feedName string) (int64, error)
+	UpdateChangeStreamPartitionWatermark(ctx context.Context, feedName, partitionToken string, newWatermark time.Time) error
+	UpdateChangeStreamPartitionState(ctx context.Context, feedName, partitionToken string, newState PartitionState) error
 
 	TestCreateChangeStream(ctx context.Context, name string) error
 	TestDeleteChangeStream(ctx context.Context, name string) error
 }
 
-// ChangeFeedRecord represents a processed change feed record.
-type ChangeFeedRecord struct {
-	TableName      string
-	OperationType  string
-	CommitTime     time.Time
-	RecordSequence string
-	PrimaryKey     map[string]interface{}
-	Data           map[string]interface{}
-}
-
-// ReadPartitions listens to Spanner change stream and processes records via callback.
-func ReadPartitions(ctx context.Context, log *zap.Logger, client *recordeddb.SpannerClient, name string, partitionToken string, from time.Time, callback func(record DataChangeRecord) error) (childPartitions []ChildPartitionsRecord, err error) {
+// ReadPartition listens to Spanner change stream and processes records via callback.
+func ReadPartition(ctx context.Context, log *zap.Logger, client *recordeddb.SpannerClient, name string, partitionToken string, from time.Time, callback func(record ChangeRecord) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	log.Info("Listening on change stream", zap.String("name", name), zap.Time("from", from), zap.String("partition_token", partitionToken))
+
+	log.Info("Read partition", zap.String("Change Stream", name), zap.Time("From", from), zap.String("Partition Token", partitionToken))
 
 	query := `SELECT ChangeRecord FROM READ_%s(start_timestamp => @start_time,heartbeat_milliseconds => @heartbeat_milliseconds`
 
@@ -119,59 +165,280 @@ func ReadPartitions(ctx context.Context, log *zap.Logger, client *recordeddb.Spa
 		Params: params,
 	}
 
-	iter := client.Single().Query(ctx, stmt)
-
-	err = iter.Do(func(row *spanner.Row) error {
+	err = client.Single().QueryWithOptions(ctx, stmt,
+		spanner.QueryOptions{RequestTag: "change-stream-read-partition"},
+	).Do(func(row *spanner.Row) error {
 		records := make([]*ChangeRecord, 0)
 		err := row.Columns(&records)
 		if err != nil {
 			return errs.Wrap(err)
 		}
 		for _, record := range records {
-			for _, dataChange := range record.DataChangeRecord {
-				err := callback(*dataChange)
-				if err != nil {
-					return errs.Wrap(err)
-				}
-			}
-			for _, partition := range record.ChildPartitionsRecord {
-				for _, child := range partition.ChildPartitions {
-					log.Debug("Received child partition",
-						zap.Time("start_timestamp", partition.StartTimestamp),
-						zap.String("record_sequence", partition.RecordSequence),
-						zap.String("token", partitionToken),
-						zap.String("child_token", child.Token),
-						zap.Strings("parent_token", child.ParentPartitionTokens))
-				}
-				childPartitions = append(childPartitions, *partition)
-			}
-			for _, hb := range record.HeartbeatRecord {
-				log.Debug("Received heartbeat", zap.String("token", partitionToken), zap.Time("timestamp", hb.Timestamp))
+			if err := callback(*record); err != nil {
+				return errs.Wrap(err)
 			}
 		}
+		return nil
+	})
+
+	return errs.Wrap(err)
+}
+
+// NoPartitionMetadata checks if the metadata table for the change stream is empty.
+func NoPartitionMetadata(ctx context.Context, client *recordeddb.SpannerClient, feedName string) (empty bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := spanner.Statement{
+		SQL: fmt.Sprintf(`
+			SELECT 1
+			FROM %s_metadata
+			LIMIT 1
+		`, feedName),
+	}
+
+	var exists bool
+	err = client.Single().QueryWithOptions(ctx, stmt,
+		spanner.QueryOptions{RequestTag: "change-stream-no-partition-metadata"},
+	).Do(func(row *spanner.Row) error {
+		exists = true
+		return nil
+	})
+	if err != nil {
+		return false, errs.Wrap(err)
+	}
+
+	return !exists, nil
+}
+
+// GetPartitionsByState retrieves change stream partitions by their state from the metabase.
+func GetPartitionsByState(ctx context.Context, client *recordeddb.SpannerClient, feedName string, state PartitionState) (partitions map[string]time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := spanner.Statement{
+		SQL: fmt.Sprintf(`
+			SELECT partition_token, watermark
+			FROM %s_metadata
+			WHERE state = @state
+		`, feedName),
+		Params: map[string]interface{}{
+			"state": state,
+		},
+	}
+
+	partitions = make(map[string]time.Time)
+
+	err = client.Single().QueryWithOptions(ctx, stmt,
+		spanner.QueryOptions{RequestTag: "change-stream-get-partitions-by-state"},
+	).Do(func(row *spanner.Row) error {
+		var token string
+		var watermark time.Time
+		if err := row.Columns(&token, &watermark); err != nil {
+			return errs.Wrap(err)
+		}
+		partitions[token] = watermark
 		return nil
 	})
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	return childPartitions, nil
+	return partitions, nil
+}
+
+// AddChildPartition adds a child partition to the metabase.
+func AddChildPartition(ctx context.Context, client *recordeddb.SpannerClient, feedName, childToken string, parentTokens []string, start time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// watermark is initialized to start time
+	stmt := spanner.Statement{
+		SQL: fmt.Sprintf(`
+			INSERT INTO %s_metadata (partition_token, parent_tokens, start_timestamp, watermark)
+			VALUES (@partition_token, @parent_tokens, @start_timestamp, @start_timestamp)
+		`, feedName),
+		Params: map[string]interface{}{
+			"partition_token": childToken,
+			"parent_tokens":   parentTokens,
+			"start_timestamp": start,
+		},
+	}
+
+	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		_, err := tx.UpdateWithOptions(ctx, stmt,
+			spanner.QueryOptions{RequestTag: "change-stream-add-child-partition"})
+		return errs.Wrap(err)
+	}, spanner.TransactionOptions{
+		TransactionTag: "change-stream-add-child-partition",
+	})
+
+	if spannerutil.IsAlreadyExists(err) {
+		// Expected error when Spanner merges partitions - all parents try to add the same child partition
+		return nil
+	}
+
+	return errs.Wrap(err)
+}
+
+// SchedulePartitions checks each partition in created state, and if all its parent partitions are finished, it will update its state to scheduled.
+//
+// Some rules:
+// - The initial partition (with partition_token = ”) is scheduled immediately.
+// - The children of the initial partition (with no parents) are scheduled once the initial partition is finished.
+// - Other partitions are scheduled once all their parent partitions are finished.
+func SchedulePartitions(ctx context.Context, client *recordeddb.SpannerClient, feedName string) (scheduledCount int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := spanner.Statement{
+		SQL: fmt.Sprintf(`
+			UPDATE %s_metadata AS child
+			SET state = %d
+			WHERE child.state = %d
+			AND (
+				child.partition_token = ''
+				OR (
+					ARRAY_LENGTH(child.parent_tokens) = 0
+					AND (
+						SELECT state
+						FROM %s_metadata
+						WHERE partition_token = ''
+					) = %d
+				)
+				OR (
+					SELECT LOGICAL_AND(parent.state = %d)
+					FROM UNNEST(child.parent_tokens) AS parent_token
+					JOIN %s_metadata AS parent ON parent.partition_token = parent_token
+				) = TRUE
+			)
+		`, feedName, StateScheduled, StateCreated, feedName, StateFinished, StateFinished, feedName),
+	}
+
+	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		count, err := tx.UpdateWithOptions(ctx, stmt,
+			spanner.QueryOptions{RequestTag: "change-stream-schedule-partitions"})
+		if err != nil {
+			return err
+		}
+		scheduledCount = count
+		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "change-stream-schedule-partitions",
+	})
+
+	return scheduledCount, errs.Wrap(err)
+}
+
+// UpdatePartitionWatermark updates the watermark for a change stream partition in the metabase.
+func UpdatePartitionWatermark(ctx context.Context, client *recordeddb.SpannerClient, feedName, partitionToken string, newWatermark time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmt := spanner.Statement{
+		SQL: fmt.Sprintf(`
+			UPDATE %s_metadata
+			SET watermark = @new_watermark
+			WHERE partition_token = @partition_token
+		`, feedName),
+		Params: map[string]interface{}{
+			"partition_token": partitionToken,
+			"new_watermark":   newWatermark,
+		},
+	}
+
+	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		count, err := tx.UpdateWithOptions(ctx, stmt,
+			spanner.QueryOptions{RequestTag: "change-stream-update-partition-watermark"})
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return errs.New("partition watermark update affected 0 rows: partition_token=%q", partitionToken)
+		}
+		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "change-stream-update-partition-watermark",
+	})
+
+	return errs.Wrap(err)
+}
+
+// UpdatePartitionState updates the state for a change stream partition in the metabase.
+func UpdatePartitionState(ctx context.Context, client *recordeddb.SpannerClient, feedName, partitionToken string, newState PartitionState) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Build the SET clause based on the new state
+	var setClause string
+	switch newState {
+	case StateScheduled:
+		setClause = "SET state = @state, scheduled_at = PENDING_COMMIT_TIMESTAMP()"
+	case StateRunning:
+		setClause = "SET state = @state, running_at = PENDING_COMMIT_TIMESTAMP()"
+	case StateFinished:
+		setClause = "SET state = @state, finished_at = PENDING_COMMIT_TIMESTAMP()"
+	default:
+		return errs.New("invalid partition state: %d", newState)
+	}
+
+	stmt := spanner.Statement{
+		SQL: fmt.Sprintf(`
+			UPDATE %s_metadata
+			%s
+			WHERE partition_token = @partition_token
+		`, feedName, setClause),
+		Params: map[string]interface{}{
+			"partition_token": partitionToken,
+			"state":           newState,
+		},
+	}
+
+	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		count, err := tx.UpdateWithOptions(ctx, stmt,
+			spanner.QueryOptions{RequestTag: "change-stream-update-partition-state"})
+		if err != nil {
+			return err
+		}
+		if count == 0 {
+			return errs.New("partition state update affected 0 rows: partition_token=%q", partitionToken)
+		}
+		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag: "change-stream-update-partition-state",
+	})
+
+	return errs.Wrap(err)
 }
 
 // TestCreateChangeStream creates a change stream for testing purposes.
 func TestCreateChangeStream(ctx context.Context, admin *database.DatabaseAdminClient, path string, name string) error {
-	ddlStatement := fmt.Sprintf(`
+	changeStreamDDL := fmt.Sprintf(`
 		CREATE CHANGE STREAM %s
-		FOR objects
+		FOR objects (stream_id, status, total_plain_size)
 		OPTIONS (
-			retention_period = "1d",
-			value_capture_type = "NEW_ROW"
+			value_capture_type = 'NEW_ROW_AND_OLD_VALUES',
+			exclude_ttl_deletes = TRUE
 		)
 	`, name)
 
+	metadataTableDDL := fmt.Sprintf(`
+		CREATE TABLE IF NOT EXISTS %s_metadata
+		(
+			partition_token STRING(MAX) NOT NULL,
+			parent_tokens   ARRAY<STRING(MAX)>,
+			start_timestamp TIMESTAMP NOT NULL,
+			state           INT64     NOT NULL DEFAULT (0),
+			watermark       TIMESTAMP NOT NULL,
+			created_at      TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
+			scheduled_at    TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+			running_at      TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+			finished_at     TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
+		)
+		PRIMARY KEY (partition_token), ROW DELETION POLICY (OLDER_THAN(finished_at, INTERVAL 7 DAY))
+	`, name)
+
+	indexDDL := fmt.Sprintf(`
+		CREATE INDEX IF NOT EXISTS %s_metadata_state ON %s_metadata(state)
+	`, name, name)
+
 	op, err := admin.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
 		Database:   path,
-		Statements: []string{ddlStatement},
+		Statements: []string{changeStreamDDL, metadataTableDDL, indexDDL},
 	})
 	if err != nil {
 		return errs.Wrap(err)
@@ -183,16 +450,50 @@ func TestCreateChangeStream(ctx context.Context, admin *database.DatabaseAdminCl
 
 // TestDeleteChangeStream deletes the change stream with the given name.
 func TestDeleteChangeStream(ctx context.Context, admin *database.DatabaseAdminClient, path string, name string) error {
-	ddlStatement := fmt.Sprintf("DROP CHANGE STREAM %s", name)
+	dropChangeStreamDDL := fmt.Sprintf("DROP CHANGE STREAM %s", name)
+	dropIndexDDL := fmt.Sprintf("DROP INDEX %s_metadata_state", name)
+	dropTableDDL := fmt.Sprintf("DROP TABLE %s_metadata", name)
 
-	op, err := admin.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
-		Database:   path,
-		Statements: []string{ddlStatement},
-	})
-	if err != nil {
-		return errs.Wrap(err)
+	// Retry with exponential backoff to handle transient conflicts with active streaming queries
+	const maxRetries = 5
+	backoff := 100 * time.Millisecond
+
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return errs.Wrap(ctx.Err())
+			case <-time.After(backoff):
+				backoff *= 2
+			}
+		}
+
+		op, err := admin.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
+			Database:   path,
+			Statements: []string{dropChangeStreamDDL, dropIndexDDL, dropTableDDL},
+		})
+		if err != nil {
+			lastErr = err
+			// Check if it's a FailedPrecondition error (concurrent operation)
+			if spanner.ErrCode(err) == codes.FailedPrecondition {
+				continue
+			}
+			return errs.Wrap(err)
+		}
+
+		err = op.Wait(ctx)
+		if err != nil {
+			lastErr = err
+			// Check if it's a FailedPrecondition error (concurrent operation)
+			if spanner.ErrCode(err) == codes.FailedPrecondition {
+				continue
+			}
+			return errs.Wrap(err)
+		}
+
+		return nil
 	}
 
-	err = op.Wait(ctx)
-	return errs.Wrap(err)
+	return errs.Wrap(lastErr)
 }

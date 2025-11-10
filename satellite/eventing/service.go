@@ -70,9 +70,8 @@ func NewService(log *zap.Logger, sdb changestream.Adapter, projects PublicProjec
 // Run starts the changestream processing loop.
 func (s *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: we need to persist the last processed timestamp, time to time
-	start := time.Now()
-	return changestream.Processor(ctx, s.log, s.db, s.cfg.Feedname, start, func(record changestream.DataChangeRecord) error {
+
+	return changestream.Processor(ctx, s.log, s.db, s.cfg.Feedname, time.Now(), func(record changestream.DataChangeRecord) error {
 		// Ignore errors here, they are logged inside ProcessRecord
 		_ = s.ProcessRecord(ctx, record)
 		return nil
