@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
@@ -53,12 +52,12 @@ func (c *ConfigSupport) GetSubtree(prefix string, target interface{}) error {
 		}
 		cfgContent, err := os.ReadFile(cfgPath)
 		if err != nil {
-			return errors.WithStack(err)
+			return errs.Wrap(err)
 		}
 
 		err = yaml.Unmarshal(cfgContent, &c.raw)
 		if err != nil {
-			return errors.WithStack(err)
+			return errs.Wrap(err)
 		}
 	}
 	subtree := selectTreeRecursive(prefix, c.raw)
@@ -67,12 +66,12 @@ func (c *ConfigSupport) GetSubtree(prefix string, target interface{}) error {
 	}
 	out, err := yaml.Marshal(subtree)
 	if err != nil {
-		return errors.WithStack(err)
+		return errs.Wrap(err)
 	}
 
 	err = yaml.Unmarshal(out, target)
 	if err != nil {
-		return errors.WithStack(err)
+		return errs.Wrap(err)
 	}
 
 	return nil

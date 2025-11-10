@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/shared/modular"
@@ -76,7 +76,7 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 		return component.Init(ctx)
 	}, mud.All)
 	if err != nil {
-		return errors.WithStack(err)
+		return errs.Wrap(err)
 	}
 	defer func() {
 		shutdownTimeout := 15 * time.Second
@@ -128,7 +128,7 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 		return component.Run(pprof.WithLabels(childCtx, pprof.Labels("component", component.Name())), eg)
 	}, mud.All)
 	if err != nil {
-		return errors.WithStack(err)
+		return errs.Wrap(err)
 	}
 
 	return eg.Wait()
