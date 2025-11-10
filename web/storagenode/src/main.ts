@@ -4,6 +4,7 @@
 import Vue, { VNode } from 'vue';
 import VueClipboard from 'vue-clipboard2';
 import { DirectiveBinding } from 'vue/types/options';
+import { createPinia, PiniaVuePlugin } from 'pinia';
 
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
@@ -14,6 +15,8 @@ Vue.config.productionTip = false;
 VueClipboard.config.autoSetContainer = true;
 
 Vue.use(VueClipboard);
+Vue.use(PiniaVuePlugin);
+const pinia = createPinia();
 
 let clickOutsideEvent: EventListener;
 
@@ -55,6 +58,7 @@ Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
 
 new Vue({
     router,
-    render: (h) => h(App),
     store,
+    pinia,
+    render: (h) => h(App),
 }).$mount('#app');
