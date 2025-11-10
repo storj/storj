@@ -138,60 +138,84 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 			return errlist.Err()
 		})
 	case dbutil.Spanner:
-		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			updateBBR := `
-				UPDATE bucket_bandwidth_rollups AS bbr
-				SET  bbr.allocated = bbr.allocated + ?  WHERE project_id = ? AND bucket_name = ? AND interval_start = ? AND action = ?
-			`
-			result, err := tx.Tx.ExecContext(ctx, updateBBR, uint64(amount), projectID, bucketName, intervalStart, int64(action))
-			if err != nil {
-				return errs.Wrap(err)
-			}
+		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
+			defer mon.Task()(&ctx)(&err)
 
-			affected, err := result.RowsAffected()
-			if err != nil {
-				return errs.Wrap(err)
-			}
+			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
+			civilDailyIntervalDate := civil.DateOf(dailyInterval)
 
-			if affected == 0 {
-				insertBDR := `
-					INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-				`
-				_, err := tx.Tx.ExecContext(ctx, insertBDR, projectID, bucketName, intervalStart, defaultIntervalSeconds, int64(action), 0, uint64(amount), 0)
-				if err != nil {
-					return errs.Wrap(err)
-				}
+			// Spanner does not support `INSERT INTO ... ON CONFLICT DO UPDATE SET`, see details in [doc.go].
+
+			statements := []spanner.Statement{
+				{
+					SQL: `
+						UPDATE bucket_bandwidth_rollups
+						SET allocated = allocated + @amount
+						WHERE (project_id, bucket_name, interval_start, action) = (@project_id, @bucket_name, @interval_start, @action)
+					`,
+					Params: map[string]any{
+						"amount":         amount,
+						"project_id":     projectID.Bytes(),
+						"bucket_name":    bucketName,
+						"interval_start": intervalStart,
+						"action":         int64(action),
+					},
+				},
+				{
+					SQL: `
+						INSERT OR IGNORE INTO bucket_bandwidth_rollups
+							(project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+						VALUES (@project_id, @bucket_name, @interval_start, @interval_seconds, @action, 0, @amount, 0)
+					`,
+					Params: map[string]any{
+						"project_id":       projectID.Bytes(),
+						"bucket_name":      bucketName,
+						"interval_start":   intervalStart,
+						"interval_seconds": defaultIntervalSeconds,
+						"action":           int64(action),
+						"amount":           amount,
+					},
+				},
 			}
 
 			if action == pb.PieceAction_GET {
-				civilDailyIntervalDate := civil.DateOf(dailyInterval)
-				updatePBDR := `
-					UPDATE project_bandwidth_daily_rollups AS pbdr
-					SET pbdr.egress_allocated = pbdr.egress_allocated + ? WHERE project_id = ? AND interval_day = ?
-				`
-				result, err = tx.Tx.ExecContext(ctx, updatePBDR, uint64(amount), projectID, civilDailyIntervalDate)
-				if err != nil {
-					return err
-				}
-
-				affected, err = result.RowsAffected()
-				if err != nil {
-					return errs.Wrap(err)
-				}
-
-				if affected == 0 {
-					insertPBDR := `
-						INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-						VALUES (?, ?, ?, ?, ?)
-					`
-					_, err = tx.Tx.ExecContext(ctx, insertPBDR, projectID, civilDailyIntervalDate, uint64(amount), 0, 0)
-					if err != nil {
-						return err
-					}
-				}
+				statements = append(statements,
+					spanner.Statement{
+						SQL: `
+							UPDATE project_bandwidth_daily_rollups
+							SET egress_allocated = egress_allocated + @amount
+							WHERE (project_id, interval_day) = (@project_id, @interval_day)
+						`,
+						Params: map[string]any{
+							"amount":       amount,
+							"project_id":   projectID.Bytes(),
+							"interval_day": civilDailyIntervalDate,
+						},
+					},
+					spanner.Statement{
+						SQL: `
+							INSERT OR IGNORE INTO project_bandwidth_daily_rollups
+								(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+							VALUES (@project_id, @interval_day, @amount, 0, 0)
+						`,
+						Params: map[string]any{
+							"project_id":   projectID.Bytes(),
+							"interval_day": civilDailyIntervalDate,
+							"amount":       amount,
+						},
+					},
+				)
 			}
-			return err
+
+			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+				_, err := txn.BatchUpdateWithOptions(ctx, statements, spanner.QueryOptions{
+					RequestTag: "orders/update-bucket-bandwidth-allocation",
+				})
+				return err
+			}, spanner.TransactionOptions{
+				TransactionTag: "orders/update-bucket-bandwidth-allocation",
+			})
+			return errs.Wrap(err)
 		})
 	default:
 		return errs.Wrap(fmt.Errorf("unsupported database dialect: %s", db.db.impl))
@@ -668,20 +692,7 @@ func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []o
 
 	statements := []spanner.Statement{}
 
-	/*
-		Spanner does not support `INSERT INTO ... ON CONFLICT DO UPDATE SET`.
-		It also does not support UPDATE with joins.
-
-		Hence for updating a corresponding table it'll do two updates.
-
-		1. UPDATE table SET value = value + @value WHERE id = @id
-		2. INSERT OR IGNORE INTO table (id, value) VALUES (@id, @value)
-
-		The 1. query will add value to the existing row. If the row does not exist,
-		then the where clause will not match anything and hence will be ignored.
-
-		The 2. query will add new rows for things that didn't have a row.
-	*/
+	// Spanner does not support `INSERT INTO ... ON CONFLICT DO UPDATE SET`, see details in [doc.go].
 
 	{ // construct bucket_bandwidth_rollups statements
 		bucketRollupMap := rollupBandwidth(rollups, toHourlyInterval, getBucketRollupKey)
