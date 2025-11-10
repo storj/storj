@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
@@ -77,7 +78,7 @@ func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) 
 
 	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return service, nil
