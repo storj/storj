@@ -783,7 +783,7 @@ export default class EstimationArea extends Vue {
             fill: var(--info-icon-background);
         }
 
-        ::v-deep path {
+        :deep(path) {
             fill: var(--info-icon-letter);
         }
     }

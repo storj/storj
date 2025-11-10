@@ -49,7 +49,7 @@ export default class LoadingScreen extends Vue {}
         }
     }
 
-    .storj-logo ::v-deep path {
+    .storj-logo :deep(path) {
         fill: var(--loader-logo-color);
     }
 

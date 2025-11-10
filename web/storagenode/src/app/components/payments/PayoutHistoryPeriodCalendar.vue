@@ -304,7 +304,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
         }
     }
 
-    .arrow-icon ::v-deep path {
+    .arrow-icon :deep(path) {
         fill: var(--year-selection-arrow-color);
     }
 </style>

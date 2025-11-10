@@ -165,7 +165,7 @@ export default class SatelliteSelectionDropdownItem extends Vue {
                     cursor: pointer;
                     color: #133e9c;
 
-                    .svg ::v-deep path {
+                    .svg :deep(path) {
                         fill: #133e9c !important;
                     }
                 }

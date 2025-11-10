@@ -132,7 +132,7 @@ export default class App extends Vue {
         overflow-y: scroll;
     }
 
-    .back-button ::v-deep path {
+    .back-button :deep(path) {
         fill: var(--regular-icon-color) !important;
     }
 

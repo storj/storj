@@ -208,8 +208,23 @@ export default class SNOContentTitle extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .svg ::v-deep path {
+    .svg :deep(path) {
         fill: var(--node-id-copy-icon-color);
+    }
+
+    :deep(.info__message-box) {
+        background-image: var(--info-image-arrow-left-path);
+        bottom: 100%;
+        left: 220%;
+        padding: 20px 20px 25px;
+    }
+
+    :deep(.info__message-box__text) {
+        align-items: flex-start;
+    }
+
+    :deep(.info__message-box__text__regular-text) {
+        margin-bottom: 5px;
     }
 
     .title-area {
@@ -248,7 +263,7 @@ export default class SNOContentTitle extends Vue {
                 border-color: var(--node-id-border-hover-color);
                 color: var(--node-id-hover-text-color);
 
-                .svg ::v-deep path {
+                .svg :deep(path) {
                     fill: var(--node-id-border-hover-color) !important;
                 }
             }
@@ -301,21 +316,6 @@ export default class SNOContentTitle extends Vue {
 
     .offline-status {
         color: #ce0000;
-    }
-
-    ::v-deep .info__message-box {
-        background-image: var(--info-image-arrow-left-path);
-        bottom: 100%;
-        left: 220%;
-        padding: 20px 20px 25px;
-
-        &__text {
-            align-items: flex-start;
-
-            &__regular-text {
-                margin-bottom: 5px;
-            }
-        }
     }
 
     @media screen and (max-width: 780px) {

@@ -149,7 +149,7 @@ export default class WalletArea extends Vue {
                     background: white;
                     border-radius: 50%;
 
-                    ::v-deep path {
+                    :deep(path) {
                         fill: var(--wallet-feature-opted-in);
                     }
                 }
