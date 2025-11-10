@@ -81,3 +81,61 @@ In this example:
 - `STORJ_CONSOLE_LEGACY_PLACEMENTS`: Defines which placement IDs are considered "legacy"
 - `STORJ_PAYMENTS_PLACEMENT_PRICE_OVERRIDES`: Default placement-to-product mappings for new placements
 - `STORJ_CONSOLE_PLACEMENT_ALLOWED_PLACEMENT_IDS_FOR_NEW_PROJECTS`: Placements available after migration
+
+## Partner UI Configuration (STORJ_CONSOLE_PARTNER_UI_CONFIG)
+This section refers to partner-specific UI configurations for the Satellite UI.
+The UI customizations refer to configs that were previously stored in the [tardigrade satellite theme](https://github.com/storj/tardigrade-satellite-theme) repository.
+Depending on which satellite's folder in the repo is being viewed, there are files for different sections of the UI to be customized. All the files will look like;
+
+```json
+{
+  "<partner>": {
+    "some-field": "some-value",
+    ...
+  }
+}
+```
+- `billingConfig.json`: Configurations related to billing UI.
+- `onboardingConfig.json`: Configurations related to onboarding UI.
+- `pricingPlanConfig.json`: Configurations related to pricing plan UI.
+- `registrationViewConfig.json`: Configurations related to signup UI.
+- `upgradeConfig.json`: Configurations related to upgrade UI.
+
+The config `STORJ_CONSOLE_PARTNER_UI_CONFIG` should contain a YAML string or a YAML file path. The YAML maps partner identifiers to their UI configuration sections. For example;
+
+```yaml
+partner1:
+  billing:
+    some-field: "some-value"
+    # ... additional billing config
+  onboarding:
+    some-field: "some-value"
+    # ... additional onboarding config
+  pricing-plan:
+    some-field: "some-value"
+    # ... additional pricing plan config
+  signup:
+    some-field: "some-value"
+    # ... additional signup config
+  upgrade:
+    some-field: "some-value"
+    # ... additional upgrade config
+partner2:
+  billing:
+    some-field: "some-other-value"
+  # ... additional partner2 config
+```
+
+Alternatively, you can provide a path to a YAML file:
+
+```
+STORJ_CONSOLE_PARTNER_UI_CONFIG: /path/to/partner-ui-config.yaml
+```
+
+### Structure
+The configuration is a mapping of partner identifiers (strings) to UIConfig objects. Each UIConfig contains the following optional keys all of which are maps of string keys to any values:
+- `billing`: Billing UI configurations.
+- `onboarding`: Onboarding UI configurations.
+- `pricing-plan`: Pricing plan UI configurations.
+- `signup`: Signup UI configurations.
+- `upgrade`: Upgrade UI configurations.

@@ -67,6 +67,8 @@ type Config struct {
 	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
 
+	PartnerUI PartnerUIConfig `help:"partner-specific UI configuration in YAML format or file path"`
+
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig
 	Placement         PlacementsConfig
@@ -383,4 +385,77 @@ func (ppm *PlacementProductMappings) Set(value string) error {
 	ppm.mappings = mappings
 
 	return nil
+}
+
+// UIConfig contains UI configuration for different parts of the UI.
+type UIConfig struct {
+	Billing     map[string]any `yaml:"billing,omitempty"`
+	Onboarding  map[string]any `yaml:"onboarding,omitempty"`
+	Upgrade     map[string]any `yaml:"upgrade,omitempty"`
+	PricingPlan map[string]any `yaml:"pricing-plan,omitempty"`
+	Signup      map[string]any `yaml:"signup,omitempty"`
+}
+
+// PartnerUIConfig contains partner-specific UI configuration.
+type PartnerUIConfig struct {
+	Value map[string]UIConfig
+}
+
+var _ pflag.Value = (*PartnerUIConfig)(nil)
+
+// Set parses a YAML file or string into PartnerUIConfig.
+func (p *PartnerUIConfig) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	s = strings.TrimSpace(s)
+	strBytes := []byte(s)
+	var cfg map[string]UIConfig
+	switch {
+	case strings.HasSuffix(s, ".yaml"):
+		// YAML file path
+		data, err := os.ReadFile(s)
+		if err != nil {
+			return errs.New("Couldn't read partner UI config file from %s: %v", s, err)
+		}
+
+		err = yaml.Unmarshal(data, &cfg)
+		if err != nil {
+			return errs.New("failed to parse partner UI config YAML file: %v", err)
+		}
+	default:
+		// YAML string
+		err := yaml.Unmarshal(strBytes, &cfg)
+		if err != nil {
+			return errs.New("failed to parse config YAML: %v", err)
+		}
+	}
+
+	*p = PartnerUIConfig{Value: cfg}
+	return nil
+}
+
+// String returns the YAML representation of PartnerUIConfig.
+func (p *PartnerUIConfig) String() string {
+	if p == nil {
+		return ""
+	}
+
+	bytes, err := yaml.Marshal(p.Value)
+	if err != nil {
+		return ""
+	}
+
+	str := string(bytes)
+	if str == "{}\n" {
+		return ""
+	}
+
+	return string(bytes)
+}
+
+// Type returns the type of the pflag.Value.
+func (p *PartnerUIConfig) Type() string {
+	return "console.PartnerUIConfig"
 }

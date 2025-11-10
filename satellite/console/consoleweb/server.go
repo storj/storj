@@ -289,6 +289,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
+	router.Handle("/api/v0/{kind}-config/{partner}", server.withCORS(http.HandlerFunc(server.partnerUIConfigHandler)))
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
@@ -1180,6 +1181,58 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write frontend config", zap.Error(err))
+	}
+}
+
+func (server *Server) partnerUIConfigHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	var partner string
+	var ok bool
+	if partner, ok = mux.Vars(r)["partner"]; !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		server.log.Error("missing partner in request URL")
+		return
+	}
+
+	var kind string
+	if kind, ok = mux.Vars(r)["kind"]; !ok {
+		w.WriteHeader(http.StatusBadRequest)
+		server.log.Error("missing config kind in request URL")
+		return
+	}
+
+	var partnerCfg console.UIConfig
+	if partnerCfg, ok = server.config.PartnerUI.Value[partner]; !ok {
+		w.WriteHeader(http.StatusNotFound)
+		server.log.Error("missing config for partner in request URL", zap.String("partner", partner))
+		return
+	}
+	var cfg map[string]any
+	switch kind {
+	case "signup":
+		cfg = partnerCfg.Signup
+	case "onboarding":
+		cfg = partnerCfg.Onboarding
+	case "pricing-plan":
+		cfg = partnerCfg.PricingPlan
+	case "billing":
+		cfg = partnerCfg.Billing
+	case "upgrade":
+		cfg = partnerCfg.Upgrade
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		server.log.Error("invalid config kind in request URL", zap.String("kind", kind))
+		return
+	}
+
+	w.Header().Set(contentType, applicationJSON)
+
+	err := json.NewEncoder(w).Encode(&cfg)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		server.log.Error("failed to write partner UI config", zap.Error(err))
 	}
 }
 

@@ -592,6 +592,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # optional url to external registration success page
 # console.optional-signup-success-url: ""
 
+# partner-specific UI configuration in YAML format or file path
+# console.partner-ui: ""
+
 # names and addresses of partnered satellites in JSON list format
 # console.partnered-satellites: '[{"name":"US1","address":"https://us1.storj.io"},{"name":"EU1","address":"https://eu1.storj.io"},{"name":"AP1","address":"https://ap1.storj.io"}]'
 
