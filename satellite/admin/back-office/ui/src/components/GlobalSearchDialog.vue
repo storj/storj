@@ -149,7 +149,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VBtn, VCard, VChip, VContainer, VDataTable, VDialog, VIcon, VTextField } from 'vuetify/components';
 import { Box, Search, User, X } from 'lucide-vue-next';
@@ -159,12 +159,10 @@ import { AccountMin, Project, SearchResult, UserStatusInfo } from '@/api/client.
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
 import { ROUTES } from '@/router';
-import { useUsersStore } from '@/store/users';
 import { userIsNFR, userIsPaid } from '@/types/user';
 import { useLoading } from '@/composables/useLoading';
 
 const appStore = useAppStore();
-const usersStore = useUsersStore();
 const notify = useNotificationsStore();
 const router = useRouter();
 const { isLoading } = useLoading();
@@ -248,10 +246,6 @@ function goToProject(project: Project):void {
     router.push({ name: ROUTES.AccountProject.name, params: { projectID: project.id, userID: project.owner.id } });
     model.value = false;
 }
-
-onMounted(() => {
-    usersStore.clearCurrentUser();
-});
 </script>
 <style scoped lang="scss">
 :deep(.v-data-table-footer) {

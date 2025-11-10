@@ -26,7 +26,6 @@ export const useProjectsStore = defineStore('projects', () => {
 
     async function updateCurrentProject(project: string | Project): Promise<void> {
         if (typeof project === 'string') {
-            clearCurrentProject();
             state.currentProject = await getProject(project);
             return;
         }

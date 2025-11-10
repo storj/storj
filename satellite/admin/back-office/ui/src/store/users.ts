@@ -43,7 +43,6 @@ export const useUsersStore = defineStore('users', () => {
     // Update the current user stored in the state.
     async function updateCurrentUser(user: string | UserAccount): Promise<void> {
         if (typeof user === 'string') {
-            clearCurrentUser();
             state.currentAccount = await getUser(user);
             return;
         }
