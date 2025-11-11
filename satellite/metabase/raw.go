@@ -794,7 +794,8 @@ func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object Obj
 				"bucket_name": object.BucketName,
 				"object_key":  object.ObjectKey,
 				"stream_id":   object.StreamID,
-			}},
+			},
+		},
 			spanner.QueryOptions{RequestTag: "testing-set-object-version"},
 		)
 
@@ -913,6 +914,10 @@ var rawObjectColumns = []string{
 	"retain_until",
 }
 
+var spannerObjectColumns = sync.OnceValue(func() string {
+	return strings.Join(rawObjectColumns, ", ")
+})
+
 // spannerInsertObject creates a spanner mutation for inserting the object.
 func spannerInsertObject(obj RawObject) *spanner.Mutation {
 	return spanner.Insert("objects", rawObjectColumns, spannerObjectArguments(obj))
@@ -951,6 +956,10 @@ func spannerObjectArguments(obj RawObject) []any {
 		obj.Retention.RetainUntil,
 	}
 }
+
+var postgresObjectColumns = sync.OnceValue(func() string {
+	return strings.Join(rawObjectColumns, ", ")
+})
 
 var postgresObjectInsertQuery = sync.OnceValue(func() string {
 	postgresObjectColumns := strings.Join(rawObjectColumns, ", ")
@@ -1006,5 +1015,39 @@ func postgresObjectArguments(obj *RawObject) []any {
 			legalHold:     &obj.LegalHold,
 		},
 		obj.Retention.RetainUntil,
+	}
+}
+
+func postgresObjectScan(obj *RawObject) []any {
+	return []any{
+		&obj.ProjectID,
+		&obj.BucketName,
+		&obj.ObjectKey,
+		&obj.Version,
+		&obj.StreamID,
+
+		&obj.CreatedAt,
+		&obj.ExpiresAt,
+
+		&obj.Status,
+		&obj.SegmentCount,
+
+		&obj.EncryptedMetadataNonce,
+		&obj.EncryptedMetadata,
+		&obj.EncryptedMetadataEncryptedKey,
+		&obj.EncryptedETag,
+
+		&obj.TotalPlainSize,
+		&obj.TotalEncryptedSize,
+		&obj.FixedSegmentSize,
+
+		&obj.Encryption,
+		&obj.ZombieDeletionDeadline,
+
+		lockModeWrapper{
+			retentionMode: &obj.Retention.Mode,
+			legalHold:     &obj.LegalHold,
+		},
+		timeWrapper{&obj.Retention.RetainUntil},
 	}
 }
