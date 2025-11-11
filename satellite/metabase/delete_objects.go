@@ -96,6 +96,8 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		return DeleteObjectsResult{}, errs.Wrap(err)
 	}
 
+	deletedObjectOffset, deletedSegmentOffset := 0, 0
+
 	defer func() {
 		var deletedObjects int
 		for _, item := range result.Items {
@@ -103,8 +105,8 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 				deletedObjects++
 			}
 		}
-		mon.Meter("object_delete").Mark(deletedObjects)
-		mon.Meter("segment_delete").Mark64(result.DeletedSegmentCount)
+		mon.Meter("object_delete").Mark(deletedObjects - deletedObjectOffset)
+		mon.Meter("segment_delete").Mark64(result.DeletedSegmentCount - int64(deletedSegmentOffset))
 	}()
 
 	adapter := db.ChooseAdapter(opts.ProjectID)
@@ -138,10 +140,14 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			if err != nil {
 				return result, err
 			}
-			deleteObjectResult, err = adapter.DeleteObjectLastCommittedSuspended(ctx, deleteOpts, deleteMarkerStreamID)
+			deleteObjectResult, err = db.DeleteObjectLastCommittedSuspended(ctx, deleteOpts, deleteMarkerStreamID)
 			if ErrObjectNotFound.Has(err) {
 				err = nil
 			}
+			// HACKFIX: `DeleteObjectLastCommittedSuspended` internally already submits metrics and we don't want
+			// to send them twice. Ideally the whole switch should be replaced by `db.DeleteObjectLastCommitted`.
+			deletedObjectOffset += len(deleteObjectResult.Removed)
+			deletedSegmentOffset += deleteObjectResult.DeletedSegmentCount
 		} else {
 			deleteObjectResult, err = adapter.DeleteObjectLastCommittedPlain(ctx, deleteOpts)
 		}

@@ -978,10 +978,10 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 
 // CommitInlineSegment commits inline segment to the database.
 func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-
 	values := []any{
 		opts.StreamID, opts.Position, opts.ExpiresAt,
-		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		storj.PieceID{},
+		opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
 
@@ -1050,10 +1050,10 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 
 // CommitInlineSegment commits inline segment to the database.
 func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-
 	values := []any{
 		opts.StreamID, opts.Position, opts.ExpiresAt,
-		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		storj.PieceID{},
+		opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
 	}
@@ -1119,7 +1119,6 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 
 // CommitInlineSegment commits inline segment to the database.
 func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-
 	if opts.SkipPendingObject {
 		mutation := spanner.InsertOrUpdateMap("segments", map[string]any{
 			"stream_id":           opts.StreamID,
@@ -1346,7 +1345,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, query, &metrics); err != nil {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, false, query, &metrics); err != nil {
 				return err
 			}
 		}
@@ -1762,7 +1761,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, query, &metrics); err != nil {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, false, query, &metrics); err != nil {
 				return err
 			}
 		}
@@ -1826,7 +1825,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	return object, nil
 }
 
-func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter TransactionAdapter, disallowDelete bool, query *PrecommitInfo, metrics *commitMetrics) (err error) {
+func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter TransactionAdapter, disallowDelete, bypassGoveranance bool, query *PrecommitInfo, metrics *commitMetrics) (err error) {
 	if query.Unversioned == nil {
 		return nil
 	}
@@ -1849,7 +1848,7 @@ func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter Transactio
 	switch {
 	case query.Unversioned.RetentionMode.LegalHold:
 		return ErrObjectLock.New(legalHoldErrMsg)
-	case retention.ActiveNow():
+	case isRetentionProtected(retention, bypassGoveranance, time.Now()):
 		return ErrObjectLock.New(retentionErrMsg)
 	}
 

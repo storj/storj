@@ -25,20 +25,6 @@ var (
 	_ encoderDecoder = timeWrapper{}
 )
 
-type nullableValue[T sql.Scanner] struct {
-	isnull bool
-	value  T
-}
-
-func (v *nullableValue[T]) Scan(value interface{}) error {
-	if value == nil {
-		v.isnull = true
-		return nil
-	}
-	v.isnull = false
-	return v.value.Scan(value)
-}
-
 // Value implements sql/driver.Valuer interface.
 func (params SegmentPosition) Value() (driver.Value, error) {
 	return int64(params.Encode()), nil
