@@ -17,91 +17,6 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
-func TestDeleteUnversionedWithNonPendingUsingObjectLock(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		precommit := func(loc metabase.ObjectLocation, bypassGovernance bool) (result metabase.PrecommitConstraintWithNonPendingResult, err error) {
-			err = db.ChooseAdapter(loc.ProjectID).WithTx(ctx, metabase.TransactionOptions{}, func(ctx context.Context, tx metabase.TransactionAdapter) (err error) {
-				result, err = tx.PrecommitDeleteUnversionedWithNonPending(ctx, metabase.PrecommitDeleteUnversionedWithNonPending{
-					ObjectLocation: loc,
-					ObjectLock: metabase.ObjectLockDeleteOptions{
-						Enabled:          true,
-						BypassGovernance: bypassGovernance,
-					},
-				})
-				return
-			})
-			return
-		}
-
-		objStream := metabasetest.RandObjectStream()
-		loc := objStream.Location()
-
-		t.Run("No objects", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			result, err := precommit(loc, false)
-			require.NoError(t, err)
-			require.Empty(t, result)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		metabasetest.ObjectLockDeletionTestRunner{
-			TestProtected: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				obj, segs := metabasetest.CreateTestObject{
-					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-						ObjectStream: objStream,
-						Encryption:   metabasetest.DefaultEncryption,
-						Retention:    testCase.Retention,
-						LegalHold:    testCase.LegalHold,
-					},
-				}.Run(ctx, t, db, objStream, 3)
-
-				result, err := precommit(loc, testCase.BypassGovernance)
-				require.True(t, metabase.ErrObjectLock.Has(err))
-				require.Empty(t, result)
-
-				metabasetest.Verify{
-					Objects:  []metabase.RawObject{metabase.RawObject(obj)},
-					Segments: metabasetest.SegmentsToRaw(segs),
-				}.Check(ctx, t, db)
-			},
-			TestRemovable: func(t *testing.T, testCase metabasetest.ObjectLockDeletionTestCase) {
-				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-				committed, _ := metabasetest.CreateTestObject{
-					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
-						ObjectStream: objStream,
-						Encryption:   metabasetest.DefaultEncryption,
-						Retention:    testCase.Retention,
-					},
-				}.Run(ctx, t, db, objStream, 3)
-
-				pendingObjStream := objStream
-				pendingObjStream.Version++
-				pending := metabasetest.BeginObjectExactVersion{
-					Opts: metabase.BeginObjectExactVersion{
-						ObjectStream: pendingObjStream,
-						Encryption:   metabasetest.DefaultEncryption,
-					},
-				}.Check(ctx, t, db)
-
-				result, err := precommit(loc, testCase.BypassGovernance)
-				require.NoError(t, err)
-				require.Equal(t, metabase.PrecommitConstraintWithNonPendingResult{
-					Deleted:                  []metabase.Object{committed},
-					DeletedObjectCount:       1,
-					DeletedSegmentCount:      3,
-					HighestVersion:           pending.Version,
-					HighestNonPendingVersion: committed.Version,
-				}, result)
-			},
-		}.Run(t)
-	})
-}
-
 func TestPrecommitQuery(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		precommit := func(query metabase.PrecommitQuery) (*metabase.PrecommitInfo, error) {
@@ -116,17 +31,18 @@ func TestPrecommitQuery(t *testing.T) {
 		}
 
 		for _, pending := range []bool{false, true} {
-			for _, unversioned := range []bool{false, true} {
+			for unversioned := range 3 {
 				for _, highestVisible := range []bool{false, true} {
 					name := fmt.Sprintf("Missing/Pending:%v,Unversioned:%v,HighestVisible:%v", pending, unversioned, highestVisible)
 					t.Run(name, func(t *testing.T) {
 						obj := metabasetest.RandObjectStream()
 
 						info, err := precommit(metabase.PrecommitQuery{
-							ObjectStream:   obj,
-							Pending:        pending,
-							Unversioned:    unversioned,
-							HighestVisible: highestVisible,
+							ObjectStream:    obj,
+							Pending:         pending,
+							Unversioned:     unversioned == 1,
+							FullUnversioned: unversioned == 2,
+							HighestVisible:  highestVisible,
 						})
 						if pending {
 							require.ErrorContains(t, err, "object with specified version and pending status is missing")

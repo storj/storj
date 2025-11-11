@@ -267,7 +267,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.NewVersioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, query, &metrics); err != nil {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.NewDisallowDelete, false, query, &metrics); err != nil {
 				return err
 			}
 		}

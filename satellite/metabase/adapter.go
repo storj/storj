@@ -84,7 +84,6 @@ type Adapter interface {
 	DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error)
 
 	DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error)
-	DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
 	DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error)
 
 	IterateExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, process func(context.Context, []ObjectStream) error) (err error)
@@ -162,7 +161,6 @@ type TransactionAdapter interface {
 	commitObjectWithSegmentsTransactionAdapter
 	copyObjectTransactionAdapter
 	moveObjectTransactionAdapter
-	deleteTransactionAdapter
 }
 
 type postgresTransactionAdapter struct {
