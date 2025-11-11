@@ -160,13 +160,14 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { Size } from '@/private/memory/size';
 import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+import { useStore } from '@/app/utils/composables';
 
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
@@ -183,245 +184,136 @@ import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 
-// @vue/component
-@Component ({
-    components: {
-        AllSatellitesAuditsArea,
-        DiskStatChart,
-        TotalPayoutArea,
-        EgressChart,
-        IngressChart,
-        SatelliteSelection,
-        BandwidthChart,
-        DiskSpaceChart,
-        ChecksArea,
-        WalletArea,
-        LargeDisqualificationIcon,
-        LargeSuspensionIcon,
-        BlueArrowRight,
-    },
-})
-export default class SNOContentFilling extends Vue {
-    public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
-    public chartWidth = 0;
-    public chartHeight = 0;
-    public diskSpaceChartWidth = 0;
-    public diskSpaceChartHeight = 0;
+const store = useStore();
 
-    public $refs: {
-        chart: HTMLElement;
-        diskSpaceChart: HTMLElement;
-    };
+const PAYOUT_PATH = ref<string>(RouteConfig.Payout.path);
+const chartWidth = ref<number>(0);
+const chartHeight = ref<number>(0);
+const diskSpaceChartWidth = ref<number>(0);
+const diskSpaceChartHeight = ref<number>(0);
 
-    public get isDarkMode(): boolean {
-        return this.$store.state.appStateModule.isDarkMode;
+const chart = ref<HTMLElement>();
+const diskSpaceChart = ref<HTMLElement>();
+
+const isDarkMode = computed<boolean>(() => {
+    return store.state.appStateModule.isDarkMode;
+});
+
+const isBandwidthChartShown = computed<boolean>(() => {
+    return store.state.appStateModule.isBandwidthChartShown;
+});
+
+const isIngressChartShown = computed<boolean>(() => {
+    return store.state.appStateModule.isIngressChartShown;
+});
+
+const isEgressChartShown = computed<boolean>(() => {
+    return store.state.appStateModule.isEgressChartShown;
+});
+
+const nodeInfo = computed<Dashboard>(() => {
+    return store.state.node.info;
+});
+
+const bandwidthSummary = computed<string>(() => {
+    return Size.toBase10String(store.state.node.bandwidthSummary);
+});
+
+const egressSummary = computed<string>(() => {
+    return Size.toBase10String(store.state.node.egressSummary);
+});
+
+const ingressSummary = computed<string>(() => {
+    return Size.toBase10String(store.state.node.ingressSummary);
+});
+
+const averageUsageBytes = computed<string>(() => {
+    return Size.toBase10String(store.state.node.averageUsageBytes);
+});
+
+const audits = computed<SatelliteScores>(() => {
+    return store.state.node.audits;
+});
+
+const selectedSatellite = computed<SatelliteInfo>(() => {
+    return store.state.node.selectedSatellite;
+});
+
+const disqualifiedSatellites = computed<SatelliteInfo[]>(() => {
+    return store.state.node.disqualifiedSatellites;
+});
+
+const isDisqualifiedInfoShown = computed<boolean>(() => {
+    return !!(selectedSatellite.value.id && selectedSatellite.value.disqualified);
+});
+
+const getDisqualificationDate = computed<string>(() => {
+    if (selectedSatellite.value.disqualified) {
+        return selectedSatellite.value.disqualified.toUTCString();
     }
 
-    /**
-     * Used container size recalculation for charts resizing.
-     */
-    public recalculateChartDimensions(): void {
-        this.chartWidth = this.$refs['chart'].clientWidth;
-        this.chartHeight = this.$refs['chart'].clientHeight;
-        this.diskSpaceChartWidth = this.$refs['diskSpaceChart'].clientWidth;
-        this.diskSpaceChartHeight = this.$refs['diskSpaceChart'].clientHeight;
+    return '';
+});
+
+const doDisqualifiedSatellitesExist = computed<boolean>(() => {
+    return disqualifiedSatellites.value.length > 0;
+});
+
+const suspendedSatellites = computed<SatelliteInfo[]>(() => {
+    return store.state.node.suspendedSatellites;
+});
+
+const isSuspendedInfoShown = computed<boolean>(() => {
+    return !!(selectedSatellite.value.id && selectedSatellite.value.suspended);
+});
+
+const getSuspensionDate = computed<string>(() => {
+    if (selectedSatellite.value.suspended) {
+        return selectedSatellite.value.suspended.toUTCString();
     }
 
-    /**
-     * Lifecycle hook after initial render.
-     * Adds event on window resizing to recalculate size of charts.
-     */
-    public mounted(): void {
-        window.addEventListener('resize', this.recalculateChartDimensions);
-        this.recalculateChartDimensions();
-    }
+    return '';
+});
 
-    /**
-     * Lifecycle hook before component destruction.
-     * Removes event on window resizing.
-     */
-    public beforeDestroy(): void {
-        window.removeEventListener('resize', this.recalculateChartDimensions);
-    }
+const doSuspendedSatellitesExist = computed<boolean>(() => {
+    return suspendedSatellites.value.length > 0;
+});
 
-    /**
-     * isBandwidthChartShown showing status of bandwidth chart from store.
-     * @return boolean - bandwidth chart displaying status
-     */
-    public get isBandwidthChartShown(): boolean {
-        return this.$store.state.appStateModule.isBandwidthChartShown;
-    }
-
-    /**
-     * isIngressChartShown showing status of ingress chart from store.
-     * @return boolean - ingress chart displaying status
-     */
-    public get isIngressChartShown(): boolean {
-        return this.$store.state.appStateModule.isIngressChartShown;
-    }
-
-    /**
-     * isEgressChartShown showing status of egress chart from store.
-     * @return boolean - egress chart displaying status
-     */
-    public get isEgressChartShown(): boolean {
-        return this.$store.state.appStateModule.isEgressChartShown;
-    }
-
-    /**
-     * toggleEgressChartShowing toggles displaying of egress chart.
-     */
-    public toggleEgressChartShowing(): void {
-        if (this.isBandwidthChartShown || this.isIngressChartShown) {
-            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
-
-            return;
-        }
-
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
-    }
-
-    /**
-     * toggleIngressChartShowing toggles displaying of ingress chart.
-     */
-    public toggleIngressChartShowing(): void {
-        if (this.isBandwidthChartShown || this.isEgressChartShown) {
-            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART);
-
-            return;
-        }
-
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
-    }
-
-    /**
-     * nodeInfo - contains common sno dashboard information.
-     * @return Dashboard
-     */
-    public get nodeInfo(): Dashboard {
-        return this.$store.state.node.info;
-    }
-
-    /**
-     * bandwidthSummary - amount of monthly bandwidth used from store.
-     * @return string - formatted amount of monthly bandwidth used
-     */
-    public get bandwidthSummary(): string {
-        return Size.toBase10String(this.$store.state.node.bandwidthSummary);
-    }
-
-    /**
-     * egressSummary - amount of monthly egress used from store.
-     * @return string - formatted amount of monthly egress used
-     */
-    public get egressSummary(): string {
-        return Size.toBase10String(this.$store.state.node.egressSummary);
-    }
-
-    /**
-     * ingressSummary - amount of monthly ingress used from store.
-     * @return string - formatted amount of monthly ingress used
-     */
-    public get ingressSummary(): string {
-        return Size.toBase10String(this.$store.state.node.ingressSummary);
-    }
-
-    /**
-     * storageSummary - amount of monthly disk space used from store.
-     * @return string - formatted amount of monthly disk space used
-     */
-    public get averageUsageBytes(): string {
-        return Size.toBase10String(this.$store.state.node.averageUsageBytes);
-    }
-
-    /**
-     * checks - audit checks status from store.
-     * @return Checks - audit checks statuses
-     */
-    public get audits(): SatelliteScores {
-        return this.$store.state.node.audits;
-    }
-
-    /**
-     * selectedSatellite - current selected satellite from store.
-     * @return SatelliteInfo - current selected satellite
-     */
-    public get selectedSatellite(): SatelliteInfo {
-        return this.$store.state.node.selectedSatellite;
-    }
-
-    /**
-     * disqualifiedSatellites - array of disqualified satellites from store.
-     * @return SatelliteInfo[] - array of disqualified satellites
-     */
-    public get disqualifiedSatellites(): SatelliteInfo[] {
-        return this.$store.state.node.disqualifiedSatellites;
-    }
-
-    /**
-     * isDisqualifiedInfoShown checks if disqualification status is shown.
-     * @return boolean - disqualification status
-     */
-    public get isDisqualifiedInfoShown(): boolean {
-        return !!(this.selectedSatellite.id && this.selectedSatellite.disqualified);
-    }
-
-    /**
-     * getDisqualificationDate gets a date of disqualification.
-     * @return String - date of disqualification
-     */
-    public get getDisqualificationDate(): string {
-        if (this.selectedSatellite.disqualified) {
-            return this.selectedSatellite.disqualified.toUTCString();
-        }
-
-        return '';
-    }
-
-    /**
-     * doDisqualifiedSatellitesExist checks if disqualified satellites exist.
-     * @return boolean - disqualified satellites existing status
-     */
-    public get doDisqualifiedSatellitesExist(): boolean {
-        return this.disqualifiedSatellites.length > 0;
-    }
-
-    /**
-     * suspendedSatellites - array of suspended satellites from store.
-     * @return SatelliteInfo[] - array of suspended satellites
-     */
-    public get suspendedSatellites(): SatelliteInfo[] {
-        return this.$store.state.node.suspendedSatellites;
-    }
-
-    /**
-     * isSuspendedInfoShown checks if suspension status is shown.
-     * @return boolean - suspension status
-     */
-    public get isSuspendedInfoShown(): boolean {
-        return !!(this.selectedSatellite.id && this.selectedSatellite.suspended);
-    }
-
-    /**
-     * getSuspensionDate gets a date of suspension.
-     * @return String - date of suspension
-     */
-    public get getSuspensionDate(): string {
-        if (this.selectedSatellite.suspended) {
-            return this.selectedSatellite.suspended.toUTCString();
-        }
-
-        return '';
-    }
-
-    /**
-     * doSuspendedSatellitesExist checks if suspended satellites exist.
-     * @return boolean - suspended satellites existing status
-     */
-    public get doSuspendedSatellitesExist(): boolean {
-        return this.suspendedSatellites.length > 0;
-    }
+function recalculateChartDimensions(): void {
+    chartWidth.value = chart.value ? chart.value.clientWidth : 0;
+    chartHeight.value = chart.value ? chart.value.clientHeight : 0;
+    diskSpaceChartWidth.value = diskSpaceChart.value ? diskSpaceChart.value.clientWidth : 0;
+    diskSpaceChartHeight.value = diskSpaceChart.value ? diskSpaceChart.value.clientHeight : 0;
 }
+
+function toggleEgressChartShowing(): void {
+    if (isBandwidthChartShown.value || isIngressChartShown.value) {
+        store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
+
+        return;
+    }
+
+    store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+}
+
+function toggleIngressChartShowing(): void {
+    if (isBandwidthChartShown.value || isEgressChartShown.value) {
+        store.dispatch(APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART);
+
+        return;
+    }
+
+    store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+}
+
+onMounted(() => {
+    window.addEventListener('resize', recalculateChartDimensions);
+    recalculateChartDimensions();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', recalculateChartDimensions);
+});
 </script>
 
 <style scoped lang="scss">

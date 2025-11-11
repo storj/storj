@@ -3,7 +3,7 @@
 
 <template>
     <div class="title-area">
-        <div v-clipboard="nodeId" class="title-area__node-id-container">
+        <div class="title-area__node-id-container" @click="copyNodeId">
             <b class="title-area__node-id-container__title">Node ID</b>
             <div class="title-area__node-id-container__right-area">
                 <p class="title-area__node-id-container__id">{{ nodeId }}</p>
@@ -89,11 +89,12 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { StatusOnline, QUIC_STATUS } from '@/app/store/modules/node';
 import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
+import { useStore } from '@/app/utils/composables';
 
 import VInfo from '@/app/components/VInfo.vue';
 
@@ -128,83 +129,80 @@ class NodeInfo {
     }
 }
 
-// @vue/component
-@Component ({
-    components: {
-        VInfo,
-        CopyIcon,
-    },
-})
-export default class SNOContentTitle extends Vue {
-    private timeNow: Date = new Date();
+const store = useStore();
 
-    public mounted(): void {
-        window.setInterval(() => {
-            this.timeNow = new Date();
-        }, 1000);
+const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
+const timeNow = ref<Date>(new Date());
+
+const nodeId = computed<string>(() => {
+    return store.state.node.info.id;
+});
+
+const info = computed<NodeInfo>(() => {
+    const nodeInfo = store.state.node.info;
+
+    return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
+        nodeInfo.isLastVersion, nodeInfo.quicStatus, nodeInfo.configuredPort);
+});
+
+const online = computed<boolean>(() => {
+    return store.state.node.info.status === StatusOnline;
+});
+
+const quicStatusOk = computed<string>(() => {
+    return QUIC_STATUS.StatusOk;
+});
+
+const quicStatusRefreshing = computed<string>(() => {
+    return QUIC_STATUS.StatusRefreshing;
+});
+
+const quicStatusMisconfigured = computed<string>(() => {
+    return QUIC_STATUS.StatusMisconfigured;
+});
+
+const uptime = computed<string>(() => {
+    return timePassed(store.state.node.info.startedAt);
+});
+
+const lastPinged = computed<string>(() => {
+    return timePassed(store.state.node.info.lastPinged);
+});
+
+const lastQuicPingedAt = computed<string>(() => {
+    return timePassed(store.state.node.info.lastQuicPingedAt);
+});
+
+const currentMonth = computed<string>(() => {
+    const date = new Date();
+
+    return monthNames[date.getMonth()];
+});
+
+function timePassed(date: Date): string {
+    const difference = Duration.difference(timeNow.value, date);
+
+    if (Math.floor(difference / millisecondsInSecond) > secondsInHour) {
+        const hours: string = Math.floor(difference / millisecondsInSecond / secondsInHour) + 'h';
+        const minutes: string = Math.floor((difference / millisecondsInSecond % secondsInHour) / minutesInHour) + 'm';
+
+        return `${hours} ${minutes}`;
     }
 
-    public get nodeId(): string {
-        return this.$store.state.node.info.id;
-    }
-
-    public get info(): NodeInfo {
-        const nodeInfo = this.$store.state.node.info;
-
-        return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
-            nodeInfo.isLastVersion, nodeInfo.quicStatus, nodeInfo.configuredPort);
-    }
-
-    public get online(): boolean {
-        return this.$store.state.node.info.status === StatusOnline;
-    }
-
-    public get quicStatusOk(): string {
-        return QUIC_STATUS.StatusOk;
-    }
-
-    public get quicStatusRefreshing(): string {
-        return QUIC_STATUS.StatusRefreshing;
-    }
-
-    public get quicStatusMisconfigured(): string {
-        return QUIC_STATUS.StatusMisconfigured;
-    }
-
-    public get uptime(): string {
-        return this.timePassed(this.$store.state.node.info.startedAt);
-    }
-
-    public get lastPinged(): string {
-        return this.timePassed(this.$store.state.node.info.lastPinged);
-    }
-
-    public get lastQuicPingedAt(): string {
-        return this.timePassed(this.$store.state.node.info.lastQuicPingedAt);
-    }
-
-    public get currentMonth(): string {
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December',
-        ];
-        const date = new Date();
-
-        return monthNames[date.getMonth()];
-    }
-
-    private timePassed(date: Date): string {
-        const difference = Duration.difference(this.timeNow, date);
-
-        if (Math.floor(difference / millisecondsInSecond) > secondsInHour) {
-            const hours: string = Math.floor(difference / millisecondsInSecond / secondsInHour) + 'h';
-            const minutes: string = Math.floor((difference / millisecondsInSecond % secondsInHour) / minutesInHour) + 'm';
-
-            return `${hours} ${minutes}`;
-        }
-
-        return `${Math.floor(difference / millisecondsInSecond / secondsInMinute)}m`;
-    }
+    return `${Math.floor(difference / millisecondsInSecond / secondsInMinute)}m`;
 }
+
+function copyNodeId(): void {
+    navigator.clipboard.writeText(nodeId.value);
+}
+
+onMounted(() => {
+    window.setInterval(() => {
+        timeNow.value = new Date();
+    }, 1000);
+});
 </script>
 
 <style scoped lang="scss">

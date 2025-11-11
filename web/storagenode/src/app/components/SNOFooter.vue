@@ -8,13 +8,11 @@
                 v-if="isDarkMode"
                 class="footer__content-holder__icon"
                 alt="storj icon"
-                @click="scrollUp"
             />
             <StorjIconLight
                 v-else
                 class="footer__content-holder__icon"
                 alt="storj icon"
-                @click="scrollUp"
             />
             <div class="footer__content-holder__links-area">
                 <a
@@ -38,37 +36,25 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { RouteConfig } from '@/app/router';
+import { useRoute, useStore } from '@/app/utils/composables';
 
 import StorjIconLight from '@/../static/images/storjIcon.svg';
 import StorjIconDark from '@/../static/images/storjIconDark.svg';
 
-// @vue/component
-@Component({
-    components: {
-        StorjIconLight,
-        StorjIconDark,
-    },
-})
-export default class SNOFooter extends Vue {
-    public scrollUp(): void {
-        window.scrollTo(0, 0);
-    }
+const route = useRoute();
+const store = useStore();
 
-    /**
-     * Indicates if footer should appear.
-     */
-    public get isShown(): boolean {
-        return this.$route.name !== RouteConfig.Notifications.name;
-    }
+const isShown = computed<boolean>(() => {
+    return route.name !== RouteConfig.Notifications.name;
+});
 
-    public get isDarkMode(): boolean {
-        return this.$store.state.appStateModule.isDarkMode;
-    }
-}
+const isDarkMode = computed<boolean>(() => {
+    return store.state.appStateModule.isDarkMode;
+});
 </script>
 
 <style scoped lang="scss">
@@ -89,7 +75,6 @@ export default class SNOFooter extends Vue {
 
             &__icon {
                 min-width: 125px;
-                cursor: pointer;
             }
 
             &__links-area {

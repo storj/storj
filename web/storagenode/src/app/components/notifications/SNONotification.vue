@@ -28,69 +28,50 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
+import { useStore } from '@/app/utils/composables';
 
-// @vue/component
-@Component
-export default class SNONotification extends Vue {
-    @Prop({ default: () => new UINotification() })
-    public readonly notification: UINotification;
+const props = withDefaults(defineProps<{
+    notification: UINotification;
+}>(), {
+    notification: () => new UINotification(),
+});
 
-    /**
-     * isSmall props indicates if component used in popup.
-     */
-    @Prop({ default: false })
-    public isSmall: boolean;
+const store = useStore();
 
-    /**
-     * Minimal window width in pixels for normal notification.
-     */
-    private readonly MIN_WINDOW_WIDTH = 640;
+const MIN_WINDOW_WIDTH = 640;
 
-    /**
-     * Tracks window width for changing notification isSmall type.
-     */
-    public changeNotificationSize(): void {
-        this.isSmall = window.innerWidth < this.MIN_WINDOW_WIDTH;
+const isSmall = ref<boolean>(false);
+
+function changeNotificationSize(): void {
+    isSmall.value = window.innerWidth < MIN_WINDOW_WIDTH;
+}
+
+function read(): void {
+    if (props.notification.isRead) {
+        return;
     }
 
-    /**
-     * Lifecycle hook after initial render.
-     * Adds event on window resizing to change notification isSmall prop.
-     */
-    public mounted(): void {
-        window.addEventListener('resize', this.changeNotificationSize);
-        this.changeNotificationSize();
-    }
-
-    /**
-     * Lifecycle hook before component destruction.
-     * Removes event on window resizing.
-     */
-    public beforeDestroy(): void {
-        window.removeEventListener('resize', this.changeNotificationSize);
-    }
-
-    /**
-     * Fires on hover on notification. If notification is new, marks it as read.
-     */
-    public read(): void {
-        if (this.notification.isRead) {
-            return;
-        }
-
-        try {
-            this.$store.dispatch(NOTIFICATIONS_ACTIONS.MARK_AS_READ, this.notification.id);
-        } catch (error) {
-            // TODO: implement UI notification system.
-            console.error(error);
-        }
+    try {
+        store.dispatch(NOTIFICATIONS_ACTIONS.MARK_AS_READ, props.notification.id);
+    } catch (error) {
+        // TODO: implement UI notification system.
+        console.error(error);
     }
 }
+
+onMounted(() => {
+    window.addEventListener('resize', changeNotificationSize);
+    changeNotificationSize();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', changeNotificationSize);
+});
 </script>
 
 <style scoped lang="scss">

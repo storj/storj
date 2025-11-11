@@ -1,21 +1,26 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./page40X.html" />
+<template>
+    <div class="error-container">
+        <div class="error-container__main-image" />
+        <h1 class="error-container__title">404. Something Went Wrong</h1>
+        <h3 class="error-container__text">The page you’re trying to access is either broken, or doesn’t exist</h3>
+        <a href="/" class="error-container__button">Back to home</a>
+    </div>
+</template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onBeforeMount } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { useStore } from '@/app/utils/composables';
 
-// @vue/component
-@Component
-// 404 component on page not found error
-export default class Page404 extends Vue {
-    public beforeMount(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
-    }
-}
+const store = useStore();
+
+onBeforeMount(() => {
+    store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+});
 </script>
 
 <style scoped lang="scss">

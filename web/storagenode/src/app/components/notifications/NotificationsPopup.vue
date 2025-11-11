@@ -17,7 +17,6 @@
             <SNONotification
                 v-for="notification in latest"
                 :key="notification.id"
-                is-small="true"
                 :notification="notification"
             />
         </div>
@@ -28,40 +27,22 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/app/router';
 import { UINotification } from '@/app/types/notifications';
+import { useStore } from '@/app/utils/composables';
 
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 
-// @vue/component
-@Component({
-    components: {
-        SNONotification,
-    },
-})
-export default class NotificationsPopup extends Vue {
-    /**
-     * Path to notifications route.
-     */
-    public readonly notificationsPath: string = RouteConfig.Notifications.path;
+const store = useStore();
 
-    /**
-     * Represents first page of notifications.
-     */
-    public get latest(): UINotification[] {
-        return this.$store.state.notificationsModule.latestNotifications;
-    }
+const notificationsPath = ref<string>(RouteConfig.Notifications.path);
 
-    /**
-     * Indicates if popup is smaller than with scroll.
-     */
-    public get isCollapsed(): boolean {
-        return this.latest.length < 4;
-    }
-}
+const latest = computed<UINotification[]>(() => store.state.notificationsModule.latestNotifications);
+
+const isCollapsed = computed<boolean>(() => latest.value.length < 4);
 </script>
 
 <style scoped lang="scss">

@@ -26,7 +26,7 @@
                 </button>
             </div>
             <div class="header__content-holder__right-area">
-                <div v-clipboard="nodeId" role="button" tabindex="0" class="header__content-holder__right-area__node-id-container">
+                <div role="button" tabindex="0" class="header__content-holder__right-area__node-id-container" @click="copyNodeId">
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
                     <p class="header__content-holder__right-area__node-id-container__id">{{ nodeId }}</p>
                     <CopyIcon />
@@ -56,14 +56,15 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, ref } from 'vue';
 
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { useRoute, useRouter, useStore } from '@/app/utils/composables';
 
 import OptionsDropdown from '@/app/components/OptionsDropdown.vue';
 import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
@@ -76,157 +77,123 @@ import SettingsIcon from '@/../static/images/SettingsDots.svg';
 import StorjIconLight from '@/../static/images/storjIcon.svg';
 import StorjIconDark from '@/../static/images/storjIconDark.svg';
 
+const store = useStore();
+const route = useRoute();
+const router = useRouter();
+
 const {
     GET_NODE_INFO,
     SELECT_SATELLITE,
 } = NODE_ACTIONS;
 
-// @vue/component
-@Component({
-    components: {
-        OptionsDropdown,
-        NotificationsPopup,
-        SettingsIcon,
-        StorjIconLight,
-        StorjIconDark,
-        RefreshIcon,
-        BellIcon,
-        StorjIconWithoutText,
-        CopyIcon,
-    },
-})
-export default class SNOHeader extends Vue {
-    public isNotificationPopupShown = false;
-    public isOptionsShown = false;
-    private readonly FIRST_PAGE: number = 1;
+const FIRST_PAGE = 1;
 
-    /**
-     * Lifecycle hook before render.
-     * Fetches first page of notifications.
-     */
-    public async beforeMount(): Promise<void> {
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+const isNotificationPopupShown = ref<boolean>(false);
+const isOptionsShown = ref<boolean>(false);
 
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
-        } catch (error) {
-            console.error(error);
-        }
+const nodeId = computed<string>(() => store.state.node.info.id);
+const hasNewNotifications = computed<boolean>(() => store.state.notificationsModule.unreadCount > 0);
+const isDarkMode = computed<boolean>(() => store.state.appStateModule.isDarkMode);
 
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+function openOptionsDropdown(): void {
+    setTimeout(() => isOptionsShown.value = true, 0);
+}
+
+function closeOptionsDropdown(): void {
+    isOptionsShown.value = false;
+}
+
+function toggleNotificationsPopup(): void {
+    if (route.name === RouteConfig.Notifications.name) {
+        return;
     }
 
-    public get nodeId(): string {
-        return this.$store.state.node.info.id;
+    isNotificationPopupShown.value = !isNotificationPopupShown.value;
+}
+
+function closeNotificationPopup(): void {
+    isNotificationPopupShown.value = false;
+}
+
+function copyNodeId(): void {
+    navigator.clipboard.writeText(nodeId.value);
+}
+
+async function onHeaderLogoClick(): Promise<void> {
+    const isCurrentLocationIsHomePage = route.name === RouteConfig.Root.name;
+
+    if (isCurrentLocationIsHomePage) {
+        location.reload();
     }
 
-    public get hasNewNotifications(): boolean {
-        return this.$store.state.notificationsModule.unreadCount > 0;
+    await router.replace('/');
+}
+
+async function onRefresh(): Promise<void> {
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
+    const selectedSatelliteId = store.state.node.selectedSatellite.id;
+    await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+
+    try {
+        await store.dispatch(GET_NODE_INFO);
+        await store.dispatch(SELECT_SATELLITE, selectedSatelliteId);
+    } catch (error) {
+        console.error('fetching satellite data', error);
     }
 
-    public openOptionsDropdown(): void {
-        setTimeout(() => this.isOptionsShown = true, 0);
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+    } catch (error) {
+        console.error(error);
     }
 
-    public closeOptionsDropdown(): void {
-        this.isOptionsShown = false;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, selectedSatelliteId);
+    } catch (error) {
+        console.error(error);
     }
 
-    /**
-     * toggleNotificationPopup toggles NotificationPopup visibility.
-     */
-    public toggleNotificationsPopup(): void {
-        /**
-         * Blocks opening popup in current route is /notifications.
-         */
-        if (this.$route.name === RouteConfig.Notifications.name) {
-            return;
-        }
-
-        this.isNotificationPopupShown = !this.isNotificationPopupShown;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, selectedSatelliteId);
+    } catch (error) {
+        console.error(error);
     }
 
-    /**
-     * closeNotificationPopup when clicking outside popup.
-     */
-    public closeNotificationPopup(): void {
-        this.isNotificationPopupShown = false;
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatelliteId);
+        await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, selectedSatelliteId);
+    } catch (error) {
+        console.error(error);
     }
 
-    /**
-     * Refreshes page when on home page or relocates to home page from other location.
-     */
-    public async onHeaderLogoClick(): Promise<void> {
-        const isCurrentLocationIsHomePage = this.$route.name === RouteConfig.Root.name;
-
-        if (isCurrentLocationIsHomePage) {
-            location.reload();
-        }
-
-        await this.$router.replace('/');
+    try {
+        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, FIRST_PAGE);
+    } catch (error) {
+        console.error(error);
     }
 
-    /**
-     * Refreshes all needed data from server.
-     */
-    public async onRefresh(): Promise<void> {
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
-
-        const selectedSatelliteId = this.$store.state.node.selectedSatellite.id;
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-
-        try {
-            await this.$store.dispatch(GET_NODE_INFO);
-            await this.$store.dispatch(SELECT_SATELLITE, selectedSatelliteId);
-        } catch (error) {
-            console.error('fetching satellite data', error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, selectedSatelliteId);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, selectedSatelliteId);
-        } catch (error) {
-            console.error(error);
-        }
-
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatelliteId);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, selectedSatelliteId);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
-        } catch (error) {
-            console.error(error);
-        }
-    }
-
-    public get isDarkMode(): boolean {
-        return this.$store.state.appStateModule.isDarkMode;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
+    } catch (error) {
+        console.error(error);
     }
 }
+
+onBeforeMount(async () => {
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
+    try {
+        await store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
+        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, FIRST_PAGE);
+    } catch (error) {
+        console.error(error);
+    }
+
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+});
 </script>
 
 <style scoped lang="scss">
