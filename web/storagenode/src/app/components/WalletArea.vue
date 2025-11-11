@@ -45,31 +45,25 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import CheckIcon from '@/../static/images/common/greenCheck.svg';
 import WalletIcon from '@/../static/images/wallet.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CheckIcon,
-        WalletIcon,
-    },
-})
-export default class WalletArea extends Vue {
-    @Prop({ default: '' })
-    private readonly label: string;
-    @Prop({ default: '' })
-    private readonly walletAddress: string;
-    @Prop({ default: () => [] })
-    private readonly walletFeatures: string[];
+const props = withDefaults(defineProps<{
+    label: string;
+    walletAddress: string;
+    walletFeatures: string[];
+}>(), {
+    label: '',
+    walletAddress: '',
+    walletFeatures: () => [],
+});
 
-    public get isZkSyncEraEnabled(): boolean {
-        return this.walletFeatures.includes('zksync-era');
-    }
-}
+const isZkSyncEraEnabled = computed<boolean>(() => {
+    return props.walletFeatures.includes('zksync-era');
+});
 </script>
 
 <style scoped lang="scss">

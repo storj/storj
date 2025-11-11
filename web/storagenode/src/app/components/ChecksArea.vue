@@ -19,36 +19,25 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
-// @vue/component
-@Component ({
-    components: {
-        ChecksInfoIcon,
-    },
-})
-export default class ChecksArea extends Vue {
-    @Prop({ default: '' })
-    private readonly label: string;
-    @Prop({ default: '' })
-    private readonly amount: string;
-    @Prop({ default: '' })
-    private readonly infoText: string;
+withDefaults(defineProps<{
+    label: string;
+    amount: string;
+    infoText: string;
+}>(), {
+    label: '',
+    amount: '',
+    infoText: '',
+});
 
-    /**
-     * Indicates if tooltip needs to be shown.
-     */
-    public isTooltipVisible = false;
+const isTooltipVisible = ref<boolean>(false);
 
-    /**
-     * Toggles tooltip visibility.
-     */
-    public toggleTooltipVisibility(): void {
-        this.isTooltipVisible = !this.isTooltipVisible;
-    }
+function toggleTooltipVisibility(): void {
+    isTooltipVisible.value = !isTooltipVisible.value;
 }
 </script>
 

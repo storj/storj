@@ -3,73 +3,34 @@
 
 <template>
     <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-        <slot class="slot" />
-        <div v-if="isVisible" class="info__message-box" :style="messageBoxStyle" :class="{extraPadding: isExtraPadding, customPosition: isCustomPosition}">
+        <slot />
+        <div v-if="isVisible" class="info__message-box">
             <div class="info__message-box__text">
                 <p class="info__message-box__text__regular-text">{{ text }}</p>
                 <p class="info__message-box__text__bold-text">{{ boldText }}</p>
                 <p class="info__message-box__text__bold-text">{{ extraBoldText }}</p>
             </div>
-            <div v-if="greenText" class="info__message-box__green-text">
-                <p class="info__message-box__green-text__text">{{ greenText }}</p>
-                <p class="info__message-box__green-text__text">{{ extraGreenText }}</p>
-            </div>
         </div>
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-declare interface MessageBoxStyle {
-    bottom: string;
-}
+withDefaults(defineProps<{
+    text?: string;
+    boldText?: string;
+    extraBoldText?: string;
+}>(), {
+    text: '',
+    boldText: '',
+    extraBoldText: '',
+});
 
-// @vue/component
-@Component
-export default class VInfo extends Vue {
-    private isVisible = false;
-    private height = '5px';
+const isVisible = ref<boolean>(false);
 
-    @Prop({ default: '' })
-    private readonly text: string;
-    @Prop({ default: '' })
-    private readonly boldText: string;
-    @Prop({ default: '' })
-    private readonly extraBoldText: string;
-    @Prop({ default: '' })
-    private readonly greenText: string;
-    @Prop({ default: '' })
-    private readonly extraGreenText: string;
-    @Prop({ default: false })
-    private readonly isExtraPadding: boolean;
-    @Prop({ default: false })
-    private readonly isCustomPosition: boolean;
-
-    public toggleVisibility(): void {
-        this.isVisible = !this.isVisible;
-    }
-
-    public get messageBoxStyle(): MessageBoxStyle {
-        return { bottom: this.height };
-    }
-
-    public mounted(): void {
-        const infoComponent = document.querySelector('.info');
-        if (!infoComponent) {
-            return;
-        }
-
-        const slots = this.$slots.default;
-        if (!slots) {
-            return;
-        }
-
-        const slot = slots[0];
-        if (slot && slot.elm) {
-            this.height = (slot.elm as HTMLElement).offsetHeight + 'px';
-        }
-    }
+function toggleVisibility(): void {
+    isVisible.value = !isVisible.value;
 }
 </script>
 
@@ -117,24 +78,7 @@ export default class VInfo extends Vue {
                     line-height: 16px;
                 }
             }
-
-            &__green-text {
-                font-size: 12px;
-                line-height: 16px;
-                font-family: 'font_medium', sans-serif;
-                color: #00ce7d;
-                width: auto;
-                margin-left: 10px;
-            }
         }
-    }
-
-    .extraPadding {
-        padding: 11px 18px 31px;
-    }
-
-    .customPosition {
-        left: 40%;
     }
 
     @media screen and (max-width: 500px) {

@@ -213,10 +213,8 @@ export default class SNOContentTitle extends Vue {
     }
 
     :deep(.info__message-box) {
-        background-image: var(--info-image-arrow-left-path);
-        bottom: 100%;
-        left: 220%;
-        padding: 20px 20px 25px;
+        bottom: 90%;
+        padding: 20px 20px 40px;
     }
 
     :deep(.info__message-box__text) {

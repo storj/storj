@@ -103,8 +103,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
@@ -113,30 +113,16 @@ import DisqualifyIcon from '@/../static/images/largeDisqualify.svg';
 import OKIcon from '@/../static/images/payments/OKIcon.svg';
 import ShareIcon from '@/../static/images/payments/Share.svg';
 
-// @vue/component
-@Component ({
-    components: {
-        ExpandIcon,
-        ShareIcon,
-        DisqualifyIcon,
-        OKIcon,
-    },
-})
-export default class PayoutHistoryTableItem extends Vue {
-    @Prop({ default: () => new SatellitePayoutForPeriod() })
-    public readonly historyItem: SatellitePayoutForPeriod;
+withDefaults(defineProps<{
+    historyItem: SatellitePayoutForPeriod;
+}>(), {
+    historyItem: () => new SatellitePayoutForPeriod(),
+});
 
-    /**
-     * Indicates if payout info should be rendered.
-     */
-    public isExpanded = false;
+const isExpanded = ref<boolean>(false);
 
-    /**
-     * Toggles additional payout information.
-     */
-    public toggleExpanded(): void {
-        this.isExpanded = !this.isExpanded;
-    }
+function toggleExpanded(): void {
+    isExpanded.value = !isExpanded.value;
 }
 </script>
 

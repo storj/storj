@@ -42,11 +42,10 @@
             </button>
             <div v-else class="row">
                 <button
-                    v-clipboard:copy="satellite.id"
                     name="Copy Satellite ID"
                     class="satellite-choice__right-area__button copy-button"
                     type="button"
-                    @click.stop="() => {}"
+                    @click.stop="onCopyClick"
                 >
                     <CopyIcon />
                 </button>
@@ -64,8 +63,8 @@
     </button>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 
@@ -74,37 +73,28 @@ import DisqualificationIcon from '@/../static/images/disqualify.svg';
 import EyeIcon from '@/../static/images/Eye.svg';
 import SuspensionIcon from '@/../static/images/suspend.svg';
 
-// @vue/component
-@Component({
-    components: {
-        DisqualificationIcon,
-        SuspensionIcon,
-        CopyIcon,
-        EyeIcon,
-    },
-})
-export default class SatelliteSelectionDropdownItem extends Vue {
-    @Prop({ default: () => new SatelliteInfo() })
-    public readonly satellite: SatelliteInfo;
+const props = withDefaults(defineProps<{
+    satellite: SatelliteInfo;
+}>(), {
+    satellite: () => new SatelliteInfo(),
+});
 
-    /**
-     * Indicates if name or id should be shown.
-     */
-    public isNameShown = true;
+const emit = defineEmits<{
+    (e: 'onSatelliteClick', satelliteId: string): void;
+}>();
 
-    /**
-     * Toggles between name and id view.
-     */
-    public toggleSatelliteView(): void {
-        this.isNameShown = !this.isNameShown;
-    }
+const isNameShown = ref<boolean>(true);
 
-    /**
-     * Emits action that selects satellite and fetches related information.
-     */
-    public onSatelliteClick(): void {
-        this.$emit('onSatelliteClick', this.satellite.id);
-    }
+function toggleSatelliteView(): void {
+    isNameShown.value = !isNameShown.value;
+}
+
+function onSatelliteClick(): void {
+    emit('onSatelliteClick', props.satellite.id);
+}
+
+function onCopyClick(): void {
+    navigator.clipboard.writeText(props.satellite.id);
 }
 </script>
 

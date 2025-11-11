@@ -13,18 +13,8 @@
     </transition>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import StorjLogo from '@/../static/images/LogoWithoutText.svg';
-
-// @vue/component
-@Component({
-    components: {
-        StorjLogo,
-    },
-})
-export default class LoadingScreen extends Vue {}
 </script>
 
 <style scoped lang="scss">
