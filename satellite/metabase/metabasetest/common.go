@@ -4,7 +4,6 @@
 package metabasetest
 
 import (
-	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -69,9 +68,6 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 		DefaultTimeDiff(),
 		cmpopts.EquateEmpty(),
 	)
-	if diff != "" {
-		fmt.Println()
-	}
 	require.Zero(t, diff)
 }
 
