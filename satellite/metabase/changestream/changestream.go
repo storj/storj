@@ -5,7 +5,6 @@ package changestream
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -92,6 +91,14 @@ const (
 	StateFinished  PartitionState = 3
 )
 
+// String constants for SQL queries.
+const (
+	stateCreated   = "0"
+	stateScheduled = "1"
+	stateRunning   = "2"
+	stateFinished  = "3"
+)
+
 // Valid returns whether the PartitionState is a valid state.
 func (s PartitionState) Valid() bool {
 	switch s {
@@ -148,21 +155,24 @@ func ReadPartition(ctx context.Context, log *zap.Logger, client *recordeddb.Span
 
 	log.Info("Read partition", zap.String("Change Stream", name), zap.Time("From", from), zap.String("Partition Token", partitionToken))
 
-	query := `SELECT ChangeRecord FROM READ_%s(start_timestamp => @start_time,heartbeat_milliseconds => @heartbeat_milliseconds`
-
-	params := map[string]interface{}{
-		"start_time":             from,
-		"heartbeat_milliseconds": 60000,
-	}
-	if partitionToken != "" {
-		params["partition_token"] = partitionToken
-		query += `, partition_token => @partition_token`
-	}
-	query += `)`
+	changeStream := spannerutil.QuoteIdentifier("READ_" + name)
 
 	stmt := spanner.Statement{
-		SQL:    fmt.Sprintf(query, name),
-		Params: params,
+		SQL: `
+			SELECT ChangeRecord
+			FROM ` + changeStream + ` (
+				start_timestamp => @start_time,
+				partition_token => @partition_token,
+				heartbeat_milliseconds => @heartbeat_milliseconds
+			)`,
+		Params: map[string]interface{}{
+			"start_time": from,
+			"partition_token": spanner.NullString{
+				StringVal: partitionToken,
+				Valid:     partitionToken != "",
+			},
+			"heartbeat_milliseconds": 60000,
+		},
 	}
 
 	err = client.Single().QueryWithOptions(ctx, stmt,
@@ -188,12 +198,14 @@ func ReadPartition(ctx context.Context, log *zap.Logger, client *recordeddb.Span
 func NoPartitionMetadata(ctx context.Context, client *recordeddb.SpannerClient, feedName string) (empty bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
+
 	stmt := spanner.Statement{
-		SQL: fmt.Sprintf(`
+		SQL: `
 			SELECT 1
-			FROM %s_metadata
+			FROM ` + metadataTable + `
 			LIMIT 1
-		`, feedName),
+		`,
 	}
 
 	var exists bool
@@ -214,12 +226,14 @@ func NoPartitionMetadata(ctx context.Context, client *recordeddb.SpannerClient, 
 func GetPartitionsByState(ctx context.Context, client *recordeddb.SpannerClient, feedName string, state PartitionState) (partitions map[string]time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
+
 	stmt := spanner.Statement{
-		SQL: fmt.Sprintf(`
+		SQL: `
 			SELECT partition_token, watermark
-			FROM %s_metadata
+			FROM ` + metadataTable + `
 			WHERE state = @state
-		`, feedName),
+		`,
 		Params: map[string]interface{}{
 			"state": state,
 		},
@@ -249,12 +263,16 @@ func GetPartitionsByState(ctx context.Context, client *recordeddb.SpannerClient,
 func AddChildPartition(ctx context.Context, client *recordeddb.SpannerClient, feedName, childToken string, parentTokens []string, start time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
+
 	// watermark is initialized to start time
 	stmt := spanner.Statement{
-		SQL: fmt.Sprintf(`
-			INSERT INTO %s_metadata (partition_token, parent_tokens, start_timestamp, watermark)
-			VALUES (@partition_token, @parent_tokens, @start_timestamp, @start_timestamp)
-		`, feedName),
+		SQL: `
+			INSERT INTO ` + metadataTable + `
+				(partition_token, parent_tokens, start_timestamp, watermark)
+			VALUES
+				(@partition_token, @parent_tokens, @start_timestamp, @start_timestamp)
+		`,
 		Params: map[string]interface{}{
 			"partition_token": childToken,
 			"parent_tokens":   parentTokens,
@@ -281,34 +299,36 @@ func AddChildPartition(ctx context.Context, client *recordeddb.SpannerClient, fe
 // SchedulePartitions checks each partition in created state, and if all its parent partitions are finished, it will update its state to scheduled.
 //
 // Some rules:
-// - The initial partition (with partition_token = ”) is scheduled immediately.
+// - The initial partition (with partition_token = ") is scheduled immediately.
 // - The children of the initial partition (with no parents) are scheduled once the initial partition is finished.
 // - Other partitions are scheduled once all their parent partitions are finished.
 func SchedulePartitions(ctx context.Context, client *recordeddb.SpannerClient, feedName string) (scheduledCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
+
 	stmt := spanner.Statement{
-		SQL: fmt.Sprintf(`
-			UPDATE %s_metadata AS child
-			SET state = %d
-			WHERE child.state = %d
+		SQL: `
+			UPDATE ` + metadataTable + ` AS child
+			SET state = ` + stateScheduled + `
+			WHERE child.state = ` + stateCreated + `
 			AND (
 				child.partition_token = ''
 				OR (
 					ARRAY_LENGTH(child.parent_tokens) = 0
 					AND (
 						SELECT state
-						FROM %s_metadata
+						FROM ` + metadataTable + `
 						WHERE partition_token = ''
-					) = %d
+					) = ` + stateFinished + `
 				)
 				OR (
-					SELECT LOGICAL_AND(parent.state = %d)
+					SELECT LOGICAL_AND(parent.state = ` + stateFinished + `)
 					FROM UNNEST(child.parent_tokens) AS parent_token
-					JOIN %s_metadata AS parent ON parent.partition_token = parent_token
+					JOIN ` + metadataTable + ` AS parent ON parent.partition_token = parent_token
 				) = TRUE
 			)
-		`, feedName, StateScheduled, StateCreated, feedName, StateFinished, StateFinished, feedName),
+		`,
 	}
 
 	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
@@ -330,12 +350,14 @@ func SchedulePartitions(ctx context.Context, client *recordeddb.SpannerClient, f
 func UpdatePartitionWatermark(ctx context.Context, client *recordeddb.SpannerClient, feedName, partitionToken string, newWatermark time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
+
 	stmt := spanner.Statement{
-		SQL: fmt.Sprintf(`
-			UPDATE %s_metadata
+		SQL: `
+			UPDATE ` + metadataTable + `
 			SET watermark = @new_watermark
 			WHERE partition_token = @partition_token
-		`, feedName),
+		`,
 		Params: map[string]interface{}{
 			"partition_token": partitionToken,
 			"new_watermark":   newWatermark,
@@ -363,28 +385,29 @@ func UpdatePartitionWatermark(ctx context.Context, client *recordeddb.SpannerCli
 func UpdatePartitionState(ctx context.Context, client *recordeddb.SpannerClient, feedName, partitionToken string, newState PartitionState) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
+
 	// Build the SET clause based on the new state
 	var setClause string
 	switch newState {
 	case StateScheduled:
-		setClause = "SET state = @state, scheduled_at = PENDING_COMMIT_TIMESTAMP()"
+		setClause = "SET state = " + stateScheduled + ", scheduled_at = PENDING_COMMIT_TIMESTAMP()"
 	case StateRunning:
-		setClause = "SET state = @state, running_at = PENDING_COMMIT_TIMESTAMP()"
+		setClause = "SET state = " + stateRunning + ", running_at = PENDING_COMMIT_TIMESTAMP()"
 	case StateFinished:
-		setClause = "SET state = @state, finished_at = PENDING_COMMIT_TIMESTAMP()"
+		setClause = "SET state = " + stateFinished + ", finished_at = PENDING_COMMIT_TIMESTAMP()"
 	default:
 		return errs.New("invalid partition state: %d", newState)
 	}
 
 	stmt := spanner.Statement{
-		SQL: fmt.Sprintf(`
-			UPDATE %s_metadata
-			%s
+		SQL: `
+			UPDATE ` + metadataTable + `
+			` + setClause + `
 			WHERE partition_token = @partition_token
-		`, feedName, setClause),
+		`,
 		Params: map[string]interface{}{
 			"partition_token": partitionToken,
-			"state":           newState,
 		},
 	}
 
@@ -407,17 +430,19 @@ func UpdatePartitionState(ctx context.Context, client *recordeddb.SpannerClient,
 
 // TestCreateChangeStream creates a change stream for testing purposes.
 func TestCreateChangeStream(ctx context.Context, admin *database.DatabaseAdminClient, path string, name string) error {
-	changeStreamDDL := fmt.Sprintf(`
-		CREATE CHANGE STREAM %s
+	changeStream := spannerutil.QuoteIdentifier(name)
+	changeStreamDDL := `
+		CREATE CHANGE STREAM ` + changeStream + `
 		FOR objects (stream_id, status, total_plain_size)
 		OPTIONS (
 			value_capture_type = 'NEW_ROW_AND_OLD_VALUES',
 			exclude_ttl_deletes = TRUE
 		)
-	`, name)
+	`
 
-	metadataTableDDL := fmt.Sprintf(`
-		CREATE TABLE IF NOT EXISTS %s_metadata
+	metadataTable := spannerutil.QuoteIdentifier(name + "_metadata")
+	metadataTableDDL := `
+		CREATE TABLE IF NOT EXISTS ` + metadataTable + `
 		(
 			partition_token STRING(MAX) NOT NULL,
 			parent_tokens   ARRAY<STRING(MAX)>,
@@ -430,11 +455,12 @@ func TestCreateChangeStream(ctx context.Context, admin *database.DatabaseAdminCl
 			finished_at     TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
 		)
 		PRIMARY KEY (partition_token), ROW DELETION POLICY (OLDER_THAN(finished_at, INTERVAL 7 DAY))
-	`, name)
+	`
 
-	indexDDL := fmt.Sprintf(`
-		CREATE INDEX IF NOT EXISTS %s_metadata_state ON %s_metadata(state)
-	`, name, name)
+	stateIndex := spannerutil.QuoteIdentifier(name + "_metadata_state")
+	indexDDL := `
+		CREATE INDEX IF NOT EXISTS ` + stateIndex + ` ON ` + metadataTable + `(state)
+	`
 
 	op, err := admin.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
 		Database:   path,
@@ -450,9 +476,14 @@ func TestCreateChangeStream(ctx context.Context, admin *database.DatabaseAdminCl
 
 // TestDeleteChangeStream deletes the change stream with the given name.
 func TestDeleteChangeStream(ctx context.Context, admin *database.DatabaseAdminClient, path string, name string) error {
-	dropChangeStreamDDL := fmt.Sprintf("DROP CHANGE STREAM %s", name)
-	dropIndexDDL := fmt.Sprintf("DROP INDEX %s_metadata_state", name)
-	dropTableDDL := fmt.Sprintf("DROP TABLE %s_metadata", name)
+	changeStream := spannerutil.QuoteIdentifier(name)
+	dropChangeStreamDDL := "DROP CHANGE STREAM " + changeStream
+
+	stateIndex := spannerutil.QuoteIdentifier(name + "_metadata_state")
+	dropIndexDDL := "DROP INDEX " + stateIndex
+
+	metadataTable := spannerutil.QuoteIdentifier(name + "_metadata")
+	dropTableDDL := "DROP TABLE " + metadataTable
 
 	// Retry with exponential backoff to handle transient conflicts with active streaming queries
 	const maxRetries = 5
