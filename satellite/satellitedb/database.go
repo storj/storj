@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -45,7 +46,8 @@ import (
 var Error = errs.Class("satellitedb")
 
 type satelliteDBCollection struct {
-	dbs map[string]*satelliteDB
+	dbs            map[string]*satelliteDB
+	maxCommitDelay *time.Duration
 }
 
 // satelliteDB combines access to different database tables with a record
@@ -79,6 +81,8 @@ type Options struct {
 	ReadRollupBatchSize int
 
 	FlightRecorder *flightrecorder.Box
+
+	MaxCommitDelay *time.Duration
 }
 
 var _ dbx.DBMethods = &satelliteDB{}
@@ -101,7 +105,10 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, err
 	}
 
-	dbc := &satelliteDBCollection{dbs: map[string]*satelliteDB{}}
+	dbc := &satelliteDBCollection{
+		dbs:            map[string]*satelliteDB{},
+		maxCommitDelay: opts.MaxCommitDelay,
+	}
 	defer func() {
 		if err != nil {
 			err = errs.Combine(err, dbc.Close())
@@ -278,7 +285,10 @@ func (dbc *satelliteDBCollection) OIDC() oidc.DB {
 // Orders returns database for storing orders.
 func (dbc *satelliteDBCollection) Orders() orders.DB {
 	db := dbc.getByName("orders")
-	return &ordersDB{db: db}
+	return &ordersDB{
+		db:             db,
+		maxCommitDelay: dbc.maxCommitDelay,
+	}
 }
 
 // Containment returns database for storing pending audit info.
