@@ -412,6 +412,10 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 
 					skipped, err := service.ProcessRecord(ctx, r, productUsages, productInfos, from, to)
 					if err != nil {
+						service.log.Error("ProcessRecord failed, records will not be consumed",
+							zap.String("customer_id", c.ID),
+							zap.String("project_id", r.ProjectID.String()),
+							zap.Error(err))
 						addErr(&mu, err)
 						return
 					}
