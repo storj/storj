@@ -47,7 +47,8 @@ var (
 )
 
 type ordersDB struct {
-	db *satelliteDB
+	db             *satelliteDB
+	maxCommitDelay *time.Duration
 }
 
 type bandwidth struct {
@@ -773,9 +774,6 @@ func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []o
 	return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		// This is the amount of latency this request is willing to incur in order to improve throughput.
-		commitDelay := 100 * time.Millisecond
-
 		_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 			_, err := txn.BatchUpdate(ctx, statements)
 			if err != nil {
@@ -784,7 +782,7 @@ func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []o
 			return nil
 		}, spanner.TransactionOptions{
 			CommitOptions: spanner.CommitOptions{
-				MaxCommitDelay: &commitDelay,
+				MaxCommitDelay: db.maxCommitDelay,
 			},
 		})
 		return Error.Wrap(err)

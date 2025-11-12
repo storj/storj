@@ -4,6 +4,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -38,11 +40,17 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		recorder = flightrecorder.NewBox(log.Named("flightrecorder"), runCfg.FlightRecorder)
 	}
 
+	var maxCommitDelay *time.Duration
+	if runCfg.Orders.MaxCommitDelay > 0 {
+		maxCommitDelay = &runCfg.Orders.MaxCommitDelay
+	}
+
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		ApplicationName:      "satellite-api",
 		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
 		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
 		FlightRecorder:       recorder,
+		MaxCommitDelay:       maxCommitDelay,
 	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite api: %+v", err)
