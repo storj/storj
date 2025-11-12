@@ -31,7 +31,7 @@ import (
 )
 
 func getSettledBandwidth(ctx context.Context, accountingDB accounting.ProjectAccounting, projectID uuid.UUID, since time.Time) (int64, error) {
-	total, err := accountingDB.GetProjectSettledBandwidthTotal(ctx, projectID, since.Add(-time.Hour))
+	total, err := accountingDB.TestingGetProjectSettledBandwidthTotal(ctx, projectID, since.Add(-time.Hour))
 	if err != nil {
 		return 0, err
 	}

@@ -406,55 +406,6 @@ func TestProjectBandwidthRollups(t *testing.T) {
 	})
 }
 
-func createBucketSettleBandwidthRollupsForPast4Days(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
-	var expectedSum int64
-	ordersDB := satelliteDB.Orders()
-	amount := int64(1000)
-	now := time.Now()
-
-	for i := 0; i < 4; i++ {
-		var bucketName string
-		var intervalStart time.Time
-		if i%2 == 0 {
-			// When the bucket name and intervalStart is different, a new record is created
-			bucketName = fmt.Sprintf("%s%d", "testbucket", i)
-			// Use a intervalStart time in the past to test we get all records in past 30 days
-			intervalStart = now.AddDate(0, 0, -i)
-		} else {
-			// When the bucket name and intervalStart is the same, we update the existing record
-			bucketName = "testbucket"
-			intervalStart = now
-		}
-
-		err := ordersDB.UpdateBucketBandwidthSettle(ctx,
-			projectID, []byte(bucketName), pb.PieceAction_GET, amount, 0, intervalStart,
-		)
-		if err != nil {
-			return expectedSum, err
-		}
-		expectedSum += amount
-	}
-	return expectedSum, nil
-}
-
-func TestGetProjectSettledBandwidthTotal(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		pdb := db.ProjectAccounting()
-		projectID := testrand.UUID()
-
-		// Setup: create bucket bandwidth rollup records
-		expectedTotal, err := createBucketSettleBandwidthRollupsForPast4Days(ctx, db, projectID)
-		require.NoError(t, err)
-
-		// Execute test: get project bandwidth total
-		since := time.Now().AddDate(0, -1, 0)
-
-		actualBandwidthTotal, err := pdb.GetProjectSettledBandwidthTotal(ctx, projectID, since)
-		require.NoError(t, err)
-		require.Equal(t, expectedTotal, actualBandwidthTotal)
-	})
-}
-
 func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UUID, orderDB orders.DB, now time.Time) error {
 	// Create many records that sum greater than project usage limit of 50GB
 	for i := 0; i < 4; i++ {

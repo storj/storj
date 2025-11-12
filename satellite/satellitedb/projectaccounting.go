@@ -505,8 +505,8 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
 	return result, Error.Wrap(err)
 }
 
-// GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
-func (db *ProjectAccounting) GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
+// TestingGetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
+func (db *ProjectAccounting) TestingGetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
 	// action uses int64 for compatibility with Spanner as Spanner does not support int32
@@ -555,35 +555,6 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 		startOfMonthCivil := civil.DateOf(startOfMonth)
 		periodEndCivil := civil.DateOf(periodEnd)
 		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), expiredSinceCivil, projectID[:], startOfMonthCivil, periodEndCivil).Scan(&egress)
-	default:
-		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
-	}
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && egress == nil) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	return *egress, err
-}
-
-// GetProjectSettledBandwidth returns the used settled bandwidth for the specified year and month.
-func (db *ProjectAccounting) GetProjectSettledBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, asOfSystemInterval time.Duration) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var egress *int64
-
-	startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
-	periodEnd := time.Date(year, month+1, 1, 0, 0, 0, 0, time.UTC)
-
-	query := `SELECT sum(egress_settled) FROM project_bandwidth_daily_rollups` +
-		db.db.impl.AsOfSystemInterval(asOfSystemInterval) +
-		` WHERE project_id = ? AND interval_day >= ? AND interval_day < ?`
-	switch db.db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:], startOfMonth, periodEnd).Scan(&egress)
-	case dbutil.Spanner:
-		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:], civil.DateOf(startOfMonth), civil.DateOf(periodEnd)).Scan(&egress)
 	default:
 		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
 	}

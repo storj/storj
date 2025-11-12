@@ -212,17 +212,6 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	return total, ErrProjectUsage.Wrap(err)
 }
 
-// GetProjectSettledBandwidth returns total amount of settled bandwidth used for past 30 days.
-func (usage *Service) GetProjectSettledBandwidth(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	// from the beginning of the current month
-	year, month, _ := usage.nowFn().Date()
-
-	total, err := usage.projectAccountingDB.GetProjectSettledBandwidth(ctx, projectID, year, month, usage.asOfSystemInterval)
-	return total, ErrProjectUsage.Wrap(err)
-}
-
 // GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
 func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (_ int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
