@@ -101,10 +101,10 @@
                 <p v-if="isBandwidthChartShown" class="chart-container__amount"><b>{{ bandwidthSummary }}</b></p>
                 <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ egressSummary }}</b></p>
                 <p v-if="isIngressChartShown" class="chart-container__amount"><b>{{ ingressSummary }}</b></p>
-                <div ref="chart" class="chart-container__chart" onresize="recalculateChartDimensions()">
-                    <BandwidthChart v-if="isBandwidthChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
-                    <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
-                    <IngressChart v-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                <div ref="chart">
+                    <BandwidthChart v-if="isBandwidthChartShown" :height="240" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                    <EgressChart v-if="isEgressChartShown" :height="240" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                    <IngressChart v-if="isIngressChartShown" :height="240" :width="chartWidth" :is-dark-mode="isDarkMode" />
                 </div>
             </div>
         </section>
@@ -115,8 +115,8 @@
                     <p class="chart-container__title-area__title">Average Disk Space Used This Month</p>
                 </div>
                 <p class="chart-container__amount disk-space-amount"><b>{{ averageUsageBytes }}</b></p>
-                <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
-                    <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
+                <div ref="diskSpaceChart">
+                    <DiskSpaceChart :height="240" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
                 </div>
             </section>
             <section>
@@ -188,9 +188,7 @@ const store = useStore();
 
 const PAYOUT_PATH = ref<string>(RouteConfig.Payout.path);
 const chartWidth = ref<number>(0);
-const chartHeight = ref<number>(0);
 const diskSpaceChartWidth = ref<number>(0);
-const diskSpaceChartHeight = ref<number>(0);
 
 const chart = ref<HTMLElement>();
 const diskSpaceChart = ref<HTMLElement>();
@@ -281,9 +279,7 @@ const doSuspendedSatellitesExist = computed<boolean>(() => {
 
 function recalculateChartDimensions(): void {
     chartWidth.value = chart.value ? chart.value.clientWidth : 0;
-    chartHeight.value = chart.value ? chart.value.clientHeight : 0;
     diskSpaceChartWidth.value = diskSpaceChart.value ? diskSpaceChart.value.clientWidth : 0;
-    diskSpaceChartHeight.value = diskSpaceChart.value ? diskSpaceChart.value.clientHeight : 0;
 }
 
 function toggleEgressChartShowing(): void {
@@ -493,13 +489,6 @@ onBeforeUnmount(() => {
             font-size: 32px;
             line-height: 57px;
             color: var(--regular-text-color);
-        }
-
-        &__chart {
-            position: absolute;
-            left: 0;
-            width: calc(100% - 10px);
-            height: 240px;
         }
     }
 

@@ -5,7 +5,7 @@
     <div class="disk-stat-area">
         <p class="disk-stat-area__title">Total Disk Space</p>
         <p class="disk-stat-area__amount">{{ diskSpace.available | bytesToBase10String }}</p>
-        <DoughnutChart class="disk-stat-area__chart" :chart-data="chartData" />
+        <DoughnutChart chart-id="disk-stat-chart" :chart-data="chartData" />
         <div class="disk-stat-area__info-area">
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
@@ -39,57 +39,44 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
+import { ChartData } from 'chart.js';
 
-import { DiskStatChartData, DiskStatDataSet } from '@/app/types/chart';
 import { Traffic } from '@/storagenode/sno/sno';
+import { useStore } from '@/app/utils/composables';
 
 import DoughnutChart from '@/app/components/DoughnutChart.vue';
 
-// @vue/component
-@Component({
-    components: {
-        DoughnutChart,
-    },
-})
-export default class DiskStatChart extends Vue {
-    /**
-     * Holds datasets for chart.
-     */
-    public get chartData(): DiskStatChartData {
-        return new DiskStatChartData([
-            new DiskStatDataSet(
-                '',
-                ['#D6D6D6', '#0059D0', '#8FA7C6', '#2582FF'],
-                [
-                    this.free,
-                    this.diskSpace.used,
-                    this.diskSpace.trash,
-                    this.diskSpace.overused,
+const store = useStore();
+
+const chartData = computed<ChartData>(() => {
+    return {
+        datasets: [
+            {
+                data: [
+                    free.value,
+                    diskSpace.value.used,
+                    diskSpace.value.trash,
+                    diskSpace.value.overused,
                 ],
-            ),
-        ]);
-    }
+                backgroundColor: ['#D6D6D6', '#0059D0', '#8FA7C6', '#2582FF'],
+            },
+        ],
+    };
+});
 
-    /**
-     * Returns disk space information from store.
-     */
-    public get diskSpace(): Traffic {
-        return this.$store.state.node.utilization.diskSpace;
-    }
+const diskSpace = computed<Traffic>(() => {
+    return store.state.node.utilization.diskSpace;
+});
 
-    /**
-     * Returns free disk space amount.
-     */
-    public get free(): number {
-        let free = this.diskSpace.available - this.diskSpace.used - this.diskSpace.trash;
+const free = computed<number>(() => {
+    let free = diskSpace.value.available - diskSpace.value.used - diskSpace.value.trash;
 
-        if (free < 0) free = 0;
+    if (free < 0) free = 0;
 
-        return free;
-    }
-}
+    return free;
+});
 </script>
 
 <style lang="scss">
@@ -116,17 +103,10 @@ export default class DiskStatChart extends Vue {
             margin-top: 5px;
         }
 
-        &__chart {
-            position: absolute;
-            width: calc(58% - 25px);
-            height: 220px;
-            top: 135px;
-        }
-
         &__info-area {
             position: absolute;
-            right: 30px;
-            top: 60%;
+            right: 10px;
+            top: 55%;
             transform: translateY(-50%);
             width: calc(40% - 35px);
             display: flex;
@@ -192,7 +172,7 @@ export default class DiskStatChart extends Vue {
     @media screen and (max-width: 1000px) {
 
         .disk-stat-area {
-            width: calc(100% - 60px);
+            width: calc(100% - 40px);
 
             &__chart {
                 width: 250px;

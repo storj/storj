@@ -1,37 +1,102 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<script lang="ts">
-import * as VueChart from 'vue-chartjs';
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+<template>
+    <canvas :id="chartId" class="chart" />
+</template>
 
-import { DiskStatChartData, RenderChart } from '@/app/types/chart';
+<script setup lang="ts">
+import {
+    registerables,
+    Chart as ChartJS,
+    ChartData,
+} from 'chart.js';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 
-// @vue/component
-@Component({
-    extends: VueChart.Doughnut,
-})
-export default class DoughnutChart extends Vue {
-    @Prop({ default: () => new DiskStatChartData() })
-    private readonly chartData: DiskStatChartData;
+ChartJS.register(...registerables);
 
-    @Watch('chartData')
-    private onDataChange(_news: Record<string, unknown>, _old: Record<string, unknown>): void {
-        (this as unknown as RenderChart).renderChart(this.chartData, {
-            hover: false,
-            tooltips: {
-                enabled: false,
+const props = defineProps<{
+    chartId: string;
+    chartData: ChartData;
+}>();
+
+const chart = ref<ChartJS>();
+
+function buildChart(): void {
+    chart.value = new ChartJS(
+        document.getElementById(props.chartId) as HTMLCanvasElement,
+        {
+            type: 'doughnut',
+            data: props.chartData,
+            options: {
+                plugins: {
+                    tooltip: {
+                        enabled: false,
+                    },
+                },
+                responsive: false,
+                clip: false,
+                animation: false,
+                maintainAspectRatio: false,
+                hover: {
+                    mode: null,
+                },
             },
-        });
-    }
+        },
+    );
+}
 
-    public mounted(): void {
-        (this as unknown as RenderChart).renderChart(this.chartData, {
-            hover: false,
-            tooltips: {
-                enabled: false,
-            },
-        });
+onMounted(() => {
+    buildChart();
+});
+
+onUnmounted(() => {
+    chart.value?.destroy();
+});
+
+watch(() => props.chartData, () => {
+    chart.value?.destroy();
+    buildChart();
+});
+</script>
+
+<style scoped lang="scss">
+.chart {
+    width: 220px !important;
+    height: 220px !important;
+}
+
+@media screen and (max-width: 1000px) {
+
+    .chart {
+        width: 250px !important;
+        height: 250px !important;
+        margin-left: 100px;
     }
 }
-</script>
+
+@media screen and (max-width: 780px) {
+
+    .chart {
+        margin-left: 50px;
+    }
+}
+
+@media screen and (max-width: 640px) {
+
+    .chart {
+        width: 200px !important;
+        height: 200px !important;
+    }
+}
+
+@media screen and (max-width: 550px) {
+
+    .chart {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-left: 0;
+    }
+}
+</style>
