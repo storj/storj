@@ -52,9 +52,9 @@ import CheckIcon from '@/../static/images/common/greenCheck.svg';
 import WalletIcon from '@/../static/images/wallet.svg';
 
 const props = withDefaults(defineProps<{
-    label: string;
-    walletAddress: string;
-    walletFeatures: string[];
+    label?: string;
+    walletAddress?: string;
+    walletFeatures?: string[];
 }>(), {
     label: '',
     walletAddress: '',
@@ -169,7 +169,7 @@ const isZkSyncEraEnabled = computed<boolean>(() => {
         }
     }
 
-    @media screen and (max-width: 1000px) {
+    @media screen and (width <= 1000px) {
 
         .wallet-area {
             flex-direction: column;
@@ -187,7 +187,7 @@ const isZkSyncEraEnabled = computed<boolean>(() => {
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         p {
             margin: 0;

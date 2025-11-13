@@ -94,7 +94,7 @@ const heldPercentage = computed(() => {
         align-items: flex-end;
     }
 
-    @media screen and (max-width: 780px) {
+    @media screen and (width <= 780px) {
 
         .total-held-area {
 

@@ -113,7 +113,7 @@ function closePeriodDropdown(): void {
         }
     }
 
-    @media screen and (max-width: 505px) {
+    @media screen and (width <= 505px) {
 
         .period-container__label {
             margin-right: 4px;

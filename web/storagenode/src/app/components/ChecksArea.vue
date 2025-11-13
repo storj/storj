@@ -25,9 +25,9 @@ import { ref } from 'vue';
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 withDefaults(defineProps<{
-    label: string;
-    amount: string;
-    infoText: string;
+    label?: string;
+    amount?: string;
+    infoText?: string;
 }>(), {
     label: '',
     amount: '',
@@ -120,7 +120,7 @@ function toggleTooltipVisibility(): void {
         }
     }
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
 
         .checks-area-image {
             display: none;

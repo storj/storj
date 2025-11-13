@@ -83,7 +83,7 @@ onBeforeMount(() => {
 </script>
 
 <style lang="scss">
-    @import 'static/styles/variables';
+    @import '../../static/styles/variables';
 
     ::-webkit-scrollbar {
         display: none;

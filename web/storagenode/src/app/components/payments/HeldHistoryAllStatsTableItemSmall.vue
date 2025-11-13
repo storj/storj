@@ -46,7 +46,7 @@ import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
 
 withDefaults(defineProps<{
-    heldHistoryItem: SatelliteHeldHistory
+    heldHistoryItem?: SatelliteHeldHistory
 }>(), {
     heldHistoryItem: () => new SatelliteHeldHistory(),
 });
@@ -78,7 +78,7 @@ function hide(): void {
             font-size: 14px;
             color: var(--regular-text-color);
             max-width: calc(100% - 40px);
-            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         &__months {

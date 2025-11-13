@@ -103,7 +103,7 @@ const isDarkMode = computed<boolean>(() => {
         fill: var(--icon-color) !important;
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         .footer {
             height: auto;

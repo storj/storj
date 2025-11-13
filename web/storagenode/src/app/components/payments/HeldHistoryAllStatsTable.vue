@@ -101,7 +101,7 @@ const allSatellitesHeldHistory = computed<SatelliteHeldHistory[]>(() => {
             font-size: 14px;
             color: var(--regular-text-color);
             max-width: 100%;
-            word-break: break-word;
+            overflow-wrap: anywhere;
         }
 
         &__months {
@@ -141,7 +141,7 @@ const allSatellitesHeldHistory = computed<SatelliteHeldHistory[]>(() => {
     width: 21%;
 }
 
-@media screen and (max-width: 720px) {
+@media screen and (width <= 720px) {
 
     .column-1 {
         width: 31%;
@@ -154,7 +154,7 @@ const allSatellitesHeldHistory = computed<SatelliteHeldHistory[]>(() => {
     }
 }
 
-@media screen and (max-width: 600px) {
+@media screen and (width <= 600px) {
 
     .held-history-table-container--large {
         display: none;

@@ -209,7 +209,7 @@ onMounted(() => {
             margin: 13px 0;
             display: grid;
             grid-template-columns: 52px 52px 52px;
-            grid-gap: 8px;
+            gap: 8px;
         }
 
         &__footer-area {

@@ -159,7 +159,7 @@ onMounted(() => {
         &__steps-area {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            grid-column-gap: 2px;
+            column-gap: 2px;
 
             &__step {
                 @include step;
@@ -198,7 +198,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-width: 640px) {
+    @media screen and (width <= 640px) {
 
         .label {
             text-align: center;

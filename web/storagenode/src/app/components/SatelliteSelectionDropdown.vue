@@ -14,7 +14,7 @@
                 v-for="satellite in satellites"
                 :key="satellite.id"
                 :satellite="satellite"
-                @onSatelliteClick="onSatelliteClick"
+                @on-satellite-click="onSatelliteClick"
             />
         </div>
     </div>
@@ -133,8 +133,7 @@ function closePopup(): void {
     }
 
     .satellite-selection-overflow-container {
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden auto;
         height: auto;
 
         &__satellite-choice {

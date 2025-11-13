@@ -72,7 +72,11 @@ export const useAppStore = defineStore('appStore', () => {
     }
 
     function setLoading(value: boolean): void {
-        value ? state.isLoading = value : setTimeout(() => { state.isLoading = value; }, 1000);
+        if (value) {
+            state.isLoading = value;
+        } else {
+            setTimeout(() => { state.isLoading = value; }, 1000);
+        }
     }
 
     function togglePayoutHistoryCalendar(value: boolean): void {

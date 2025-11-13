@@ -66,7 +66,7 @@ watch(() => props.chartData, () => {
     height: 220px !important;
 }
 
-@media screen and (max-width: 1000px) {
+@media screen and (width <= 1000px) {
 
     .chart {
         width: 250px !important;
@@ -75,14 +75,14 @@ watch(() => props.chartData, () => {
     }
 }
 
-@media screen and (max-width: 780px) {
+@media screen and (width <= 780px) {
 
     .chart {
         margin-left: 50px;
     }
 }
 
-@media screen and (max-width: 640px) {
+@media screen and (width <= 640px) {
 
     .chart {
         width: 200px !important;
@@ -90,7 +90,7 @@ watch(() => props.chartData, () => {
     }
 }
 
-@media screen and (max-width: 550px) {
+@media screen and (width <= 550px) {
 
     .chart {
         position: absolute;

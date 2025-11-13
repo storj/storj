@@ -35,7 +35,7 @@ import { UINotification } from '@/app/types/notifications';
 import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
 
 const props = withDefaults(defineProps<{
-    notification: UINotification;
+    notification?: UINotification;
 }>(), {
     notification: () => new UINotification(),
 });
@@ -85,8 +85,7 @@ onBeforeUnmount(() => {
 
         &__new-indicator-container {
             display: flex;
-            align-items: center;
-            justify-items: center;
+            place-items: center center;
             width: 6px;
             height: 6px;
             min-width: 6px;
@@ -121,7 +120,7 @@ onBeforeUnmount(() => {
                 font-size: 15px;
                 color: var(--regular-text-color);
                 text-align: left;
-                word-break: break-word;
+                overflow-wrap: anywhere;
 
                 &__bold {
                     font-family: 'font_bold', sans-serif;

@@ -25,9 +25,9 @@ import { ref } from 'vue';
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 withDefaults(defineProps<{
-    width: string;
-    label: string;
-    value: string;
+    width?: string;
+    label?: string;
+    value?: string;
     infoText?: string;
 }>(), {
     width: '100%',
@@ -115,7 +115,7 @@ function toggleTooltipVisibility(): void {
         }
     }
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
 
         .checks-area-image {
             display: none;

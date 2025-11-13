@@ -124,7 +124,7 @@ onMounted(async () => {
         }
     }
 
-    @media screen and (max-width: 640px) {
+    @media screen and (width <= 640px) {
 
         .payout-history-table {
             padding: 28px 20px;

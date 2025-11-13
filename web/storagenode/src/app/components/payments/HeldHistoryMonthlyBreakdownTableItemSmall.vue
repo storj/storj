@@ -46,7 +46,7 @@ import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
 
 withDefaults(defineProps<{
-    heldHistoryItem: SatelliteHeldHistory
+    heldHistoryItem?: SatelliteHeldHistory
 }>(), {
     heldHistoryItem: () => new SatelliteHeldHistory(),
 });

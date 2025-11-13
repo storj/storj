@@ -170,7 +170,7 @@ const free = computed<number>(() => {
         background: #2582ff;
     }
 
-    @media screen and (max-width: 1000px) {
+    @media screen and (width <= 1000px) {
 
         .disk-stat-area {
             width: calc(100% - 40px);
@@ -197,7 +197,7 @@ const free = computed<number>(() => {
         }
     }
 
-    @media screen and (max-width: 780px) {
+    @media screen and (width <= 780px) {
 
         .disk-stat-area {
 
@@ -220,7 +220,7 @@ const free = computed<number>(() => {
         }
     }
 
-    @media screen and (max-width: 640px) {
+    @media screen and (width <= 640px) {
 
         .disk-stat-area {
 
@@ -239,7 +239,7 @@ const free = computed<number>(() => {
         }
     }
 
-    @media screen and (max-width: 550px) {
+    @media screen and (width <= 550px) {
 
         .disk-stat-area {
             height: 414px;

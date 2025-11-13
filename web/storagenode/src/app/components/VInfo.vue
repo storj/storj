@@ -36,8 +36,7 @@ function toggleVisibility(): void {
 
 <style scoped lang="scss">
     p {
-        margin-block-start: 0;
-        margin-block-end: 0;
+        margin-block: 0;
     }
 
     .info {
@@ -81,7 +80,7 @@ function toggleVisibility(): void {
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         .info__message-box {
             display: none;

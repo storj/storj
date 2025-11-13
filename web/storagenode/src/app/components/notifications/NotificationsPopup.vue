@@ -105,7 +105,7 @@ const isCollapsed = computed<boolean>(() => latest.value.length < 4);
         height: auto !important;
     }
 
-    @media screen and (max-width: 460px) {
+    @media screen and (width <= 460px) {
 
         .notification-popup-container {
             width: 100%;

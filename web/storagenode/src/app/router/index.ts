@@ -4,10 +4,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
 import { NavigationLink } from '@/app/types/navigation';
+
 import DashboardArea from '@/app/views/DashboardArea.vue';
 import NotificationsArea from '@/app/views/NotificationsArea.vue';
 import PayoutArea from '@/app/views/PayoutArea.vue';
-
 import Page404 from '@/app/components/errors/Page404.vue';
 
 export abstract class RouteConfig {
@@ -20,7 +20,7 @@ export abstract class RouteConfig {
  * Router describes location mapping with components.
  */
 export const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHistory(import.meta.env.PROD ? '' : '/'),
     routes: [
         {
             path: RouteConfig.Root.path,

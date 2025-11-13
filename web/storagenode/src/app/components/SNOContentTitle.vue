@@ -313,7 +313,7 @@ onMounted(() => {
         color: #ce0000;
     }
 
-    @media screen and (max-width: 780px) {
+    @media screen and (width <= 780px) {
 
         .title-area {
 
@@ -331,7 +331,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         .title-area {
 
@@ -352,7 +352,7 @@ onMounted(() => {
         }
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         .title-area {
 

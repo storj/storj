@@ -37,7 +37,7 @@
                 <OptionsDropdown
                     v-show="isOptionsShown"
                     class="options-dropdown"
-                    @closeDropdown="closeOptionsDropdown"
+                    @close-dropdown="closeOptionsDropdown"
                 />
                 <button name="Notifications" aria-pressed="false" class="header__content-holder__right-area__bell-area" type="button" @click.stop.prevent="toggleNotificationsPopup">
                     <BellIcon />
@@ -357,7 +357,7 @@ onBeforeMount(async () => {
         right: 55px;
     }
 
-    @media screen and (max-width: 780px) {
+    @media screen and (width <= 780px) {
 
         .header__content-holder {
 
@@ -384,7 +384,7 @@ onBeforeMount(async () => {
         }
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         .header__content-holder {
 
@@ -403,7 +403,7 @@ onBeforeMount(async () => {
         }
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         .header__content-holder__right-area__bell-area__popup {
             position: fixed;

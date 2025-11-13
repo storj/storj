@@ -48,8 +48,7 @@ onBeforeMount(() => {
         }
 
         &__title {
-            margin-block-start: 0;
-            margin-block-end: 0;
+            margin-block: 0;
             font-family: 'font_bold', sans-serif;
             margin-top: 46px;
             font-size: 42px;
@@ -57,8 +56,7 @@ onBeforeMount(() => {
         }
 
         &__text {
-            margin-block-start: 0;
-            margin-block-end: 0;
+            margin-block: 0;
             font-family: 'font_regular', sans-serif;
             margin: 25px 0 36px;
             font-size: 16px;
@@ -77,7 +75,7 @@ onBeforeMount(() => {
         }
     }
 
-    @media screen and (max-width: 630px) {
+    @media screen and (width <= 630px) {
 
         .error-container {
             padding: 0 27px;

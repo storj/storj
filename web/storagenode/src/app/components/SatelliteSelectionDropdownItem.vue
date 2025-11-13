@@ -74,7 +74,7 @@ import EyeIcon from '@/../static/images/Eye.svg';
 import SuspensionIcon from '@/../static/images/suspend.svg';
 
 const props = withDefaults(defineProps<{
-    satellite: SatelliteInfo;
+    satellite?: SatelliteInfo;
 }>(), {
     satellite: () => new SatelliteInfo(),
 });

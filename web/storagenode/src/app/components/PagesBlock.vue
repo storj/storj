@@ -19,8 +19,8 @@
 import { CheckSelected, Page } from '@/app/types/pagination';
 
 withDefaults(defineProps<{
-    pages: Page[];
-    isSelected: CheckSelected;
+    pages?: Page[];
+    isSelected?: CheckSelected;
 }>(), {
     pages: () => [],
     isSelected: () => false,

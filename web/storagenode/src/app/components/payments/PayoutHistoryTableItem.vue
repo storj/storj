@@ -115,7 +115,7 @@ import OKIcon from '@/../static/images/payments/OKIcon.svg';
 import ShareIcon from '@/../static/images/payments/Share.svg';
 
 withDefaults(defineProps<{
-    historyItem: SatellitePayoutForPeriod;
+    historyItem?: SatellitePayoutForPeriod;
 }>(), {
     historyItem: () => new SatellitePayoutForPeriod(),
 });
@@ -366,7 +366,7 @@ function toggleExpanded(): void {
         min-height: 30px;
     }
 
-    @media screen and (max-width: 800px) {
+    @media screen and (width <= 800px) {
 
         .payout-history-item {
             padding: 17px 10px 12px;

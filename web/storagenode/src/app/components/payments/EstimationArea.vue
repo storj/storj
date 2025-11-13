@@ -702,7 +702,7 @@ function selectCurrentPeriod(): void {
         }
     }
 
-    @media screen and (max-width: 870px) {
+    @media screen and (width <= 870px) {
 
         .estimation-container {
 
@@ -729,7 +729,7 @@ function selectCurrentPeriod(): void {
         }
     }
 
-    @media screen and (max-width: 640px) {
+    @media screen and (width <= 640px) {
 
         .estimation-container {
             padding: 28px 20px;
@@ -751,7 +751,7 @@ function selectCurrentPeriod(): void {
         }
     }
 
-    @media screen and (max-width: 505px) {
+    @media screen and (width <= 505px) {
 
         .short-text {
             display: inline-block;
@@ -763,7 +763,7 @@ function selectCurrentPeriod(): void {
         }
     }
 
-    @media screen and (max-width: 430px) {
+    @media screen and (width <= 430px) {
 
         .estimation-container__header__period {
             display: block;

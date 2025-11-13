@@ -46,8 +46,8 @@ import { OnPageClickCallback, Page } from '@/app/types/pagination';
 import PagesBlock from '@/app/components/PagesBlock.vue';
 
 const props = withDefaults(defineProps<{
-    totalPageCount: number;
-    onPageClickCallback: OnPageClickCallback;
+    totalPageCount?: number;
+    onPageClickCallback?: OnPageClickCallback;
 }>(), {
     totalPageCount: 0,
     onPageClickCallback: () => Promise.resolve,

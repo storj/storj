@@ -315,8 +315,7 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
     p {
-        margin-block-start: 0;
-        margin-block-end: 0;
+        margin-block: 0;
     }
 
     .info-area {
@@ -512,7 +511,7 @@ onBeforeUnmount(() => {
         width: calc(100% - 60px);
     }
 
-    @media screen and (max-width: 1000px) {
+    @media screen and (width <= 1000px) {
 
         .info-area {
 
@@ -527,7 +526,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 780px) {
+    @media screen and (width <= 780px) {
 
         .info-area {
 
@@ -548,7 +547,7 @@ onBeforeUnmount(() => {
         }
     }
 
-    @media screen and (max-width: 400px) {
+    @media screen and (width <= 400px) {
 
         .chart-container {
             width: calc(100% - 36px);

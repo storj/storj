@@ -70,17 +70,21 @@ async function submit(): Promise<void> {
         return;
     }
 
-    secondSelectedMonth.value ? payoutStore.setPeriodsRange(
-        new PayoutInfoRange(
-            new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
-            new PayoutPeriod(secondSelectedMonth.value.year, secondSelectedMonth.value.index),
-        ),
-    ) : payoutStore.setPeriodsRange(
-        new PayoutInfoRange(
-            null,
-            new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
-        ),
-    );
+    if (secondSelectedMonth.value) {
+        payoutStore.setPeriodsRange(
+            new PayoutInfoRange(
+                new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
+                new PayoutPeriod(secondSelectedMonth.value.year, secondSelectedMonth.value.index),
+            ),
+        );
+    } else {
+        payoutStore.setPeriodsRange(
+            new PayoutInfoRange(
+                null,
+                new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
+            ),
+        );
+    }
 
     try {
         await payoutStore.fetchPayoutInfo(nodeStore.state.selectedSatellite.id);
@@ -342,7 +346,7 @@ onMounted(() => {
             margin: 13px 0;
             display: grid;
             grid-template-columns: 52px 52px 52px;
-            grid-gap: 8px;
+            gap: 8px;
         }
 
         &__footer-area {

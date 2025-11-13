@@ -118,7 +118,7 @@ function showMonthlyBreakdown(): void {
         }
     }
 
-    @media screen and (max-width: 870px) {
+    @media screen and (width <= 870px) {
 
         .held-history-container {
 
@@ -145,7 +145,7 @@ function showMonthlyBreakdown(): void {
         }
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         .held-history-container {
             padding: 28px 20px 10px;

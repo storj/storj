@@ -98,7 +98,7 @@ function findSatelliteByName(satelliteName: string): SatelliteInfo | undefined {
         &__content {
             width: 100%;
             display: grid;
-            grid-gap: 15px;
+            gap: 15px;
             grid-template-columns: repeat(3, 1fr);
 
             &__item {
@@ -192,14 +192,14 @@ function findSatelliteByName(satelliteName: string): SatelliteInfo | undefined {
         color: var(--warning-color);
     }
 
-    @media screen and (max-width: 800px) {
+    @media screen and (width <= 800px) {
 
         .audits-area__content {
             grid-template-columns: repeat(2, 1fr);
         }
     }
 
-    @media screen and (max-width: 500px) {
+    @media screen and (width <= 500px) {
 
         .audits-area__content {
             grid-template-columns: 1fr;

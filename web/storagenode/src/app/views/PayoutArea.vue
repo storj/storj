@@ -151,8 +151,7 @@ onMounted(async () => {
         position: relative;
         padding: 0 36px;
         width: calc(100% - 72px);
-        overflow-y: scroll;
-        overflow-x: hidden;
+        overflow: hidden scroll;
         display: flex;
         justify-content: center;
     }
@@ -243,7 +242,7 @@ onMounted(async () => {
         width: 100%;
     }
 
-    @media screen and (max-width: 890px) {
+    @media screen and (width <= 890px) {
 
         .payout-area-container {
             width: calc(100% - 36px - 36px);
@@ -252,7 +251,7 @@ onMounted(async () => {
         }
     }
 
-    @media screen and (max-width: 640px) {
+    @media screen and (width <= 640px) {
 
         .payout-area-container-overflow {
             padding: 0 15px 80px;

@@ -61,8 +61,7 @@ onMounted(async () => {
     .content-overflow {
         padding: 0 36px;
         width: calc(100% - 72px);
-        overflow-y: scroll;
-        overflow-x: hidden;
+        overflow: hidden scroll;
         display: flex;
         justify-content: center;
     }
@@ -72,14 +71,14 @@ onMounted(async () => {
         padding-top: 44px;
     }
 
-    @media screen and (max-width: 1000px) {
+    @media screen and (width <= 1000px) {
 
         .content {
             width: 100%;
         }
     }
 
-    @media screen and (max-width: 600px) {
+    @media screen and (width <= 600px) {
 
         .content-overflow {
             padding: 0 15px;

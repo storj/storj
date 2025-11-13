@@ -205,7 +205,7 @@ async function markAllAsRead(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 1000px) {
+    @media screen and (width <= 1000px) {
 
         .notifications-container {
             padding: 0 37px;
@@ -213,7 +213,7 @@ async function markAllAsRead(): Promise<void> {
         }
     }
 
-    @media screen and (max-width: 450px) {
+    @media screen and (width <= 450px) {
 
         .notifications-container {
 
@@ -234,7 +234,7 @@ async function markAllAsRead(): Promise<void> {
         }
     }
 
-    @media screen and (max-height: 650px), (max-width: 300px) {
+    @media screen and (height <= 650px), (width <= 300px) {
 
         .notifications-container {
 

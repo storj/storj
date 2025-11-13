@@ -49,8 +49,8 @@ export interface StoredMonthsByYear {
  */
 export const monthNames = [
     'January', 'February', 'March', 'April',
-    'May', 'June', 'July',	'August',
-    'September', 'October', 'November',	'December',
+    'May', 'June', 'July', 'August',
+    'September', 'October', 'November', 'December',
 ];
 
 /**
