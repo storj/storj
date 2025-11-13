@@ -486,7 +486,7 @@ func TestDeleteChangeStream(ctx context.Context, admin *database.DatabaseAdminCl
 	dropTableDDL := "DROP TABLE " + metadataTable
 
 	// Retry with exponential backoff to handle transient conflicts with active streaming queries
-	const maxRetries = 5
+	const maxRetries = 7
 	backoff := 100 * time.Millisecond
 
 	var lastErr error
