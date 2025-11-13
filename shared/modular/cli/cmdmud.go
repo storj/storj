@@ -123,9 +123,9 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 		}
 	}()
 
-	eg := &errgroup.Group{}
+	eg, childCtx := errgroup.WithContext(ctx)
 	err = mud.ForEachDependency(m.ball, m.runSelector, func(component *mud.Component) error {
-		return component.Run(pprof.WithLabels(ctx, pprof.Labels("component", component.Name())), eg)
+		return component.Run(pprof.WithLabels(childCtx, pprof.Labels("component", component.Name())), eg)
 	}, mud.All)
 	if err != nil {
 		return errors.WithStack(err)
