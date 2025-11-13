@@ -14,59 +14,40 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { monthNames } from '@/app/types/payout';
+import { useStore } from '@/app/utils/composables';
 
 import PayoutHistoryPeriodCalendar from '@/app/components/payments/PayoutHistoryPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
-// @vue/component
-@Component({
-    components: {
-        PayoutHistoryPeriodCalendar,
-        BlackArrowExpand,
-        BlackArrowHide,
-    },
-})
-export default class PayoutHistoryPeriodDropdown extends Vue {
-    /**
-     * String presentation of selected payout history period.
-     */
-    public get period(): string {
-        if (!this.$store.state.payoutModule.payoutHistoryPeriod) {
-            return '';
-        }
+const store = useStore();
 
-        const splittedPeriod = this.$store.state.payoutModule.payoutHistoryPeriod.split('-');
-
-        return `${monthNames[(splittedPeriod[1] - 1)]}, ${splittedPeriod[0]}`;
+const period = computed<string>(() => {
+    if (!store.state.payoutModule.payoutHistoryPeriod) {
+        return '';
     }
 
-    /**
-     * Indicates if period selection calendar should appear.
-     */
-    public get isCalendarShown(): boolean {
-        return this.$store.state.appStateModule.isPayoutHistoryCalendarShown;
-    }
+    const splittedPeriod = store.state.payoutModule.payoutHistoryPeriod.split('-');
 
-    /**
-     * Opens payout period selection dropdown.
-     */
-    public openPeriodDropdown(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, true);
-    }
+    return `${monthNames[(splittedPeriod[1] - 1)]}, ${splittedPeriod[0]}`;
+});
 
-    /**
-     * Closes payout period selection dropdown.
-     */
-    public closePeriodDropdown(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, false);
-    }
+const isCalendarShown = computed<boolean>(() => {
+    return store.state.appStateModule.isPayoutHistoryCalendarShown;
+});
+
+function openPeriodDropdown(): void {
+    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, true);
+}
+
+function closePeriodDropdown(): void {
+    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, false);
 }
 </script>
 

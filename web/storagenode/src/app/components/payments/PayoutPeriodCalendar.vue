@@ -35,8 +35,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
@@ -47,264 +47,227 @@ import {
     StoredMonthsByYear,
 } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
+import { useStore } from '@/app/utils/composables';
 
 import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
 
-// @vue/component
-@Component({
-    components: {
-        GrayArrowLeftIcon,
-    },
-})
-export default class PayoutPeriodCalendar extends Vue {
-    private now: Date = new Date();
-    /**
-     * Contains current months list depends on active and selected month state.
-     */
-    public currentDisplayedMonths: MonthButton[] = [];
-    public displayedYear: number = this.now.getUTCFullYear();
-    public period = '';
+const store = useStore();
 
-    private displayedMonths: StoredMonthsByYear = {};
-    private firstSelectedMonth: MonthButton | null = null;
-    private secondSelectedMonth: MonthButton | null = null;
+const now = ref<Date>(new Date());
+const currentDisplayedMonths = ref<MonthButton[]>([]);
+const displayedYear = ref<number>(now.value.getUTCFullYear());
+const period = ref<string>('');
+const displayedMonths = ref<StoredMonthsByYear>({});
+const firstSelectedMonth = ref<MonthButton | null>(null);
+const secondSelectedMonth = ref<MonthButton | null>(null);
 
-    /**
-     * Lifecycle hook after initial render.
-     * Sets up current calendar state.
-     */
-    public mounted(): void {
-        this.populateMonths(this.displayedYear);
-        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
+async function submit(): Promise<void> {
+    if (!firstSelectedMonth.value) {
+        close();
+
+        return;
     }
 
-    public async submit(): Promise<void> {
-        if (!this.firstSelectedMonth) {
-            this.close();
+    secondSelectedMonth.value ? await store.dispatch(
+        PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+            new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
+            new PayoutPeriod(secondSelectedMonth.value.year, secondSelectedMonth.value.index),
+        ),
+    ) : await store.dispatch(
+        PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+            null,
+            new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
+        ),
+    );
 
-            return;
-        }
-
-        this.secondSelectedMonth ? await this.$store.dispatch(
-            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-                new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
-                new PayoutPeriod(this.secondSelectedMonth.year, this.secondSelectedMonth.index),
-            ),
-        ) : await this.$store.dispatch(
-            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-                null,
-                new PayoutPeriod(this.firstSelectedMonth.year, this.firstSelectedMonth.index),
-            ),
-        );
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, this.$store.state.node.selectedSatellite.id);
-            await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-        } catch (error) {
-            const lastMonthDate = new Date();
-            lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
-
-            const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
-            const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
-            const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
-
-            if (!isLastPeriodSelected) {
-                await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
-                console.error(error);
-            }
-        }
-
-        this.close();
-    }
-
-    /**
-     * Updates selected period label.
-     */
-    public updatePeriod(): void {
-        if (!this.firstSelectedMonth) {
-            this.period = '';
-
-            return;
-        }
-
-        this.period = this.secondSelectedMonth ?
-            `${this.firstSelectedMonth.name}, ${this.firstSelectedMonth.year} - ${this.secondSelectedMonth.name}, ${this.secondSelectedMonth.year}`
-            : `${monthNames[this.firstSelectedMonth.index]}, ${this.firstSelectedMonth.year}`;
-    }
-
-    /**
-     * Selects period between node start and now.
-     */
-    public selectAllTime(): void {
-        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
-
-        if (nodeStartedAt.getUTCMonth() === this.now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === this.now.getUTCFullYear()) {
-            return;
-        }
-
-        this.firstSelectedMonth = new MonthButton(nodeStartedAt.getUTCFullYear(), nodeStartedAt.getUTCMonth());
-        this.secondSelectedMonth = this.now.getUTCMonth() === 0 ?
-            new MonthButton(this.now.getUTCFullYear() - 1, 11)
-            : new MonthButton(this.now.getUTCFullYear(), this.now.getUTCMonth() - 1);
-
-        if (
-            this.firstSelectedMonth.year === this.secondSelectedMonth.year
-            && this.firstSelectedMonth.index === this.secondSelectedMonth.index
-        ) {
-            this.secondSelectedMonth = null;
-            this.checkMonth(this.firstSelectedMonth);
-        }
-
-        this.updateMonthsSelection(true);
-        this.updatePeriod();
-    }
-
-    /**
-     * Updates first and second selected month on click.
-     */
-    public checkMonth(month: MonthButton): void {
-        if (this.firstSelectedMonth && this.secondSelectedMonth) {
-            this.updateMonthsSelection(false);
-            this.firstSelectedMonth = this.secondSelectedMonth = null;
-
-            if (month.active) {
-                this.firstSelectedMonth = month;
-                month.selected = true;
-            }
-
-            this.updatePeriod();
-
-            return;
-        }
-
-        if (!month.active) return;
-
-        if (!this.firstSelectedMonth) {
-            this.firstSelectedMonth = month;
-            month.selected = true;
-            this.updatePeriod();
-
-            return;
-        }
-
-        if (this.firstSelectedMonth === month) {
-            this.firstSelectedMonth = null;
-            month.selected = false;
-            this.updatePeriod();
-
-            return;
-        }
-
-        this.secondSelectedMonth = month;
-        if ((this.secondSelectedMonth && this.firstSelectedMonth) && new Date(this.secondSelectedMonth.year, this.secondSelectedMonth.index) < new Date(this.firstSelectedMonth.year, this.firstSelectedMonth.index)) {
-            [this.secondSelectedMonth, this.firstSelectedMonth] = [this.firstSelectedMonth, this.secondSelectedMonth];
-        }
-
-        this.updatePeriod();
-        this.updateMonthsSelection(true);
-    }
-
-    /**
-     * Increments year and updates current months set.
-     */
-    public incrementYear(): void {
-        if (this.displayedYear === this.now.getUTCFullYear()) return;
-
-        this.displayedYear += 1;
-        this.populateMonths(this.displayedYear);
-        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
-    }
-
-    /**
-     * Decrement year and updates current months set.
-     */
-    public decrementYear(): void {
-        if (this.displayedYear === this.$store.state.node.selectedSatellite.joinDate.getUTCFullYear()) return;
-
-        this.displayedYear -= 1;
-        this.populateMonths(this.displayedYear);
-        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
-    }
-
-    /**
-     * Marks all months between first and second selected as selected/unselected.
-     */
-    private updateMonthsSelection(value: boolean): void {
-        if (!this.firstSelectedMonth) return;
-
-        if (!this.secondSelectedMonth) {
-            const selectedMonth = this.displayedMonths[this.firstSelectedMonth.year].find(month => {
-                if (this.firstSelectedMonth) {
-                    return month.index === this.firstSelectedMonth.index;
-                }
-            });
-
-            if (selectedMonth) {
-                selectedMonth.selected = value;
-            }
-
-            return;
-        }
-
-        for (let i = this.firstSelectedMonth.year; i <= this.secondSelectedMonth.year; i++) {
-            if (!this.displayedMonths[i]) {
-                this.populateMonths(i);
-            }
-
-            this.displayedMonths[i].forEach(month => {
-                const date = new Date(month.year, month.index);
-
-                if (
-                    (this.secondSelectedMonth && this.firstSelectedMonth)
-                    && new Date(this.firstSelectedMonth.year, this.firstSelectedMonth.index) <= date
-                    && date <= new Date(this.secondSelectedMonth.year, this.secondSelectedMonth.index)
-                ) {
-                    month.selected = value;
-                }
-            });
-        }
-    }
-
-    /**
-     * Sets months set in displayedMonths with year as key.
-     */
-    private populateMonths(year: number): void {
-        if (this.displayedMonths[year]) {
-            this.currentDisplayedMonths = this.displayedMonths[year];
-
-            return;
-        }
-
-        const months: MonthButton[] = [];
-        const availablePeriods: string[] = this.$store.state.payoutModule.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, store.state.node.selectedSatellite.id);
+        await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+    } catch (error) {
         const lastMonthDate = new Date();
         lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
-        // Creates month entities and adds them to list.
-        for (let i = 0; i < 12; i++) {
-            const period = `${year}-${i < 9 ? '0' + (i + 1) : (i + 1)}`;
+        const selectedPeriod: PayoutInfoRange = store.state.payoutModule.periodRange;
+        const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
+        const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
 
-            const isLastMonth: boolean = lastMonthDate.getUTCFullYear() === year && lastMonthDate.getUTCMonth() === i;
-            const isLastMonthActive: boolean =
-                isLastMonth && this.$store.state.node.selectedSatellite.joinDate.getTime() < new Date(
-                    this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 1,
-                ).getTime();
+        if (!isLastPeriodSelected) {
+            await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
+            console.error(error);
+        }
+    }
 
-            const isMonthActive: boolean = availablePeriods.includes(period);
+    close();
+}
 
-            months.push(new MonthButton(year, i, isMonthActive || isLastMonthActive, false));
+function updatePeriod(): void {
+    if (!firstSelectedMonth.value) {
+        period.value = '';
+
+        return;
+    }
+
+    period.value = secondSelectedMonth.value ?
+        `${firstSelectedMonth.value.name}, ${firstSelectedMonth.value.year} - ${secondSelectedMonth.value.name}, ${secondSelectedMonth.value.year}`
+        : `${monthNames[firstSelectedMonth.value.index]}, ${firstSelectedMonth.value.year}`;
+}
+
+function selectAllTime(): void {
+    const nodeStartedAt = store.state.node.selectedSatellite.joinDate;
+
+    if (nodeStartedAt.getUTCMonth() === now.value.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.value.getUTCFullYear()) {
+        return;
+    }
+
+    firstSelectedMonth.value = new MonthButton(nodeStartedAt.getUTCFullYear(), nodeStartedAt.getUTCMonth());
+    secondSelectedMonth.value = now.value.getUTCMonth() === 0 ?
+        new MonthButton(now.value.getUTCFullYear() - 1, 11)
+        : new MonthButton(now.value.getUTCFullYear(), now.value.getUTCMonth() - 1);
+
+    if (
+        firstSelectedMonth.value.year === secondSelectedMonth.value.year
+        && firstSelectedMonth.value.index === secondSelectedMonth.value.index
+    ) {
+        secondSelectedMonth.value = null;
+        checkMonth(firstSelectedMonth.value);
+    }
+
+    updateMonthsSelection(true);
+    updatePeriod();
+}
+
+function checkMonth(month: MonthButton): void {
+    if (firstSelectedMonth.value && secondSelectedMonth.value) {
+        updateMonthsSelection(false);
+        firstSelectedMonth.value = secondSelectedMonth.value = null;
+
+        if (month.active) {
+            firstSelectedMonth.value = month;
+            month.selected = true;
         }
 
-        this.displayedMonths[year] = months;
+        updatePeriod();
+
+        return;
     }
 
-    /**
-     * Closes calendar.
-     */
-    private close(): void {
-        setTimeout(() => this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false), 0);
+    if (!month.active) return;
+
+    if (!firstSelectedMonth.value) {
+        firstSelectedMonth.value = month;
+        month.selected = true;
+        updatePeriod();
+
+        return;
+    }
+
+    if (firstSelectedMonth.value === month) {
+        firstSelectedMonth.value = null;
+        month.selected = false;
+        updatePeriod();
+
+        return;
+    }
+
+    secondSelectedMonth.value = month;
+    if ((secondSelectedMonth.value && firstSelectedMonth.value) && new Date(secondSelectedMonth.value.year, secondSelectedMonth.value.index) < new Date(firstSelectedMonth.value.year, firstSelectedMonth.value.index)) {
+        [secondSelectedMonth.value, firstSelectedMonth.value] = [firstSelectedMonth.value, secondSelectedMonth.value];
+    }
+
+    updatePeriod();
+    updateMonthsSelection(true);
+}
+
+function incrementYear(): void {
+    if (displayedYear.value === now.value.getUTCFullYear()) return;
+
+    displayedYear.value += 1;
+    populateMonths(displayedYear.value);
+    currentDisplayedMonths.value = displayedMonths.value[displayedYear.value];
+}
+
+function decrementYear(): void {
+    if (displayedYear.value === store.state.node.selectedSatellite.joinDate.getUTCFullYear()) return;
+
+    displayedYear.value -= 1;
+    populateMonths(displayedYear.value);
+    currentDisplayedMonths.value = displayedMonths.value[displayedYear.value];
+}
+
+function updateMonthsSelection(value: boolean): void {
+    if (!firstSelectedMonth.value) return;
+
+    if (!secondSelectedMonth.value) {
+        const selectedMonth = displayedMonths.value[firstSelectedMonth.value.year].find(month => {
+            if (firstSelectedMonth.value) {
+                return month.index === firstSelectedMonth.value.index;
+            }
+        });
+
+        if (selectedMonth) {
+            selectedMonth.selected = value;
+        }
+
+        return;
+    }
+
+    for (let i = firstSelectedMonth.value.year; i <= secondSelectedMonth.value.year; i++) {
+        if (!displayedMonths.value[i]) {
+            populateMonths(i);
+        }
+
+        displayedMonths.value[i].forEach(month => {
+            const date = new Date(month.year, month.index);
+
+            if (
+                (secondSelectedMonth.value && firstSelectedMonth.value)
+                && new Date(firstSelectedMonth.value.year, firstSelectedMonth.value.index) <= date
+                && date <= new Date(secondSelectedMonth.value.year, secondSelectedMonth.value.index)
+            ) {
+                month.selected = value;
+            }
+        });
     }
 }
+
+function populateMonths(year: number): void {
+    if (displayedMonths.value[year]) {
+        currentDisplayedMonths.value = displayedMonths.value[year];
+
+        return;
+    }
+
+    const months: MonthButton[] = [];
+    const availablePeriods: string[] = store.state.payoutModule.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
+    const lastMonthDate = new Date();
+    lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
+
+    // Creates month entities and adds them to list.
+    for (let i = 0; i < 12; i++) {
+        const period = `${year}-${i < 9 ? '0' + (i + 1) : (i + 1)}`;
+
+        const isLastMonth: boolean = lastMonthDate.getUTCFullYear() === year && lastMonthDate.getUTCMonth() === i;
+        const isLastMonthActive: boolean =
+            isLastMonth && store.state.node.selectedSatellite.joinDate.getTime() < new Date(
+                now.value.getUTCFullYear(), now.value.getUTCMonth(), 1, 0, 0, 1,
+            ).getTime();
+
+        const isMonthActive: boolean = availablePeriods.includes(period);
+
+        months.push(new MonthButton(year, i, isMonthActive || isLastMonthActive, false));
+    }
+
+    displayedMonths.value[year] = months;
+}
+
+function close(): void {
+    setTimeout(() => store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false), 0);
+}
+
+onMounted(() => {
+    populateMonths(displayedYear.value);
+    currentDisplayedMonths.value = displayedMonths.value[displayedYear.value];
+});
 </script>
 
 <style scoped lang="scss">

@@ -24,55 +24,42 @@
     </section>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
+import { useStore } from '@/app/utils/composables';
 
 import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
 import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
-// @vue/component
-@Component ({
-    components: {
-        PayoutHistoryPeriodDropdown,
-        PayoutHistoryTableItem,
-    },
-})
-export default class PayoutHistoryTable extends Vue {
-    public get payoutHistory(): SatellitePayoutForPeriod[] {
-        return this.$store.state.payoutModule.payoutHistory;
+const store = useStore();
+
+const payoutHistory = computed<SatellitePayoutForPeriod[]>(() => {
+    return store.state.payoutModule.payoutHistory;
+});
+
+const totalPaid = computed<number>(() => {
+    return store.getters.totalPaidForPayoutHistoryPeriod;
+});
+
+onMounted(async () => {
+    const payoutPeriods = store.state.payoutModule.payoutPeriods;
+
+    if (!payoutPeriods.length) {
+        return;
     }
 
-    /**
-     * Returns sum of payouts for all satellites of current period.
-     */
-    public get totalPaid(): number {
-        return this.$store.getters.totalPaidForPayoutHistoryPeriod;
+    const lastPeriod = payoutPeriods[payoutPeriods.length - 1];
+    await store.dispatch(PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD, lastPeriod.period);
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+    } catch (error) {
+        console.error(error);
     }
-
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches payout history for last period.
-     */
-    public async mounted(): Promise<void> {
-        const payoutPeriods = this.$store.state.payoutModule.payoutPeriods;
-
-        if (!payoutPeriods.length) {
-            return;
-        }
-
-        const lastPeriod = payoutPeriods[payoutPeriods.length - 1];
-        await this.$store.dispatch(PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD, lastPeriod.period);
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
-        } catch (error) {
-            console.error(error);
-        }
-    }
-}
+});
 </script>
 
 <style scoped lang="scss">

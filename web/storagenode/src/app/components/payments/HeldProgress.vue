@@ -19,8 +19,12 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue';
+
+import { useStore } from '@/app/utils/composables';
+
+const store = useStore();
 
 class HeldStep {
     public constructor(
@@ -38,66 +42,54 @@ class HeldStep {
     }
 }
 
-// @vue/component
-@Component
-export default class HeldProgress extends Vue {
-    public steps: HeldStep[] = [];
-    private MONTHS_BREAKPOINTS: number[] = [0, 3, 6, 9, 15];
+const MONTHS_BREAKPOINTS: number[] = [0, 3, 6, 9, 15];
 
-    /**
-     * Returns approximated number of months that node is online.
-     */
-    public get monthsOnNetwork(): number {
-        return this.$store.getters.monthsOnNetwork;
-    }
+const steps = ref<HeldStep[]>([]);
 
-    /**
-     * Lifecycle hook after initial render.
-     * Builds held steps.
-     */
-    public mounted(): void {
-        this.buildSteps();
-    }
+const monthsOnNetwork = computed<number>(() => {
+    return store.getters.monthsOnNetwork;
+});
 
-    /**
-     * Builds held steps depends on node`s months online.
-     */
-    @Watch('monthsOnNetwork')
-    private buildSteps(): void {
-        this.steps = [
-            new HeldStep(
-                '75%',
-                `Month ${this.MONTHS_BREAKPOINTS[0] + 1}-${this.MONTHS_BREAKPOINTS[1]}`,
-                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[0] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[1],
-                false,
-            ),
-            new HeldStep(
-                '50%',
-                `Month ${this.MONTHS_BREAKPOINTS[1] + 1}-${this.MONTHS_BREAKPOINTS[2]}`,
-                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[1] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[2],
-                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[1] + 1,
-            ),
-            new HeldStep(
-                '25%',
-                `Month ${this.MONTHS_BREAKPOINTS[2] + 1}-${this.MONTHS_BREAKPOINTS[3]}`,
-                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[2] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[3],
-                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[2] + 1,
-            ),
-            new HeldStep(
-                '0%',
-                `Month ${this.MONTHS_BREAKPOINTS[3] + 1}-${this.MONTHS_BREAKPOINTS[4]}`,
-                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[3] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[4],
-                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[3] + 1,
-            ),
-            new HeldStep(
-                '+50%',
-                `Month ${this.MONTHS_BREAKPOINTS[4] + 1}`,
-                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[4],
-                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[4] + 1,
-            ),
-        ];
-    }
+function buildSteps(): void {
+    steps.value = [
+        new HeldStep(
+            '75%',
+            `Month ${MONTHS_BREAKPOINTS[0] + 1}-${MONTHS_BREAKPOINTS[1]}`,
+            monthsOnNetwork.value > MONTHS_BREAKPOINTS[0] && monthsOnNetwork.value <= MONTHS_BREAKPOINTS[1],
+            false,
+        ),
+        new HeldStep(
+            '50%',
+            `Month ${MONTHS_BREAKPOINTS[1] + 1}-${MONTHS_BREAKPOINTS[2]}`,
+            monthsOnNetwork.value > MONTHS_BREAKPOINTS[1] && monthsOnNetwork.value <= MONTHS_BREAKPOINTS[2],
+            monthsOnNetwork.value < MONTHS_BREAKPOINTS[1] + 1,
+        ),
+        new HeldStep(
+            '25%',
+            `Month ${MONTHS_BREAKPOINTS[2] + 1}-${MONTHS_BREAKPOINTS[3]}`,
+            monthsOnNetwork.value > MONTHS_BREAKPOINTS[2] && monthsOnNetwork.value <= MONTHS_BREAKPOINTS[3],
+            monthsOnNetwork.value < MONTHS_BREAKPOINTS[2] + 1,
+        ),
+        new HeldStep(
+            '0%',
+            `Month ${MONTHS_BREAKPOINTS[3] + 1}-${MONTHS_BREAKPOINTS[4]}`,
+            monthsOnNetwork.value > MONTHS_BREAKPOINTS[3] && monthsOnNetwork.value <= MONTHS_BREAKPOINTS[4],
+            monthsOnNetwork.value < MONTHS_BREAKPOINTS[3] + 1,
+        ),
+        new HeldStep(
+            '+50%',
+            `Month ${MONTHS_BREAKPOINTS[4] + 1}`,
+            monthsOnNetwork.value > MONTHS_BREAKPOINTS[4],
+            monthsOnNetwork.value < MONTHS_BREAKPOINTS[4] + 1,
+        ),
+    ];
 }
+
+watch(monthsOnNetwork, buildSteps);
+
+onMounted(() => {
+    buildSteps();
+});
 </script>
 
 <style scoped lang="scss">

@@ -9,10 +9,10 @@
                 <p class="held-history-table-container--small__item__satellite-info__months">{{ heldHistoryItem.monthsWithNode }} month</p>
             </div>
             <div class="held-history-table-container--small__item__satellite-info__button">
-                <div v-if="isExpanded" class="icon hide" @click="hide">
+                <div v-if="isExpanded" class="table-icon hide" @click="hide">
                     <blue-hide-icon />
                 </div>
-                <div v-else class="icon expand" @click="expand">
+                <div v-else class="table-icon expand" @click="expand">
                     <blue-expand-icon />
                 </div>
             </div>
@@ -36,25 +36,112 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
-
-import BaseSmallHeldHistoryTable from '@/app/components/payments/BaseSmallHeldHistoryTable.vue';
 
 import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
 
-// @vue/component
-@Component({
-    components: {
-        BlueHideIcon,
-        BlueExpandIcon,
-    },
-})
-export default class HeldHistoryAllStatsTableSmall extends BaseSmallHeldHistoryTable {
-    @Prop({ default: () => new SatelliteHeldHistory() })
-    public readonly heldHistoryItem: SatelliteHeldHistory;
+withDefaults(defineProps<{
+    heldHistoryItem: SatelliteHeldHistory
+}>(), {
+    heldHistoryItem: () => new SatelliteHeldHistory(),
+});
+
+const isExpanded = ref<boolean>(false);
+
+function expand(): void {
+    isExpanded.value = true;
+}
+
+function hide(): void {
+    isExpanded.value = false;
 }
 </script>
+
+// Deliberately not scoped to allow styles to cascade to other components.
+<style lang="scss">
+.held-history-table-container--small__item {
+    padding: 12px;
+    width: calc(100% - 24px);
+
+    &__satellite-info {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        &__name {
+            font-family: 'font_regular', sans-serif;
+            font-size: 14px;
+            color: var(--regular-text-color);
+            max-width: calc(100% - 40px);
+            word-break: break-word;
+        }
+
+        &__months {
+            font-family: 'font_regular', sans-serif;
+            font-size: 11px;
+            color: #9b9db1;
+            margin-top: 3px;
+        }
+
+        &__button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            min-width: 30px;
+            min-height: 30px;
+            background: var(--expand-button-background-color);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    }
+
+    &__held-info {
+        margin-top: 16px;
+
+        &__item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            line-height: 12px;
+            margin-bottom: 10px;
+
+            &__label {
+                font-family: 'font_medium', sans-serif;
+                color: #909bad;
+            }
+
+            &__value {
+                font-family: 'font_regular', sans-serif;
+                color: var(--regular-text-color);
+            }
+        }
+    }
+}
+
+.table-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    max-height: 100%;
+    width: 100%;
+    height: 100%;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.5s;
+}
+
+.fade-enter,
+.fade-leave-to /* .fade-leave-active below version 2.1.8 */ {
+    opacity: 0;
+}
+</style>

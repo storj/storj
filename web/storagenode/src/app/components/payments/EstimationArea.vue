@@ -141,8 +141,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
@@ -159,10 +159,13 @@ import {
     SatellitePricingModel,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
+import { useStore } from '@/app/utils/composables';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
+
+const store = useStore();
 
 /**
  * Describes table row data item.
@@ -178,278 +181,196 @@ class EstimationTableRow {
     ) {}
 }
 
-// @vue/component
-@Component ({
-    components: {
-        EstimationPeriodDropdown,
-        ChecksInfoIcon,
-    },
-})
-export default class EstimationArea extends Vue {
-    public now: Date = new Date();
+const now = ref<Date>(new Date());
+const isTooltipVisible = ref<boolean>(false);
 
-    /**
-     * Returns formatted selected payout period.
-     */
-    public get currentPeriod(): string {
-        const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
-        const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
+const currentPeriod = computed<string>(() => {
+    const start: PayoutPeriod = store.state.payoutModule.periodRange.start;
+    const end: PayoutPeriod = store.state.payoutModule.periodRange.end;
 
-        return start && start.period !== end.period ?
-            `${monthNames[start.month].slice(0, 3)} ${start.year} - ${monthNames[end.month].slice(0, 3)} ${end.year}`
-            : `${monthNames[end.month].slice(0, 3)} ${end.year}`;
+    return start && start.period !== end.period ?
+        `${monthNames[start.month].slice(0, 3)} ${start.year} - ${monthNames[end.month].slice(0, 3)} ${end.year}`
+        : `${monthNames[end.month].slice(0, 3)} ${end.year}`;
+});
+
+const isCurrentPeriod = computed<boolean>(() => {
+    const end = store.state.payoutModule.periodRange.end;
+    const isCurrentMonthSelected = end.year === now.value.getUTCFullYear() && end.month === now.value.getUTCMonth();
+
+    return !store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
+});
+
+const isLastPeriodWithoutPaystub = computed<boolean>(() => {
+    const joinedAt: Date = store.state.node.selectedSatellite.joinDate;
+    const isNodeStartedBeforeCurrentPeriod =
+        joinedAt.getTime() < new Date(now.value.getUTCFullYear(), now.value.getUTCMonth(), 1, 0, 0, 1).getTime();
+
+    if (!isNodeStartedBeforeCurrentPeriod) {
+        return false;
     }
 
-    /**
-     * Indicates if current month selected.
-     */
-    public get isCurrentPeriod(): boolean {
-        const end = this.$store.state.payoutModule.periodRange.end;
-        const isCurrentMonthSelected = end.year === this.now.getUTCFullYear() && end.month === this.now.getUTCMonth();
+    const lastMonthDate = new Date();
+    lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
-        return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
+    const selectedPeriod: PayoutInfoRange = store.state.payoutModule.periodRange;
+    const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
+    const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
+    const isPaystubAvailable: boolean = store.state.payoutModule.payoutPeriods.map(e => e.period).includes(lastMonthPayoutPeriod.period);
+
+    return isLastPeriodSelected && !isPaystubAvailable;
+});
+
+const isSatelliteSelected = computed<boolean>(() => {
+    return !!store.state.node.selectedSatellite.id;
+});
+
+const surgePercent = computed<string>(() => {
+    return !store.state.payoutModule.periodRange.start ? `(${store.state.payoutModule.totalPaystubForPeriod.surgePercent}%)` : '';
+});
+
+const isPayoutNoDataState = computed<boolean>(() => {
+    return store.state.appStateModule.isNoPayoutData;
+});
+
+const totalPaystubForPeriod = computed<TotalPaystubForPeriod>(() => {
+    return store.state.payoutModule.totalPaystubForPeriod;
+});
+
+const estimation = computed<EstimatedPayout>(() => {
+    return store.state.payoutModule.estimation;
+});
+
+const pricing = computed<SatellitePricingModel>(() => {
+    return store.state.payoutModule.pricingModel;
+});
+
+const held = computed<number>(() => {
+    if (isHistoricalPeriod.value) {
+        return totalPaystubForPeriod.value.held;
     }
 
-    /**
-     * Indicates if last month selected and has no data for this period.
-     */
-    public get isLastPeriodWithoutPaystub(): boolean {
-        const joinedAt: Date = this.$store.state.node.selectedSatellite.joinDate;
-        const isNodeStartedBeforeCurrentPeriod =
-            joinedAt.getTime() < new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 1).getTime();
+    return estimatedHeld.value;
+});
 
-        if (!isNodeStartedBeforeCurrentPeriod) {
-            return false;
-        }
+const disposed = computed<number>(() => {
+    return totalPaystubForPeriod.value.disposed;
+});
 
-        const lastMonthDate = new Date();
-        lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
+const isHistoricalPeriod = computed<boolean>(() => {
+    return !isCurrentPeriod.value && !isLastPeriodWithoutPaystub.value;
+});
 
-        const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
-        const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
-        const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
-        const isPaystubAvailable: boolean = this.$store.state.payoutModule.payoutPeriods.map(e => e.period).includes(lastMonthPayoutPeriod.period);
-
-        return isLastPeriodSelected && !isPaystubAvailable;
+const totalPayout = computed<number>(() => {
+    if (isHistoricalPeriod.value) {
+        return totalPaystubForPeriod.value.paid;
     }
 
-    public get isSatelliteSelected(): boolean {
-        return !!this.$store.state.node.selectedSatellite.id;
+    return grossTotal.value - estimatedHeld.value;
+});
+
+const grossTotal = computed<number>(() => {
+    if (isHistoricalPeriod.value) {
+        return totalPaystubForPeriod.value.paidWithoutSurge;
     }
 
-    /**
-     * Returns surge percent if single month selected.
-     */
-    public get surgePercent(): string {
-        return !this.$store.state.payoutModule.periodRange.start ? `(${this.totalPaystubForPeriod.surgePercent}%)` : '';
+    return isLastPeriodWithoutPaystub.value ? estimation.value.previousMonth.payout + held.value : estimation.value.currentMonth.payout + held.value;
+});
+
+const totalDiskSpace = computed<string>(() => {
+    if (isHistoricalPeriod.value) {
+        return Size.toBase10String(totalPaystubForPeriod.value.usageAtRest);
     }
 
-    /**
-     * Indicates if payout data is unavailable.
-     */
-    public get isPayoutNoDataState(): boolean {
-        return this.$store.state.appStateModule.isNoPayoutData;
-    }
+    return Size.toBase10String(currentDiskSpace.value);
+});
 
-    /**
-     * Returns payout info from store.
-     */
-    public get totalPaystubForPeriod(): TotalPaystubForPeriod {
-        return this.$store.state.payoutModule.totalPaystubForPeriod;
-    }
-
-    /**
-     * Returns estimated payout information.
-     */
-    public get estimation(): EstimatedPayout {
-        return this.$store.state.payoutModule.estimation;
-    }
-
-    /**
-     * Returns satellite pricing model.
-     */
-    public get pricing(): SatellitePricingModel {
-        return this.$store.state.payoutModule.pricingModel;
-    }
-
-    /**
-     * Returns calculated or stored held amount.
-     */
-    public get held(): number {
-        if (this.isHistoricalPeriod) {
-            return this.totalPaystubForPeriod.held;
-        }
-
-        return this.estimatedHeld;
-    }
-
-    /**
-     * Returns calculated or stored returned held amount.
-     */
-    public get disposed(): number {
-        return this.totalPaystubForPeriod.disposed;
-    }
-
-    /**
-     * Indicates if historical period with paystub selected.
-     */
-    public get isHistoricalPeriod(): boolean {
-        return !this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub;
-    }
-
-    /**
-     * Returns calculated or stored total payout by selected period.
-     */
-    public get totalPayout(): number {
-        if (this.isHistoricalPeriod) {
-            return this.totalPaystubForPeriod.paid;
-        }
-
-        return this.grossTotal - this.estimatedHeld;
-    }
-
-    /**
-     * Returns calculated gross payout by selected period.
-     */
-    public get grossTotal(): number {
-        if (this.isHistoricalPeriod) {
-            return this.totalPaystubForPeriod.paidWithoutSurge;
-        }
-
-        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.payout + this.held : this.estimation.currentMonth.payout + this.held;
-    }
-
-    /**
-     * Returns calculated or stored total used disk space by selected period.
-     */
-    public get totalDiskSpace(): string {
-        if (this.isHistoricalPeriod) {
-            return Size.toBase10String(this.totalPaystubForPeriod.usageAtRest);
-        }
-
-        return Size.toBase10String(this.currentDiskSpace);
-    }
-
-    /**
-     * Returns calculated or stored total used bandwidth by selected period.
-     */
-    public get totalBandwidth(): string {
-        if (this.isHistoricalPeriod) {
-            return Size.toBase10String(
-                this.totalPaystubForPeriod.usageGet +
-                this.totalPaystubForPeriod.usageGetRepair +
-                this.totalPaystubForPeriod.usageGetAudit,
-            );
-        }
-
-        return Size.toBase10String((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
-    }
-
-    /**
-     * Returns summary of current month audit and repair bandwidth.
-     */
-    private get currentBandwidthAuditAndRepair(): number {
-        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.egressRepairAudit : this.estimation.currentMonth.egressRepairAudit;
-    }
-
-    /**
-     * Returns summary of current month download bandwidth.
-     */
-    private get currentBandwidthDownload(): number {
-        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.egressBandwidth : this.estimation.currentMonth.egressBandwidth;
-    }
-
-    /**
-     * Returns summary of current month used disk space.
-     */
-    private get currentDiskSpace(): number {
-        return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.diskSpace : this.estimation.currentMonth.diskSpace;
-    }
-
-    /**
-     * Builds estimated payout table depends on selected period.
-     */
-    public get tableData(): EstimationTableRow[] {
-        if (this.isHistoricalPeriod) {
-            return [
-                new EstimationTableRow('Download', 'Egress', ``, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
-                new EstimationTableRow('Repair & Audit', 'Egress', ``, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', ``, Size.toBase10String(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
-            ];
-        }
-
-        const estimatedPayout = this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth : this.estimation.currentMonth;
-
-        return [
-            new EstimationTableRow(
-                'Download',
-                'Egress',
-                `$${this.pricing.egressBandwidth} / TB`,
-                '--',
-                Size.toBase10String(estimatedPayout.egressBandwidth),
-                estimatedPayout.egressBandwidthPayout,
-            ),
-            new EstimationTableRow(
-                'Repair & Audit',
-                'Egress',
-                `$${this.pricing.repairBandwidth} / TB`,
-                '--',
-                Size.toBase10String(estimatedPayout.egressRepairAudit),
-                estimatedPayout.egressRepairAuditPayout,
-            ),
-            new EstimationTableRow(
-                'Disk Average Month',
-                'Storage',
-                `$${this.pricing.diskSpace} / TBm`,
-                Size.toBase10String(estimatedPayout.diskSpace) + 'm',
-                '--',
-                estimatedPayout.diskSpacePayout,
-            ),
-        ];
-    }
-
-    /**
-     * Indicates if today is first day of month.
-     */
-    public get isFirstDayOfCurrentMonth(): boolean {
-        return this.now.getUTCDate() === 1;
-    }
-
-    /**
-     * Indicates if tooltip needs to be shown.
-     */
-    public isTooltipVisible = false;
-
-    /**
-     * Toggles tooltip visibility.
-     */
-    public toggleTooltipVisibility(): void {
-        this.isTooltipVisible = !this.isTooltipVisible;
-    }
-
-    /**
-     * Selects current month as selected payout period.
-     */
-    public async selectCurrentPeriod(): Promise<void> {
-        const now = new Date();
-
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-        await this.$store.dispatch(
-            PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-                null,
-                new PayoutPeriod(now.getUTCFullYear(), now.getUTCMonth()),
-            ),
+const totalBandwidth = computed<string>(() => {
+    if (isHistoricalPeriod.value) {
+        return Size.toBase10String(
+            totalPaystubForPeriod.value.usageGet +
+            totalPaystubForPeriod.value.usageGetRepair +
+            totalPaystubForPeriod.value.usageGetAudit,
         );
     }
 
-    /**
-     * Returns last or current month held amount based on current day of month.
-     */
-    private get estimatedHeld(): number {
-        return this.isLastPeriodWithoutPaystub ?
-            this.estimation.previousMonth.held :
-            this.estimation.currentMonth.held;
+    return Size.toBase10String((currentBandwidthAuditAndRepair.value + currentBandwidthDownload.value));
+});
+
+const currentBandwidthAuditAndRepair = computed<number>(() => {
+    return isLastPeriodWithoutPaystub.value ? estimation.value.previousMonth.egressRepairAudit : estimation.value.currentMonth.egressRepairAudit;
+});
+
+const currentBandwidthDownload = computed<number>(() => {
+    return isLastPeriodWithoutPaystub.value ? estimation.value.previousMonth.egressBandwidth : estimation.value.currentMonth.egressBandwidth;
+});
+
+const currentDiskSpace = computed<number>(() => {
+    return isLastPeriodWithoutPaystub.value ? estimation.value.previousMonth.diskSpace : estimation.value.currentMonth.diskSpace;
+});
+
+const tableData = computed<EstimationTableRow[]>(() => {
+    if (isHistoricalPeriod.value) {
+        return [
+            new EstimationTableRow('Download', 'Egress', ``, '--', Size.toBase10String(totalPaystubForPeriod.value.usageGet), totalPaystubForPeriod.value.compGet),
+            new EstimationTableRow('Repair & Audit', 'Egress', ``, '--', Size.toBase10String(totalPaystubForPeriod.value.usageGetRepair + totalPaystubForPeriod.value.usageGetAudit), totalPaystubForPeriod.value.compGetRepair + totalPaystubForPeriod.value.compGetAudit),
+            new EstimationTableRow('Disk Average Month', 'Storage', ``, Size.toBase10String(totalPaystubForPeriod.value.usageAtRest) + 'm', '--', totalPaystubForPeriod.value.compAtRest),
+        ];
     }
+
+    const estimatedPayout = isLastPeriodWithoutPaystub.value ? estimation.value.previousMonth : estimation.value.currentMonth;
+
+    return [
+        new EstimationTableRow(
+            'Download',
+            'Egress',
+            `$${pricing.value.egressBandwidth} / TB`,
+            '--',
+            Size.toBase10String(estimatedPayout.egressBandwidth),
+            estimatedPayout.egressBandwidthPayout,
+        ),
+        new EstimationTableRow(
+            'Repair & Audit',
+            'Egress',
+            `$${pricing.value.repairBandwidth} / TB`,
+            '--',
+            Size.toBase10String(estimatedPayout.egressRepairAudit),
+            estimatedPayout.egressRepairAuditPayout,
+        ),
+        new EstimationTableRow(
+            'Disk Average Month',
+            'Storage',
+            `$${pricing.value.diskSpace} / TBm`,
+            Size.toBase10String(estimatedPayout.diskSpace) + 'm',
+            '--',
+            estimatedPayout.diskSpacePayout,
+        ),
+    ];
+});
+
+const isFirstDayOfCurrentMonth = computed<boolean>(() => {
+    return now.value.getUTCDate() === 1;
+});
+
+const estimatedHeld = computed<number>(() => {
+    return isLastPeriodWithoutPaystub.value ?
+        estimation.value.previousMonth.held :
+        estimation.value.currentMonth.held;
+});
+
+function toggleTooltipVisibility(): void {
+    isTooltipVisible.value = !isTooltipVisible.value;
+}
+
+async function selectCurrentPeriod(): Promise<void> {
+    const nowDate = new Date();
+
+    await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+    await store.dispatch(
+        PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+            null,
+            new PayoutPeriod(nowDate.getUTCFullYear(), nowDate.getUTCMonth()),
+        ),
+    );
 }
 </script>
 

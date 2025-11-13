@@ -9,10 +9,10 @@
                 <p class="held-history-table-container--small__item__satellite-info__months">{{ heldHistoryItem.monthsWithNode }} month</p>
             </div>
             <div class="held-history-table-container--small__item__satellite-info__button">
-                <div v-if="isExpanded" class="icon hide" @click="hide">
+                <div v-if="isExpanded" class="table-icon hide" @click="hide">
                     <blue-hide-icon />
                 </div>
-                <div v-else class="icon expand" @click="expand">
+                <div v-else class="table-icon expand" @click="expand">
                     <blue-expand-icon />
                 </div>
             </div>
@@ -36,25 +36,27 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
-
-import BaseSmallHeldHistoryTable from '@/app/components/payments/BaseSmallHeldHistoryTable.vue';
 
 import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
 
-// @vue/component
-@Component({
-    components: {
-        BlueHideIcon,
-        BlueExpandIcon,
-    },
-})
-export default class HeldHistoryMonthlyBreakdownTableSmall extends BaseSmallHeldHistoryTable {
-    @Prop({ default: () => new SatelliteHeldHistory() })
-    public readonly heldHistoryItem: SatelliteHeldHistory;
+withDefaults(defineProps<{
+    heldHistoryItem: SatelliteHeldHistory
+}>(), {
+    heldHistoryItem: () => new SatelliteHeldHistory(),
+});
+
+const isExpanded = ref<boolean>(false);
+
+function expand(): void {
+    isExpanded.value = true;
+}
+
+function hide(): void {
+    isExpanded.value = false;
 }
 </script>

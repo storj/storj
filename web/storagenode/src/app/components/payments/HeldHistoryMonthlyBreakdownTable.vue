@@ -44,26 +44,17 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
+import { useStore } from '@/app/utils/composables';
 
-import BaseHeldHistoryTable from '@/app/components/payments/BaseHeldHistoryTable.vue';
 import HeldHistoryMonthlyBreakdownTableItemSmall from '@/app/components/payments/HeldHistoryMonthlyBreakdownTableItemSmall.vue';
 
-// @vue/component
-@Component({
-    components: {
-        HeldHistoryMonthlyBreakdownTableItemSmall,
-    },
-})
-export default class HeldHistoryMonthlyBreakdownTable extends BaseHeldHistoryTable {
-    /**
-     * Returns list of satellite held history items by periods from store.
-     */
-    public get allSatellitesHeldHistory(): SatelliteHeldHistory[] {
-        return this.$store.state.payoutModule.heldHistory;
-    }
-}
+const store = useStore();
+
+const allSatellitesHeldHistory = computed<SatelliteHeldHistory[]>(() => {
+    return store.state.payoutModule.heldHistory;
+});
 </script>

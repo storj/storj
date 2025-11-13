@@ -21,59 +21,40 @@
     </button>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { useStore } from '@/app/utils/composables';
 
 import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
-// @vue/component
-@Component({
-    components: {
-        PayoutPeriodCalendar,
-        BlackArrowExpand,
-        BlackArrowHide,
-    },
-})
-export default class EstimationPeriodDropdown extends Vue {
-    /**
-     * Indicates if period selection calendar should appear.
-     */
-    public get isCalendarShown(): boolean {
-        return this.$store.state.appStateModule.isPayoutCalendarShown;
+const store = useStore();
+
+const isCalendarShown = computed<boolean>(() => {
+    return store.state.appStateModule.isPayoutCalendarShown;
+});
+
+const isCalendarDisabled = computed<boolean>(() => {
+    const nodeStartedAt = store.state.node.selectedSatellite.joinDate;
+    const now = new Date();
+
+    return nodeStartedAt.getUTCMonth() === now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.getUTCFullYear();
+});
+
+function openPeriodDropdown(): void {
+    if (isCalendarDisabled.value) {
+        return;
     }
 
-    /**
-     * Indicates if period selection calendar should be disabled.
-     */
-    public get isCalendarDisabled(): boolean {
-        const nodeStartedAt = this.$store.state.node.selectedSatellite.joinDate;
-        const now = new Date();
+    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, true);
+}
 
-        return nodeStartedAt.getUTCMonth() === now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.getUTCFullYear();
-    }
-
-    /**
-     * Opens payout period selection dropdown.
-     */
-    public openPeriodDropdown(): void {
-        if (this.isCalendarDisabled) {
-            return;
-        }
-
-        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, true);
-    }
-
-    /**
-     * Closes payout period selection dropdown.
-     */
-    public closePeriodDropdown(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
-    }
+function closePeriodDropdown(): void {
+    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
 }
 </script>
 
