@@ -20,8 +20,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
@@ -29,122 +29,96 @@ import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutInfoRange } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
+import { useStore } from '@/app/utils/composables';
 
 import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
-// @vue/component
-@Component({
-    components: {
-        SatelliteSelectionDropdownItem,
-    },
-})
-export default class SatelliteSelectionDropdown extends Vue {
-    private now: Date = new Date();
+const store = useStore();
 
-    /**
-     * Returns node satellites list from store.
-     */
-    public get satellites(): SatelliteInfo[] {
-        return this.$store.state.node.satellites;
+const now = ref<Date>(new Date());
+
+const satellites = computed<SatelliteInfo[]>(() => {
+    return store.state.node.satellites;
+});
+
+const selectedSatellite = computed<string>(() => {
+    return store.state.node.selectedSatellite.id;
+});
+
+const isCurrentPeriod = computed<boolean>(() => {
+    const end = store.state.payoutModule.periodRange.end;
+    const isCurrentMonthSelected = end.year === now.value.getUTCFullYear() && end.month === now.value.getUTCMonth();
+
+    return !store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
+});
+
+async function onSatelliteClick(id: string): Promise<void> {
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
+    try {
+        await store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+        await store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
+        await fetchPayoutInfo(id);
+    } catch (error) {
+        console.error(error);
     }
 
-    /**
-     * Returns selected satellite id from store.
-     */
-    public get selectedSatellite(): string {
-        return this.$store.state.node.selectedSatellite.id;
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+}
+
+async function onAllSatellitesClick(): Promise<void> {
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
+    try {
+        await store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+        await store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+        await fetchPayoutInfo();
+    } catch (error) {
+        console.error(error);
     }
 
-    /**
-     * Indicates if current month selected.
-     */
-    public get isCurrentPeriod(): boolean {
-        const end = this.$store.state.payoutModule.periodRange.end;
-        const isCurrentMonthSelected = end.year === this.now.getUTCFullYear() && end.month === this.now.getUTCMonth();
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+}
 
-        return !this.$store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
-    }
+async function fetchPayoutInfo(id = ''): Promise<void> {
+    await store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
+    await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
 
-    /**
-     * Fires on satellite click and selects it.
-     */
-    public async onSatelliteClick(id: string): Promise<void> {
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
-
+    if (!isCurrentPeriod.value) {
         try {
-            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
-            this.fetchPayoutInfo(id);
-        } catch (error) {
-            console.error(error);
-        }
-
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
-    }
-
-    /**
-     * Fires on all satellites click and sets selected satellite id to null.
-     */
-    public async onAllSatellitesClick(): Promise<void> {
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
-
-        try {
-            await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-            this.fetchPayoutInfo();
-        } catch (error) {
-            console.error(error);
-        }
-
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
-    }
-
-    /**
-     * Closes dropdown.
-     */
-    public closePopup(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
-    }
-
-    /**
-     * Fetches payout information depends on selected satellite.
-     */
-    private async fetchPayoutInfo(id = ''): Promise<void> {
-        await this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-
-        if (!this.isCurrentPeriod) {
-            try {
-                await this.$store.dispatch(PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(null, new PayoutPeriod()));
-            } catch (error) {
-                console.error(error);
-            }
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, id);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, id);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, id);
+            await store.dispatch(PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(null, new PayoutPeriod()));
         } catch (error) {
             console.error(error);
         }
     }
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, id);
+    } catch (error) {
+        console.error(error);
+    }
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, id);
+    } catch (error) {
+        console.error(error);
+    }
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
+    } catch (error) {
+        console.error(error);
+    }
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, id);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function closePopup(): void {
+    store.dispatch(APPSTATE_ACTIONS.CLOSE_ALL_POPUPS);
 }
 </script>
 

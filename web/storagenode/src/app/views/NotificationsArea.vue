@@ -45,69 +45,45 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
+import { useStore } from '@/app/utils/composables';
 
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 import VPagination from '@/app/components/VPagination.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
-// @vue/component
-@Component ({
-    components: {
-        VPagination,
-        SNONotification,
-        BackArrowIcon,
-    },
-})
-export default class NotificationsArea extends Vue {
-    /**
-     * Returns notification of current page.
-     */
-    public get notifications(): UINotification[] {
-        return this.$store.state.notificationsModule.notifications;
-    }
+const store = useStore();
 
-    /**
-     * Indicates if mark all as read button should be disabled.
-     */
-    public get isMarkAllAsReadButtonDisabled(): boolean {
-        return this.$store.state.notificationsModule.unreadCount === 0;
-    }
+const notifications = computed<UINotification[]>(() => {
+    return store.state.notificationsModule.notifications;
+});
 
-    /**
-     * Returns total number of notification pages.
-     */
-    public get totalPageCount(): number {
-        return this.$store.state.notificationsModule.pageCount;
-    }
+const isMarkAllAsReadButtonDisabled = computed<boolean>(() => {
+    return store.state.notificationsModule.unreadCount === 0;
+});
 
-    /**
-     * onPageClick fetches notifications on selected page.
-     *
-     * @param index number of page
-     */
-    public async onPageClick(index: number): Promise<void> {
-        try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, index);
-        } catch (error) {
-            console.error(error);
-        }
-    }
+const totalPageCount = computed<number>(() => {
+    return store.state.notificationsModule.pageCount;
+});
 
-    /**
-     * markAllAsRead marks all notifications as read and disables button.
-     */
-    public async markAllAsRead(): Promise<void> {
-        try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.READ_ALL);
-        } catch (error) {
-            console.error(error);
-        }
+async function onPageClick(index: number): Promise<void> {
+    try {
+        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, index);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function markAllAsRead(): Promise<void> {
+    try {
+        await store.dispatch(NOTIFICATIONS_ACTIONS.READ_ALL);
+    } catch (error) {
+        console.error(error);
     }
 }
 </script>

@@ -34,89 +34,57 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+import { useStore } from '@/app/utils/composables';
 
 import DisqualifyIcon from '@/../static/images/disqualify.svg';
 
-// @vue/component
-@Component({
-    components: { DisqualifyIcon },
-})
-export default class AllSatellitesAuditsArea extends Vue {
-    /**
-     * Number of score blocks displayed on page.
-     */
-    public numberOfItemsOnPage = 6;
-    /**
-     * Number of blocks added to displayed on page by clocking "Load more".
-     */
-    private readonly ITEMS_TO_ADD_COUNT: number = 6;
+const store = useStore();
 
-    /**
-     * Returns reduced number of satellites score items depends on numberOfItemsOnPage.
-     */
-    public get auditItems(): SatelliteScores[] {
-        return this.satellitesScores.slice(0, this.numberOfItemsOnPage);
-    }
+const ITEMS_TO_ADD_COUNT = 6;
 
-    /**
-     * Indicates if all existing items are shown on page.
-     */
-    public get isLoadMoreButtonVisible(): boolean {
-        return this.auditItems.length !== this.satellitesScores.length;
-    }
+const numberOfItemsOnPage = ref<number>(6);
 
-    /**
-     * Returns list of satellites score from store.
-     */
-    private get satellitesScores(): SatelliteScores[] {
-        return this.$store.state.node.satellitesScores;
-    }
+const auditItems = computed((): SatelliteScores[] => {
+    return satellitesScores.value.slice(0, numberOfItemsOnPage.value);
+});
 
-    /**
-     * Returns list of satellites from store.
-     */
-    private get satellites(): SatelliteInfo[] {
-        return this.$store.state.node.satellites;
-    }
+const isLoadMoreButtonVisible = computed((): boolean => {
+    return auditItems.value.length !== satellitesScores.value.length;
+});
 
-    /**
-     * Increments number of shown satellite score items by ITEMS_TO_ADD_COUNT.
-     */
-    public loadMore(): void {
-        this.numberOfItemsOnPage += this.ITEMS_TO_ADD_COUNT;
-    }
+const satellitesScores = computed((): SatelliteScores[] => {
+    return store.state.node.satellitesScores;
+});
 
-    /**
-     * Returns vetted status label for satellite.
-     */
-    public getVettedStatusLabel(satelliteName: string): string {
-        const satellite = this.findSatelliteByName(satelliteName);
-        if (satellite?.vettedAt) {
-            return satellite.vettedAt.toLocaleDateString();
-        }
-        return 'Not vetted';
-    }
+const satellites = computed((): SatelliteInfo[] => {
+    return store.state.node.satellites;
+});
 
-    /**
-     * Returns vetted status CSS class for satellite.
-     */
-    public getVettedStatusClass(satelliteName: string): string {
-        const satellite = this.findSatelliteByName(satelliteName);
-        return satellite?.vettedAt ? 'vetted' : 'not-vetted';
-    }
+function loadMore(): void {
+    numberOfItemsOnPage.value += ITEMS_TO_ADD_COUNT;
+}
 
-    /**
-     * Finds satellite by name in satellites list.
-     */
-    private findSatelliteByName(satelliteName: string): SatelliteInfo | undefined {
-        // SatelliteScores uses satelliteName but SatelliteInfo uses url
-        // We need to match by URL since that's what's typically shown as the name
-        return this.satellites.find(satellite => satellite.url === satelliteName);
+function getVettedStatusLabel(satelliteName: string): string {
+    const satellite = findSatelliteByName(satelliteName);
+    if (satellite?.vettedAt) {
+        return satellite.vettedAt.toLocaleDateString();
     }
+    return 'Not vetted';
+}
+
+function getVettedStatusClass(satelliteName: string): string {
+    const satellite = findSatelliteByName(satelliteName);
+    return satellite?.vettedAt ? 'vetted' : 'not-vetted';
+}
+
+function findSatelliteByName(satelliteName: string): SatelliteInfo | undefined {
+    // SatelliteScores uses satelliteName but SatelliteInfo uses url
+    // We need to match by URL since that's what's typically shown as the name
+    return satellites.value.find(satellite => satellite.url === satelliteName);
 }
 </script>
 

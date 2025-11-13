@@ -12,74 +12,60 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, ref, watch } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { SNO_THEME } from '@/app/types/theme';
+import { useStore } from '@/app/utils/composables';
 
 import MoonIcon from '@/../static/images/DarkMoon.svg';
 import SunIcon from '@/../static/images/LightSun.svg';
 
-// @vue/component
-@Component({
-    components: {
-        SunIcon,
-        MoonIcon,
-    },
-})
-export default class OptionsDropdown extends Vue {
-    /**
-     * Uses for switching mode.
-     */
-    public isDarkMode = false;
+const store = useStore();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Sets theme and 'app-background' class to body.
-     */
-    public mounted(): void {
-        const bodyElement = document.body;
-        bodyElement.classList.add('app-background');
+const emit = defineEmits<{
+    (e: 'closeDropdown'): void;
+}>();
 
-        const htmlElement = document.documentElement;
-        const theme = localStorage.getItem('theme');
+const isDarkMode = ref<boolean>(false);
 
-        if (!theme) {
-            htmlElement.setAttribute('theme', SNO_THEME.LIGHT);
-
-            return;
-        }
-
-        htmlElement.setAttribute('theme', theme);
-        const isDarkMode = theme === SNO_THEME.DARK;
-        this.isDarkMode = isDarkMode;
-        this.$store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, isDarkMode);
-    }
-
-    /**
-     * Closes dropdown.
-     */
-    public close(): void {
-        this.$emit('closeDropdown');
-    }
-
-    @Watch('isDarkMode')
-    private changeMode(): void {
-        this.$store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, this.isDarkMode);
-        const htmlElement = document.documentElement;
-
-        if (this.isDarkMode) {
-            localStorage.setItem('theme', SNO_THEME.DARK);
-            htmlElement.setAttribute('theme', SNO_THEME.DARK);
-
-            return;
-        }
-
-        localStorage.setItem('theme', SNO_THEME.LIGHT);
-        htmlElement.setAttribute('theme', SNO_THEME.LIGHT);
-    }
+function close(): void {
+    emit('closeDropdown');
 }
+
+watch(isDarkMode, val => {
+    store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, val);
+    const htmlElement = document.documentElement;
+
+    if (val) {
+        localStorage.setItem('theme', SNO_THEME.DARK);
+        htmlElement.setAttribute('theme', SNO_THEME.DARK);
+
+        return;
+    }
+
+    localStorage.setItem('theme', SNO_THEME.LIGHT);
+    htmlElement.setAttribute('theme', SNO_THEME.LIGHT);
+});
+
+onMounted(() => {
+    const bodyElement = document.body;
+    bodyElement.classList.add('app-background');
+
+    const htmlElement = document.documentElement;
+    const theme = localStorage.getItem('theme');
+
+    if (!theme) {
+        htmlElement.setAttribute('theme', SNO_THEME.LIGHT);
+        isDarkMode.value = false;
+        return;
+    }
+
+    htmlElement.setAttribute('theme', theme);
+    isDarkMode.value = theme === SNO_THEME.DARK;
+    store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, isDarkMode.value);
+});
 </script>
 
 <style scoped lang="scss">

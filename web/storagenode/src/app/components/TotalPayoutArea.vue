@@ -25,30 +25,26 @@
     </section>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
+
+import { useStore } from '@/app/utils/composables';
 
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
-// @vue/component
-@Component({
-    components: {
-        SingleInfo,
-    },
-})
-export default class TotalPayoutArea extends Vue {
-    public get totalEarnings(): number {
-        return this.$store.state.payoutModule.totalPayments.paid;
-    }
+const store = useStore();
 
-    public get totalHeld(): number {
-        return this.$store.state.payoutModule.totalPayments.held;
-    }
+const totalEarnings = computed(() => {
+    return store.state.payoutModule.totalPayments.paid;
+});
 
-    public get currentEarnings(): number {
-        return this.$store.state.payoutModule.currentMonthEarnings;
-    }
-}
+const totalHeld = computed(() => {
+    return store.state.payoutModule.totalPayments.held;
+});
+
+const currentEarnings = computed(() => {
+    return store.state.payoutModule.currentMonthEarnings;
+});
 </script>
 
 <style scoped lang="scss">

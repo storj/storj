@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, { VNode } from 'vue';
+import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
 import { DirectiveBinding } from 'vue/types/options';
 import { createPinia, PiniaVuePlugin } from 'pinia';
@@ -24,15 +24,13 @@ let clickOutsideEvent: EventListener;
  * Binds closing action to outside popups area.
  */
 Vue.directive('click-outside', {
-    bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
+    bind: function (el: HTMLElement, binding: DirectiveBinding) {
         clickOutsideEvent = function(event: Event): void {
             if (el === event.target || el.contains(event.target as Node)) {
                 return;
             }
 
-            if (vnode.context && binding.expression) {
-                vnode.context[binding.expression](event);
-            }
+            binding.value(event);
         };
 
         document.body.addEventListener('click', clickOutsideEvent);

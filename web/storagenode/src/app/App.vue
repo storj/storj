@@ -14,12 +14,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount } from 'vue';
+
+import { useStore } from '@/app/utils/composables';
 
 import LoadingScreen from '@/app/components/LoadingScreen.vue';
 import SNOFooter from '@/app/components/SNOFooter.vue';
 import SNOHeader from '@/app/components/SNOHeader.vue';
+
+const store = useStore();
 
 const elementsIdsToRemoveOnScroll: string[] = [
     'bandwidth-tooltip',
@@ -42,54 +46,40 @@ const elementsClassesToRemoveOnScroll: string[] = [
     'notification-popup-container',
 ];
 
-// @vue/component
-@Component({
-    components: {
-        LoadingScreen,
-        SNOHeader,
-        SNOFooter,
-    },
-})
-export default class App extends Vue {
+const isLoading = computed<boolean>(() => {
+    return store.state.appStateModule.isLoading;
+});
 
-    /**
-     * Indicates if loading screen is active.
-     */
-    public get isLoading(): boolean {
-        return this.$store.state.appStateModule.isLoading;
-    }
+function onScroll(): void {
+    elementsIdsToRemoveOnScroll.forEach(id => {
+        removeElementById(id);
+    });
 
-    public beforeCreate(): void {
-        document.body.classList.add('js-loading');
-        window.onload = () => {
-            document.body.classList.remove('js-loading');
-        };
-    }
+    elementsClassesToRemoveOnScroll.forEach(className => {
+        removeElementByClass(className);
+    });
+}
 
-    public onScroll(): void {
-        elementsIdsToRemoveOnScroll.forEach(id => {
-            this.removeElementById(id);
-        });
-
-        elementsClassesToRemoveOnScroll.forEach(className => {
-            this.removeElementByClass(className);
-        });
-    }
-
-    private removeElementByClass(className): void {
-        const element: HTMLElement = document.querySelector(className);
-        if (element) {
-            element.remove();
-        }
-    }
-
-    private removeElementById(id): void {
-        const element: HTMLElement | null = document.getElementById(id);
-        if (element) {
-            element.remove();
-        }
+function removeElementByClass(className: string): void {
+    const element: HTMLElement | null = document.querySelector(`.${className}`);
+    if (element) {
+        element.remove();
     }
 }
+
+function removeElementById(id: string): void {
+    const element: HTMLElement | null = document.getElementById(id);
+    if (element) {
+        element.remove();
+    }
+}
+
+onBeforeMount(() => {
+    document.body.classList.add('js-loading');
+    window.onload = () => {
+        document.body.classList.remove('js-loading');
+    };
+});
 </script>
 
 <style lang="scss">

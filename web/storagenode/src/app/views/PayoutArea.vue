@@ -46,14 +46,15 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
+import { useStore } from '@/app/utils/composables';
 
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
@@ -65,99 +66,79 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
-// @vue/component
-@Component ({
-    components: {
-        TotalHeldArea,
-        PayoutHistoryTable,
-        HeldHistoryArea,
-        HeldProgress,
-        SingleInfo,
-        SatelliteSelection,
-        EstimationArea,
-        BackArrowIcon,
-    },
-})
-export default class PayoutArea extends Vue {
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches payout information.
-     */
-    public async mounted(): Promise<void> {
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+const store = useStore();
 
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-        } catch (error) {
-            console.error(error);
-        }
+const totalPayments = computed<TotalPayments>(() => {
+    return store.state.payoutModule.totalPayments;
+});
 
-        try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, 1);
-        } catch (error) {
-            console.error(error);
-        }
+const isSatelliteSelected = computed<boolean>(() => {
+    return !!store.state.node.selectedSatellite.id;
+});
 
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, this.$store.state.node.selectedSatellite.id);
-        } catch (error) {
-            console.error(error);
-        }
+const payoutPeriods = computed<PayoutPeriod[]>(() => {
+    return store.state.payoutModule.payoutPeriods;
+});
 
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, this.$store.state.node.selectedSatellite.id);
-        } catch (error) {
-            console.error(error);
-        }
+const currentMonthExpectations = computed<number>(() => {
+    return store.state.payoutModule.estimation.currentMonthExpectations;
+});
 
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
-        } catch (error) {
-            console.error(error);
-        }
+const balance = computed<number>(() => {
+    return store.state.payoutModule.totalPayments.balance;
+});
 
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
-        } catch (error) {
-            console.error(error);
-        }
+const heldHistory = computed<SatelliteHeldHistory[]>(() => {
+    return store.state.payoutModule.heldHistory;
+});
 
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
-        } catch (error) {
-            console.error(error);
-        }
+onMounted(async () => {
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
 
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+    try {
+        await store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+    } catch (error) {
+        console.error(error);
     }
 
-    public get totalPayments(): TotalPayments {
-        return this.$store.state.payoutModule.totalPayments;
+    try {
+        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, 1);
+    } catch (error) {
+        console.error(error);
     }
 
-    /**
-     * Indicates if satellite is selected.
-     */
-    public get isSatelliteSelected(): boolean {
-        return !!this.$store.state.node.selectedSatellite.id;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, store.state.node.selectedSatellite.id);
+    } catch (error) {
+        console.error(error);
     }
 
-    public get payoutPeriods(): PayoutPeriod[] {
-        return this.$store.state.payoutModule.payoutPeriods;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, store.state.node.selectedSatellite.id);
+    } catch (error) {
+        console.error(error);
     }
 
-    public get currentMonthExpectations(): number {
-        return this.$store.state.payoutModule.estimation.currentMonthExpectations;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+    } catch (error) {
+        console.error(error);
     }
 
-    public get balance(): number {
-        return this.$store.state.payoutModule.totalPayments.balance;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+    } catch (error) {
+        console.error(error);
     }
 
-    public get heldHistory(): SatelliteHeldHistory[] {
-        return this.$store.state.payoutModule.heldHistory;
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
+    } catch (error) {
+        console.error(error);
     }
-}
+
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+});
 </script>
 
 <style scoped lang="scss">

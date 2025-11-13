@@ -10,59 +10,49 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted } from 'vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { useStore } from '@/app/utils/composables';
 
 import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
 
-// @vue/component
-@Component ({
-    components: {
-        SNOContentTitle,
-        SNOContentFilling,
-    },
-})
-export default class Dashboard extends Vue {
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches notifications and total payout information for all satellites.
-     */
-    public async mounted(): Promise<void> {
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+const store = useStore();
 
-        try {
-            await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
-        } catch (error) {
-            console.error(error);
-        }
+onMounted(async () => {
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
 
-        try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, 1);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
-        } catch (error) {
-            console.error(error);
-        }
-
-        try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
-        } catch (error) {
-            console.error(error);
-        }
-
-        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+    try {
+        await store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+    } catch (error) {
+        console.error(error);
     }
-}
+
+    try {
+        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, 1);
+    } catch (error) {
+        console.error(error);
+    }
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+    } catch (error) {
+        console.error(error);
+    }
+
+    try {
+        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
+    } catch (error) {
+        console.error(error);
+    }
+
+    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+});
 </script>
 
 <style scoped lang="scss">
