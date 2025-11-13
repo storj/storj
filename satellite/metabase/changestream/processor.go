@@ -7,9 +7,13 @@ import (
 	"context"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+
+	"storj.io/common/errs2"
 )
 
 var mon = monkit.Package()
@@ -55,7 +59,16 @@ func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName s
 	// Wrap the adapter with notification capability
 	notifier := newNotifyingAdapter(adapter)
 
-	return processLoop(ctx, log, notifier, feedName, startTime, fn)
+	log.Info("Starting change stream processor", zap.String("Change Stream", feedName))
+
+	err = processLoop(ctx, log, notifier, feedName, startTime, fn)
+	if errs2.IgnoreCanceled(err) != nil && spanner.ErrCode(err) != codes.Canceled {
+		log.Error("Change stream processor exited with error", zap.String("Change Stream", feedName), zap.Error(err))
+	} else {
+		log.Info("Change stream processor exited", zap.String("Change Stream", feedName))
+	}
+
+	return err
 }
 
 func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
