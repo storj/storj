@@ -2,29 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="chart">
+    <div>
         <p class="ingress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
-            id="ingress-chart"
             :key="chartKey"
+            chart-id="ingress-chart"
             :chart-data="chartData"
-            :width="chartWidth"
-            :height="chartHeight"
+            :width="width"
+            :height="height"
             :tooltip-constructor="ingressTooltip"
         />
     </div>
 </template>
 
-<script lang="ts">
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import { ChartData, ChartType, TooltipModel } from 'chart.js';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
+import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { IngressUsed } from '@/storagenode/sno/sno';
+import { useStore } from '@/app/utils/composables';
 
 import VChart from '@/app/components/VChart.vue';
-import BaseChart from '@/app/components/BaseChart.vue';
 
 /**
  * stores ingress data for ingress bandwidth chart's tooltip
@@ -41,74 +42,94 @@ class IngressTooltip {
     }
 }
 
-// @vue/component
-@Component({
-    components: { VChart },
-})
-export default class IngressChart extends BaseChart {
-    private get chartBackgroundColor(): string {
-        return this.isDarkMode ? '#E1A128' : '#fff4df';
+const store = useStore();
+
+const props = defineProps<{
+    width: number;
+    height: number;
+    isDarkMode: boolean;
+}>();
+
+const chartKey = ref<number>(0);
+
+const chartBackgroundColor = computed<string>(() => {
+    return props.isDarkMode ? '#E1A128' : '#fff4df';
+});
+
+const allBandwidth = computed<IngressUsed[]>(() => {
+    return ChartUtils.populateEmptyBandwidth(store.state.node.ingressChartData);
+});
+
+const chartDataDimension = computed<string>(() => {
+    if (!store.state.node.ingressChartData.length) {
+        return 'Bytes';
     }
 
-    private get allBandwidth(): IngressUsed[] {
-        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.ingressChartData);
+    return ChartUtils.getChartDataDimension(allBandwidth.value.map((elem) => {
+        return elem.summary();
+    }));
+});
+
+const chartData = computed<ChartData>(() => {
+    let data: number[] = [0];
+    if (allBandwidth.value.length) {
+        data = ChartUtils.normalizeChartData(allBandwidth.value.map(elem => elem.summary()));
     }
 
-    public get chartDataDimension(): string {
-        if (!this.$store.state.node.ingressChartData.length) {
-            return 'Bytes';
-        }
+    return {
+        labels: ChartUtils.daysDisplayedOnChart(),
+        datasets: [
+            {
+                fill: true,
+                backgroundColor: chartBackgroundColor.value,
+                borderColor: '#e1a128',
+                borderWidth: 1,
+                pointHoverBorderWidth: 3,
+                hoverRadius: 8,
+                hitRadius: 8,
+                pointRadius: 4,
+                pointBorderWidth: 1,
+                data,
+            },
+        ],
+    };
+});
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-            return elem.summary();
-        }));
-    }
-
-    public get chartData(): ChartData {
-        let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = this.chartBackgroundColor;
-        const chartBorderColor = '#e1a128';
-        const chartBorderWidth = 1;
-
-        if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
-        }
-
-        return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
-    }
-
-    public ingressTooltip(tooltipModel: TooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'ingress-chart', 'ingress-tooltip',
-            'ingress-tooltip-arrow', 'ingress-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            205, 94, 35, 24, 6, 4, `#e1a128`);
-
-        Tooltip.custom(tooltipParams);
-    }
-
-    private tooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new IngressTooltip(this.allBandwidth[dataIndex]);
-
-        return `<div class='ingress-tooltip-body'>
-                    <div class='ingress-tooltip-body__info'>
-                        <p>USAGE</p>
-                        <b class="ingress-tooltip-bold-text">${dataPoint.normalIngress}</b>
-                    </div>
-                    <div class='ingress-tooltip-body__info'>
-                        <p>REPAIR</p>
-                        <b class="ingress-tooltip-bold-text">${dataPoint.repairIngress}</b>
-                    </div>
-                </div>
-                <div class='ingress-tooltip-footer'>
-                    <p>${dataPoint.date}</p>
-                </div>`;
-    }
+function rebuildChart(): void {
+    chartKey.value += 1;
 }
+
+function ingressTooltip(tooltipModel: TooltipModel<ChartType>): void {
+    const tooltipParams = new TooltipParams(tooltipModel, 'ingress-chart', 'ingress-tooltip',
+        tooltipMarkUp(tooltipModel), 205, 94);
+
+    Tooltip.custom(tooltipParams);
+}
+
+function tooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
+    const dataPoint = new IngressTooltip(allBandwidth.value[dataIndex]);
+
+    return `<div class='ingress-tooltip-body'>
+                <div class='ingress-tooltip-body__info'>
+                    <p>USAGE</p>
+                    <b class="ingress-tooltip-bold-text">${dataPoint.normalIngress}</b>
+                </div>
+                <div class='ingress-tooltip-body__info'>
+                    <p>REPAIR</p>
+                    <b class="ingress-tooltip-bold-text">${dataPoint.repairIngress}</b>
+                </div>
+            </div>
+            <div class='ingress-tooltip-footer'>
+                <p>${dataPoint.date}</p>
+            </div>`;
+}
+
+watch([() => props.isDarkMode, chartData, () => props.width], rebuildChart);
 </script>
 
 <style lang="scss">
@@ -118,7 +139,7 @@ export default class IngressChart extends BaseChart {
         &__data-dimension {
             font-size: 13px;
             color: var(--regular-text-color);
-            margin: 0 0 5px 31px !important;
+            margin: 0 0 5px 3px !important;
             font-family: 'font_medium', sans-serif;
         }
     }

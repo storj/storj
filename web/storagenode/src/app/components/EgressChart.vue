@@ -2,29 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="chart">
+    <div>
         <p class="egress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
-            id="egress-chart"
             :key="chartKey"
+            chart-id="egress-chart"
             :chart-data="chartData"
-            :width="chartWidth"
-            :height="chartHeight"
+            :width="width"
+            :height="height"
             :tooltip-constructor="egressTooltip"
         />
     </div>
 </template>
 
-<script lang="ts">
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import { ChartData, ChartType, TooltipModel } from 'chart.js';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
+import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { EgressUsed } from '@/storagenode/sno/sno';
+import { useStore } from '@/app/utils/composables';
 
 import VChart from '@/app/components/VChart.vue';
-import BaseChart from '@/app/components/BaseChart.vue';
 
 /**
  * stores egress data for egress bandwidth chart's tooltip
@@ -43,78 +44,98 @@ class EgressTooltip {
     }
 }
 
-// @vue/component
-@Component({
-    components: { VChart },
-})
-export default class EgressChart extends BaseChart {
-    private get chartBackgroundColor(): string {
-        return this.isDarkMode ? '#4FC895' : '#edf9f4';
+const store = useStore();
+
+const props = defineProps<{
+    width: number;
+    height: number;
+    isDarkMode: boolean;
+}>();
+
+const chartKey = ref<number>(0);
+
+const chartBackgroundColor = computed<string>(() => {
+    return props.isDarkMode ? '#4FC895' : '#edf9f4';
+});
+
+const allBandwidth = computed<EgressUsed[]>(() => {
+    return ChartUtils.populateEmptyBandwidth(store.state.node.egressChartData);
+});
+
+const chartDataDimension = computed<string>(() => {
+    if (!store.state.node.egressChartData.length) {
+        return 'Bytes';
     }
 
-    private get allBandwidth(): EgressUsed[] {
-        return ChartUtils.populateEmptyBandwidth(this.$store.state.node.egressChartData);
+    return ChartUtils.getChartDataDimension(allBandwidth.value.map((elem) => {
+        return elem.summary();
+    }));
+});
+
+const chartData = computed<ChartData>(() => {
+    let data: number[] = [0];
+    if (allBandwidth.value.length) {
+        data = ChartUtils.normalizeChartData(allBandwidth.value.map(elem => elem.summary()));
     }
 
-    public get chartDataDimension(): string {
-        if (!this.$store.state.node.egressChartData.length) {
-            return 'Bytes';
-        }
+    return {
+        labels: ChartUtils.daysDisplayedOnChart(),
+        datasets: [
+            {
+                fill: true,
+                backgroundColor: chartBackgroundColor.value,
+                borderColor: '#48a77f',
+                borderWidth: 1,
+                pointHoverBorderWidth: 3,
+                hoverRadius: 8,
+                hitRadius: 8,
+                pointRadius: 4,
+                pointBorderWidth: 1,
+                data: data,
+            },
+        ],
+    };
+});
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-            return elem.summary();
-        }));
-    }
-
-    public get chartData(): ChartData {
-        let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = this.chartBackgroundColor;
-        const chartBorderColor = '#48a77f';
-        const chartBorderWidth = 1;
-
-        if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.summary()));
-        }
-
-        return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
-    }
-
-    public egressTooltip(tooltipModel: TooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
-            'egress-tooltip-arrow', 'egress-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            255, 94, 35, 24, 6, 4, `#48a77f`);
-
-        Tooltip.custom(tooltipParams);
-    }
-
-    private tooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new EgressTooltip(this.allBandwidth[dataIndex]);
-
-        return `<div class='egress-tooltip-body'>
-                    <div class='egress-tooltip-body__info'>
-                        <p>USAGE</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
-                    </div>
-                    <div class='egress-tooltip-body__info'>
-                        <p>REPAIR</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
-                    </div>
-                    <div class='egress-tooltip-body__info'>
-                        <p>AUDIT</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
-                    </div>
-                </div>
-                <div class='egress-tooltip-footer'>
-                    <p>${dataPoint.date}</p>
-                </div>`;
-    }
+function rebuildChart(): void {
+    chartKey.value += 1;
 }
+
+function egressTooltip(tooltipModel: TooltipModel<ChartType>): void {
+    const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
+        tooltipMarkUp(tooltipModel), 255, 94);
+
+    Tooltip.custom(tooltipParams);
+}
+
+function tooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
+    const dataPoint = new EgressTooltip(allBandwidth.value[dataIndex]);
+
+    return `<div class='egress-tooltip-body'>
+                <div class='egress-tooltip-body__info'>
+                    <p>USAGE</p>
+                    <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
+                </div>
+                <div class='egress-tooltip-body__info'>
+                    <p>REPAIR</p>
+                    <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
+                </div>
+                <div class='egress-tooltip-body__info'>
+                    <p>AUDIT</p>
+                    <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
+                </div>
+            </div>
+            <div class='egress-tooltip-footer'>
+                <p>${dataPoint.date}</p>
+            </div>`;
+}
+
+watch([() => props.isDarkMode, chartData, () => props.width], rebuildChart);
 </script>
 
 <style lang="scss">
@@ -124,7 +145,7 @@ export default class EgressChart extends BaseChart {
         &__data-dimension {
             font-size: 13px;
             color: var(--regular-text-color);
-            margin: 0 0 5px 31px !important;
+            margin: 0 0 5px 3px !important;
             font-family: 'font_medium', sans-serif;
         }
     }
