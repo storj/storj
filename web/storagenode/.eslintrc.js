@@ -22,7 +22,7 @@ module.exports = {
             filter: true,
         },
     },
-    plugins: ['storj', 'eslint-plugin-import'],
+    plugins: ['eslint-plugin-import'],
     rules: {
         'linebreak-style': ['error', 'unix'],
 
@@ -90,8 +90,6 @@ module.exports = {
         'vue/no-useless-template-attributes': ['off'], // TODO: fix later
 
         'vue/no-unregistered-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
-
-        'storj/vue/require-annotation': 'warn',
 
         'vue/no-v-html': ['error'],
 

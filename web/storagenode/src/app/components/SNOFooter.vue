@@ -38,9 +38,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 
 import { RouteConfig } from '@/app/router';
-import { useRoute } from '@/app/utils/composables';
 import { useAppStore } from '@/app/store/modules/appStore';
 
 import StorjIconLight from '@/../static/images/storjIcon.svg';

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, { VueConstructor } from 'vue';
+import { Component } from 'vue';
 
 import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
 
@@ -71,7 +71,7 @@ export class UINotification {
     /**
      * setIcon selects notification icon depends on type.
      */
-    public get icon(): VueConstructor<Vue> {
+    public get icon(): Component {
         switch (this.type) {
         case NotificationTypes.AuditCheckFailure:
             return FailIcon;

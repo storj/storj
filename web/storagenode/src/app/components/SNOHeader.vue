@@ -58,9 +58,9 @@
 
 <script setup lang="ts">
 import { computed, onBeforeMount, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { RouteConfig } from '@/app/router';
-import { useRoute, useRouter } from '@/app/utils/composables';
 import { usePayoutStore } from '@/app/store/modules/payoutStore';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
 import { useAppStore } from '@/app/store/modules/appStore';
