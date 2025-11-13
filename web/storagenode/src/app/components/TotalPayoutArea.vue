@@ -28,23 +28,23 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useStore } from '@/app/utils/composables';
 import { centsToDollars } from '@/app/utils/payout';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
 
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
-const store = useStore();
+const payoutStore = usePayoutStore();
 
 const totalEarnings = computed(() => {
-    return store.state.payoutModule.totalPayments.paid;
+    return payoutStore.state.totalPayments.paid;
 });
 
 const totalHeld = computed(() => {
-    return store.state.payoutModule.totalPayments.held;
+    return payoutStore.state.totalPayments.held;
 });
 
 const currentEarnings = computed(() => {
-    return store.state.payoutModule.currentMonthEarnings;
+    return payoutStore.state.currentMonthEarnings;
 });
 </script>
 

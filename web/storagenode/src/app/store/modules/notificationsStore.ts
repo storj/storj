@@ -8,8 +8,7 @@ import { NotificationsState, UINotification } from '@/app/types/notifications';
 import { NotificationsService } from '@/storagenode/notifications/service';
 import { NotificationsHttpApi } from '@/storagenode/api/notifications';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const useNotificationsStore = defineStore('notificationsStore', () => {
+export const useNotificationsStore = defineStore('notificationsStore', () => {
     const state = reactive<NotificationsState>(new NotificationsState());
 
     const service: NotificationsService = new NotificationsService(new NotificationsHttpApi());

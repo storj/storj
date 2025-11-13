@@ -50,15 +50,16 @@ import { computed, ref } from 'vue';
 
 import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
-import { useStore } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import CopyIcon from '@/../static/images/Copy.svg';
 import DropdownArrowIcon from '@/../static/images/dropdownArrow.svg';
 import EyeIcon from '@/../static/images/Eye.svg';
 
-const store = useStore();
+const appStore = useAppStore();
+const nodeStore = useNodeStore();
 
 const isNameShown = ref<boolean>(true);
 
@@ -71,15 +72,15 @@ const label = computed<string>(() => {
 });
 
 const satellites = computed<SatelliteInfo[]>(() => {
-    return store.state.node.satellites;
+    return nodeStore.state.satellites;
 });
 
 const selectedSatellite = computed<SatelliteInfo>(() => {
-    return store.state.node.selectedSatellite;
+    return nodeStore.state.selectedSatellite;
 });
 
 const isPopupShown = computed<boolean>(() => {
-    return store.state.appStateModule.isSatelliteSelectionShown;
+    return appStore.state.isSatelliteSelectionShown;
 });
 
 function onCopy(): void {
@@ -91,7 +92,7 @@ function toggleSatelliteView(): void {
 }
 
 function toggleDropDown(): void {
-    store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+    appStore.toggleSatelliteSelection();
 }
 </script>
 

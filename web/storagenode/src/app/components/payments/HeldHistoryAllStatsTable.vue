@@ -48,15 +48,15 @@
 import { computed } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
-import { useStore } from '@/app/utils/composables';
 import { centsToDollars } from '@/app/utils/payout';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
 
 import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
 
-const store = useStore();
+const payoutStore = usePayoutStore();
 
 const allSatellitesHeldHistory = computed<SatelliteHeldHistory[]>(() => {
-    return store.state.payoutModule.heldHistory;
+    return payoutStore.state.heldHistory as SatelliteHeldHistory[];
 });
 </script>
 

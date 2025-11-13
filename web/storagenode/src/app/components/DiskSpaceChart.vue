@@ -23,7 +23,7 @@ import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storagenode/sno/sno';
-import { useStore } from '@/app/utils/composables';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import VChart from '@/app/components/VChart.vue';
 
@@ -42,7 +42,7 @@ class StampTooltip {
     }
 }
 
-const store = useStore();
+const nodeStore = useNodeStore();
 
 const props = defineProps<{
     width: number;
@@ -53,7 +53,7 @@ const props = defineProps<{
 const chartKey = ref<number>(0);
 
 const allStamps = computed<Stamp[]>(() => {
-    return ChartUtils.populateEmptyStamps(store.state.node.storageChartData);
+    return ChartUtils.populateEmptyStamps(nodeStore.state.storageChartData);
 });
 
 const chartBackgroundColor = computed<string>(() => {
@@ -61,7 +61,7 @@ const chartBackgroundColor = computed<string>(() => {
 });
 
 const chartDataDimension = computed<string>(() => {
-    if (!store.state.node.storageChartData.length) {
+    if (!nodeStore.state.storageChartData.length) {
         return 'Bytes';
     }
 

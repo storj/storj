@@ -144,14 +144,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import {
-    PAYOUT_ACTIONS,
-} from '@/app/store/modules/payout';
-import {
-    monthNames,
-    PayoutInfoRange,
-} from '@/app/types/payout';
+import { monthNames, PayoutInfoRange } from '@/app/types/payout';
 import { Size } from '@/private/memory/size';
 import {
     EstimatedPayout,
@@ -159,14 +152,18 @@ import {
     SatellitePricingModel,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
-import { useStore } from '@/app/utils/composables';
 import { centsToDollars } from '@/app/utils/payout';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
+import { useAppStore } from '@/app/store/modules/appStore';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
-const store = useStore();
+const nodeStore = useNodeStore();
+const payoutStore = usePayoutStore();
+const appStore = useAppStore();
 
 /**
  * Describes table row data item.
@@ -186,8 +183,8 @@ const now = ref<Date>(new Date());
 const isTooltipVisible = ref<boolean>(false);
 
 const currentPeriod = computed<string>(() => {
-    const start: PayoutPeriod = store.state.payoutModule.periodRange.start;
-    const end: PayoutPeriod = store.state.payoutModule.periodRange.end;
+    const start: PayoutPeriod | null = payoutStore.state.periodRange.start;
+    const end: PayoutPeriod = payoutStore.state.periodRange.end;
 
     return start && start.period !== end.period ?
         `${monthNames[start.month].slice(0, 3)} ${start.year} - ${monthNames[end.month].slice(0, 3)} ${end.year}`
@@ -195,14 +192,14 @@ const currentPeriod = computed<string>(() => {
 });
 
 const isCurrentPeriod = computed<boolean>(() => {
-    const end = store.state.payoutModule.periodRange.end;
+    const end = payoutStore.state.periodRange.end;
     const isCurrentMonthSelected = end.year === now.value.getUTCFullYear() && end.month === now.value.getUTCMonth();
 
-    return !store.state.payoutModule.periodRange.start && isCurrentMonthSelected;
+    return !payoutStore.state.periodRange.start && isCurrentMonthSelected;
 });
 
 const isLastPeriodWithoutPaystub = computed<boolean>(() => {
-    const joinedAt: Date = store.state.node.selectedSatellite.joinDate;
+    const joinedAt: Date = nodeStore.state.selectedSatellite.joinDate;
     const isNodeStartedBeforeCurrentPeriod =
         joinedAt.getTime() < new Date(now.value.getUTCFullYear(), now.value.getUTCMonth(), 1, 0, 0, 1).getTime();
 
@@ -213,36 +210,36 @@ const isLastPeriodWithoutPaystub = computed<boolean>(() => {
     const lastMonthDate = new Date();
     lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
-    const selectedPeriod: PayoutInfoRange = store.state.payoutModule.periodRange;
+    const selectedPeriod: PayoutInfoRange = payoutStore.state.periodRange;
     const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
     const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
-    const isPaystubAvailable: boolean = store.state.payoutModule.payoutPeriods.map(e => e.period).includes(lastMonthPayoutPeriod.period);
+    const isPaystubAvailable: boolean = payoutStore.state.payoutPeriods.map(e => e.period).includes(lastMonthPayoutPeriod.period);
 
     return isLastPeriodSelected && !isPaystubAvailable;
 });
 
 const isSatelliteSelected = computed<boolean>(() => {
-    return !!store.state.node.selectedSatellite.id;
+    return !!nodeStore.state.selectedSatellite.id;
 });
 
 const surgePercent = computed<string>(() => {
-    return !store.state.payoutModule.periodRange.start ? `(${store.state.payoutModule.totalPaystubForPeriod.surgePercent}%)` : '';
+    return !payoutStore.state.periodRange.start ? `(${totalPaystubForPeriod.value.surgePercent}%)` : '';
 });
 
 const isPayoutNoDataState = computed<boolean>(() => {
-    return store.state.appStateModule.isNoPayoutData;
+    return appStore.state.isNoPayoutData;
 });
 
 const totalPaystubForPeriod = computed<TotalPaystubForPeriod>(() => {
-    return store.state.payoutModule.totalPaystubForPeriod;
+    return payoutStore.state.totalPaystubForPeriod as TotalPaystubForPeriod;
 });
 
 const estimation = computed<EstimatedPayout>(() => {
-    return store.state.payoutModule.estimation;
+    return payoutStore.state.estimation;
 });
 
 const pricing = computed<SatellitePricingModel>(() => {
-    return store.state.payoutModule.pricingModel;
+    return payoutStore.state.pricingModel;
 });
 
 const held = computed<number>(() => {
@@ -362,16 +359,11 @@ function toggleTooltipVisibility(): void {
     isTooltipVisible.value = !isTooltipVisible.value;
 }
 
-async function selectCurrentPeriod(): Promise<void> {
+function selectCurrentPeriod(): void {
     const nowDate = new Date();
 
-    await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
-    await store.dispatch(
-        PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
-            null,
-            new PayoutPeriod(nowDate.getUTCFullYear(), nowDate.getUTCMonth()),
-        ),
-    );
+    appStore.setNoPayoutData(false);
+    payoutStore.setPeriodsRange(new PayoutInfoRange(null, new PayoutPeriod(nowDate.getUTCFullYear(), nowDate.getUTCMonth())));
 }
 </script>
 

@@ -7,7 +7,6 @@ import { createPinia, PiniaVuePlugin } from 'pinia';
 
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
-import { store } from '@/app/store';
 
 Vue.config.productionTip = false;
 
@@ -38,7 +37,6 @@ Vue.directive('click-outside', {
 
 new Vue({
     router,
-    store,
     pinia,
     render: (h) => h(App),
 }).$mount('#app');

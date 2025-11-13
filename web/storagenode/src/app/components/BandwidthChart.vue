@@ -23,7 +23,7 @@ import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { BandwidthUsed } from '@/storagenode/sno/sno';
-import { useStore } from '@/app/utils/composables';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import VChart from '@/app/components/VChart.vue';
 
@@ -48,7 +48,7 @@ class BandwidthTooltip {
     }
 }
 
-const store = useStore();
+const nodeStore = useNodeStore();
 
 const props = defineProps<{
     width: number;
@@ -59,7 +59,7 @@ const props = defineProps<{
 const chartKey = ref<number>(0);
 
 const allBandwidth = computed<BandwidthUsed[]>(() => {
-    return ChartUtils.populateEmptyBandwidth(store.state.node.bandwidthChartData);
+    return ChartUtils.populateEmptyBandwidth(nodeStore.state.bandwidthChartData, BandwidthUsed);
 });
 
 const chartBackgroundColor = computed<string>(() => {
@@ -67,7 +67,7 @@ const chartBackgroundColor = computed<string>(() => {
 });
 
 const chartDataDimension = computed<string>(() => {
-    if (!store.state.node.bandwidthChartData.length) {
+    if (!nodeStore.state.bandwidthChartData.length) {
         return 'Bytes';
     }
 

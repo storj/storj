@@ -13,45 +13,47 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { useStore } from '@/app/utils/composables';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
 
-import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
+import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
 
-const store = useStore();
+const payoutStore = usePayoutStore();
+const nodeStore = useNodeStore();
+const appStore = useAppStore();
+const notificationsStore = useNotificationsStore();
 
 onMounted(async () => {
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+    appStore.setLoading(true);
 
     try {
-        await store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+        await nodeStore.selectSatellite();
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, 1);
+        await notificationsStore.fetchNotifications(1);
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+        await payoutStore.fetchTotalPayments();
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
+        await payoutStore.fetchEstimation();
     } catch (error) {
         console.error(error);
     }
 
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+    appStore.setLoading(false);
 });
 </script>
 

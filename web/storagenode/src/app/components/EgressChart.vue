@@ -23,7 +23,7 @@ import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { EgressUsed } from '@/storagenode/sno/sno';
-import { useStore } from '@/app/utils/composables';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import VChart from '@/app/components/VChart.vue';
 
@@ -44,7 +44,7 @@ class EgressTooltip {
     }
 }
 
-const store = useStore();
+const nodeStore = useNodeStore();
 
 const props = defineProps<{
     width: number;
@@ -59,11 +59,11 @@ const chartBackgroundColor = computed<string>(() => {
 });
 
 const allBandwidth = computed<EgressUsed[]>(() => {
-    return ChartUtils.populateEmptyBandwidth(store.state.node.egressChartData);
+    return ChartUtils.populateEmptyBandwidth(nodeStore.state.egressChartData, EgressUsed);
 });
 
 const chartDataDimension = computed<string>(() => {
-    if (!store.state.node.egressChartData.length) {
+    if (!nodeStore.state.egressChartData.length) {
         return 'Bytes';
     }
 

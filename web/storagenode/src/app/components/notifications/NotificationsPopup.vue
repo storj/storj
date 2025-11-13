@@ -32,15 +32,15 @@ import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/app/router';
 import { UINotification } from '@/app/types/notifications';
-import { useStore } from '@/app/utils/composables';
+import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
 
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 
-const store = useStore();
+const notificationsStore = useNotificationsStore();
 
 const notificationsPath = ref<string>(RouteConfig.Notifications.path);
 
-const latest = computed<UINotification[]>(() => store.state.notificationsModule.latestNotifications);
+const latest = computed<UINotification[]>(() => notificationsStore.state.latestNotifications);
 
 const isCollapsed = computed<boolean>(() => latest.value.length < 4);
 </script>

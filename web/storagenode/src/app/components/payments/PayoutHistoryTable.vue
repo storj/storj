@@ -27,36 +27,35 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
-import { useStore } from '@/app/utils/composables';
 import { centsToDollars } from '@/app/utils/payout';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
 
 import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
 import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
-const store = useStore();
+const payoutStore = usePayoutStore();
 
 const payoutHistory = computed<SatellitePayoutForPeriod[]>(() => {
-    return store.state.payoutModule.payoutHistory;
+    return payoutStore.state.payoutHistory as SatellitePayoutForPeriod[];
 });
 
 const totalPaid = computed<number>(() => {
-    return store.getters.totalPaidForPayoutHistoryPeriod;
+    return payoutStore.totalPaidForPayoutHistoryPeriod;
 });
 
 onMounted(async () => {
-    const payoutPeriods = store.state.payoutModule.payoutPeriods;
+    const payoutPeriods = payoutStore.state.payoutPeriods;
 
     if (!payoutPeriods.length) {
         return;
     }
 
     const lastPeriod = payoutPeriods[payoutPeriods.length - 1];
-    await store.dispatch(PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD, lastPeriod.period);
+    payoutStore.setPayoutHistoryPeriod(lastPeriod.period);
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+        await payoutStore.fetchPayoutHistory();
     } catch (error) {
         console.error(error);
     }

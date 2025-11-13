@@ -2,11 +2,10 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, reactive } from 'vue';
+import { reactive } from 'vue';
 
 import { StorageNodeState } from '@/app/types/sno';
 import { Duration, millisecondsInSecond, secondsInMinute } from '@/app/utils/duration';
-import { getMonthsBeforeNow } from '@/app/utils/payout';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import {
     Node,
@@ -20,14 +19,18 @@ import { StorageNodeApi } from '@/storagenode/api/storagenode';
 export const StatusOnline = 'Online';
 export const StatusOffline = 'Offline';
 
+export const QUIC_STATUS = {
+    StatusOk: 'OK',
+    StatusMisconfigured: 'Misconfigured',
+    StatusRefreshing: 'Refreshing',
+};
+
 const STATUS_TRESHHOLD_MINUTES = 120;
 
 export const useNodeStore = defineStore('nodeStore', () => {
     const state = reactive<StorageNodeState>(new StorageNodeState());
 
     const service = new StorageNodeService(new StorageNodeApi());
-
-    const monthsOnNetwork = computed<number>(() => getMonthsBeforeNow(state.selectedSatellite.joinDate));
 
     async function fetchNodeInfo(): Promise<void> {
         const dashboard = await service.dashboard();
@@ -102,7 +105,6 @@ export const useNodeStore = defineStore('nodeStore', () => {
 
     return {
         state,
-        monthsOnNetwork,
         fetchNodeInfo,
         selectSatellite,
     };

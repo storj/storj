@@ -38,30 +38,30 @@
 import { computed, ref } from 'vue';
 
 import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
-import { useStore } from '@/app/utils/composables';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import DisqualifyIcon from '@/../static/images/disqualify.svg';
 
-const store = useStore();
+const nodeStore = useNodeStore();
 
 const ITEMS_TO_ADD_COUNT = 6;
 
 const numberOfItemsOnPage = ref<number>(6);
 
-const auditItems = computed((): SatelliteScores[] => {
+const auditItems = computed<SatelliteScores[]>(()  => {
     return satellitesScores.value.slice(0, numberOfItemsOnPage.value);
 });
 
-const isLoadMoreButtonVisible = computed((): boolean => {
+const isLoadMoreButtonVisible = computed<boolean>(() => {
     return auditItems.value.length !== satellitesScores.value.length;
 });
 
-const satellitesScores = computed((): SatelliteScores[] => {
-    return store.state.node.satellitesScores;
+const satellitesScores = computed<SatelliteScores[]>(() => {
+    return nodeStore.state.satellitesScores as SatelliteScores[];
 });
 
-const satellites = computed((): SatelliteInfo[] => {
-    return store.state.node.satellites;
+const satellites = computed<SatelliteInfo[]>(() => {
+    return nodeStore.state.satellites;
 });
 
 function loadMore(): void {

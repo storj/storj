@@ -28,19 +28,19 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useStore } from '@/app/utils/composables';
 import { centsToDollars } from '@/app/utils/payout';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
 
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
-const store = useStore();
+const payoutStore = usePayoutStore();
 
 const totalPayments = computed(() => {
-    return store.state.payoutModule.totalPayments;
+    return payoutStore.state.totalPayments;
 });
 
 const heldPercentage = computed(() => {
-    return store.state.payoutModule.heldPercentage;
+    return payoutStore.state.heldPercentage;
 });
 </script>
 

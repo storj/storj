@@ -31,9 +31,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
-import { useStore } from '@/app/utils/composables';
+import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
 
 const props = withDefaults(defineProps<{
     notification: UINotification;
@@ -41,7 +40,7 @@ const props = withDefaults(defineProps<{
     notification: () => new UINotification(),
 });
 
-const store = useStore();
+const notificationsStore = useNotificationsStore();
 
 const MIN_WINDOW_WIDTH = 640;
 
@@ -51,13 +50,13 @@ function changeNotificationSize(): void {
     isSmall.value = window.innerWidth < MIN_WINDOW_WIDTH;
 }
 
-function read(): void {
+async function read(): Promise<void> {
     if (props.notification.isRead) {
         return;
     }
 
     try {
-        store.dispatch(NOTIFICATIONS_ACTIONS.MARK_AS_READ, props.notification.id);
+        await notificationsStore.markAsRead(props.notification.id);
     } catch (error) {
         // TODO: implement UI notification system.
         console.error(error);

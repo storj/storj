@@ -13,13 +13,12 @@
 <script setup lang="ts">
 import { onBeforeMount } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { useStore } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
 
-const store = useStore();
+const appStore = useAppStore();
 
 onBeforeMount(() => {
-    store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+    appStore.setLoading(false);
 });
 </script>
 

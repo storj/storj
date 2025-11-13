@@ -48,32 +48,31 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
-import { useStore } from '@/app/utils/composables';
+import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
 
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 import VPagination from '@/app/components/VPagination.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
-const store = useStore();
+const notificationsStore = useNotificationsStore();
 
 const notifications = computed<UINotification[]>(() => {
-    return store.state.notificationsModule.notifications;
+    return notificationsStore.state.notifications;
 });
 
 const isMarkAllAsReadButtonDisabled = computed<boolean>(() => {
-    return store.state.notificationsModule.unreadCount === 0;
+    return notificationsStore.state.unreadCount === 0;
 });
 
 const totalPageCount = computed<number>(() => {
-    return store.state.notificationsModule.pageCount;
+    return notificationsStore.state.pageCount;
 });
 
 async function onPageClick(index: number): Promise<void> {
     try {
-        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, index);
+        await notificationsStore.fetchNotifications(index);
     } catch (error) {
         console.error(error);
     }
@@ -81,7 +80,7 @@ async function onPageClick(index: number): Promise<void> {
 
 async function markAllAsRead(): Promise<void> {
     try {
-        await store.dispatch(NOTIFICATIONS_ACTIONS.READ_ALL);
+        await notificationsStore.readAll();
     } catch (error) {
         console.error(error);
     }

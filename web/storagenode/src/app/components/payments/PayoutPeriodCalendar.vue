@@ -38,8 +38,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import {
     MonthButton,
     monthNames,
@@ -47,11 +45,15 @@ import {
     StoredMonthsByYear,
 } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
-import { useStore } from '@/app/utils/composables';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
 
-const store = useStore();
+const payoutStore = usePayoutStore();
+const appStore = useAppStore();
+const nodeStore = useNodeStore();
 
 const now = ref<Date>(new Date());
 const currentDisplayedMonths = ref<MonthButton[]>([]);
@@ -68,31 +70,31 @@ async function submit(): Promise<void> {
         return;
     }
 
-    secondSelectedMonth.value ? await store.dispatch(
-        PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+    secondSelectedMonth.value ? payoutStore.setPeriodsRange(
+        new PayoutInfoRange(
             new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
             new PayoutPeriod(secondSelectedMonth.value.year, secondSelectedMonth.value.index),
         ),
-    ) : await store.dispatch(
-        PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(
+    ) : payoutStore.setPeriodsRange(
+        new PayoutInfoRange(
             null,
             new PayoutPeriod(firstSelectedMonth.value.year, firstSelectedMonth.value.index),
         ),
     );
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, store.state.node.selectedSatellite.id);
-        await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+        await payoutStore.fetchPayoutInfo(nodeStore.state.selectedSatellite.id);
+        appStore.setNoPayoutData(false);
     } catch (error) {
         const lastMonthDate = new Date();
         lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
-        const selectedPeriod: PayoutInfoRange = store.state.payoutModule.periodRange;
+        const selectedPeriod: PayoutInfoRange = payoutStore.state.periodRange;
         const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
         const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;
 
         if (!isLastPeriodSelected) {
-            await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
+            appStore.setNoPayoutData(true);
             console.error(error);
         }
     }
@@ -113,7 +115,7 @@ function updatePeriod(): void {
 }
 
 function selectAllTime(): void {
-    const nodeStartedAt = store.state.node.selectedSatellite.joinDate;
+    const nodeStartedAt = nodeStore.state.selectedSatellite.joinDate;
 
     if (nodeStartedAt.getUTCMonth() === now.value.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.value.getUTCFullYear()) {
         return;
@@ -187,7 +189,7 @@ function incrementYear(): void {
 }
 
 function decrementYear(): void {
-    if (displayedYear.value === store.state.node.selectedSatellite.joinDate.getUTCFullYear()) return;
+    if (displayedYear.value === nodeStore.state.selectedSatellite.joinDate.getUTCFullYear()) return;
 
     displayedYear.value -= 1;
     populateMonths(displayedYear.value);
@@ -238,7 +240,7 @@ function populateMonths(year: number): void {
     }
 
     const months: MonthButton[] = [];
-    const availablePeriods: string[] = store.state.payoutModule.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
+    const availablePeriods: string[] = payoutStore.state.payoutPeriods.map(payoutPeriod => payoutPeriod.period);
     const lastMonthDate = new Date();
     lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
@@ -248,7 +250,7 @@ function populateMonths(year: number): void {
 
         const isLastMonth: boolean = lastMonthDate.getUTCFullYear() === year && lastMonthDate.getUTCMonth() === i;
         const isLastMonthActive: boolean =
-            isLastMonth && store.state.node.selectedSatellite.joinDate.getTime() < new Date(
+            isLastMonth && nodeStore.state.selectedSatellite.joinDate.getTime() < new Date(
                 now.value.getUTCFullYear(), now.value.getUTCMonth(), 1, 0, 0, 1,
             ).getTime();
 
@@ -261,7 +263,7 @@ function populateMonths(year: number): void {
 }
 
 function close(): void {
-    setTimeout(() => store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false), 0);
+    setTimeout(() => appStore.togglePayoutCalendar(false), 0);
 }
 
 onMounted(() => {

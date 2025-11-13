@@ -40,20 +40,22 @@
 import { computed } from 'vue';
 
 import { RouteConfig } from '@/app/router';
-import { useRoute, useStore } from '@/app/utils/composables';
+import { useRoute } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
 
 import StorjIconLight from '@/../static/images/storjIcon.svg';
 import StorjIconDark from '@/../static/images/storjIconDark.svg';
 
 const route = useRoute();
-const store = useStore();
+
+const appStore = useAppStore();
 
 const isShown = computed<boolean>(() => {
     return route.name !== RouteConfig.Notifications.name;
 });
 
 const isDarkMode = computed<boolean>(() => {
-    return store.state.appStateModule.isDarkMode;
+    return appStore.state.isDarkMode;
 });
 </script>
 

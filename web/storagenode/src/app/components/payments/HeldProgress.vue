@@ -22,9 +22,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 
-import { useStore } from '@/app/utils/composables';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
+import { getMonthsBeforeNow } from '@/app/utils/payout';
 
-const store = useStore();
+const nodeStore = useNodeStore();
 
 class HeldStep {
     public constructor(
@@ -47,7 +48,7 @@ const MONTHS_BREAKPOINTS: number[] = [0, 3, 6, 9, 15];
 const steps = ref<HeldStep[]>([]);
 
 const monthsOnNetwork = computed<number>(() => {
-    return store.getters.monthsOnNetwork;
+    return getMonthsBeforeNow(nodeStore.state.selectedSatellite.joinDate);
 });
 
 function buildSteps(): void {

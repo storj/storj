@@ -35,18 +35,18 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import {
     MonthButton,
     monthNames,
     StoredMonthsByYear,
 } from '@/app/types/payout';
-import { useStore } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
 
 import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
 
-const store = useStore();
+const appStore = useAppStore();
+const payoutStore = usePayoutStore();
 
 const now = ref<Date>(new Date());
 const currentDisplayedMonths = ref<MonthButton[]>([]);
@@ -58,12 +58,10 @@ const selectedMonth = ref<MonthButton | null>(null);
 async function submit(): Promise<void> {
     if (selectedMonth.value) {
         const month = selectedMonth.value.index < 9 ? '0' + (selectedMonth.value.index + 1) : (selectedMonth.value.index + 1);
-        await store.dispatch(PAYOUT_ACTIONS.SET_PAYOUT_HISTORY_PERIOD,
-            `${selectedMonth.value.year}-${month}`,
-        );
+        payoutStore.setPayoutHistoryPeriod(`${selectedMonth.value.year}-${month}`);
 
         try {
-            await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+            await payoutStore.fetchPayoutHistory();
         } catch (error) {
             console.error(error);
         }
@@ -106,7 +104,7 @@ function incrementYear(): void {
 }
 
 function decrementYear(): void {
-    const availableYears: number[] = store.state.payoutModule.payoutHistoryAvailablePeriods.map(payoutPeriod => payoutPeriod.year);
+    const availableYears: number[] = payoutStore.state.payoutHistoryAvailablePeriods.map(payoutPeriod => payoutPeriod.year);
     const minYear: number = Math.min(...availableYears);
 
     if (displayedYear.value === minYear) return;
@@ -124,7 +122,7 @@ function populateMonths(year: number): void {
     }
 
     const months: MonthButton[] = [];
-    const availablePeriods: string[] = store.state.payoutModule.payoutHistoryAvailablePeriods.map(payoutPeriod => payoutPeriod.period);
+    const availablePeriods: string[] = payoutStore.state.payoutHistoryAvailablePeriods.map(payoutPeriod => payoutPeriod.period);
 
     // Creates months entities and adds them to list.
     for (let i = 0; i < 12; i++) {
@@ -138,7 +136,7 @@ function populateMonths(year: number): void {
 }
 
 function close(): void {
-    setTimeout(() => store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, false), 0);
+    setTimeout(() => appStore.togglePayoutHistoryCalendar(false), 0);
 }
 
 onMounted(() => {

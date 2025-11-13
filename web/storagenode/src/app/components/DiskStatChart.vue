@@ -44,12 +44,12 @@ import { computed } from 'vue';
 import { ChartData } from 'chart.js';
 
 import { Traffic } from '@/storagenode/sno/sno';
-import { useStore } from '@/app/utils/composables';
 import { Size } from '@/private/memory/size';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import DoughnutChart from '@/app/components/DoughnutChart.vue';
 
-const store = useStore();
+const nodeStore = useNodeStore();
 
 const chartData = computed<ChartData>(() => {
     return {
@@ -68,7 +68,7 @@ const chartData = computed<ChartData>(() => {
 });
 
 const diskSpace = computed<Traffic>(() => {
-    return store.state.node.utilization.diskSpace;
+    return nodeStore.state.utilization.diskSpace;
 });
 
 const free = computed<number>(() => {

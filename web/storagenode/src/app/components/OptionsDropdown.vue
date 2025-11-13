@@ -15,14 +15,13 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { SNO_THEME } from '@/app/types/theme';
-import { useStore } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
 
 import MoonIcon from '@/../static/images/DarkMoon.svg';
 import SunIcon from '@/../static/images/LightSun.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 
 const emit = defineEmits<{
     (e: 'closeDropdown'): void;
@@ -35,7 +34,7 @@ function close(): void {
 }
 
 watch(isDarkMode, val => {
-    store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, val);
+    appStore.setDarkMode(val);
     const htmlElement = document.documentElement;
 
     if (val) {
@@ -64,7 +63,7 @@ onMounted(() => {
 
     htmlElement.setAttribute('theme', theme);
     isDarkMode.value = theme === SNO_THEME.DARK;
-    store.dispatch(APPSTATE_ACTIONS.SET_DARK_MODE, isDarkMode.value);
+    appStore.setDarkMode(isDarkMode.value);
 });
 </script>
 

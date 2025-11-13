@@ -92,9 +92,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { StatusOnline, QUIC_STATUS } from '@/app/store/modules/node';
+import { StatusOnline, QUIC_STATUS, useNodeStore } from '@/app/store/modules/nodeStore';
 import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
-import { useStore } from '@/app/utils/composables';
 
 import VInfo from '@/app/components/VInfo.vue';
 
@@ -129,7 +128,7 @@ class NodeInfo {
     }
 }
 
-const store = useStore();
+const nodeStore = useNodeStore();
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];
@@ -137,18 +136,18 @@ const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
 const timeNow = ref<Date>(new Date());
 
 const nodeId = computed<string>(() => {
-    return store.state.node.info.id;
+    return nodeStore.state.info.id;
 });
 
 const info = computed<NodeInfo>(() => {
-    const nodeInfo = store.state.node.info;
+    const nodeInfo = nodeStore.state.info;
 
     return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
         nodeInfo.isLastVersion, nodeInfo.quicStatus, nodeInfo.configuredPort);
 });
 
 const online = computed<boolean>(() => {
-    return store.state.node.info.status === StatusOnline;
+    return nodeStore.state.info.status === StatusOnline;
 });
 
 const quicStatusOk = computed<string>(() => {
@@ -164,15 +163,15 @@ const quicStatusMisconfigured = computed<string>(() => {
 });
 
 const uptime = computed<string>(() => {
-    return timePassed(store.state.node.info.startedAt);
+    return timePassed(nodeStore.state.info.startedAt);
 });
 
 const lastPinged = computed<string>(() => {
-    return timePassed(store.state.node.info.lastPinged);
+    return timePassed(nodeStore.state.info.lastPinged);
 });
 
 const lastQuicPingedAt = computed<string>(() => {
-    return timePassed(store.state.node.info.lastQuicPingedAt);
+    return timePassed(nodeStore.state.info.lastQuicPingedAt);
 });
 
 const currentMonth = computed<string>(() => {

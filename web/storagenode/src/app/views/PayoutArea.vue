@@ -49,13 +49,12 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
-import { useStore } from '@/app/utils/composables';
 import { centsToDollars } from '@/app/utils/payout';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
 
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
@@ -67,78 +66,83 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
-const store = useStore();
+const payoutStore = usePayoutStore();
+const nodeStore = useNodeStore();
+const appStore = useAppStore();
+const notificationsStore = useNotificationsStore();
 
 const totalPayments = computed<TotalPayments>(() => {
-    return store.state.payoutModule.totalPayments;
+    return payoutStore.state.totalPayments as TotalPayments;
 });
 
 const isSatelliteSelected = computed<boolean>(() => {
-    return !!store.state.node.selectedSatellite.id;
+    return !!nodeStore.state.selectedSatellite.id;
 });
 
 const payoutPeriods = computed<PayoutPeriod[]>(() => {
-    return store.state.payoutModule.payoutPeriods;
+    return payoutStore.state.payoutPeriods;
 });
 
 const currentMonthExpectations = computed<number>(() => {
-    return store.state.payoutModule.estimation.currentMonthExpectations;
+    return payoutStore.state.estimation.currentMonthExpectations;
 });
 
 const balance = computed<number>(() => {
-    return store.state.payoutModule.totalPayments.balance;
+    return payoutStore.state.totalPayments.balance;
 });
 
 const heldHistory = computed<SatelliteHeldHistory[]>(() => {
-    return store.state.payoutModule.heldHistory;
+    return payoutStore.state.heldHistory as SatelliteHeldHistory[];
 });
 
 onMounted(async () => {
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+    appStore.setLoading(true);
 
     try {
-        await store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
+        await nodeStore.selectSatellite();
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, 1);
+        await notificationsStore.fetchNotifications(1);
+    } catch (error) {
+        console.error(error);
+    }
+
+    const selectedSatelliteId = nodeStore.state.selectedSatellite.id;
+
+    try {
+        await payoutStore.fetchEstimation(selectedSatelliteId);
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, store.state.node.selectedSatellite.id);
+        await payoutStore.fetchPricingModel(selectedSatelliteId);
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, store.state.node.selectedSatellite.id);
+        await payoutStore.fetchTotalPayments();
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+        await payoutStore.getPeriods();
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+        await payoutStore.fetchHeldHistory();
     } catch (error) {
         console.error(error);
     }
 
-    try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
-    } catch (error) {
-        console.error(error);
-    }
-
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+    appStore.setLoading(false);
 });
 </script>
 

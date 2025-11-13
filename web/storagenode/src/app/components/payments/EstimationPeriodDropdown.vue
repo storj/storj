@@ -24,22 +24,23 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { useStore } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
-const store = useStore();
+const appStore = useAppStore();
+const nodeStore = useNodeStore();
 
 const isCalendarShown = computed<boolean>(() => {
-    return store.state.appStateModule.isPayoutCalendarShown;
+    return appStore.state.isPayoutCalendarShown;
 });
 
 const isCalendarDisabled = computed<boolean>(() => {
-    const nodeStartedAt = store.state.node.selectedSatellite.joinDate;
+    const nodeStartedAt = nodeStore.state.selectedSatellite.joinDate;
     const now = new Date();
 
     return nodeStartedAt.getUTCMonth() === now.getUTCMonth() && nodeStartedAt.getUTCFullYear() === now.getUTCFullYear();
@@ -50,11 +51,11 @@ function openPeriodDropdown(): void {
         return;
     }
 
-    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, true);
+    appStore.togglePayoutCalendar(true);
 }
 
 function closePeriodDropdown(): void {
-    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR, false);
+    appStore.togglePayoutCalendar(false);
 }
 </script>
 

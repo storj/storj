@@ -164,10 +164,10 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { Size } from '@/private/memory/size';
-import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
-import { useStore } from '@/app/utils/composables';
+import { Node, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
@@ -184,7 +184,8 @@ import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 
-const store = useStore();
+const appStore = useAppStore();
+const nodeStore = useNodeStore();
 
 const PAYOUT_PATH = ref<string>(RouteConfig.Payout.path);
 const chartWidth = ref<number>(0);
@@ -194,51 +195,51 @@ const chart = ref<HTMLElement>();
 const diskSpaceChart = ref<HTMLElement>();
 
 const isDarkMode = computed<boolean>(() => {
-    return store.state.appStateModule.isDarkMode;
+    return appStore.state.isDarkMode;
 });
 
 const isBandwidthChartShown = computed<boolean>(() => {
-    return store.state.appStateModule.isBandwidthChartShown;
+    return appStore.state.isBandwidthChartShown;
 });
 
 const isIngressChartShown = computed<boolean>(() => {
-    return store.state.appStateModule.isIngressChartShown;
+    return appStore.state.isIngressChartShown;
 });
 
 const isEgressChartShown = computed<boolean>(() => {
-    return store.state.appStateModule.isEgressChartShown;
+    return appStore.state.isEgressChartShown;
 });
 
-const nodeInfo = computed<Dashboard>(() => {
-    return store.state.node.info;
+const nodeInfo = computed<Node>(() => {
+    return nodeStore.state.info;
 });
 
 const bandwidthSummary = computed<string>(() => {
-    return Size.toBase10String(store.state.node.bandwidthSummary);
+    return Size.toBase10String(nodeStore.state.bandwidthSummary);
 });
 
 const egressSummary = computed<string>(() => {
-    return Size.toBase10String(store.state.node.egressSummary);
+    return Size.toBase10String(nodeStore.state.egressSummary);
 });
 
 const ingressSummary = computed<string>(() => {
-    return Size.toBase10String(store.state.node.ingressSummary);
+    return Size.toBase10String(nodeStore.state.ingressSummary);
 });
 
 const averageUsageBytes = computed<string>(() => {
-    return Size.toBase10String(store.state.node.averageUsageBytes);
+    return Size.toBase10String(nodeStore.state.averageUsageBytes);
 });
 
 const audits = computed<SatelliteScores>(() => {
-    return store.state.node.audits;
+    return nodeStore.state.audits as SatelliteScores;
 });
 
 const selectedSatellite = computed<SatelliteInfo>(() => {
-    return store.state.node.selectedSatellite;
+    return nodeStore.state.selectedSatellite;
 });
 
 const disqualifiedSatellites = computed<SatelliteInfo[]>(() => {
-    return store.state.node.disqualifiedSatellites;
+    return nodeStore.state.disqualifiedSatellites;
 });
 
 const isDisqualifiedInfoShown = computed<boolean>(() => {
@@ -258,7 +259,7 @@ const doDisqualifiedSatellitesExist = computed<boolean>(() => {
 });
 
 const suspendedSatellites = computed<SatelliteInfo[]>(() => {
-    return store.state.node.suspendedSatellites;
+    return nodeStore.state.suspendedSatellites;
 });
 
 const isSuspendedInfoShown = computed<boolean>(() => {
@@ -284,22 +285,22 @@ function recalculateChartDimensions(): void {
 
 function toggleEgressChartShowing(): void {
     if (isBandwidthChartShown.value || isIngressChartShown.value) {
-        store.dispatch(APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART);
+        appStore.toggleEgressChart();
 
         return;
     }
 
-    store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+    appStore.closeAdditionalCharts();
 }
 
 function toggleIngressChartShowing(): void {
     if (isBandwidthChartShown.value || isEgressChartShown.value) {
-        store.dispatch(APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART);
+        appStore.toggleIngressChart();
 
         return;
     }
 
-    store.dispatch(APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS);
+    appStore.closeAdditionalCharts();
 }
 
 onMounted(() => {

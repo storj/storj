@@ -12,11 +12,10 @@ import { getHeldPercentage } from '@/app/utils/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
-import { useNodeStore } from '@/app/store/modules/pinia/nodeStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const usePayoutStore = defineStore('payoutStore', () => {
+export const usePayoutStore = defineStore('payoutStore', () => {
     const state = reactive<PayoutState>(new PayoutState());
 
     const service: PayoutService = new PayoutService(new PayoutHttpApi());
@@ -79,10 +78,10 @@ const usePayoutStore = defineStore('payoutStore', () => {
         state.pricingModel = await service.pricingModel(satelliteId);
     }
 
-    async function fetchPayoutHistory(payoutHistoryPeriod: string): Promise<void> {
-        if (!payoutHistoryPeriod) return;
+    async function fetchPayoutHistory(): Promise<void> {
+        if (!state.payoutHistoryPeriod) return;
 
-        state.payoutHistory = await service.payoutHistory(payoutHistoryPeriod);
+        state.payoutHistory = await service.payoutHistory(state.payoutHistoryPeriod);
     }
 
     function setPayoutHistoryPeriod(period: string): void {

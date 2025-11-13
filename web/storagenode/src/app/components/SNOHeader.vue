@@ -60,11 +60,11 @@
 import { computed, onBeforeMount, ref } from 'vue';
 
 import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { useRoute, useRouter, useStore } from '@/app/utils/composables';
+import { useRoute, useRouter } from '@/app/utils/composables';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
+import { useNodeStore } from '@/app/store/modules/nodeStore';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
 
 import OptionsDropdown from '@/app/components/OptionsDropdown.vue';
 import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
@@ -77,23 +77,22 @@ import SettingsIcon from '@/../static/images/SettingsDots.svg';
 import StorjIconLight from '@/../static/images/storjIcon.svg';
 import StorjIconDark from '@/../static/images/storjIconDark.svg';
 
-const store = useStore();
 const route = useRoute();
 const router = useRouter();
 
-const {
-    GET_NODE_INFO,
-    SELECT_SATELLITE,
-} = NODE_ACTIONS;
+const payoutStore = usePayoutStore();
+const nodeStore = useNodeStore();
+const appStore = useAppStore();
+const notificationsStore = useNotificationsStore();
 
 const FIRST_PAGE = 1;
 
 const isNotificationPopupShown = ref<boolean>(false);
 const isOptionsShown = ref<boolean>(false);
 
-const nodeId = computed<string>(() => store.state.node.info.id);
-const hasNewNotifications = computed<boolean>(() => store.state.notificationsModule.unreadCount > 0);
-const isDarkMode = computed<boolean>(() => store.state.appStateModule.isDarkMode);
+const nodeId = computed<string>(() => nodeStore.state.info.id);
+const hasNewNotifications = computed<boolean>(() => notificationsStore.state.unreadCount > 0);
+const isDarkMode = computed<boolean>(() => appStore.state.isDarkMode);
 
 function openOptionsDropdown(): void {
     setTimeout(() => isOptionsShown.value = true, 0);
@@ -130,69 +129,70 @@ async function onHeaderLogoClick(): Promise<void> {
 }
 
 async function onRefresh(): Promise<void> {
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+    appStore.setLoading(true);
 
-    const selectedSatelliteId = store.state.node.selectedSatellite.id;
-    await store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
+    const selectedSatelliteId = nodeStore.state.selectedSatellite.id;
+
+    appStore.setNoPayoutData(false);
 
     try {
-        await store.dispatch(GET_NODE_INFO);
-        await store.dispatch(SELECT_SATELLITE, selectedSatelliteId);
+        await nodeStore.fetchNodeInfo();
+        await nodeStore.selectSatellite(selectedSatelliteId);
     } catch (error) {
         console.error('fetching satellite data', error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
+        await payoutStore.fetchPayoutHistory();
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, selectedSatelliteId);
+        await payoutStore.fetchEstimation(selectedSatelliteId);
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_PRICING_MODEL, selectedSatelliteId);
+        await payoutStore.fetchPricingModel(selectedSatelliteId);
     } catch (error) {
         console.error(error);
     }
 
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+    appStore.setLoading(false);
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatelliteId);
-        await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, selectedSatelliteId);
-    } catch (error) {
-        console.error(error);
-    }
-
-    try {
-        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, FIRST_PAGE);
+        await payoutStore.fetchPayoutInfo(selectedSatelliteId);
+        await payoutStore.fetchTotalPayments(selectedSatelliteId);
     } catch (error) {
         console.error(error);
     }
 
     try {
-        await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
+        await notificationsStore.fetchNotifications(FIRST_PAGE);
+    } catch (error) {
+        console.error(error);
+    }
+
+    try {
+        await payoutStore.fetchHeldHistory();
     } catch (error) {
         console.error(error);
     }
 }
 
 onBeforeMount(async () => {
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+    appStore.setLoading(true);
 
     try {
-        await store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
-        await store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, FIRST_PAGE);
+        await nodeStore.fetchNodeInfo();
+        await notificationsStore.fetchNotifications(FIRST_PAGE);
     } catch (error) {
         console.error(error);
     }
 
-    await store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
+    appStore.setLoading(false);
 });
 </script>
 

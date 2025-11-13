@@ -17,37 +17,38 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { monthNames } from '@/app/types/payout';
-import { useStore } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
+import { usePayoutStore } from '@/app/store/modules/payoutStore';
 
 import PayoutHistoryPeriodCalendar from '@/app/components/payments/PayoutHistoryPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
 
-const store = useStore();
+const appStore = useAppStore();
+const payoutStore = usePayoutStore();
 
 const period = computed<string>(() => {
-    if (!store.state.payoutModule.payoutHistoryPeriod) {
+    if (!payoutStore.state.payoutHistoryPeriod) {
         return '';
     }
 
-    const splittedPeriod = store.state.payoutModule.payoutHistoryPeriod.split('-');
+    const splittedPeriod = payoutStore.state.payoutHistoryPeriod.split('-');
 
-    return `${monthNames[(splittedPeriod[1] - 1)]}, ${splittedPeriod[0]}`;
+    return `${monthNames[(parseInt(splittedPeriod[1]) - 1)]}, ${splittedPeriod[0]}`;
 });
 
 const isCalendarShown = computed<boolean>(() => {
-    return store.state.appStateModule.isPayoutHistoryCalendarShown;
+    return appStore.state.isPayoutHistoryCalendarShown;
 });
 
 function openPeriodDropdown(): void {
-    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, true);
+    appStore.togglePayoutHistoryCalendar(true);
 }
 
 function closePeriodDropdown(): void {
-    store.dispatch(APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, false);
+    appStore.togglePayoutHistoryCalendar(false);
 }
 </script>
 

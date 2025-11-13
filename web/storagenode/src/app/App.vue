@@ -17,13 +17,13 @@
 <script setup lang="ts">
 import { computed, onBeforeMount } from 'vue';
 
-import { useStore } from '@/app/utils/composables';
+import { useAppStore } from '@/app/store/modules/appStore';
 
 import LoadingScreen from '@/app/components/LoadingScreen.vue';
 import SNOFooter from '@/app/components/SNOFooter.vue';
 import SNOHeader from '@/app/components/SNOHeader.vue';
 
-const store = useStore();
+const appStore = useAppStore();
 
 const elementsIdsToRemoveOnScroll: string[] = [
     'bandwidth-tooltip',
@@ -47,7 +47,7 @@ const elementsClassesToRemoveOnScroll: string[] = [
 ];
 
 const isLoading = computed<boolean>(() => {
-    return store.state.appStateModule.isLoading;
+    return appStore.state.isLoading;
 });
 
 function onScroll(): void {

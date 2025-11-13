@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StatusOffline } from '@/app/store/modules/node';
+import { StatusOffline } from '@/app/store/modules/nodeStore';
 
 /**
  * Hold common node information.
