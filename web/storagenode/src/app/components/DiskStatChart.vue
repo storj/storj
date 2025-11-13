@@ -4,7 +4,7 @@
 <template>
     <div class="disk-stat-area">
         <p class="disk-stat-area__title">Total Disk Space</p>
-        <p class="disk-stat-area__amount">{{ diskSpace.available | bytesToBase10String }}</p>
+        <p class="disk-stat-area__amount">{{ Size.toBase10String(diskSpace.available) }}</p>
         <DoughnutChart chart-id="disk-stat-chart" :chart-data="chartData" />
         <div class="disk-stat-area__info-area">
             <div class="disk-stat-area__info-area__item">
@@ -12,28 +12,28 @@
                     <div class="disk-stat-area__info-area__item__labels-area__circle used" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Used</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.used | bytesToBase10String }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ Size.toBase10String(diskSpace.used) }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
                     <div class="disk-stat-area__info-area__item__labels-area__circle free" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ free | bytesToBase10String }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ Size.toBase10String(free) }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
                     <div class="disk-stat-area__info-area__item__labels-area__circle trash" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.trash | bytesToBase10String }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ Size.toBase10String(diskSpace.trash) }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
                     <div class="disk-stat-area__info-area__item__labels-area__circle overused" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Overused</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.overused | bytesToBase10String }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ Size.toBase10String(diskSpace.overused) }}</p>
             </div>
         </div>
     </div>
@@ -45,6 +45,7 @@ import { ChartData } from 'chart.js';
 
 import { Traffic } from '@/storagenode/sno/sno';
 import { useStore } from '@/app/utils/composables';
+import { Size } from '@/private/memory/size';
 
 import DoughnutChart from '@/app/components/DoughnutChart.vue';
 

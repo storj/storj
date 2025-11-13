@@ -65,7 +65,7 @@
                     <p class="estimation-table-container__info-area__text">{{ item.bandwidth }}</p>
                 </div>
                 <div class="column justify-end column-6">
-                    <p class="estimation-table-container__info-area__text">{{ item.payout | centsToDollars }}</p>
+                    <p class="estimation-table-container__info-area__text">{{ centsToDollars(item.payout) }}</p>
                 </div>
             </div>
             <div class="estimation-table-container__info-area">
@@ -77,20 +77,20 @@
                 <div class="column justify-start column-4" />
                 <div class="column justify-start column-5" />
                 <div class="column justify-end column-6">
-                    <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
+                    <p class="estimation-table-container__info-area__text">{{ centsToDollars(grossTotal) }}</p>
                 </div>
             </div>
             <div v-if="isHistoricalPeriod && totalPaystubForPeriod.surgePercent" class="estimation-table-container__total-area">
                 <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
-                <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.grossWithSurge | centsToDollars }}</p>
+                <p class="estimation-table-container__total-area__text">{{ centsToDollars(totalPaystubForPeriod.grossWithSurge) }}</p>
             </div>
             <div class="estimation-table-container__held-area">
                 <p class="estimation-table-container__held-area__text">Held Back</p>
-                <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
+                <p class="estimation-table-container__held-area__text">-{{ centsToDollars(held) }}</p>
             </div>
             <div v-if="isHistoricalPeriod && disposed > 0" class="estimation-table-container__held-area">
                 <p class="estimation-table-container__held-area__text">Held returned</p>
-                <p class="estimation-table-container__held-area__text">{{ disposed | centsToDollars }}</p>
+                <p class="estimation-table-container__held-area__text">{{ centsToDollars(disposed) }}</p>
             </div>
             <div class="estimation-table-container__net-total-area">
                 <div class="column justify-start column-1">
@@ -105,7 +105,7 @@
                     <p class="estimation-table-container__net-total-area__text">{{ totalBandwidth }}</p>
                 </div>
                 <div class="column justify-end column-6">
-                    <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
+                    <p class="estimation-table-container__net-total-area__text">{{ centsToDollars(totalPayout) }}</p>
                 </div>
             </div>
             <div v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub" class="estimation-table-container__distributed-area">
@@ -121,7 +121,7 @@
                         </div>
                     </div>
                 </div>
-                <p class="estimation-table-container__distributed-area__text">{{ totalPaystubForPeriod.distributed | centsToDollars }}</p>
+                <p class="estimation-table-container__distributed-area__text">{{ centsToDollars(totalPaystubForPeriod.distributed) }}</p>
             </div>
         </div>
         <div v-if="isCurrentPeriod && !isFirstDayOfCurrentMonth" class="estimation-container__payout-area">
@@ -130,11 +130,11 @@
                 <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
             </div>
             <div class="estimation-container__payout-area__right-area">
-                <p class="title-text">{{ estimation.currentMonthExpectations | centsToDollars }}</p>
+                <p class="title-text">{{ centsToDollars(estimation.currentMonthExpectations) }}</p>
             </div>
         </div>
         <div v-if="isPayoutNoDataState" class="no-data-container">
-            <img class="no-data-container__image" src="@/../static/images/payments/NoData.png">
+            <img class="no-data-container__image" src="@/../static/images/payments/NoData.png" alt="no data">
             <p class="no-data-container__title">No data to display</p>
             <p class="no-data-container__additional-text">Please note, historical data about payouts does not update immediately, it may take some time.</p>
         </div>
@@ -160,6 +160,7 @@ import {
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
 import { useStore } from '@/app/utils/composables';
+import { centsToDollars } from '@/app/utils/payout';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 

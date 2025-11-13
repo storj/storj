@@ -27,10 +27,10 @@
                     <p class="held-history-table-container--large__info-area__text">{{ item.joinedAt.toISOString().split('T')[0] }}</p>
                 </div>
                 <div class="column justify-end column-3">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.totalHeld | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ centsToDollars(item.totalHeld) }}</p>
                 </div>
                 <div class="column justify-end column-4">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.totalDisposed | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ centsToDollars(item.totalDisposed) }}</p>
                 </div>
             </div>
         </div>
@@ -49,6 +49,7 @@ import { computed } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 import { useStore } from '@/app/utils/composables';
+import { centsToDollars } from '@/app/utils/payout';
 
 import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
 

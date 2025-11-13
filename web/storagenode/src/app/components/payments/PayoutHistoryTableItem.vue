@@ -10,7 +10,7 @@
                 </div>
                 <p>{{ historyItem.satelliteName }}</p>
             </div>
-            <p class="payout-history-item__header__total">{{ historyItem.paid | centsToDollars }}</p>
+            <p class="payout-history-item__header__total">{{ centsToDollars(historyItem.paid) }}</p>
         </div>
         <transition name="fade" mode="in-out">
             <div v-if="isExpanded" class="payout-history-item__expanded-area">
@@ -22,7 +22,7 @@
                         </div>
                         <div class="payout-history-item__expanded-area__left-area__info-area__item flex-start">
                             <p class="payout-history-item__expanded-area__left-area__info-area__item__label extra-margin">Earned</p>
-                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ historyItem.earned | centsToDollars }}</p>
+                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ centsToDollars(historyItem.earned) }}</p>
                         </div>
                         <div class="payout-history-item__expanded-area__left-area__info-area__item flex-end">
                             <div class="row extra-margin">
@@ -31,7 +31,7 @@
                                     <p class="payout-history-item__expanded-area__left-area__info-area__item__info-block__text">{{ historyItem.surgePercent + '%' }}</p>
                                 </div>
                             </div>
-                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ historyItem.surge | centsToDollars }}</p>
+                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ centsToDollars(historyItem.surge) }}</p>
                         </div>
                         <div class="payout-history-item__expanded-area__left-area__info-area__item flex-end">
                             <div class="row extra-margin">
@@ -40,7 +40,7 @@
                                     <p class="payout-history-item__expanded-area__left-area__info-area__item__info-block__text">{{ historyItem.heldPercent + '%' }}</p>
                                 </div>
                             </div>
-                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ historyItem.held | centsToDollars }}</p>
+                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ centsToDollars(historyItem.held) }}</p>
                         </div>
                     </div>
                     <div class="payout-history-item__expanded-area__left-area__footer">
@@ -72,15 +72,15 @@
                     <p class="payout-history-item__expanded-area__right-area__label flex-end">Paid</p>
                     <div class="payout-history-item__expanded-area__right-area__info-item">
                         <p class="payout-history-item__expanded-area__right-area__info-item__label">After Held</p>
-                        <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ historyItem.afterHeld | centsToDollars }}</p>
+                        <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ centsToDollars(historyItem.afterHeld) }}</p>
                     </div>
                     <div class="payout-history-item__expanded-area__right-area__info-item">
                         <p class="payout-history-item__expanded-area__right-area__info-item__label">Held Returned</p>
-                        <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ historyItem.disposed | centsToDollars }}</p>
+                        <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ centsToDollars(historyItem.disposed) }}</p>
                     </div>
                     <div class="payout-history-item__expanded-area__right-area__info-item">
                         <p class="payout-history-item__expanded-area__right-area__info-item__label">Distributed</p>
-                        <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ historyItem.distributed | centsToDollars }}</p>
+                        <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ centsToDollars(historyItem.distributed) }}</p>
                     </div>
                     <div class="payout-history-item__expanded-area__right-area__divider" />
                     <div class="payout-history-item__expanded-area__right-area__footer">
@@ -95,7 +95,7 @@
                             </a>
                             <ShareIcon class="payout-history-item__expanded-area__right-area__footer__transaction__icon" />
                         </div>
-                        <p class="payout-history-item__expanded-area__right-area__footer__total">{{ (historyItem.distributed > 0 ? historyItem.distributed : historyItem.paid) | centsToDollars }}</p>
+                        <p class="payout-history-item__expanded-area__right-area__footer__total">{{ centsToDollars(historyItem.distributed > 0 ? historyItem.distributed : historyItem.paid) }}</p>
                     </div>
                 </div>
             </div>
@@ -107,6 +107,7 @@
 import { ref } from 'vue';
 
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
+import { centsToDollars } from '@/app/utils/payout';
 
 import ExpandIcon from '@/../static/images/BlueArrowRight.svg';
 import DisqualifyIcon from '@/../static/images/largeDisqualify.svg';

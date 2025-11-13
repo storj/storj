@@ -25,11 +25,11 @@
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Held Total</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.totalHeld | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{ centsToDollars(heldHistoryItem.totalHeld) }}</p>
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Held Returned</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.totalDisposed | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{ centsToDollars(heldHistoryItem.totalDisposed) }}</p>
                 </div>
             </div>
         </transition>
@@ -40,6 +40,7 @@
 import { ref } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
+import { centsToDollars } from '@/app/utils/payout';
 
 import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';

@@ -21,15 +21,15 @@
             <div v-if="isExpanded" class="held-history-table-container--small__item__held-info">
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 1-3</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.holdForFirstPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{ centsToDollars(heldHistoryItem.holdForFirstPeriod) }}</p>
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 4-6</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.holdForSecondPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{ centsToDollars(heldHistoryItem.holdForSecondPeriod) }}</p>
                 </div>
                 <div class="held-history-table-container--small__item__held-info__item">
                     <p class="held-history-table-container--small__item__held-info__item__label">Month 7-9</p>
-                    <p class="held-history-table-container--small__item__held-info__item__value">{{ heldHistoryItem.holdForThirdPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--small__item__held-info__item__value">{{ centsToDollars(heldHistoryItem.holdForThirdPeriod) }}</p>
                 </div>
             </div>
         </transition>
@@ -40,6 +40,7 @@
 import { ref } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
+import { centsToDollars } from '@/app/utils/payout';
 
 import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';

@@ -24,13 +24,13 @@
                     <p class="held-history-table-container--large__info-area__months">{{ item.monthsWithNode }} month</p>
                 </div>
                 <div class="column justify-end column-2">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForFirstPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ centsToDollars(item.holdForFirstPeriod) }}</p>
                 </div>
                 <div class="column justify-end column-3">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForSecondPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ centsToDollars(item.holdForSecondPeriod) }}</p>
                 </div>
                 <div class="column justify-end column-4">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForThirdPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ centsToDollars(item.holdForThirdPeriod) }}</p>
                 </div>
             </div>
         </div>
@@ -49,6 +49,7 @@ import { computed } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 import { useStore } from '@/app/utils/composables';
+import { centsToDollars } from '@/app/utils/payout';
 
 import HeldHistoryMonthlyBreakdownTableItemSmall from '@/app/components/payments/HeldHistoryMonthlyBreakdownTableItemSmall.vue';
 

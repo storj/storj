@@ -14,8 +14,8 @@
             <p class="payout-area-container__section-title">Balance</p>
             <section class="payout-area-container__balance-area">
                 <div class="row">
-                    <SingleInfo width="48%" label="Undistributed payout" :value="balance | centsToDollars" info-text="You need to earn the minimum withdrawal amount so that we can transfer the entire amount to the wallet at the end of the month, otherwise it will remain on your balance for the next month or until you accumulate the minimum withdrawal amount" />
-                    <SingleInfo width="48%" label="Estimated earning this month" :value="currentMonthExpectations | centsToDollars" info-text="Estimated payout at the end of the month. This is only an estimate and may not reflect actual payout amount." />
+                    <SingleInfo width="48%" label="Undistributed payout" :value="centsToDollars(balance)" info-text="You need to earn the minimum withdrawal amount so that we can transfer the entire amount to the wallet at the end of the month, otherwise it will remain on your balance for the next month or until you accumulate the minimum withdrawal amount" />
+                    <SingleInfo width="48%" label="Estimated earning this month" :value="centsToDollars(currentMonthExpectations)" info-text="Estimated payout at the end of the month. This is only an estimate and may not reflect actual payout amount." />
                 </div>
             </section>
             <p class="payout-area-container__section-title">Payout</p>
@@ -36,8 +36,8 @@
             <section class="payout-area-container__held-info-area">
                 <TotalHeldArea v-if="isSatelliteSelected" />
                 <div v-else class="row">
-                    <SingleInfo width="48%" label="Total Held Amount" :value="totalPayments.held | centsToDollars" />
-                    <SingleInfo width="48%" label="Total Held Returned" :value="totalPayments.disposed | centsToDollars" />
+                    <SingleInfo width="48%" label="Total Held Amount" :value="centsToDollars(totalPayments.held)" />
+                    <SingleInfo width="48%" label="Total Held Returned" :value="centsToDollars(totalPayments.disposed)" />
                 </div>
             </section>
             <HeldProgress v-if="isSatelliteSelected" class="payout-area-container__process-area" />
@@ -55,6 +55,7 @@ import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
 import { useStore } from '@/app/utils/composables';
+import { centsToDollars } from '@/app/utils/payout';
 
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';

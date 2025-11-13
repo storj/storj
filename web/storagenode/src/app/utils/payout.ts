@@ -31,3 +31,7 @@ export function getMonthsBeforeNow(startedAt: Date): number {
 
     return (yearsDiff * 12) + (now.getUTCMonth() - startedAt.getUTCMonth()) + 1;
 }
+
+export function centsToDollars(cents: number): string {
+    return `$${(cents / 100).toFixed(2)}`;
+}

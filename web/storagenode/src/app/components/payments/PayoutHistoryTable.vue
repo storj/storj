@@ -18,7 +18,7 @@
             <PayoutHistoryTableItem v-for="historyItem in payoutHistory" :key="historyItem.satelliteID" :history-item="historyItem" />
             <div class="payout-history-table__table-container__totals-area">
                 <p class="payout-history-table__table-container__totals-area__label">Total</p>
-                <p class="payout-history-table__table-container__totals-area__value">{{ totalPaid | centsToDollars }}</p>
+                <p class="payout-history-table__table-container__totals-area__value">{{ centsToDollars(totalPaid) }}</p>
             </div>
         </div>
     </section>
@@ -30,6 +30,7 @@ import { computed, onMounted } from 'vue';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 import { useStore } from '@/app/utils/composables';
+import { centsToDollars } from '@/app/utils/payout';
 
 import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
 import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';

@@ -10,17 +10,17 @@
             </div>
             <div class="total-held-area__united-info-area__item align-center">
                 <p class="total-held-area__united-info-area__item__label">Total Held Amount</p>
-                <p class="total-held-area__united-info-area__item__amount">{{ totalPayments.held | centsToDollars }}</p>
+                <p class="total-held-area__united-info-area__item__amount">{{ centsToDollars(totalPayments.held) }}</p>
             </div>
             <div class="total-held-area__united-info-area__item align-end">
                 <p class="total-held-area__united-info-area__item__label">Total Held Returned</p>
-                <p class="total-held-area__united-info-area__item__amount">{{ totalPayments.disposed | centsToDollars }}</p>
+                <p class="total-held-area__united-info-area__item__amount">{{ centsToDollars(totalPayments.disposed) }}</p>
             </div>
         </div>
         <div class="total-held-area__info-area">
             <SingleInfo width="100%" label="Held Amount Rate" :value="heldPercentage + '%'" />
-            <SingleInfo width="100%" label="Total Held Amount" :value="totalPayments.held | centsToDollars" />
-            <SingleInfo width="100%" label="Total Held Returned" :value="totalPayments.disposed | centsToDollars" />
+            <SingleInfo width="100%" label="Total Held Amount" :value="centsToDollars(totalPayments.held)" />
+            <SingleInfo width="100%" label="Total Held Returned" :value="centsToDollars(totalPayments.disposed)" />
         </div>
     </section>
 </template>
@@ -29,6 +29,7 @@
 import { computed } from 'vue';
 
 import { useStore } from '@/app/utils/composables';
+import { centsToDollars } from '@/app/utils/payout';
 
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
