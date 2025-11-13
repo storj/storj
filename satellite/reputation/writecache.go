@@ -185,12 +185,15 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 		cachedInfo.TotalAuditCount += int64(updates.PositiveResults + updates.FailureResults + updates.OfflineResults + updates.UnknownResults)
 		cachedInfo.OnlineScore = cachedInfo.AuditHistory.Score
 
-		if cachedInfo.VettedAt == nil && cachedInfo.TotalAuditCount >= config.AuditCount {
-			cachedInfo.VettedAt = &now
-			// if we think the node is newly vetted, perform a sync to
-			// have the best chance of propagating that information to
-			// other satellite services.
-			doRequestSync = true
+		if cachedInfo.CreatedAt != nil {
+			timeSinceCreation := now.Sub(*cachedInfo.CreatedAt)
+			if cachedInfo.VettedAt == nil && timeSinceCreation >= config.MinimumNodeAge && cachedInfo.TotalAuditCount >= config.AuditCount {
+				cachedInfo.VettedAt = &now
+				// if we think the node is newly vetted, perform a sync to
+				// have the best chance of propagating that information to
+				// other satellite services.
+				doRequestSync = true
+			}
 		}
 
 		// for audit failure, only update normal alpha/beta

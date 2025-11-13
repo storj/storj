@@ -170,6 +170,7 @@ func (reputations *reputations) Get(ctx context.Context, nodeID storj.NodeID) (*
 	return &reputation.Info{
 		AuditSuccessCount:           res.AuditSuccessCount,
 		TotalAuditCount:             res.TotalAuditCount,
+		CreatedAt:                   &res.CreatedAt,
 		VettedAt:                    res.VettedAt,
 		UnknownAuditSuspended:       res.UnknownAuditSuspended,
 		OfflineSuspended:            res.OfflineSuspended,
@@ -546,7 +547,8 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		OnlineScore: float64Field{set: true, value: historyResponse.NewScore},
 	}
 
-	if vettedAt == nil && updatedTotalAuditCount >= config.AuditCount {
+	timeSinceCreation := now.Sub(dbNode.CreatedAt)
+	if vettedAt == nil && timeSinceCreation >= config.MinimumNodeAge && updatedTotalAuditCount >= config.AuditCount {
 		updateFields.VettedAt = timeField{set: true, value: now}
 	}
 
@@ -696,6 +698,7 @@ func dbxToReputationInfo(dbNode *dbx.Reputation) (reputation.Info, error) {
 	info := reputation.Info{
 		AuditSuccessCount:           dbNode.AuditSuccessCount,
 		TotalAuditCount:             dbNode.TotalAuditCount,
+		CreatedAt:                   &dbNode.CreatedAt,
 		VettedAt:                    dbNode.VettedAt,
 		UnknownAuditSuspended:       dbNode.UnknownAuditSuspended,
 		OfflineSuspended:            dbNode.OfflineSuspended,

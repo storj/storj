@@ -33,6 +33,7 @@ type Config struct {
 	SuspensionGracePeriod time.Duration `help:"the time period that must pass before suspended nodes will be disqualified" releaseDefault:"168h" devDefault:"1h"`
 	SuspensionDQEnabled   bool          `help:"whether nodes will be disqualified if they have been suspended for longer than the suspended grace period" releaseDefault:"false" devDefault:"true"`
 	AuditCount            int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
+	MinimumNodeAge        time.Duration `help:"the minimum age a node must have since creation before being vetted" releaseDefault:"504h" devDefault:"0h"`
 	AuditHistory          AuditHistoryConfig
 	FlushInterval         time.Duration `help:"the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)" releaseDefault:"2h" devDefault:"2m"`
 	ErrorRetryInterval    time.Duration `help:"the amount of time that should elapse before the cache retries failed database operations" releaseDefault:"1m" devDefault:"5s"`

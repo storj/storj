@@ -36,6 +36,7 @@ type DB interface {
 type Info struct {
 	AuditSuccessCount           int64
 	TotalAuditCount             int64
+	CreatedAt                   *time.Time
 	VettedAt                    *time.Time
 	UnknownAuditSuspended       *time.Time
 	OfflineSuspended            *time.Time
@@ -53,6 +54,7 @@ type Info struct {
 // Copy creates a deep copy of the Info object.
 func (i *Info) Copy() *Info {
 	i2 := *i
+	i2.CreatedAt = cloneTime(i.CreatedAt)
 	i2.VettedAt = cloneTime(i.VettedAt)
 	i2.UnknownAuditSuspended = cloneTime(i.UnknownAuditSuspended)
 	i2.OfflineSuspended = cloneTime(i.OfflineSuspended)

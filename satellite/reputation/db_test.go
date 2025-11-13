@@ -69,6 +69,63 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
+func TestUpdateWithMinimumNodeAge(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.AuditCount = 2
+				config.Reputation.MinimumNodeAge = 24 * time.Hour // 1 day minimum age
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		db := planet.Satellites[0].DB.Reputation()
+
+		// Test 1: Node meets audit count but is too young -> should not vet
+		updateReq := reputation.UpdateRequest{
+			NodeID:       node.ID(),
+			AuditOutcome: reputation.AuditOffline,
+			Config: reputation.Config{
+				AuditCount:     planet.Satellites[0].Config.Reputation.AuditCount,
+				MinimumNodeAge: planet.Satellites[0].Config.Reputation.MinimumNodeAge,
+				AuditHistory:   testAuditHistoryConfig(),
+			},
+		}
+
+		// First audit - this creates the reputation record
+		now := time.Now()
+		nodeStats, err := db.Update(ctx, updateReq, now)
+		require.NoError(t, err)
+		assert.Nil(t, nodeStats.VettedAt, "node should not be vetted after 1 audit")
+
+		// Get the actual CreatedAt from the database
+		startTime := nodeStats.CreatedAt
+		require.NotNil(t, startTime)
+
+		// Second audit 1 hr (meets audit count but still too young, needs 24 hours)
+		secondAuditTime := startTime.Add(time.Hour)
+		nodeStats, err = db.Update(ctx, updateReq, secondAuditTime)
+		require.NoError(t, err)
+		assert.Nil(t, nodeStats.VettedAt, "node should not be vetted yet - too young despite meeting audit count")
+
+		// Test 2: Node is now old enough and meets audit count -> should vet
+		// Simulate time passing by doing an audit 25 hours after node creation
+		oldEnoughTime := startTime.Add(25 * time.Hour)
+		nodeStats, err = db.Update(ctx, updateReq, oldEnoughTime)
+		require.NoError(t, err)
+		assert.NotNil(t, nodeStats.VettedAt, "node should be vetted now - old enough and meets audit count")
+
+		// Test 3: Verify vetted_at timestamp is not overwritten on subsequent audits
+		nodeStats2, err := db.Update(ctx, updateReq, oldEnoughTime.Add(time.Hour))
+		require.NoError(t, err)
+		assert.NotNil(t, nodeStats2.VettedAt)
+		assert.Equal(t, nodeStats.VettedAt, nodeStats2.VettedAt, "vetted_at should not change on subsequent audits")
+	})
+}
+
 // testApplyUpdatesEquivalentToMultipleUpdates checks that the ApplyUpdates call
 // is equivalent to making multiple separate Update() calls (modulo some details
 // like exact-time-of-disqualification).
@@ -91,7 +148,7 @@ func testApplyUpdatesEquivalentToMultipleUpdates(ctx context.Context, t *testing
 		t.Run(testDef.name, func(t *testing.T) {
 			node1 := testrand.NodeID()
 			node2 := testrand.NodeID()
-			startTime := time.Now().Add(-time.Hour)
+			startTime := time.Now()
 			var (
 				info1, info2 *reputation.Info
 				err          error
@@ -190,6 +247,7 @@ func TestApplyUpdatesEquivalentToMultipleUpdates(t *testing.T) {
 		SuspensionGracePeriod: 20 * time.Minute,
 		SuspensionDQEnabled:   true,
 		AuditCount:            3,
+		MinimumNodeAge:        0,
 		AuditHistory: reputation.AuditHistoryConfig{
 			WindowSize:               10 * time.Minute,
 			TrackingPeriod:           1 * time.Hour,
@@ -220,6 +278,7 @@ func TestApplyUpdatesEquivalentToMultipleUpdatesCached(t *testing.T) {
 		SuspensionGracePeriod: 20 * time.Minute,
 		SuspensionDQEnabled:   true,
 		AuditCount:            3,
+		MinimumNodeAge:        0,
 		AuditHistory: reputation.AuditHistoryConfig{
 			WindowSize:               10 * time.Minute,
 			TrackingPeriod:           1 * time.Hour,
@@ -353,7 +412,7 @@ func TestDBDisqualificationNodeOffline(t *testing.T) {
 				SuspensionDQEnabled:   false,
 				AuditCount:            0,
 				AuditHistory: reputation.AuditHistoryConfig{
-					WindowSize:               0,
+					WindowSize:               1 * time.Second,
 					TrackingPeriod:           1 * time.Second,
 					GracePeriod:              0,
 					OfflineThreshold:         1,

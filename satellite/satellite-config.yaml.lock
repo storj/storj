@@ -1829,6 +1829,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the value to which a beta reputation value should be initialized
 # reputation.initial-beta: 0
 
+# the minimum age a node must have since creation before being vetted
+# reputation.minimum-node-age: 504h0m0s
+
 # whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
 # reputation.suspension-dq-enabled: false
 
