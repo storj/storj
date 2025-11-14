@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/bucketmigrations"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -330,6 +331,11 @@ func (dbc *satelliteDBCollection) NodeAPIVersion() nodeapiversion.DB {
 // Buckets returns database for interacting with buckets.
 func (dbc *satelliteDBCollection) Buckets() buckets.DB {
 	return &bucketsDB{db: dbc.getByName("buckets")}
+}
+
+// BucketMigrations returns database for interacting with bucket migrations.
+func (dbc *satelliteDBCollection) BucketMigrations() bucketmigrations.DB {
+	return &bucketMigrationsDB{db: dbc.getByName("bucketmigrations")}
 }
 
 // StorjscanPayments returns database for storjscan payments.

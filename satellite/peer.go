@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/bucketmigrations"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -134,6 +135,8 @@ type DB interface {
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() buckets.DB
+	// BucketMigrations returns the database to interact with bucket migrations
+	BucketMigrations() bucketmigrations.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
