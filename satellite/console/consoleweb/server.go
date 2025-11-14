@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/tenancy"
 )
 
 const (
@@ -270,6 +271,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
 
+	router.Use(tenancy.Middleware(config.WhiteLabel.HostNameIDLookup))
 	router.Use(requestid.AddToContext)
 	// by default, set Cache-Control=no-store for all requests
 	// if requests should be cached (e.g. static assets), the cache control header can be overridden
