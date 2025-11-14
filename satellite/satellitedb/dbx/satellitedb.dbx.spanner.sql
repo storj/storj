@@ -541,6 +541,21 @@ CREATE TABLE bucket_metainfos (
 	CONSTRAINT bucket_metainfos_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id),
 	CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, name ) ;
+CREATE TABLE bucket_migrations (
+	id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name BYTES(MAX) NOT NULL,
+	from_placement INT64 NOT NULL,
+	to_placement INT64 NOT NULL,
+	migration_type INT64 NOT NULL,
+	state STRING(MAX) NOT NULL,
+	bytes_processed INT64 NOT NULL DEFAULT (0),
+	error_message STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	completed_at TIMESTAMP,
+	CONSTRAINT bucket_migrations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id)
+) PRIMARY KEY ( id ) ;
 CREATE TABLE domains (
 	subdomain STRING(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -627,6 +642,7 @@ CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
 CREATE INDEX users_external_id_index ON users ( external_id ) ;
 CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;

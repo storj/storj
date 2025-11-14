@@ -985,6 +985,22 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( project_id, name )
 )`,
 
+		`CREATE TABLE bucket_migrations (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	bucket_name bytea NOT NULL,
+	from_placement integer NOT NULL,
+	to_placement integer NOT NULL,
+	migration_type integer NOT NULL,
+	state text NOT NULL,
+	bytes_processed bigint NOT NULL DEFAULT 0,
+	error_message text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	completed_at timestamp with time zone,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE domains (
 	subdomain text NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -1110,6 +1126,8 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
 
+		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
@@ -1136,6 +1154,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS project_invitations`,
 
 		`DROP TABLE IF EXISTS domains`,
+
+		`DROP TABLE IF EXISTS bucket_migrations`,
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
 
@@ -1957,6 +1977,22 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( project_id, name )
 )`,
 
+		`CREATE TABLE bucket_migrations (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	bucket_name bytea NOT NULL,
+	from_placement integer NOT NULL,
+	to_placement integer NOT NULL,
+	migration_type integer NOT NULL,
+	state text NOT NULL,
+	bytes_processed bigint NOT NULL DEFAULT 0,
+	error_message text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	completed_at timestamp with time zone,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE domains (
 	subdomain text NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -2082,6 +2118,8 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
 
+		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
@@ -2108,6 +2146,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS project_invitations`,
 
 		`DROP TABLE IF EXISTS domains`,
+
+		`DROP TABLE IF EXISTS bucket_migrations`,
 
 		`DROP TABLE IF EXISTS bucket_metainfos`,
 
@@ -2897,6 +2937,22 @@ func (obj *spannerDB) Schema() []string {
 	CONSTRAINT bucket_metainfos_created_by_fkey FOREIGN KEY (created_by) REFERENCES users (id)
 ) PRIMARY KEY ( project_id, name )`,
 
+		`CREATE TABLE bucket_migrations (
+	id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name BYTES(MAX) NOT NULL,
+	from_placement INT64 NOT NULL,
+	to_placement INT64 NOT NULL,
+	migration_type INT64 NOT NULL,
+	state STRING(MAX) NOT NULL,
+	bytes_processed INT64 NOT NULL DEFAULT (0),
+	error_message STRING(MAX),
+	created_at TIMESTAMP NOT NULL,
+	updated_at TIMESTAMP NOT NULL,
+	completed_at TIMESTAMP,
+	CONSTRAINT bucket_migrations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id)
+) PRIMARY KEY ( id )`,
+
 		`CREATE TABLE domains (
 	subdomain STRING(MAX) NOT NULL,
 	project_id BYTES(MAX) NOT NULL,
@@ -3026,6 +3082,8 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id )`,
 
+		`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+
 		`CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id )`,
 
 		`CREATE INDEX project_invitations_email_index ON project_invitations ( email )`,
@@ -3060,6 +3118,8 @@ func (obj *spannerDB) DropSchema() []string {
 		`ALTER TABLE domains DROP CONSTRAINT domains_project_id_fkey`,
 
 		`ALTER TABLE domains DROP CONSTRAINT domains_created_by_fkey`,
+
+		`ALTER TABLE bucket_migrations DROP CONSTRAINT bucket_migrations_project_id_fkey`,
 
 		`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_project_id_fkey`,
 
@@ -3153,6 +3213,8 @@ func (obj *spannerDB) DropSchema() []string {
 
 		`DROP INDEX IF EXISTS webapp_sessions_user_id_index`,
 
+		`DROP INDEX IF EXISTS bucket_migrations_state_created_at_index`,
+
 		`DROP INDEX IF EXISTS project_invitations_project_id_index`,
 
 		`DROP INDEX IF EXISTS project_invitations_email_index`,
@@ -3210,6 +3272,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS domains_subdomain`,
 
 		`DROP TABLE IF EXISTS domains`,
+
+		`ALTER TABLE  bucket_migrations ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS bucket_migrations_id`,
+
+		`DROP TABLE IF EXISTS bucket_migrations`,
 
 		`ALTER TABLE  bucket_metainfos ALTER project_id SET DEFAULT (null)`,
 
@@ -13939,6 +14007,270 @@ func (f BucketMetainfo_CreatedBy_Field) value() any {
 	return f._value
 }
 
+type BucketMigration struct {
+	Id             []byte
+	ProjectId      []byte
+	BucketName     []byte
+	FromPlacement  int
+	ToPlacement    int
+	MigrationType  int
+	State          string
+	BytesProcessed uint64
+	ErrorMessage   *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	CompletedAt    *time.Time
+}
+
+func (BucketMigration) _Table() string { return "bucket_migrations" }
+
+type BucketMigration_Create_Fields struct {
+	BytesProcessed BucketMigration_BytesProcessed_Field
+	ErrorMessage   BucketMigration_ErrorMessage_Field
+	CompletedAt    BucketMigration_CompletedAt_Field
+}
+
+type BucketMigration_Update_Fields struct {
+	State          BucketMigration_State_Field
+	BytesProcessed BucketMigration_BytesProcessed_Field
+	ErrorMessage   BucketMigration_ErrorMessage_Field
+	CompletedAt    BucketMigration_CompletedAt_Field
+}
+
+type BucketMigration_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketMigration_Id(v []byte) BucketMigration_Id_Field {
+	return BucketMigration_Id_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketMigration_ProjectId(v []byte) BucketMigration_ProjectId_Field {
+	return BucketMigration_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_BucketName_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketMigration_BucketName(v []byte) BucketMigration_BucketName_Field {
+	return BucketMigration_BucketName_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_BucketName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_FromPlacement_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMigration_FromPlacement(v int) BucketMigration_FromPlacement_Field {
+	return BucketMigration_FromPlacement_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_FromPlacement_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_ToPlacement_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMigration_ToPlacement(v int) BucketMigration_ToPlacement_Field {
+	return BucketMigration_ToPlacement_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_ToPlacement_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_MigrationType_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMigration_MigrationType(v int) BucketMigration_MigrationType_Field {
+	return BucketMigration_MigrationType_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_MigrationType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_State_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func BucketMigration_State(v string) BucketMigration_State_Field {
+	return BucketMigration_State_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_State_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_BytesProcessed_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketMigration_BytesProcessed(v uint64) BucketMigration_BytesProcessed_Field {
+	return BucketMigration_BytesProcessed_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_BytesProcessed_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_ErrorMessage_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func BucketMigration_ErrorMessage(v string) BucketMigration_ErrorMessage_Field {
+	return BucketMigration_ErrorMessage_Field{_set: true, _value: &v}
+}
+
+func BucketMigration_ErrorMessage_Raw(v *string) BucketMigration_ErrorMessage_Field {
+	if v == nil {
+		return BucketMigration_ErrorMessage_Null()
+	}
+	return BucketMigration_ErrorMessage(*v)
+}
+
+func BucketMigration_ErrorMessage_Null() BucketMigration_ErrorMessage_Field {
+	return BucketMigration_ErrorMessage_Field{_set: true, _null: true}
+}
+
+func (f BucketMigration_ErrorMessage_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BucketMigration_ErrorMessage_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketMigration_CreatedAt(v time.Time) BucketMigration_CreatedAt_Field {
+	return BucketMigration_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketMigration_UpdatedAt(v time.Time) BucketMigration_UpdatedAt_Field {
+	return BucketMigration_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f BucketMigration_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type BucketMigration_CompletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func BucketMigration_CompletedAt(v time.Time) BucketMigration_CompletedAt_Field {
+	return BucketMigration_CompletedAt_Field{_set: true, _value: &v}
+}
+
+func BucketMigration_CompletedAt_Raw(v *time.Time) BucketMigration_CompletedAt_Field {
+	if v == nil {
+		return BucketMigration_CompletedAt_Null()
+	}
+	return BucketMigration_CompletedAt(*v)
+}
+
+func BucketMigration_CompletedAt_Null() BucketMigration_CompletedAt_Field {
+	return BucketMigration_CompletedAt_Field{_set: true, _null: true}
+}
+
+func (f BucketMigration_CompletedAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f BucketMigration_CompletedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type Domain struct {
 	Subdomain string
 	ProjectId []byte
@@ -16592,6 +16924,72 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxImpl) Create_BucketMigration(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field,
+	bucket_migration_project_id BucketMigration_ProjectId_Field,
+	bucket_migration_bucket_name BucketMigration_BucketName_Field,
+	bucket_migration_from_placement BucketMigration_FromPlacement_Field,
+	bucket_migration_to_placement BucketMigration_ToPlacement_Field,
+	bucket_migration_migration_type BucketMigration_MigrationType_Field,
+	bucket_migration_state BucketMigration_State_Field,
+	optional BucketMigration_Create_Fields) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_migration_id.value()
+	__project_id_val := bucket_migration_project_id.value()
+	__bucket_name_val := bucket_migration_bucket_name.value()
+	__from_placement_val := bucket_migration_from_placement.value()
+	__to_placement_val := bucket_migration_to_placement.value()
+	__migration_type_val := bucket_migration_migration_type.value()
+	__state_val := bucket_migration_state.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+	__completed_at_val := optional.CompletedAt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, bucket_name, from_placement, to_placement, migration_type, state, error_message, created_at, updated_at, completed_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO bucket_migrations "), __clause, __sqlbundle_Literal(" RETURNING bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __bucket_name_val, __from_placement_val, __to_placement_val, __migration_type_val, __state_val, __error_message_val, __created_at_val, __updated_at_val, __completed_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.BytesProcessed._set {
+		__values = append(__values, optional.BytesProcessed.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bytes_processed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_migration, nil
 
 }
 
@@ -20820,6 +21218,125 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 
 }
 
+func (obj *pgxImpl) Get_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.id = ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if err != nil {
+		return (*BucketMigration)(nil), obj.makeErr(err)
+	}
+	return bucket_migration, nil
+
+}
+
+func (obj *pgxImpl) All_BucketMigration_By_ProjectId_And_BucketName_OrderBy_Desc_CreatedAt(ctx context.Context,
+	bucket_migration_project_id BucketMigration_ProjectId_Field,
+	bucket_migration_bucket_name BucketMigration_BucketName_Field) (
+	rows []*BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.project_id = ? AND bucket_migrations.bucket_name = ? ORDER BY bucket_migrations.created_at DESC")
+
+	var __values []any
+	__values = append(__values, bucket_migration_project_id.value(), bucket_migration_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMigration, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				bucket_migration := &BucketMigration{}
+				err = __rows.Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_migration)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(ctx context.Context,
+	bucket_migration_state BucketMigration_State_Field,
+	limit int, offset int64) (
+	rows []*BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.state = ? ORDER BY bucket_migrations.created_at LIMIT ? OFFSET ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_state.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMigration, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				bucket_migration := &BucketMigration{}
+				err = __rows.Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_migration)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -23956,6 +24473,67 @@ func (obj *pgxImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx cont
 	return value_attribution, nil
 }
 
+func (obj *pgxImpl) Update_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field,
+	update BucketMigration_Update_Fields) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_migrations SET "), __sets, __sqlbundle_Literal(" WHERE bucket_migrations.id = ? RETURNING bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if update.BytesProcessed._set {
+		__values = append(__values, update.BytesProcessed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_processed = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, bucket_migration_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_migration, nil
+}
+
 func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -24987,6 +25565,36 @@ func (obj *pgxImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx cont
 
 }
 
+func (obj *pgxImpl) Delete_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_migrations WHERE bucket_migrations.id = ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 	count int64, err error) {
@@ -25326,6 +25934,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_migrations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -27255,6 +27873,72 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_BucketMigration(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field,
+	bucket_migration_project_id BucketMigration_ProjectId_Field,
+	bucket_migration_bucket_name BucketMigration_BucketName_Field,
+	bucket_migration_from_placement BucketMigration_FromPlacement_Field,
+	bucket_migration_to_placement BucketMigration_ToPlacement_Field,
+	bucket_migration_migration_type BucketMigration_MigrationType_Field,
+	bucket_migration_state BucketMigration_State_Field,
+	optional BucketMigration_Create_Fields) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_migration_id.value()
+	__project_id_val := bucket_migration_project_id.value()
+	__bucket_name_val := bucket_migration_bucket_name.value()
+	__from_placement_val := bucket_migration_from_placement.value()
+	__to_placement_val := bucket_migration_to_placement.value()
+	__migration_type_val := bucket_migration_migration_type.value()
+	__state_val := bucket_migration_state.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+	__completed_at_val := optional.CompletedAt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, bucket_name, from_placement, to_placement, migration_type, state, error_message, created_at, updated_at, completed_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO bucket_migrations "), __clause, __sqlbundle_Literal(" RETURNING bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __bucket_name_val, __from_placement_val, __to_placement_val, __migration_type_val, __state_val, __error_message_val, __created_at_val, __updated_at_val, __completed_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.BytesProcessed._set {
+		__values = append(__values, optional.BytesProcessed.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bytes_processed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_migration, nil
 
 }
 
@@ -31483,6 +32167,125 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 
 }
 
+func (obj *pgxcockroachImpl) Get_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.id = ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if err != nil {
+		return (*BucketMigration)(nil), obj.makeErr(err)
+	}
+	return bucket_migration, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_BucketMigration_By_ProjectId_And_BucketName_OrderBy_Desc_CreatedAt(ctx context.Context,
+	bucket_migration_project_id BucketMigration_ProjectId_Field,
+	bucket_migration_bucket_name BucketMigration_BucketName_Field) (
+	rows []*BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.project_id = ? AND bucket_migrations.bucket_name = ? ORDER BY bucket_migrations.created_at DESC")
+
+	var __values []any
+	__values = append(__values, bucket_migration_project_id.value(), bucket_migration_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMigration, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				bucket_migration := &BucketMigration{}
+				err = __rows.Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_migration)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(ctx context.Context,
+	bucket_migration_state BucketMigration_State_Field,
+	limit int, offset int64) (
+	rows []*BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.state = ? ORDER BY bucket_migrations.created_at LIMIT ? OFFSET ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_state.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMigration, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				bucket_migration := &BucketMigration{}
+				err = __rows.Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_migration)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -34619,6 +35422,67 @@ func (obj *pgxcockroachImpl) Update_ValueAttribution_By_ProjectId_And_BucketName
 	return value_attribution, nil
 }
 
+func (obj *pgxcockroachImpl) Update_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field,
+	update BucketMigration_Update_Fields) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_migrations SET "), __sets, __sqlbundle_Literal(" WHERE bucket_migrations.id = ? RETURNING bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if update.BytesProcessed._set {
+		__values = append(__values, update.BytesProcessed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_processed = ?"))
+	}
+
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, bucket_migration_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_migration, nil
+}
+
 func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -35650,6 +36514,36 @@ func (obj *pgxcockroachImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName
 
 }
 
+func (obj *pgxcockroachImpl) Delete_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_migrations WHERE bucket_migrations.id = ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 	count int64, err error) {
@@ -35989,6 +36883,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_migrations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -38102,6 +39006,82 @@ func (obj *spannerImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *spannerImpl) Create_BucketMigration(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field,
+	bucket_migration_project_id BucketMigration_ProjectId_Field,
+	bucket_migration_bucket_name BucketMigration_BucketName_Field,
+	bucket_migration_from_placement BucketMigration_FromPlacement_Field,
+	bucket_migration_to_placement BucketMigration_ToPlacement_Field,
+	bucket_migration_migration_type BucketMigration_MigrationType_Field,
+	bucket_migration_state BucketMigration_State_Field,
+	optional BucketMigration_Create_Fields) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_migration_id.value()
+	__project_id_val := bucket_migration_project_id.value()
+	__bucket_name_val := bucket_migration_bucket_name.value()
+	__from_placement_val := bucket_migration_from_placement.value()
+	__to_placement_val := bucket_migration_to_placement.value()
+	__migration_type_val := bucket_migration_migration_type.value()
+	__state_val := bucket_migration_state.value()
+	__error_message_val := optional.ErrorMessage.value()
+	__created_at_val := __now
+	__updated_at_val := __now
+	__completed_at_val := optional.CompletedAt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, project_id, bucket_name, from_placement, to_placement, migration_type, state, error_message, created_at, updated_at, completed_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO bucket_migrations "), __clause, __sqlbundle_Literal(" THEN RETURN bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __project_id_val, __bucket_name_val, __from_placement_val, __to_placement_val, __migration_type_val, __state_val, __error_message_val, __created_at_val, __updated_at_val, __completed_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.BytesProcessed._set {
+		__values = append(__values, optional.BytesProcessed.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bytes_processed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bytes_processed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_migration, nil
 
 }
 
@@ -42435,6 +43415,125 @@ func (obj *spannerImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx con
 
 }
 
+func (obj *spannerImpl) Get_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.id = ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if err != nil {
+		return (*BucketMigration)(nil), obj.makeErr(err)
+	}
+	return bucket_migration, nil
+
+}
+
+func (obj *spannerImpl) All_BucketMigration_By_ProjectId_And_BucketName_OrderBy_Desc_CreatedAt(ctx context.Context,
+	bucket_migration_project_id BucketMigration_ProjectId_Field,
+	bucket_migration_bucket_name BucketMigration_BucketName_Field) (
+	rows []*BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.project_id = ? AND bucket_migrations.bucket_name = ? ORDER BY bucket_migrations.created_at DESC")
+
+	var __values []any
+	__values = append(__values, bucket_migration_project_id.value(), bucket_migration_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMigration, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				bucket_migration := &BucketMigration{}
+				err = __rows.Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_migration)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(ctx context.Context,
+	bucket_migration_state BucketMigration_State_Field,
+	limit int, offset int64) (
+	rows []*BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at FROM bucket_migrations WHERE bucket_migrations.state = ? ORDER BY bucket_migrations.created_at LIMIT ? OFFSET ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_state.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMigration, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				bucket_migration := &BucketMigration{}
+				err = __rows.Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_migration)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -45338,6 +46437,64 @@ func (obj *spannerImpl) Update_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 	return value_attribution, nil
 }
 
+func (obj *spannerImpl) Update_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field,
+	update BucketMigration_Update_Fields) (
+	bucket_migration *BucketMigration, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_migrations SET "), __sets, __sqlbundle_Literal(" WHERE bucket_migrations.id = ? THEN RETURN bucket_migrations.id, bucket_migrations.project_id, bucket_migrations.bucket_name, bucket_migrations.from_placement, bucket_migrations.to_placement, bucket_migrations.migration_type, bucket_migrations.state, bucket_migrations.bytes_processed, bucket_migrations.error_message, bucket_migrations.created_at, bucket_migrations.updated_at, bucket_migrations.completed_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+	if update.BytesProcessed._set {
+		__values = append(__values, update.BytesProcessed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("bytes_processed = ?"))
+	}
+	if update.ErrorMessage._set {
+		__values = append(__values, update.ErrorMessage.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("error_message = ?"))
+	}
+	if update.CompletedAt._set {
+		__values = append(__values, update.CompletedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("completed_at = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, bucket_migration_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_migration = &BucketMigration{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_migration.Id, &bucket_migration.ProjectId, &bucket_migration.BucketName, &bucket_migration.FromPlacement, &bucket_migration.ToPlacement, &bucket_migration.MigrationType, &bucket_migration.State, &bucket_migration.BytesProcessed, &bucket_migration.ErrorMessage, &bucket_migration.CreatedAt, &bucket_migration.UpdatedAt, &bucket_migration.CompletedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_migration, nil
+}
+
 func (obj *spannerImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -46324,6 +47481,36 @@ func (obj *spannerImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx 
 
 }
 
+func (obj *spannerImpl) Delete_BucketMigration_By_Id(ctx context.Context,
+	bucket_migration_id BucketMigration_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_migrations WHERE bucket_migrations.id = ?")
+
+	var __values []any
+	__values = append(__values, bucket_migration_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 	count int64, err error) {
@@ -46659,6 +47846,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM domains;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_migrations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -47147,6 +48344,11 @@ type Methods interface {
 		billing_transaction_user_id BillingTransaction_UserId_Field) (
 		rows []*BillingTransaction, err error)
 
+	All_BucketMigration_By_ProjectId_And_BucketName_OrderBy_Desc_CreatedAt(ctx context.Context,
+		bucket_migration_project_id BucketMigration_ProjectId_Field,
+		bucket_migration_bucket_name BucketMigration_BucketName_Field) (
+		rows []*BucketMigration, err error)
+
 	All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
 		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
@@ -47395,6 +48597,17 @@ type Methods interface {
 		optional BucketMetainfo_Create_Fields) (
 		bucket_metainfo *BucketMetainfo, err error)
 
+	Create_BucketMigration(ctx context.Context,
+		bucket_migration_id BucketMigration_Id_Field,
+		bucket_migration_project_id BucketMigration_ProjectId_Field,
+		bucket_migration_bucket_name BucketMigration_BucketName_Field,
+		bucket_migration_from_placement BucketMigration_FromPlacement_Field,
+		bucket_migration_to_placement BucketMigration_ToPlacement_Field,
+		bucket_migration_migration_type BucketMigration_MigrationType_Field,
+		bucket_migration_state BucketMigration_State_Field,
+		optional BucketMigration_Create_Fields) (
+		bucket_migration *BucketMigration, err error)
+
 	Create_CoinpaymentsTransaction(ctx context.Context,
 		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field,
@@ -47535,6 +48748,10 @@ type Methods interface {
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		deleted bool, err error)
+
+	Delete_BucketMigration_By_Id(ctx context.Context,
+		bucket_migration_id BucketMigration_Id_Field) (
 		deleted bool, err error)
 
 	Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
@@ -47743,6 +48960,10 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Versioning_Row, err error)
+
+	Get_BucketMigration_By_Id(ctx context.Context,
+		bucket_migration_id BucketMigration_Id_Field) (
+		bucket_migration *BucketMigration, err error)
 
 	Get_Domain_By_ProjectId_And_Subdomain(ctx context.Context,
 		domain_project_id Domain_ProjectId_Field,
@@ -47998,6 +49219,11 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*BucketMetainfo, err error)
 
+	Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(ctx context.Context,
+		bucket_migration_state BucketMigration_State_Field,
+		limit int, offset int64) (
+		rows []*BucketMigration, err error)
+
 	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field,
 		limit int, offset int64) (
@@ -48230,6 +49456,11 @@ type Methods interface {
 		bucket_metainfo_versioning_greater_or_equal BucketMetainfo_Versioning_Field,
 		update BucketMetainfo_Update_Fields) (
 		bucket_metainfo *BucketMetainfo, err error)
+
+	Update_BucketMigration_By_Id(ctx context.Context,
+		bucket_migration_id BucketMigration_Id_Field,
+		update BucketMigration_Update_Fields) (
+		bucket_migration *BucketMigration, err error)
 
 	Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,

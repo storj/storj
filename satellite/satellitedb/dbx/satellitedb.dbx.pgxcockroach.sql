@@ -581,6 +581,21 @@ CREATE TABLE bucket_metainfos (
 	created_by bytea REFERENCES users( id ),
 	PRIMARY KEY ( project_id, name )
 ) ;
+CREATE TABLE bucket_migrations (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	bucket_name bytea NOT NULL,
+	from_placement integer NOT NULL,
+	to_placement integer NOT NULL,
+	migration_type integer NOT NULL,
+	state text NOT NULL,
+	bytes_processed bigint NOT NULL DEFAULT 0,
+	error_message text,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	completed_at timestamp with time zone,
+	PRIMARY KEY ( id )
+) ;
 CREATE TABLE domains (
 	subdomain text NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ),
@@ -664,6 +679,7 @@ CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
 CREATE INDEX users_external_id_index ON users ( external_id ) WHERE users.external_id is not NULL ;
 CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) WHERE users.status_updated_at is not NULL ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
+CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
 CREATE INDEX project_invitations_email_index ON project_invitations ( email ) ;
 CREATE INDEX project_members_project_id_index ON project_members ( project_id ) ;

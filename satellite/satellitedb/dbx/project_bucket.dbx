@@ -241,3 +241,72 @@ read one (
 	where value_attribution.project_id = ?
 	where value_attribution.bucket_name = ?
 )
+
+// bucket_migration tracks bucket migration jobs from initiation through completion.
+// This table provides persistent storage to track placement migration lifecycle, progress, and state.
+model bucket_migration (
+	key id
+
+	index (
+		name bucket_migrations_state_created_at_index
+		fields state created_at
+	)
+
+	// id is a unique UUID for the migration job.
+	field id                   blob
+	// project_id is the project the bucket belongs to.
+	field project_id           project.id restrict
+	// bucket_name is the name of the bucket being migrated.
+	field bucket_name          blob
+	// from_placement is the source placement constraint before migration.
+	field from_placement       int
+	// to_placement is the target placement constraint after migration.
+	field to_placement         int
+	// migration_type indicates the type of migration being performed.
+	// 0 - Trivial Migration: Change placement ID on segments and bucket metadata when erasure coding parameters match
+	// 1 - Full Migration: Re-encode and redistribute data when moving to placements with different RS parameters
+	field migration_type       int
+	// state is the current state of the migration.
+	// Valid states: "pending", "in_progress", "completed", "failed", "cancelled"
+	field state                text      ( updatable )
+	// bytes_processed is the total number of bytes that have been migrated.
+	field bytes_processed      uint64    ( updatable, default 0 )
+	// error_message contains error details if the migration failed.
+	field error_message        text      ( nullable, updatable )
+	// created_at indicates when the migration job was created.
+	field created_at           timestamp ( autoinsert )
+	// updated_at indicates when the migration job was last updated.
+	field updated_at           timestamp ( autoinsert, autoupdate )
+	// completed_at indicates when the migration job finished (success or failure).
+	field completed_at         timestamp ( nullable, updatable )
+)
+
+create bucket_migration ()
+
+read one (
+	select bucket_migration
+	where bucket_migration.id = ?
+)
+
+update bucket_migration (
+	where bucket_migration.id = ?
+)
+
+delete bucket_migration (
+	where bucket_migration.id = ?
+)
+
+// Read all migrations for a specific bucket
+read all (
+	select bucket_migration
+	where bucket_migration.project_id = ?
+	where bucket_migration.bucket_name = ?
+	orderby desc bucket_migration.created_at
+)
+
+// Read migrations by state (for worker queries)
+read limitoffset (
+	select bucket_migration
+	where bucket_migration.state = ?
+	orderby asc bucket_migration.created_at
+)

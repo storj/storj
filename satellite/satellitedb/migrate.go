@@ -1059,6 +1059,29 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					) PRIMARY KEY ( scope )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_migrations table",
+				Version:     303,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS bucket_migrations (
+						id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						bucket_name BYTES(MAX) NOT NULL,
+						from_placement INT64 NOT NULL,
+						to_placement INT64 NOT NULL,
+						migration_type INT64 NOT NULL,
+						state STRING(MAX) NOT NULL,
+						bytes_processed INT64 NOT NULL DEFAULT (0),
+						error_message STRING(MAX),
+						created_at TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL,
+						completed_at TIMESTAMP,
+						CONSTRAINT bucket_migrations_project_id_fkey FOREIGN KEY (project_id) REFERENCES projects (id)
+					) PRIMARY KEY ( id )`,
+					`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -3958,6 +3981,29 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( scope )
 					)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_migrations table",
+				Version:     303,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_migrations (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ),
+						bucket_name bytea NOT NULL,
+						from_placement integer NOT NULL,
+						to_placement integer NOT NULL,
+						migration_type integer NOT NULL,
+						state text NOT NULL,
+						bytes_processed bigint NOT NULL DEFAULT 0,
+						error_message text,
+						created_at timestamp with time zone NOT NULL,
+						updated_at timestamp with time zone NOT NULL,
+						completed_at timestamp with time zone,
+						PRIMARY KEY ( id )
+					)`,
+					`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
