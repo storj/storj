@@ -97,6 +97,10 @@ func (r *Retention) Verify() error {
 	return r.verifyWithoutGovernance()
 }
 
+func (r *Retention) isProtected(bypassGovernance bool, now time.Time) bool {
+	return r.Active(now) && !(bypassGovernance && r.Mode == storj.GovernanceMode)
+}
+
 // verifyWithoutGovernance verifies the retention configuration. It's used by metabase DB methods that haven't
 // yet been adjusted to support governance mode, so it treats governance mode as invalid.
 func (r *Retention) verifyWithoutGovernance() error {

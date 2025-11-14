@@ -1848,7 +1848,7 @@ func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter Transactio
 	switch {
 	case query.Unversioned.RetentionMode.LegalHold:
 		return ErrObjectLock.New(legalHoldErrMsg)
-	case isRetentionProtected(retention, bypassGoveranance, time.Now()):
+	case retention.isProtected(bypassGoveranance, time.Now()):
 		return ErrObjectLock.New(retentionErrMsg)
 	}
 
