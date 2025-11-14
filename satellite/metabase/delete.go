@@ -17,7 +17,6 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/status"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
@@ -258,7 +257,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			switch {
 			case object.LegalHold:
 				return DeleteObjectResult{}, ErrObjectLock.New(legalHoldErrMsg)
-			case isRetentionProtected(object.Retention, opts.ObjectLock.BypassGovernance, now):
+			case object.Retention.isProtected(opts.ObjectLock.BypassGovernance, now):
 				return DeleteObjectResult{}, ErrObjectLock.New(retentionErrMsg)
 			}
 		}
@@ -391,7 +390,7 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 			switch {
 			case legalHold:
 				return ErrObjectLock.New(legalHoldErrMsg)
-			case isRetentionProtected(retention, opts.ObjectLock.BypassGovernance, time.Now()):
+			case retention.isProtected(opts.ObjectLock.BypassGovernance, time.Now()):
 				return ErrObjectLock.New(retentionErrMsg)
 			}
 		}
@@ -825,7 +824,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 		switch {
 		case object.LegalHold:
 			return DeleteObjectResult{}, ErrObjectLock.New(legalHoldErrMsg)
-		case isRetentionProtected(object.Retention, opts.ObjectLock.BypassGovernance, now):
+		case object.Retention.isProtected(opts.ObjectLock.BypassGovernance, now):
 			return DeleteObjectResult{}, ErrObjectLock.New(retentionErrMsg)
 		default:
 			return DeleteObjectResult{}, Error.New("unable to delete object")
@@ -968,7 +967,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 		switch {
 		case info.legalHold:
 			return ErrObjectLock.New(legalHoldErrMsg)
-		case isRetentionProtected(info.retention, opts.ObjectLock.BypassGovernance, time.Now()):
+		case info.retention.isProtected(opts.ObjectLock.BypassGovernance, time.Now()):
 			return ErrObjectLock.New(retentionErrMsg)
 		}
 
@@ -1168,8 +1167,4 @@ func logMultipleCommittedVersionsError(log *zap.Logger, loc ObjectLocation) {
 		zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))),
 	)
 	mon.Meter("multiple_committed_versions").Mark(1)
-}
-
-func isRetentionProtected(retention Retention, bypassGovernance bool, now time.Time) bool {
-	return retention.Active(now) && !(bypassGovernance && retention.Mode == storj.GovernanceMode)
 }
