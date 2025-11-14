@@ -66,8 +66,9 @@
             </v-row>
         </v-card-text>
     </v-card>
-    <remove-credit-card-dialog v-model="isRemoveCCDialog" :card="card" @edit-default="isEditDefaultCCDialog = true" />
-    <edit-default-credit-card-dialog v-model="isEditDefaultCCDialog" :scrim="!isRemoveCCDialog" />
+    <RemoveCreditCardDialog v-model="isRemoveCCDialog" :card="card" @add-new="isAddCCDialog = true" @edit-default="isEditDefaultCCDialog = true" />
+    <EditDefaultCreditCardDialog v-model="isEditDefaultCCDialog" :scrim="!isRemoveCCDialog" />
+    <AddCardDialog v-model="isAddCCDialog" :scrim="!isRemoveCCDialog" />
 </template>
 
 <script setup lang="ts">
@@ -84,6 +85,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 
 import RemoveCreditCardDialog from '@/components/dialogs/RemoveCreditCardDialog.vue';
 import EditDefaultCreditCardDialog from '@/components/dialogs/EditDefaultCreditCardDialog.vue';
+import AddCardDialog from '@/components/dialogs/AddCardDialog.vue';
 
 const billingStore = useBillingStore();
 const notify = useNotify();
@@ -98,6 +100,7 @@ const currentYear = new Date().getFullYear();
 
 const isRemoveCCDialog = ref<boolean>(false);
 const isEditDefaultCCDialog = ref<boolean>(false);
+const isAddCCDialog = ref<boolean>(false);
 const isEditing = ref(false);
 const expMonth = ref<number>(props.card.expMonth);
 const expYear = ref<number>(props.card.expYear);

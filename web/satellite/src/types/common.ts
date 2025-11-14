@@ -221,3 +221,8 @@ export class StepInfo<T> {
         });
     }
 }
+
+export interface StripeForm {
+    onSubmit(): Promise<string>;
+    initStripe(): Promise<string>;
+}

@@ -36,7 +36,10 @@
             <v-divider />
 
             <v-card-item class="px-6 py-0">
-                <v-card-text v-if="card.isDefault" class="py-5 px-0">This is your default payment card. It can't be removed.</v-card-text>
+                <v-card-text v-if="card.isDefault" class="py-5 px-0">
+                    To remove this payment method, you will need to add a replacement first.
+                    Would you like to add a new payment method now?
+                </v-card-text>
                 <v-card-text v-else class="py-5 px-0">This is not your default payment card.</v-card-text>
 
                 <credit-card-item :card="card" />
@@ -46,6 +49,11 @@
 
             <v-card-actions class="pa-6">
                 <v-row>
+                    <v-col v-if="!moreThanOneCard && card.isDefault">
+                        <v-btn :prepend-icon="Plus" color="primary" variant="flat" block :loading="isLoading" @click="emit('addNew')">
+                            New Payment Method
+                        </v-btn>
+                    </v-col>
                     <v-col>
                         <v-btn variant="outlined" color="default" block :disabled="isLoading" @click="model = false">
                             Cancel
@@ -80,7 +88,7 @@ import {
     VBtn,
     VSheet,
 } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { Plus, X } from 'lucide-vue-next';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';
@@ -100,6 +108,7 @@ const model = defineModel<boolean>({ required: true });
 
 const emit = defineEmits<{
     'editDefault': [];
+    'addNew': [];
 }>();
 
 const billingStore = useBillingStore();

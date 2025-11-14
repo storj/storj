@@ -79,14 +79,10 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { StripeForm } from '@/types/common';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
-
-interface StripeForm {
-    onSubmit(): Promise<string>;
-    initStripe(): Promise<string>;
-}
 
 const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
