@@ -13,7 +13,7 @@
 #   ./find_uplink_version_commit.sh "v1.4.5-"       # Find v1.4.5-<postfix> only
 #   ./find_uplink_version_commit.sh "v1.13.2"       # Find v1.13.2 versions
 
-set -e
+set -euo pipefail
 
 VERSION_PATTERN="${1:-v1.4.5}"
 
@@ -23,7 +23,8 @@ echo "==========================================================================
 echo ""
 
 # Get commits in reverse chronological order (newest first) that might match
-commits=$(git log --all -S "storj.io/uplink ${VERSION_PATTERN}" --pretty=format:"%H" -- go.mod)
+# Using -S for pickaxe search which finds commits that add or remove the pattern
+commits=$(git log --all -S "storj.io/uplink ${VERSION_PATTERN}" --pickaxe-regex --pretty=format:"%H" -- go.mod)
 
 if [ -z "$commits" ]; then
     echo "No commits found containing storj.io/uplink ${VERSION_PATTERN}"
@@ -64,7 +65,9 @@ for commit in $commits; do
                     if [ -n "$current_line" ]; then
                         echo "      Line 95 in that commit contained: $current_line"
                     else
-                        echo "      Line 95 did not exist in that commit (file had $(git show "$commit:go.mod" | wc -l) lines)"
+                        # Store line count in variable for proper error handling
+                        line_count=$(git show "$commit:go.mod" 2>/dev/null | wc -l)
+                        echo "      Line 95 did not exist in that commit (file had ${line_count} lines)"
                     fi
                 fi
                 echo ""
