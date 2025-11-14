@@ -31,7 +31,7 @@ func (obj *GetObjectExactVersion) Verify() error {
 	if err := obj.ObjectLocation.Verify(); err != nil {
 		return err
 	}
-	if obj.Version <= 0 {
+	if obj.Version == 0 {
 		return ErrInvalidRequest.New("Version invalid: %v", obj.Version)
 	}
 	return nil
@@ -116,7 +116,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
 				status <> ` + statusPending + ` AND
 				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,

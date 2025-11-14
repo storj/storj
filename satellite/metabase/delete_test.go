@@ -345,6 +345,38 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
+		t.Run("Delete pending negative object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			obj := obj
+			obj.Version = -1
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectExactVersion{
+				Opts: metabase.DeleteObjectExactVersion{
+					ObjectLocation: obj.Location(),
+					Version:        obj.Version,
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Encryption:   metabasetest.DefaultEncryption,
+						Status:       metabase.Pending,
+					}},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
 		t.Run("Delete object without segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
