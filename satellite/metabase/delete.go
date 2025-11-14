@@ -62,7 +62,7 @@ func (obj *DeleteObjectExactVersion) Verify() error {
 	if err := obj.ObjectLocation.Verify(); err != nil {
 		return err
 	}
-	if obj.Version <= 0 {
+	if obj.Version == 0 {
 		return ErrInvalidRequest.New("Version invalid: %v", obj.Version)
 	}
 	return nil
