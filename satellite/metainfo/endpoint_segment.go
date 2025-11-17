@@ -482,7 +482,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Pieces:      pieces,
 		Placement:   storj.PlacementConstraint(streamID.Placement),
 
-		SkipPendingObject: !streamID.MultipartObject,
+		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 
 		MaxCommitDelay:      maxCommitDelay,
 		TestingUseMutations: endpoint.config.TestingCommitSegmentUseMutations,
@@ -628,7 +628,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 		InlineData: req.EncryptedInlineData,
 
-		SkipPendingObject: !streamID.MultipartObject,
+		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 
 		MaxCommitDelay: maxCommitDelay,
 	})
