@@ -1,6 +1,6 @@
 ARG DOCKER_ARCH
 # Satellite UI static asset generation
-FROM node:24.8.0 as ui
+FROM node:24.11.1 as ui
 WORKDIR /app
 COPY web/satellite/ /app
 # Need to clean up (or ignore) local folders like node_modules, etc...

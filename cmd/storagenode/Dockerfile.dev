@@ -1,7 +1,7 @@
 ARG DOCKER_ARCH
 ARG GO_VERSION=1.24
 # Storagenode UI static asset generation
-FROM node:24.8.0 as ui
+FROM node:24.11.1 as ui
 WORKDIR /app
 COPY web/storagenode/ /app
 RUN ./build.sh
