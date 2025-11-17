@@ -30,8 +30,11 @@ function buildChart(): void {
             data: props.chartData,
             options: {
                 plugins: {
+                    legend: {
+                        display: false,
+                    },
                     tooltip: {
-                        enabled: false,
+                        enabled: true,
                     },
                 },
                 responsive: false,

@@ -35,16 +35,22 @@ type DiskSpace struct {
 	Allocated int64
 	// Total is the total amount of disk space on the whole disk, not just allocated disk space, in bytes.
 	Total int64
+	// Used includes all the used bytes
+	Used int64
 	// UsedForPieces is the amount of disk space used for pieces, in bytes.
 	UsedForPieces int64
 	// UsedForTrash is the amount of disk space used for trash, in bytes.
 	UsedForTrash int64
+	// UsedReclaimable is the amount of disk space which is used, but can be deleted with the next compaction.
+	UsedReclaimable int64
 	// Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
 	Free int64
 	// Available is the amount of free space on the allocated disk space, in bytes.
 	Available int64
 	// Overused is the amount of disk space overused by the storage node, in bytes.
 	Overused int64
+	// Reserved is part of the allocated space, but always should be free.
+	Reserved int64
 }
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.

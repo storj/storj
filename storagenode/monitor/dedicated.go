@@ -86,11 +86,17 @@ func (d *DedicatedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) 
 		availableBytes = 0
 	}
 
+	usedSpace := storageStatus.TotalSpace - storageStatus.AvailableSpace
+	if usedSpace < 0 {
+		usedSpace = 0
+	}
 	return DiskSpace{
 		Total:     storageStatus.TotalSpace,
-		Allocated: storageStatus.TotalSpace - d.reservedBytes,
+		Allocated: storageStatus.TotalSpace,
 		Free:      storageStatus.AvailableSpace,
 		Available: availableBytes,
 		Overused:  overused,
+		Used:      usedSpace,
+		Reserved:  d.reservedBytes,
 	}, nil
 }

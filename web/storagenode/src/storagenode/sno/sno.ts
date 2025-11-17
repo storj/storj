@@ -29,7 +29,7 @@ export class Node {
 export class Utilization {
     public constructor(
         public bandwidth: Traffic = new Traffic(),
-        public diskSpace: Traffic = new Traffic(),
+        public diskSpace: DiskSpace = new DiskSpace(),
     ) {}
 }
 
@@ -39,9 +39,17 @@ export class Utilization {
 export class Traffic {
     public constructor(
         public used: number = 0,
-        public available: number = 1,
+    ) {}
+}
+
+export class DiskSpace {
+    public constructor(
+        public used: number = 0,
+        public allocated: number = 1,
         public trash: number = 0,
         public overused: number = 0,
+        public reclaimable: number = 0,
+        public reserved: number = 0,
     ) {}
 }
 
@@ -69,7 +77,7 @@ export class Dashboard {
         public wallet: string,
         public walletFeatures: string[],
         public satellites: SatelliteInfo[],
-        public diskSpace: Traffic,
+        public diskSpace: DiskSpace,
         public bandwidth: Traffic,
         public lastPinged: Date,
         public startedAt: Date,

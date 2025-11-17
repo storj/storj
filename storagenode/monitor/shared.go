@@ -23,6 +23,7 @@ type SpaceUsage struct {
 	UsedForPieces   int64 // total space used by live pieces
 	UsedForTrash    int64 // total space used by trash pieces
 	UsedForMetadata int64 // total space used by metadata (hash tables and stuff)
+	UsedReclaimable int64 // space used that can be reclaimed (e.g., unreferenced data)
 }
 
 // SharedDisk is the default way to check disk space (using usage-space walker).
@@ -167,5 +168,6 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		Free:          storageStatus.DiskFree,
 		Available:     available,
 		Overused:      overused,
+		Used:          (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal,
 	}, nil
 }

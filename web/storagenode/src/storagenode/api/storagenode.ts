@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import {
-    Dashboard,
+    Dashboard, DiskSpace,
     Satellite,
     SatelliteByDayInfo,
     SatelliteInfo,
@@ -42,7 +42,7 @@ export class StorageNodeApi {
             return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended, vettedAt);
         });
 
-        const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash, data.diskSpace.overused);
+        const diskSpace: DiskSpace = new DiskSpace(data.diskSpace.used, data.diskSpace.allocated, data.diskSpace.trash, data.diskSpace.overused, data.diskSpace.reclaimable, data.diskSpace.reserved);
         const bandwidth: Traffic = new Traffic(data.bandwidth.used);
 
         return new Dashboard(data.nodeID, data.wallet, data.walletFeatures || [], satellites, diskSpace, bandwidth,

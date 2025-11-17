@@ -200,13 +200,12 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	}
 
 	data.DiskSpace = DiskSpaceInfo{
-		Used: report.UsedForPieces,
-		// you might be tempted to use report.Available here, but that would be wrong because the
-		// web frontend considers available to mean the total space available and calculates it's
-		// concept of "free" itself as available - used - trash, so we use allocated instead.
-		Available: report.Allocated,
-		Trash:     report.UsedForTrash,
-		Overused:  report.Overused,
+		Used:            report.Used,
+		Available:       report.Available,
+		Allocated:       report.Allocated,
+		UsedForTrash:    report.UsedForTrash,
+		UsedReclaimable: report.UsedReclaimable,
+		Overused:        report.Overused,
 	}
 
 	data.Bandwidth = BandwidthInfo{

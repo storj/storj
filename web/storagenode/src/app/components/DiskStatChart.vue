@@ -3,8 +3,8 @@
 
 <template>
     <div class="disk-stat-area">
-        <p class="disk-stat-area__title">Total Disk Space</p>
-        <p class="disk-stat-area__amount">{{ Size.toBase10String(diskSpace.available) }}</p>
+        <p class="disk-stat-area__title">Allocated Disk Space</p>
+        <p class="disk-stat-area__amount">{{ Size.toBase10String(diskSpace.allocated) }}</p>
         <DoughnutChart chart-id="disk-stat-chart" :chart-data="chartData" />
         <div class="disk-stat-area__info-area">
             <div class="disk-stat-area__info-area__item">
@@ -20,13 +20,6 @@
                     <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
                 </div>
                 <p class="disk-stat-area__info-area__item__labels-area__amount">{{ Size.toBase10String(free) }}</p>
-            </div>
-            <div class="disk-stat-area__info-area__item">
-                <div class="disk-stat-area__info-area__item__labels-area">
-                    <div class="disk-stat-area__info-area__item__labels-area__circle trash" />
-                    <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
-                </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ Size.toBase10String(diskSpace.trash) }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
@@ -53,15 +46,18 @@ const nodeStore = useNodeStore();
 
 const chartData = computed<ChartData>(() => {
     return {
+        labels: ['Available', 'Used other', 'Used trash', 'Used reclaimable', 'Reserved', 'Overused'],
         datasets: [
             {
                 data: [
                     free.value,
-                    diskSpace.value.used,
+                    diskSpace.value.used - diskSpace.value.trash - diskSpace.value.reclaimable,
                     diskSpace.value.trash,
+                    diskSpace.value.reclaimable,
+                    diskSpace.value.reserved,
                     diskSpace.value.overused,
                 ],
-                backgroundColor: ['#D6D6D6', '#0059D0', '#8FA7C6', '#2582FF'],
+                backgroundColor: ['#D6D6D6', '#0059D0', '#0059D0', '#0059D0', '#8FA7C6', '#2582FF'],
             },
         ],
     };
@@ -72,7 +68,7 @@ const diskSpace = computed<Traffic>(() => {
 });
 
 const free = computed<number>(() => {
-    let free = diskSpace.value.available - diskSpace.value.used - diskSpace.value.trash;
+    let free = diskSpace.value.allocated - diskSpace.value.used - diskSpace.value.reserved;
 
     if (free < 0) free = 0;
 
