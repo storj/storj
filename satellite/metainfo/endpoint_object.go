@@ -443,7 +443,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(streamID.Bucket)),
 
-		SkipPendingObject: !streamID.MultipartObject,
+		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
