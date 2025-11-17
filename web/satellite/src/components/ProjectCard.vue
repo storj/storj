@@ -118,7 +118,7 @@
                             </v-list-item-title>
                         </v-list-item>
 
-                        <v-list-item link @click="isMigrateDialog = true">
+                        <v-list-item v-if="item && item.isClassic" link @click="isMigrateDialog = true">
                             <template #prepend>
                                 <component :is="CircleFadingArrowUp" :size="18" />
                             </template>
