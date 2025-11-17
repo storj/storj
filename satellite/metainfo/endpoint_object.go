@@ -399,10 +399,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	err = pb.Unmarshal(req.EncryptedMetadata, streamMeta)
 	if err != nil {
 		// TODO: what if this is an error we don't expect?
-
+	} else {
 		encryption.CipherSuite = storj.CipherSuite(streamMeta.EncryptionType)
 		encryption.BlockSize = streamMeta.EncryptionBlockSize
-	} else {
+	}
+	if encryption.IsZero() {
 		encryption = storj.EncryptionParameters{
 			CipherSuite: storj.CipherSuite(streamID.EncryptionParameters.CipherSuite),
 			BlockSize:   int32(streamID.EncryptionParameters.BlockSize), // TODO unsafe conversion
