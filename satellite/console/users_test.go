@@ -353,6 +353,11 @@ func TestGetUserByEmail(t *testing.T) {
 		require.Nil(t, verified)
 		require.Equal(t, inactiveUser.ID, unverified[0].ID)
 
+		verified, unverified, err = usersRepo.GetByEmailAndTenantWithUnverified(ctx, email, nil)
+		require.NoError(t, err)
+		require.Nil(t, verified)
+		require.Equal(t, inactiveUser.ID, unverified[0].ID)
+
 		activeUser := console.User{
 			ID:           testrand.UUID(),
 			FullName:     "Active User",
@@ -373,6 +378,39 @@ func TestGetUserByEmail(t *testing.T) {
 		dbUser, err := usersRepo.GetByEmail(ctx, email)
 		require.NoError(t, err)
 		require.Equal(t, activeUser.ID, dbUser.ID)
+
+		dbUser, err = usersRepo.GetByEmailAndTenant(ctx, email, nil)
+		require.NoError(t, err)
+		require.Equal(t, activeUser.ID, dbUser.ID)
+
+		tenantID := "test-tenant"
+		tenantUserEmail := email + "tenant"
+		tenantUser := console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Tenant User",
+			Email:        tenantUserEmail,
+			PasswordHash: []byte("password"),
+			Status:       console.Active,
+			TenantID:     &tenantID,
+		}
+		_, err = usersRepo.Insert(ctx, &tenantUser)
+		require.NoError(t, err)
+
+		err = usersRepo.Update(ctx, tenantUser.ID, console.UpdateUserRequest{
+			Status: &tenantUser.Status,
+		})
+		require.NoError(t, err)
+
+		dbUser, err = usersRepo.GetByEmailAndTenant(ctx, tenantUserEmail, &tenantID)
+		require.NoError(t, err)
+		require.Equal(t, tenantUser.ID, dbUser.ID)
+		require.Equal(t, tenantUser.TenantID, dbUser.TenantID)
+
+		verified, unverified, err = usersRepo.GetByEmailAndTenantWithUnverified(ctx, tenantUserEmail, &tenantID)
+		require.NoError(t, err)
+		require.Nil(t, unverified)
+		require.Equal(t, tenantUser.ID, verified.ID)
+		require.Equal(t, tenantUser.TenantID, verified.TenantID)
 	})
 }
 

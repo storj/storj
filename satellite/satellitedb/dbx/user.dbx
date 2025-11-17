@@ -154,9 +154,20 @@ read all (
 	select user
 	where user.normalized_email = ?
 )
+read all (
+	select user
+	where user.normalized_email = ?
+	where user.tenant_id = ?
+)
 read one (
 	select user
 	where user.normalized_email = ?
+	where user.status != 0
+)
+read one (
+	select user
+	where user.normalized_email = ?
+	where user.tenant_id = ?
 	where user.status != 0
 )
 read one (

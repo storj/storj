@@ -178,6 +178,30 @@ func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) 
 		return nil, nil, err
 	}
 
+	return users.verifiedAndUnverified(ctx, usersDbx)
+}
+
+// GetByEmailAndTenantWithUnverified is a method for querying users by email and tenantID from the database.
+func (users *users) GetByEmailAndTenantWithUnverified(ctx context.Context, email string, tenantID *string) (verified *console.User, unverified []console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var dbxTenantID dbx.User_TenantId_Field
+	if tenantID == nil || *tenantID == "" {
+		dbxTenantID = dbx.User_TenantId_Null()
+	} else {
+		dbxTenantID = dbx.User_TenantId(*tenantID)
+	}
+
+	usersDbx, err := users.db.All_User_By_NormalizedEmail_And_TenantId(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)), dbxTenantID)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return users.verifiedAndUnverified(ctx, usersDbx)
+}
+
+func (users *users) verifiedAndUnverified(ctx context.Context, usersDbx []*dbx.User) (verified *console.User, unverified []console.User, err error) {
 	var errors errs.Group
 	for _, userDbx := range usersDbx {
 		u, err := UserFromDBX(ctx, userDbx)
@@ -296,6 +320,26 @@ func (users *users) GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (_
 func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := users.db.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
+	if err != nil {
+		return nil, err
+	}
+
+	return UserFromDBX(ctx, user)
+}
+
+// GetByEmailAndTenant is a method for querying user by email and tenantID from the database.
+func (users *users) GetByEmailAndTenant(ctx context.Context, email string, tenantID *string) (_ *console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var dbxTenantID dbx.User_TenantId_Field
+	if tenantID == nil || *tenantID == "" {
+		dbxTenantID = dbx.User_TenantId_Null()
+	} else {
+		dbxTenantID = dbx.User_TenantId(*tenantID)
+	}
+
+	user, err := users.db.Get_User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)), dbxTenantID)
+
 	if err != nil {
 		return nil, err
 	}
@@ -427,6 +471,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	}
 	if user.ExternalID != nil {
 		optional.ExternalId = dbx.User_ExternalId(*user.ExternalID)
+	}
+	if user.TenantID != nil && *user.TenantID != "" {
+		optional.TenantId = dbx.User_TenantId(*user.TenantID)
 	}
 	if user.UserAgent != nil {
 		optional.UserAgent = dbx.User_UserAgent(user.UserAgent)
@@ -1125,6 +1172,13 @@ func (users *users) toUpdateUser(request console.UpdateUserRequest) (*dbx.User_U
 			update.ExternalId = dbx.User_ExternalId(**request.ExternalID)
 		}
 	}
+	if request.TenantID != nil {
+		if *request.TenantID == nil || **request.TenantID == "" {
+			update.TenantId = dbx.User_TenantId_Null()
+		} else {
+			update.TenantId = dbx.User_TenantId(**request.TenantID)
+		}
+	}
 	if request.HubspotObjectID != nil {
 		if *request.HubspotObjectID == nil {
 			update.HubspotObjectId = dbx.User_HubspotObjectId_Null()
@@ -1159,6 +1213,7 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	result := console.User{
 		ID:                          id,
 		ExternalID:                  user.ExternalId,
+		TenantID:                    user.TenantId,
 		FullName:                    user.FullName,
 		Email:                       user.Email,
 		PasswordHash:                user.PasswordHash,

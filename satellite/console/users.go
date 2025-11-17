@@ -44,6 +44,8 @@ type Users interface {
 	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
+	// GetByEmailAndTenantWithUnverified is a method for querying users by email and tenantID from the database.
+	GetByEmailAndTenantWithUnverified(ctx context.Context, email string, tenantID *string) (verified *User, unverified []User, err error)
 	// GetByExternalID is a method for querying user by external ID from the database.
 	GetByExternalID(ctx context.Context, externalID string) (user *User, err error)
 	// GetByStatus is a method for querying user by status from the database.
@@ -52,6 +54,8 @@ type Users interface {
 	GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (*UserInfo, error)
 	// GetByEmail is a method for querying user by verified email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
+	// GetByEmailAndTenant is a method for querying user by email and tenantID from the database.
+	GetByEmailAndTenant(ctx context.Context, email string, tenantID *string) (*User, error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)
 	// Delete is a method for deleting user by ID from the database.
@@ -391,6 +395,7 @@ func (*UserStatus) Type() string {
 type User struct {
 	ID         uuid.UUID `json:"id"`
 	ExternalID *string   `json:"-"`
+	TenantID   *string   `json:"-"`
 
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
@@ -514,6 +519,7 @@ func GetUser(ctx context.Context) (*User, error) {
 // UpdateUserRequest contains all columns which are optionally updatable by users.Update.
 type UpdateUserRequest struct {
 	ExternalID **string
+	TenantID   **string
 
 	FullName  *string
 	ShortName **string

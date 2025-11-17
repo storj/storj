@@ -21573,6 +21573,58 @@ func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) All_User_By_NormalizedEmail_And_TenantId(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field,
+	user_tenant_id User_TenantId_Field) (
+	rows []*User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE users.normalized_email = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, user_normalized_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				user := &User{}
+				err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
@@ -21619,6 +21671,67 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 			}
 			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field,
+	user_tenant_id User_TenantId_Field) (
+	user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE users.normalized_email = ? AND "), __cond_0, __sqlbundle_Literal(" AND users.status != 0 LIMIT 2")}}
+
+	var __values []any
+	__values = append(__values, user_normalized_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user, err = func() (user *User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			user = &User{}
+			err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return user, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -32571,6 +32684,58 @@ func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail_And_TenantId(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field,
+	user_tenant_id User_TenantId_Field) (
+	rows []*User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE users.normalized_email = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, user_normalized_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				user := &User{}
+				err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
@@ -32617,6 +32782,67 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 			}
 			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field,
+	user_tenant_id User_TenantId_Field) (
+	user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE users.normalized_email = ? AND "), __cond_0, __sqlbundle_Literal(" AND users.status != 0 LIMIT 2")}}
+
+	var __values []any
+	__values = append(__values, user_normalized_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user, err = func() (user *User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			user = &User{}
+			err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return user, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -43868,6 +44094,58 @@ func (obj *spannerImpl) All_User_By_NormalizedEmail(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) All_User_By_NormalizedEmail_And_TenantId(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field,
+	user_tenant_id User_TenantId_Field) (
+	rows []*User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE users.normalized_email = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, user_normalized_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				user := &User{}
+				err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, user)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
@@ -43914,6 +44192,67 @@ func (obj *spannerImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx co
 			}
 			if errors.Is(err, errTooManyRows) {
 				return nil, tooManyRows("User_By_NormalizedEmail_And_Status_Not_Number")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return user, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number(ctx context.Context,
+	user_normalized_email User_NormalizedEmail_Field,
+	user_tenant_id User_TenantId_Field) (
+	user *User, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE users.normalized_email = ? AND "), __cond_0, __sqlbundle_Literal(" AND users.status != 0 LIMIT 2")}}
+
+	var __values []any
+	__values = append(__values, user_normalized_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		user, err = func() (user *User, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			if !__rows.Next() {
+				return nil, sql.ErrNoRows
+			}
+
+			user = &User{}
+			err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			return user, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if errors.Is(err, errTooManyRows) {
+				return nil, tooManyRows("User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -48657,6 +48996,11 @@ type Methods interface {
 		user_normalized_email User_NormalizedEmail_Field) (
 		rows []*User, err error)
 
+	All_User_By_NormalizedEmail_And_TenantId(ctx context.Context,
+		user_normalized_email User_NormalizedEmail_Field,
+		user_tenant_id User_TenantId_Field) (
+		rows []*User, err error)
+
 	All_WebappSession_By_UserId(ctx context.Context,
 		webapp_session_user_id WebappSession_UserId_Field) (
 		rows []*WebappSession, err error)
@@ -49367,6 +49711,11 @@ type Methods interface {
 
 	Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 		user_normalized_email User_NormalizedEmail_Field) (
+		user *User, err error)
+
+	Get_User_By_NormalizedEmail_And_TenantId_And_Status_Not_Number(ctx context.Context,
+		user_normalized_email User_NormalizedEmail_Field,
+		user_tenant_id User_TenantId_Field) (
 		user *User, err error)
 
 	Get_User_Kind_By_Id(ctx context.Context,
