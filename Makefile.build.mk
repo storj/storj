@@ -104,9 +104,10 @@ satellite-admin-ui:
 
 .PHONY: satellite-wasm
 satellite-wasm:
+	mkdir -p /tmp/go-cache-js-wasm /tmp/go-pkg-js-wasm
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=js -e GOARCH=wasm -e GOARM=6 -e CGO_ENABLED=1 \
-	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+	-v /tmp/go-cache-js-wasm:/tmp/.cache/go-build -v /tmp/go-pkg-js-wasm:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -e TAG=${TAG} -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/build-wasm.sh ;\
 
@@ -192,7 +193,7 @@ darwin-binaries:
 			echo ""; \
 			echo "Building $$comp for Darwin/$$arch"; \
 			mkdir -p "$$output_dir"; \
-			mkdir -p /tmp/go-cache /tmp/go-pkg; \
+			mkdir -p /tmp/go-cache-darwin-$$arch /tmp/go-pkg-darwin-$$arch; \
 			\
 			docker run --rm -i \
 				-v "$$PWD":/go/src/storj.io/storj \
@@ -203,8 +204,8 @@ darwin-binaries:
 				-e CGO_ENABLED=1 \
 				-e GOCACHE=/tmp/.cache/go-build \
 				-e CGO_ENABLED=false \
-				-v /tmp/go-cache:/tmp/.cache/go-build \
-				-v /tmp/go-pkg:/go/pkg \
+				-v /tmp/go-cache-darwin-$$arch:/tmp/.cache/go-build \
+				-v /tmp/go-pkg-darwin-$$arch:/go/pkg \
 				-w /go/src/storj.io/storj \
 				-e GOPROXY \
 				-u $(shell id -u):$(shell id -g) \
@@ -239,9 +240,10 @@ binary:
         -product-version "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$1} END {print v}' || echo "dev" )" \
         -special-build "$(shell git describe --tags --exact-match --match "v[0-9]*\.[0-9]*\.[0-9]*" | awk -F'-' 'BEGIN {v=0} {v=$$2} END {print v}' )" \
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
+	mkdir -p /tmp/go-cache-${GOOS}-${GOARCH} /tmp/go-pkg-${GOOS}-${GOARCH}
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
-	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+	-v /tmp/go-cache-${GOOS}-${GOARCH}:/tmp/.cache/go-build -v /tmp/go-pkg-${GOOS}-${GOARCH}:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${SUB_DIR}${COMPONENT}
@@ -372,11 +374,15 @@ publish-release:
 ##@ Clean
 
 .PHONY: clean
-clean: binaries-clean clean-images ## Clean docker test environment, local release binaries, and local Docker images
+clean: binaries-clean clean-images clean-build-cache ## Clean docker test environment, local release binaries, and local Docker images
 
 .PHONY: binaries-clean
 binaries-clean: ## Remove all local release binaries (jenkins)
 	rm -rf release
+
+.PHONY: clean-build-cache
+clean-build-cache: ## Remove architecture-specific build cache directories
+	rm -rf /tmp/go-cache-* /tmp/go-pkg-*
 
 .PHONY: clean-images
 clean-images: ## Remove all images
