@@ -26,10 +26,24 @@ model user (
 		where user.status_updated_at != null
 	)
 
+	index (
+		name users_tenant_id_index
+		fields tenant_id
+		where user.tenant_id != null
+	)
+
+	index (
+		name users_normalized_email_tenant_id_status_index
+		fields normalized_email tenant_id status
+		where user.tenant_id != null
+	)
+
 	// id is an uuid for the user.
 	field id                 blob
 	// external_id is a user id provided by an external source, such as a single-sign-on identity provider.
 	field external_id        text      ( updatable, nullable )
+	// tenant_id is is used to associate the user with a tenant, allowing the same email to be used in different tenants.
+	field tenant_id          text      ( updatable, nullable )
 	// email is the user specified email.
 	field email              text      ( updatable )
 	// normalized_email is the email transformed by usual rules, e.g. case-insensitive.

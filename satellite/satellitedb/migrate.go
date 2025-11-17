@@ -1082,6 +1082,23 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_id column to users",
+				Version:     304,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN tenant_id STRING(MAX);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add indexes to users.tenant_id column",
+				Version:     305,
+				Action: migrate.SQL{
+					`CREATE INDEX users_tenant_id_index ON users ( tenant_id );`,
+					`CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4004,6 +4021,23 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						PRIMARY KEY ( id )
 					)`,
 					`CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_id column to users",
+				Version:     304,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN tenant_id TEXT;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add indexes to users.tenant_id column",
+				Version:     305,
+				Action: migrate.SQL{
+					`CREATE INDEX users_tenant_id_index ON users ( tenant_id ) WHERE tenant_id IS NOT NULL;`,
+					`CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status ) WHERE users.tenant_id is not NULL;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

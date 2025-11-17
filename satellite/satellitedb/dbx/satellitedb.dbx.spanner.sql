@@ -428,6 +428,7 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 CREATE TABLE users (
 	id BYTES(MAX) NOT NULL,
 	external_id STRING(MAX),
+	tenant_id STRING(MAX),
 	email STRING(MAX) NOT NULL,
 	normalized_email STRING(MAX) NOT NULL,
 	full_name STRING(MAX) NOT NULL,
@@ -641,6 +642,8 @@ CREATE INDEX users_email_status_index ON users ( normalized_email, status ) ;
 CREATE INDEX trial_expiration_index ON users ( trial_expiration ) ;
 CREATE INDEX users_external_id_index ON users ( external_id ) ;
 CREATE INDEX users_status_status_updated_at_index ON users ( status, status_updated_at ) ;
+CREATE INDEX users_tenant_id_index ON users ( tenant_id ) ;
+CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
 CREATE INDEX bucket_migrations_state_created_at_index ON bucket_migrations ( state, created_at ) ;
 CREATE INDEX project_invitations_project_id_index ON project_invitations ( project_id ) ;
