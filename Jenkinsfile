@@ -62,7 +62,7 @@ node('node') {
 
     stage('Build Binaries') {
       lastStage = env.STAGE_NAME
-      sh 'make binaries'
+      sh 'make -j2 binaries'
 
       stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
 
