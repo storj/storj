@@ -1025,7 +1025,11 @@ func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts Delet
 
 		if query.Unversioned != nil {
 			// When committing unversioned objects we need to delete any previous unversioned objects.
-			if err := db.precommitDeleteUnversioned(ctx, adapter, false, opts.ObjectLock.BypassGovernance, query, &metrics); err != nil {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+				DisallowDelete:     false,
+				BypassGovernance:   opts.ObjectLock.BypassGovernance,
+				DeleteOnlySegments: false,
+			}); err != nil {
 				return err
 			}
 

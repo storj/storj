@@ -923,6 +923,11 @@ func spannerInsertObject(obj RawObject) *spanner.Mutation {
 	return spanner.Insert("objects", rawObjectColumns, spannerObjectArguments(obj))
 }
 
+// spannerInsertOrUpdateObject creates a spanner mutation for inserting or updaing the object.
+func spannerInsertOrUpdateObject(obj RawObject) *spanner.Mutation {
+	return spanner.InsertOrUpdate("objects", rawObjectColumns, spannerObjectArguments(obj))
+}
+
 func spannerObjectArguments(obj RawObject) []any {
 	return []any{
 		obj.ProjectID.Bytes(),
@@ -976,8 +981,41 @@ var postgresObjectInsertQuery = sync.OnceValue(func() string {
 	return `INSERT INTO objects (` + postgresObjectColumns + `) SELECT ` + args.String()
 })
 
+var postgresObjectInsertOrUpdateQuery = sync.OnceValue(func() string {
+	postgresObjectColumns := strings.Join(rawObjectColumns, ", ")
+
+	var args strings.Builder
+	for i := range len(rawObjectColumns) {
+		if i == 0 {
+			fmt.Fprintf(&args, "$%v", i+1)
+		} else {
+			fmt.Fprintf(&args, ", $%v", i+1)
+		}
+	}
+
+	var updates strings.Builder
+	// Skip the primary key columns (project_id, bucket_name, object_key, version)
+	for i := 4; i < len(rawObjectColumns); i++ {
+		if i > 4 {
+			updates.WriteString(", ")
+		}
+		fmt.Fprintf(&updates, "%s = EXCLUDED.%s", rawObjectColumns[i], rawObjectColumns[i])
+	}
+
+	return `INSERT INTO objects (` + postgresObjectColumns + `) SELECT ` + args.String() +
+		` ON CONFLICT (project_id, bucket_name, object_key, version) DO UPDATE SET ` + updates.String()
+})
+
 func postgresInsertObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
 	_, err := tx.ExecContext(ctx, postgresObjectInsertQuery(), postgresObjectArguments(object)...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func postgresInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	_, err := tx.ExecContext(ctx, postgresObjectInsertOrUpdateQuery(), postgresObjectArguments(object)...)
 	if err != nil {
 		return err
 	}
