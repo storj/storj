@@ -49,9 +49,14 @@ type commitObjectTransactionAdapter interface {
 
 	precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error)
 
+	precommitInsertOrUpdateObject(ctx context.Context, object *Object, segments []*Segment) (err error)
+
 	// precommitDeleteExactObject deletes the exact object and segments.
 	// It does not check object lock constraints.
 	precommitDeleteExactObject(ctx context.Context, stream ObjectStream) (err error)
+	// precommitDeleteExactSegments deletes the segments under specific stream id.
+	// It does not check object lock constraints.
+	precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error)
 
 	precommitTransactionAdapter
 }
@@ -1345,9 +1350,15 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			}
 		}
 
+		reusePreviousObject := reusePreviousObject(opts.Versioned, query.Unversioned, query.HighestVersion)
+
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, false, query, &metrics); err != nil {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+				DisallowDelete:     opts.DisallowDelete,
+				BypassGovernance:   false,
+				DeleteOnlySegments: reusePreviousObject,
+			}); err != nil {
 				return err
 			}
 		}
@@ -1406,7 +1417,14 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			object.ProjectID = opts.ProjectID
 			object.BucketName = opts.BucketName
 			object.ObjectKey = opts.ObjectKey
-			object.Version = db.nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion)
+			if reusePreviousObject {
+				// When reusing an unversioned object, we keep the same version number
+				// but update with the new StreamID. The old segments (with the old StreamID)
+				// are deleted by precommitDeleteUnversioned with DeleteOnlySegments=true.
+				object.Version = query.Unversioned.Version
+			} else {
+				object.Version = db.nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion)
+			}
 			object.Status = committedWhereVersioned(opts.Versioned)
 			object.SegmentCount = int32(len(finalSegments))
 			object.TotalPlainSize = totalPlainSize
@@ -1487,44 +1505,75 @@ type finalizeObjectCommit struct {
 func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO this implementation is not optimal for pg/crdb as we can update primary key here
+	// but we made it this way to keep code simpler and consistent between spanner and pg/crdb
+
 	initial := opts.Initial
 	object := opts.Object
 
-	var result sql.Result
-	result, err = ptx.tx.ExecContext(ctx, `
-		UPDATE objects SET
-			version = $5,
-			status = $6,
-			segment_count = $7,
+	// Pending object exists
+	if object.Version == initial.Version && opts.HasPendingObject {
+		updateColumns := []string{
+			"status = $5",
+			"segment_count = $6",
+			"total_plain_size = $7",
+			"total_encrypted_size = $8",
+			"fixed_segment_size = $9",
+			"zombie_deletion_deadline = NULL",
+			"encryption = $10",
+		}
+		values := []any{
+			initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version,
+			object.Status,
+			object.SegmentCount,
+			object.TotalPlainSize,
+			object.TotalEncryptedSize,
+			object.FixedSegmentSize,
+			object.Encryption,
+		}
 
-			total_plain_size     = $8,
-			total_encrypted_size = $9,
-			fixed_segment_size   = $10,
-			zombie_deletion_deadline = NULL,
+		if opts.EncryptedMetadataChanged {
+			updateColumns = append(updateColumns,
+				"encrypted_metadata_nonce = $11",
+				"encrypted_metadata = $12",
+				"encrypted_metadata_encrypted_key = $13",
+				"encrypted_etag = $14",
+			)
+			values = append(values,
+				object.EncryptedMetadataNonce,
+				object.EncryptedMetadata,
+				object.EncryptedMetadataEncryptedKey,
+				object.EncryptedETag,
+			)
+		}
 
-			encryption                       = $11,
-			encrypted_metadata_nonce         = $12,
-			encrypted_metadata               = $13,
-			encrypted_metadata_encrypted_key = $14,
-			encrypted_etag                   = $15
-		WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-	`, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version, object.Version,
-		object.Status,
-		object.SegmentCount,
-		object.TotalPlainSize,
-		object.TotalEncryptedSize,
-		object.FixedSegmentSize,
-		object.Encryption,
-		object.EncryptedMetadataNonce,
-		object.EncryptedMetadata,
-		object.EncryptedMetadataEncryptedKey,
-		object.EncryptedETag,
-	)
-	if err != nil {
-		return Error.New("failed to update object: %w", err)
+		var result sql.Result
+		result, err = ptx.tx.ExecContext(ctx, `
+			UPDATE objects SET `+strings.Join(updateColumns, ", ")+`
+			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+		`, values...)
+		if err != nil {
+			return Error.New("failed to update object: %w", err)
+		}
+		if count, err := result.RowsAffected(); count != 1 || err != nil {
+			return Error.New("failed to update object (changed %d rows): %w", count, err)
+		}
+
+		return nil
 	}
-	if count, err := result.RowsAffected(); count != 1 || err != nil {
-		return Error.New("failed to update object (changed %d rows): %w", count, err)
+
+	if err := postgresInsertOrUpdateObject(ctx, ptx.tx, (*RawObject)(object)); err != nil {
+		return Error.New("failed to insert or update object: %w", err)
+	}
+
+	if opts.HasPendingObject {
+		_, err = ptx.tx.ExecContext(ctx, `
+			DELETE FROM objects
+			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+		`, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version)
+		if err != nil {
+			return Error.New("failed to delete pending object: %w", err)
+		}
 	}
 
 	return nil
@@ -1576,7 +1625,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	}
 
 	mutations := make([]*spanner.Mutation, 0, 2)
-	mutations = append(mutations, spannerInsertObject(RawObject(*object)))
+	mutations = append(mutations, spannerInsertOrUpdateObject(RawObject(*object)))
 
 	if opts.HasPendingObject {
 		mutations = append(mutations, spanner.Delete("objects", spanner.Key{
@@ -1590,6 +1639,20 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 	err = stx.tx.BufferWrite(mutations)
 	if err != nil {
 		return Error.New("failed to update object: %w", err)
+	}
+
+	return nil
+}
+
+func (ptx *postgresTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = ptx.tx.ExecContext(ctx, `
+		DELETE FROM segments
+		WHERE stream_id = $1
+	`, streamID)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil
@@ -1610,6 +1673,23 @@ func (ptx *postgresTransactionAdapter) precommitDeleteExactObject(ctx context.Co
 		DELETE FROM segments
 		WHERE stream_id = $1
 	`, opts.StreamID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+func (stx *spannerTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = stx.tx.BufferWrite([]*spanner.Mutation{
+		spanner.Delete("segments", spanner.KeyRange{
+			Start: spanner.Key{streamID},
+			End:   spanner.Key{streamID},
+			Kind:  spanner.ClosedClosed,
+		}),
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1761,9 +1841,15 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 			}
 		}
 
+		reusePreviousObject := reusePreviousObject(opts.Versioned, query.Unversioned, query.HighestVersion)
+
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, opts.DisallowDelete, false, query, &metrics); err != nil {
+			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+				DisallowDelete:     opts.DisallowDelete,
+				BypassGovernance:   false,
+				DeleteOnlySegments: reusePreviousObject,
+			}); err != nil {
 				return err
 			}
 		}
@@ -1776,7 +1862,14 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 			object.BucketName = opts.BucketName
 			object.ObjectKey = opts.ObjectKey
 			object.CreatedAt = now
-			object.Version = db.nextVersion(0, query.HighestVersion, query.TimestampVersion)
+			if reusePreviousObject {
+				// When reusing an unversioned object, we keep the same version number
+				// but update with the new StreamID. The old segments (with the old StreamID)
+				// are deleted by precommitDeleteUnversioned with DeleteOnlySegments=true.
+				object.Version = query.Unversioned.Version
+			} else {
+				object.Version = db.nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion)
+			}
 			object.Status = committedWhereVersioned(opts.Versioned)
 			object.SegmentCount = 1
 			object.TotalPlainSize = int64(opts.CommitInlineSegment.PlainSize)
@@ -1801,7 +1894,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 			}
 		}
 
-		return adapter.precommitInsertObject(ctx, &object, []*Segment{{
+		return adapter.precommitInsertOrUpdateObject(ctx, &object, []*Segment{{
 			StreamID:          opts.StreamID,
 			Position:          opts.CommitInlineSegment.Position,
 			CreatedAt:         now,
@@ -1827,13 +1920,19 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	return object, nil
 }
 
-func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter TransactionAdapter, disallowDelete, bypassGoveranance bool, query *PrecommitInfo, metrics *commitMetrics) (err error) {
+type precommitDeleteUnversioned struct {
+	DisallowDelete     bool
+	BypassGovernance   bool
+	DeleteOnlySegments bool
+}
+
+func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter TransactionAdapter, query *PrecommitInfo, metrics *commitMetrics, opts precommitDeleteUnversioned) (err error) {
 	if query.Unversioned == nil {
 		return nil
 	}
 
 	// If we are not allowed to delete the object we cannot commit.
-	if disallowDelete {
+	if opts.DisallowDelete {
 		return ErrPermissionDenied.New("no permissions to delete existing object")
 	}
 
@@ -1850,31 +1949,33 @@ func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter Transactio
 	switch {
 	case query.Unversioned.RetentionMode.LegalHold:
 		return ErrObjectLock.New(legalHoldErrMsg)
-	case retention.isProtected(bypassGoveranance, time.Now()):
+	case retention.isProtected(opts.BypassGovernance, time.Now()):
 		return ErrObjectLock.New(retentionErrMsg)
 	}
 
-	// delete the previous unversioned object
-	err = adapter.precommitDeleteExactObject(ctx, ObjectStream{
-		ProjectID:  query.ProjectID,
-		BucketName: query.BucketName,
-		ObjectKey:  query.ObjectKey,
-		Version:    query.Unversioned.Version,
-		StreamID:   query.Unversioned.StreamID,
-	})
-	if err != nil {
-		return Error.Wrap(err)
+	if opts.DeleteOnlySegments {
+		if err = adapter.precommitDeleteExactSegments(ctx, query.Unversioned.StreamID); err != nil {
+			return Error.Wrap(err)
+		}
+	} else {
+		// delete the previous unversioned object
+		if err := adapter.precommitDeleteExactObject(ctx, ObjectStream{
+			ProjectID:  query.ProjectID,
+			BucketName: query.BucketName,
+			ObjectKey:  query.ObjectKey,
+			Version:    query.Unversioned.Version,
+			StreamID:   query.Unversioned.StreamID,
+		}); err != nil {
+			return Error.Wrap(err)
+		}
+		// update the metrics
+		metrics.DeletedObjectCount = 1
 	}
-
-	// update the metrics
-	metrics.DeletedObjectCount = 1
 
 	return nil
 }
 
-func (ptx *postgresTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (ptx *postgresTransactionAdapter) precommitInsertSegments(ctx context.Context, segments []*Segment) (err error) {
 	t, err := transposeSegments(segments, func(p Pieces) ([]byte, error) {
 		if len(p) != 0 {
 			return nil, Error.New("expected only inline segments")
@@ -1914,8 +2015,32 @@ func (ptx *postgresTransactionAdapter) precommitInsertObject(ctx context.Context
 		return Error.New("unable to insert segments: %w", err)
 	}
 
+	return nil
+}
+
+func (ptx *postgresTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := ptx.precommitInsertSegments(ctx, segments); err != nil {
+		return err
+	}
+
 	if err := postgresInsertObject(ctx, ptx.tx, (*RawObject)(object)); err != nil {
 		return Error.New("unable to insert object: %w", err)
+	}
+
+	return nil
+}
+
+func (ptx *postgresTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := ptx.precommitInsertSegments(ctx, segments); err != nil {
+		return err
+	}
+
+	if err := postgresInsertOrUpdateObject(ctx, ptx.tx, (*RawObject)(object)); err != nil {
+		return Error.New("unable to insert or update object: %w", err)
 	}
 
 	return nil
@@ -1940,4 +2065,32 @@ func (stx *spannerTransactionAdapter) precommitInsertObject(ctx context.Context,
 	}
 
 	return nil
+}
+
+func (stx *spannerTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var mutations []*spanner.Mutation
+
+	mutations = append(mutations, spannerInsertOrUpdateObject(RawObject(*object)))
+	for _, segment := range segments {
+		if len(segment.Pieces) != 0 {
+			return Error.New("internal error: tried to insert segment with remote alias pieces")
+		}
+		mutations = append(mutations, spannerInsertSegment(RawSegment(*segment), nil))
+	}
+
+	err = stx.tx.BufferWrite(mutations)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// reusePreviousObject determines whether to reuse the previous unversioned object
+// as a new committed object. This indicates that we can do single INSERT OR UPDATE
+// instead of INSERT + DELETE when finalizing the object commit.
+func reusePreviousObject(newVersioned bool, unversioned *PrecommitUnversionedObject, highestVisible Version) bool {
+	return !newVersioned && unversioned != nil && unversioned.Version == highestVisible
 }

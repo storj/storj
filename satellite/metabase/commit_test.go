@@ -275,7 +275,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			now2 := time.Now()
 			metabasetest.BeginObjectNextVersion{
 				Opts: metabase.BeginObjectNextVersion{
 					ObjectStream: objectStream,
@@ -284,7 +283,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				Version: 2,
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObject{
+			object := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  obj.ProjectID,
@@ -297,29 +296,11 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// currently CommitObject always deletes previous versions so only version 2 left
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    2,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now2,
-						Status:    metabase.CommittedUnversioned,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("newer committed version exists", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now1 := time.Now()
 
 			objectStream.Version = metabase.NextVersion
 
@@ -351,7 +332,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObject{
+			object := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  obj.ProjectID,
@@ -361,27 +342,11 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						StreamID:   obj.StreamID,
 					},
 				},
-				ExpectVersion: 3,
+				ExpectVersion: 2,
 			}.Check(ctx, t, db)
 
 			// currently CommitObject always deletes previous versions so only version 1 left
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    3,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now1,
-						Status:    metabase.CommittedUnversioned,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("begin object next version with metadata", func(t *testing.T) {
@@ -820,8 +785,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		t.Run("Older committed version exists", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now1 := time.Now()
-
 			objectStream.Version = 100
 
 			metabasetest.BeginObjectExactVersion{
@@ -846,7 +809,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObject{
+			object := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: objectStream,
 				},
@@ -854,28 +817,12 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 			// currently CommitObject always deletes previous versions so only version 3 left
 			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    300,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now1,
-						Status:    metabase.CommittedUnversioned,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-				},
+				Objects: metabasetest.ObjectsToRaw(object),
 			}.Check(ctx, t, db)
 		})
 
 		t.Run("Newer committed version exists", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			now1 := time.Now()
 
 			objectStream.Version = 300
 
@@ -901,30 +848,16 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.CommitObject{
+			object := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: objectStream,
 				},
-				ExpectVersion: 301,
+				ExpectVersion: 300,
 			}.Check(ctx, t, db)
 
 			// currently CommitObject always deletes previous versions so only version 1 left
 			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    301,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now1,
-						Status:    metabase.CommittedUnversioned,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-				},
+				Objects: metabasetest.ObjectsToRaw(object),
 			}.Check(ctx, t, db)
 		})
 
@@ -3881,9 +3814,9 @@ func TestCommitObjectVersioned(t *testing.T) {
 				Opts: metabase.CommitObject{
 					ObjectStream: v1,
 				},
-				ExpectVersion: 6,
+				ExpectVersion: 5,
 			}.Check(ctx, t, db)
-			v1.Version = 6
+			v1.Version = 5
 
 			// The latter commit should overwrite the v3.
 			// When pending objects table is enabled, then objects
@@ -3920,18 +3853,18 @@ func TestCommitObjectVersioned(t *testing.T) {
 					ObjectStream: v2,
 					Versioned:    true,
 				},
-				ExpectVersion: 7,
+				ExpectVersion: 6,
 			}.Check(ctx, t, db)
-			v2.Version = 7
+			v2.Version = 6
 
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: v4,
 					Versioned:    true,
 				},
-				ExpectVersion: 8,
+				ExpectVersion: 7,
 			}.Check(ctx, t, db)
-			v4.Version = 8
+			v4.Version = 7
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
@@ -4101,9 +4034,9 @@ func TestCommitObjectVersioned(t *testing.T) {
 				Opts: metabase.CommitObject{
 					ObjectStream: v4,
 				},
-				ExpectVersion: 8,
+				ExpectVersion: 7,
 			}.Check(ctx, t, db)
-			v4.Version = 8
+			v4.Version = 7
 
 			// committing v4 should overwrite the previous unversioned commit (v2),
 			// so v2 is not in the result check
@@ -4395,42 +4328,30 @@ func TestCommitObjectVersioned(t *testing.T) {
 				v.Version = metabase.Version(i + 1)
 			}
 
+			var unversionedObject metabase.Object
 			rawObjects := make([]metabase.RawObject, 0, len(objs))
-			expectVersion := metabase.Version(numCommits + 1)
-			for i := 0; i < len(objs); i++ {
+			for i := range objs {
 				versioned := i%2 == 0
 
-				metabasetest.CommitObject{
+				object := metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
 						ObjectStream: *objs[i],
 						Versioned:    versioned,
 					},
-					ExpectVersion: expectVersion,
 				}.Check(ctx, t, db)
-				objs[i].Version = expectVersion
-				expectVersion++
 
 				if versioned {
-					rawObjects = append(rawObjects, metabase.RawObject{
-						ObjectStream: *objs[i],
-						CreatedAt:    time.Now(),
-						Status:       metabase.CommittedVersioned,
-						Encryption:   metabasetest.DefaultEncryption,
-					})
+					rawObjects = append(rawObjects, metabase.RawObject(object))
+				} else {
+					unversionedObject = object
 				}
 			}
 
 			// all the unversioned commits overwrite previous unversioned commits,
-			// so the result should only contain a single unversioned commit.
-			rawObjects = append(rawObjects, metabase.RawObject{
-				ObjectStream: *objs[len(objs)-1],
-				CreatedAt:    time.Now(),
-				Status:       metabase.CommittedUnversioned,
-				Encryption:   metabasetest.DefaultEncryption,
-			})
-			metabasetest.Verify{
-				Objects: rawObjects,
-			}.Check(ctx, t, db)
+			// so the result should only contain a single/last unversioned commit.
+			rawObjects = append(rawObjects, metabase.RawObject(unversionedObject))
+
+			metabasetest.Verify{Objects: rawObjects}.Check(ctx, t, db)
 		})
 
 		t.Run("Commit pending objects with negative version", func(t *testing.T) {
@@ -5035,7 +4956,7 @@ func TestCommitInlineObject(t *testing.T) {
 						InlineData:        inlineData,
 					},
 				},
-				ExpectVersion: objA.Version + 1,
+				ExpectVersion: objA.Version,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{
@@ -5425,7 +5346,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 						Encryption:          metabasetest.DefaultEncryption,
 						CommitInlineSegment: commitInlineSeg,
 					},
-					ExpectVersion: lockedObj.Version + 1,
+					ExpectVersion: lockedObj.Version,
 				}.Check(ctx, t, db)
 
 				metabasetest.Verify{
