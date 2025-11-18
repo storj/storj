@@ -475,7 +475,7 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 			projectUpdates = int(0)
 		)
 		defer func() {
-			if err != nil {
+			if err == nil {
 				mon.Meter("update_bandwidth_batch_bucket_items_successful").Mark(bucketUpdates)
 				mon.Meter("update_bandwidth_batch_project_items_successful").Mark(projectUpdates)
 			}
@@ -594,7 +594,7 @@ func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []o
 		projectUpdates = int(0)
 	)
 	defer func() {
-		if err != nil {
+		if err == nil {
 			mon.Meter("update_bandwidth_batch_bucket_items_successful").Mark(bucketUpdates)
 			mon.Meter("update_bandwidth_batch_project_items_successful").Mark(projectUpdates)
 		}
