@@ -310,7 +310,9 @@ func SchedulePartitions(ctx context.Context, client *recordeddb.SpannerClient, f
 	stmt := spanner.Statement{
 		SQL: `
 			UPDATE ` + metadataTable + ` AS child
-			SET state = ` + stateScheduled + `
+			SET
+				state = ` + stateScheduled + `,
+				scheduled_at = PENDING_COMMIT_TIMESTAMP()
 			WHERE child.state = ` + stateCreated + `
 			AND (
 				child.partition_token = ''
