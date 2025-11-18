@@ -153,7 +153,7 @@ node('node') {
     echo "Setting build result to FAILURE"
     currentBuild.result = "FAILURE"
 
-    slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
+    // slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
     throw err
 
