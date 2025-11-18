@@ -112,7 +112,6 @@ type PrecommitInfo struct {
 type PrecommitUnversionedObject struct {
 	Version       Version          `spanner:"version"`
 	StreamID      uuid.UUID        `spanner:"stream_id"`
-	SegmentCount  int64            `spanner:"segment_count"`
 	RetentionMode RetentionMode    `spanner:"retention_mode"`
 	RetainUntil   spanner.NullTime `spanner:"retain_until"`
 }
@@ -120,9 +119,8 @@ type PrecommitUnversionedObject struct {
 // PrecommitUnversionedObjectFromObject creates a unversioned object from raw object.
 func PrecommitUnversionedObjectFromObject(obj *RawObject) *PrecommitUnversionedObject {
 	return &PrecommitUnversionedObject{
-		Version:      obj.Version,
-		StreamID:     obj.StreamID,
-		SegmentCount: int64(obj.SegmentCount),
+		Version:  obj.Version,
+		StreamID: obj.StreamID,
 		RetentionMode: RetentionMode{
 			Mode:      obj.Retention.Mode,
 			LegalHold: obj.LegalHold,
@@ -295,7 +293,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 		}
 	} else if opts.Unversioned {
 		err := withRows(ptx.tx.QueryContext(ctx, `
-			SELECT version, stream_id, segment_count, retention_mode, retain_until
+			SELECT version, stream_id, retention_mode, retain_until
 			FROM objects
 			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND version > 0
@@ -303,7 +301,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey))(func(rows tagsql.Rows) error {
 			for rows.Next() {
 				var unversioned PrecommitUnversionedObject
-				if err := rows.Scan(&unversioned.Version, &unversioned.StreamID, &unversioned.SegmentCount, &unversioned.RetentionMode, &unversioned.RetainUntil); err != nil {
+				if err := rows.Scan(&unversioned.Version, &unversioned.StreamID, &unversioned.RetentionMode, &unversioned.RetainUntil); err != nil {
 					return Error.Wrap(err)
 				}
 				if info.Unversioned != nil {
@@ -329,7 +327,6 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 		SQL: `WITH objects_at_location AS (
 			SELECT version, stream_id,
 				status,
-				segment_count,
 				retention_mode, retain_until
 			FROM objects
 			WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
@@ -400,7 +397,7 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 			))`
 	} else if opts.Unversioned {
 		stmt.SQL += `,(SELECT ARRAY(
-				SELECT AS STRUCT version, stream_id, segment_count, retention_mode, retain_until
+				SELECT AS STRUCT version, stream_id, retention_mode, retain_until
 				FROM objects_at_location
 				WHERE status IN ` + statusesUnversioned + `
 			))`
