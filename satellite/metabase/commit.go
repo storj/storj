@@ -1866,7 +1866,6 @@ func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter Transactio
 
 	// update the metrics
 	metrics.DeletedObjectCount = 1
-	metrics.DeletedSegmentCount = int(query.Unversioned.SegmentCount)
 
 	return nil
 }
