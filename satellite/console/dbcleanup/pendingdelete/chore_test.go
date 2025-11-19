@@ -77,7 +77,7 @@ func TestPendingDeleteChore(t *testing.T) {
 			require.NoError(t, upload.Commit())
 		}
 
-		user, err := usersDB.GetByEmail(ctx, upl.User[sat.ID()].Email)
+		user, err := usersDB.GetByEmailAndTenant(ctx, upl.User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 		// Create a project pending deletion
 		projectForDeletion, err := sat.AddProject(ctx, user.ID, "project-for-deletion")
@@ -198,7 +198,7 @@ func TestPendingDeleteChore_PendingDeletionProjects(t *testing.T) {
 
 		chore.Loop.Pause()
 
-		user, err := usersDB.GetByEmail(ctx, upl.User[sat.ID()].Email)
+		user, err := usersDB.GetByEmailAndTenant(ctx, upl.User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)

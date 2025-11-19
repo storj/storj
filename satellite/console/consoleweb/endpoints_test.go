@@ -413,7 +413,7 @@ func TestPayments(t *testing.T) {
 
 		{ // Get_AccountChargesByDateRange
 			consoleDB := planet.Satellites[0].DB.Console()
-			consoleUser, err := consoleDB.Users().GetByEmail(ctx, user.email)
+			consoleUser, err := consoleDB.Users().GetByEmailAndTenant(ctx, user.email, nil)
 			require.NoError(t, err)
 			projects, err := consoleDB.Projects().GetOwnActive(ctx, consoleUser.ID)
 			require.NoError(t, err)
@@ -516,7 +516,7 @@ func TestWalletPayments(t *testing.T) {
 		userData := test.defaultUser()
 		test.login(userData.email, userData.password)
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, userData.email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, userData.email, nil)
 		require.NoError(t, err)
 
 		wallet := blockchaintest.NewAddress()
@@ -1112,7 +1112,7 @@ func (test *test) registerUser(email, password string) registeredUser {
 func (test *test) activateUser(ctx context.Context, email string) {
 	usersDB := test.planet.Satellites[0].DB.Console().Users()
 
-	_, users, err := usersDB.GetByEmailWithUnverified(ctx, email)
+	_, users, err := usersDB.GetByEmailAndTenantWithUnverified(ctx, email, nil)
 	require.NoError(test.t, err)
 	require.Len(test.t, users, 1)
 
@@ -1124,7 +1124,7 @@ func (test *test) activateUser(ctx context.Context, email string) {
 func (test *test) upgradeUser(ctx context.Context, email string) {
 	usersDB := test.planet.Satellites[0].DB.Console().Users()
 
-	user, _, err := usersDB.GetByEmailWithUnverified(ctx, email)
+	user, _, err := usersDB.GetByEmailAndTenantWithUnverified(ctx, email, nil)
 	require.NoError(test.t, err)
 	require.NotNil(test.t, user)
 

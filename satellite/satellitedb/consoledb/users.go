@@ -170,17 +170,6 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 	return expiredUsers, Error.Wrap(rows.Err())
 }
 
-// GetByEmailWithUnverified is a method for querying users by email from the database.
-func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) (verified *console.User, unverified []console.User, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usersDbx, err := users.db.All_User_By_NormalizedEmail(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return users.verifiedAndUnverified(ctx, usersDbx)
-}
-
 // GetByEmailAndTenantWithUnverified is a method for querying users by email and tenantID from the database.
 func (users *users) GetByEmailAndTenantWithUnverified(ctx context.Context, email string, tenantID *string) (verified *console.User, unverified []console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -198,10 +187,6 @@ func (users *users) GetByEmailAndTenantWithUnverified(ctx context.Context, email
 		return nil, nil, err
 	}
 
-	return users.verifiedAndUnverified(ctx, usersDbx)
-}
-
-func (users *users) verifiedAndUnverified(ctx context.Context, usersDbx []*dbx.User) (verified *console.User, unverified []console.User, err error) {
 	var errors errs.Group
 	for _, userDbx := range usersDbx {
 		u, err := UserFromDBX(ctx, userDbx)
@@ -314,17 +299,6 @@ func (users *users) GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (_
 	return &console.UserInfo{
 		Status: console.UserStatus(statusRow.Status),
 	}, nil
-}
-
-// GetByEmail is a method for querying user by verified email from the database.
-func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
-	defer mon.Task()(&ctx)(&err)
-	user, err := users.db.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
-	if err != nil {
-		return nil, err
-	}
-
-	return UserFromDBX(ctx, user)
 }
 
 // GetByEmailAndTenant is a method for querying user by email and tenantID from the database.

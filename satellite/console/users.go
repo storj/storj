@@ -42,8 +42,6 @@ type Users interface {
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
 	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID, now time.Time) error
-	// GetByEmailWithUnverified is a method for querying users by email from the database.
-	GetByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error)
 	// GetByEmailAndTenantWithUnverified is a method for querying users by email and tenantID from the database.
 	GetByEmailAndTenantWithUnverified(ctx context.Context, email string, tenantID *string) (verified *User, unverified []User, err error)
 	// GetByExternalID is a method for querying user by external ID from the database.
@@ -52,8 +50,6 @@ type Users interface {
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetUserInfoByProjectID gets the user info of the project (id) owner.
 	GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (*UserInfo, error)
-	// GetByEmail is a method for querying user by verified email from the database.
-	GetByEmail(ctx context.Context, email string) (*User, error)
 	// GetByEmailAndTenant is a method for querying user by email and tenantID from the database.
 	GetByEmailAndTenant(ctx context.Context, email string, tenantID *string) (*User, error)
 	// Insert is a method for inserting user into the database.

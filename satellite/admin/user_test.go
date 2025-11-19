@@ -184,7 +184,7 @@ func TestUserUpdate(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 		require.NoError(t, err)
 
 		t.Run("OK", func(t *testing.T) {
@@ -320,7 +320,7 @@ func TestUserStatusUpdate(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 		require.NoError(t, err)
 
 		t.Run("OK", func(t *testing.T) {
@@ -371,7 +371,7 @@ func TestUserKindUpdate(t *testing.T) {
 		address := sat.Admin.Admin.Listener.Addr()
 		usageLimitsConfig := sat.Config.Console.UsageLimits
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 		require.NoError(t, err)
 		require.Equal(t, console.FreeUser, user.Kind)
 
@@ -619,7 +619,7 @@ func TestDisableMFA(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 		require.NoError(t, err)
 
 		// Enable MFA.
@@ -714,7 +714,7 @@ func TestDisableBotRestriction(t *testing.T) {
 		sat := planet.Satellites[0]
 		consoleDB := sat.DB.Console()
 		address := sat.Admin.Admin.Listener.Addr()
-		user, err := consoleDB.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		user, err := consoleDB.Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 		require.NoError(t, err)
 
 		// Error on try set active status for a user with non-PendingBotVerification status.
@@ -1085,7 +1085,7 @@ func TestUserDelete(t *testing.T) {
 			},
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-			user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			user, err := planet.Satellites[0].DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 			require.NoError(t, err)
 
 			// Deleting the user should fail, as project exists.
@@ -1146,7 +1146,7 @@ func TestUserDelete(t *testing.T) {
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			dbconsole := planet.Satellites[0].DB.Console()
 			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-			user, err := dbconsole.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			user, err := dbconsole.Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 			require.NoError(t, err)
 
 			userSharing, err := dbconsole.Users().Insert(ctx, &console.User{
@@ -1214,7 +1214,7 @@ func TestUserDelete(t *testing.T) {
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			dbconsole := planet.Satellites[0].DB.Console()
 			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-			user, err := dbconsole.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			user, err := dbconsole.Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 			require.NoError(t, err)
 
 			p, err := dbconsole.Projects().GetOwnActive(ctx, user.ID)
@@ -1253,7 +1253,7 @@ func TestUserDelete(t *testing.T) {
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			dbconsole := planet.Satellites[0].DB.Console()
 			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-			user, err := dbconsole.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			user, err := dbconsole.Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 			require.NoError(t, err)
 
 			p, err := dbconsole.Projects().GetOwnActive(ctx, user.ID)
@@ -1295,7 +1295,7 @@ func TestUserDelete(t *testing.T) {
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			dbconsole := planet.Satellites[0].DB.Console()
 			address := planet.Satellites[0].Admin.Admin.Listener.Addr()
-			user, err := dbconsole.Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+			user, err := dbconsole.Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 			require.NoError(t, err)
 
 			require.NoError(t, dbconsole.Projects().UpdateStatus(ctx, planet.Uplinks[0].Projects[0].ID, console.ProjectDisabled))

@@ -62,6 +62,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/tenancy"
 )
 
 var mon = monkit.Package()
@@ -1394,9 +1395,16 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return err
 		}
 
+		var tenantID *string
+		tenantCtx := tenancy.GetContext(ctx)
+		if tenantCtx != nil {
+			tenantID = &tenantCtx.TenantID
+		}
+
 		newUser := &User{
 			ID:               userID,
 			Email:            user.Email,
+			TenantID:         tenantID,
 			FullName:         user.FullName,
 			ShortName:        user.ShortName,
 			PasswordHash:     hash,
@@ -1440,7 +1448,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return err
 		}
 
-		verified, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
+		verified, unverified, err := tx.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, newUser.TenantID)
 		if err != nil {
 			return err
 		}
@@ -1620,7 +1628,12 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			return err
 		}
 
-		_, unverified, err := tx.Users().GetByEmailWithUnverified(ctx, user.Email)
+		var tenantID *string
+		tenantCtx := tenancy.GetContext(ctx)
+		if tenantCtx != nil {
+			tenantID = &tenantCtx.TenantID
+		}
+		_, unverified, err := tx.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
 		if err != nil {
 			return err
 		}
@@ -1859,7 +1872,12 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil, ErrTokenExpiration.New(activationTokenExpiredErrMsg)
 	}
 
-	_, err = s.store.Users().GetByEmail(ctx, claims.Email)
+	var tenantID *string
+	tenantCtx := tenancy.GetContext(ctx)
+	if tenantCtx != nil {
+		tenantID = &tenantCtx.TenantID
+	}
+	_, err = s.store.Users().GetByEmailAndTenant(ctx, claims.Email, tenantID)
 	if err == nil {
 		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
@@ -1873,6 +1891,8 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	if err != nil {
 		return nil, err
 	}
+
+	user.Status = Active
 
 	return user, nil
 }
@@ -2115,7 +2135,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		captchaSkipped = false
 	}
 
-	user, nonActiveUsers, err := s.store.Users().GetByEmailWithUnverified(ctx, request.Email)
+	var tenantID *string
+	tenantCtx := tenancy.GetContext(ctx)
+	if tenantCtx != nil {
+		tenantID = &tenantCtx.TenantID
+	}
+	user, nonActiveUsers, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, request.Email, tenantID)
 	if user == nil {
 		shouldProceed := false
 		for _, usr := range nonActiveUsers {
@@ -2452,7 +2477,13 @@ func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
 func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string) (verified *User, unverified []User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	verified, unverified, err = s.store.Users().GetByEmailWithUnverified(ctx, email)
+	var tenantID *string
+	tenantCtx := tenancy.GetContext(ctx)
+	if tenantCtx != nil {
+		tenantID = &tenantCtx.TenantID
+	}
+
+	verified, unverified, err = s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, tenantID)
 	if err != nil {
 		return verified, unverified, err
 	}
@@ -3110,7 +3141,7 @@ func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data strin
 		return ErrValidation.New("invalid email")
 	}
 
-	verified, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, data)
+	verified, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, data, user.TenantID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4691,13 +4722,12 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 
 	// collect user querying errors
 	for _, email := range emails {
-		user, err := s.store.Users().GetByEmail(ctx, email)
+		user, err := s.store.Users().GetByEmailAndTenant(ctx, email, user.TenantID)
 		if err == nil {
 			users = append(users, user)
 		} else if !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
-
 	}
 
 	// add project members in transaction scope
@@ -4758,7 +4788,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			return Error.Wrap(err)
 		}
 
-		user, err := s.store.Users().GetByEmail(ctx, email)
+		user, err := s.store.Users().GetByEmailAndTenant(ctx, email, user.TenantID)
 		if err != nil {
 			if invite == nil {
 				return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
@@ -7146,6 +7176,17 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 			return ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
 		}
 
+		var userTenant, inviterTenant string
+		if user.TenantID != nil {
+			userTenant = *user.TenantID
+		}
+		if inviter.TenantID != nil {
+			inviterTenant = *inviter.TenantID
+		}
+		if userTenant != inviterTenant {
+			return ErrProjectInviteInvalid.New(projInviterInvalidErrMsg)
+		}
+
 		_, err = s.store.ProjectMembers().GetByMemberIDAndProjectID(ctx, *invite.InviterID, invite.ProjectID)
 		if err != nil {
 			if !errs.Is(err, sql.ErrNoRows) {
@@ -7254,7 +7295,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			return nil, ErrProjectInviteInvalid.New(projInviteDoesntExistErrMsg, email)
 		}
 
-		invitedUser, unverified, err := s.store.Users().GetByEmailWithUnverified(ctx, email)
+		invitedUser, unverified, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, sender.TenantID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}

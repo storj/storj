@@ -61,7 +61,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	existingUser, err := server.db.Console().Users().GetByEmail(ctx, input.Email)
+	existingUser, err := server.db.Console().Users().GetByEmailAndTenant(ctx, input.Email, nil)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, "failed to check for user email",
 			err.Error(), http.StatusInternalServerError)
@@ -143,7 +143,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -360,7 +360,7 @@ func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -404,7 +404,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, email)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, email, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", email),
 			"", http.StatusNotFound)
@@ -519,7 +519,7 @@ func (server *Server) updateUserStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, email)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, email, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", email),
 			"", http.StatusNotFound)
@@ -572,7 +572,7 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, email)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, email, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", email),
 			"", http.StatusNotFound)
@@ -662,7 +662,7 @@ func (server *Server) updateUsersUserAgent(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -758,7 +758,7 @@ func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -847,7 +847,7 @@ func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -886,7 +886,7 @@ func (server *Server) billingFreezeUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -916,7 +916,7 @@ func (server *Server) billingUnfreezeUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -951,7 +951,7 @@ func (server *Server) billingUnWarnUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -985,7 +985,7 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -1027,7 +1027,7 @@ func (server *Server) violationUnfreezeUser(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -1061,7 +1061,7 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -1103,7 +1103,7 @@ func (server *Server) legalUnfreezeUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -1137,7 +1137,7 @@ func (server *Server) trialExpirationFreezeUser(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -1168,7 +1168,7 @@ func (server *Server) trialExpirationUnfreezeUser(w http.ResponseWriter, r *http
 		return
 	}
 
-	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	u, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
@@ -1203,7 +1203,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -1293,7 +1293,7 @@ func (server *Server) disableBotRestriction(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -1332,7 +1332,7 @@ func (server *Server) updateFreeTrialExpiration(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -1382,7 +1382,7 @@ func (server *Server) updateExternalID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)
@@ -1424,7 +1424,7 @@ func (server *Server) updateUserData(
 	ctx context.Context, user *console.User, userUpdate console.UpdateUserRequest,
 ) (statusCode int, errMsg, details string) {
 	if userUpdate.Email != nil && *userUpdate.Email != "" {
-		existingUser, err := server.db.Console().Users().GetByEmail(ctx, *userUpdate.Email)
+		existingUser, err := server.db.Console().Users().GetByEmailAndTenant(ctx, *userUpdate.Email, nil)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return http.StatusInternalServerError, "failed to check for user email", err.Error()
 		}

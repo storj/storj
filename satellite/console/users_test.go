@@ -120,7 +120,7 @@ func TestUserEmailCase(t *testing.T) {
 			})
 			assert.NoError(t, err)
 
-			retrievedUser, err := db.Console().Users().GetByEmail(ctx, testCase.email)
+			retrievedUser, err := db.Console().Users().GetByEmailAndTenant(ctx, testCase.email, nil)
 			assert.NoError(t, err)
 			assert.Equal(t, testCase.email, retrievedUser.Email)
 		}
@@ -208,7 +208,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 	})
 
 	t.Run("Get user success", func(t *testing.T) {
-		userByEmail, err := repository.GetByEmail(ctx, email)
+		userByEmail, err := repository.GetByEmailAndTenant(ctx, email, nil)
 		assert.NoError(t, err)
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
@@ -266,7 +266,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 	})
 
 	t.Run("Update user success", func(t *testing.T) {
-		oldUser, err := repository.GetByEmail(ctx, email)
+		oldUser, err := repository.GetByEmailAndTenant(ctx, email, nil)
 		assert.NoError(t, err)
 
 		newUserInfo := &console.User{
@@ -319,7 +319,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 	})
 
 	t.Run("Delete user success", func(t *testing.T) {
-		oldUser, err := repository.GetByEmail(ctx, newEmail)
+		oldUser, err := repository.GetByEmailAndTenant(ctx, newEmail, nil)
 		assert.NoError(t, err)
 
 		err = repository.Delete(ctx, oldUser.ID)
@@ -345,15 +345,10 @@ func TestGetUserByEmail(t *testing.T) {
 		_, err := usersRepo.Insert(ctx, &inactiveUser)
 		require.NoError(t, err)
 
-		_, err = usersRepo.GetByEmail(ctx, email)
+		_, err = usersRepo.GetByEmailAndTenant(ctx, email, nil)
 		require.ErrorIs(t, sql.ErrNoRows, err)
 
-		verified, unverified, err := usersRepo.GetByEmailWithUnverified(ctx, email)
-		require.NoError(t, err)
-		require.Nil(t, verified)
-		require.Equal(t, inactiveUser.ID, unverified[0].ID)
-
-		verified, unverified, err = usersRepo.GetByEmailAndTenantWithUnverified(ctx, email, nil)
+		verified, unverified, err := usersRepo.GetByEmailAndTenantWithUnverified(ctx, email, nil)
 		require.NoError(t, err)
 		require.Nil(t, verified)
 		require.Equal(t, inactiveUser.ID, unverified[0].ID)
@@ -375,11 +370,7 @@ func TestGetUserByEmail(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		dbUser, err := usersRepo.GetByEmail(ctx, email)
-		require.NoError(t, err)
-		require.Equal(t, activeUser.ID, dbUser.ID)
-
-		dbUser, err = usersRepo.GetByEmailAndTenant(ctx, email, nil)
+		dbUser, err := usersRepo.GetByEmailAndTenant(ctx, email, nil)
 		require.NoError(t, err)
 		require.Equal(t, activeUser.ID, dbUser.ID)
 

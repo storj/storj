@@ -465,7 +465,7 @@ func TestEndpoint_checkUserStatus(t *testing.T) {
 			endpoint := sat.Metainfo.Endpoint
 			users := sat.API.DB.Console().Users()
 
-			user, err := users.GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+			user, err := users.GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 			require.NoError(t, err)
 			require.Equal(t, console.Active, user.Status)
 

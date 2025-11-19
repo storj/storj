@@ -26,7 +26,7 @@ func (server *Server) addRESTKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	user, err := server.db.Console().Users().GetByEmailAndTenant(ctx, userEmail, nil)
 	if errors.Is(err, sql.ErrNoRows) {
 		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
 			"", http.StatusNotFound)

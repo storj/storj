@@ -249,7 +249,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.consoleDB.Users().GetByEmail(ctx, email)
+	user, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, email, nil)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -660,7 +660,7 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		if !utils.ValidateEmail(*request.Email) {
 			return apiError(http.StatusBadRequest, errs.New("invalid email format"))
 		}
-		existing, err := s.consoleDB.Users().GetByEmail(ctx, *request.Email)
+		existing, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, *request.Email, user.TenantID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return apiError(http.StatusInternalServerError, err)
 		}

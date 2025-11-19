@@ -94,7 +94,7 @@ func TestGetProjectMembersAndInvitationsOrdering(t *testing.T) {
 		sat := planet.Satellites[0]
 		p := planet.Uplinks[0].Projects[0].ID
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 
 		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
@@ -207,7 +207,7 @@ func TestGetProjectMembersAndInvitationsSearch(t *testing.T) {
 		sat := planet.Satellites[0]
 		p := planet.Uplinks[0].Projects[0].ID
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 
 		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
@@ -287,7 +287,7 @@ func TestGetProjectMembersAndInvitationsLimitAndPage(t *testing.T) {
 		sat := planet.Satellites[0]
 		p := planet.Uplinks[0].Projects[0].ID
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 
 		members, _ := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
@@ -332,7 +332,7 @@ func TestDeleteProjectMembers(t *testing.T) {
 		sat := planet.Satellites[0]
 		p := planet.Uplinks[0].Projects[0].ID
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 
 		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
@@ -395,7 +395,7 @@ func TestDeleteProject(t *testing.T) {
 		p := planet.Uplinks[0].Projects[0].ID
 		p2 := planet.Uplinks[1].Projects[0].ID
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 
 		user.Kind = console.PaidUser

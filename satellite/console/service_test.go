@@ -57,6 +57,7 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/tenancy"
 	"storj.io/uplink/private/metaclient"
 )
 
@@ -3095,7 +3096,7 @@ func TestAbbreviatedDeleteProject(t *testing.T) {
 
 		userLogin := planet.Uplinks[0].User[sat.ID()]
 
-		user, err := db.Console().Users().GetByEmail(ctx, userLogin.Email)
+		user, err := db.Console().Users().GetByEmailAndTenant(ctx, userLogin.Email, nil)
 		require.NoError(t, err)
 
 		user.Kind = console.PaidUser
@@ -3408,7 +3409,7 @@ func TestAbbreviatedDeleteProject_WithDeleteThreshold(t *testing.T) {
 		service := sat.API.Console.Service
 
 		uplinkUser := planet.Uplinks[0].User[sat.ID()]
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, uplinkUser.Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, uplinkUser.Email, nil)
 		require.NoError(t, err)
 
 		user.Kind = console.PaidUser
@@ -4445,7 +4446,7 @@ func TestAbbreviatedDeleteAccount_WithDeleteThreshold(t *testing.T) {
 
 		userLogin := planet.Uplinks[0].User[sat.ID()]
 
-		user, err := sat.API.DB.Console().Users().GetByEmail(ctx, userLogin.Email)
+		user, err := sat.API.DB.Console().Users().GetByEmailAndTenant(ctx, userLogin.Email, nil)
 		require.NoError(t, err)
 
 		user.Kind = console.PaidUser
@@ -5224,7 +5225,7 @@ func TestChangePassword(t *testing.T) {
 		upl := planet.Uplinks[0]
 		newPass := "newPass123!"
 
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, upl.User[sat.ID()].Email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, upl.User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
@@ -5755,7 +5756,7 @@ func runRestKeysExpirationTest(t *testing.T, ctx *testcontext.Context, planet *t
 	sat := planet.Satellites[0]
 	service := sat.API.Console.RestKeys
 
-	user, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+	user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 	require.NoError(t, err)
 
 	now := time.Now()
@@ -6888,7 +6889,7 @@ func (v *EmailVerifier) FromAddress() post.Address {
 }
 
 func TestProjectInvitations(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, NonParallel: true}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
 		invitesDB := sat.DB.Console().ProjectInvitations()
@@ -7342,6 +7343,248 @@ func TestProjectInvitations(t *testing.T) {
 	})
 }
 
+func TestUserTenancy(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Console.EmailChangeFlowEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		invitesDB := sat.DB.Console().ProjectInvitations()
+
+		updateContext := func(u *console.User) context.Context {
+			userCtx, err := sat.UserContext(ctx, u.ID)
+			require.NoError(t, err)
+			return userCtx
+		}
+
+		registerAndActivateUser := func(email string, tenantID string) (context.Context, *console.User) {
+			ctxWithTenant := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+			regToken1, err := service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+
+			tenantUser, err := service.CreateUser(ctxWithTenant, console.CreateUser{
+				FullName: email,
+				Email:    email,
+				Password: email,
+			}, regToken1.Secret)
+			require.NoError(t, err)
+			require.NotNil(t, tenantUser.TenantID)
+			require.Equal(t, tenantID, *tenantUser.TenantID)
+
+			activationToken1, err := service.GenerateActivationToken(ctxWithTenant, tenantUser.ID, tenantUser.Email)
+			require.NoError(t, err)
+
+			_, err = service.ActivateAccount(ctxWithTenant, activationToken1)
+			require.NoError(t, err)
+
+			tenantUserCtx := updateContext(tenantUser)
+
+			_, err = service.Payments().SetupAccount(tenantUserCtx)
+			require.NoError(t, err)
+
+			return tenantUserCtx, tenantUser
+		}
+
+		t.Run("create and activate user in tenant", func(t *testing.T) {
+			tenantID := "testtenant"
+			ctxWithTenant := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+
+			// Create registration token
+			regToken, err := service.CreateRegToken(ctx, 1)
+			require.NoError(t, err)
+
+			// Create user in tenant using CreateUser
+			tenantUser, err := service.CreateUser(ctxWithTenant, console.CreateUser{
+				FullName: "Tenant User",
+				Email:    "tenantuser@mail.test",
+				Password: "password123",
+			}, regToken.Secret)
+			require.NoError(t, err)
+			require.NotNil(t, tenantUser)
+			require.Equal(t, console.Inactive, tenantUser.Status)
+			require.NotNil(t, tenantUser.TenantID)
+			require.Equal(t, tenantID, *tenantUser.TenantID)
+
+			// Generate activation token
+			activationToken, err := service.GenerateActivationToken(ctxWithTenant, tenantUser.ID, tenantUser.Email)
+			require.NoError(t, err)
+			require.NotEmpty(t, activationToken)
+
+			// Activate account
+			activatedUser, err := service.ActivateAccount(ctxWithTenant, activationToken)
+			require.NoError(t, err)
+			require.NotNil(t, activatedUser)
+			require.Equal(t, console.Active, activatedUser.Status)
+			require.Equal(t, tenantUser.ID, activatedUser.ID)
+			require.NotNil(t, activatedUser.TenantID)
+			require.Equal(t, tenantID, *activatedUser.TenantID)
+		})
+
+		t.Run("tenant users with project invites", func(t *testing.T) {
+			tenantID := "projecttenant"
+			ctxWithTenant := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+
+			tenantUser1Ctx, tenantUser1 := registerAndActivateUser("TENANT1@MAIL.TEST", tenantID)
+			tenantUser2Ctx, tenantUser2 := registerAndActivateUser("TENANT2@MAIL.TEST", tenantID)
+
+			nonTenantUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Non-Tenant User",
+				Email:    "NONTENANT@MAIL.TEST",
+			}, 1)
+			require.NoError(t, err)
+
+			nonTenantUserCtx, err := sat.UserContext(ctx, nonTenantUser.ID)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(tenantUser1Ctx, tenantUser1.ID, "Tenant Project")
+			require.NoError(t, err)
+
+			invite, err := service.InviteNewProjectMember(tenantUser1Ctx, project.ID, tenantUser2.Email)
+			require.NoError(t, err)
+			require.NotNil(t, invite)
+			require.Equal(t, project.ID, invite.ProjectID)
+			require.Equal(t, tenantUser2.Email, invite.Email)
+
+			// Tenant user 2 can accept the invitation
+			err = service.RespondToProjectInvitation(tenantUser2Ctx, project.ID, console.ProjectInvitationAccept)
+			require.NoError(t, err)
+
+			// Verify tenant user 2 is now a member
+			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctxWithTenant, tenantUser2.ID)
+			require.NoError(t, err)
+			require.Len(t, memberships, 1)
+			require.Equal(t, project.ID, memberships[0].ProjectID)
+
+			// Tenant user can invite non-tenant user email (invitation created but cannot be accepted)
+			_, err = service.InviteNewProjectMember(tenantUser1Ctx, project.ID, nonTenantUser.Email)
+			require.NoError(t, err)
+
+			// Verify invitation exists
+			invite, err = invitesDB.Get(tenantUser1Ctx, project.ID, nonTenantUser.Email)
+			require.NoError(t, err)
+			require.NotNil(t, invite)
+
+			// Non-tenant user cannot accept tenant project invitation
+			err = service.RespondToProjectInvitation(nonTenantUserCtx, project.ID, console.ProjectInvitationAccept)
+			require.Error(t, err)
+			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+
+			// Verify non-tenant user is NOT a member
+			memberships, err = sat.DB.Console().ProjectMembers().GetByMemberID(ctx, nonTenantUser.ID)
+			require.NoError(t, err)
+			require.Len(t, memberships, 0)
+		})
+
+		t.Run("login with tenant isolation", func(t *testing.T) {
+			tenant1ID := "logintenant1"
+			tenant2ID := "logintenant2"
+			ctxWithTenant1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant1ID})
+			ctxWithTenant2 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant2ID})
+			sharedEmail := "shareduser@login.test"
+			password := sharedEmail
+
+			// Create and activate user in tenant1
+			_, tenant1User := registerAndActivateUser(sharedEmail, tenant1ID)
+
+			// Create and activate user in tenant2 with same email
+			_, tenant2User := registerAndActivateUser(sharedEmail, tenant2ID)
+
+			// Both users should be able to login with same email in their respective tenants
+			token1, err := service.Token(ctxWithTenant1, console.AuthUser{
+				Email:    sharedEmail,
+				Password: password,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, token1)
+
+			// Verify the token is for tenant1 user
+			_, user1FromToken, err := service.TokenAuth(ctxWithTenant1, token1.Token, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, tenant1User.ID, user1FromToken.UserID)
+
+			token2, err := service.Token(ctxWithTenant2, console.AuthUser{
+				Email:    sharedEmail,
+				Password: password,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, token2)
+
+			// Verify the token is for tenant2 user
+			_, user2FromToken, err := service.TokenAuth(ctxWithTenant2, token2.Token, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, tenant2User.ID, user2FromToken.UserID)
+
+			// Verify the two logins returned different users
+			require.NotEqual(t, user1FromToken.UserID, user2FromToken.UserID)
+
+			// verify that login to another tenant fails
+			someOtherTenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: "someothertenant"})
+			_, err = service.Token(someOtherTenantCtx, console.AuthUser{
+				Email:    sharedEmail,
+				Password: password,
+			})
+			require.True(t, console.ErrLoginCredentials.Has(err))
+		})
+
+		t.Run("change email with tenant isolation", func(t *testing.T) {
+			tenant1ID := "emailtenant1"
+			tenant2ID := "emailtenant2"
+			ctxWithTenant1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant1ID})
+
+			// Create and activate user in tenant1
+			tenant1UserCtx, tenant1User := registerAndActivateUser("tenant1email@mail.test", tenant1ID)
+
+			// Create and activate user in tenant2
+			_, tenant2User := registerAndActivateUser("tenant2email@mail.test", tenant2ID)
+
+			targetEmail := "tenant2email@mail.test"
+
+			err := service.ChangeEmail(tenant1UserCtx, console.VerifyAccountPasswordStep, tenant1User.Email)
+			require.NoError(t, err)
+
+			user1, err := sat.DB.Console().Users().Get(ctxWithTenant1, tenant1User.ID)
+			require.NoError(t, err)
+			require.NotNil(t, user1.ActivationCode)
+
+			tenant1UserCtx = updateContext(tenant1User)
+			err = service.ChangeEmail(tenant1UserCtx, console.VerifyAccountEmailStep, user1.ActivationCode)
+			require.NoError(t, err)
+
+			tenant1UserCtx = updateContext(tenant1User)
+			err = service.ChangeEmail(tenant1UserCtx, console.ChangeAccountEmailStep, targetEmail)
+			require.NoError(t, err)
+
+			user1, err = sat.DB.Console().Users().Get(ctxWithTenant1, tenant1User.ID)
+			require.NoError(t, err)
+			require.NotNil(t, user1.NewUnverifiedEmail)
+			require.Equal(t, targetEmail, *user1.NewUnverifiedEmail)
+			require.NotNil(t, user1.ActivationCode)
+
+			tenant1UserCtx = updateContext(tenant1User)
+			err = service.ChangeEmail(tenant1UserCtx, console.VerifyNewAccountEmailStep, user1.ActivationCode)
+			require.NoError(t, err)
+
+			// Verify that email was successfully changed because email uniqueness
+			// is scoped to tenant
+			user1, err = sat.DB.Console().Users().Get(ctx, tenant1User.ID)
+			require.NoError(t, err)
+			require.Equal(t, targetEmail, user1.Email)
+
+			// Verify both users now have the same email but in different tenants
+			user2, err := sat.DB.Console().Users().Get(ctx, tenant2User.ID)
+			require.NoError(t, err)
+			require.Equal(t, user1.Email, user2.Email)
+			require.NotEqual(t, user1.ID, user2.ID)
+			require.NotEqual(t, user1.TenantID, user2.TenantID)
+		})
+	})
+}
+
 func TestDelayedBotFreeze(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -7393,7 +7636,7 @@ func TestGetValdiAPIKey(t *testing.T) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
 
-		user1, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		user1, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 		p := planet.Uplinks[0].Projects[0]
 
@@ -7414,7 +7657,7 @@ func TestGetValdiAPIKey(t *testing.T) {
 			require.Nil(t, key)
 		})
 
-		user2, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[1].User[sat.ID()].Email)
+		user2, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[1].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 
 		t.Run("not project member", func(t *testing.T) {

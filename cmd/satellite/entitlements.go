@@ -238,7 +238,7 @@ func processUserEmail(ctx context.Context, email string, args processingArgs, va
 
 	args.log.Info("Processing single user", zap.String("email", email))
 
-	user, err := args.satDB.Console().Users().GetByEmail(ctx, email)
+	user, err := args.satDB.Console().Users().GetByEmailAndTenant(ctx, email, nil)
 	if err != nil {
 		return err
 	}

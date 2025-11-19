@@ -36,7 +36,7 @@ func TestValdiGetAPIKey(t *testing.T) {
 		sat := planet.Satellites[0]
 		baseURL := "valdi/api-keys"
 
-		user1, err := sat.DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		user1, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 		p := planet.Uplinks[0].Projects[0]
 

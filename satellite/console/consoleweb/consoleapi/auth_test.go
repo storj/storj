@@ -890,7 +890,7 @@ func TestRegistrationEmail(t *testing.T) {
 		body, err := sender.Data.Get(ctx)
 		require.NoError(t, err)
 		if sat.Config.Console.SignupActivationCodeEnabled {
-			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
+			_, users, err := sat.DB.Console().Users().GetByEmailAndTenantWithUnverified(ctx, email, nil)
 			require.NoError(t, err)
 			require.Len(t, users, 1)
 			require.Contains(t, body, users[0].ActivationCode)
@@ -903,7 +903,7 @@ func TestRegistrationEmail(t *testing.T) {
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
 		if sat.Config.Console.SignupActivationCodeEnabled {
-			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
+			_, users, err := sat.DB.Console().Users().GetByEmailAndTenantWithUnverified(ctx, email, nil)
 			require.NoError(t, err)
 			require.Len(t, users, 1)
 			require.Contains(t, body, users[0].ActivationCode)
@@ -912,7 +912,7 @@ func TestRegistrationEmail(t *testing.T) {
 		}
 
 		// Registration attempts using existing and verified e-mail address should send account already exists e-mail.
-		_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
+		_, users, err := sat.DB.Console().Users().GetByEmailAndTenantWithUnverified(ctx, email, nil)
 		require.NoError(t, err)
 
 		users[0].Status = console.Active
@@ -1077,7 +1077,7 @@ func TestResendActivationEmail(t *testing.T) {
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
 		if sat.Config.Console.SignupActivationCodeEnabled {
-			_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, user.Email)
+			_, users, err := sat.DB.Console().Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, nil)
 			require.NoError(t, err)
 			require.Len(t, users, 1)
 			require.Contains(t, body, users[0].ActivationCode)
@@ -1372,7 +1372,7 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.Contains(t, body, "/forgot-password")
 
 		// trying to activate an account that is not "inactive" or "active" should result in an error
-		user, err := sat.DB.Console().Users().GetByEmail(ctx, email)
+		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, email, nil)
 		require.NoError(t, err)
 		newStatus := console.PendingDeletion
 		err = sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
@@ -1682,7 +1682,7 @@ func TestSsoFlow(t *testing.T) {
 		require.NoError(t, result.Body.Close())
 
 		// user should be created
-		user, err := sat.API.DB.Console().Users().GetByEmail(ctx, "some@fake.test")
+		user, err := sat.API.DB.Console().Users().GetByEmailAndTenant(ctx, "some@fake.test", nil)
 		require.NoError(t, err)
 		// session should be created
 		sessions, err := sat.API.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
@@ -2327,7 +2327,7 @@ func TestAuth_DeleteAccount(t *testing.T) {
 				})
 			}
 
-			_, err = sat.API.DB.Console().Users().GetByEmail(ctx, u.Email)
+			_, err = sat.API.DB.Console().Users().GetByEmailAndTenant(ctx, u.Email, nil)
 			require.Error(t, err)
 			require.ErrorIs(t, err, sql.ErrNoRows)
 		}

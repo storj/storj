@@ -52,7 +52,7 @@ func runTests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet)
 	sat := planet.Satellites[0]
 	keyService := sat.API.Console.RestKeys
 
-	user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+	user, err := planet.Satellites[0].DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].Projects[0].Owner.Email, nil)
 	require.NoError(t, err)
 
 	t.Run("create with default expiration", func(t *testing.T) {

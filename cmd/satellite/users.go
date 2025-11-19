@@ -631,7 +631,7 @@ func (ce *CSVEmails) ForEach(ctx context.Context, fn func(log *zap.Logger, user 
 		}
 
 		// TODO: User a method that returns the users in "inactive" status.
-		user, err := ce.DB.Users().GetByEmail(ctx, email)
+		user, err := ce.DB.Users().GetByEmailAndTenant(ctx, email, nil)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				ce.Log.Debug("skipping not found or 'inactive' user's account", zap.String("email", email))
