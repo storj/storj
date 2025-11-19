@@ -521,7 +521,7 @@ func TestUnvettedSelector(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			selected, err := selector(ctx, storj.NodeID{}, 5, nil, nil)
 			require.NoError(t, err)
-			// The faction result in less than 1 node, so it randonly decide if 0 or 1 vetted node is
+			// The faction result in less than 1 node, so it randomly decide if 0 or 1 vetted node is
 			// selected.
 			require.InDelta(t, 0, countUnvetted(selected), 1)
 		}
@@ -561,6 +561,35 @@ func TestUnvettedSelector(t *testing.T) {
 	})
 }
 
+func TestUnvettedSelectorFraction(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 100; i++ {
+		node := &nodeselection.SelectedNode{
+			ID: testrand.NodeID(),
+		}
+		if i >= 5 {
+			node.Vetted = true
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	// now we have 5% vetted nodes. When we define 10% vetted fraction,it should be used as upper limit, but 5% should be used instead of overusage.
+
+	selectorInit := nodeselection.UnvettedSelector(0.1, nodeselection.RandomSelector())
+	selector := selectorInit(ctx, nodes, nil)
+
+	for i := 0; i < 100; i++ {
+		selected, err := selector(ctx, storj.NodeID{}, 50, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 50)
+		require.Equal(t, 2, countUnvetted(selected))
+	}
+
+}
 func TestChoiceOfTwo(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
