@@ -77,10 +77,10 @@
 
                     <v-window-item :value="DeleteProjectStep.LockEnabledBucketsStep">
                         <div class="pa-6">
-                            <v-alert variant="tonal" type="warning">
+                            <v-alert variant="tonal" type="error">
                                 You have {{ buckets }} bucket{{ buckets > 1 ? 's' : '' }} with Object Lock enabled.
-                                By proceeding, you will lose any objects in {{ buckets > 1 ? 'these' : 'this' }}
-                                bucket{{ buckets > 1 ? 's' : '' }} even if they are locked.
+                                Objects in th{{ buckets > 1 ? 'ese buckets' : 'is bucket' }} may be protected from deletion due to retention policies.
+                                If the bucket{{ buckets > 1 ? 's are' : ' is' }} empty, delete {{ buckets > 1 ? 'them' : 'it' }} to proceed.
                             </v-alert>
                         </div>
                     </v-window-item>
@@ -196,7 +196,7 @@
 
             <v-card-actions class="pa-6">
                 <v-row>
-                    <v-col v-if="step === DeleteProjectStep.InitStep">
+                    <v-col v-if="step === DeleteProjectStep.InitStep || step === DeleteProjectStep.LockEnabledBucketsStep">
                         <v-btn
                             variant="outlined"
                             color="default"
@@ -209,16 +209,7 @@
 
                     <v-col>
                         <v-btn
-                            v-if="step === DeleteProjectStep.LockEnabledBucketsStep"
-                            variant="flat"
-                            color="warning"
-                            block
-                            @click="proceed(true)"
-                        >
-                            Proceed
-                        </v-btn>
-                        <v-btn
-                            v-if="step === DeleteProjectStep.DeleteBucketsStep"
+                            v-if="step === DeleteProjectStep.DeleteBucketsStep || step === DeleteProjectStep.LockEnabledBucketsStep"
                             variant="flat"
                             block
                             @click="goToBuckets"
@@ -246,7 +237,7 @@
                             color="primary"
                             variant="flat"
                             block
-                            @click="proceed()"
+                            @click="proceed"
                         >
                             Next
                         </v-btn>
@@ -257,7 +248,7 @@
                             :loading="isLoading"
                             :disabled="step === DeleteProjectStep.ConfirmDeleteStep && !isDeleteConfirmed"
                             block
-                            @click="proceed()"
+                            @click="proceed"
                         >
                             Delete Project
                         </v-btn>
@@ -294,7 +285,7 @@ import {
 } from 'vuetify/components';
 import { Trash2, X } from 'lucide-vue-next';
 
-import { DeleteProjectStep, SKIP_OBJECT_LOCK_ENABLED_BUCKETS } from '@/types/accountActions';
+import { DeleteProjectStep } from '@/types/accountActions';
 import { User } from '@/types/users';
 import { Project, ProjectDeletionData } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
@@ -362,17 +353,12 @@ function chooseRestrictionStep(deleteResp: ProjectDeletionData) {
     }
 }
 
-async function proceed(skipLockEnabledBuckets = false): Promise<void> {
+async function proceed(): Promise<void> {
     await withLoading(async () => {
         try {
             switch (step.value) {
             case DeleteProjectStep.InitStep:
-            case DeleteProjectStep.LockEnabledBucketsStep:
-                deleteResp.value = await projectStore.deleteProject(
-                    project.value.id,
-                    DeleteProjectStep.InitStep,
-                    skipLockEnabledBuckets ? SKIP_OBJECT_LOCK_ENABLED_BUCKETS : '',
-                );
+                deleteResp.value = await projectStore.deleteProject(project.value.id, DeleteProjectStep.InitStep, '');
                 if (!deleteResp.value) {
                     step.value = DeleteProjectStep.VerifyPasswordStep;
                 } else {

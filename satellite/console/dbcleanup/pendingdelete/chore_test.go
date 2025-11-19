@@ -19,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
@@ -213,7 +214,7 @@ func TestPendingDeleteChore_PendingDeletionProjects(t *testing.T) {
 		projectsDB.TestSetNowFn(func() time.Time { return now })
 		chore.TestSetNowFn(func() time.Time { return now })
 
-		addProjectAndData := func(status console.ProjectStatus) uuid.UUID {
+		addProjectAndData := func(status console.ProjectStatus, hasObjectLock bool) uuid.UUID {
 			p, err := sat.AddProject(ctx, user.ID, "new-project")
 			require.NoError(t, err)
 			require.NotNil(t, p)
@@ -231,6 +232,15 @@ func TestPendingDeleteChore_PendingDeletionProjects(t *testing.T) {
 
 			_, err = uplProject.EnsureBucket(ctx, "test-bucket")
 			require.NoError(t, err)
+
+			if hasObjectLock {
+				_, err = sat.DB.Buckets().UpdateBucketObjectLockSettings(ctx, buckets.UpdateBucketObjectLockParams{
+					ObjectLockEnabled: true,
+					ProjectID:         p.ID,
+					Name:              "test-bucket",
+				})
+				require.NoError(t, err)
+			}
 
 			for j := range objectsCount {
 				upload, err := uplProject.UploadObject(ctx, "test-bucket", fmt.Sprintf("test-object-%d", j), nil)
@@ -258,10 +268,10 @@ func TestPendingDeleteChore_PendingDeletionProjects(t *testing.T) {
 
 		for i := range projectsCount {
 			if i%2 == 0 {
-				projectsMarkedForDeletion = append(projectsMarkedForDeletion, addProjectAndData(console.ProjectPendingDeletion))
+				projectsMarkedForDeletion = append(projectsMarkedForDeletion, addProjectAndData(console.ProjectPendingDeletion, false))
 				continue
 			}
-			activeProjects = append(activeProjects, addProjectAndData(console.ProjectActive))
+			activeProjects = append(activeProjects, addProjectAndData(console.ProjectActive, false))
 		}
 
 		// Verify that all four projects have objects uploaded
@@ -355,7 +365,7 @@ func TestPendingDeleteChore_PendingDeletionProjects(t *testing.T) {
 
 		newProjectsList := make([]uuid.UUID, 0)
 		for range projectsCount {
-			newProjectsList = append(newProjectsList, addProjectAndData(console.ProjectPendingDeletion))
+			newProjectsList = append(newProjectsList, addProjectAndData(console.ProjectPendingDeletion, false))
 		}
 
 		// mark active projects for deletion
@@ -379,6 +389,17 @@ func TestPendingDeleteChore_PendingDeletionProjects(t *testing.T) {
 			verifyHasDbData(projectID, false)
 			testDisabled(projectID)
 		}
+
+		// test that a project that contains a bucket with object lock enabled is skipped and not deleted
+		objectLockProjectID := addProjectAndData(console.ProjectPendingDeletion, true)
+
+		chore.Loop.TriggerWait()
+
+		// verify that the project still has its objects and is still pending deletion
+		p, err := projectsDB.Get(ctx, objectLockProjectID)
+		require.NoError(t, err)
+		require.Equal(t, console.ProjectPendingDeletion, *p.Status)
+		testObjectsLength(objectLockProjectID, objectsCount)
 	})
 }
 

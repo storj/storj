@@ -6199,7 +6199,7 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project, step AccountActionStep, data string) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if step == DeleteProjectInit && s.config.AbbreviatedDeleteProjectEnabled && data != SkipObjectLockEnabledBuckets {
+	if s.config.AbbreviatedDeleteProjectEnabled {
 		// check for buckets with Object Lock enabled
 		count, err := s.buckets.CountObjectLockBuckets(ctx, project.ID)
 		if err != nil {

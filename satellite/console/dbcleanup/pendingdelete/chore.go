@@ -192,6 +192,28 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 					return
 				}
 
+				// check if the project contains buckets with object lock enabled
+				count, err := chore.bucketsDB.CountObjectLockBuckets(ctx, project.ID)
+				if err != nil {
+					chore.log.Error("failed to check for object lock enabled buckets",
+						zap.String("task", projectDataTask),
+						zap.String("projectID", p.ProjectID.String()),
+						zap.String("userID", p.OwnerID.String()),
+						zap.Error(err),
+					)
+					addErr(err)
+					return
+				}
+				if count > 0 {
+					chore.log.Info("project contains buckets with object lock enabled, skipping deletion",
+						zap.String("task", projectDataTask),
+						zap.String("projectID", p.ProjectID.String()),
+						zap.String("userID", p.OwnerID.String()),
+					)
+					skippedProjects.Add(1)
+					return
+				}
+
 				err = chore.deleteData(ctx, p.ProjectID, p.OwnerID, projectDataTask)
 				if err != nil {
 					addErr(err)
