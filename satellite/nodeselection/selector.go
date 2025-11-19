@@ -39,6 +39,17 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 
 		newSelector := init(ctx, newNodes, filter)
 		oldSelector := init(ctx, oldNodes, filter)
+
+		// in case we have lots of old nodes, and just a few new nodes, we shouldn't overuse the new nodes, but use the natural fraction.
+		actualFraction := newNodeFraction
+		totalAvailable := len(newNodes) + len(oldNodes)
+		if totalAvailable > 0 {
+			actualAvailableFraction := float64(len(newNodes)) / float64(totalAvailable)
+			if actualAvailableFraction < newNodeFraction {
+				actualFraction = actualAvailableFraction
+			}
+		}
+
 		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
 			defer unvettedSelectorSelectionTask(&ctx)(&err)
 
@@ -47,7 +58,7 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 			}
 
 			var newNodeCount int
-			if r := float64(n) * newNodeFraction; r < 1 {
+			if r := float64(n) * actualFraction; r < 1 {
 				// Don't select any unvetted node.
 				// Add 1 to random result to return 100 if the random function returns 99 and avoid to
 				// always fail this condition if r is greater or equal than 0.99.

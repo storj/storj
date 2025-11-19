@@ -201,7 +201,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		nodes, err := service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, nodes, requestedCount)
-		require.Equal(t, 0, countCommon(db.Reputable, nodes))
+		require.Equal(t, 3, countCommon(db.Reputable, nodes))
 
 		n2, err := service.UploadSelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
@@ -549,7 +549,7 @@ func TestDistinctIPs(t *testing.T) {
 			config := overlayDefaultConfig(tt.newNodeFraction)
 			config.Node.DistinctIP = true
 
-			service, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 8, 2, config, func(i int, node *nodeselection.SelectedNode) {
+			service, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 8, 8, config, func(i int, node *nodeselection.SelectedNode) {
 				if i < 7 {
 					node.LastIPPort = fmt.Sprintf("54.0.0.1:%d", rand.Intn(30000)+1000)
 					node.LastNet = "54.0.0.0"
