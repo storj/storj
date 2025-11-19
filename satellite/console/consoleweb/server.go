@@ -291,6 +291,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
+	router.Handle("/api/v0/config/branding", server.withCORS(http.HandlerFunc(server.getBranding)))
 	router.Handle("/api/v0/{kind}-config/{partner}", server.withCORS(http.HandlerFunc(server.partnerUIConfigHandler)))
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
@@ -1167,6 +1168,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewPricingStartDate:               newPricingStartDate,
 		ProductPriceSummaries:             server.config.ProductPriceSummaries,
 		CollectBillingInfoOnOnboarding:    server.config.CollectBillingInfoOnOnboarding,
+		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,
@@ -1183,6 +1185,58 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write frontend config", zap.Error(err))
+	}
+}
+
+// getBranding returns branding configuration based on tenant context.
+func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	tenantCtx := tenancy.GetContext(ctx)
+
+	// Default Storj branding.
+	branding := BrandingConfig{
+		Name: "Storj",
+		LogoURLs: map[string]string{
+			"full-light": "/static/static/images/logo.svg",
+			"full-dark":  "/static/static/images/logo-dark.svg",
+		},
+		Colors: map[string]string{
+			"primary-light":   "#0052FF",
+			"primary-dark":    "#0052FF",
+			"secondary-light": "#091C45",
+			"secondary-dark":  "#537CFF",
+		},
+		SupportURL:    server.config.GeneralRequestURL,
+		DocsURL:       server.config.DocumentationURL,
+		HomepageURL:   server.config.HomepageURL,
+		GetInTouchURL: server.config.ScheduleMeetingURL,
+	}
+
+	if tenantCtx.TenantID != "" {
+		if wlConfig, ok := server.config.WhiteLabel.Value[tenantCtx.TenantID]; ok {
+			branding = BrandingConfig{
+				Name:          wlConfig.Name,
+				LogoURLs:      wlConfig.LogoURLs,
+				FaviconURLs:   wlConfig.FaviconURLs,
+				Colors:        wlConfig.Colors,
+				SupportURL:    wlConfig.SupportURL,
+				DocsURL:       wlConfig.DocsURL,
+				HomepageURL:   wlConfig.HomepageURL,
+				GetInTouchURL: wlConfig.GetInTouchURL,
+			}
+		} else {
+			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenantID", tenantCtx.TenantID))
+		}
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set(contentType, applicationJSON)
+
+	if err := json.NewEncoder(w).Encode(&branding); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		server.log.Error("failed to write branding config", zap.Error(err))
 	}
 }
 
