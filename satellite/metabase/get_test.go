@@ -73,9 +73,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 		t.Run("Get not existing version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-
-			metabasetest.CreateObject(ctx, t, db, obj, 0)
+			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
 
 			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
@@ -86,26 +84,13 @@ func TestGetObjectExactVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.CommittedUnversioned,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("Get pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 
@@ -122,30 +107,16 @@ func TestGetObjectExactVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("Get negative pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
 			obj := obj
 			obj.Version = -1
 
-			metabasetest.BeginObjectExactVersion{
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
@@ -161,18 +132,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("Get expired object", func(t *testing.T) {
@@ -390,10 +350,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		t.Run("Get pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
@@ -408,17 +365,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream:           obj,
-						CreatedAt:              now,
-						Status:                 metabase.Pending,
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("Get object", func(t *testing.T) {
@@ -475,11 +422,9 @@ func TestGetObjectLastCommitted(t *testing.T) {
 		t.Run("Get object last committed version from multiple", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-
 			firstObject := obj
 			firstObject.Version = metabase.Version(1)
-			metabasetest.CreateObject(ctx, t, db, firstObject, 0)
+			createdObject := metabasetest.CreateObject(ctx, t, db, firstObject, 0)
 
 			secondObject, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
 				ObjectStream: metabase.ObjectStream{
@@ -496,21 +441,11 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				Opts: metabase.GetObjectLastCommitted{
 					ObjectLocation: location,
 				},
-				Result: metabase.Object{
-					ObjectStream: firstObject,
-					CreatedAt:    now,
-					Status:       metabase.CommittedUnversioned,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
+				Result: createdObject,
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{Objects: []metabase.RawObject{
-				{
-					ObjectStream: firstObject,
-					CreatedAt:    now,
-					Status:       metabase.CommittedUnversioned,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
+				metabase.RawObject(createdObject),
 				metabase.RawObject(secondObject),
 			}}.Check(ctx, t, db)
 		})
@@ -1906,10 +1841,7 @@ func TestBucketEmpty(t *testing.T) {
 		t.Run("BucketEmpty false with pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 
@@ -1925,17 +1857,7 @@ func TestBucketEmpty(t *testing.T) {
 				Result: false,
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream:           obj,
-						CreatedAt:              now,
-						Status:                 metabase.Pending,
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("BucketEmpty false with committed object", func(t *testing.T) {
