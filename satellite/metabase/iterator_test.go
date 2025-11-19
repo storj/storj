@@ -1164,9 +1164,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			objA0 := metabasetest.CreateObject(ctx, t, db, a0, 0)
 			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
 			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
-			metabasetest.CreatePendingObject(ctx, t, db, c0, 0)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
+			objC0 := metabasetest.CreatePendingObject(ctx, t, db, c0, 0)
 
 			metabasetest.IterateObjectsWithStatus{
 				Opts: metabase.IterateObjectsWithStatus{
@@ -1189,20 +1187,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					metabase.RawObject(objA0),
 					metabase.RawObject(objB0),
 					metabase.RawObject(objB1),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  c0.ProjectID,
-							BucketName: c0.BucketName,
-							ObjectKey:  c0.ObjectKey,
-							Version:    1000,
-							StreamID:   c0.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
+					metabase.RawObject(objC0),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1224,7 +1209,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			a1 := a0
 			a1.Version = 1001
 
-			metabasetest.BeginObjectExactVersion{
+			pendingObj := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  b0.ProjectID,
@@ -1236,8 +1221,6 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					Encryption: metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 
 			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
 			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
@@ -1253,10 +1236,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					{
-						ObjectKey: b0.ObjectKey,
-						Version:   1000,
-						StreamID:  b0.StreamID,
-						CreatedAt: now,
+						ObjectKey: pendingObj.ObjectKey,
+						Version:   pendingObj.Version,
+						StreamID:  pendingObj.StreamID,
+						CreatedAt: pendingObj.CreatedAt,
 						Status:    metabase.Pending,
 
 						Encryption: metabasetest.DefaultEncryption,
@@ -1268,20 +1251,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				Objects: []metabase.RawObject{
 					metabase.RawObject(objA0),
 					metabase.RawObject(objA1),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  b0.ProjectID,
-							BucketName: b0.BucketName,
-							ObjectKey:  b0.ObjectKey,
-							Version:    1000,
-							StreamID:   b0.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
+					metabase.RawObject(pendingObj),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1979,8 +1949,6 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 		t.Run("batch iterate committed versioned, unversioned, and delete markers with pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 
 			var expected []metabase.ObjectEntry
 			var objLocation metabase.ObjectLocation
@@ -1990,16 +1958,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			objLocation = pendingStream1.Location()
 			pendingStream1.Version = 100
 
-			metabasetest.CreatePendingObject(ctx, t, db, pendingStream1, 0)
+			pendingObject1 := metabasetest.CreatePendingObject(ctx, t, db, pendingStream1, 0)
 
-			pendingObject1 := metabase.RawObject{
-				ObjectStream:           pendingStream1,
-				CreatedAt:              now,
-				Status:                 metabase.Pending,
-				Encryption:             metabasetest.DefaultEncryption,
-				ZombieDeletionDeadline: &zombieDeadline,
-			}
-			expected = append(expected, objectEntryFromRaw(pendingObject1))
+			expected = append(expected, objectEntryFromRaw(metabase.RawObject(pendingObject1)))
 
 			for i := 0; i < 10; i++ {
 				unversionedStream := metabasetest.RandObjectStream()
@@ -2021,16 +1982,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			pendingStream2.ObjectKey = objLocation.ObjectKey
 			pendingStream2.Version = 300
 
-			metabasetest.CreatePendingObject(ctx, t, db, pendingStream2, 0)
+			pendingObject2 := metabasetest.CreatePendingObject(ctx, t, db, pendingStream2, 0)
 
-			pendingObject2 := metabase.RawObject{
-				ObjectStream:           pendingStream2,
-				CreatedAt:              now,
-				Status:                 metabase.Pending,
-				Encryption:             metabasetest.DefaultEncryption,
-				ZombieDeletionDeadline: &zombieDeadline,
-			}
-			expected = append(expected, objectEntryFromRaw(pendingObject2))
+			expected = append(expected, objectEntryFromRaw(metabase.RawObject(pendingObject2)))
 
 			sort.Slice(expected, func(i, k int) bool {
 				return expected[i].Less(expected[k])
@@ -3140,9 +3094,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			objA0 := metabasetest.CreateObject(ctx, t, db, a0, 0)
 			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
 			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
-			metabasetest.CreatePendingObject(ctx, t, db, c0, 0)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
+			objC0 := metabasetest.CreatePendingObject(ctx, t, db, c0, 0)
 
 			metabasetest.IterateObjectsWithStatusAscending{
 				Opts: metabase.IterateObjectsWithStatus{
@@ -3165,20 +3117,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					metabase.RawObject(objA0),
 					metabase.RawObject(objB0),
 					metabase.RawObject(objB1),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  c0.ProjectID,
-							BucketName: c0.BucketName,
-							ObjectKey:  c0.ObjectKey,
-							Version:    1000,
-							StreamID:   c0.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
+					metabase.RawObject(objC0),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -3200,7 +3139,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			a1 := a0
 			a1.Version = 1001
 
-			metabasetest.BeginObjectExactVersion{
+			pendingObj := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  b0.ProjectID,
@@ -3212,8 +3151,6 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					Encryption: metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 
 			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
 			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
@@ -3229,10 +3166,10 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				},
 				Result: []metabase.ObjectEntry{
 					{
-						ObjectKey: b0.ObjectKey,
-						Version:   1000,
-						StreamID:  b0.StreamID,
-						CreatedAt: now,
+						ObjectKey: pendingObj.ObjectKey,
+						Version:   pendingObj.Version,
+						StreamID:  pendingObj.StreamID,
+						CreatedAt: pendingObj.CreatedAt,
 						Status:    metabase.Pending,
 
 						Encryption: metabasetest.DefaultEncryption,
@@ -3244,20 +3181,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				Objects: []metabase.RawObject{
 					metabase.RawObject(objA0),
 					metabase.RawObject(objA1),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  b0.ProjectID,
-							BucketName: b0.BucketName,
-							ObjectKey:  b0.ObjectKey,
-							Version:    1000,
-							StreamID:   b0.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
+					metabase.RawObject(pendingObj),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -3955,8 +3879,6 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 		t.Run("batch iterate committed versioned, unversioned, and delete markers with pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 
 			var expected []metabase.ObjectEntry
 			var objLocation metabase.ObjectLocation
@@ -3966,16 +3888,9 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			objLocation = pendingStream1.Location()
 			pendingStream1.Version = 100
 
-			metabasetest.CreatePendingObject(ctx, t, db, pendingStream1, 0)
+			pendingObject1 := metabasetest.CreatePendingObject(ctx, t, db, pendingStream1, 0)
 
-			pendingObject1 := metabase.RawObject{
-				ObjectStream:           pendingStream1,
-				CreatedAt:              now,
-				Status:                 metabase.Pending,
-				Encryption:             metabasetest.DefaultEncryption,
-				ZombieDeletionDeadline: &zombieDeadline,
-			}
-			expected = append(expected, objectEntryFromRaw(pendingObject1))
+			expected = append(expected, objectEntryFromRaw(metabase.RawObject(pendingObject1)))
 
 			for i := 0; i < 10; i++ {
 				unversionedStream := metabasetest.RandObjectStream()
@@ -3997,16 +3912,9 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			pendingStream2.ObjectKey = objLocation.ObjectKey
 			pendingStream2.Version = 300
 
-			metabasetest.CreatePendingObject(ctx, t, db, pendingStream2, 0)
+			pendingObject2 := metabasetest.CreatePendingObject(ctx, t, db, pendingStream2, 0)
 
-			pendingObject2 := metabase.RawObject{
-				ObjectStream:           pendingStream2,
-				CreatedAt:              now,
-				Status:                 metabase.Pending,
-				Encryption:             metabasetest.DefaultEncryption,
-				ZombieDeletionDeadline: &zombieDeadline,
-			}
-			expected = append(expected, objectEntryFromRaw(pendingObject2))
+			expected = append(expected, objectEntryFromRaw(metabase.RawObject(pendingObject2)))
 
 			metabasetest.IterateObjectsWithStatusAscending{
 				Opts: metabase.IterateObjectsWithStatus{

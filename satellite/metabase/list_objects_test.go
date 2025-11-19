@@ -1152,9 +1152,7 @@ func TestListObjectsVersioned(t *testing.T) {
 			objA0 := metabasetest.CreateObject(ctx, t, db, a0, 0)
 			objB0 := metabasetest.CreateObjectVersioned(ctx, t, db, b0, 0)
 			objB1 := metabasetest.CreateObjectVersionedOutOfOrder(ctx, t, db, b1, 0, 1001)
-			metabasetest.CreatePendingObject(ctx, t, db, c0, 0)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
+			objC0 := metabasetest.CreatePendingObject(ctx, t, db, c0, 0)
 
 			metabasetest.ListObjects{
 				Opts: metabase.ListObjects{
@@ -1190,21 +1188,6 @@ func TestListObjectsVersioned(t *testing.T) {
 					},
 				}}.Check(ctx, t, db)
 
-			pendingObject := metabase.RawObject{
-				ObjectStream: metabase.ObjectStream{
-					ProjectID:  c0.ProjectID,
-					BucketName: c0.BucketName,
-					ObjectKey:  c0.ObjectKey,
-					Version:    1000,
-					StreamID:   c0.StreamID,
-				},
-				CreatedAt: now,
-				Status:    metabase.Pending,
-
-				Encryption:             metabasetest.DefaultEncryption,
-				ZombieDeletionDeadline: &zombieDeadline,
-			}
-
 			metabasetest.ListObjects{
 				Opts: metabase.ListObjects{
 					ProjectID:             a0.ProjectID,
@@ -1217,7 +1200,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(pendingObject),
+						objectEntryFromRaw(metabase.RawObject(objC0)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1233,7 +1216,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
-						objectEntryFromRaw(pendingObject),
+						objectEntryFromRaw(metabase.RawObject(objC0)),
 					},
 				}}.Check(ctx, t, db)
 
@@ -1242,7 +1225,7 @@ func TestListObjectsVersioned(t *testing.T) {
 					metabase.RawObject(objA0),
 					metabase.RawObject(objB0),
 					metabase.RawObject(objB1),
-					pendingObject,
+					metabase.RawObject(objC0),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -1264,7 +1247,7 @@ func TestListObjectsVersioned(t *testing.T) {
 			a1 := a0
 			a1.Version = 1001
 
-			metabasetest.BeginObjectExactVersion{
+			pendingObj := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  b0.ProjectID,
@@ -1276,8 +1259,6 @@ func TestListObjectsVersioned(t *testing.T) {
 					Encryption: metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 
 			objA0 := metabasetest.CreateObjectVersioned(ctx, t, db, a0, 0)
 			objA1 := metabasetest.CreateObjectVersioned(ctx, t, db, a1, 0)
@@ -1295,10 +1276,10 @@ func TestListObjectsVersioned(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						{
-							ObjectKey: b0.ObjectKey,
-							Version:   1000,
-							StreamID:  b0.StreamID,
-							CreatedAt: now,
+							ObjectKey: pendingObj.ObjectKey,
+							Version:   pendingObj.Version,
+							StreamID:  pendingObj.StreamID,
+							CreatedAt: pendingObj.CreatedAt,
 							Status:    metabase.Pending,
 
 							Encryption: metabasetest.DefaultEncryption,
@@ -1319,10 +1300,10 @@ func TestListObjectsVersioned(t *testing.T) {
 				Result: metabase.ListObjectsResult{
 					Objects: []metabase.ObjectEntry{
 						{
-							ObjectKey: b0.ObjectKey,
-							Version:   1000,
-							StreamID:  b0.StreamID,
-							CreatedAt: now,
+							ObjectKey: pendingObj.ObjectKey,
+							Version:   pendingObj.Version,
+							StreamID:  pendingObj.StreamID,
+							CreatedAt: pendingObj.CreatedAt,
 							Status:    metabase.Pending,
 
 							Encryption: metabasetest.DefaultEncryption,
@@ -1334,20 +1315,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				Objects: []metabase.RawObject{
 					metabase.RawObject(objA0),
 					metabase.RawObject(objA1),
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  b0.ProjectID,
-							BucketName: b0.BucketName,
-							ObjectKey:  b0.ObjectKey,
-							Version:    1000,
-							StreamID:   b0.StreamID,
-						},
-						CreatedAt: now,
-						Status:    metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
+					metabase.RawObject(pendingObj),
 				},
 			}.Check(ctx, t, db)
 		})

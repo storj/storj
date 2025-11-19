@@ -37,12 +37,11 @@ func TestDeleteZombieObjects(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 			pastTime := now.Add(-1 * time.Hour)
 			futureTime := now.Add(1 * time.Hour)
 
 			// zombie object with default deadline
-			metabasetest.BeginObjectExactVersion{
+			pending1 := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj1,
 					Encryption:   metabasetest.DefaultEncryption,
@@ -59,7 +58,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
-			metabasetest.BeginObjectExactVersion{
+			pending3 := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream:           obj3,
 					ZombieDeletionDeadline: &futureTime,
@@ -76,22 +75,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.Verify{ // the object with zombie deadline time in the past is gone
 				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj1,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-					{
-						ObjectStream: obj3,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &futureTime,
-					},
+					metabase.RawObject(pending1),
+					metabase.RawObject(pending3),
 				},
 			}.Check(ctx, t, db)
 		})

@@ -69,14 +69,12 @@ func TestCommitObjectWithSegments(t *testing.T) {
 		t.Run("segments missing in database", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.BeginObjectExactVersion{
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 
 			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
 			metabasetest.CommitObject{
@@ -91,18 +89,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "segments and database does not match: {0 0}: segment not committed",
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("delete segments that are not in proofs", func(t *testing.T) {

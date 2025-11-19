@@ -36,7 +36,6 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
 			pastTime := now.Add(-1 * time.Hour)
 			futureTime := now.Add(1 * time.Hour)
 
@@ -74,23 +73,8 @@ func TestDeleteExpiredObjects(t *testing.T) {
 
 			metabasetest.Verify{ // the object with expiration time in the past is gone
 				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj1,
-						CreatedAt:    pending1.CreatedAt,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-					{
-						ObjectStream: obj3,
-						CreatedAt:    pending3.CreatedAt,
-						ExpiresAt:    &futureTime,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
+					metabase.RawObject(pending1),
+					metabase.RawObject(pending3),
 				},
 			}.Check(ctx, t, db)
 		})

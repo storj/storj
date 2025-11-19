@@ -52,10 +52,7 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("non existing object version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
@@ -75,18 +72,7 @@ func TestDeletePendingObject(t *testing.T) {
 				ErrClass: &metabase.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("delete committed object", func(t *testing.T) {
@@ -119,10 +105,7 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("without segments with wrong StreamID", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
-			metabasetest.BeginObjectExactVersion{
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
@@ -144,18 +127,7 @@ func TestDeletePendingObject(t *testing.T) {
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &zombieDeadline,
-					},
-				},
-			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
 
 		t.Run("without segments", func(t *testing.T) {

@@ -1087,9 +1087,6 @@ func TestFinishCopyObject(t *testing.T) {
 		t.Run("finish copy object to existing pending destination", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-			zombieDeadline := now.Add(24 * time.Hour)
-
 			sourceObjStream := metabasetest.RandObjectStream()
 			destinationObjStream := metabasetest.RandObjectStream()
 			destinationObjStream.ProjectID = sourceObjStream.ProjectID
@@ -1160,16 +1157,9 @@ func TestFinishCopyObject(t *testing.T) {
 					for _, version := range tc.sourcePendingVersions {
 						sourceObjStream.Version = version
 						sourceObjStream.StreamID = testrand.UUID()
-						metabasetest.CreatePendingObject(ctx, t, db, sourceObjStream, 0)
+						object := metabasetest.CreatePendingObject(ctx, t, db, sourceObjStream, 0)
 
-						rawObjects = append(rawObjects, metabase.RawObject{
-							ObjectStream: sourceObjStream,
-							CreatedAt:    now,
-							Status:       metabase.Pending,
-
-							Encryption:             metabasetest.DefaultEncryption,
-							ZombieDeletionDeadline: &zombieDeadline,
-						})
+						rawObjects = append(rawObjects, metabase.RawObject(object))
 					}
 					sourceObjStream.Version = tc.sourceCommitVersion
 					sourceObjStream.StreamID = testrand.UUID()
@@ -1191,16 +1181,9 @@ func TestFinishCopyObject(t *testing.T) {
 					for _, version := range tc.destinationPendingVersions {
 						destinationObjStream.Version = version
 						destinationObjStream.StreamID = testrand.UUID()
-						metabasetest.CreatePendingObject(ctx, t, db, destinationObjStream, 0)
+						object := metabasetest.CreatePendingObject(ctx, t, db, destinationObjStream, 0)
 
-						rawObjects = append(rawObjects, metabase.RawObject{
-							ObjectStream: destinationObjStream,
-							CreatedAt:    now,
-							Status:       metabase.Pending,
-
-							Encryption:             metabasetest.DefaultEncryption,
-							ZombieDeletionDeadline: &zombieDeadline,
-						})
+						rawObjects = append(rawObjects, metabase.RawObject(object))
 					}
 
 					if tc.destinationCommitVersion != 0 {
