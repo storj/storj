@@ -50,7 +50,17 @@ func (s *SpannerAdapter) TestCreateChangeStream(ctx context.Context, name string
 	return changestream.TestCreateChangeStream(ctx, s.adminClient, s.connParams.DatabasePath(), name)
 }
 
-// TestDeleteChangeStream deletes the change stream with the given name.
+// TestDeleteChangeStream deletes the change stream with the given name for testing purposes.
 func (s *SpannerAdapter) TestDeleteChangeStream(ctx context.Context, name string) error {
 	return changestream.TestDeleteChangeStream(ctx, s.adminClient, s.connParams.DatabasePath(), name)
+}
+
+// TestCreateChangeStreamMetadata creates only the metadata table and index for testing purposes.
+func (s *SpannerAdapter) TestCreateChangeStreamMetadata(ctx context.Context, name string) error {
+	return changestream.TestCreateChangeStreamMetadata(ctx, s.adminClient, s.connParams.DatabasePath(), name)
+}
+
+// TestDeleteChangeStreamMetadata deletes only the metadata table and index for testing purposes.
+func (s *SpannerAdapter) TestDeleteChangeStreamMetadata(ctx context.Context, name string) error {
+	return changestream.TestDeleteChangeStreamMetadata(ctx, s.adminClient, s.connParams.DatabasePath(), name)
 }
