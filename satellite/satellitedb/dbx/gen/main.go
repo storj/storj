@@ -58,7 +58,7 @@ func main() {
 	newDBX := replacer.Replace(string(originalDBXBytes))
 	fileString := "//lint:file-ignore U1000,ST1012 generated file\n" + newDBX
 
-	err = os.WriteFile("satellitedb.dbx.go", []byte(fileString), 0755)
+	err = os.WriteFile("satellitedb.dbx.go", []byte(fileString), 0o755)
 	if err != nil {
 		log.Fatal(err)
 	}

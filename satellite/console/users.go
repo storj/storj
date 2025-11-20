@@ -105,6 +105,9 @@ type Users interface {
 	GetNowFn() func() time.Time
 	// TestSetNow is used to set the current time for testing purposes.
 	TestSetNow(func() time.Time)
+
+	// TestingGetAll returns all users in the database.
+	TestingGetAll(ctx context.Context) ([]*User, error)
 }
 
 // UserCursor holds info for user info cursor pagination.

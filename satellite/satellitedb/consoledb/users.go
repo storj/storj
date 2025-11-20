@@ -101,7 +101,6 @@ func (users *users) Search(ctx context.Context, term string) (_ []console.UserIn
 func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := users.db.Get_User_By_Id(ctx, dbx.User_Id(id[:]))
-
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +174,6 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 func (users *users) GetByEmailWithUnverified(ctx context.Context, email string) (verified *console.User, unverified []console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	usersDbx, err := users.db.All_User_By_NormalizedEmail(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
-
 	if err != nil {
 		return nil, nil, err
 	}
@@ -298,7 +296,6 @@ func (users *users) GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (_
 func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := users.db.Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx, dbx.User_NormalizedEmail(normalizeEmail(email)))
-
 	if err != nil {
 		return nil, err
 	}
@@ -481,7 +478,6 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		dbx.User_PasswordHash(user.PasswordHash),
 		optional,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -499,7 +495,8 @@ func (users *users) Delete(ctx context.Context, id uuid.UUID) (err error) {
 
 // DeleteUnverifiedBefore deletes unverified users created prior to some time from the database.
 func (users *users) DeleteUnverifiedBefore(
-	ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) (err error) {
+	ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int,
+) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if pageSize <= 0 {
@@ -969,6 +966,26 @@ func (users *users) TestSetNow(nowFn func() time.Time) {
 // GetNowFn returns the current time function.
 func (users *users) GetNowFn() func() time.Time {
 	return users.nowFn
+}
+
+// TestingGetAll returns all users.
+func (users *users) TestingGetAll(ctx context.Context) (rs []*console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := users.db.All_User(ctx)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	for _, row := range rows {
+		user, err := UserFromDBX(ctx, row)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		rs = append(rs, user)
+	}
+
+	return rs, nil
 }
 
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.

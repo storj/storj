@@ -247,34 +247,32 @@ func (m *mockCustomers) repopulate() error {
 	defer m.root.mu.Unlock()
 
 	if !m.state.repopulated {
-		const limit = 25
+		const limit = 100
 
 		ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
 		defer cancel()
 
-		// TODO: fetch all this information as a single query
-
-		cusPage, err := m.customersDB.List(ctx, uuid.UUID{}, limit, time.Now())
+		users, err := m.usersDB.TestingGetAll(ctx)
 		if err != nil {
-			return err
-		}
-		for _, cus := range cusPage.Customers {
-			user, err := m.usersDB.Get(ctx, cus.UserID)
-			if err != nil {
-				return err
-			}
-			m.state.customers = append(m.state.customers, newMockCustomer(cus.ID, user.Email))
+			return Error.Wrap(err)
 		}
 
+		userByID := map[uuid.UUID]*console.User{}
+		for _, user := range users {
+			userByID[user.ID] = user
+		}
+
+		var cusPage CustomersPage
+		cusPage.Next = true
 		for cusPage.Next {
 			cusPage, err = m.customersDB.List(ctx, cusPage.Cursor, limit, time.Now())
 			if err != nil {
-				return err
+				return Error.Wrap(err)
 			}
 			for _, cus := range cusPage.Customers {
-				user, err := m.usersDB.Get(ctx, cus.UserID)
-				if err != nil {
-					return err
+				user, ok := userByID[cus.UserID]
+				if !ok {
+					return Error.New("user %q not found", cus.UserID)
 				}
 				m.state.customers = append(m.state.customers, newMockCustomer(cus.ID, user.Email))
 			}

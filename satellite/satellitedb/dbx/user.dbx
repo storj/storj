@@ -134,6 +134,10 @@ delete user ( where user.id = ? )
 
 read all (
 	select user
+)
+
+read all (
+	select user
 	where user.normalized_email = ?
 )
 read one (
