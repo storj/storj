@@ -204,12 +204,14 @@ func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (dis
 	}
 
 	return DiskSpace{
-		Allocated: diskSpaceResponse.Allocated,
-		Used:      diskSpaceResponse.UsedPieces,
-		Trash:     diskSpaceResponse.UsedTrash,
-		Free:      diskSpaceResponse.Free,
-		Available: diskSpaceResponse.Available,
-		Overused:  diskSpaceResponse.Overused,
+		Allocated:       diskSpaceResponse.Allocated,
+		Used:            diskSpaceResponse.Used,
+		UsedPieces:      diskSpaceResponse.UsedPieces,
+		UsedTrash:       diskSpaceResponse.UsedTrash,
+		UsedReclaimable: diskSpaceResponse.UsedReclaimable,
+		Free:            diskSpaceResponse.Free,
+		Available:       diskSpaceResponse.Available,
+		Overused:        diskSpaceResponse.Overused,
 	}, nil
 }
 

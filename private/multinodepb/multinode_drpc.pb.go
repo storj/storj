@@ -155,6 +155,10 @@ type drpcStorage_DiskSpaceStream struct {
 	drpc.Stream
 }
 
+func (x *drpcStorage_DiskSpaceStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcStorage_DiskSpaceStream) SendAndClose(m *DiskSpaceResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -171,6 +175,10 @@ type drpcStorage_UsageStream struct {
 	drpc.Stream
 }
 
+func (x *drpcStorage_UsageStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcStorage_UsageStream) SendAndClose(m *StorageUsageResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -185,6 +193,10 @@ type DRPCStorage_UsageSatelliteStream interface {
 
 type drpcStorage_UsageSatelliteStream struct {
 	drpc.Stream
+}
+
+func (x *drpcStorage_UsageSatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcStorage_UsageSatelliteStream) SendAndClose(m *StorageUsageSatelliteResponse) error {
@@ -454,6 +466,10 @@ type drpcBandwidth_MonthSummaryStream struct {
 	drpc.Stream
 }
 
+func (x *drpcBandwidth_MonthSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcBandwidth_MonthSummaryStream) SendAndClose(m *BandwidthMonthSummaryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -468,6 +484,10 @@ type DRPCBandwidth_BandwidthSummarySatelliteStream interface {
 
 type drpcBandwidth_BandwidthSummarySatelliteStream struct {
 	drpc.Stream
+}
+
+func (x *drpcBandwidth_BandwidthSummarySatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcBandwidth_BandwidthSummarySatelliteStream) SendAndClose(m *BandwidthSummarySatelliteResponse) error {
@@ -486,6 +506,10 @@ type drpcBandwidth_BandwidthSummaryStream struct {
 	drpc.Stream
 }
 
+func (x *drpcBandwidth_BandwidthSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcBandwidth_BandwidthSummaryStream) SendAndClose(m *BandwidthSummaryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -500,6 +524,10 @@ type DRPCBandwidth_EgressSummarySatelliteStream interface {
 
 type drpcBandwidth_EgressSummarySatelliteStream struct {
 	drpc.Stream
+}
+
+func (x *drpcBandwidth_EgressSummarySatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcBandwidth_EgressSummarySatelliteStream) SendAndClose(m *EgressSummarySatelliteResponse) error {
@@ -518,6 +546,10 @@ type drpcBandwidth_EgressSummaryStream struct {
 	drpc.Stream
 }
 
+func (x *drpcBandwidth_EgressSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcBandwidth_EgressSummaryStream) SendAndClose(m *EgressSummaryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -532,6 +564,10 @@ type DRPCBandwidth_IngressSummarySatelliteStream interface {
 
 type drpcBandwidth_IngressSummarySatelliteStream struct {
 	drpc.Stream
+}
+
+func (x *drpcBandwidth_IngressSummarySatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcBandwidth_IngressSummarySatelliteStream) SendAndClose(m *IngressSummarySatelliteResponse) error {
@@ -550,6 +586,10 @@ type drpcBandwidth_IngressSummaryStream struct {
 	drpc.Stream
 }
 
+func (x *drpcBandwidth_IngressSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcBandwidth_IngressSummaryStream) SendAndClose(m *IngressSummaryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -566,6 +606,10 @@ type drpcBandwidth_DailySatelliteStream struct {
 	drpc.Stream
 }
 
+func (x *drpcBandwidth_DailySatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcBandwidth_DailySatelliteStream) SendAndClose(m *DailySatelliteResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -580,6 +624,10 @@ type DRPCBandwidth_DailyStream interface {
 
 type drpcBandwidth_DailyStream struct {
 	drpc.Stream
+}
+
+func (x *drpcBandwidth_DailyStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcBandwidth_DailyStream) SendAndClose(m *DailyResponse) error {
@@ -753,6 +801,10 @@ type drpcNode_VersionStream struct {
 	drpc.Stream
 }
 
+func (x *drpcNode_VersionStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcNode_VersionStream) SendAndClose(m *VersionResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -767,6 +819,10 @@ type DRPCNode_LastContactStream interface {
 
 type drpcNode_LastContactStream struct {
 	drpc.Stream
+}
+
+func (x *drpcNode_LastContactStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcNode_LastContactStream) SendAndClose(m *LastContactResponse) error {
@@ -785,6 +841,10 @@ type drpcNode_ReputationStream struct {
 	drpc.Stream
 }
 
+func (x *drpcNode_ReputationStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcNode_ReputationStream) SendAndClose(m *ReputationResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -801,6 +861,10 @@ type drpcNode_TrustedSatellitesStream struct {
 	drpc.Stream
 }
 
+func (x *drpcNode_TrustedSatellitesStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcNode_TrustedSatellitesStream) SendAndClose(m *TrustedSatellitesResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -815,6 +879,10 @@ type DRPCNode_OperatorStream interface {
 
 type drpcNode_OperatorStream struct {
 	drpc.Stream
+}
+
+func (x *drpcNode_OperatorStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcNode_OperatorStream) SendAndClose(m *OperatorResponse) error {
@@ -1204,6 +1272,10 @@ type drpcPayouts_SummaryStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayouts_SummaryStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayouts_SummaryStream) SendAndClose(m *SummaryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1218,6 +1290,10 @@ type DRPCPayouts_SummaryPeriodStream interface {
 
 type drpcPayouts_SummaryPeriodStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayouts_SummaryPeriodStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayouts_SummaryPeriodStream) SendAndClose(m *SummaryPeriodResponse) error {
@@ -1236,6 +1312,10 @@ type drpcPayouts_SummarySatelliteStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayouts_SummarySatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayouts_SummarySatelliteStream) SendAndClose(m *SummarySatelliteResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1250,6 +1330,10 @@ type DRPCPayouts_SummarySatellitePeriodStream interface {
 
 type drpcPayouts_SummarySatellitePeriodStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayouts_SummarySatellitePeriodStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayouts_SummarySatellitePeriodStream) SendAndClose(m *SummarySatellitePeriodResponse) error {
@@ -1268,6 +1352,10 @@ type drpcPayouts_EarnedStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayouts_EarnedStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayouts_EarnedStream) SendAndClose(m *EarnedResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1282,6 +1370,10 @@ type DRPCPayouts_EarnedSatelliteStream interface {
 
 type drpcPayouts_EarnedSatelliteStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayouts_EarnedSatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayouts_EarnedSatelliteStream) SendAndClose(m *EarnedSatelliteResponse) error {
@@ -1300,6 +1392,10 @@ type drpcPayouts_EstimatedPayoutSatelliteStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayouts_EstimatedPayoutSatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayouts_EstimatedPayoutSatelliteStream) SendAndClose(m *EstimatedPayoutSatelliteResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1314,6 +1410,10 @@ type DRPCPayouts_EstimatedPayoutStream interface {
 
 type drpcPayouts_EstimatedPayoutStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayouts_EstimatedPayoutStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayouts_EstimatedPayoutStream) SendAndClose(m *EstimatedPayoutResponse) error {
@@ -1332,6 +1432,10 @@ type drpcPayouts_UndistributedStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayouts_UndistributedStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayouts_UndistributedStream) SendAndClose(m *UndistributedResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1346,6 +1450,10 @@ type DRPCPayouts_PaystubSatelliteStream interface {
 
 type drpcPayouts_PaystubSatelliteStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayouts_PaystubSatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayouts_PaystubSatelliteStream) SendAndClose(m *PaystubSatelliteResponse) error {
@@ -1364,6 +1472,10 @@ type drpcPayouts_PaystubStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayouts_PaystubStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayouts_PaystubStream) SendAndClose(m *PaystubResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1378,6 +1490,10 @@ type DRPCPayouts_PaystubPeriodStream interface {
 
 type drpcPayouts_PaystubPeriodStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayouts_PaystubPeriodStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayouts_PaystubPeriodStream) SendAndClose(m *PaystubPeriodResponse) error {
@@ -1396,6 +1512,10 @@ type drpcPayouts_PaystubSatellitePeriodStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayouts_PaystubSatellitePeriodStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayouts_PaystubSatellitePeriodStream) SendAndClose(m *PaystubSatellitePeriodResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1410,6 +1530,10 @@ type DRPCPayouts_HeldAmountHistoryStream interface {
 
 type drpcPayouts_HeldAmountHistoryStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayouts_HeldAmountHistoryStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayouts_HeldAmountHistoryStream) SendAndClose(m *HeldAmountHistoryResponse) error {
@@ -1775,6 +1899,10 @@ type drpcPayout_AllSatellitesSummaryStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayout_AllSatellitesSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayout_AllSatellitesSummaryStream) SendAndClose(m *AllSatellitesSummaryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1789,6 +1917,10 @@ type DRPCPayout_AllSatellitesPeriodSummaryStream interface {
 
 type drpcPayout_AllSatellitesPeriodSummaryStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayout_AllSatellitesPeriodSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayout_AllSatellitesPeriodSummaryStream) SendAndClose(m *AllSatellitesPeriodSummaryResponse) error {
@@ -1807,6 +1939,10 @@ type drpcPayout_SatelliteSummaryStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayout_SatelliteSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayout_SatelliteSummaryStream) SendAndClose(m *SatelliteSummaryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1821,6 +1957,10 @@ type DRPCPayout_SatellitePeriodSummaryStream interface {
 
 type drpcPayout_SatellitePeriodSummaryStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayout_SatellitePeriodSummaryStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayout_SatellitePeriodSummaryStream) SendAndClose(m *SatellitePeriodSummaryResponse) error {
@@ -1839,6 +1979,10 @@ type drpcPayout_EarnedStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayout_EarnedStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayout_EarnedStream) SendAndClose(m *EarnedResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1853,6 +1997,10 @@ type DRPCPayout_EarnedPerSatelliteStream interface {
 
 type drpcPayout_EarnedPerSatelliteStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayout_EarnedPerSatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayout_EarnedPerSatelliteStream) SendAndClose(m *EarnedPerSatelliteResponse) error {
@@ -1871,6 +2019,10 @@ type drpcPayout_EstimatedPayoutSatelliteStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayout_EstimatedPayoutSatelliteStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayout_EstimatedPayoutSatelliteStream) SendAndClose(m *EstimatedPayoutSatelliteResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1885,6 +2037,10 @@ type DRPCPayout_EstimatedPayoutTotalStream interface {
 
 type drpcPayout_EstimatedPayoutTotalStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayout_EstimatedPayoutTotalStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayout_EstimatedPayoutTotalStream) SendAndClose(m *EstimatedPayoutTotalResponse) error {
@@ -1903,6 +2059,10 @@ type drpcPayout_UndistributedStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayout_UndistributedStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayout_UndistributedStream) SendAndClose(m *UndistributedResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1917,6 +2077,10 @@ type DRPCPayout_SatellitePaystubStream interface {
 
 type drpcPayout_SatellitePaystubStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayout_SatellitePaystubStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayout_SatellitePaystubStream) SendAndClose(m *SatellitePaystubResponse) error {
@@ -1935,6 +2099,10 @@ type drpcPayout_PaystubStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayout_PaystubStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayout_PaystubStream) SendAndClose(m *PaystubResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1951,6 +2119,10 @@ type drpcPayout_PeriodPaystubStream struct {
 	drpc.Stream
 }
 
+func (x *drpcPayout_PeriodPaystubStream) GetStream() drpc.Stream {
+	return x.Stream
+}
+
 func (x *drpcPayout_PeriodPaystubStream) SendAndClose(m *PeriodPaystubResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
@@ -1965,6 +2137,10 @@ type DRPCPayout_SatellitePeriodPaystubStream interface {
 
 type drpcPayout_SatellitePeriodPaystubStream struct {
 	drpc.Stream
+}
+
+func (x *drpcPayout_SatellitePeriodPaystubStream) GetStream() drpc.Stream {
+	return x.Stream
 }
 
 func (x *drpcPayout_SatellitePeriodPaystubStream) SendAndClose(m *SatellitePeriodPaystubResponse) error {

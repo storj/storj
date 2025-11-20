@@ -32,6 +32,10 @@ message DiskSpaceResponse {
   // Available is the amount of free space on the allocated disk space, in bytes.
   int64 available = 5;
   int64 overused = 6;
+  // All used space, including used_pieces and used_reclaimable and used_trash.
+  int64 used = 7;
+  // Reclaimable space, usually the hashstore override can be deleted with compaction.
+  int64 used_reclaimable = 8;
 }
 
 message StorageUsage {

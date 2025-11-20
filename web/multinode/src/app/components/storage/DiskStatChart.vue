@@ -3,7 +3,7 @@
 
 <template>
     <div class="disk-stat-area">
-        <p class="disk-stat-area__title">Total Disk Space</p>
+        <p class="disk-stat-area__title">Allocated Disk Space</p>
         <p class="disk-stat-area__amount">{{ diskSpace.allocated | bytesToBase10String }}</p>
         <doughnut-chart class="disk-stat-area__chart" :chart-data="chartData" />
         <div class="disk-stat-area__info-area">
@@ -12,21 +12,14 @@
                     <div class="disk-stat-area__info-area__item__labels-area__circle used" />
                     <p class="disk-stat-area__info-area__item__labels-area__label">Used</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.usedPieces | bytesToBase10String }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.used | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
                     <div class="disk-stat-area__info-area__item__labels-area__circle free" />
-                    <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
+                    <p class="disk-stat-area__info-area__item__labels-area__label">Available</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ freeSpace | bytesToBase10String }}</p>
-            </div>
-            <div class="disk-stat-area__info-area__item">
-                <div class="disk-stat-area__info-area__item__labels-area">
-                    <div class="disk-stat-area__info-area__item__labels-area__circle trash" />
-                    <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
-                </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.usedTrash | bytesToBase10String }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.available | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
@@ -59,11 +52,10 @@ export default class DiskStatChart extends Vue {
         return new DiskStatChartData([
             new DiskStatDataSet(
                 '',
-                this.$vuetify.theme.dark ? ['#d4effa', '#0052FF', '#9dc6fc', '#ff4747'] : ['#D6D6D6', '#0059D0', '#8FA7C6', '#EB5757'],
+                this.$vuetify.theme.dark ? ['#d4effa', '#0052FF', '#ff4747'] : ['#D6D6D6', '#0059D0', '#EB5757'],
                 [
-                    this.freeSpace,
-                    this.diskSpace.usedPieces,
-                    this.diskSpace.usedTrash,
+                    this.diskSpace.available,
+                    this.diskSpace.used,
                     this.diskSpace.overused,
                 ],
                 this.$vuetify.theme.dark ? '#242d40' : '#ffffff',

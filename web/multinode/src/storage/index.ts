@@ -36,8 +36,10 @@ export class Stamp {
 export class DiskSpace {
     public constructor(
         public allocated: number = 0,
+        public used: number = 0,
         public usedPieces: number = 0,
         public usedTrash: number = 0,
+        public usedReclaimable: number = 0,
         public free: number = 0,
         public available: number = 0,
         public overused: number = 0,

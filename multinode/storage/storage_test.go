@@ -156,7 +156,7 @@ func TestDiskSpaceAdd(t *testing.T) {
 	totalDiskSpace := storage.DiskSpace{
 		Allocated: 0,
 		Used:      0,
-		Trash:     0,
+		UsedTrash: 0,
 		Free:      0,
 		Available: 0,
 		Overused:  0,
@@ -170,7 +170,7 @@ func TestDiskSpaceAdd(t *testing.T) {
 			diskSpace: storage.DiskSpace{
 				Allocated: 1,
 				Used:      1,
-				Trash:     1,
+				UsedTrash: 1,
 				Free:      1,
 				Available: 1,
 				Overused:  1,
@@ -178,7 +178,7 @@ func TestDiskSpaceAdd(t *testing.T) {
 			expected: storage.DiskSpace{
 				Allocated: 1,
 				Used:      1,
-				Trash:     1,
+				UsedTrash: 1,
 				Free:      1,
 				Available: 1,
 				Overused:  1,
@@ -188,7 +188,7 @@ func TestDiskSpaceAdd(t *testing.T) {
 			diskSpace: storage.DiskSpace{
 				Allocated: 2,
 				Used:      2,
-				Trash:     2,
+				UsedTrash: 2,
 				Free:      2,
 				Available: 2,
 				Overused:  2,
@@ -196,7 +196,7 @@ func TestDiskSpaceAdd(t *testing.T) {
 			expected: storage.DiskSpace{
 				Allocated: 3,
 				Used:      3,
-				Trash:     3,
+				UsedTrash: 3,
 				Free:      3,
 				Available: 3,
 				Overused:  3,
@@ -206,7 +206,7 @@ func TestDiskSpaceAdd(t *testing.T) {
 			diskSpace: storage.DiskSpace{
 				Allocated: 3,
 				Used:      3,
-				Trash:     3,
+				UsedTrash: 3,
 				Free:      3,
 				Available: 3,
 				Overused:  3,
@@ -214,7 +214,7 @@ func TestDiskSpaceAdd(t *testing.T) {
 			expected: storage.DiskSpace{
 				Allocated: 6,
 				Used:      6,
-				Trash:     6,
+				UsedTrash: 6,
 				Free:      6,
 				Available: 6,
 				Overused:  6,

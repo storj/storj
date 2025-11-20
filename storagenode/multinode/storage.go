@@ -55,12 +55,14 @@ func (storage *StorageEndpoint) DiskSpace(ctx context.Context, req *multinodepb.
 	}
 
 	return &multinodepb.DiskSpaceResponse{
-		Allocated:  diskSpace.Allocated,
-		UsedPieces: diskSpace.UsedForPieces,
-		UsedTrash:  diskSpace.UsedForTrash,
-		Free:       diskSpace.Free,
-		Available:  diskSpace.Available,
-		Overused:   diskSpace.Overused,
+		Allocated:       diskSpace.Allocated,
+		Used:            diskSpace.Used,
+		UsedPieces:      diskSpace.UsedForPieces,
+		UsedReclaimable: diskSpace.UsedReclaimable,
+		UsedTrash:       diskSpace.UsedForTrash,
+		Free:            diskSpace.Free,
+		Available:       diskSpace.Available,
+		Overused:        diskSpace.Overused,
 	}, nil
 }
 

@@ -66,9 +66,11 @@ func (cache *UsageStampDailyCache) Sorted() []UsageStamp {
 
 // DiskSpace stores all info about storagenode disk space usage.
 type DiskSpace struct {
-	Allocated int64 `json:"allocated"`
-	Used      int64 `json:"usedPieces"`
-	Trash     int64 `json:"usedTrash"`
+	Allocated       int64 `json:"allocated"`
+	Used            int64 `json:"used"`
+	UsedPieces      int64 `json:"usedPieces"`
+	UsedReclaimable int64 `json:"usedReclaimable"`
+	UsedTrash       int64 `json:"usedTrash"`
 	// Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
 	Free int64 `json:"free"`
 	// Available is the amount of free space on the allocated disk space, in bytes.
@@ -80,7 +82,9 @@ type DiskSpace struct {
 func (diskSpace *DiskSpace) Add(space DiskSpace) {
 	diskSpace.Allocated += space.Allocated
 	diskSpace.Used += space.Used
-	diskSpace.Trash += space.Trash
+	diskSpace.UsedTrash += space.UsedTrash
+	diskSpace.UsedReclaimable += space.UsedReclaimable
+	diskSpace.UsedPieces += space.UsedPieces
 	diskSpace.Free += space.Free
 	diskSpace.Available += space.Available
 	diskSpace.Overused += space.Overused

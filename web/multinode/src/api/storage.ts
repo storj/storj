@@ -87,7 +87,9 @@ export class StorageClient extends APIClient {
 
         return new DiskSpace(
             diskSpace.allocated,
+            diskSpace.used,
             diskSpace.usedPieces,
+            diskSpace.usedReclaimable,
             diskSpace.usedTrash,
             diskSpace.free,
             diskSpace.available,
