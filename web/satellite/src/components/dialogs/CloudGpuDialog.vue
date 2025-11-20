@@ -53,7 +53,7 @@
             </v-card-item>
             <v-card-item>
                 <p>
-                    Please note that your Storj account is not currently connected
+                    Please note that your {{ configStore.brandName }} account is not currently connected
                     to Valdi, and you will need to create a separate Valdi account
                     to access the service.
                 </p>

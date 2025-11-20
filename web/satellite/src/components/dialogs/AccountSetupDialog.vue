@@ -18,7 +18,7 @@
                         />
                     </v-window-item>
 
-                    <template v-if="billingEnabled">
+                    <template v-if="configStore.billingEnabled">
                         <v-window-item :value="OnboardingStep.PlanTypeSelection">
                             <account-type-step
                                 @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
@@ -205,10 +205,9 @@ const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncry
 const defaultNextStep = computed<OnboardingStep>(() => {
     return allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
 });
-const billingEnabled = computed<boolean>(() => configStore.state.config.billingFeaturesEnabled);
 const accountInfoNextStep = computed<OnboardingStep>(() => {
     // If billing isn’t on, we always take the default step.
-    if (!billingEnabled.value) return defaultNextStep.value;
+    if (!configStore.billingEnabled) return defaultNextStep.value;
     return OnboardingStep.PlanTypeSelection;
 });
 const isMemberAccount = computed<boolean>(() => userStore.state.user.isMember);

@@ -6,7 +6,7 @@
     <v-container v-else class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                <v-card title="Create your Storj account." subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible mt-1 mb-7 my-sm-8 my-md-0">
+                <v-card :title="title" subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible mt-1 mb-7 my-sm-8 my-md-0">
                     <v-card-item v-if="isInvited">
                         <v-alert
                             variant="tonal"
@@ -15,7 +15,7 @@
                             border
                         >
                             <template #text>
-                                {{ inviterEmail }} has invited you to a project on Storj. Create an account on the {{ satellite.satellite }} region to join it.
+                                {{ inviterEmail }} has invited you to a project on {{ configStore.brandName }}. Create an account on the {{ satellite.satellite }} region to join it.
                             </template>
                         </v-alert>
                     </v-card-item>
@@ -173,9 +173,9 @@
                                 <template #label>
                                     <p class="text-body-2 terms-text">
                                         I agree to the
-                                        <a class="link font-weight-medium" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">terms of service</a>
+                                        <a class="link font-weight-medium" :href="termsLink" target="_blank" rel="noopener">terms of service</a>
                                         and
-                                        <a class="link font-weight-medium" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">privacy policy</a>.
+                                        <a class="link font-weight-medium" :href="privacyLink" target="_blank" rel="noopener">privacy policy</a>.
                                     </p>
                                 </template>
                             </v-checkbox>
@@ -236,11 +236,11 @@
                     <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
                         <v-card-text>
                             <h1 class="font-weight-black signup-heading">
-                                <template v-if="partnerConfig && partnerConfig.name">Start using Storj on {{ partnerConfig.name }} today.</template>
-                                <template v-else>Start using Storj today.</template>
+                                <template v-if="partnerConfig && partnerConfig.name">Start using {{ configStore.brandName }} on {{ partnerConfig.name }} today.</template>
+                                <template v-else>Start using {{ configStore.brandName }} today.</template>
                             </h1>
                             <p class="text-subtitle-1 mt-4">
-                                Whether migrating your data or just testing out Storj, your journey starts here.
+                                Whether migrating your data or just testing out {{ configStore.brandName }}, your journey starts here.
                             </p>
 
                             <p class="mt-6">
@@ -264,7 +264,7 @@
                             </p>
 
                             <p class="mt-6">
-                                Need help figuring out if Storj is a fit for your business? <a href="https://www.storj.io/landing/get-in-touch" target="_blank" class="link font-weight-bold">Schedule a meeting</a>.
+                                Need help figuring out if {{ configStore.brandName }} is a fit for your business? <a :href="getInTouchUrl" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Schedule a meeting</a>.
                             </p>
                         </v-card-text>
                     </v-card>
@@ -380,6 +380,11 @@ const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.li
 
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 
+const title = computed<string>(() => `Create your ${configStore.brandName} account.`);
+const termsLink = computed<string>(() => `${configStore.homepageUrl}/terms-of-service/`);
+const privacyLink = computed<string>(() => `${configStore.homepageUrl}/privacy-policy/`);
+const getInTouchUrl = computed<string>(() => configStore.state.branding.getInTouchUrl);
+
 const passwordRules = computed(() => {
     const rules = [
         RequiredRule,
@@ -477,7 +482,7 @@ const codeActivationEnabled = computed((): boolean => {
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return configStore.state.config.isBetaSatellite;
+    return configStore.state.config.isBetaSatellite && configStore.isDefaultBrand;
 });
 
 /**

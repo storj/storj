@@ -16,7 +16,7 @@
                         <img src="@/assets/icon-color-globe.svg" alt="Earth" width="40" class="mt-1">
                     </template>
                     <v-card-title class="font-weight-bold">
-                        Storj Sustainability
+                        {{ configStore.brandName }} Sustainability
                     </v-card-title>
                     <template #append>
                         <v-btn
@@ -41,7 +41,7 @@
                     <v-chip variant="tonal" color="info" class="font-weight-bold">
                         {{ storjImpact.toLocaleString() }} kg CO₂e
                     </v-chip>
-                    <p class="text-body-2 mt-2">Estimated for this Storj project. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
+                    <p class="text-body-2 mt-2">Estimated for this {{ configStore.brandName }} project. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
                 </v-card>
                 <v-card class="pa-4 mb-4">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Comparison</p>
@@ -55,7 +55,7 @@
                     <v-chip variant="tonal" color="success" class="font-weight-bold">
                         {{ co2Savings }} kg CO₂e
                     </v-chip>
-                    <p class="text-body-2 mt-2">Estimated by using Storj. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
+                    <p class="text-body-2 mt-2">Estimated by using {{ configStore.brandName }}. <a href="https://www.storj.io/documents/storj-sustainability-whitepaper.pdf" target="_blank" rel="noopener noreferrer" class="link">Learn more</a></p>
                 </v-card>
                 <v-card class="pa-4 mb-2">
                     <p class="text-body-2 font-weight-bold mb-2">Carbon Avoided Equals To</p>
@@ -102,8 +102,10 @@ import { SquareArrowOutUpRight, X } from 'lucide-vue-next';
 
 import { Emission } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const model = ref<boolean>(false);
 

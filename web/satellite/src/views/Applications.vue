@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import {
     VBtn,
     VBtnToggle,
@@ -126,9 +126,12 @@ import {
     VTextField,
 } from 'vuetify/components';
 import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
 
 import { AppCategory, Application, applications, ObjectMountApp, UplinkApp } from '@/types/applications';
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -136,6 +139,9 @@ import ApplicationItem from '@/components/ApplicationItem.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired } = usePreCheck();
+const router = useRouter();
+
+const configStore = useConfigStore();
 
 const selectedChip = ref<AppCategory>(AppCategory.All);
 const search = ref<string>('');
@@ -189,5 +195,11 @@ const filteredApps = computed<Application[]>(() => {
     }
 
     return result;
+});
+
+onBeforeMount(() => {
+    if (!configStore.isDefaultBrand) {
+        router.replace({ name: ROUTES.Dashboard.name });
+    }
 });
 </script>

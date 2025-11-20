@@ -36,9 +36,11 @@ import { Download } from '@/utils/download';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const analyticsStore = useAnalyticsStore();
 const projectStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const props = defineProps<{
     items: SaveButtonsItem[];
@@ -72,7 +74,7 @@ function onCopy(): void {
 function onDownload(): void {
     Download.file(
         props.items.map(item => typeof item === 'string' ? item : `${item.name}:\n${item.value}`).join('\n\n'),
-        `Storj-${props.type}-${props.name}-${new Date().toISOString()}.txt`,
+        `${configStore.brandName}-${props.type}-${props.name}-${new Date().toISOString()}.txt`,
     );
     analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED, { project_id: projectStore.state.selectedProject.id });
 

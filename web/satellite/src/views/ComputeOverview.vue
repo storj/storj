@@ -6,7 +6,7 @@
         <v-row class="align-center justify-space-between mt-1">
             <v-col cols="auto">
                 <p><small class="text-uppercase">Compute Overview</small></p>
-                <PageTitleComponent title="My Storj project" class="mt-1 mb-2" />
+                <PageTitleComponent :title="title" class="mt-1 mb-2" />
                 <PageSubtitleComponent subtitle="View your instances and compute usage for this month." />
             </v-col>
         </v-row>
@@ -49,7 +49,14 @@ import {
     VCardText,
     VChip,
 } from 'vuetify/components';
+import { computed } from 'vue';
+
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
+
+const configStore = useConfigStore();
+
+const title = computed<string>(() => `My ${configStore.brandName} project`);
 </script>

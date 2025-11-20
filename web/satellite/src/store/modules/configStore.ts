@@ -4,7 +4,14 @@
 import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 
-import { FrontendConfig, FrontendConfigApi } from '@/types/config';
+import {
+    BrandingConfig,
+    createDefaultBranding,
+    defaultBrandingName,
+    FrontendConfig,
+    FrontendConfigApi,
+    LogoKey,
+} from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 import { centsToDollars } from '@/utils/strings';
 import { Time } from '@/utils/time';
@@ -14,6 +21,7 @@ import { APIError } from '@/utils/error';
 
 export class ConfigState {
     public config: FrontendConfig = new FrontendConfig();
+    public branding: BrandingConfig = createDefaultBranding();
 }
 
 export const useConfigStore = defineStore('config', () => {
@@ -32,6 +40,16 @@ export const useConfigStore = defineStore('config', () => {
         );
     });
 
+    const brandName = computed<string>(() => state.branding.name);
+    const supportUrl = computed<string>(() => state.branding.supportUrl);
+    const docsUrl = computed<string>(() => state.branding.docsUrl);
+    const homepageUrl = computed<string>(() => state.branding.homepageUrl);
+    const isDefaultBrand = computed<boolean>(() => brandName.value === defaultBrandingName);
+    const logo = computed<string>(() => state.branding.getLogo(LogoKey.FullLight) ?? '');
+    const darkLogo = computed<string>(() => state.branding.getLogo(LogoKey.FullDark) ?? '');
+
+    const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled && isDefaultBrand.value);
+
     const minimumChargeBannerDismissed = ref(false);
 
     async function getConfig(): Promise<FrontendConfig> {
@@ -40,6 +58,21 @@ export const useConfigStore = defineStore('config', () => {
         state.config = result;
 
         return result;
+    }
+
+    async function getBranding(): Promise<BrandingConfig> {
+        const result = await configApi.getBranding();
+
+        state.branding = result;
+
+        return result;
+    }
+
+    function setFallbackBranding(cfg: FrontendConfig): void {
+        state.branding.getInTouchUrl = cfg.scheduleMeetingURL;
+        state.branding.supportUrl = cfg.generalRequestURL;
+        state.branding.homepageUrl = cfg.homepageURL;
+        state.branding.docsUrl = cfg.documentationURL;
     }
 
     const signupConfig = ref<Map<string, unknown>>(new Map());
@@ -99,7 +132,7 @@ export const useConfigStore = defineStore('config', () => {
     }
 
     function getBillingEnabled(user: User): boolean {
-        return state.config.billingFeaturesEnabled && !user.hasVarPartner && !user.isNFR;
+        return billingEnabled.value && !user.hasVarPartner && !user.isNFR;
     }
 
     /**
@@ -124,12 +157,22 @@ export const useConfigStore = defineStore('config', () => {
         minimumChargeBannerDismissed,
         signupConfig,
         onboardingConfig,
+        brandName,
+        supportUrl,
+        docsUrl,
+        homepageUrl,
+        isDefaultBrand,
+        logo,
+        darkLogo,
+        billingEnabled,
         getConfig,
+        getBranding,
         getPartnerSignupConfig,
         getPartnerOnboardingConfig,
         getPartnerPricingPlanConfig,
         getBillingEnabled,
         getProjectHasNewPricing,
+        setFallbackBranding,
     };
 });
 

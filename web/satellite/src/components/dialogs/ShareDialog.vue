@@ -99,7 +99,7 @@
                             <v-col cols="12" class="pt-0">
                                 <v-tabs v-model="shareTab" color="primary" class="border-b-thin" center-active>
                                     <v-tab value="links"><component :is="Link" :size="16" class="mr-2" />Links</v-tab>
-                                    <v-tab value="social"><component :is="Share2" :size="16" class="mr-2" />Social</v-tab>
+                                    <v-tab v-if="configStore.isDefaultBrand" value="social"><component :is="Share2" :size="16" class="mr-2" />Social</v-tab>
                                     <v-tab v-if="showEmbedCode" value="embed"><component :is="Code2" :size="16" class="mr-2" />Embed</v-tab>
                                 </v-tabs>
                             </v-col>

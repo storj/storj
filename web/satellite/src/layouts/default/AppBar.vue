@@ -20,15 +20,15 @@
             <router-link :to="ROUTES.Projects.path">
                 <v-img
                     v-if="themeStore.globalTheme?.dark"
-                    src="@/assets/logo-dark.svg"
+                    :src="configStore.darkLogo"
                     width="120"
-                    alt="Storj Logo"
+                    alt="Logo"
                 />
                 <v-img
                     v-else
-                    src="@/assets/logo.svg"
+                    :src="configStore.logo"
                     width="120"
-                    alt="Storj Logo"
+                    alt="Logo"
                 />
             </router-link>
         </v-app-bar-title>
@@ -136,7 +136,7 @@
                         <template #prepend>
                             <icon-satellite size="18" />
                             <v-tooltip activator="parent" location="top">
-                                Satellite (Metadata Region) <a href="https://docs.storj.io/learn/concepts/satellite" target="_blank" class="link">Learn More</a>
+                                Satellite (Metadata Region) <a href="https://docs.storj.io/learn/concepts/satellite" target="_blank" class="link" rel="noopener noreferrer">Learn More</a>
                             </v-tooltip>
                         </template>
                         <v-list-item-title class="text-body-2 ml-4">

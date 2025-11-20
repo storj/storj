@@ -46,7 +46,7 @@
                     </p>
                 </template>
                 <p>
-                    Storj splits objects into smaller pieces, then distributes those pieces
+                    {{ configStore.brandName }} splits objects into smaller pieces, then distributes those pieces
                     over a global network of nodes and recompiles them securely on download.
                 </p>
             </div>
@@ -107,6 +107,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';
 
@@ -114,6 +115,7 @@ const model = defineModel<boolean>({ required: true });
 
 const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();

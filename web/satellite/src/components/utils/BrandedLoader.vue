@@ -4,7 +4,6 @@
 <template>
     <div class="loader d-flex align-center justify-center">
         <div class="loader__spinner" />
-        <img alt="loader" src="@/assets/icon-load.svg" class="loader__icon pb-3">
     </div>
 </template>
 
@@ -40,7 +39,7 @@
             width: 140px;
             height: 140px;
             margin: auto 0;
-            border: solid 1px transparent;
+            border: solid 5px transparent;
             border-radius: 50%;
             animation:
                 spin 0.7s linear infinite,
@@ -49,12 +48,6 @@
             box-shadow: 0 0 400px rgb(0 82 255 / 10%);
             transform: translateZ(0); // Hardware acceleration
             backface-visibility: hidden; // Prevents flickering in some browsers
-        }
-
-        &__icon {
-            position: absolute;
-            inset: 0;
-            margin: auto;
         }
     }
 </style>

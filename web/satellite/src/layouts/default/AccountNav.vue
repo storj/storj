@@ -109,10 +109,10 @@
 
                         <v-list-item
                             class="py-3"
-                            href="https://supportdcs.storj.io/hc/en-us"
+                            :href="configStore.supportUrl"
                             target="_blank"
                             rel="noopener noreferrer"
-                            @click="() => trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
+                            @click="() => trackViewSupportEvent(configStore.supportUrl)"
                         >
                             <template #prepend>
                                 <component :is="MessageCircleQuestion" :size="18" />
