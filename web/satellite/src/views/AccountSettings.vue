@@ -54,7 +54,7 @@
                                     activator="parent"
                                     location="top"
                                 >
-                                    To change email, please <a href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291#" target="_blank">contact support</a>.
+                                    To change email, please <a :href="supportLink" target="_blank" rel="noopener noreferrer">contact support</a>.
                                 </v-tooltip>
                                 <v-btn variant="outlined" color="default" disabled>
                                     Change Email
@@ -277,6 +277,8 @@ const isSetSessionTimeoutDialogShown = ref<boolean>(false);
 const isSetPassphrasePromptDialogShown = ref<boolean>(false);
 const isChangeEmailDialogShown = ref<boolean>(false);
 const isAccountDeleteDialogShown = ref<boolean>(false);
+
+const supportLink = computed<string>(() => `${configStore.supportUrl}?ticket_form_id=360000379291#`);
 
 /**
  * Returns user entity from store.

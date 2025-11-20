@@ -58,7 +58,7 @@
                                     </v-chip>
                                 </p>
                                 <p class="text-body-2 my-2 font-weight-bold">
-                                    Storj securely manages the encryption and decryption of your project automatically.
+                                    {{ configStore.brandName }} securely manages the encryption and decryption of your project automatically.
                                 </p>
                                 <p class="text-body-2 my-2">
                                     Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
@@ -131,7 +131,6 @@
 </template>
 
 <script setup lang="ts">
-
 import {
     VDialog,
     VCol,
@@ -157,9 +156,11 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const emit = defineEmits(['newProject']);
 

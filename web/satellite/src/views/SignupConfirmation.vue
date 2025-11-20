@@ -6,7 +6,7 @@
         <v-row justify="center" align="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
                 <v-card class="pa-2 pa-sm-7">
-                    <h2 class="mb-3">You are almost ready to use Storj</h2>
+                    <h2 class="mb-3">You are almost ready to use {{ configStore.brandName }}</h2>
                     <p>
                         A verification email has been sent to your email
                         <span class="font-weight-bold">{{ userEmail }}</span>
@@ -32,10 +32,10 @@
                     <p class="text-body-2">
                         Or <a
                             class="link"
-                            href="https://supportdcs.storj.io/hc/en-us/requests/new"
+                            :href="configStore.supportUrl"
                             target="_blank"
                             rel="noopener noreferrer"
-                        >contact the Storj support team</a>
+                        >contact the {{ configStore.brandName }} support team</a>
                     </p>
                 </v-card>
             </v-col>

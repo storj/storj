@@ -46,7 +46,7 @@
                         <v-form class="pa-6" @submit.prevent>
                             <v-row>
                                 <v-col>
-                                    <p class="mb-4">You are about to change your email address associated with your Storj account.</p>
+                                    <p class="mb-4">You are about to change your email address associated with your {{ configStore.brandName }} account.</p>
                                     <p>Account:</p>
                                     <v-chip
                                         variant="tonal"
@@ -239,8 +239,10 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const model = defineModel<boolean>({ required: true });
 const { isLoading, withLoading } = useLoading();

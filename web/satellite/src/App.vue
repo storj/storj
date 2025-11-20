@@ -22,6 +22,7 @@
 <script setup lang="ts">
 import { computed, onBeforeMount, onBeforeUnmount, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useTheme } from 'vuetify';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -37,12 +38,12 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { ROUTES } from '@/router';
 import { User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { PricingPlanInfo } from '@/types/common';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { ProjectConfig } from '@/types/projects';
 import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
 import { DARK_THEME_QUERY, useThemeStore } from '@/store/modules/themeStore';
+import { ColorKey, createDefaultBranding, FaviconKey, FrontendConfig } from '@/types/config';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';
@@ -64,6 +65,7 @@ const analyticsStore = useAnalyticsStore();
 const notify = useNotify();
 const router = useRouter();
 const route = useRoute();
+const theme = useTheme();
 
 const isLoading = ref<boolean>(true);
 
@@ -133,7 +135,7 @@ async function setup() {
             projectsStore.getUserInvitations(),
             abTestingStore.fetchValues(),
         ];
-        if (configStore.state.config.billingFeaturesEnabled) {
+        if (configStore.billingEnabled) {
             promises.push(billingStore.setupAccount().catch((e) => {
                 notify.notifyError(e, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }));
@@ -179,6 +181,37 @@ function onThemeChange(e: MediaQueryListEvent) {
     themeStore.setThemeLightness(!e.matches);
 }
 
+function setFavicons(): void {
+    if (configStore.isDefaultBrand) return;
+
+    const branding = configStore.state.branding;
+
+    const faviconDefs = [
+        { selector: `link[rel='icon'][sizes='16x16']`, href: branding.getFavicon(FaviconKey.Small) },
+        { selector: `link[rel='icon'][sizes='32x32']`, href: branding.getFavicon(FaviconKey.Large) },
+        { selector: `link[rel='apple-touch-icon'][sizes='180x180']`, href: branding.getFavicon(FaviconKey.AppleTouch) },
+    ];
+
+    for (const { selector, href } of faviconDefs) {
+        if (!href) continue;
+        const tag = document.querySelector<HTMLLinkElement>(selector);
+        if (tag) tag.href = href;
+    }
+}
+
+function applyBrandingTheme(): void {
+    const branding = configStore.state.branding;
+    const primaryLightColor = branding.getColor(ColorKey.PrimaryLight);
+    const primaryDarkColor = branding.getColor(ColorKey.PrimaryDark);
+    const secondaryLightColor = branding.getColor(ColorKey.SecondaryLight);
+    const secondaryDarkColor = branding.getColor(ColorKey.SecondaryDark);
+
+    if (primaryLightColor) theme.themes.value.light.colors.primary = primaryLightColor;
+    if (primaryDarkColor) theme.themes.value.dark.colors.primary = primaryDarkColor;
+    if (secondaryLightColor) theme.themes.value.light.colors.secondary = secondaryLightColor;
+    if (secondaryDarkColor) theme.themes.value.dark.colors.secondary = secondaryDarkColor;
+}
+
 function handleBeforeUnload(event: BeforeUnloadEvent): void {
     if (obStore.uploadingLength > 0) event.preventDefault();
 }
@@ -188,14 +221,27 @@ function handleBeforeUnload(event: BeforeUnloadEvent): void {
  * Sets up variables from meta tags from config such satellite name, etc.
  */
 onBeforeMount(async (): Promise<void> => {
+    let cfg: FrontendConfig;
     try {
-        await configStore.getConfig();
+        cfg = await configStore.getConfig();
     } catch (error) {
         isLoading.value = false;
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         appStore.setErrorPage((error as APIError).status ?? 500, true);
         return;
     }
+
+    try {
+        await configStore.getBranding();
+    } catch (error) {
+        // If branding fetch fails, log error but continue with defaults.
+        // This ensures the app still works even if custom branding is unavailable.
+        configStore.setFallbackBranding(cfg);
+        console.error('Failed to load branding config, using defaults:', error);
+    }
+
+    setFavicons();
+    applyBrandingTheme();
 
     await setup();
 
@@ -281,7 +327,7 @@ obStore.$onAction(({ name, after, args }) => {
 const processedTXs = new Set<string>();
 
 watch(pendingPayments, async newPayments => {
-    if (!newPayments.length) return;
+    if (!(newPayments.length && configStore.isDefaultBrand)) return;
 
     const unprocessedConfirmedPayments = newPayments.filter(p => p.status === PaymentStatus.Confirmed && !processedTXs.has(p.transaction));
     if (!unprocessedConfirmedPayments.length) return;

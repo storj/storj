@@ -7,17 +7,15 @@
             <div class="d-flex flex-row align-center ml-2 ml-sm-3 mr-1 mt-n1">
                 <img
                     v-if="themeStore.globalTheme?.dark"
-                    src="@/assets/logo-dark.svg"
-                    height="23"
-                    width="auto"
-                    alt="Storj Logo"
+                    :src="configStore.darkLogo"
+                    width="120"
+                    alt="Logo"
                 >
                 <img
                     v-else
-                    src="@/assets/logo.svg"
-                    height="23"
-                    width="auto"
-                    alt="Storj Logo"
+                    :src="configStore.logo"
+                    width="120"
+                    alt="Logo"
                 >
                 <template v-if="partnerConfig && partnerConfig.partnerLogoTopUrl && route.name === ROUTES.Signup.name">
                     <p class="mx-1">+</p>

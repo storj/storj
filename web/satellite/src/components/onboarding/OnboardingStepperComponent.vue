@@ -176,7 +176,7 @@ const steps = computed<StepData[]>(() => {
                 ...data,
                 stepTxt: `Step ${i + 1} ${!onboardingInfo.value ? '(Optional)' : ''}`,
                 title: onboardingInfo.value?.accessTitle || 'Connect Applications',
-                description: onboardingInfo.value?.accessText || 'Connect your S3 compatible application to Storj with S3 credentials.',
+                description: onboardingInfo.value?.accessText || `Connect your S3 compatible application to ${configStore.brandName} with S3 credentials.`,
                 buttonTxt: onboardingInfo.value?.accessBtnText || 'View Applications',
                 color: accessStepInfo.value.color,
                 variant: accessStepInfo.value.variant as VBtn['$props']['variant'],

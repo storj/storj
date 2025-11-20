@@ -106,7 +106,7 @@
                                             </v-chip>
                                         </p>
                                         <p class="text-body-2 my-2 font-weight-bold">
-                                            Storj securely manages the encryption and decryption of your project automatically.
+                                            {{ configStore.brandName }} securely manages the encryption and decryption of your project automatically.
                                         </p>
                                         <p class="text-body-2 my-2">
                                             Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
@@ -388,7 +388,7 @@ async function onPrimaryClick(): Promise<void> {
     } else if (usersStore.state.user.isPaid) {
         if (!isLimitIncreaseRequestEnabled.value) {
             model.value = false;
-            window.open('https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212', '_blank', 'noopener');
+            window.open(`${configStore.supportUrl}?ticket_form_id=360000683212`, '_blank', 'noopener');
             return;
         } else if (showLimitIncreaseDialog.value) {
             if (!formValid.value) return;

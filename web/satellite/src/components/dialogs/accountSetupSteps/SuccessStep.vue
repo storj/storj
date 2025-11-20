@@ -10,7 +10,7 @@
                 <p class="text-overline mt-4 mb-2">
                     Account Complete
                 </p>
-                <h2 class="mb-3">You are now ready to use Storj</h2>
+                <h2 class="mb-3">You are now ready to use {{ configStore.brandName }}</h2>
                 <p class="mb-2">Create your first bucket, and start uploading files.</p>
                 <p>Let us know if you need any help getting started!</p>
                 <v-btn
@@ -40,10 +40,12 @@ import { ONBOARDING_STEPPER_STEPS } from '@/types/users';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 
