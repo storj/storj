@@ -248,7 +248,11 @@ func (m *mockCustomers) repopulate() error {
 
 	if !m.state.repopulated {
 		const limit = 25
-		ctx := context.TODO()
+
+		ctx, cancel := context.WithTimeout(context.TODO(), 30*time.Second)
+		defer cancel()
+
+		// TODO: fetch all this information as a single query
 
 		cusPage, err := m.customersDB.List(ctx, uuid.UUID{}, limit, time.Now())
 		if err != nil {
@@ -603,8 +607,7 @@ func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetac
 	return unattached, nil
 }
 
-type mockPaymentIntents struct {
-}
+type mockPaymentIntents struct{}
 
 type mockSetupIntents struct{}
 
@@ -1048,8 +1051,7 @@ func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanc
 	return &customerbalancetransaction.Iter{Iter: stripe.GetIter(listParams, query)}
 }
 
-type mockCharges struct {
-}
+type mockCharges struct{}
 
 func (m *mockCharges) List(listParams *stripe.ChargeListParams) *charge.Iter {
 	return &charge.Iter{Iter: stripe.GetIter(listParams, mockEmptyQuery)}

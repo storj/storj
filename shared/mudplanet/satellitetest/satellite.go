@@ -72,7 +72,7 @@ func dbModule(ball *mud.Ball) {
 		return db, err
 	})
 	mud.Provide[*metabase.DB](ball, func(ctx context.Context, log *zap.Logger, database satellitedbtest.SatelliteDatabases) (*metabase.DB, error) {
-		db, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), "metabase", "M", 1, database.MetabaseDB, metabase.Config{
+		db, err := satellitedbtest.CreateMetabaseDB(ctx, log.Named("metabase"), "metabase", "M", 1, database.MetabaseDB, metabase.Config{
 			ApplicationName:  "mudplanet",
 			MaxNumberOfParts: 100,
 		})

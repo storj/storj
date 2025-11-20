@@ -4,7 +4,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -642,7 +641,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 		}
 
 		t.Run("NonexistentFile", func(t *testing.T) {
-			err := processCSVFile(context.TODO(), "nonexistent.csv", args)
+			err := processCSVFile(t.Context(), "nonexistent.csv", args)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "error opening CSV file")
 		})
@@ -654,7 +653,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 				require.NoError(t, errs.Combine(os.Remove(tmpFile.Name()), tmpFile.Close()))
 			}()
 
-			err = processCSVFile(context.TODO(), tmpFile.Name(), args)
+			err = processCSVFile(t.Context(), tmpFile.Name(), args)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "CSV file is empty")
 		})
@@ -670,7 +669,7 @@ func TestSetEntitlement_CSV(t *testing.T) {
 			_, err = tmpFile.WriteString("\"unclosed quote\nuser@example.com")
 			require.NoError(t, err)
 
-			err = processCSVFile(context.TODO(), tmpFile.Name(), args)
+			err = processCSVFile(t.Context(), tmpFile.Name(), args)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "error reading CSV file")
 		})
