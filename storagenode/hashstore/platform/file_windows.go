@@ -31,7 +31,7 @@ func CreateFile(path string) (*os.File, error) {
 	handle, err := windows.CreateFile(
 		pathPtr,
 		windows.GENERIC_READ|windows.GENERIC_WRITE,
-		0,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
 		nil,
 		windows.CREATE_NEW,
 		windows.FILE_ATTRIBUTE_NORMAL,
