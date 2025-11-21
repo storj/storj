@@ -25,24 +25,17 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	if os.Getenv("STORJ_HASHSTORE_CRASH_TEST") != "" {
-		if err := runCrashServer(context.Background()); err != nil {
+	if dir := os.Getenv("STORJ_HASHSTORE_CRASH_TEST"); dir != "" {
+		if err := runCrashServer(context.Background(), dir); err != nil {
 			log.Fatalf("%+v", err)
 		}
 		os.Exit(0)
 	}
-
 	os.Exit(m.Run())
 }
 
-func runCrashServer(ctx context.Context) error {
-	tmpDir, err := os.MkdirTemp("", "hashstore-crash-test-*")
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	fmt.Println(tmpDir)
-
-	db, err := New(ctx, CreateDefaultConfig(TableKind_HashTbl, false), tmpDir, "", nil, nil, nil)
+func runCrashServer(ctx context.Context, dir string) error {
+	db, err := New(ctx, CreateDefaultConfig(TableKind_HashTbl, false), dir, "", nil, nil, nil)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -102,9 +95,10 @@ func runCrashServer(ctx context.Context) error {
 func TestCorrectDuringCrashes(t *testing.T) {
 	ctx := t.Context()
 
-	// re-exec the process with the STORJ_HASHSTORE_CRASH_TEST env var set
+	// re-exec the process with the STORJ_HASHSTORE_CRASH_TEST env var set to a temp dir.
+	dir := t.TempDir()
 	cmd := exec.Command(os.Args[0], os.Args[1:]...)
-	cmd.Env = append(os.Environ(), "STORJ_HASHSTORE_CRASH_TEST=server")
+	cmd.Env = []string{"STORJ_HASHSTORE_CRASH_TEST=" + dir}
 
 	// give a stdin handle to the process so that it can know if the parent process dies.
 	cmdStdinR, cmdStdinW, err := os.Pipe()
@@ -113,12 +107,9 @@ func TestCorrectDuringCrashes(t *testing.T) {
 	defer func() { _ = cmdStdinW.Close() }()
 	cmd.Stdin = cmdStdinR
 
-	// give a stdout handle so we can read the keys it prints out.
-	var stdout lockedBuffer
+	// capture stdout and stderr so we can read the keys it prints out and any errors.
+	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
-
-	// give a stderr handle so we can look at any errors it prints out.
-	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	// start the command and create a signal to keep track of when it finishes.
@@ -126,32 +117,13 @@ func TestCorrectDuringCrashes(t *testing.T) {
 	var finished drpcsignal.Signal
 	go func() { finished.Set(cmd.Wait()) }()
 
-	// wait until the directory is printed.
-	var dir string
-	for {
-		if prefix, _, ok := strings.Cut(stdout.String(), "\n"); ok {
-			dir = prefix
-			break
-		}
-
-		select {
-		case <-finished.Signal():
-			t.Fatal("process exited early:", finished.Err())
-		case <-time.After(time.Millisecond):
-		}
-	}
-
-	// ensure the directory is what we expect and clean it up when we're done.
-	assert.That(t, strings.HasPrefix(dir, os.TempDir()))
-	defer func() { _ = os.RemoveAll(dir) }()
-
 	// wait until we have at least 3 hashtbl files (middle of a compaction).
 	for {
 		paths := allFiles(t, dir)
 
 		hashtbls := 0
 		for _, path := range paths {
-			if strings.Contains(path, "meta/hashtbl-") {
+			if strings.Contains(path, "hashtbl-") {
 				hashtbls++
 			}
 		}
@@ -172,12 +144,8 @@ func TestCorrectDuringCrashes(t *testing.T) {
 
 	// grab all of the keys out of stdout.
 	var keys []Key
-	for _, line := range strings.Split(stdout.String(), "\n")[1:] {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		key, err := storj.PieceIDFromString(line)
+	for line := range bytes.Lines(stdout.Bytes()) {
+		key, err := storj.PieceIDFromString(string(line))
 		assert.NoError(t, err)
 		keys = append(keys, key)
 	}
@@ -196,23 +164,4 @@ func TestCorrectDuringCrashes(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, dataFromKey(key), got)
 	}
-}
-
-type lockedBuffer struct {
-	buf bytes.Buffer
-	mu  sync.Mutex
-}
-
-func (a *lockedBuffer) String() string {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	return a.buf.String()
-}
-
-func (a *lockedBuffer) Write(p []byte) (n int, err error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	return a.buf.Write(p)
 }
