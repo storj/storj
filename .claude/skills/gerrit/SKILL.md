@@ -60,3 +60,46 @@ Add the new remote with
 `git remote add {remote-name} "ssh://{username}@review.dev.storj.tools:29418/storj/storj"`
 
 And download the hook as mentioned in the above "commit-msg hook" section.
+
+## Post a review to a change
+
+You can post review comments if you POST a json file to '/changes/{change-id}/revisions/{revision-id}/review'
+
+`review.json` example:
+
+```json
+  {
+    "tag": "jenkins",
+    "message": "Some nits need to be fixed.",
+    "labels": {
+      "Code-Review": -1
+    },
+    "comments": {
+      "gerrit-server/src/main/java/com/google/gerrit/server/project/RefControl.java": [
+        {
+          "line": 23,
+          "message": "[nit] trailing whitespace"
+        },
+        {
+          "line": 49,
+          "message": "[nit] s/conrtol/control"
+        },
+        {
+          "range": {
+            "start_line": 50,
+            "start_character": 0,
+            "end_line": 55,
+            "end_character": 20
+          },
+          "message": "Incorrect indentation"
+        }
+      ]
+    }
+  }
+```
+
+You should use `./scripts/submit_review.sh` script to post reviews.
+
+Example:
+
+./scripts/submit_review.sh review.json $(git rev-parse HEAD)
