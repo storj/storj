@@ -15,7 +15,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
-	"google.golang.org/grpc/status"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
@@ -880,33 +879,28 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 	// TODO consider using partitioned DML for objects with large amount of segments
 
 	object := result.Removed[0]
-	iterator := s.client.BatchWriteWithOptions(ctx, []*spanner.MutationGroup{
-		{
-			Mutations: []*spanner.Mutation{
-				spanner.Delete("objects", spanner.Key{
-					object.ProjectID,
-					object.BucketName,
-					object.ObjectKey,
-					object.Version,
-				}),
-				spanner.Delete("segments", spanner.KeyRange{
-					Start: spanner.Key{object.StreamID},
-					End:   spanner.Key{object.StreamID},
-					Kind:  spanner.ClosedClosed,
-				}),
-			},
-		},
-	}, spanner.BatchWriteOptions{
-		Priority:                    spannerpb.RequestOptions_PRIORITY_MEDIUM,
-		TransactionTag:              "delete-object-last-committed-plain",
-		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
-	})
-	err = iterator.Do(func(r *spannerpb.BatchWriteResponse) error {
-		if err = status.ErrorProto(r.GetStatus()); err != nil {
-			return errs.New("failed to delete object: %v", r.Status)
-		}
-		return nil
-	})
+
+	applyOpts := []spanner.ApplyOption{
+		spanner.Priority(spannerpb.RequestOptions_PRIORITY_MEDIUM),
+		spanner.TransactionTag("delete-object-last-committed-plain"),
+	}
+	if !opts.TransmitEvent {
+		applyOpts = append(applyOpts, spanner.ExcludeTxnFromChangeStreams())
+	}
+
+	_, err = s.client.Apply(ctx, []*spanner.Mutation{
+		spanner.Delete("objects", spanner.Key{
+			object.ProjectID,
+			object.BucketName,
+			object.ObjectKey,
+			object.Version,
+		}),
+		spanner.Delete("segments", spanner.KeyRange{
+			Start: spanner.Key{object.StreamID},
+			End:   spanner.Key{object.StreamID},
+			Kind:  spanner.ClosedClosed,
+		}),
+	}, applyOpts...)
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
