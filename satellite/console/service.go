@@ -1790,6 +1790,7 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, user *User)
 // SessionTokenRequest contains information needed to create a session token.
 type SessionTokenRequest struct {
 	UserID          uuid.UUID
+	TenantID        *string
 	Email           string
 	IP              string
 	UserAgent       string
@@ -1838,7 +1839,7 @@ func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequ
 
 	s.auditLog(ctx, "login", &req.UserID, req.Email)
 
-	s.analytics.TrackSignedIn(req.UserID, req.Email, req.AnonymousID, req.HubspotObjectID)
+	s.analytics.TrackSignedIn(req.UserID, req.Email, req.AnonymousID, req.HubspotObjectID, req.TenantID)
 
 	return &TokenInfo{
 		Token:     token,
@@ -1923,7 +1924,7 @@ func (s *Service) SetAccountActive(ctx context.Context, user *User) (err error) 
 	}
 
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-	s.analytics.TrackAccountVerified(user.ID, user.Email, user.HubspotObjectID)
+	s.analytics.TrackAccountVerified(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 
 	return nil
 }
@@ -2218,6 +2219,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	}
 	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
 		UserID:          user.ID,
+		TenantID:        user.TenantID,
 		Email:           user.Email,
 		IP:              request.IP,
 		UserAgent:       request.UserAgent,
@@ -2373,6 +2375,7 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 
 	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
 		UserID:          user.ID,
+		TenantID:        user.TenantID,
 		Email:           user.Email,
 		IP:              ip,
 		UserAgent:       userAgent,
@@ -2955,7 +2958,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 			zap.String("user_email", user.Email),
 			zap.String("current_usage_price", currentPriceStr),
 		)
-		s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID)
+		s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
 
 		// We need to reset the step value to prevent the possibility of bypassing steps
 		// in subsequent delete project requests.
@@ -2996,7 +2999,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
 	)
-	s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID)
+	s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
 
 	// We need to reset the step value to prevent the possibility of bypassing steps
 	// in subsequent delete project requests.
@@ -3032,7 +3035,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 			zap.String("user_id", user.ID.String()),
 			zap.String("user_email", user.Email),
 		)
-		s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID)
+		s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 
 		s.mailService.SendRenderedAsync(
 			ctx,
@@ -3111,7 +3114,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 	)
-	s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID)
+	s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 
 	s.mailService.SendRenderedAsync(
 		ctx,
@@ -3381,6 +3384,7 @@ func (s *Service) SetupAccount(ctx context.Context, requestData SetUpAccountRequ
 
 	onboardingFields := analytics.TrackOnboardingInfoFields{
 		ID:              user.ID,
+		TenantID:        user.TenantID,
 		HubspotObjectID: user.HubspotObjectID,
 		FullName:        fullName,
 		Email:           user.Email,
@@ -3710,20 +3714,20 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	}
 	if project.PassphraseEnc != nil && s.kmsService != nil {
 		if project.PassphraseEncKeyID == nil {
-			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB", user.HubspotObjectID)
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "nil key ID for project in DB", user.HubspotObjectID, user.TenantID)
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
 		passphrase, err = s.kmsService.DecryptPassphrase(ctx, *project.PassphraseEncKeyID, project.PassphraseEnc)
 		if err != nil {
 			s.log.Error("failed to decrypt passphrase", zap.Error(err))
-			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error(), user.HubspotObjectID)
+			s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, err.Error(), user.HubspotObjectID, user.TenantID)
 			return nil, Error.New("Failed to retrieve passphrase")
 		}
 	}
 
 	if len(passphrase) == 0 && hasManagedPassphrase {
 		// the UI handles this condition on its own, so we track an analytics event, but continue to send a valid response to the client.
-		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite", user.HubspotObjectID)
+		s.analytics.TrackManagedEncryptionError(user.ID, user.Email, project.ID, "kms service not enabled on satellite", user.HubspotObjectID, user.TenantID)
 	}
 
 	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
@@ -3908,7 +3912,7 @@ func (s *Service) SendUserFeedback(ctx context.Context, data analytics.UserFeedb
 		"message":       data.Message,
 		"allow_contact": strconv.FormatBool(data.AllowContact),
 	}
-	s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, props, user.HubspotObjectID)
+	s.analytics.TrackEvent(analytics.EventUserFeedbackSubmitted, user.ID, user.Email, props, user.HubspotObjectID, user.TenantID)
 
 	return nil
 }
@@ -4037,7 +4041,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
-		s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID)
+		s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
@@ -4116,7 +4120,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			}
 		}
 		if numBefore >= limit {
-			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID)
+			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
@@ -4167,7 +4171,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, satManagedPassphrase, user.HubspotObjectID)
+	s.analytics.TrackProjectCreated(user.ID, user.Email, projectID, currentProjectCount+1, satManagedPassphrase, user.HubspotObjectID, user.TenantID)
 
 	return p, nil
 }
@@ -4299,7 +4303,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
 	)
-	s.analytics.TrackProjectDeleted(user.ID, user.Email, p.PublicID, currentPriceStr, user.HubspotObjectID)
+	s.analytics.TrackProjectDeleted(user.ID, user.Email, p.PublicID, currentPriceStr, user.HubspotObjectID, user.TenantID)
 
 	return httpError
 }
@@ -4559,7 +4563,7 @@ func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID,
 		LimitType:    info.LimitType,
 		CurrentLimit: info.CurrentLimit.String(),
 		DesiredLimit: info.DesiredLimit.String(),
-	}, user.HubspotObjectID)
+	}, user.HubspotObjectID, user.TenantID)
 
 	return nil
 }
@@ -4590,7 +4594,7 @@ func (s *Service) RequestProjectLimitIncrease(ctx context.Context, limit string)
 		LimitType:    "projects",
 		CurrentLimit: strconv.Itoa(user.ProjectLimit),
 		DesiredLimit: limit,
-	}, user.HubspotObjectID)
+	}, user.HubspotObjectID, user.TenantID)
 
 	return nil
 }
@@ -4746,7 +4750,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectMemberAddition(user.ID, user.Email, user.HubspotObjectID)
+	s.analytics.TrackProjectMemberAddition(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 
 	return users, nil
 }
@@ -4825,7 +4829,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 		return nil
 	})
 
-	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email, user.HubspotObjectID)
+	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
 
 	return Error.Wrap(err)
 }

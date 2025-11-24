@@ -1340,6 +1340,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 
 	tokenInfo, err := server.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
 		UserID:          user.ID,
+		TenantID:        user.TenantID,
 		Email:           user.Email,
 		IP:              ip,
 		UserAgent:       r.UserAgent(),

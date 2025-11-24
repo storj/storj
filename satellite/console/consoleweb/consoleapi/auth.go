@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/tenancy"
 )
 
 var (
@@ -230,6 +231,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
 		UserID:          user.ID,
+		TenantID:        user.TenantID,
 		Email:           user.Email,
 		IP:              ip,
 		UserAgent:       userAgent,
@@ -617,6 +619,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			trackCreateUserFields.JobTitle = user.Position
 			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 		}
+		tenantCtx := tenancy.GetContext(ctx)
+		if tenantCtx != nil {
+			trackCreateUserFields.TenantID = &tenantCtx.TenantID
+		}
+
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
 
@@ -839,6 +846,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 
 	tokenInfo, err := a.service.GenerateSessionToken(ctx, console.SessionTokenRequest{
 		UserID:          user.ID,
+		TenantID:        user.TenantID,
 		Email:           user.Email,
 		IP:              ip,
 		UserAgent:       r.UserAgent(),
