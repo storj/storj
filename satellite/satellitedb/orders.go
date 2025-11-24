@@ -236,50 +236,86 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 			return nil
 		})
 	case dbutil.Spanner:
-		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			updateBBRStatement := tx.Rebind(
-				`UPDATE bucket_bandwidth_rollups AS bbr SET  bbr.settled = bbr.settled + ? WHERE project_id = ? AND bucket_name =? AND interval_start = ?  AND action = ?`,
-			)
-			_, err := tx.Tx.ExecContext(ctx, updateBBRStatement,
-				uint64(settledAmount), projectID, bucketName, intervalStart.UTC(), int64(action),
-			)
-			if err != nil {
-				return ErrUpdateBucketBandwidthSettle.Wrap(err)
-			}
+		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
+			defer mon.Task()(&ctx)(&err)
 
-			insertBBRStatement := tx.Rebind(
-				`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			)
-			_, err = tx.Tx.ExecContext(ctx, insertBBRStatement,
-				projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), 0, 0, uint64(settledAmount), uint64(settledAmount),
-			)
-			if err != nil {
-				return ErrUpdateBucketBandwidthSettle.Wrap(err)
+			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
+			civilDailyIntervalDate := civil.DateOf(dailyInterval)
+
+			// Spanner does not support `INSERT INTO ... ON CONFLICT DO UPDATE SET`, see details in [doc.go].
+
+			statements := []spanner.Statement{
+				{
+					SQL: `
+						UPDATE bucket_bandwidth_rollups
+						SET settled = settled + @settled_amount
+						WHERE (project_id, bucket_name, interval_start, action) = (@project_id, @bucket_name, @interval_start, @action)
+					`,
+					Params: map[string]any{
+						"settled_amount": settledAmount,
+						"project_id":     projectID.Bytes(),
+						"bucket_name":    bucketName,
+						"interval_start": intervalStart,
+						"action":         int64(action),
+					},
+				},
+				{
+					SQL: `
+						INSERT OR IGNORE INTO bucket_bandwidth_rollups
+							(project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+						VALUES (@project_id, @bucket_name, @interval_start, @interval_seconds, @action, 0, 0, @settled_amount)
+					`,
+					Params: map[string]any{
+						"project_id":       projectID.Bytes(),
+						"bucket_name":      bucketName,
+						"interval_start":   intervalStart,
+						"interval_seconds": defaultIntervalSeconds,
+						"action":           int64(action),
+						"settled_amount":   settledAmount,
+					},
+				},
 			}
 
 			if action == pb.PieceAction_GET {
-				dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
-				civilIntervalDate := civil.DateOf(dailyInterval)
-				updatePBDRStatement := tx.Rebind(
-					`UPDATE project_bandwidth_daily_rollups AS pbdr SET pbdr.egress_settled = pbdr.egress_settled + ?, pbdr.egress_dead = pbdr.egress_dead + ?
-					WHERE (project_id = ? AND interval_day = ? )`,
+				statements = append(statements,
+					spanner.Statement{
+						SQL: `
+							UPDATE project_bandwidth_daily_rollups
+							SET egress_settled = egress_settled + @settled_amount,
+							egress_dead = egress_dead + @dead_amount
+						WHERE
+							(project_id, interval_day) = (@project_id, @interval_day)
+						`,
+						Params: map[string]any{
+							"settled_amount": settledAmount,
+							"dead_amount":    deadAmount,
+							"project_id":     projectID.Bytes(),
+							"interval_day":   civilDailyIntervalDate,
+						},
+					},
+					spanner.Statement{
+						SQL: `
+							INSERT OR IGNORE INTO project_bandwidth_daily_rollups
+								(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
+							VALUES (@project_id, @interval_day, 0, @settled_amount, @dead_amount)
+						`,
+						Params: map[string]any{
+							"project_id":     projectID.Bytes(),
+							"interval_day":   civilDailyIntervalDate,
+							"settled_amount": settledAmount,
+							"dead_amount":    deadAmount,
+						},
+					},
 				)
-				_, err = tx.Tx.ExecContext(ctx, updatePBDRStatement, uint64(settledAmount), uint64(deadAmount), projectID, civilIntervalDate)
-				if err != nil {
-					return ErrUpdateBucketBandwidthSettle.Wrap(err)
-				}
-
-				insertPBDRStatement := tx.Rebind(
-					`INSERT OR IGNORE INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-						VALUES (?, ?, ?, ?, ?)`,
-				)
-				_, err = tx.Tx.ExecContext(ctx, insertPBDRStatement, projectID, civilIntervalDate, 0, uint64(settledAmount), uint64(deadAmount))
-				if err != nil {
-					return ErrUpdateBucketBandwidthSettle.Wrap(err)
-				}
 			}
-			return nil
+
+			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+				_, err := txn.BatchUpdate(ctx, statements)
+				return err
+			}, spanner.TransactionOptions{
+				TransactionTag: "orders/update-bucket-bandwidth-settle",
+			})
+			return errs.Wrap(err)
 		})
 	default:
 		return ErrUpdateBucketBandwidthSettle.New("unsupported database dialect: %s", db.db.impl)
@@ -306,34 +342,49 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 		}
 		return nil
 	case dbutil.Spanner:
-		return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			updateStatement := tx.Rebind(
-				`UPDATE bucket_bandwidth_rollups AS bbr SET  bbr.inline = bbr.inline + ? WHERE project_id = ? AND bucket_name = ? AND interval_start = ? AND action = ?`,
-			)
-			result, err := tx.Tx.ExecContext(ctx, updateStatement,
-				uint64(amount), projectID, bucketName, intervalStart.UTC(), int64(action),
-			)
-			if err != nil {
-				return errs.Wrap(err)
+		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
+			defer mon.Task()(&ctx)(&err)
+
+			// Construct statements for bucket_bandwidth_rollups
+			statements := []spanner.Statement{
+				{
+					SQL: `
+						UPDATE bucket_bandwidth_rollups
+						SET inline = inline + @amount
+						WHERE (project_id, bucket_name, interval_start, action) = (@project_id, @bucket_name, @interval_start, @action)
+					`,
+					Params: map[string]any{
+						"amount":         amount,
+						"project_id":     projectID.Bytes(),
+						"bucket_name":    bucketName,
+						"interval_start": intervalStart,
+						"action":         int64(action),
+					},
+				},
+				{
+					SQL: `
+						INSERT OR IGNORE INTO bucket_bandwidth_rollups
+							(project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
+						VALUES (@project_id, @bucket_name, @interval_start, @interval_seconds, @action, @amount, 0, 0)
+					`,
+					Params: map[string]any{
+						"project_id":       projectID.Bytes(),
+						"bucket_name":      bucketName,
+						"interval_start":   intervalStart,
+						"interval_seconds": defaultIntervalSeconds,
+						"action":           int64(action),
+						"amount":           amount,
+					},
+				},
 			}
 
-			affected, err := result.RowsAffected()
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			if affected == 0 {
-				insertStatement := tx.Rebind(
-					`INSERT OR IGNORE INTO bucket_bandwidth_rollups (project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-				)
-				_, err = tx.Tx.ExecContext(ctx, insertStatement,
-					projectID, bucketName, intervalStart.UTC(), defaultIntervalSeconds, int64(action), uint64(amount), 0, 0,
-				)
-				if err != nil {
-					return errs.Wrap(err)
-				}
-			}
-			return nil
+			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+				_, err := txn.BatchUpdate(ctx, statements)
+				return err
+			}, spanner.TransactionOptions{
+				TransactionTag: "orders/update-bucket-bandwidth-inline",
+			})
+			return errs.Wrap(err)
 		})
 	default:
 		return errs.New("unsupported database dialect: %s", db.db.impl)
@@ -360,33 +411,48 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 		}
 		return nil
 	case dbutil.Spanner:
-		updateStatement := db.db.Rebind(
-			`UPDATE storagenode_bandwidth_rollups AS sbr SET  sbr.settled = sbr.settled + ?  WHERE storagenode_id = ? AND interval_start = ? AND action = ?`,
-		)
-		result, err := db.db.ExecContext(ctx, updateStatement,
-			uint64(amount), storageNode, intervalStart.UTC(), uint64(action),
-		)
-		if err != nil {
-			return errs.Wrap(err)
-		}
+		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
+			defer mon.Task()(&ctx)(&err)
 
-		affected, err := result.RowsAffected()
-		if err != nil {
-			return errs.Wrap(err)
-		}
-
-		if affected == 0 {
-			insertStatement := db.db.Rebind(
-				`INSERT OR IGNORE INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, settled) VALUES (?, ?, ?, ?, ?)`,
-			)
-			_, err = db.db.ExecContext(ctx, insertStatement,
-				storageNode, intervalStart.UTC(), defaultIntervalSeconds, uint64(action), uint64(amount),
-			)
-			if err != nil {
-				return errs.Wrap(err)
+			// Construct statements for storagenode_bandwidth_rollups
+			statements := []spanner.Statement{
+				{
+					SQL: `
+						UPDATE storagenode_bandwidth_rollups
+						SET settled = settled + @amount
+						WHERE (storagenode_id, interval_start, action) = (@storagenode_id, @interval_start, @action)
+					`,
+					Params: map[string]any{
+						"amount":         amount,
+						"storagenode_id": storageNode.Bytes(),
+						"interval_start": intervalStart,
+						"action":         int64(action),
+					},
+				},
+				{
+					SQL: `
+						INSERT OR IGNORE INTO storagenode_bandwidth_rollups
+							(storagenode_id, interval_start, interval_seconds, action, settled)
+						VALUES (@storagenode_id, @interval_start, @interval_seconds, @action, @amount)
+					`,
+					Params: map[string]any{
+						"storagenode_id":   storageNode.Bytes(),
+						"interval_start":   intervalStart,
+						"interval_seconds": defaultIntervalSeconds,
+						"action":           int64(action),
+						"amount":           amount,
+					},
+				},
 			}
-		}
-		return nil
+
+			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+				_, err := txn.BatchUpdate(ctx, statements)
+				return err
+			}, spanner.TransactionOptions{
+				TransactionTag: "orders/update-storagenode-bandwidth-settle",
+			})
+			return errs.Wrap(err)
+		})
 	default:
 		return errs.New("unsupported database dialect: %s", db.db.impl)
 	}
