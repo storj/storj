@@ -105,6 +105,7 @@
                                         selected-class="font-weight-bold"
                                         class="mt-2 mb-2"
                                         mandatory
+                                        column
                                     >
                                         <v-chip
                                             v-for="placement in placementDetails"

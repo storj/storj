@@ -248,12 +248,14 @@ type PlacementDetail struct {
 	ID          int    `json:"id" yaml:"id"`
 	IdName      string `json:"idName" yaml:"id-name"`
 	Name        string `json:"name" yaml:"name"`
+	ShortName   string `json:"shortName" yaml:"short-name"`
 	Title       string `json:"title" yaml:"title"`
 	Description string `json:"description" yaml:"description"`
 	// WaitlistURL is only parsed from configuration and not sent to the front-end.
 	WaitlistURL string `json:"waitlist_url,omitempty" yaml:"wait-list-url,omitempty"`
 	// Pending indicates whether the placement has a waitlist - to be sent to the front-end.
-	Pending bool `json:"pending" yaml:"-"`
+	Pending    bool   `json:"pending" yaml:"-"`
+	LucideIcon string `json:"lucideIcon,omitempty" yaml:"lucide-icon,omitempty"`
 }
 
 // PlacementDetails represents a mapping between placement IDs and their human-readable details.

@@ -128,5 +128,7 @@ export class PlacementDetails {
         public title: string = '',
         public description: string = '',
         public pending: boolean = false,
+        public shortName: string = '',
+        public lucideIcon: string = '',
     ) { }
 }

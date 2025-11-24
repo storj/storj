@@ -166,6 +166,8 @@ export class ProjectsHttpApi implements ProjectsApi {
                     detail.title,
                     detail.description,
                     detail.pending,
+                    detail.shortName,
+                    detail.lucideIcon,
                 )) || [],
                 result.computeAuthToken,
             );

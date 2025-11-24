@@ -82,7 +82,7 @@
         <template #item.location="{ item }">
             <div class="text-no-wrap">
                 <v-icon size="28" class="mr-1 pa-1 rounded-lg border">
-                    <component :is="item.location === 'global' ? Earth : LandPlot" :size="18" />
+                    <component :is="getTierIcon(item)" :size="18" />
                 </v-icon>
                 <v-chip variant="tonal" :color="item.location === 'global' ? 'success' : 'primary'" size="small" class="text-capitalize font-weight-semibold">
                     {{ item.location || `unknown(${item.defaultPlacement})` }}
@@ -263,10 +263,12 @@ import {
     Search,
     Share2,
     Trash2,
+    MapPin,
+    Archive,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
-import { Bucket, BucketCursor, BucketMetadata, BucketPage } from '@/types/buckets';
+import { Bucket, BucketCursor, BucketMetadata, BucketPage, PlacementDetails } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
@@ -305,6 +307,12 @@ const router = useRouter();
 const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const FIRST_PAGE = 1;
+const ICONS: Record<string, FunctionalComponent> = {
+    Earth,
+    MapPin,
+    Archive,
+};
+
 const areBucketsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
@@ -461,6 +469,22 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Returns buckets being deleted from store.
  */
 const bucketsBeingDeleted = computed((): Set<string> => bucketsStore.state.bucketsBeingDeleted);
+
+const selfServeDetails = computed<PlacementDetails[]>(() => projectsStore.state.selectedProjectConfig.availablePlacements);
+
+function getTierIcon(bucket: Bucket): FunctionalComponent {
+    // Legacy global location.
+    if (bucket.location === 'global') return Earth;
+
+    const details = selfServeDetails.value.find(detail => bucket.location === detail.idName || bucket.location === detail.shortName);
+    if (details?.lucideIcon) {
+        // We can't dynamically import icons from lucide, because vite needs to know all imports at compile time.
+        const icon = ICONS[details.lucideIcon];
+        if (icon) return icon;
+    }
+
+    return LandPlot;
+}
 
 function showLockActionItem(bucket: Bucket): boolean {
     return objectLockUIEnabled.value && bucket.versioning === Versioning.Enabled;
