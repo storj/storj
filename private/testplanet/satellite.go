@@ -243,17 +243,11 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 		return nil, errs.Wrap(err)
 	}
 
-	activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)
-	if err != nil {
+	if err = service.SetAccountActive(ctx, user); err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	_, err = service.ActivateAccount(ctx, activationToken)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	userCtx, err := system.UserContext(ctx, user.ID)
+	userCtx := console.WithUser(ctx, user)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
