@@ -648,7 +648,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		{ // setup legacy and hubspot mail services
-			peer.Mail.Service, err = setupMailService(peer.Log, config.Mail)
+			peer.Mail.Service, err = setupMailService(peer.Log, config.Mail, config.Console)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}

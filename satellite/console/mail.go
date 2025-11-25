@@ -17,7 +17,7 @@ type TrialExpirationReminderEmail struct {
 func (*TrialExpirationReminderEmail) Template() string { return "TrialExpirationReminder" }
 
 // Subject gets email subject.
-func (*TrialExpirationReminderEmail) Subject() string { return "Your Storj trial is ending soon" }
+func (*TrialExpirationReminderEmail) Subject() string { return "Your trial is ending soon" }
 
 // TrialExpirationEscalationReminderEmail is mailservice template with trial expiration escalation reminder data.
 type TrialExpirationEscalationReminderEmail struct {
@@ -31,7 +31,7 @@ func (*TrialExpirationEscalationReminderEmail) Template() string {
 
 // Subject gets email subject.
 func (*TrialExpirationEscalationReminderEmail) Subject() string {
-	return "Your Storj trial has ended"
+	return "Your trial has ended"
 }
 
 // TrialExpiredEmail is mailservice template with trial expiration data.
@@ -47,7 +47,7 @@ func (*TrialExpiredEmail) Template() string { return "TrialExpired" }
 
 // Subject gets email subject.
 func (*TrialExpiredEmail) Subject() string {
-	return "Your Storj trial has ended - Act now to continue!"
+	return "Your trial has ended - Act now to continue!"
 }
 
 // AccountActivationEmail is mailservice template with activation data.
@@ -144,7 +144,7 @@ func (*ExistingUserProjectInvitationEmail) Template() string { return "ExistingU
 
 // Subject gets email subject.
 func (email *ExistingUserProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on Storj"
+	return "You were invited to join a project"
 }
 
 // UnverifiedUserProjectInvitationEmail is mailservice template for project invitation email for unverified users.
@@ -159,7 +159,7 @@ func (*UnverifiedUserProjectInvitationEmail) Template() string { return "Unverif
 
 // Subject gets email subject.
 func (email *UnverifiedUserProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on Storj"
+	return "You were invited to join a project"
 }
 
 // NewUserProjectInvitationEmail is mailservice template for project invitation email for new users.
@@ -174,7 +174,7 @@ func (*NewUserProjectInvitationEmail) Template() string { return "NewUserInvite"
 
 // Subject gets email subject.
 func (email *NewUserProjectInvitationEmail) Subject() string {
-	return "You were invited to join a project on Storj"
+	return "You were invited to join a project"
 }
 
 // UnknownResetPasswordEmail is mailservice template with unknown password reset data.
@@ -326,7 +326,7 @@ func (*CreditCardAddedEmail) Template() string { return "CreditCardAdded" }
 
 // Subject gets email subject.
 func (*CreditCardAddedEmail) Subject() string {
-	return "Storj - Your new payment method has been added"
+	return "Your new payment method has been added"
 }
 
 // UpgradeToProEmail is the template for account upgraded emails.
@@ -339,5 +339,5 @@ func (*UpgradeToProEmail) Template() string { return "UpgradeToPro" }
 
 // Subject gets email subject.
 func (*UpgradeToProEmail) Subject() string {
-	return "Storj - Your Account Has Been Upgraded to Pro"
+	return "Your Account Has Been Upgraded to Pro"
 }

@@ -56,3 +56,12 @@ func GetContext(ctx context.Context) *Context {
 	}
 	return defaultContext
 }
+
+// TenantIDFromContext retrieves the tenant ID from the given context.Context.
+func TenantIDFromContext(ctx context.Context) string {
+	tenantCtx := GetContext(ctx)
+	if tenantCtx != nil {
+		return tenantCtx.TenantID
+	}
+	return ""
+}

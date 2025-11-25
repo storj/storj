@@ -172,6 +172,21 @@ STORJ_CONSOLE_WHITE_LABEL: |
     docs-url: "https://docs.customer1.example.com"
     homepage-url: "https://customer1.example.com"
     get-in-touch-url: "https://customer1.example.com/contact"
+    source-code-url: "https://source.example/customer1"
+    social-url: "https://social.example/customer1"
+    blog-url: "https://blog.customer1.example.com"
+    privacy-policy-url: "https://customer1.example.com/privacy"
+    terms-of-service-url: "https://customer1.example.com/tos"
+    terms-of-use-url: "https://customer1.example.com/terms"
+    company-name: "Customer One Inc."
+    address-line1: "123 Example Street"
+    address-line2: "Suite 456, City, ST 12345"
+    smtp:
+      server-address: "smtp.customer1.example.com:587"
+      from: "noreply@customer1.example.com"
+      auth-type: "plain"
+      login: "smtp-user"
+      password-env: "smtp-password-env-var"
   customer2:
     host-name: "customer2.example.com"
     name: "Customer Two"
@@ -189,21 +204,37 @@ STORJ_CONSOLE_WHITE_LABEL: /path/to/white-label-config.yaml
 Each tenant configuration supports the following fields:
 
 - `host-name` (required): The hostname that will trigger this white label configuration
-- `name`: The display name for the tenant (e.g., "Customer One")
+- `name`: The display name for the tenant (e.g., "Customer One"). **Required for emails.**
 - `logo-urls`: Map of logo URLs with keys:
   - `full-dark`: Full logo for dark theme
   - `full-light`: Full logo for light theme
   - `small-dark`: Small logo for dark theme
   - `small-light`: Small logo for light theme
+  - `mail`: Logo to be used in emails. **Required for emails.**
 - `favicon-urls`: Map of favicon URLs with keys:
   - `16x16`: 16x16 pixel favicon
   - `32x32`: 32x32 pixel favicon
   - `apple-touch`: Apple touch icon
-- `colors`: Map of custom colors (e.g., `primary`, `secondary`)
+- `colors`: Map of custom colors (e.g., `primary`, `secondary`). **The primary color is required for theming emails**.
 - `support-url`: Custom support/help URL
 - `docs-url`: Custom documentation URL
-- `homepage-url`: Custom homepage URL
+- `homepage-url`: Custom homepage URL. **Required for emails.**
 - `get-in-touch-url`: Custom contact/get-in-touch URL
+- `source-code-url`: URL to source code repository
+- `social-url`: URL to social media page
+- `blog-url`: URL to blog
+- `privacy-policy-url`: URL to privacy policy page
+- `terms-of-service-url`: URL to terms of service page
+- `terms-of-use-url`: URL to terms of use page
+- `company-name`: Legal company name. **Required for emails.**
+- `address-line1`: First line of company address. **Required for emails.**
+- `address-line2`: Second line of company address. **Required for emails.**
+- `smtp`: SMTP configuration for tenant-specific email sending:
+  - `auth-type`: Authentication type (e.g., "plain", "login", "simulated"). **If this is "simulated" or "nomail", the following fields are not required.**
+  - `server-address`: SMTP server address (e.g., "smtp.example.com:587")
+  - `from`: Email address to use as sender
+  - `login`: SMTP login username
+  - `password-env`: The environment variable that contains SMTP password
 
 ### API Endpoint
 
@@ -220,3 +251,4 @@ The branding configuration is exposed via the `/api/v0/config/branding` endpoint
 2. If a matching hostname is found in the white label configuration, the corresponding branding is returned
 3. If no tenant context exists or hostname doesn't match, default Storj branding is returned
 4. Frontend applications can fetch this configuration at startup to apply custom branding dynamically
+5. Emails sent to users of a tenant will use the tenant-specific branding if configured

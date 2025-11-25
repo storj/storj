@@ -409,6 +409,7 @@ func TestBrandingEndpoint(t *testing.T) {
 			"full-light":  "https://customer1.example.com/logo-full-light.png",
 			"small-dark":  "https://customer1.example.com/logo-small-dark.png",
 			"small-light": "https://customer1.example.com/logo-small-light.png",
+			"mail":        "https://customer1.example.com/logo-small-light.png",
 		}
 		faviconURLs = map[string]string{
 			"16x16":       "https://customer1.example.com/favicon-16x16.ico",
@@ -429,15 +430,18 @@ func TestBrandingEndpoint(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
 					tenantID: {
-						TenantID:    tenantID,
-						HostName:    hostName,
-						Name:        name,
-						LogoURLs:    logoURLs,
-						FaviconURLs: faviconURLs,
-						Colors:      colors,
-						SupportURL:  supportURL,
-						DocsURL:     docsURL,
-						HomepageURL: homepageURL,
+						TenantID:     tenantID,
+						HostName:     hostName,
+						Name:         name,
+						LogoURLs:     logoURLs,
+						FaviconURLs:  faviconURLs,
+						Colors:       colors,
+						SupportURL:   supportURL,
+						DocsURL:      docsURL,
+						HomepageURL:  homepageURL,
+						CompanyName:  defaultName,
+						AddressLine1: "1234 Customer St.",
+						AddressLine2: "Suite 100, Customer City, CA 90210",
 					},
 				}
 				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{

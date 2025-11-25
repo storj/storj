@@ -5,9 +5,7 @@ package satellite
 
 import (
 	"context"
-	"net"
-	"net/mail"
-	"net/smtp"
+	"os"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -18,8 +16,6 @@ import (
 	"storj.io/common/identity"
 	"storj.io/storj/private/healthcheck"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accountfreeze"
@@ -273,93 +269,85 @@ type Config struct {
 	StandaloneConsoleAPIEnabled bool `help:"indicates whether the console API should be served as a standalone service" default:"false"`
 }
 
-func setupMailService(log *zap.Logger, mailConfig mailservice.Config) (*mailservice.Service, error) {
-	fromAndHost := func(cfg mailservice.Config) (*mail.Address, string, error) {
-		// validate from mail address
-		from, err := mail.ParseAddress(cfg.From)
-		if err != nil {
-			return nil, "", errs.New("SMTP from address '%s' couldn't be parsed: %v", cfg.From, err)
-		}
+func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleConfig consoleweb.Config) (*mailservice.Service, error) {
+	var defaultSender mailservice.Sender
+	var err error
 
-		// validate smtp server address
-		host, _, err := net.SplitHostPort(cfg.SMTPServerAddress)
-		if err != nil && cfg.AuthType != "simulate" && cfg.AuthType != "nologin" {
-			return nil, "", errs.New("SMTP server address '%s' couldn't be parsed: %v", cfg.SMTPServerAddress, err)
-		}
-		return from, host, err
-	}
-
-	// TODO(yar): test multiple satellites using same OAUTH credentials
-
-	var sender mailservice.Sender
 	switch mailConfig.AuthType {
-	case "oauth2":
-		creds := oauth2.Credentials{
-			ClientID:     mailConfig.ClientID,
-			ClientSecret: mailConfig.ClientSecret,
-			TokenURI:     mailConfig.TokenURI,
-		}
-		token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
-		if err != nil {
-			return nil, err
-		}
-
-		from, _, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		sender = &post.SMTPSender{
-			From: *from,
-			Auth: &oauth2.Auth{
-				UserEmail: from.Address,
-				Storage:   oauth2.NewTokenStore(creds, *token),
-			},
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
-	case "plain":
-		from, host, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		sender = &post.SMTPSender{
-			From:          *from,
-			Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
-	case "login":
-		from, _, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		sender = &post.SMTPSender{
-			From: *from,
-			Auth: post.LoginAuth{
-				Username: mailConfig.Login,
-				Password: mailConfig.Password,
-			},
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
-	case "insecure":
-		from, _, err := fromAndHost(mailConfig)
-		if err != nil {
-			return nil, err
-		}
-		sender = &post.SMTPSender{
-			From:          *from,
-			ServerAddress: mailConfig.SMTPServerAddress,
-		}
 	case "nomail":
-		sender = simulate.NoMail{}
+		defaultSender = simulate.NoMail{}
+	case "simulate", "":
+		defaultSender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
 	default:
-		sender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
+		defaultSender, err = mailservice.CreateSender(mailConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return mailservice.New(
-		log.Named("mail:service"),
-		sender,
-		mailConfig.TemplatePath,
-	)
+	// Extract tenant configurations from console config
+	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
+	for tenantID, config := range consoleConfig.WhiteLabel.Value {
+		// Validate and retrieve password from environment if needed
+		var password string
+		if config.SMTP.PasswordEnv != "" {
+			var found bool
+			password, found = os.LookupEnv(config.SMTP.PasswordEnv)
+			if !found && config.SMTP.AuthType != "" && config.SMTP.AuthType != "simulated" && config.SMTP.AuthType != "nomail" && config.SMTP.AuthType != "insecure" {
+				return nil, errs.New("missing SMTP password environment variable %s for tenant ID %s", config.SMTP.PasswordEnv, tenantID)
+			}
+		}
+
+		tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
+			Branding: mailservice.WhiteLabelConfig{
+				BrandName:         config.Name,
+				LogoURL:           config.LogoURLs["mail"],
+				HomepageURL:       config.HomepageURL,
+				SupportURL:        config.SupportURL,
+				DocsURL:           config.DocsURL,
+				SourceCodeURL:     config.SourceCodeURL,
+				SocialURL:         config.SocialURL,
+				PrivacyPolicyURL:  config.PrivacyPolicyURL,
+				TermsOfServiceURL: config.TermsOfServiceURL,
+				TermsOfUseURL:     config.TermsOfUseURL,
+				BlogURL:           config.BlogURL,
+				CompanyName:       config.CompanyName,
+				AddressLine1:      config.AddressLine1,
+				AddressLine2:      config.AddressLine2,
+				PrimaryColor:      config.Colors["primary"],
+			},
+			SMTP: mailservice.Config{
+				From:              config.SMTP.From,
+				SMTPServerAddress: config.SMTP.ServerAddress,
+				AuthType:          config.SMTP.AuthType,
+				Login:             config.SMTP.Login,
+				Password:          password,
+			},
+		}
+	}
+
+	defaultBranding := mailservice.WhiteLabelConfig{
+		BrandName:         "Storj",
+		LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+		HomepageURL:       consoleConfig.HomepageURL,
+		SupportURL:        consoleConfig.GeneralRequestURL,
+		DocsURL:           consoleConfig.DocumentationURL,
+		PrivacyPolicyURL:  "https://www.storj.io/legal/privacy-policy",
+		TermsOfServiceURL: consoleConfig.TermsAndConditionsURL,
+		TermsOfUseURL:     "https://www.storj.io/legal/terms-of-use",
+		SourceCodeURL:     "https://github.com/storj",
+		SocialURL:         "https://twitter.com/storj",
+		BlogURL:           "https://storj.io/blog",
+		PrimaryColor:      "#0052FF",
+		CompanyName:       "Storj Labs",
+		AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
+		AddressLine2:      "Atlanta, GA 30339-2171, United States",
+	}
+
+	return mailservice.SetupWithTenants(log, mailservice.SetupConfig{
+		DefaultSender:   defaultSender,
+		TemplatePath:    mailConfig.TemplatePath,
+		TenantConfigs:   tenantConfigs,
+		DefaultBranding: defaultBranding,
+	})
 }

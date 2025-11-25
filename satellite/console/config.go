@@ -467,16 +467,35 @@ type TenantWhiteLabelConfig struct {
 
 // WhiteLabelConfig contains white-label configuration for a tenant.
 type WhiteLabelConfig struct {
-	TenantID      string            `yaml:"-"`
-	HostName      string            `yaml:"host-name,omitempty"`
-	Name          string            `yaml:"name,omitempty"`
-	LogoURLs      map[string]string `yaml:"logo-urls,omitempty"`
-	FaviconURLs   map[string]string `yaml:"favicon-urls,omitempty"`
-	Colors        map[string]string `yaml:"colors,omitempty"`
-	SupportURL    string            `yaml:"support-url,omitempty"`
-	DocsURL       string            `yaml:"docs-url,omitempty"`
-	HomepageURL   string            `yaml:"homepage-url,omitempty"`
-	GetInTouchURL string            `yaml:"get-in-touch-url,omitempty"`
+	TenantID          string            `yaml:"-"`
+	HostName          string            `yaml:"host-name,omitempty"`
+	Name              string            `yaml:"name,omitempty"`
+	LogoURLs          map[string]string `yaml:"logo-urls,omitempty"`
+	FaviconURLs       map[string]string `yaml:"favicon-urls,omitempty"`
+	Colors            map[string]string `yaml:"colors,omitempty"`
+	SupportURL        string            `yaml:"support-url,omitempty"`
+	DocsURL           string            `yaml:"docs-url,omitempty"`
+	HomepageURL       string            `yaml:"homepage-url,omitempty"`
+	GetInTouchURL     string            `yaml:"get-in-touch-url,omitempty"`
+	SourceCodeURL     string            `yaml:"source-code-url,omitempty"`
+	SocialURL         string            `yaml:"social-url,omitempty"`
+	BlogURL           string            `yaml:"blog-url,omitempty"`
+	PrivacyPolicyURL  string            `yaml:"privacy-policy-url,omitempty"`
+	TermsOfServiceURL string            `yaml:"terms-of-service-url,omitempty"`
+	TermsOfUseURL     string            `yaml:"terms-of-use-url,omitempty"`
+	CompanyName       string            `yaml:"company-name,omitempty"`
+	AddressLine1      string            `yaml:"address-line1,omitempty"`
+	AddressLine2      string            `yaml:"address-line2,omitempty"`
+	SMTP              SMTPConfig        `yaml:"smtp,omitempty"`
+}
+
+// SMTPConfig contains SMTP configuration for sending emails.
+type SMTPConfig struct {
+	ServerAddress string `yaml:"server-address,omitempty"`
+	From          string `yaml:"from,omitempty"`
+	AuthType      string `yaml:"auth-type,omitempty"`
+	Login         string `yaml:"login,omitempty"`
+	PasswordEnv   string `yaml:"password-env,omitempty"`
 }
 
 var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)

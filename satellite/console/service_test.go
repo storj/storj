@@ -47,6 +47,7 @@ import (
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/kms"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
@@ -8050,5 +8051,120 @@ func TestMigrateProjectPricing(t *testing.T) {
 			require.True(t, console.ErrForbidden.Has(err))
 			require.Contains(t, err.Error(), "only project owner or admin")
 		})
+	})
+}
+
+func TestWhiteLabelEmailBranding(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.WhiteLabel = console.TenantWhiteLabelConfig{
+					Value: map[string]console.WhiteLabelConfig{
+						"test-tenant": {
+							HostName:          "test-tenant.example.com",
+							Name:              "Test Tenant Corp",
+							LogoURLs:          map[string]string{"mail": "https://cdn.test-tenant.com/email-logo.png"},
+							Colors:            map[string]string{"primary": "#FF6B35"},
+							HomepageURL:       "https://test-tenant.example.com",
+							SupportURL:        "https://support.test-tenant.com",
+							DocsURL:           "https://docs.test-tenant.com",
+							SourceCodeURL:     "https://example.example/test-tenant",
+							SocialURL:         "https://example.example.com/test-tenant",
+							BlogURL:           "https://blog.test-tenant.com",
+							PrivacyPolicyURL:  "https://test-tenant.com/privacy",
+							TermsOfServiceURL: "https://test-tenant.com/tos",
+							TermsOfUseURL:     "https://test-tenant.com/terms",
+							CompanyName:       "Company Name",
+							AddressLine1:      "123 Test Street, Suite 100",
+							AddressLine2:      "Test City, CA 94105, USA",
+						},
+					},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		// Set up email verifier to capture sent emails
+		sender := &EmailVerifier{Context: ctx}
+		sat.API.Mail.Service.Sender = sender
+		sat.API.Mail.Service.TestSetTenantSender("test-tenant", sender)
+
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: "test-tenant"})
+
+		emailTemplates := []mailservice.Message{
+			&console.TrialExpirationReminderEmail{}, &console.TrialExpirationEscalationReminderEmail{},
+			&console.TrialExpiredEmail{}, &console.AccountActivationEmail{}, &console.AccountActivationCodeEmail{},
+			&console.ChangeEmailSuccessEmail{}, &console.AccountDeletionSuccessEmail{}, &console.EmailAddressVerificationEmail{},
+			&console.ForgotPasswordEmail{}, &console.PasswordChangedEmail{}, &console.ExistingUserProjectInvitationEmail{},
+			&console.UnverifiedUserProjectInvitationEmail{}, &console.NewUserProjectInvitationEmail{}, &console.UnknownResetPasswordEmail{},
+			&console.AccountAlreadyExistsEmail{}, &console.LoginLockAccountEmail{}, &console.ActivationLockAccountEmail{},
+			&console.BillingWarningEmail{}, &console.BillingFreezeNotificationEmail{}, &console.MFAActivatedEmail{},
+			&console.MFADisabledEmail{}, &console.CreditCardAddedEmail{}, &console.UpgradeToProEmail{},
+		}
+
+		for _, template := range emailTemplates {
+			sat.API.Mail.Service.SendRenderedAsync(tenantCtx, []post.Address{{Address: "test@example.com"}}, template)
+
+			// Get the email body that was sent
+			emailBody, err := sender.Data.Get(ctx)
+			require.NoError(t, err)
+			require.NotEmpty(t, emailBody)
+
+			tenantCfg := sat.Config.Console.WhiteLabel.Value["test-tenant"]
+
+			// Verify white label branding in email
+			t.Run(fmt.Sprintf("%s brand name", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.Name, "Email should contain tenant brand name")
+				require.NotContains(t, emailBody, "Storj Labs", "Email should not contain default Storj branding")
+			})
+
+			t.Run(fmt.Sprintf("%s logo URL", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.LogoURLs["mail"], "Email should contain tenant logo URL")
+			})
+
+			t.Run(fmt.Sprintf("%s primary color", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.Colors["primary"], "Email should contain tenant primary color")
+			})
+
+			t.Run(fmt.Sprintf("%s homepage URL", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.HomepageURL, "Email should contain tenant homepage URL")
+			})
+
+			t.Run(fmt.Sprintf("%s support URL", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.SupportURL, "Email should contain tenant support URL")
+			})
+
+			t.Run(fmt.Sprintf("%s social links", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.SourceCodeURL, "Email should contain tenant source code URL")
+				require.Contains(t, emailBody, tenantCfg.SocialURL, "Email should contain tenant social URL")
+				require.Contains(t, emailBody, tenantCfg.BlogURL, "Email should contain tenant blog URL")
+			})
+
+			t.Run(fmt.Sprintf("%s footer links", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.PrivacyPolicyURL, "Email should contain tenant privacy policy URL")
+				require.Contains(t, emailBody, tenantCfg.TermsOfServiceURL, "Email should contain tenant terms of service URL")
+				require.Contains(t, emailBody, tenantCfg.TermsOfUseURL, "Email should contain tenant terms of use URL")
+			})
+
+			t.Run(fmt.Sprintf("%s address", template.Template()), func(t *testing.T) {
+				require.Contains(t, emailBody, tenantCfg.CompanyName, "Email should contain tenant company name")
+				require.Contains(t, emailBody, tenantCfg.AddressLine1, "Email should contain tenant address line 1")
+				require.Contains(t, emailBody, tenantCfg.AddressLine2, "Email should contain tenant address line 2")
+			})
+
+			t.Run(fmt.Sprintf("%s default branding for non-tenant user", template.Template()), func(t *testing.T) {
+				sat.API.Mail.Service.SendRenderedAsync(ctx, []post.Address{{Address: "test@example.com"}}, template)
+
+				// Get the second email
+				emailBody2, err := sender.Data.Get(ctx)
+				require.NoError(t, err)
+
+				// Should contain default Storj branding
+				require.Contains(t, emailBody2, "Storj", "Email should contain default Storj branding")
+				require.NotContains(t, emailBody2, tenantCfg.Name, "Email should not contain tenant branding")
+			})
+		}
 	})
 }
