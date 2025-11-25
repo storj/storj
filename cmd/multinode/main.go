@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -142,6 +143,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		log.Error("failed to load identity", zap.Error(err))
 		return errs.New("failed to load identity: %+v", err)
+	}
+
+	if err := process.InitMetrics(ctx, log, monkit.Default, process.MetricsIDFromHostname(log), process.UDPDestination); err != nil {
+		log.Warn("Failed to initialize telemetry", zap.Error(err))
 	}
 
 	db, err := multinodedb.Open(ctx, log.Named("db"), runCfg.Database)
