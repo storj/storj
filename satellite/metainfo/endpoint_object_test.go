@@ -1725,7 +1725,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		t.Run("multiple versions", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("multipleversions"))
 
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", testrand.Bytes(10*memory.MiB))
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", testrand.Bytes(10*memory.KiB))
 			require.NoError(t, err)
 
 			// override object
