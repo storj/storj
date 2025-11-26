@@ -4,6 +4,7 @@
 package dbtest
 
 import (
+	"context"
 	"flag"
 	"os"
 	"strings"
@@ -44,7 +45,13 @@ type Database struct {
 
 // TB defines minimal interface required for Pick.
 type TB interface {
-	Skip(...interface{})
+	Cleanup(func())
+	Context() context.Context
+	Fatal(...any)
+	Fatalf(format string, args ...any)
+	Log(...any)
+	Logf(string, ...any)
+	Skip(...any)
 }
 
 // Databases returns list of postgres compatible databases.
@@ -101,12 +108,18 @@ func PickCockroachNoSkip() string {
 	return pickNext(*cockroach, &pickCockroach)
 }
 
-// PickSpanner picks one spanner database from flag.
-func PickSpanner(t TB) string {
+// PickOrStartSpanner picks one spanner database from flag.
+func PickOrStartSpanner(t TB) string {
 	if *spanner == "" || strings.EqualFold(*spanner, "omit") {
 		t.Skip("Spanner flag missing, example: -spanner-test-db=" + DefaultSpanner)
 	}
-	return PickSpannerNoSkip()
+	connstr := PickSpannerNoSkip()
+	if bin, found := strings.CutPrefix(connstr, "run:"); found {
+		host := pickRandomHost()
+		return StartSpannerEmulator(t, host, bin)
+	} else {
+		return connstr
+	}
 }
 
 // PickSpannerNoSkip picks one spanner database from flag, but doesn't autoskip.
@@ -126,6 +139,22 @@ func PickCockroachAlt(t TB) string {
 	}
 
 	return pickNext(*cockroachAlt, &pickCockroach)
+}
+
+var pickHost uint64
+
+func pickRandomHost() string {
+	host := os.Getenv("STORJ_TEST_HOST")
+	if host == "" {
+		return "localhost"
+	}
+	values := strings.Split(host, ";")
+	if len(values) <= 1 {
+		return host
+	}
+
+	v := atomic.AddUint64(&pickHost, 1)
+	return values[v%uint64(len(values))]
 }
 
 var pickPostgres uint64

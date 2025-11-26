@@ -59,7 +59,7 @@ var dbSetup = `
 func TestQuerySchema(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	connstr := dbtest.PickSpanner(t)
+	connstr := dbtest.PickOrStartSpanner(t)
 	db, err := OpenUnique(ctx, zaptest.NewLogger(t), connstr, t.Name(), MustSplitSQLStatements(dbSetup))
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()

@@ -19,7 +19,7 @@ import (
 )
 
 func TestBeginObjectSpanner(t *testing.T) {
-	spannerConnStr := dbtest.PickSpanner(t)
+	spannerConnStr := dbtest.PickOrStartSpanner(t)
 
 	mudtest.Run[*metabase.SpannerAdapter](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
 		metabase.SpannerTestModule(ball, spannerConnStr)

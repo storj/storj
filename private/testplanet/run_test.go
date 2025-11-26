@@ -39,7 +39,7 @@ func BenchmarkRun_Planet(b *testing.B) {
 	})
 }
 func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
-	databases := satellitedbtest.Databases()
+	databases := satellitedbtest.Databases(b)
 	if len(databases) == 0 {
 		b.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +

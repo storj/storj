@@ -130,7 +130,7 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 
 	log := zaptest.NewLogger(t)
 
-	for _, satelliteDB := range satellitedbtest.Databases() {
+	for _, satelliteDB := range satellitedbtest.Databases(t) {
 		satelliteDB := satelliteDB
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			if satelliteDB.Name == "Spanner" {

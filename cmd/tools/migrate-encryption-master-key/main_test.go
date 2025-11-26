@@ -62,7 +62,7 @@ func TestMigrateEncryptionPassphrases(t *testing.T) {
 	err = newKeyKmsService.Initialize(ctx)
 	require.NoError(t, err)
 
-	for _, satelliteDB := range satellitedbtest.Databases() {
+	for _, satelliteDB := range satellitedbtest.Databases(t) {
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			if satelliteDB.Name == "Spanner" {
 				t.Skip("not implemented for spanner")

@@ -20,7 +20,7 @@ var Error = errs.Class("spannertest")
 
 // RunClient creates a new temporary spanner database, executes the ddls and finally connects a spanner client to it.
 func RunClient(ctx context.Context, t *testing.T, ddls string, run func(t *testing.T, client *spanner.Client)) {
-	connstr := dbtest.PickSpanner(t)
+	connstr := dbtest.PickOrStartSpanner(t)
 
 	ephemeral, err := spannerutil.CreateEphemeralDB(ctx, connstr, t.Name(), spannerutil.MustSplitSQLStatements(ddls)...)
 	require.NoError(t, err)

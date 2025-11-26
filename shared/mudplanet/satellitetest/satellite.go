@@ -85,7 +85,7 @@ func dbModule(ball *mud.Ball) {
 }
 
 func runWithDatabases(t *testing.T, fn func(t *testing.T, module func(*mud.Ball))) {
-	databases := satellitedbtest.Databases()
+	databases := satellitedbtest.Databases(t)
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +

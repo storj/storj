@@ -89,7 +89,7 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 func TestChooseAdapter_Spanner(t *testing.T) {
 	ctx := testcontext.New(t)
 
-	ephemeral, err := spannerutil.CreateEphemeralDB(ctx, dbtest.PickSpanner(t), t.Name())
+	ephemeral, err := spannerutil.CreateEphemeralDB(ctx, dbtest.PickOrStartSpanner(t), t.Name())
 	require.NoError(t, err)
 	defer func() { require.NoError(t, err, ephemeral.Close(ctx)) }()
 

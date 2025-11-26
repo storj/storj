@@ -56,7 +56,7 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 		config.TestingSpannerMinOpenedSessions = &zero
 	}
 
-	for _, dbinfo := range satellitedbtest.Databases() {
+	for _, dbinfo := range satellitedbtest.Databases(t) {
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -141,7 +141,7 @@ func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing
 
 // Bench runs benchmark for all configured databases.
 func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *metabase.DB)) {
-	for _, dbinfo := range satellitedbtest.Databases() {
+	for _, dbinfo := range satellitedbtest.Databases(b) {
 		dbinfo := dbinfo
 		b.Run(dbinfo.Name, func(b *testing.B) {
 			tctx := testcontext.New(b)

@@ -27,7 +27,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 		t.Parallel()
 	}
 
-	databases := satellitedbtest.Databases()
+	databases := satellitedbtest.Databases(t)
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
@@ -160,7 +160,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 // Bench makes benchmark with testplanet as easy as running unit tests with Run method.
 func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontext.Context, planet *Planet)) {
-	databases := satellitedbtest.Databases()
+	databases := satellitedbtest.Databases(b)
 	if len(databases) == 0 {
 		b.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +

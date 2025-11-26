@@ -45,7 +45,7 @@ type Test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet
 func Run(t *testing.T, test Test) {
 	t.Parallel()
 
-	databases := satellitedbtest.Databases()
+	databases := satellitedbtest.Databases(t)
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +

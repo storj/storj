@@ -60,7 +60,7 @@ type Database struct {
 }
 
 // Databases returns default databases.
-func Databases() []SatelliteDatabases {
+func Databases[T dbtest.TB](t T) []SatelliteDatabases {
 	var dbs []SatelliteDatabases
 
 	postgresConnStr := dbtest.PickPostgresNoSkip()
@@ -83,10 +83,12 @@ func Databases() []SatelliteDatabases {
 
 	spanner := dbtest.PickSpannerNoSkip()
 	if !strings.EqualFold(spanner, "omit") {
+		// PickSpanner may start a server.
+		connstr := dbtest.PickOrStartSpanner(t)
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Spanner",
-			MasterDB:   Database{"Spanner", spanner, "Spanner flag missing, example: -spanner-test-db=" + dbtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable.", satellitedb.SpannerExtraStatements},
-			MetabaseDB: Database{"Spanner", spanner, "", nil},
+			MasterDB:   Database{"Spanner", connstr, "Spanner flag missing, example: -spanner-test-db=" + dbtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable.", satellitedb.SpannerExtraStatements},
+			MetabaseDB: Database{"Spanner", connstr, "", nil},
 		})
 	}
 
@@ -237,7 +239,7 @@ func RunWithConfig(t *testing.T, cfg Config, test func(ctx *testcontext.Context,
 	if !cfg.NonParallel {
 		t.Parallel()
 	}
-	for _, dbInfo := range Databases() {
+	for _, dbInfo := range Databases(t) {
 		dbInfo := dbInfo
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			if !cfg.NonParallel {
@@ -280,7 +282,7 @@ func RunWithConfig(t *testing.T, cfg Config, test func(ctx *testcontext.Context,
 // Bench method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Bench(b *testing.B, bench func(ctx *testcontext.Context, b *testing.B, db satellite.DB)) {
-	for _, dbInfo := range Databases() {
+	for _, dbInfo := range Databases(b) {
 		dbInfo := dbInfo
 		b.Run(dbInfo.Name, func(b *testing.B) {
 			if dbInfo.MasterDB.URL == "" {

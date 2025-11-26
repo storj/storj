@@ -202,7 +202,7 @@ func TestMigrateSpanner(t *testing.T) {
 	}
 
 	t.Parallel()
-	connstr := dbtest.PickSpanner(t)
+	connstr := dbtest.PickOrStartSpanner(t)
 	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
 	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
 }
