@@ -4,11 +4,14 @@
 package auditlogger
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
 
+	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/analytics"
 )
 
@@ -18,29 +21,17 @@ type Config struct {
 	Caps    CapsConfig
 }
 
-// ItemType represents the type of item being audited.
-type ItemType string
-
-const (
-	// ItemTypeUser represents a user item.
-	ItemTypeUser ItemType = "User"
-	// ItemTypeProject represents a project item.
-	ItemTypeProject ItemType = "Project"
-	// ItemTypeBucket represents a bucket item.
-	ItemTypeBucket ItemType = "Bucket"
-	// ItemTypeEntitlement represents an entitlement item.
-	ItemTypeEntitlement ItemType = "Entitlement"
-)
-
 // Event represents an audit event for an admin operation.
 type Event struct {
-	Action     string    // e.g., "update_user", "freeze_account"
-	AdminEmail string    // Who performed the action
-	ItemType   ItemType  // e.g., "User", "Project", "Bucket"
-	ItemID     uuid.UUID // ID of the affected item
-	Reason     string    // Why the change was made
-	Before     any       // Previous values
-	After      any       // New values
+	UserID     uuid.UUID              // The user who owns the affected item
+	ProjectID  *uuid.UUID             // The project related to the affected item (if applicable)
+	BucketName *string                // The bucket related to the affected item (if applicable)
+	Action     string                 // e.g., "update_user", "freeze_account"
+	AdminEmail string                 // Who performed the action
+	ItemType   changehistory.ItemType // e.g., "User", "Project", "Bucket"
+	Reason     string                 // Why the change was made
+	Before     any                    // Previous values
+	After      any                    // New values
 	Timestamp  time.Time
 }
 
@@ -48,31 +39,60 @@ type Event struct {
 type Logger struct {
 	log       *zap.Logger
 	analytics *analytics.Service
-	config    Config
+
+	changeHistory changehistory.DB
+	changeEvents  chan Event
+	worker        sync2.Limiter
+
+	config Config
 }
 
 // New creates a new Logger.
-func New(log *zap.Logger, analytics *analytics.Service, config Config) *Logger {
+func New(log *zap.Logger, analytics *analytics.Service, changeHistory changehistory.DB, config Config) *Logger {
 	return &Logger{
 		log:       log,
 		analytics: analytics,
-		config:    config,
+
+		changeHistory: changeHistory,
+		changeEvents:  make(chan Event, 100),
+		worker:        *sync2.NewLimiter(2),
+
+		config: config,
 	}
 }
 
-// LogChangeEvent logs an admin change event to Segment.
-func (s *Logger) LogChangeEvent(userID uuid.UUID, event Event) {
+// EnqueueChangeEvent logs an admin change event to Segment.
+func (s *Logger) EnqueueChangeEvent(event Event) {
 	if !s.config.Enabled {
 		return
 	}
 
+	s.changeEvents <- event
+}
+
+func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
+	if !s.config.Enabled {
+		return
+	}
+
+	var itemID string
+	if event.ItemType == changehistory.ItemTypeUser {
+		itemID = event.UserID.String()
+	} else if event.ItemType == changehistory.ItemTypeProject && event.ProjectID != nil {
+		itemID = event.ProjectID.String()
+	} else if event.ItemType == changehistory.ItemTypeBucket && event.BucketName != nil {
+		itemID = *event.BucketName
+	} else {
+		s.log.Error("logging audit event with missing item ID")
+	}
+
 	changes := BuildChangeSet(event.Before, event.After, s.config.Caps)
 
-	s.analytics.TrackAdminAuditEvent(userID, map[string]any{
+	s.analytics.TrackAdminAuditEvent(event.UserID, map[string]any{
 		"action":      event.Action,
 		"admin_email": event.AdminEmail,
 		"item_type":   string(event.ItemType),
-		"item_id":     event.ItemID.String(),
+		"item_id":     itemID,
 		"reason":      event.Reason,
 		"changes":     changes,
 		"timestamp":   event.Timestamp,
@@ -82,7 +102,52 @@ func (s *Logger) LogChangeEvent(userID uuid.UUID, event Event) {
 		zap.String("action", event.Action),
 		zap.String("admin_email", event.AdminEmail),
 		zap.String("item_type", string(event.ItemType)),
-		zap.String("item_id", event.ItemID.String()),
+		zap.String("item_id", itemID),
 		zap.Int("changes_count", len(changes)),
 	)
+
+	changeHistoryParams := changehistory.ChangeLog{
+		UserID:     event.UserID,
+		ProjectID:  event.ProjectID,
+		BucketName: event.BucketName,
+		AdminEmail: event.AdminEmail,
+		ItemType:   event.ItemType,
+		Reason:     event.Reason,
+		Operation:  event.Action,
+		Changes:    changes,
+		Timestamp:  event.Timestamp,
+	}
+	if _, err := s.changeHistory.LogChange(ctx, changeHistoryParams); err != nil {
+		s.log.Error("failed to log change history in database", zap.Error(err))
+	}
+}
+
+// Run starts the audit logger processing loop.
+func (s *Logger) Run(ctx context.Context) error {
+	defer s.worker.Wait()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ev := <-s.changeEvents:
+			s.worker.Go(ctx, func() {
+				s.logChangeEvent(ctx, ev)
+			})
+		}
+	}
+}
+
+// Close shuts down the audit logger.
+func (s *Logger) Close() error {
+	close(s.changeEvents)
+	s.worker.Wait()
+	return nil
+}
+
+// TestToggleAuditLogger enables or disables the audit logger for testing purposes.
+func (s *Logger) TestToggleAuditLogger(enabled bool) {
+	s.config.Enabled = enabled
 }

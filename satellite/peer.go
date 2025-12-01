@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
@@ -127,6 +128,8 @@ type DB interface {
 	ReverifyQueue() audit.ReverifyQueue
 	// Console returns database for satellite console
 	Console() console.DB
+	// AdminChangeHistory returns the database for storing admin change history.
+	AdminChangeHistory() changehistory.DB
 	// OIDC returns the database for OIDC resources.
 	OIDC() oidc.DB
 	// Orders returns database for orders
