@@ -72,13 +72,13 @@ func NewService(
 	buckets *buckets.Service,
 	entitlements *entitlements.Service,
 	metabaseDB *metabase.DB,
+	logger *auditlogger.Logger,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
 	placement nodeselection.PlacementDefinitions,
 	products map[int32]payments.ProductUsagePriceModel,
 	defaultMaxBuckets int,
 	defaultRateLimit float64,
-	auditLoggerConfig auditlogger.Config,
 	adminConfig Config,
 	consoleConfig console.Config,
 	nowFn func() time.Time,
@@ -92,7 +92,7 @@ func NewService(
 		accounting:    accounting,
 		accountFreeze: accountFreeze,
 		authorizer:    authorizer,
-		auditLogger:   auditlogger.New(log.Named("audit-logger"), analytics, auditLoggerConfig),
+		auditLogger:   logger,
 		buckets:       buckets,
 		entitlements:  entitlements,
 		metabase:      metabaseDB,
@@ -197,4 +197,9 @@ func (s *Service) TestSetAllowedHost(host string) {
 // TestSetNowFn sets the function to get the current time. This is only for testing purposes.
 func (s *Service) TestSetNowFn(nowFn func() time.Time) {
 	s.nowFn = nowFn
+}
+
+// TestToggleAuditLogger enables or disables the audit logger for testing purposes.
+func (s *Service) TestToggleAuditLogger(enabled bool) {
+	s.auditLogger.TestToggleAuditLogger(enabled)
 }

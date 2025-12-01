@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 )
@@ -210,11 +211,13 @@ func (s *Service) UpdateBucket(ctx context.Context, authInfo *AuthInfo, projectP
 		}
 	}
 
-	s.auditLogger.LogChangeEvent(project.OwnerID, auditlogger.Event{
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     project.OwnerID,
+		ProjectID:  &project.PublicID,
+		BucketName: &bucket.Name,
 		Action:     "update_bucket",
 		AdminEmail: authInfo.Email,
-		ItemType:   auditlogger.ItemTypeBucket,
-		ItemID:     bucket.ID,
+		ItemType:   changehistory.ItemTypeBucket,
 		Reason:     req.Reason,
 		Before:     before,
 		After:      updated,

@@ -19,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
@@ -451,6 +452,7 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		}
 	}
 
+	var projectChangeEvents []auditlogger.Event
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
 		usersDB := tx.Users()
 		err = usersDB.Update(ctx, userID, console.UpdateUserRequest{
@@ -490,18 +492,22 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 
 		projectsDB := tx.Projects()
 		for _, p := range beforeState.Projects {
+			after := p
 			var toUpdate []console.Limit
 			if request.StorageLimit != nil {
+				after.StorageLimit = *request.StorageLimit
 				toUpdate = append(toUpdate, console.Limit{
 					Kind: console.StorageLimit, Value: request.StorageLimit,
 				})
 			}
 			if request.BandwidthLimit != nil {
+				after.BandwidthLimit = *request.BandwidthLimit
 				toUpdate = append(toUpdate, console.Limit{
 					Kind: console.BandwidthLimit, Value: request.BandwidthLimit,
 				})
 			}
 			if request.SegmentLimit != nil {
+				after.SegmentLimit = *request.SegmentLimit
 				toUpdate = append(toUpdate, console.Limit{
 					Kind: console.SegmentLimit, Value: request.SegmentLimit,
 				})
@@ -509,6 +515,20 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 			if err = projectsDB.UpdateLimitsGeneric(ctx, p.ID, toUpdate); err != nil {
 				return err
 			}
+			if p == after {
+				continue
+			}
+			projectChangeEvents = append(projectChangeEvents, auditlogger.Event{
+				UserID:     userID,
+				ProjectID:  &p.PublicID,
+				Action:     "update_project",
+				AdminEmail: authInfo.Email,
+				ItemType:   changehistory.ItemTypeProject,
+				Reason:     request.Reason,
+				Before:     p,
+				After:      after,
+				Timestamp:  s.nowFn(),
+			})
 		}
 
 		return nil
@@ -525,11 +545,14 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		return nil, apiErr
 	}
 
-	s.auditLogger.LogChangeEvent(userID, auditlogger.Event{
+	for _, event := range projectChangeEvents {
+		s.auditLogger.EnqueueChangeEvent(event)
+	}
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
 		Action:     "update_user",
 		AdminEmail: authInfo.Email,
-		ItemType:   auditlogger.ItemTypeUser,
-		ItemID:     userID,
+		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,
 		Before:     beforeState,
 		After:      updatedUser,
@@ -771,11 +794,11 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	}
 
 	auditLog := func(action string, before, after console.User) {
-		s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+			UserID:     userID,
 			Action:     action,
 			AdminEmail: authInfo.Email,
-			ItemType:   auditlogger.ItemTypeUser,
-			ItemID:     user.ID,
+			ItemType:   changehistory.ItemTypeUser,
 			Reason:     request.Reason,
 			Before:     before,
 			After:      after,
@@ -907,11 +930,11 @@ func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid
 	if err != nil {
 		s.log.Error("Failed to retrieve user after toggling MFA", zap.Stringer("userId", user.ID), zap.Error(err))
 	} else {
-		s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+			UserID:     userID,
 			Action:     "toggle_mfa",
 			AdminEmail: authInfo.Email,
-			ItemType:   auditlogger.ItemTypeUser,
-			ItemID:     user.ID,
+			ItemType:   changehistory.ItemTypeUser,
 			Reason:     request.Reason,
 			Before:     user,
 			After:      afterState,
@@ -968,11 +991,11 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 		}
 	}
 
-	s.auditLogger.LogChangeEvent(user.ID, auditlogger.Event{
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
 		Action:     "create_rest_key",
 		AdminEmail: authInfo.Email,
-		ItemType:   auditlogger.ItemTypeUser,
-		ItemID:     user.ID,
+		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,
 		Before:     nil,
 		After:      apiKey[:5] + "*****",
