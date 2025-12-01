@@ -16,7 +16,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -114,7 +113,7 @@ func TestDQStrayNodesFailedPingback(t *testing.T) {
 		sat.Overlay.DQStrayNodes.Loop.Pause()
 		oc := sat.DB.OverlayCache()
 
-		testID := teststorj.NodeIDFromString("test")
+		testID := testrand.NodeID()
 		checkIn := overlay.NodeCheckInInfo{
 			NodeID: testID,
 			IsUp:   false,

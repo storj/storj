@@ -21,7 +21,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/version"
-	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -37,11 +36,11 @@ func TestGetOfflineNodesForEmail(t *testing.T) {
 			OnlineWindow: 4 * time.Hour,
 		}
 
-		offlineID := teststorj.NodeIDFromString("offlineNode")
-		onlineID := teststorj.NodeIDFromString("onlineNode")
-		disqualifiedID := teststorj.NodeIDFromString("dqNode")
-		exitedID := teststorj.NodeIDFromString("exitedNode")
-		offlineNoEmailID := teststorj.NodeIDFromString("noEmail")
+		offlineID := testrand.NodeID()
+		onlineID := testrand.NodeID()
+		disqualifiedID := testrand.NodeID()
+		exitedID := testrand.NodeID()
+		offlineNoEmailID := testrand.NodeID()
 
 		checkInInfo := overlay.NodeCheckInInfo{
 			IsUp: true,
@@ -112,8 +111,8 @@ func TestUpdateLastOfflineEmail(t *testing.T) {
 			OnlineWindow: 4 * time.Hour,
 		}
 
-		nodeID0 := teststorj.NodeIDFromString("testnode0")
-		nodeID1 := teststorj.NodeIDFromString("testnode1")
+		nodeID0 := testrand.NodeID()
+		nodeID1 := testrand.NodeID()
 
 		checkInInfo := overlay.NodeCheckInInfo{
 			IsUp: true,
@@ -202,7 +201,7 @@ func TestUpdateCheckInDirectUpdate(t *testing.T) {
 		selectionCfg := overlay.NodeSelectionConfig{
 			OnlineWindow: 4 * time.Hour,
 		}
-		nodeID := teststorj.NodeIDFromString("testnode0")
+		nodeID := testrand.NodeID()
 		checkInInfo := overlay.NodeCheckInInfo{
 			IsUp: true,
 			Address: &pb.NodeAddress{

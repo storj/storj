@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -19,7 +19,7 @@ import (
 
 func TestNodeEvents(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID := teststorj.NodeIDFromString("test")
+		testID := testrand.NodeID()
 		testEmail := "test@storj.test"
 		eventType := nodeevents.Disqualified
 		ipPort := "127.0.0.1:1234"
@@ -46,8 +46,7 @@ func TestNodeEvents(t *testing.T) {
 
 func TestNodeEventsUpdateEmailSent(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
 		testEmail1 := "test1@storj.test"
 		eventType := nodeevents.Disqualified
 
@@ -89,8 +88,7 @@ func TestNodeEventsUpdateEmailSent(t *testing.T) {
 
 func TestNodeEventsUpdateLastAttempted(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
 		testEmail1 := "test1@storj.test"
 		eventType := nodeevents.Disqualified
 
@@ -122,8 +120,7 @@ func TestNodeEventsUpdateLastAttempted(t *testing.T) {
 
 func TestNodeEventsGetByID(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
 		testEmail1 := "test1@storj.test"
 		testEmail2 := "test2@storj.test"
 
@@ -151,8 +148,7 @@ func TestNodeEventsGetByID(t *testing.T) {
 
 func TestNodeEventsGetNextBatch(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testID1 := teststorj.NodeIDFromString("test1")
-		testID2 := teststorj.NodeIDFromString("test2")
+		testID1, testID2 := testrand.NodeID(), testrand.NodeID()
 		testEmail1 := "test1@storj.test"
 		testEmail2 := "test2@storj.test"
 
@@ -200,10 +196,7 @@ func TestNodeEventsGetNextBatch(t *testing.T) {
 
 func TestNodeEventsGetNextBatchSelectionOrder(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		id0 := teststorj.NodeIDFromString("test0")
-		id1 := teststorj.NodeIDFromString("test1")
-		id2 := teststorj.NodeIDFromString("test2")
-		id3 := teststorj.NodeIDFromString("test3")
+		id0, id1, id2, id3 := testrand.NodeID(), testrand.NodeID(), testrand.NodeID(), testrand.NodeID()
 
 		email0 := "test0@storj.test"
 		email1 := "test1@storj.test"

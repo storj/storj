@@ -13,9 +13,9 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
@@ -200,7 +200,7 @@ func TestNodeEventsChoreInvalidEmails(t *testing.T) {
 
 		event := nodeevents.Disqualified
 		for _, e := range emails {
-			_, err := sat.DB.NodeEvents().Insert(ctx, e, nil, teststorj.NodeIDFromString("test"), event)
+			_, err := sat.DB.NodeEvents().Insert(ctx, e, nil, testrand.NodeID(), event)
 			require.NoError(t, err)
 		}
 

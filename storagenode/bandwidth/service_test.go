@@ -11,8 +11,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/teststorj"
 )
 
 // Simple test for ensuring the service Persists the cache to the DB.
@@ -20,7 +20,7 @@ func TestBandwidthService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		testID1 := teststorj.NodeIDFromString("testId1")
+		testID1 := testrand.NodeID()
 
 		for _, storageNode := range planet.StorageNodes {
 			// stop bandwidth service, so we can run it manually
