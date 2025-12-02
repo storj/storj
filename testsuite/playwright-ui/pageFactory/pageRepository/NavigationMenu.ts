@@ -36,6 +36,10 @@ export class NavigationMenu {
         await this.page.locator(NavigationMenuObject.MY_ACCOUNT_BUTTON_XPATH).click();
     }
 
+    async openResources(): Promise<void> {
+        await this.page.locator(NavigationMenuObject.RESOURCES_BUTTON_XPATH).click();
+    }
+
     async navigateToAccountSettings(): Promise<void> {
         await this.openAccountSettings();
         await this.page.locator(NavigationMenuObject.ACCOUNT_SETTINGS_MENU_ITEM_XPATH).click();

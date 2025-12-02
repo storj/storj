@@ -5,6 +5,7 @@ export class LoginPageObjects {
     static EMAIL_EDITBOX_ID = `//input[@id='Email Address']`;
     static PASSWORD_EDITBOX_ID = `//input[@id='Password']`;
     static CONTINUE_BUTTON_XPATH = `//button[span[text()=' Continue ']]`;
+    static ERROR_MESSAGE_XPATH = `//div[contains(text(), 'Invalid Credentials')]`;
 
     // SETUP ACCOUNT (FIRST LOGIN)
     static FIRST_STEP_HEADER_XPATH = `//h2[text()='Set up your account']`;

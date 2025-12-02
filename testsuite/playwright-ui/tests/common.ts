@@ -14,10 +14,17 @@ export type CreateAndOnboardUserParams = {
     name: string;
     companyName: string;
     managedEnc: boolean;
+    dontLogout?: boolean;
+    baseURL?: string;
+    skipBilling?: boolean;
 }
 
 export async function createAndOnboardUser(params: CreateAndOnboardUserParams): Promise<void> {
-    await params.signupPage.navigateToSignup();
+    if (params.baseURL) {
+        await params.signupPage.page.goto(`${params.baseURL}/signup`);
+    } else {
+        await params.signupPage.navigateToSignup();
+    }
     await params.signupPage.signupFirstStep(params.email, params.password);
     await params.signupPage.verifySuccessMessage();
     await params.signupPage.navigateToLogin();
@@ -25,10 +32,14 @@ export async function createAndOnboardUser(params: CreateAndOnboardUserParams): 
     await params.loginPage.loginByCreds(params.email, params.password);
     await params.loginPage.verifySetupAccountFirstStep();
     await params.loginPage.fillSetupForm(params.name, params.companyName);
-    await params.loginPage.selectFreeTrial();
+    if (!params.skipBilling) {
+        await params.loginPage.selectFreeTrial();
+    }
     await params.loginPage.selectManagedEnc(params.managedEnc);
     await params.loginPage.ensureSetupSuccess();
     await params.loginPage.finishSetup();
 
-    await params.navigationMenu.logout();
+    if (!params.dontLogout) {
+        await params.navigationMenu.logout();
+    }
 }
