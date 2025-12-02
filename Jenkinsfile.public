@@ -133,27 +133,11 @@ pipeline {
                 STORJ_TEST_LOG_LEVEL = 'info'
                 STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
-                STORJ_TEST_SPANNER = 'spanner://127.0.0.1:9010?emulator|' +
-                    'spanner://127.0.0.1:9011?emulator|' +
-                    'spanner://127.0.0.1:9012?emulator|' +
-                    'spanner://127.0.0.1:9013?emulator|' +
-                    'spanner://127.0.0.1:9014?emulator|' +
-                    'spanner://127.0.0.1:9015?emulator|' +
-                    'spanner://127.0.0.1:9016?emulator|' +
-                    'spanner://127.0.0.1:9017?emulator'
+                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
-                CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG='--override_change_stream_partition_token_alive_seconds=1'
+                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
             }
             steps {
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9010 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9011 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9012 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9013 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9014 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9015 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9016 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-                sh '/usr/local/bin/spanner_emulator --host_port 127.0.0.1:9017 $CHANGE_STREAM_PARTITION_TOKEN_ALIVE_SECONDS_FLAG &'
-
                 sh 'use-ports -from 1024 -to 10000 &'
 
                 sh 'go test -parallel 7 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
