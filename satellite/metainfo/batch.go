@@ -632,8 +632,8 @@ func shouldDoInlineObject(index int, requests []*pb.BatchRequestItem) (_ *pb.Seg
 }
 
 // multipartUpload checks whether the current ObjectBegin request is part of a multipart upload
-// or regular upload. We can detect that by checking if the next request is SegmentBegin which is
-// never the case for multipart uploads.
+// or regular upload. We can detect that by checking if the next request is segment creation (inline/remote)
+// which is never the case for multipart uploads.
 func multipartUpload(index int, requests []*pb.BatchRequestItem) bool {
-	return !(len(requests) > index+1 && requests[index+1].GetSegmentBegin() != nil)
+	return !(len(requests) > index+1 && (requests[index+1].GetSegmentBegin() != nil || requests[index+1].GetSegmentMakeInline() != nil))
 }
