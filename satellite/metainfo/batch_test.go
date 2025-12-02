@@ -288,7 +288,7 @@ func TestBatchBeginObjectMultipartDetection(t *testing.T) {
 			require.True(t, satStreamID.MultipartObject)
 		})
 
-		t.Run("non multipart", func(t *testing.T) {
+		t.Run("non multipart with remote segment", func(t *testing.T) {
 			response, err := endpoint.Batch(peerctx, &pb.BatchRequest{
 				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 				Requests: []*pb.BatchRequestItem{
@@ -355,6 +355,99 @@ func TestBatchBeginObjectMultipartDetection(t *testing.T) {
 								Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
 								Position:      &pb.SegmentPosition{},
 								MaxOrderLimit: memory.MiB.Int64(),
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_BucketList{
+							BucketList: &pb.ListBucketsRequest{
+								Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Direction: pb.ListDirection_AFTER,
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, response.Responses, 4)
+
+			satStreamID = &internalpb.StreamID{}
+			err = pb.Unmarshal(response.Responses[1].GetObjectBegin().StreamId.Bytes(), satStreamID)
+			require.NoError(t, err)
+			require.False(t, satStreamID.MultipartObject)
+		})
+
+		t.Run("non multipart with inline segment", func(t *testing.T) {
+			response, err := endpoint.Batch(peerctx, &pb.BatchRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Requests: []*pb.BatchRequestItem{
+					{
+						Request: &pb.BatchRequestItem_ObjectBegin{
+							ObjectBegin: &pb.BeginObjectRequest{
+								Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Bucket:             []byte(bucketName),
+								EncryptedObjectKey: []byte("inline-key"),
+								EncryptionParameters: &pb.EncryptionParameters{
+									CipherSuite: pb.CipherSuite_ENC_AESGCM,
+									BlockSize:   256,
+								},
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_SegmentMakeInline{
+							SegmentMakeInline: &pb.SegmentMakeInlineRequest{
+								Header:              &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Position:            &pb.SegmentPosition{},
+								EncryptedInlineData: testrand.Bytes(memory.KiB),
+								PlainSize:           memory.KiB.Int64(),
+								EncryptedKey:        testrand.Bytes(32),
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, response.Responses, 2)
+
+			satStreamID := &internalpb.StreamID{}
+			err = pb.Unmarshal(response.Responses[0].GetObjectBegin().StreamId.Bytes(), satStreamID)
+			require.NoError(t, err)
+			require.False(t, satStreamID.MultipartObject)
+
+			// upload around other requests
+			response, err = endpoint.Batch(peerctx, &pb.BatchRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Requests: []*pb.BatchRequestItem{
+					{
+						Request: &pb.BatchRequestItem_BucketList{
+							BucketList: &pb.ListBucketsRequest{
+								Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Direction: pb.ListDirection_AFTER,
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_ObjectBegin{
+							ObjectBegin: &pb.BeginObjectRequest{
+								Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Bucket:             []byte(bucketName),
+								EncryptedObjectKey: []byte("inline-key-2"),
+								EncryptionParameters: &pb.EncryptionParameters{
+									CipherSuite: pb.CipherSuite_ENC_AESGCM,
+									BlockSize:   256,
+								},
+							},
+						},
+					},
+					{
+						Request: &pb.BatchRequestItem_SegmentMakeInline{
+							SegmentMakeInline: &pb.SegmentMakeInlineRequest{
+								Header:              &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+								Position:            &pb.SegmentPosition{},
+								EncryptedInlineData: testrand.Bytes(memory.KiB),
+								PlainSize:           memory.KiB.Int64(),
+								EncryptedKey:        testrand.Bytes(32),
 							},
 						},
 					},
