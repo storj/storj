@@ -6,6 +6,7 @@ package metainfo
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/event"
 )
 
 // CompressedBatch handles requests sent in batch that are compressed.
@@ -32,6 +34,9 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
+	event.Annotate(ctx, "compressed_req", len(req.Data))
+	event.Annotate(ctx, "raw_req", len(reqData))
 
 	var unReq pb.BatchRequest
 	err = pb.Unmarshal(reqData, &unReq)
@@ -71,6 +76,8 @@ func (endpoint *Endpoint) CompressedBatch(ctx context.Context, req *pb.Compresse
 		}
 	}
 
+	event.Annotate(ctx, "compressed_resp", len(resp.Data))
+	event.Annotate(ctx, "raw_resp", len(unrespData))
 	mon.IntVal("compressed_batch_response_sizes", monkit.NewSeriesTag("rpc", rpc)).Observe(int64(len(resp.Data)))
 
 	return resp, nil
@@ -100,8 +107,21 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 	var lastSegmentID storj.SegmentID
 	var prevSegmentReq *pb.BatchRequestItem
 
+	origCtx := ctx
 	for i := 0; i < len(req.Requests); i++ {
 		request := req.Requests[i]
+
+		if i > 0 {
+			// we prefer to have dedicated eventkit event for each operation
+			// here we replace context with forked one, which includes dedicated event
+			var report func()
+			ctx, report = event.ForkEvent(origCtx)
+			//nolint:gocritic
+			defer report()
+		}
+		event.Annotate(ctx, "batch_ix", i)
+		batchType := strings.Split(fmt.Sprintf("%T", request.Request), "_")
+		event.Annotate(ctx, "batch_type", batchType[len(batchType)-1])
 
 		mon.IntVal("batch_request_sizes",
 			monkit.NewSeriesTag("rpc", fmt.Sprintf("%T", request.Request)),
