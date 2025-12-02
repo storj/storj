@@ -58,7 +58,10 @@ export default defineConfig({
                 headless: true,
                 launchOptions: {
                     // args: ["--headless","--no-sandbox","--use-angle=gl"]
-                    args: ['--no-sandbox'],
+                    args: [
+                        '--no-sandbox',
+                        '--host-resolver-rules=MAP tenant1.localhost.test 127.0.0.1,MAP tenant2.localhost.test 127.0.0.1',
+                    ],
                 },
                 permissions: ['clipboard-read', 'clipboard-write'],
             },

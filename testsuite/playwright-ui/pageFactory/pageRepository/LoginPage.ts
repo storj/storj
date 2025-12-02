@@ -50,4 +50,9 @@ export class LoginPage {
     async finishSetup(): Promise<void> {
         await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).nth(1).click();
     }
+
+    async verifyInvalidCredentials(): Promise<void> {
+        const error = this.page.locator(LoginPageObjects.ERROR_MESSAGE_XPATH);
+        await expect(error).toBeVisible();
+    }
 }

@@ -10,6 +10,7 @@ export class NavigationMenuObject {
     static CONFIRM_SWITCH_PASSPHRASE_BUTTON_XPATH = `//button[span[text()=' Continue ']]`;
     static CONFIRM_ENTER_PASSPHRASE_BUTTON_XPATH = `//button[span[text()='Continue ->']]`;
     static MY_ACCOUNT_BUTTON_XPATH = `//button[span[text()=' My Account ']]`;
+    static RESOURCES_BUTTON_XPATH = `//div[text()='Resources']`;
     static ACCOUNT_SETTINGS_MENU_ITEM_XPATH = `//div[text()=' Settings ']`;
     static SIGN_OUT_MENU_ITEM_XPATH = `//div[text()=' Sign Out ']`;
     static TEAM_XPATH = `//a/div/div[contains(text(),'Team')]`;

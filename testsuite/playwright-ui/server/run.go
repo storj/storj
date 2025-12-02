@@ -43,6 +43,28 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 	config.DisableConsoleFromSatelliteAPI = false
 
 	configureSelfServePlacement(config)
+	configureWhiteLabel(config)
+}
+
+func configureWhiteLabel(config *satellite.Config) {
+	config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
+		"tenant1": {
+			TenantID:   "tenant1",
+			HostName:   "tenant1.localhost.test",
+			Name:       "Tenant One",
+			SupportURL: "https://support.tenant1.example",
+		},
+		"tenant2": {
+			TenantID:   "tenant2",
+			HostName:   "tenant2.localhost.test",
+			Name:       "Tenant Two",
+			SupportURL: "https://support.tenant2.example",
+		},
+	}
+	config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
+		"tenant1.localhost.test": "tenant1",
+		"tenant2.localhost.test": "tenant2",
+	}
 }
 
 func configureSelfServePlacement(config *satellite.Config) {
