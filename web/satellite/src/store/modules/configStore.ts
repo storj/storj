@@ -10,6 +10,7 @@ import { centsToDollars } from '@/utils/strings';
 import { Time } from '@/utils/time';
 import { User } from '@/types/users';
 import { PricingPlanInfo } from '@/types/common';
+import { APIError } from '@/utils/error';
 
 export class ConfigState {
     public config: FrontendConfig = new FrontendConfig();
@@ -47,20 +48,54 @@ export const useConfigStore = defineStore('config', () => {
     async function getPartnerSignupConfig(partner: string): Promise<void> {
         if (!partner || signupConfig.value.has(partner)) return;
 
-        const conf = await configApi.getPartnerUIConfig('signup', partner);
-        signupConfig.value.set(partner, conf);
+        try {
+            const conf = await configApi.getPartnerUIConfig('signup', partner);
+            signupConfig.value.set(partner, conf);
+        } catch (error) {
+            if (error instanceof APIError && error.status !== 404) {
+                throw error;
+            }
+            try {
+                const config = (await import('@/configs/registrationViewConfig.json')).default;
+                if (!config[partner]) return;
+                signupConfig.value.set(partner, config[partner]);
+            } catch { /* empty */ }
+        }
     }
 
     async function getPartnerOnboardingConfig(partner: string): Promise<void> {
         if (!partner || onboardingConfig.value.has(partner)) return;
 
-        const conf = await configApi.getPartnerUIConfig('onboarding', partner);
-        onboardingConfig.value.set(partner, conf);
+        try {
+            const conf = await configApi.getPartnerUIConfig('onboarding', partner);
+            onboardingConfig.value.set(partner, conf);
+        } catch (error) {
+            if (error instanceof APIError && error.status !== 404) {
+                throw error;
+            }
+            try {
+                const config = (await import('@/configs/onboardingConfig.json')).default;
+                if (!config[partner]) return;
+                onboardingConfig.value.set(partner, config[partner]);
+            } catch { /* empty */ }
+        }
     }
 
     async function getPartnerPricingPlanConfig(partner: string): Promise<PricingPlanInfo | null> {
         if (!partner) return null;
-        return (await configApi.getPartnerUIConfig('pricing-plan', partner)) as PricingPlanInfo;
+        try {
+            return (await configApi.getPartnerUIConfig('pricing-plan', partner)) as PricingPlanInfo;
+        } catch (error) {
+            if (error instanceof APIError && error.status !== 404) {
+                throw error;
+            }
+            try {
+                const config = (await import('@/configs/pricingPlanConfig.json')).default;
+                return (config[partner] as PricingPlanInfo);
+            } catch {
+                return null;
+            }
+        }
     }
 
     function getBillingEnabled(user: User): boolean {
