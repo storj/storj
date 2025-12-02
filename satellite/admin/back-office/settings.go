@@ -137,6 +137,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountCreateRestKey) {
 			settings.Admin.Features.Account.CreateRestKey = true
 		}
+		if s.authorizer.HasPermissions(g, PermAccountView, PermViewChangeHistory) {
+			settings.Admin.Features.Account.History = true
+		}
 
 		// project permission features
 		if s.authorizer.HasPermissions(g, PermProjectView) {
@@ -163,16 +166,25 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.adminConfig.PendingDeleteProjectCleanupEnabled && s.authorizer.HasPermissions(g, PermProjectMarkPendingDeletion) {
 			settings.Admin.Features.Project.MarkPendingDeletion = true
 		}
+		if s.authorizer.HasPermissions(g, PermProjectView, PermViewChangeHistory) {
+			settings.Admin.Features.Project.History = true
+		}
 
 		// bucket permission features
 		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {
 			settings.Admin.Features.Bucket.List = true
+		}
+		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {
+			settings.Admin.Features.Bucket.View = true
 		}
 		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketSetDataPlacement) {
 			settings.Admin.Features.Bucket.UpdatePlacement = true
 		}
 		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketSetUserAgent) {
 			settings.Admin.Features.Bucket.UpdateValueAttribution = true
+		}
+		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView, PermViewChangeHistory) {
+			settings.Admin.Features.Bucket.History = true
 		}
 	}
 

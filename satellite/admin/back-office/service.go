@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -40,6 +41,7 @@ type Service struct {
 
 	accountingDB accounting.ProjectAccounting
 	consoleDB    console.DB
+	history      changehistory.DB
 	metabase     *metabase.DB
 
 	accountFreeze *console.AccountFreezeService
@@ -64,6 +66,7 @@ type Service struct {
 func NewService(
 	log *zap.Logger,
 	consoleDB console.DB,
+	history changehistory.DB,
 	accountingDB accounting.ProjectAccounting,
 	accounting *accounting.Service,
 	authorizer *Authorizer,
@@ -86,6 +89,7 @@ func NewService(
 	return &Service{
 		log:           log,
 		consoleDB:     consoleDB,
+		history:       history,
 		restKeys:      restKeys,
 		analytics:     analytics,
 		accountingDB:  accountingDB,
@@ -177,6 +181,61 @@ func (s *Service) SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo,
 	}
 
 	return &SearchResult{Accounts: users}, api.HTTPError{}
+}
+
+// GetChangeHistory retrieves the change history for a specific user, project, and bucket.
+func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType string, id string) ([]changehistory.ChangeLog, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) ([]changehistory.ChangeLog, api.HTTPError) {
+		return nil, api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	var changes []changehistory.ChangeLog
+	switch changehistory.ItemType(itemType) {
+	case changehistory.ItemTypeUser:
+		uuID, err := uuid.FromString(id)
+		if err != nil {
+			return apiError(http.StatusBadRequest, errs.New("invalid user ID"))
+		}
+		changes, err = s.history.GetChangesByUserID(ctx, uuID, exact == "true")
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+	case changehistory.ItemTypeProject:
+		uuID, err := uuid.FromString(id)
+		if err != nil {
+			return apiError(http.StatusBadRequest, errs.New("invalid project ID"))
+		}
+		changes, err = s.history.GetChangesByProjectID(ctx, uuID, exact == "true")
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+	case changehistory.ItemTypeBucket:
+		changes, err = s.history.GetChangesByBucketName(ctx, id)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+	default:
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("at least one of userID, projectID, or bucketID must be provided"),
+		}
+	}
+
+	return changes, api.HTTPError{}
 }
 
 // TestSetRoleViewer sets a role to viewer for testing purposes.

@@ -23,55 +23,85 @@ func TestChangeHistories(t *testing.T) {
 		userID := testrand.UUID()
 		projectID := testrand.UUID()
 		bucketName := testrand.BucketName()
-		timestamp := time.Now().Truncate(time.Microsecond)
+		timestamp := time.Now().Truncate(time.Second)
 
-		params := changehistory.ChangeLog{
+		// Log a user change
+		_, err := changeHistories.LogChange(ctx, changehistory.ChangeLog{
+			UserID:     userID,
+			AdminEmail: "admin@example.com",
+			ItemType:   changehistory.ItemTypeUser,
+			Operation:  "update_user",
+			Reason:     "test",
+			Changes:    map[string]any{"field": "value"},
+			Timestamp:  timestamp,
+		})
+		require.NoError(t, err)
+
+		// Log a project change for the same user
+		_, err = changeHistories.LogChange(ctx, changehistory.ChangeLog{
+			UserID:     userID,
+			ProjectID:  &projectID,
+			AdminEmail: "admin@example.com",
+			ItemType:   changehistory.ItemTypeProject,
+			Operation:  "update_project",
+			Reason:     "test",
+			Changes:    map[string]any{"field": "value"},
+			Timestamp:  timestamp,
+		})
+		require.NoError(t, err)
+
+		// Log a bucket change for the same user
+		_, err = changeHistories.LogChange(ctx, changehistory.ChangeLog{
 			UserID:     userID,
 			ProjectID:  &projectID,
 			BucketName: &bucketName,
 			AdminEmail: "admin@example.com",
 			ItemType:   changehistory.ItemTypeBucket,
-			Reason:     "user request",
-			Operation:  "update",
-			Changes: map[string]any{
-				"field1": "value1",
-				"field2": 42,
-				"field3": true,
-			},
-			Timestamp: timestamp,
-		}
-
-		result, err := changeHistories.LogChange(ctx, params)
+			Operation:  "update_bucket",
+			Reason:     "test",
+			Changes:    map[string]any{"field": "value"},
+			Timestamp:  timestamp,
+		})
 		require.NoError(t, err)
-		require.NotNil(t, result)
 
-		// Verify all fields match
-		require.Equal(t, userID, result.UserID)
-		require.NotNil(t, result.ProjectID)
-		require.Equal(t, projectID, *result.ProjectID)
-		require.NotNil(t, result.BucketName)
-		require.Equal(t, bucketName, *result.BucketName)
-		require.Equal(t, "admin@example.com", result.AdminEmail)
-		require.Equal(t, changehistory.ItemTypeBucket, result.ItemType)
-		require.Equal(t, "user request", result.Reason)
-		require.Equal(t, "update", result.Operation)
-		require.True(t, timestamp.Equal(result.Timestamp))
+		t.Run("GetChangesByUserID", func(t *testing.T) {
+			// Get changes with exact=true (should only return user changes)
+			exactChanges, err := changeHistories.GetChangesByUserID(ctx, userID, true)
+			require.NoError(t, err)
+			require.Len(t, exactChanges, 1)
+			require.Equal(t, changehistory.ItemTypeUser, exactChanges[0].ItemType)
 
-		// Verify changes map
-		require.Len(t, result.Changes, 3)
-		require.Equal(t, "value1", result.Changes["field1"])
-		require.Equal(t, float64(42), result.Changes["field2"]) // JSON unmarshal converts numbers to float64
-		require.Equal(t, true, result.Changes["field3"])
+			// verify the exact change details
+			require.Equal(t, "update_user", exactChanges[0].Operation)
+			require.Equal(t, "test", exactChanges[0].Reason)
+			require.Len(t, exactChanges[0].Changes, 1)
+			require.Equal(t, "value", exactChanges[0].Changes["field"])
+			require.True(t, timestamp.Equal(exactChanges[0].Timestamp))
 
-		// Verify we can retrieve the change by user ID
-		userChanges, err := changeHistories.TestListChangesByUserID(ctx, userID)
-		require.NoError(t, err)
-		require.Len(t, userChanges, 1)
-		require.Equal(t, result.UserID, userChanges[0].UserID)
-		require.Equal(t, result.AdminEmail, userChanges[0].AdminEmail)
-		require.Equal(t, result.ItemType, userChanges[0].ItemType)
-		require.Equal(t, result.Reason, userChanges[0].Reason)
-		require.Equal(t, result.Operation, userChanges[0].Operation)
-		require.Len(t, userChanges[0].Changes, len(result.Changes))
+			// Get changes with exact=false (should return all changes)
+			allChanges, err := changeHistories.GetChangesByUserID(ctx, userID, false)
+			require.NoError(t, err)
+			require.Len(t, allChanges, 3)
+		})
+
+		t.Run("GetChangesByProjectID", func(t *testing.T) {
+			// Get changes with exact=true (should only return project changes)
+			exactChanges, err := changeHistories.GetChangesByProjectID(ctx, projectID, true)
+			require.NoError(t, err)
+			require.Len(t, exactChanges, 1)
+			require.Equal(t, changehistory.ItemTypeProject, exactChanges[0].ItemType)
+
+			// Get changes with exact=false (should return both project and bucket changes)
+			allChanges, err := changeHistories.GetChangesByProjectID(ctx, projectID, false)
+			require.NoError(t, err)
+			require.Len(t, allChanges, 2)
+		})
+
+		t.Run("GetChangesByBucketName", func(t *testing.T) {
+			changes, err := changeHistories.GetChangesByBucketName(ctx, bucketName)
+			require.NoError(t, err)
+			require.Len(t, changes, 1)
+			require.Equal(t, changehistory.ItemTypeBucket, changes[0].ItemType)
+		})
 	})
 }

@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/console"
 )
 
@@ -27,6 +28,7 @@ var ErrProductsAPI = errs.Class("admin products api")
 var ErrUsersAPI = errs.Class("admin users api")
 var ErrProjectsAPI = errs.Class("admin projects api")
 var ErrSearchAPI = errs.Class("admin search api")
+var ErrChangehistoryAPI = errs.Class("admin changehistory api")
 
 type SettingsService interface {
 	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
@@ -68,6 +70,10 @@ type ProjectManagementService interface {
 
 type SearchService interface {
 	SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo, term string) (*SearchResult, api.HTTPError)
+}
+
+type ChangeHistoryService interface {
+	GetChangeHistory(ctx context.Context, exact, itemType, id string) ([]changehistory.ChangeLog, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -113,6 +119,14 @@ type SearchHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service SearchService
+	auth    *Authorizer
+}
+
+// ChangeHistoryHandler is an api handler that implements all ChangeHistory API endpoints functionality.
+type ChangeHistoryHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service ChangeHistoryService
 	auth    *Authorizer
 }
 
@@ -212,6 +226,20 @@ func NewSearch(log *zap.Logger, mon *monkit.Scope, service SearchService, router
 
 	searchRouter := router.PathPrefix("/back-office/api/v1/search").Subrouter()
 	searchRouter.HandleFunc("/", handler.handleSearchUsersOrProjects).Methods("GET")
+
+	return handler
+}
+
+func NewChangeHistory(log *zap.Logger, mon *monkit.Scope, service ChangeHistoryService, router *mux.Router, auth *Authorizer) *ChangeHistoryHandler {
+	handler := &ChangeHistoryHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	changehistoryRouter := router.PathPrefix("/back-office/api/v1/changehistory").Subrouter()
+	changehistoryRouter.HandleFunc("/", handler.handleGetChangeHistory).Methods("GET")
 
 	return handler
 }
@@ -1179,5 +1207,51 @@ func (h *SearchHandler) handleSearchUsersOrProjects(w http.ResponseWriter, r *ht
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json SearchUsersOrProjects response", zap.Error(ErrSearchAPI.Wrap(err)))
+	}
+}
+
+func (h *ChangeHistoryHandler) handleGetChangeHistory(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	exact := r.URL.Query().Get("exact")
+	if exact == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'exact' can't be empty"))
+		return
+	}
+
+	itemType := r.URL.Query().Get("itemType")
+	if itemType == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'itemType' can't be empty"))
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'id' can't be empty"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 4294967296) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetChangeHistory(ctx, exact, itemType, id)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetChangeHistory response", zap.Error(ErrChangehistoryAPI.Wrap(err)))
 	}
 }

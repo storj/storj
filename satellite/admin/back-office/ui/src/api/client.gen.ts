@@ -69,6 +69,19 @@ export class BucketState {
     empty: boolean;
 }
 
+export class ChangeLog {
+    id: UUID;
+    userID: UUID;
+    projectID?: UUID | null;
+    bucketName?: string | null;
+    adminEmail: string;
+    itemType: string;
+    reason: string;
+    operation: string;
+    changes: Record<string, unknown> | null;
+    timestamp: Time;
+}
+
 export class CreateRestKeyRequest {
     expiration: Time;
     reason: string;
@@ -597,6 +610,25 @@ export class SearchHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as SearchResult);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class ChangeHistoryHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/back-office/api/v1/changehistory';
+
+    public async getChangeHistory(exact: string, itemType: string, id: string): Promise<ChangeLog[]> {
+        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        u.searchParams.set('exact', exact);
+        u.searchParams.set('itemType', itemType);
+        u.searchParams.set('id', id);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as ChangeLog[]);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

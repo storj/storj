@@ -34,6 +34,8 @@
   * [Update project entitlements](#projectmanagement-update-project-entitlements)
 * Search
   * [Search users or projects](#search-search-users-or-projects)
+* ChangeHistory
+  * [Get change history](#changehistory-get-change-history)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -1017,6 +1019,41 @@ Searches for users by email or name and projects by ID. Results are limited to 1
 	]
 
 }
+
+```
+
+<h3 id='changehistory-get-change-history'>Get change history (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Retrieves change history for users, projects and buckets. If the exact parameter is `true`, this wouldfetch changes strictly on the user, project or bucket. It'll do otherwise if it's `false`.
+
+`GET /back-office/api/v1/changehistory/`
+
+**Query Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `exact` | `string` |  |
+| `itemType` | `string` |  |
+| `id` | `string` |  |
+
+**Response body:**
+
+```typescript
+[
+	{
+		id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+		userID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+		projectID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+		bucketName: string
+		adminEmail: string
+		itemType: string
+		reason: string
+		operation: string
+		changes: unknown
+		timestamp: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	}
+
+]
 
 ```
 

@@ -18,6 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/apigen"
 	backoffice "storj.io/storj/satellite/admin/back-office"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/console"
 )
 
@@ -389,6 +390,27 @@ func main() {
 				/* permissions are validated dynamically in SearchUsersOrProjects */
 			},
 			passAuthParamKey: true,
+		},
+	})
+
+	// generic api group that handles retrieving change history for users, projects and buckets
+	group = api.Group("ChangeHistory", "changehistory")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Get("/", &apigen.Endpoint{
+		Name: "Get change history",
+		Description: "Retrieves change history for users, projects and buckets. If the exact parameter is `true`, this would" +
+			"fetch changes strictly on the user, project or bucket. It'll do otherwise if it's `false`.",
+		GoName:         "GetChangeHistory",
+		TypeScriptName: "getChangeHistory",
+		QueryParams: []apigen.Param{
+			apigen.NewParam("exact", "true"),    // string because API gen doesn't support bool query params
+			apigen.NewParam("itemType", "user"), // user, project, bucket
+			apigen.NewParam("id", ""),           // userID, projectID, bucketName
+		},
+		Response: []changehistory.ChangeLog{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermViewChangeHistory},
 		},
 	})
 

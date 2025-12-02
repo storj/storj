@@ -96,6 +96,7 @@ func NewServer(
 	NewProjectManagement(log, mon, service, root, service.authorizer)
 	NewSettings(log, mon, service, root, service.authorizer)
 	NewSearch(log, mon, service, root, service.authorizer)
+	NewChangeHistory(log, mon, service, root, service.authorizer)
 
 	root = root.PathPrefix(PathPrefix).Subrouter()
 	// Static assets for the web interface.
