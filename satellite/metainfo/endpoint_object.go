@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/shared/event"
 )
 
 const (
@@ -47,6 +48,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRequest, multipartUpload bool) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -320,6 +322,7 @@ func (endpoint *Endpoint) getMaxObjectTTL(ctx context.Context, header *pb.Reques
 // CommitObject commits an object when all its segments have already been committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -500,6 +503,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	_ *pb.ObjectCommitResponse, err error,
 ) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", beginObjectReq.Header.UserAgent)
 
 	if err = validateRequestSimple(beginObjectReq); err != nil {
 		return nil, nil, nil, err
@@ -774,6 +778,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 // GetObject gets single object metadata.
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -936,6 +941,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 // DownloadObject gets object information, creates a download for segments and lists the object segments.
 func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDownloadRequest) (resp *pb.ObjectDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	if ctx.Err() != nil {
 		return nil, rpcstatus.Error(rpcstatus.Canceled, "client has closed the connection")
@@ -1430,6 +1436,7 @@ var _ = metabase.ListObjectsParams(ListObjectsFlags{})
 // ListObjects list objects according to specific parameters.
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	defer func() { err = endpoint.ConvertMetabaseErr(err) }()
 
@@ -1757,6 +1764,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 // ListPendingObjectStreams list pending objects according to specific parameters.
 func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -1853,6 +1861,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 // the provided object. This is useful for knowing the locations of the pieces.
 func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPsRequest) (resp *pb.ObjectGetIPsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -1957,6 +1966,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 // UpdateObjectMetadata replaces object metadata.
 func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.ObjectUpdateMetadataRequest) (resp *pb.ObjectUpdateMetadataResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -2018,6 +2028,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 // GetObjectLegalHold returns an object's Object Lock legal hold configuration.
 func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObjectLegalHoldRequest) (_ *pb.GetObjectLegalHoldResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -2089,6 +2100,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 // SetObjectLegalHold sets an object's Object Lock legal hold configuration.
 func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObjectLegalHoldRequest) (_ *pb.SetObjectLegalHoldResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -2159,6 +2171,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 // GetObjectRetention returns an object's Object Lock retention configuration.
 func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObjectRetentionRequest) (_ *pb.GetObjectRetentionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -2237,6 +2250,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 // SetObjectRetention sets an object's Object Lock retention configuration.
 func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObjectRetentionRequest) (_ *pb.SetObjectRetentionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -2568,7 +2582,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 // BeginMoveObject begins moving object to different key.
 func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeginMoveRequest) (resp *pb.ObjectBeginMoveResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
@@ -2728,6 +2742,7 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 // It optionally sets retention mode and period on the new object.
 func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFinishMoveRequest) (resp *pb.ObjectFinishMoveResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -2859,6 +2874,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 // BeginCopyObject begins copying object to different key.
 func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeginCopyRequest) (resp *pb.ObjectBeginCopyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	if !endpoint.config.ServerSideCopy || endpoint.config.ServerSideCopyDisabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
@@ -3011,6 +3027,7 @@ func validateObjectRetentionWithTTL(maxObjectTTL *time.Duration, expiresAt time.
 // It optionally sets retention mode and period on the new object.
 func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFinishCopyRequest) (resp *pb.ObjectFinishCopyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	if !endpoint.config.ServerSideCopy || endpoint.config.ServerSideCopyDisabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")

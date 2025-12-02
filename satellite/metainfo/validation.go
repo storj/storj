@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/event"
 )
 
 const (
@@ -92,6 +93,10 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 		}
 	}
 
+	event.Annotate(ctx, "project-public-id", keyInfo.ProjectPublicID[:])
+	event.Annotate(ctx, "macaroon-head", keyInfo.Head)
+	event.Annotate(ctx, "user-agent", string(header.UserAgent))
+
 	err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, action, endpoint.revocations)
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
@@ -143,6 +148,10 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 			}
 		}
 	}
+
+	event.Annotate(ctx, "project-public-id", keyInfo.ProjectPublicID[:])
+	event.Annotate(ctx, "macaroon-head", keyInfo.Head)
+	event.Annotate(ctx, "user-agent", string(header.UserAgent))
 
 	for _, p := range permissions {
 		err = key.Check(ctx, keyInfo.Secret, keyInfo.Version, p.Action, endpoint.revocations)

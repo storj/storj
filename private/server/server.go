@@ -38,6 +38,7 @@ import (
 	"storj.io/drpc/drpcstats"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/private/server/debounce"
+	"storj.io/storj/shared/event"
 )
 
 const (
@@ -500,7 +501,7 @@ func newEndpointCollection() *endpointCollection {
 		drpc: drpcserver.NewWithOptions(
 			experiment.NewHandler(
 				rpctracing.NewHandler(
-					mux,
+					event.WrapHandler(mux),
 					jaeger.RemoteTraceHandler),
 			),
 			drpcserver.Options{
