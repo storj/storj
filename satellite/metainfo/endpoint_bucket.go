@@ -19,11 +19,13 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/event"
 )
 
 // GetBucket returns a bucket.
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -60,6 +62,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 // annotated with (if any) and any error encountered.
 func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBucketLocationRequest) (resp *pb.GetBucketLocationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -89,6 +92,7 @@ func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBuck
 // SetBucketTagging places a set of tags on a bucket.
 func (endpoint *Endpoint) SetBucketTagging(ctx context.Context, req *pb.SetBucketTaggingRequest) (resp *pb.SetBucketTaggingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	if !endpoint.config.BucketTaggingEnabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
@@ -132,6 +136,7 @@ func (endpoint *Endpoint) SetBucketTagging(ctx context.Context, req *pb.SetBucke
 // GetBucketTagging returns the set of tags placed on a bucket.
 func (endpoint *Endpoint) GetBucketTagging(ctx context.Context, req *pb.GetBucketTaggingRequest) (resp *pb.GetBucketTaggingResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	if !endpoint.config.BucketTaggingEnabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
@@ -185,6 +190,7 @@ func (endpoint *Endpoint) GetBucketTagging(ctx context.Context, req *pb.GetBucke
 // GetBucketVersioning responds with the versioning state of the bucket and any error encountered.
 func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBucketVersioningRequest) (resp *pb.GetBucketVersioningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -214,6 +220,7 @@ func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBu
 // SetBucketVersioning attempts to enable or disable versioning for a bucket and responds with any error encountered.
 func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBucketVersioningRequest) (resp *pb.SetBucketVersioningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -255,6 +262,7 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 // CreateBucket creates a new bucket.
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -403,6 +411,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 // DeleteBucket deletes a bucket.
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -619,6 +628,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket bucke
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -677,6 +687,7 @@ func (endpoint *Endpoint) CountBuckets(ctx context.Context, projectID uuid.UUID)
 // GetBucketObjectLockConfiguration returns a bucket's Object Lock configuration.
 func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, req *pb.GetBucketObjectLockConfigurationRequest) (resp *pb.GetBucketObjectLockConfigurationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
@@ -731,6 +742,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 // SetBucketObjectLockConfiguration updates a bucket's Object Lock configuration.
 func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, req *pb.SetBucketObjectLockConfigurationRequest) (resp *pb.SetBucketObjectLockConfigurationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+	event.Annotate(ctx, "user-agent", req.Header.UserAgent)
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
