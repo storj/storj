@@ -65,9 +65,75 @@ func (c *ChangeHistories) LogChange(ctx context.Context, params changehistory.Ch
 	return fromDBXChangeLog(cH)
 }
 
+// GetChangesByUserID retrieves the change history for a specific user.
+// If exact is false, changes to the user's projects and buckets are also included.
+func (c *ChangeHistories) GetChangesByUserID(ctx context.Context, userID uuid.UUID, exact bool) (_ []changehistory.ChangeLog, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var dbxCHs []*dbx.ChangeHistory
+	if exact {
+		dbxCHs, err = c.db.All_ChangeHistory_By_UserId_And_ItemType_OrderBy_Desc_Timestamp(ctx,
+			dbx.ChangeHistory_UserId(userID.Bytes()),
+			dbx.ChangeHistory_ItemType(string(changehistory.ItemTypeUser)),
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dbxCHs, err = c.db.All_ChangeHistory_By_UserId_OrderBy_Desc_Timestamp(ctx, dbx.ChangeHistory_UserId(userID.Bytes()))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.convertChangeHistories(dbxCHs)
+}
+
+// GetChangesByProjectID retrieves the change history for a specific project.
+// If exact is false, changes to the project's buckets are also included.
+func (c *ChangeHistories) GetChangesByProjectID(ctx context.Context, projectId uuid.UUID, exact bool) (_ []changehistory.ChangeLog, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var dbxCHs []*dbx.ChangeHistory
+	if exact {
+		dbxCHs, err = c.db.All_ChangeHistory_By_ProjectId_And_ItemType_OrderBy_Desc_Timestamp(ctx,
+			dbx.ChangeHistory_ProjectId(projectId.Bytes()),
+			dbx.ChangeHistory_ItemType(string(changehistory.ItemTypeProject)),
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dbxCHs, err = c.db.All_ChangeHistory_By_ProjectId_And_ItemType_Not_OrderBy_Desc_Timestamp(ctx,
+			dbx.ChangeHistory_ProjectId(projectId.Bytes()),
+			dbx.ChangeHistory_ItemType(string(changehistory.ItemTypeUser)),
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.convertChangeHistories(dbxCHs)
+}
+
+// GetChangesByBucketName retrieves the change history for a specific bucket.
+func (c *ChangeHistories) GetChangesByBucketName(ctx context.Context, bucketName string) (_ []changehistory.ChangeLog, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var dbxCHs []*dbx.ChangeHistory
+	dbxCHs, err = c.db.All_ChangeHistory_By_BucketName_OrderBy_Desc_Timestamp(ctx,
+		dbx.ChangeHistory_BucketName([]byte(bucketName)),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.convertChangeHistories(dbxCHs)
+}
+
 // TestListChangesByUserID lists change logs for a given user ID, ordered by timestamp descending.
 // This method is intended for testing purposes only.
-func (c *ChangeHistories) TestListChangesByUserID(ctx context.Context, userID uuid.UUID) (_ []*changehistory.ChangeLog, err error) {
+func (c *ChangeHistories) TestListChangesByUserID(ctx context.Context, userID uuid.UUID) (_ []changehistory.ChangeLog, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxCHs, err := c.db.All_ChangeHistory_By_UserId_OrderBy_Desc_Timestamp(ctx, dbx.ChangeHistory_UserId(userID.Bytes()))
@@ -75,19 +141,36 @@ func (c *ChangeHistories) TestListChangesByUserID(ctx context.Context, userID uu
 		return nil, err
 	}
 
-	result := make([]*changehistory.ChangeLog, 0, len(dbxCHs))
+	result := make([]changehistory.ChangeLog, 0, len(dbxCHs))
 	for _, dbxCH := range dbxCHs {
 		ch, err := fromDBXChangeLog(dbxCH)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, ch)
+		result = append(result, *ch)
+	}
+
+	return result, nil
+}
+
+func (c *ChangeHistories) convertChangeHistories(dbxCHs []*dbx.ChangeHistory) ([]changehistory.ChangeLog, error) {
+	result := make([]changehistory.ChangeLog, 0, len(dbxCHs))
+	for _, dbxCH := range dbxCHs {
+		ch, err := fromDBXChangeLog(dbxCH)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *ch)
 	}
 
 	return result, nil
 }
 
 func fromDBXChangeLog(dbxCH *dbx.ChangeHistory) (*changehistory.ChangeLog, error) {
+	id, err := uuid.FromBytes(dbxCH.Id)
+	if err != nil {
+		return nil, err
+	}
 	userID, err := uuid.FromBytes(dbxCH.UserId)
 	if err != nil {
 		return nil, err
@@ -111,6 +194,7 @@ func fromDBXChangeLog(dbxCH *dbx.ChangeHistory) (*changehistory.ChangeLog, error
 	}
 
 	cl := &changehistory.ChangeLog{
+		ID:         id,
 		UserID:     userID,
 		ProjectID:  projectId,
 		AdminEmail: dbxCH.AdminEmail,

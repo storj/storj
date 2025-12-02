@@ -57,7 +57,7 @@ func TestAuditLogger(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 
 			// Verify the change was saved to the database
-			changes, err := changeHistoryDB.TestListChangesByUserID(ctx, user.ID)
+			changes, err := changeHistoryDB.GetChangesByUserID(ctx, user.ID, true)
 			require.NoError(t, err)
 			require.Len(t, changes, 1)
 
@@ -98,7 +98,7 @@ func TestAuditLogger(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 
 			// Verify nothing was saved to the database
-			changes, err := changeHistoryDB.TestListChangesByUserID(ctx, user.ID)
+			changes, err := changeHistoryDB.GetChangesByUserID(ctx, user.ID, true)
 			require.NoError(t, err)
 			require.Len(t, changes, 0)
 		})
