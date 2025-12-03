@@ -6,6 +6,8 @@ package metabasetest
 import (
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
@@ -178,4 +180,10 @@ func DefaultRemoteRawSegment(obj metabase.ObjectStream, segmentPosition metabase
 		PlainOffset:   0,
 		Redundancy:    DefaultRedundancy,
 	}
+}
+
+// EqualRetention asserts that two Retention values are equal.
+func EqualRetention(t require.TestingT, expected, actual metabase.Retention) {
+	require.Equal(t, expected.Mode, actual.Mode)
+	require.WithinDuration(t, expected.RetainUntil, actual.RetainUntil, 0)
 }
