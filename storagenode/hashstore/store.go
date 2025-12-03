@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"github.com/zeebo/mwc"
 	"go.uber.org/zap"
@@ -617,9 +618,19 @@ func (s *Store) Compact(
 	defer mon.Task()(&ctx)(&err)
 	defer s.stats.compactions.Add(1) // increase the number of compactions that have finished
 
+	var compactionRounds int
+
 	start := time.Now()
 	s.log.Info("beginning compaction", zap.Any("stats", s.Stats()))
 	defer func() {
+		span := monkit.SpanFromCtx(ctx)
+		stats := s.Stats()
+		// TODO: monkit supports only string values
+		span.Annotate("data_reclaimed", fmt.Sprintf("%d", stats.DataReclaimed))
+		span.Annotate("data_rewritten", fmt.Sprintf("%d", stats.DataRewritten))
+		span.Annotate("num_logs", fmt.Sprintf("%d", stats.NumLogs))
+		span.Annotate("table_size", fmt.Sprintf("%d", stats.Table.TableSize))
+		span.Annotate("compaction_rounds", fmt.Sprintf("%d", compactionRounds))
 		s.log.Info("finished compaction",
 			zap.Duration("duration", time.Since(start)),
 			zap.Error(err),
@@ -700,6 +711,7 @@ func (s *Store) Compact(
 	// table each time we need to write a log file) but ensures we use minimal extra disk space when
 	// we need to rewrite multiple log files.
 	for {
+		compactionRounds++
 		completed, err := s.compactOnce(ctx, today, expired, restored, shouldTrash)
 		if err != nil {
 			return err
@@ -892,6 +904,13 @@ func (s *Store) compactOnce(
 			zap.Duration("duration", time.Since(start)),
 		)
 	}
+	span := monkit.SpanFromCtx(ctx)
+	span.Annotate("nset", fmt.Sprintf("%d", nset))
+	span.Annotate("nexist", fmt.Sprintf("%d", nexist))
+	span.Annotate("modifications", fmt.Sprintf("%t", modifications))
+	span.Annotate("log_slot_diff", fmt.Sprintf("%d", logSlots-s.tbl.LogSlots()))
+	span.Annotate("candidates", fmt.Sprintf("%v", len(rewriteCandidatesByDead)))
+	span.Annotate("rewrite", fmt.Sprintf("%v", len(rewrite)))
 
 	// if there are no modifications to the hashtbl to remove expired records or flag records as
 	// trash, and we have no log file candidates to rewrite, and the hashtable would be the same
