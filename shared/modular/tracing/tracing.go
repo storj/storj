@@ -26,7 +26,7 @@ type Config struct {
 	Enabled      bool          `help:"whether tracing collector is enabled" default:"true"`
 	SamplingRate float64       `help:"how frequent to sample traces"`
 	App          string        `help:"application name for tracing identification"`
-	AgentAdddr   string        `help:"address for jaeger agent" default:"agent.tracing.datasci.storj.io:5775"`
+	AgentAddr    string        `help:"address for jaeger agent" default:"agent.tracing.datasci.storj.io:5775"`
 	BufferSize   int           `help:"buffer size for collector batch packet size"`
 	QueueSize    int           `help:"buffer size for collector queue size"`
 	Interval     time.Duration `help:"how frequently to flush traces to tracing agent" default:"15s"`
@@ -110,7 +110,7 @@ func (t *Tracing) Run(ctx context.Context) error {
 	if len(processName) > maxInstanceLength {
 		processName = processName[:maxInstanceLength]
 	}
-	collector, err := jaeger.NewThriftCollector(t.log, t.cfg.AgentAdddr, processName, processInfo, t.cfg.BufferSize, t.cfg.QueueSize, t.cfg.Interval)
+	collector, err := jaeger.NewThriftCollector(t.log, t.cfg.AgentAddr, processName, processInfo, t.cfg.BufferSize, t.cfg.QueueSize, t.cfg.Interval)
 	if err != nil {
 		return errs.Wrap(err)
 	}
