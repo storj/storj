@@ -164,7 +164,7 @@ export default class NavigationArea extends Vue {
             width: calc(100% - 8px);
         }
 
-        ::v-deep path {
+        :deep(path) {
             fill: var(--v-text-base);
         }
 
@@ -201,7 +201,7 @@ export default class NavigationArea extends Vue {
                 color: var(--v-text-base);
             }
 
-            ::v-deep path {
+            :deep(path) {
                 fill: var(--v-text-base) !important;
                 opacity: 1;
             }

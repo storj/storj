@@ -59,7 +59,7 @@ export default class Notifications extends Vue {
 <style lang="scss" scoped>
 .custom-snackbar {
 
-    ::v-deep .v-snack__content {
+    :deep(.v-snack__content) {
         margin-right: -9px;
     }
 
@@ -67,17 +67,17 @@ export default class Notifications extends Vue {
         margin: 10px;
     }
 
-    ::v-deep .v-snack__wrapper.theme--dark {
+    :deep(.v-snack__wrapper.theme--dark) {
         background-color: transparent;
         color: rgb(255 255 255 / 87%);
     }
 
-    ::v-deep .v-sheet.v-snack__wrapper:not(.v-sheet--outlined) {
-        box-shadow: none;
+    :deep(.v-alert__icon.v-icon) {
+        top: 12px;
     }
 
-    ::v-deep .v-alert__icon.v-icon {
-        top: 12px;
+    :deep(.v-sheet.v-snack__wrapper:not(.v-sheet--outlined)) {
+        box-shadow: none;
     }
 }
 </style>
