@@ -34,7 +34,7 @@ LINT_TARGET="./..."
 .PHONY: llint
 llint: ## Run all linting tools using local tools
 	go run ./scripts/lint.go \
-		-parallel 4 \
+		-parallel 8 \
 		-race \
 		-modules \
 		-copyright \
