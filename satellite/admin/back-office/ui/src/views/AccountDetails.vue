@@ -223,7 +223,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VAlert,
@@ -394,6 +394,4 @@ watch(() => router.currentRoute.value.params.userID as string, (userID) => {
         }
     });
 }, { immediate: true });
-
-onUnmounted(() => usersStore.clearCurrentUser());
 </script>
