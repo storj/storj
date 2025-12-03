@@ -5,6 +5,7 @@ import Vue, { VNode } from 'vue';
 import VueClipboard from 'vue-clipboard2';
 import Router from 'vue-router';
 import { DirectiveBinding } from 'vue/types/options';
+import { createPinia, PiniaVuePlugin } from 'pinia';
 
 import App from '@/app/App.vue';
 import { vuetify } from '@/app/plugins';
@@ -17,6 +18,8 @@ import { Size } from '@/private/memory/size';
 Vue.config.productionTip = false;
 
 Vue.use(VueClipboard);
+Vue.use(PiniaVuePlugin);
+const pinia = createPinia();
 
 Vue.use(Router);
 
@@ -62,6 +65,7 @@ Vue.filter('floatToPercentage', (number: number): string => Percentage.fromFloat
 const app = new Vue({
     router,
     store,
+    pinia,
     vuetify,
     render: (h) => h(App),
 });
