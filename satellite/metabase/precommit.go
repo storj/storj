@@ -184,7 +184,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 	}
 
 	// pending object
-	if opts.Pending {
+	if opts.Pending && !opts.ExcludeFromPending.Object {
 		var pending PrecommitPendingObject
 		values := []any{
 			&pending.CreatedAt,
@@ -226,9 +226,11 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 		}
 
 		info.Pending = &pending
+	}
 
-		// segments
-		err = withRows(ptx.tx.QueryContext(ctx, `
+	// segments - query segments regardless of whether pending object was queried or excluded
+	if opts.Pending {
+		err := withRows(ptx.tx.QueryContext(ctx, `
 			SELECT position, encrypted_size, plain_offset, plain_size
 			FROM segments
 			WHERE stream_id = $1
