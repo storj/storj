@@ -472,32 +472,6 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( scope )
 )`,
 
-		`CREATE TABLE graceful_exit_progress (
-	node_id bytea NOT NULL,
-	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint NOT NULL DEFAULT 0,
-	pieces_failed bigint NOT NULL DEFAULT 0,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-)`,
-
-		`CREATE TABLE graceful_exit_segment_transfer_queue (
-	node_id bytea NOT NULL,
-	stream_id bytea NOT NULL,
-	position bigint NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, stream_id, position, piece_num )
-)`,
-
 		`CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -1071,8 +1045,6 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
 
-		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -1229,10 +1201,6 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS node_api_versions`,
 
 		`DROP TABLE IF EXISTS nodes`,
-
-		`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
-
-		`DROP TABLE IF EXISTS graceful_exit_progress`,
 
 		`DROP TABLE IF EXISTS entitlements`,
 
@@ -1469,32 +1437,6 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( scope )
 )`,
 
-		`CREATE TABLE graceful_exit_progress (
-	node_id bytea NOT NULL,
-	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint NOT NULL DEFAULT 0,
-	pieces_failed bigint NOT NULL DEFAULT 0,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-)`,
-
-		`CREATE TABLE graceful_exit_segment_transfer_queue (
-	node_id bytea NOT NULL,
-	stream_id bytea NOT NULL,
-	position bigint NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, stream_id, position, piece_num )
-)`,
-
 		`CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -2068,8 +2010,6 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
 
-		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -2226,10 +2166,6 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS node_api_versions`,
 
 		`DROP TABLE IF EXISTS nodes`,
-
-		`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
-
-		`DROP TABLE IF EXISTS graceful_exit_progress`,
 
 		`DROP TABLE IF EXISTS entitlements`,
 
@@ -2457,30 +2393,6 @@ func (obj *spannerDB) Schema() []string {
 	updated_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( scope )`,
-
-		`CREATE TABLE graceful_exit_progress (
-	node_id BYTES(MAX) NOT NULL,
-	bytes_transferred INT64 NOT NULL,
-	pieces_transferred INT64 NOT NULL DEFAULT (0),
-	pieces_failed INT64 NOT NULL DEFAULT (0),
-	updated_at TIMESTAMP NOT NULL
-) PRIMARY KEY ( node_id )`,
-
-		`CREATE TABLE graceful_exit_segment_transfer_queue (
-	node_id BYTES(MAX) NOT NULL,
-	stream_id BYTES(MAX) NOT NULL,
-	position INT64 NOT NULL,
-	piece_num INT64 NOT NULL,
-	root_piece_id BYTES(MAX),
-	durability_ratio FLOAT64 NOT NULL,
-	queued_at TIMESTAMP NOT NULL,
-	requested_at TIMESTAMP,
-	last_failed_at TIMESTAMP,
-	last_failed_code INT64,
-	failed_count INT64,
-	finished_at TIMESTAMP,
-	order_limit_send_count INT64 NOT NULL DEFAULT (0)
-) PRIMARY KEY ( node_id, stream_id, position, piece_num )`,
 
 		`CREATE TABLE nodes (
 	id BYTES(MAX) NOT NULL,
@@ -3037,8 +2949,6 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
 
-		`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at )`,
-
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -3171,8 +3081,6 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS bucket_storage_tallies_project_id_interval_start_index`,
 
 		`DROP INDEX IF EXISTS bucket_storage_tallies_interval_start_index`,
-
-		`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
 
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
@@ -3573,30 +3481,6 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS nodes_id`,
 
 		`DROP TABLE IF EXISTS nodes`,
-
-		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER node_id SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_node_id`,
-
-		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER stream_id SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_stream_id`,
-
-		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER position SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_position`,
-
-		`ALTER TABLE  graceful_exit_segment_transfer_queue ALTER piece_num SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS graceful_exit_segment_transfer_queue_piece_num`,
-
-		`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
-
-		`ALTER TABLE  graceful_exit_progress ALTER node_id SET DEFAULT (null)`,
-
-		`DROP SEQUENCE IF EXISTS graceful_exit_progress_node_id`,
-
-		`DROP TABLE IF EXISTS graceful_exit_progress`,
 
 		`ALTER TABLE  entitlements ALTER scope SET DEFAULT (null)`,
 
@@ -5302,456 +5186,6 @@ func Entitlement_CreatedAt(v time.Time) Entitlement_CreatedAt_Field {
 }
 
 func (f Entitlement_CreatedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitProgress struct {
-	NodeId            []byte
-	BytesTransferred  int64
-	PiecesTransferred int64
-	PiecesFailed      int64
-	UpdatedAt         time.Time
-}
-
-func (GracefulExitProgress) _Table() string { return "graceful_exit_progress" }
-
-type GracefulExitProgress_Update_Fields struct {
-	BytesTransferred  GracefulExitProgress_BytesTransferred_Field
-	PiecesTransferred GracefulExitProgress_PiecesTransferred_Field
-	PiecesFailed      GracefulExitProgress_PiecesFailed_Field
-}
-
-type GracefulExitProgress_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GracefulExitProgress_NodeId(v []byte) GracefulExitProgress_NodeId_Field {
-	return GracefulExitProgress_NodeId_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitProgress_NodeId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitProgress_BytesTransferred_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func GracefulExitProgress_BytesTransferred(v int64) GracefulExitProgress_BytesTransferred_Field {
-	return GracefulExitProgress_BytesTransferred_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitProgress_BytesTransferred_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitProgress_PiecesTransferred_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func GracefulExitProgress_PiecesTransferred(v int64) GracefulExitProgress_PiecesTransferred_Field {
-	return GracefulExitProgress_PiecesTransferred_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitProgress_PiecesTransferred_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitProgress_PiecesFailed_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func GracefulExitProgress_PiecesFailed(v int64) GracefulExitProgress_PiecesFailed_Field {
-	return GracefulExitProgress_PiecesFailed_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitProgress_PiecesFailed_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitProgress_UpdatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GracefulExitProgress_UpdatedAt(v time.Time) GracefulExitProgress_UpdatedAt_Field {
-	return GracefulExitProgress_UpdatedAt_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitProgress_UpdatedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer struct {
-	NodeId              []byte
-	StreamId            []byte
-	Position            uint64
-	PieceNum            int
-	RootPieceId         []byte
-	DurabilityRatio     float64
-	QueuedAt            time.Time
-	RequestedAt         *time.Time
-	LastFailedAt        *time.Time
-	LastFailedCode      *int
-	FailedCount         *int
-	FinishedAt          *time.Time
-	OrderLimitSendCount int
-}
-
-func (GracefulExitSegmentTransfer) _Table() string { return "graceful_exit_segment_transfer_queue" }
-
-type GracefulExitSegmentTransfer_Create_Fields struct {
-	RootPieceId         GracefulExitSegmentTransfer_RootPieceId_Field
-	RequestedAt         GracefulExitSegmentTransfer_RequestedAt_Field
-	LastFailedAt        GracefulExitSegmentTransfer_LastFailedAt_Field
-	LastFailedCode      GracefulExitSegmentTransfer_LastFailedCode_Field
-	FailedCount         GracefulExitSegmentTransfer_FailedCount_Field
-	FinishedAt          GracefulExitSegmentTransfer_FinishedAt_Field
-	OrderLimitSendCount GracefulExitSegmentTransfer_OrderLimitSendCount_Field
-}
-
-type GracefulExitSegmentTransfer_Update_Fields struct {
-	DurabilityRatio     GracefulExitSegmentTransfer_DurabilityRatio_Field
-	RequestedAt         GracefulExitSegmentTransfer_RequestedAt_Field
-	LastFailedAt        GracefulExitSegmentTransfer_LastFailedAt_Field
-	LastFailedCode      GracefulExitSegmentTransfer_LastFailedCode_Field
-	FailedCount         GracefulExitSegmentTransfer_FailedCount_Field
-	FinishedAt          GracefulExitSegmentTransfer_FinishedAt_Field
-	OrderLimitSendCount GracefulExitSegmentTransfer_OrderLimitSendCount_Field
-}
-
-type GracefulExitSegmentTransfer_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GracefulExitSegmentTransfer_NodeId(v []byte) GracefulExitSegmentTransfer_NodeId_Field {
-	return GracefulExitSegmentTransfer_NodeId_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitSegmentTransfer_NodeId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_StreamId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GracefulExitSegmentTransfer_StreamId(v []byte) GracefulExitSegmentTransfer_StreamId_Field {
-	return GracefulExitSegmentTransfer_StreamId_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitSegmentTransfer_StreamId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_Position_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func GracefulExitSegmentTransfer_Position(v uint64) GracefulExitSegmentTransfer_Position_Field {
-	return GracefulExitSegmentTransfer_Position_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitSegmentTransfer_Position_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_PieceNum_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func GracefulExitSegmentTransfer_PieceNum(v int) GracefulExitSegmentTransfer_PieceNum_Field {
-	return GracefulExitSegmentTransfer_PieceNum_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitSegmentTransfer_PieceNum_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_RootPieceId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func GracefulExitSegmentTransfer_RootPieceId(v []byte) GracefulExitSegmentTransfer_RootPieceId_Field {
-	return GracefulExitSegmentTransfer_RootPieceId_Field{_set: true, _value: v}
-}
-
-func GracefulExitSegmentTransfer_RootPieceId_Raw(v []byte) GracefulExitSegmentTransfer_RootPieceId_Field {
-	if v == nil {
-		return GracefulExitSegmentTransfer_RootPieceId_Null()
-	}
-	return GracefulExitSegmentTransfer_RootPieceId(v)
-}
-
-func GracefulExitSegmentTransfer_RootPieceId_Null() GracefulExitSegmentTransfer_RootPieceId_Field {
-	return GracefulExitSegmentTransfer_RootPieceId_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitSegmentTransfer_RootPieceId_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitSegmentTransfer_RootPieceId_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_DurabilityRatio_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func GracefulExitSegmentTransfer_DurabilityRatio(v float64) GracefulExitSegmentTransfer_DurabilityRatio_Field {
-	return GracefulExitSegmentTransfer_DurabilityRatio_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitSegmentTransfer_DurabilityRatio_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_QueuedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func GracefulExitSegmentTransfer_QueuedAt(v time.Time) GracefulExitSegmentTransfer_QueuedAt_Field {
-	return GracefulExitSegmentTransfer_QueuedAt_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitSegmentTransfer_QueuedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_RequestedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GracefulExitSegmentTransfer_RequestedAt(v time.Time) GracefulExitSegmentTransfer_RequestedAt_Field {
-	return GracefulExitSegmentTransfer_RequestedAt_Field{_set: true, _value: &v}
-}
-
-func GracefulExitSegmentTransfer_RequestedAt_Raw(v *time.Time) GracefulExitSegmentTransfer_RequestedAt_Field {
-	if v == nil {
-		return GracefulExitSegmentTransfer_RequestedAt_Null()
-	}
-	return GracefulExitSegmentTransfer_RequestedAt(*v)
-}
-
-func GracefulExitSegmentTransfer_RequestedAt_Null() GracefulExitSegmentTransfer_RequestedAt_Field {
-	return GracefulExitSegmentTransfer_RequestedAt_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitSegmentTransfer_RequestedAt_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitSegmentTransfer_RequestedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_LastFailedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GracefulExitSegmentTransfer_LastFailedAt(v time.Time) GracefulExitSegmentTransfer_LastFailedAt_Field {
-	return GracefulExitSegmentTransfer_LastFailedAt_Field{_set: true, _value: &v}
-}
-
-func GracefulExitSegmentTransfer_LastFailedAt_Raw(v *time.Time) GracefulExitSegmentTransfer_LastFailedAt_Field {
-	if v == nil {
-		return GracefulExitSegmentTransfer_LastFailedAt_Null()
-	}
-	return GracefulExitSegmentTransfer_LastFailedAt(*v)
-}
-
-func GracefulExitSegmentTransfer_LastFailedAt_Null() GracefulExitSegmentTransfer_LastFailedAt_Field {
-	return GracefulExitSegmentTransfer_LastFailedAt_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitSegmentTransfer_LastFailedAt_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitSegmentTransfer_LastFailedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_LastFailedCode_Field struct {
-	_set   bool
-	_null  bool
-	_value *int
-}
-
-func GracefulExitSegmentTransfer_LastFailedCode(v int) GracefulExitSegmentTransfer_LastFailedCode_Field {
-	return GracefulExitSegmentTransfer_LastFailedCode_Field{_set: true, _value: &v}
-}
-
-func GracefulExitSegmentTransfer_LastFailedCode_Raw(v *int) GracefulExitSegmentTransfer_LastFailedCode_Field {
-	if v == nil {
-		return GracefulExitSegmentTransfer_LastFailedCode_Null()
-	}
-	return GracefulExitSegmentTransfer_LastFailedCode(*v)
-}
-
-func GracefulExitSegmentTransfer_LastFailedCode_Null() GracefulExitSegmentTransfer_LastFailedCode_Field {
-	return GracefulExitSegmentTransfer_LastFailedCode_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitSegmentTransfer_LastFailedCode_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitSegmentTransfer_LastFailedCode_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_FailedCount_Field struct {
-	_set   bool
-	_null  bool
-	_value *int
-}
-
-func GracefulExitSegmentTransfer_FailedCount(v int) GracefulExitSegmentTransfer_FailedCount_Field {
-	return GracefulExitSegmentTransfer_FailedCount_Field{_set: true, _value: &v}
-}
-
-func GracefulExitSegmentTransfer_FailedCount_Raw(v *int) GracefulExitSegmentTransfer_FailedCount_Field {
-	if v == nil {
-		return GracefulExitSegmentTransfer_FailedCount_Null()
-	}
-	return GracefulExitSegmentTransfer_FailedCount(*v)
-}
-
-func GracefulExitSegmentTransfer_FailedCount_Null() GracefulExitSegmentTransfer_FailedCount_Field {
-	return GracefulExitSegmentTransfer_FailedCount_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitSegmentTransfer_FailedCount_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitSegmentTransfer_FailedCount_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_FinishedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value *time.Time
-}
-
-func GracefulExitSegmentTransfer_FinishedAt(v time.Time) GracefulExitSegmentTransfer_FinishedAt_Field {
-	return GracefulExitSegmentTransfer_FinishedAt_Field{_set: true, _value: &v}
-}
-
-func GracefulExitSegmentTransfer_FinishedAt_Raw(v *time.Time) GracefulExitSegmentTransfer_FinishedAt_Field {
-	if v == nil {
-		return GracefulExitSegmentTransfer_FinishedAt_Null()
-	}
-	return GracefulExitSegmentTransfer_FinishedAt(*v)
-}
-
-func GracefulExitSegmentTransfer_FinishedAt_Null() GracefulExitSegmentTransfer_FinishedAt_Field {
-	return GracefulExitSegmentTransfer_FinishedAt_Field{_set: true, _null: true}
-}
-
-func (f GracefulExitSegmentTransfer_FinishedAt_Field) isnull() bool {
-	return !f._set || f._null || f._value == nil
-}
-
-func (f GracefulExitSegmentTransfer_FinishedAt_Field) value() any {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-type GracefulExitSegmentTransfer_OrderLimitSendCount_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func GracefulExitSegmentTransfer_OrderLimitSendCount(v int) GracefulExitSegmentTransfer_OrderLimitSendCount_Field {
-	return GracefulExitSegmentTransfer_OrderLimitSendCount_Field{_set: true, _value: v}
-}
-
-func (f GracefulExitSegmentTransfer_OrderLimitSendCount_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -18892,59 +18326,6 @@ func (obj *pgxImpl) Get_Entitlement_By_Scope(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
-	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_progress_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
-	if err != nil {
-		return (*GracefulExitProgress)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_progress, nil
-
-}
-
-func (obj *pgxImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-	graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_segment_transfer = &GracefulExitSegmentTransfer{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_segment_transfer.NodeId, &graceful_exit_segment_transfer.StreamId, &graceful_exit_segment_transfer.Position, &graceful_exit_segment_transfer.PieceNum, &graceful_exit_segment_transfer.RootPieceId, &graceful_exit_segment_transfer.DurabilityRatio, &graceful_exit_segment_transfer.QueuedAt, &graceful_exit_segment_transfer.RequestedAt, &graceful_exit_segment_transfer.LastFailedAt, &graceful_exit_segment_transfer.LastFailedCode, &graceful_exit_segment_transfer.FailedCount, &graceful_exit_segment_transfer.FinishedAt, &graceful_exit_segment_transfer.OrderLimitSendCount)
-	if err != nil {
-		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_segment_transfer, nil
-
-}
-
 func (obj *pgxImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
@@ -21492,7 +20873,7 @@ func (obj *pgxImpl) All_User(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.external_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users")
 
 	var __values []any
 
@@ -21509,7 +20890,7 @@ func (obj *pgxImpl) All_User(ctx context.Context) (
 
 			for __rows.Next() {
 				user := &User{}
-				err = __rows.Scan(&user.Id, &user.ExternalId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+				err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
 				if err != nil {
 					return nil, err
 				}
@@ -22637,80 +22018,6 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 		return nil, obj.makeErr(err)
 	}
 	return stripecoinpayments_invoice_project_record, nil
-}
-
-func (obj *pgxImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
-	update GracefulExitSegmentTransfer_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []any
-	var __args []any
-
-	if update.DurabilityRatio._set {
-		__values = append(__values, update.DurabilityRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
-	}
-
-	if update.RequestedAt._set {
-		__values = append(__values, update.RequestedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
-	}
-
-	if update.LastFailedAt._set {
-		__values = append(__values, update.LastFailedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
-	}
-
-	if update.LastFailedCode._set {
-		__values = append(__values, update.LastFailedCode.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
-	}
-
-	if update.FailedCount._set {
-		__values = append(__values, update.FailedCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
-	}
-
-	if update.FinishedAt._set {
-		__values = append(__values, update.FinishedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
-	}
-
-	if update.OrderLimitSendCount._set {
-		__values = append(__values, update.OrderLimitSendCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("order_limit_send_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
 }
 
 func (obj *pgxImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
@@ -25412,99 +24719,6 @@ func (obj *pgxImpl) Delete_Entitlement_By_Scope(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 	node_event_created_at_less NodeEvent_CreatedAt_Field) (
 	count int64, err error) {
@@ -26498,26 +25712,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_segment_transfer_queue;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -30003,59 +29197,6 @@ func (obj *pgxcockroachImpl) Get_Entitlement_By_Scope(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
-	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_progress_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
-	if err != nil {
-		return (*GracefulExitProgress)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_progress, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-	graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_segment_transfer = &GracefulExitSegmentTransfer{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_segment_transfer.NodeId, &graceful_exit_segment_transfer.StreamId, &graceful_exit_segment_transfer.Position, &graceful_exit_segment_transfer.PieceNum, &graceful_exit_segment_transfer.RootPieceId, &graceful_exit_segment_transfer.DurabilityRatio, &graceful_exit_segment_transfer.QueuedAt, &graceful_exit_segment_transfer.RequestedAt, &graceful_exit_segment_transfer.LastFailedAt, &graceful_exit_segment_transfer.LastFailedCode, &graceful_exit_segment_transfer.FailedCount, &graceful_exit_segment_transfer.FinishedAt, &graceful_exit_segment_transfer.OrderLimitSendCount)
-	if err != nil {
-		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_segment_transfer, nil
-
-}
-
 func (obj *pgxcockroachImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
@@ -32603,7 +31744,7 @@ func (obj *pgxcockroachImpl) All_User(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.external_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users")
 
 	var __values []any
 
@@ -32620,7 +31761,7 @@ func (obj *pgxcockroachImpl) All_User(ctx context.Context) (
 
 			for __rows.Next() {
 				user := &User{}
-				err = __rows.Scan(&user.Id, &user.ExternalId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+				err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
 				if err != nil {
 					return nil, err
 				}
@@ -33748,80 +32889,6 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 		return nil, obj.makeErr(err)
 	}
 	return stripecoinpayments_invoice_project_record, nil
-}
-
-func (obj *pgxcockroachImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
-	update GracefulExitSegmentTransfer_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []any
-	var __args []any
-
-	if update.DurabilityRatio._set {
-		__values = append(__values, update.DurabilityRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
-	}
-
-	if update.RequestedAt._set {
-		__values = append(__values, update.RequestedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
-	}
-
-	if update.LastFailedAt._set {
-		__values = append(__values, update.LastFailedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
-	}
-
-	if update.LastFailedCode._set {
-		__values = append(__values, update.LastFailedCode.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
-	}
-
-	if update.FailedCount._set {
-		__values = append(__values, update.FailedCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
-	}
-
-	if update.FinishedAt._set {
-		__values = append(__values, update.FinishedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
-	}
-
-	if update.OrderLimitSendCount._set {
-		__values = append(__values, update.OrderLimitSendCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("order_limit_send_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
 }
 
 func (obj *pgxcockroachImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
@@ -36523,99 +35590,6 @@ func (obj *pgxcockroachImpl) Delete_Entitlement_By_Scope(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxcockroachImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 	node_event_created_at_less NodeEvent_CreatedAt_Field) (
 	count int64, err error) {
@@ -37609,26 +36583,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_segment_transfer_queue;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -41407,59 +40361,6 @@ func (obj *spannerImpl) Get_Entitlement_By_Scope(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
-	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
-	graceful_exit_progress *GracefulExitProgress, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_progress.node_id, graceful_exit_progress.bytes_transferred, graceful_exit_progress.pieces_transferred, graceful_exit_progress.pieces_failed, graceful_exit_progress.updated_at FROM graceful_exit_progress WHERE graceful_exit_progress.node_id = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_progress_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
-	if err != nil {
-		return (*GracefulExitProgress)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_progress, nil
-
-}
-
-func (obj *spannerImpl) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-	graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT graceful_exit_segment_transfer_queue.node_id, graceful_exit_segment_transfer_queue.stream_id, graceful_exit_segment_transfer_queue.position, graceful_exit_segment_transfer_queue.piece_num, graceful_exit_segment_transfer_queue.root_piece_id, graceful_exit_segment_transfer_queue.durability_ratio, graceful_exit_segment_transfer_queue.queued_at, graceful_exit_segment_transfer_queue.requested_at, graceful_exit_segment_transfer_queue.last_failed_at, graceful_exit_segment_transfer_queue.last_failed_code, graceful_exit_segment_transfer_queue.failed_count, graceful_exit_segment_transfer_queue.finished_at, graceful_exit_segment_transfer_queue.order_limit_send_count FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	graceful_exit_segment_transfer = &GracefulExitSegmentTransfer{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_segment_transfer.NodeId, &graceful_exit_segment_transfer.StreamId, &graceful_exit_segment_transfer.Position, &graceful_exit_segment_transfer.PieceNum, &graceful_exit_segment_transfer.RootPieceId, &graceful_exit_segment_transfer.DurabilityRatio, &graceful_exit_segment_transfer.QueuedAt, &graceful_exit_segment_transfer.RequestedAt, &graceful_exit_segment_transfer.LastFailedAt, &graceful_exit_segment_transfer.LastFailedCode, &graceful_exit_segment_transfer.FailedCount, &graceful_exit_segment_transfer.FinishedAt, &graceful_exit_segment_transfer.OrderLimitSendCount)
-	if err != nil {
-		return (*GracefulExitSegmentTransfer)(nil), obj.makeErr(err)
-	}
-	return graceful_exit_segment_transfer, nil
-
-}
-
 func (obj *spannerImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
@@ -44013,7 +42914,7 @@ func (obj *spannerImpl) All_User(ctx context.Context) (
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.external_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users")
 
 	var __values []any
 
@@ -44030,7 +42931,7 @@ func (obj *spannerImpl) All_User(ctx context.Context) (
 
 			for __rows.Next() {
 				user := &User{}
-				err = __rows.Scan(&user.Id, &user.ExternalId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
+				err = __rows.Scan(&user.Id, &user.ExternalId, &user.TenantId, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.NewUnverifiedEmail, &user.EmailChangeVerificationStep, &user.Status, &user.StatusUpdatedAt, &user.FinalInvoiceGenerated, &user.UserAgent, &user.CreatedAt, &user.ProjectLimit, &user.ProjectBandwidthLimit, &user.ProjectStorageLimit, &user.ProjectSegmentLimit, &user.Kind, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes, &user.SignupPromoCode, &user.VerificationReminders, &user.TrialNotifications, &user.FailedLoginCount, &user.LoginLockoutExpiration, &user.SignupCaptcha, &user.DefaultPlacement, &user.ActivationCode, &user.SignupId, &user.TrialExpiration, &user.UpgradeTime, &user.HubspotObjectId)
 				if err != nil {
 					return nil, err
 				}
@@ -45157,74 +44058,6 @@ func (obj *spannerImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx 
 		return nil, obj.makeErr(err)
 	}
 	return stripecoinpayments_invoice_project_record, nil
-}
-
-func (obj *spannerImpl) UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
-	update GracefulExitSegmentTransfer_Update_Fields) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE graceful_exit_segment_transfer_queue SET "), __sets, __sqlbundle_Literal(" WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []any
-	var __args []any
-
-	if update.DurabilityRatio._set {
-		__values = append(__values, update.DurabilityRatio.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("durability_ratio = ?"))
-	}
-	if update.RequestedAt._set {
-		__values = append(__values, update.RequestedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("requested_at = ?"))
-	}
-	if update.LastFailedAt._set {
-		__values = append(__values, update.LastFailedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_at = ?"))
-	}
-	if update.LastFailedCode._set {
-		__values = append(__values, update.LastFailedCode.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_failed_code = ?"))
-	}
-	if update.FailedCount._set {
-		__values = append(__values, update.FailedCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("failed_count = ?"))
-	}
-	if update.FinishedAt._set {
-		__values = append(__values, update.FinishedAt.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("finished_at = ?"))
-	}
-	if update.OrderLimitSendCount._set {
-		__values = append(__values, update.OrderLimitSendCount.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("order_limit_send_count = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return emptyUpdate()
-	}
-
-	__args = append(__args, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
 }
 
 func (obj *spannerImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
@@ -47651,99 +46484,6 @@ func (obj *spannerImpl) Delete_Entitlement_By_Scope(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-	graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-	graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-	graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.stream_id = ? AND graceful_exit_segment_transfer_queue.position = ? AND graceful_exit_segment_transfer_queue.piece_num = ?")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value(), graceful_exit_segment_transfer_stream_id.value(), graceful_exit_segment_transfer_position.value(), graceful_exit_segment_transfer_piece_num.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *spannerImpl) Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-	graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if !obj.txn && txutil.IsInsideTx(ctx) {
-		panic("using DB when inside of a transaction")
-	}
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM graceful_exit_segment_transfer_queue WHERE graceful_exit_segment_transfer_queue.node_id = ? AND graceful_exit_segment_transfer_queue.finished_at is not NULL")
-
-	var __values []any
-	__values = append(__values, graceful_exit_segment_transfer_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *spannerImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 	node_event_created_at_less NodeEvent_CreatedAt_Field) (
 	count int64, err error) {
@@ -48742,26 +47482,6 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_segment_transfer_queue;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM graceful_exit_progress;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM entitlements;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -49316,21 +48036,6 @@ type Methods interface {
 		entitlement_scope Entitlement_Scope_Field) (
 		deleted bool, err error)
 
-	Delete_GracefulExitSegmentTransfer_By_NodeId(ctx context.Context,
-		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-		count int64, err error)
-
-	Delete_GracefulExitSegmentTransfer_By_NodeId_And_FinishedAt_IsNot_Null(ctx context.Context,
-		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field) (
-		count int64, err error)
-
-	Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-		graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-		deleted bool, err error)
-
 	Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 		node_event_created_at_less NodeEvent_CreatedAt_Field) (
 		count int64, err error)
@@ -49518,17 +48223,6 @@ type Methods interface {
 	Get_Entitlement_By_Scope(ctx context.Context,
 		entitlement_scope Entitlement_Scope_Field) (
 		entitlement *Entitlement, err error)
-
-	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
-		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
-		graceful_exit_progress *GracefulExitProgress, err error)
-
-	Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-		graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
-		graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error)
 
 	Get_NodeEvent_By_Id(ctx context.Context,
 		node_event_id NodeEvent_Id_Field) (
@@ -49923,14 +48617,6 @@ type Methods interface {
 		billing_transaction_id BillingTransaction_Id_Field,
 		billing_transaction_status BillingTransaction_Status_Field,
 		update BillingTransaction_Update_Fields) (
-		err error)
-
-	UpdateNoReturn_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx context.Context,
-		graceful_exit_segment_transfer_node_id GracefulExitSegmentTransfer_NodeId_Field,
-		graceful_exit_segment_transfer_stream_id GracefulExitSegmentTransfer_StreamId_Field,
-		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
-		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field,
-		update GracefulExitSegmentTransfer_Update_Fields) (
 		err error)
 
 	UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx context.Context,

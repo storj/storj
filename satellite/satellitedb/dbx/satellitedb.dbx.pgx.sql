@@ -104,30 +104,6 @@ CREATE TABLE entitlements (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( scope )
 ) ;
-CREATE TABLE graceful_exit_progress (
-	node_id bytea NOT NULL,
-	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint NOT NULL DEFAULT 0,
-	pieces_failed bigint NOT NULL DEFAULT 0,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-) ;
-CREATE TABLE graceful_exit_segment_transfer_queue (
-	node_id bytea NOT NULL,
-	stream_id bytea NOT NULL,
-	position bigint NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, stream_id, position, piece_num )
-) ;
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL DEFAULT '',
@@ -652,7 +628,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
-CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;

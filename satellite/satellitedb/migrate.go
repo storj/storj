@@ -1099,6 +1099,16 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "remove unused GE tables",
+				Version:     306,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
+					`DROP TABLE IF EXISTS graceful_exit_progress`,
+					`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4038,6 +4048,16 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Action: migrate.SQL{
 					`CREATE INDEX users_tenant_id_index ON users ( tenant_id ) WHERE tenant_id IS NOT NULL;`,
 					`CREATE INDEX users_normalized_email_tenant_id_status_index ON users ( normalized_email, tenant_id, status ) WHERE users.tenant_id is not NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "remove unused GE tables",
+				Version:     306,
+				Action: migrate.SQL{
+					`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
+					`DROP TABLE IF EXISTS graceful_exit_progress`,
+					`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

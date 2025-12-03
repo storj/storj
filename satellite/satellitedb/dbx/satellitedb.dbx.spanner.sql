@@ -95,28 +95,6 @@ CREATE TABLE entitlements (
 	updated_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( scope ) ;
-CREATE TABLE graceful_exit_progress (
-	node_id BYTES(MAX) NOT NULL,
-	bytes_transferred INT64 NOT NULL,
-	pieces_transferred INT64 NOT NULL DEFAULT (0),
-	pieces_failed INT64 NOT NULL DEFAULT (0),
-	updated_at TIMESTAMP NOT NULL
-) PRIMARY KEY ( node_id ) ;
-CREATE TABLE graceful_exit_segment_transfer_queue (
-	node_id BYTES(MAX) NOT NULL,
-	stream_id BYTES(MAX) NOT NULL,
-	position INT64 NOT NULL,
-	piece_num INT64 NOT NULL,
-	root_piece_id BYTES(MAX),
-	durability_ratio FLOAT64 NOT NULL,
-	queued_at TIMESTAMP NOT NULL,
-	requested_at TIMESTAMP,
-	last_failed_at TIMESTAMP,
-	last_failed_code INT64,
-	failed_count INT64,
-	finished_at TIMESTAMP,
-	order_limit_send_count INT64 NOT NULL DEFAULT (0)
-) PRIMARY KEY ( node_id, stream_id, position, piece_num ) ;
 CREATE TABLE nodes (
 	id BYTES(MAX) NOT NULL,
 	address STRING(MAX) NOT NULL DEFAULT (""),
@@ -615,7 +593,6 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
-CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
