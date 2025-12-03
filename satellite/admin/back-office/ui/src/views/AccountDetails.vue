@@ -208,8 +208,7 @@
 
         <v-row v-if="featureFlags.account.history">
             <v-col>
-                <h3 class="my-4">History</h3>
-                <LogsTableComponent />
+                <AccountHistoryTableComponent :account="userAccount" />
             </v-col>
         </v-row>
     </v-container>
@@ -251,7 +250,6 @@ import { Size } from '@/utils/bytesSize';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
-import LogsTableComponent from '@/components/LogsTableComponent.vue';
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
 import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
@@ -262,6 +260,7 @@ import AccountDeleteDialog from '@/components/AccountDeleteDialog.vue';
 import AccountDisableMFADialog from '@/components/AccountDisableMFADialog.vue';
 import AccountCreateRestKeyDialog from '@/components/AccountCreateRestKeyDialog.vue';
 import AccountUnfreezeDialog from '@/components/AccountUnfreezeDialog.vue';
+import AccountHistoryTableComponent from '@/components/AccountHistoryTableComponent.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();

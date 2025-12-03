@@ -258,10 +258,9 @@
             </v-col>
         </v-row>
 
-        <v-row>
-            <v-col v-if="featureFlags.project.history">
-                <h3 class="my-4">History</h3>
-                <LogsTableComponent />
+        <v-row v-if="featureFlags.project.history">
+            <v-col>
+                <ProjectHistoryTableComponent :project />
             </v-col>
         </v-row>
     </v-container>
@@ -307,13 +306,13 @@ import { useProjectsStore } from '@/store/projects';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
 import BucketsTableComponent from '@/components/BucketsTableComponent.vue';
-import LogsTableComponent from '@/components/LogsTableComponent.vue';
 import UsersTableComponent from '@/components/UsersTableComponent.vue';
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
 import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
 import EntitlementsDialog from '@/components/EntitlementsDialog.vue';
 import ProjectDeleteDialog from '@/components/ProjectDeleteDialog.vue';
+import ProjectHistoryTableComponent from '@/components/ProjectHistoryTableComponent.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();

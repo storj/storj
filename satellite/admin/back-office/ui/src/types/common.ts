@@ -55,3 +55,9 @@ export type SortItem = {
     key: string;
     order?: boolean | 'asc' | 'desc';
 };
+
+export enum ItemType {
+    User = 'User',
+    Project = 'Project',
+    Bucket = 'Bucket',
+}

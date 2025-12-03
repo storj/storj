@@ -5,6 +5,8 @@ import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
+    ChangeHistoryHttpApiV1,
+    ChangeLog,
     DisableProjectRequest,
     Project,
     ProjectEntitlements,
@@ -14,6 +16,7 @@ import {
     UpdateProjectEntitlementsRequest,
     UpdateProjectRequest,
 } from '@/api/client.gen';
+import { ItemType } from '@/types/common';
 
 class ProjectsState {
     currentProject: Project | null = null;
@@ -23,6 +26,7 @@ class ProjectsState {
 export const useProjectsStore = defineStore('projects', () => {
     const state = reactive<ProjectsState>(new ProjectsState());
 
+    const changeHistoryApi = new ChangeHistoryHttpApiV1();
     const projectApi = new ProjectManagementHttpApiV1();
 
     async function updateCurrentProject(project: string | Project): Promise<void> {
@@ -67,6 +71,10 @@ export const useProjectsStore = defineStore('projects', () => {
         return await projectApi.updateProjectEntitlements(request, projectID);
     }
 
+    async function getHistory(projectID: string, exact = true): Promise<ChangeLog[]> {
+        return await changeHistoryApi.getChangeHistory(`${exact}`, ItemType.Project, projectID);
+    }
+
     return {
         state,
         getProject,
@@ -77,5 +85,6 @@ export const useProjectsStore = defineStore('projects', () => {
         updateProject,
         getProjectStatuses,
         updateEntitlements,
+        getHistory,
     };
 });
