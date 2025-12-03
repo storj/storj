@@ -3021,21 +3021,43 @@ func TestCommitObject(t *testing.T) {
 				RetainUntil: now.Add(time.Minute),
 			}
 
+			objA := metabasetest.RandObjectStream()
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: obj,
+					ObjectStream: objA,
 					Encryption:   metabasetest.DefaultEncryption,
 					Retention:    retention,
 				},
 			}.Check(ctx, t, db)
 
-			object := metabasetest.CommitObject{
+			objectA := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream: obj,
+					ObjectStream: objA,
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+			metabasetest.EqualRetention(t, retention, objectA.Retention)
+
+			// use negative version to go through different code path
+			objB := metabasetest.RandObjectStream()
+			objB.Version = -1
+			objectB := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objB,
+					Encryption:   metabasetest.DefaultEncryption,
+					Retention:    retention,
+				},
+			}.Check(ctx, t, db)
+
+			objectB = metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: objectB.ObjectStream,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.EqualRetention(t, retention, objectA.Retention)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(objectA, objectB)}.Check(ctx, t, db)
 		})
 
 		t.Run("commit with retention configuration and expiration", func(t *testing.T) {

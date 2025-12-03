@@ -958,7 +958,7 @@ func spannerObjectArguments(obj RawObject) []any {
 			retentionMode: &obj.Retention.Mode,
 			legalHold:     &obj.LegalHold,
 		},
-		obj.Retention.RetainUntil,
+		timeWrapper{&obj.Retention.RetainUntil},
 	}
 }
 
@@ -1052,7 +1052,7 @@ func postgresObjectArguments(obj *RawObject) []any {
 			retentionMode: &obj.Retention.Mode,
 			legalHold:     &obj.LegalHold,
 		},
-		obj.Retention.RetainUntil,
+		timeWrapper{&obj.Retention.RetainUntil},
 	}
 }
 
