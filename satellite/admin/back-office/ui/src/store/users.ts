@@ -6,6 +6,8 @@ import { reactive } from 'vue';
 
 import {
     AccountMin,
+    ChangeHistoryHttpApiV1,
+    ChangeLog,
     CreateRestKeyRequest,
     DisableUserRequest,
     FreezeEventType,
@@ -17,6 +19,7 @@ import {
     UserManagementHttpApiV1,
     UserStatusInfo,
 } from '@/api/client.gen';
+import { ItemType } from '@/types/common';
 
 class UsersState {
     public currentAccount: UserAccount | null = null;
@@ -31,6 +34,7 @@ export const useUsersStore = defineStore('users', () => {
     const state = reactive<UsersState>(new UsersState());
 
     const userApi = new UserManagementHttpApiV1();
+    const changeHistoryApi = new ChangeHistoryHttpApiV1();
 
     async function getUserByEmail(email: string): Promise<UserAccount> {
         return await userApi.getUserByEmail(email);
@@ -123,6 +127,10 @@ export const useUsersStore = defineStore('users', () => {
         state.searchResults = [];
     }
 
+    async function getHistory(userID: string, exact = true): Promise<ChangeLog[]> {
+        return await changeHistoryApi.getChangeHistory(`${exact}`, ItemType.User, userID);
+    }
+
     return {
         state,
         setSearchTerm,
@@ -139,5 +147,6 @@ export const useUsersStore = defineStore('users', () => {
         deleteUser,
         disableMFA,
         createRestKey,
+        getHistory,
     };
 });
