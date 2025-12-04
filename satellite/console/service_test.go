@@ -528,8 +528,11 @@ func TestService(t *testing.T) {
 
 			t.Run("CreateProject with placement", func(t *testing.T) {
 				uid := planet.Uplinks[2].Projects[0].Owner.ID
+				pPtr := new(*storj.PlacementConstraint)
+				placement := storj.PlacementConstraint(10)
+				*pPtr = &placement
 				err := sat.API.DB.Console().Users().Update(ctx, uid, console.UpdateUserRequest{
-					DefaultPlacement: storj.EU,
+					DefaultPlacement: pPtr,
 				})
 				require.NoError(t, err)
 
@@ -546,7 +549,7 @@ func TestService(t *testing.T) {
 				})
 				require.NoError(t, err)
 				require.Equal(t, console.ProjectActive, *p.Status)
-				require.Equal(t, storj.EU, p.DefaultPlacement)
+				require.Equal(t, placement, p.DefaultPlacement)
 			})
 
 			t.Run("UpdateProject", func(t *testing.T) {

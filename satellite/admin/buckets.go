@@ -275,7 +275,7 @@ func (s *Service) validateUpdateBucketRequest(authInfo *AuthInfo, req UpdateBuck
 			return apiError(http.StatusForbidden, errs.New("not authorized to change bucket placement"))
 		}
 		if _, ok := s.placement[*req.Placement]; !ok {
-			return apiError(http.StatusBadRequest, errs.New("invalid placement"))
+			return apiError(http.StatusBadRequest, errs.New("invalid placement ID %d", *req.Placement))
 		}
 	}
 

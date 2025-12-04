@@ -279,6 +279,7 @@ export class UpdateUserRequest {
     storageLimit: number | null;
     bandwidthLimit: number | null;
     segmentLimit: number | null;
+    defaultPlacement: string | null;
     reason: string;
 }
 

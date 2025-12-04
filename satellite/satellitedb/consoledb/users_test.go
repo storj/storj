@@ -421,9 +421,10 @@ func TestUpdateUser(t *testing.T) {
 		usersAreEqual(t, u, updatedUser)
 
 		// update just the placement
-		defaultPlacement := &newInfo.DefaultPlacement
+		defaultPlacement := new(*storj.PlacementConstraint)
+		*defaultPlacement = &newInfo.DefaultPlacement
 		updateReq = console.UpdateUserRequest{
-			DefaultPlacement: *defaultPlacement,
+			DefaultPlacement: defaultPlacement,
 		}
 
 		err = users.Update(ctx, id, updateReq)

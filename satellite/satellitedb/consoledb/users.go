@@ -1091,8 +1091,12 @@ func (users *users) toUpdateUser(request console.UpdateUserRequest) (*dbx.User_U
 		}
 	}
 
-	if request.DefaultPlacement > 0 {
-		update.DefaultPlacement = dbx.User_DefaultPlacement(int(request.DefaultPlacement))
+	if request.DefaultPlacement != nil {
+		if *request.DefaultPlacement == nil {
+			update.DefaultPlacement = dbx.User_DefaultPlacement_Null()
+		} else {
+			update.DefaultPlacement = dbx.User_DefaultPlacement(int(**request.DefaultPlacement))
+		}
 	}
 
 	if request.ActivationCode != nil {

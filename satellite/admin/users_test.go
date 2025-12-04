@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/satellite/nodeselection"
 )
 
 func TestGetUser(t *testing.T) {
@@ -278,6 +280,7 @@ func TestUpdateUser(t *testing.T) {
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location","global");10:annotation("location", "defaultPlacement")`}
 				config.Console.Config.FreeTrialDuration = 10 * 24 * time.Hour
 				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
 				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
@@ -414,9 +417,33 @@ func TestUpdateUser(t *testing.T) {
 		require.NotNil(t, u.TrialExpiration)
 		require.WithinDuration(t, *u.TrialExpiration, timeStamp, 24*time.Hour)
 
+		// test updating default placement
+		newPlacement := storj.PlacementConstraint(10)
+		newPlacementStr := fmt.Sprintf("%d", newPlacement)
+		req = backoffice.UpdateUserRequest{
+			DefaultPlacement: &newPlacementStr,
+			Reason:           "updating default placement",
+		}
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.Equal(t, newPlacement, u.DefaultPlacement)
+
+		// clear placement with empty string
+		newPlacementStr = ""
+		u, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
+		require.NoError(t, apiErr.Err)
+		require.Zero(t, u.DefaultPlacement)
+
 		// validation
 		newKind = console.UserKind(100)
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{Kind: &newKind,
+			Reason: "reason",
+		})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		newPlacementStr = "invalid"
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{DefaultPlacement: &newPlacementStr,
 			Reason: "reason",
 		})
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)

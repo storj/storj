@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // User holds the user's information.
@@ -73,6 +75,9 @@ type UpdateUserRequest struct {
 	BandwidthLimit  *int64              `json:"bandwidthLimit"`
 	SegmentLimit    *int64              `json:"segmentLimit"`
 
+	// DefaultPlacement is string so that an empty string can be used to clear the placement.
+	DefaultPlacement *string `json:"defaultPlacement"`
+
 	Reason string `json:"reason"` // reason for audit log
 }
 
@@ -92,6 +97,25 @@ func (r *UpdateUserRequest) parseTrialExpiration() (**time.Time, error) {
 	*t = &parsed
 
 	return t, nil
+}
+
+func (r *UpdateUserRequest) parseDefaultPlacement() (**storj.PlacementConstraint, error) {
+	if r.DefaultPlacement == nil {
+		return nil, nil
+	}
+	p := new(*storj.PlacementConstraint)
+	if *r.DefaultPlacement == "" {
+		*p = nil
+		return p, nil
+	}
+	u, err := strconv.ParseUint(*r.DefaultPlacement, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	pc := storj.PlacementConstraint(u)
+	*p = &pc
+
+	return p, nil
 }
 
 // DisableUserRequest represents a request to disable a user.
@@ -455,6 +479,8 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 	var projectChangeEvents []auditlogger.Event
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
 		usersDB := tx.Users()
+
+		defaultPlacement, _ := request.parseDefaultPlacement()
 		err = usersDB.Update(ctx, userID, console.UpdateUserRequest{
 			Email:                 request.Email,
 			FullName:              request.Name,
@@ -467,8 +493,13 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 			ProjectStorageLimit:   request.StorageLimit,
 			ProjectBandwidthLimit: request.BandwidthLimit,
 			ProjectSegmentLimit:   request.SegmentLimit,
+			DefaultPlacement:      defaultPlacement,
 		})
 		if err != nil {
+			var e *dbx.Error
+			if errors.As(err, &e) && e.Code == dbx.ErrorCode_EmptyUpdate {
+				return nil
+			}
 			return err
 		}
 
@@ -641,6 +672,21 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 				errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
 			} else if request.Kind == nil && user.Kind != console.FreeUser {
 				errGroup = append(errGroup, errs.New("trial expiration can only be set for free users"))
+			}
+		}
+	}
+
+	if request.DefaultPlacement != nil {
+		if !hasPerm(PermAccountSetDataPlacement) {
+			return apiError(http.StatusForbidden, errs.New("not authorized to change account default placement"))
+		}
+		defaultPlacement, err := request.parseDefaultPlacement()
+		if err != nil {
+			errGroup = append(errGroup, errs.New("invalid default placement %s", *request.DefaultPlacement))
+		}
+		if defaultPlacement != nil && *defaultPlacement != nil {
+			if _, ok := s.placement[**defaultPlacement]; !ok {
+				return apiError(http.StatusBadRequest, errs.New("invalid placement ID %d", **defaultPlacement))
 			}
 		}
 	}

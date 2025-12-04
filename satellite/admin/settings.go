@@ -140,6 +140,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountView, PermViewChangeHistory) {
 			settings.Admin.Features.Account.History = true
 		}
+		if s.authorizer.HasPermissions(g, PermAccountSetDataPlacement) {
+			settings.Admin.Features.Account.UpdatePlacement = true
+		}
 
 		// project permission features
 		if s.authorizer.HasPermissions(g, PermProjectView) {

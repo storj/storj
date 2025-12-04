@@ -399,6 +399,7 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	storageLimit: number
 	bandwidthLimit: number
 	segmentLimit: number
+	defaultPlacement: string
 	reason: string
 }
 

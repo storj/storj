@@ -550,7 +550,7 @@ type UpdateUserRequest struct {
 
 	LoginLockoutExpiration **time.Time
 
-	DefaultPlacement storj.PlacementConstraint
+	DefaultPlacement **storj.PlacementConstraint
 
 	ActivationCode  *string
 	SignupId        *string

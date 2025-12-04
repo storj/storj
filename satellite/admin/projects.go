@@ -725,16 +725,8 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 		if !hasPerm(PermProjectSetDataPlacement) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to change project default placement"))
 		}
-		placements, _ := s.GetPlacements(ctx)
-		placementValid := false
-		for _, p := range placements {
-			if p.ID == *request.DefaultPlacement {
-				placementValid = true
-				break
-			}
-		}
-		if !placementValid {
-			errGroup = append(errGroup, errs.New("invalid placement ID %d", *request.DefaultPlacement))
+		if _, ok := s.placement[*request.DefaultPlacement]; !ok {
+			return apiError(http.StatusBadRequest, errs.New("invalid placement ID %d", *request.DefaultPlacement))
 		}
 	}
 
