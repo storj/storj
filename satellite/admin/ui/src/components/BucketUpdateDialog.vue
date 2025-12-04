@@ -47,11 +47,11 @@ const bucketState = ref<BucketState>();
 
 const featureFlags = computed<BucketFlags>(() => appStore.state.settings.admin.features.bucket);
 
-const placements = computed(() => appStore.state.placements.filter(p => !!p.location));
+const placements = computed(() => appStore.displayPlacements);
 
 const initialFormData = computed(() => ({
     userAgent: props.bucket.userAgent ?? '',
-    placement: props.bucket.placement ?? 0,
+    placement: appStore.getPlacementID(props.bucket.placement),
 }));
 
 const formConfig = computed((): FormConfig => {

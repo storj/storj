@@ -44,6 +44,7 @@ const props = defineProps<{
 const emailErrorMsg = ref<string>();
 let emailCheckTimer: ReturnType<typeof setTimeout> | undefined;
 
+const placements = computed(() => appStore.displayPlacements);
 const userStatuses = computed(() => usersStore.state.userStatuses);
 const userKinds = computed(() => usersStore.state.userKinds);
 const featureFlags = computed(() => appStore.state.settings.admin.features.account);
@@ -55,6 +56,7 @@ const initialFormData = computed(() => ({
     status: props.account?.status?.value ?? 0,
     trialExpiration: props.account?.trialExpiration,
     userAgent: props.account?.userAgent ?? '',
+    defaultPlacement: props.account.defaultPlacement,
 }));
 
 const formConfig = computed((): FormConfig => {
@@ -125,7 +127,26 @@ const formConfig = computed((): FormConfig => {
                 },
             },
         });
-    if (featureFlags.value.updateUserAgent) thirdRowFields.push({
+    if (featureFlags.value.updatePlacement)
+        thirdRowFields.push({
+            key: 'defaultPlacement',
+            type: FieldType.Select,
+            label: 'Account Placement',
+            placeholder: 'Select account placement',
+            items: placements.value,
+            itemTitle: 'location',
+            itemValue: 'id',
+            clearable: true,
+            transform: {
+                // the backend expects a string
+                forward: (value) => value === '' ? null : parseInt(value as string, 10),
+                back: (value) => value === null || value === undefined ? '' : `${value}`,
+            },
+        });
+    if (thirdRowFields.length > 0) config.sections[0].rows.push({ fields: thirdRowFields });
+
+    const forthRowFields: FormField[] = [];
+    if (featureFlags.value.updateUserAgent) forthRowFields.push({
         key: 'userAgent',
         type: FieldType.Text,
         label: 'Useragent',
@@ -134,7 +155,7 @@ const formConfig = computed((): FormConfig => {
             back: (value) => value ?? '',
         },
     });
-    if (thirdRowFields.length > 0) config.sections[0].rows.push({ fields: thirdRowFields });
+    if (forthRowFields.length) config.sections[0].rows.push({ fields: forthRowFields });
 
     return config;
 });

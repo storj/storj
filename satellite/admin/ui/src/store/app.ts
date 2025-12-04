@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
@@ -28,6 +28,23 @@ export const useAppStore = defineStore('app', () => {
     const settingsApi = new SettingsHttpApiV1();
     const searchApi = new SearchHttpApiV1();
 
+    const displayPlacements = computed<PlacementInfo[]>(() => {
+        return state.placements.filter(p => !!p.location).map((p) => ({
+            id: p.id,
+            location: `${p.location} (${p.id})`,
+        }));
+    });
+
+    const placementLocationMap = computed<Record<number, string>>(() => {
+        const map: Record<number, string> = {};
+        for (const placement of state.placements) {
+            if (placement.location) {
+                map[placement.id] = placement.location;
+            }
+        }
+        return map;
+    });
+
     async function load(fn : () => Promise<void>): Promise<void> {
         if (state.loading) return;
         state.loading = true;
@@ -44,15 +61,17 @@ export const useAppStore = defineStore('app', () => {
     }
 
     function getPlacementText(code: number): string {
+        const location = placementLocationMap.value[code] ?? 'Unknown';
+        return `${location} (${code})`;
+    }
+
+    function getPlacementID(location: string): number {
         for (const placement of state.placements) {
-            if (placement.id === code) {
-                if (placement.location) {
-                    return placement.location;
-                }
-                break;
+            if (placement.location === location) {
+                return placement.id;
             }
         }
-        return `Unknown (${code})`;
+        return 0;
     }
 
     async function getSettings(): Promise<void> {
@@ -65,9 +84,11 @@ export const useAppStore = defineStore('app', () => {
 
     return {
         state,
+        displayPlacements,
         load,
         getPlacements,
         getPlacementText,
+        getPlacementID,
         getSettings,
         getProducts,
         search,

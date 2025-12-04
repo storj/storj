@@ -135,18 +135,19 @@
 
             <v-col cols="12" sm="6" md="3">
                 <v-card title="Placement" subtitle="Region" variant="flat" :border="true" rounded="xlg">
+                    <template v-if="featureFlags.account.updatePlacement" #append>
+                        <v-btn
+                            :icon="UserPen"
+                            variant="outlined" size="small"
+                            density="comfortable" color="default"
+                            @click="updateAccountDialogEnabled = true"
+                        />
+                    </template>
                     <v-card-text>
                         <!-- <p class="mb-3">Region</p> -->
                         <v-chip variant="tonal" class="mr-2">
                             {{ placementText }}
                         </v-chip>
-                        <template v-if="featureFlags.account.updatePlacement">
-                            <v-divider class="my-4" />
-                            <v-btn variant="outlined" size="small" color="default">
-                                Set Account Placement
-                                <AccountGeofenceDialog />
-                            </v-btn>
-                        </template>
                     </v-card-text>
                 </v-card>
             </v-col>

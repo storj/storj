@@ -41,7 +41,7 @@ const props = defineProps<{
     project: Project;
 }>();
 
-const placements = computed(() => appStore.state.placements.filter(p => !!p.location));
+const placements = computed(() => appStore.displayPlacements);
 const projectStatuses = computed(() => projectsStore.state.projectStatuses);
 const featureFlags = computed(() => appStore.state.settings.admin.features.project);
 
