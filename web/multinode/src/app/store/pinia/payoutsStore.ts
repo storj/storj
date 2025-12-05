@@ -70,6 +70,10 @@ export const usePayoutsStore = defineStore('payouts', () => {
         state.selectedNodePayouts = { ...state.selectedNodePayouts, heldHistory };
     }
 
+    function setPayoutPeriod(period: string | null): void {
+        state.selectedPayoutPeriod = period;
+    }
+
     return {
         state,
         periodString,
@@ -78,5 +82,6 @@ export const usePayoutsStore = defineStore('payouts', () => {
         paystub,
         nodeTotals,
         heldHistory,
+        setPayoutPeriod,
     };
 });

@@ -54,21 +54,12 @@
     </base-table>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { Paystub } from '@/payouts';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        BaseTable,
-    },
-})
-export default class PayoutsByNodeTable extends Vue {
-    @Prop({ default: () => new Paystub() })
-    public paystub: Paystub;
-}
+defineProps<{
+    paystub: Paystub;
+}>();
 </script>
