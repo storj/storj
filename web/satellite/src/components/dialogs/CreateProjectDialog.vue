@@ -114,8 +114,13 @@
                                         <p class="text-body-2 my-2">
                                             Team members you invite will automatically have access to your project's data.
                                         </p>
-                                        <p class="text-body-2 m-2">
-                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            Recommended for full S3-compatibility.
+                                        </p>
+                                        <p class="text-body-2 mt-2">
+                                            <a class="link" href="https://storj.dev/dcs/api/s3/s3-compatibility/storj-vs-self-managed-encryption-s3-compatibility-differences" target="_blank" rel="noopener noreferrer">S3 compatibility differences</a>
+                                            •
+                                            <a class="link" @click="goToDocs">Encryption options documentation</a>
                                         </p>
                                     </v-alert>
 
@@ -134,8 +139,13 @@
                                         <p class="text-body-2 my-2">
                                             Team members must share and enter the same encryption passphrase to access the data.
                                         </p>
+                                        <p class="text-body-2 my-2 font-weight-bold">
+                                            Increased control, limited S3-compatibility.
+                                        </p>
                                         <p class="text-body-2 mt-2">
-                                            <a class="link" @click="goToDocs">Learn more in the documentation.</a>
+                                            <a class="link" href="https://storj.dev/dcs/api/s3/s3-compatibility/storj-vs-self-managed-encryption-s3-compatibility-differences" target="_blank" rel="noopener noreferrer">S3 compatibility differences</a>
+                                            •
+                                            <a class="link" @click="goToDocs">Encryption options documentation</a>
                                         </p>
                                     </v-alert>
                                 </v-chip-group>
