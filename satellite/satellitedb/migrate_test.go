@@ -301,6 +301,9 @@ func migrateTest(t *testing.T, connStr string) {
 		finalSchema = currentSchema
 	}
 
+	// bucket_eventing_configs does not use DBX, so we need to drop it before comparison
+	finalSchema.DropTable("bucket_eventing_configs")
+
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }

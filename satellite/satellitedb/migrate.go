@@ -1109,6 +1109,28 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_eventing_configs table",
+				Version:     307,
+				Action: migrate.SQL{
+					`CREATE TABLE IF NOT EXISTS bucket_eventing_configs (
+						project_id BYTES(MAX) NOT NULL,
+						bucket_name BYTES(MAX) NOT NULL,
+						config_id STRING(MAX) NOT NULL DEFAULT (GENERATE_UUID()),
+						topic_name STRING(MAX) NOT NULL,
+						events ARRAY<STRING(128)> NOT NULL,
+						filter_prefix BYTES(1024),
+						filter_suffix BYTES(1024),
+						created_at TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
+						updated_at TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp = TRUE),
+						CONSTRAINT bucket_eventing_configs_bucket_fkey
+							FOREIGN KEY (project_id, bucket_name)
+							REFERENCES bucket_metainfos (project_id, name)
+							ON DELETE CASCADE
+					) PRIMARY KEY ( project_id, bucket_name )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4058,6 +4080,29 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`DROP INDEX IF EXISTS graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index`,
 					`DROP TABLE IF EXISTS graceful_exit_progress`,
 					`DROP TABLE IF EXISTS graceful_exit_segment_transfer_queue`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add bucket_eventing_configs table",
+				Version:     307,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_eventing_configs (
+						project_id bytea NOT NULL,
+						bucket_name bytea NOT NULL,
+						config_id text NOT NULL DEFAULT gen_random_uuid()::text,
+						topic_name text NOT NULL,
+						events text[] NOT NULL,
+						filter_prefix bytea,
+						filter_suffix bytea,
+						created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+						updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+						CONSTRAINT bucket_eventing_configs_bucket_fkey
+							FOREIGN KEY (project_id, bucket_name)
+							REFERENCES bucket_metainfos (project_id, name)
+							ON DELETE CASCADE,
+						PRIMARY KEY ( project_id, bucket_name )
+					)`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

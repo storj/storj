@@ -1,3 +1,7 @@
+// Note: The bucket_eventing_configs table is not included in this DBX model because it uses
+// database features that are not supported by DBX. This table is managed manually through
+// SQL migrations and direct database queries.
+
 // bucket_metainfo contains information about a bucket in a project.
 model bucket_metainfo (
 	key project_id name

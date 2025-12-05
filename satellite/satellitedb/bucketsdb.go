@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"cloud.google.com/go/spanner"
+	"github.com/jackc/pgtype"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
@@ -17,6 +18,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
@@ -769,5 +771,183 @@ func (db *bucketsDB) SetBucketTagging(ctx context.Context, bucketName []byte, pr
 	if dbxBucket == nil {
 		return buckets.ErrBucketNotFound.New("%s", bucketName)
 	}
+	return nil
+}
+
+// GetBucketNotificationConfig retrieves the notification configuration for a bucket.
+// Returns nil if no configuration exists.
+func (db *bucketsDB) GetBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ *buckets.NotificationConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var config buckets.NotificationConfig
+
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		// PostgreSQL handles text arrays via pgtype.TextArray
+		var pgEvents pgtype.TextArray
+		err = db.db.QueryRowContext(ctx, `
+			SELECT config_id, topic_name, events, filter_prefix, filter_suffix, created_at, updated_at
+			FROM bucket_eventing_configs
+			WHERE project_id = $1 AND bucket_name = $2
+		`, projectID[:], bucketName).Scan(
+			&config.ConfigID,
+			&config.TopicName,
+			&pgEvents,
+			&config.FilterPrefix,
+			&config.FilterSuffix,
+			&config.CreatedAt,
+			&config.UpdatedAt,
+		)
+
+		// Convert pgtype.TextArray to []string
+		if err == nil {
+			config.Events = make([]string, len(pgEvents.Elements))
+			for i, elem := range pgEvents.Elements {
+				config.Events[i] = elem.String
+			}
+		}
+
+	case dbutil.Spanner:
+		// Spanner handles ARRAY<STRING> natively but returns []spanner.NullString
+		var spannerEvents []spanner.NullString
+		err = db.db.QueryRowContext(ctx, `
+			SELECT config_id, topic_name, events, filter_prefix, filter_suffix, created_at, updated_at
+			FROM bucket_eventing_configs
+			WHERE project_id = @project_id AND bucket_name = @bucket_name
+		`, sql.Named("project_id", projectID.Bytes()), sql.Named("bucket_name", bucketName)).Scan(
+			&config.ConfigID,
+			&config.TopicName,
+			&spannerEvents,
+			&config.FilterPrefix,
+			&config.FilterSuffix,
+			&config.CreatedAt,
+			&config.UpdatedAt,
+		)
+
+		// Convert []spanner.NullString to []string
+		if err == nil {
+			config.Events = make([]string, len(spannerEvents))
+			for i, ns := range spannerEvents {
+				config.Events[i] = ns.StringVal
+			}
+		}
+
+	default:
+		return nil, buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
+	}
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, buckets.ErrBucket.Wrap(err)
+	}
+
+	return &config, nil
+}
+
+// UpdateBucketNotificationConfig updates the bucket notification configuration for a bucket.
+func (db *bucketsDB) UpdateBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID, config buckets.NotificationConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// Validate required fields
+	if config.TopicName == "" {
+		return buckets.ErrBucket.New("notification configuration must have a topic name")
+	}
+	if len(config.Events) == 0 {
+		return buckets.ErrBucket.New("notification configuration must have at least one event")
+	}
+
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		if config.ConfigID == "" {
+			// When config_id is empty, omit it from INSERT to trigger DEFAULT,
+			// and preserve existing value on UPDATE
+			_, err = db.db.ExecContext(ctx, `
+				INSERT INTO bucket_eventing_configs (
+					project_id, bucket_name, topic_name, events, filter_prefix, filter_suffix
+				) VALUES ($1, $2, $3, $4, $5, $6)
+				ON CONFLICT (project_id, bucket_name)
+				DO UPDATE SET
+					topic_name = EXCLUDED.topic_name,
+					events = EXCLUDED.events,
+					filter_prefix = EXCLUDED.filter_prefix,
+					filter_suffix = EXCLUDED.filter_suffix,
+					updated_at = CURRENT_TIMESTAMP
+			`, projectID[:], bucketName, config.TopicName, pgutil.TextArray(config.Events), config.FilterPrefix, config.FilterSuffix)
+		} else {
+			// When config_id is provided, include it in both INSERT and UPDATE
+			_, err = db.db.ExecContext(ctx, `
+				INSERT INTO bucket_eventing_configs (
+					project_id, bucket_name, config_id, topic_name, events, filter_prefix, filter_suffix
+				) VALUES ($1, $2, $3, $4, $5, $6, $7)
+				ON CONFLICT (project_id, bucket_name)
+				DO UPDATE SET
+					config_id = EXCLUDED.config_id,
+					topic_name = EXCLUDED.topic_name,
+					events = EXCLUDED.events,
+					filter_prefix = EXCLUDED.filter_prefix,
+					filter_suffix = EXCLUDED.filter_suffix,
+					updated_at = CURRENT_TIMESTAMP
+			`, projectID[:], bucketName, config.ConfigID, config.TopicName, pgutil.TextArray(config.Events), config.FilterPrefix, config.FilterSuffix)
+		}
+
+		return buckets.ErrBucket.Wrap(err)
+
+	case dbutil.Spanner:
+		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
+			var mutation *spanner.Mutation
+
+			columns := []string{
+				"project_id", "bucket_name", "topic_name", "events",
+				"filter_prefix", "filter_suffix", "updated_at",
+			}
+			values := []any{
+				projectID.Bytes(), bucketName, config.TopicName, config.Events,
+				config.FilterPrefix, config.FilterSuffix, spanner.CommitTimestamp,
+			}
+
+			if config.ConfigID != "" {
+				columns = append(columns, "config_id")
+				values = append(values, config.ConfigID)
+			}
+
+			mutation = spanner.InsertOrUpdate("bucket_eventing_configs", columns, values)
+
+			_, err := client.Apply(ctx, []*spanner.Mutation{mutation})
+			return buckets.ErrBucket.Wrap(err)
+		})
+
+	default:
+		return buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
+	}
+}
+
+// DeleteBucketNotificationConfig removes the notification configuration for a bucket.
+func (db *bucketsDB) DeleteBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		_, err = db.db.ExecContext(ctx, `
+			DELETE FROM bucket_eventing_configs
+			WHERE project_id = $1 AND bucket_name = $2
+		`, projectID[:], bucketName)
+
+	case dbutil.Spanner:
+		_, err = db.db.ExecContext(ctx, `
+			DELETE FROM bucket_eventing_configs
+			WHERE project_id = @project_id AND bucket_name = @bucket_name
+		`, sql.Named("project_id", projectID.Bytes()), sql.Named("bucket_name", bucketName))
+
+	default:
+		return buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
+	}
+
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return buckets.ErrBucket.Wrap(err)
+	}
+
+	// No error if configuration doesn't exist
 	return nil
 }
