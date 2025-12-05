@@ -65,6 +65,12 @@ func NewService(satelliteAddress string, tokens *consoleauth.Service, config Con
 	}
 }
 
+// Run runs the OIDC providers initialization.
+// NOTE: Run is automatically called by mud framework, but Initialize doesn't.
+func (s *Service) Run(ctx context.Context) (err error) {
+	return s.Initialize(ctx)
+}
+
 // Initialize initializes the OIDC providers.
 func (s *Service) Initialize(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
