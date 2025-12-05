@@ -136,6 +136,17 @@ type MinimalBucket struct {
 	Placement storj.PlacementConstraint
 }
 
+// NotificationConfig contains bucket event notification configuration.
+type NotificationConfig struct {
+	ConfigID     string
+	TopicName    string
+	Events       []string
+	FilterPrefix []byte
+	FilterSuffix []byte
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 // ListOptions lists objects.
 type ListOptions struct {
 	Cursor    string
@@ -206,4 +217,11 @@ type DB interface {
 	GetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID) (tags []Tag, err error)
 	// SetBucketTagging places a set of tags on a bucket.
 	SetBucketTagging(ctx context.Context, bucketName []byte, projectID uuid.UUID, tags []Tag) (err error)
+	// UpdateBucketNotificationConfig updates the bucket notification configuration for a bucket.
+	UpdateBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID, config NotificationConfig) error
+	// GetBucketNotificationConfig retrieves the notification configuration for a bucket.
+	// Returns nil if no configuration exists.
+	GetBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (*NotificationConfig, error)
+	// DeleteBucketNotificationConfig removes the notification configuration for a bucket.
+	DeleteBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) error
 }
