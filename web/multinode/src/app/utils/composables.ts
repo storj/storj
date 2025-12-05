@@ -17,3 +17,7 @@ export function useRouter() {
 export function useStore() {
     return getCurrentInstance()?.proxy.$store ?? {} as typeof store;
 }
+
+export function useVuetify() {
+    return getCurrentInstance()?.proxy.$vuetify;
+}

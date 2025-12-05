@@ -8,7 +8,7 @@
         :class="{ active: areOptionsShown }"
         @click.stop="toggleOptions"
     >
-        <span class="label">{{ selectedOption.label }}</span>
+        <span v-if="selectedOption" class="label">{{ selectedOption.label }}</span>
         <svg width="8" height="4" viewBox="0 0 8 4" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M3.33657 3.73107C3.70296 4.09114 4.29941 4.08814 4.66237 3.73107L7.79796 0.650836C8.16435 0.291517 8.01864 0 7.47247 0L0.526407 0C-0.0197628 0 -0.16292 0.294525 0.200917 0.650836L3.33657 3.73107Z" fill="currentColor" />
         </svg>
@@ -22,62 +22,41 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onBeforeMount, ref } from 'vue';
 
-/**
- * OptionClick defines on click callback type for VDropdown Option.
- */
-export type OptionClick = (id?: string) => Promise<void>;
+import { Option } from '@/app/types/common';
 
-/**
- * Option is a representation of VDropdown item.
- */
-export class Option {
-    public constructor(
-        public label: string = 'no options',
-        public onClick: OptionClick = async(_id) => Promise.resolve(),
-    ) {}
+const props = withDefaults(defineProps<{
+    options: Option[];
+    preselectedOption?: Option | null;
+}>(), {
+    options: () => [],
+    preselectedOption: null,
+});
+
+const areOptionsShown = ref<boolean>(false);
+const selectedOption = ref<Option>();
+
+function toggleOptions(): void {
+    areOptionsShown.value = !areOptionsShown.value;
 }
 
-// @vue/component
-@Component
-export default class VDropdown extends Vue {
-    @Prop({ default: [] })
-    private readonly options: Option[];
+function closeOptions(): void {
+    if (!areOptionsShown.value) { return; }
 
-    @Prop({ default: null })
-    private readonly preselectedOption: Option;
-
-    public areOptionsShown = false;
-
-    public selectedOption: Option;
-
-    public created(): void {
-        this.selectedOption = this.preselectedOption || this.options[0];
-    }
-
-    public toggleOptions(): void {
-        this.areOptionsShown = !this.areOptionsShown;
-    }
-
-    public closeOptions(): void {
-        if (!this.areOptionsShown) { return; }
-
-        this.areOptionsShown = false;
-    }
-
-    /**
-     * Fires on option click.
-     * Calls callback and changes selection.
-     * @param option
-     */
-    public async onOptionClick(option: Option): Promise<void> {
-        this.selectedOption = option;
-        await option.onClick();
-        this.closeOptions();
-    }
+    areOptionsShown.value = false;
 }
+
+async function onOptionClick(option: Option): Promise<void> {
+    selectedOption.value = option;
+    await option.onClick();
+    closeOptions();
+}
+
+onBeforeMount(() => {
+    selectedOption.value = props.preselectedOption || props.options[0];
+});
 </script>
 
 <style lang="scss">

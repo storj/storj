@@ -23,15 +23,13 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+const emit = defineEmits<{
+    (e: 'onClose'): void;
+}>();
 
-// @vue/component
-@Component
-export default class VModal extends Vue {
-    public close(): void {
-        this.$emit('onClose');
-    }
+function close(): void {
+    emit('onClose');
 }
 </script>
 

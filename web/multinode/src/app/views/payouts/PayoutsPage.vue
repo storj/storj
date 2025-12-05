@@ -100,6 +100,7 @@ export default class PayoutsPage extends Vue {
         padding: 60px;
         overflow-y: auto;
         height: calc(100vh - 60px);
+        background-color: var(--v-background-base);
 
         &__title {
             font-family: 'font_bold', sans-serif;

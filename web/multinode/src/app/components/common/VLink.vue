@@ -11,17 +11,14 @@
     </a>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
-// @vue/component
-@Component
-export default class VLink extends Vue {
-    @Prop({ default: '' })
-    public readonly uri: string;
-    @Prop({ default: '' })
-    public readonly label: string;
-}
+<script setup lang="ts">
+withDefaults(defineProps<{
+    uri: string;
+    label: string;
+}>(), {
+    uri: '',
+    label: '',
+});
 </script>
 
 <style lang="scss">

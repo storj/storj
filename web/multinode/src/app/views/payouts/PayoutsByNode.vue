@@ -218,6 +218,7 @@ export default class PayoutsPage extends Vue {
         padding: 60px;
         overflow-y: auto;
         height: calc(100vh - 60px);
+        background-color: var(--v-background-base);
 
         &__top-area {
             width: 100%;

@@ -8,13 +8,7 @@
     </table>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-// @vue/component
-@Component
-export default class BaseTable extends Vue {}
-</script>
+<script setup lang="ts"></script>
 
 <style lang="scss">
     .base-table {
