@@ -12,30 +12,24 @@
     </tr>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayoutsSummary } from '@/payouts';
+import { useRouter } from '@/app/utils/composables';
 
 import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
-// @vue/component
-@Component({
-    components: {
-        NodeOptions,
-    },
-})
-export default class PayoutsSummaryItem extends Vue {
-    @Prop({ default: () => new NodePayoutsSummary() })
-    public payoutsSummary: NodePayoutsSummary;
+const router = useRouter();
 
-    public redirectToByNodePayoutsPage(): void {
-        this.$router.push({
-            name: RouterConfig.Payouts.with(RouterConfig.PayoutsByNode).name,
-            params: { id: this.payoutsSummary.nodeId },
-        });
-    }
+const props = defineProps<{
+    payoutsSummary: NodePayoutsSummary;
+}>();
+
+function redirectToByNodePayoutsPage(): void {
+    router.push({
+        name: RouterConfig.Payouts.with(RouterConfig.PayoutsByNode).name,
+        params: { id: props.payoutsSummary.nodeId },
+    });
 }
 </script>
 

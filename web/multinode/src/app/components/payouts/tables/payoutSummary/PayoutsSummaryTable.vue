@@ -17,79 +17,65 @@
     </base-table>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, ref } from 'vue';
 
 import { NodePayoutsSummary } from '@/payouts';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import PayoutsSummaryItem from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryItem.vue';
 
-// @vue/component
-@Component({
-    components: {
-        BaseTable,
-        PayoutsSummaryItem,
-    },
-})
-export default class PayoutsSummaryTable extends Vue {
-    @Prop({ default: () => [] })
-    public nodePayoutsSummary: NodePayoutsSummary[];
+const props = withDefaults(defineProps<{
+    nodePayoutsSummary: NodePayoutsSummary[];
+}>(), {
+    nodePayoutsSummary: () => [],
+});
 
-    // Initialize sorting variables
-    sortByKey = '';
-    sortDirection = 'asc';
+const sortByKey = ref<string>('');
+const sortDirection = ref<string>('asc');
 
-    // Cache the sort state in browser to persist between sessions
-    created() {
-        const savedSortByKey = localStorage.getItem('payoutSortByKey');
-        const savedSortDirection = localStorage.getItem('payoutSortDirection');
-        if (savedSortByKey) {
-            this.sortByKey = savedSortByKey;
-        }
-        if (savedSortDirection) {
-            this.sortDirection = savedSortDirection;
-        }
-    }
+const sortArrow = computed<string>(() => sortDirection.value === 'asc' ? ' ↑' : ' ↓');
+const sortedNodePayoutsSummary = computed<NodePayoutsSummary[]>(() => {
+    const key = sortByKey.value;
+    const direction = sortDirection.value === 'asc' ? 1 : -1;
+    if (key === '') return props.nodePayoutsSummary;
+    return props.nodePayoutsSummary.slice().sort((a, b) => {
+        if (a[key] < b[key]) return -direction;
+        if (a[key] > b[key]) return direction;
+        return 0;
+    });
+});
 
-    // Sorted nodePayoutsSummary getter
-    public get sortedNodePayoutsSummary(): NodePayoutsSummary[] {
-        const key = this.sortByKey;
-        const direction = this.sortDirection === 'asc' ? 1 : -1;
-        if (key === '') return this.nodePayoutsSummary;
-        return this.nodePayoutsSummary.slice().sort((a, b) => {
-            if (a[key] < b[key]) return -direction;
-            if (a[key] > b[key]) return direction;
-            return 0;
-        });
-    }
-
-    // Update sorting key and direction
-    public sortBy(key: string) {
-        if (this.sortByKey === key) {
-            if (this.sortDirection === 'asc') {
-                this.sortDirection = 'desc';
-            } else {
-                // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
-                this.sortByKey = '';
-            }
+function sortBy(key: string) {
+    if (sortByKey.value === key) {
+        if (sortDirection.value === 'asc') {
+            sortDirection.value = 'desc';
         } else {
-            this.sortByKey = key;
-            this.sortDirection = 'asc';
+            // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
+            sortByKey.value = '';
         }
-
-        localStorage.setItem('payoutSortByKey', this.sortByKey);
-        localStorage.setItem('payoutSortDirection', this.sortDirection);
+    } else {
+        sortByKey.value = key;
+        sortDirection.value = 'asc';
     }
 
-    // Determine arrow icon
-    public get sortArrow(): string {
-        return this.sortDirection === 'asc' ? ' ↑' : ' ↓';
-    }
+    localStorage.setItem('payoutSortByKey', sortByKey.value);
+    localStorage.setItem('payoutSortDirection', sortDirection.value);
 }
+
+onBeforeMount(() => {
+    const savedSortByKey = localStorage.getItem('payoutSortByKey');
+    const savedSortDirection = localStorage.getItem('payoutSortDirection');
+    if (savedSortByKey) {
+        sortByKey.value = savedSortByKey;
+    }
+    if (savedSortDirection) {
+        sortDirection.value = savedSortDirection;
+    }
+});
 </script>
 
-<style scoped>
+<style scoped lang="scss">
     th {
         user-select: none; /* Diable user selecting the headers for sort selection */
     }

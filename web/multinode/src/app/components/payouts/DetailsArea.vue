@@ -26,25 +26,20 @@
     </info-block>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import InfoBlock from '../common/InfoBlock.vue';
 
-// @vue/component
-@Component({
-    components: { InfoBlock },
-})
-export default class DetailsArea extends Vue {
-    @Prop({ default: 0 })
-    public totalEarned: number;
-    @Prop({ default: 0 })
-    public totalHeld: number;
-    @Prop({ default: 0 })
-    public totalPaid: number;
-    @Prop({ default: '' })
-    public period: string;
-}
+withDefaults(defineProps<{
+    totalEarned: number;
+    totalHeld: number;
+    totalPaid: number;
+    period: string;
+}>(), {
+    totalEarned: 0,
+    totalHeld: 0,
+    totalPaid: 0,
+    period: '',
+});
 </script>
 
 <style scoped lang="scss">

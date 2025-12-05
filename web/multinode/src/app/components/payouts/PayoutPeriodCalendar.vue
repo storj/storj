@@ -33,170 +33,130 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { monthNames } from '@/app/types/date';
 import { MonthButton, StoredMonthsByYear } from '@/app/types/payouts';
+import { useStore } from '@/app/utils/composables';
 
 import VButton from '@/app/components/common/VButton.vue';
 
 import GrayArrowLeftIcon from '@/../static/images/icons/GrayArrowLeft.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        GrayArrowLeftIcon,
-    },
-})
-export default class PayoutHistoryPeriodCalendar extends Vue {
-    private now: Date = new Date();
-    /**
-     * Contains current months list depends on active and selected month state.
-     */
-    public currentDisplayedMonths: MonthButton[] = [];
-    public displayedYear: number = this.now.getUTCFullYear();
-    public period = '';
+const store = useStore();
 
-    private displayedMonths: StoredMonthsByYear = {};
-    private selectedMonth: MonthButton | null;
+const emit = defineEmits<{
+    (e: 'onClose'): void;
+}>();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Sets up current calendar state.
-     */
-    public mounted(): void {
-        this.populateMonths(this.displayedYear);
-        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
+const now = new Date();
+
+const currentDisplayedMonths = ref<MonthButton[]>([]);
+const displayedYear = ref<number>(now.getUTCFullYear());
+const period = ref<string>('');
+const displayedMonths = ref<StoredMonthsByYear>({});
+const selectedMonth = ref<MonthButton | null>(null);
+
+async function submit(): Promise<void> {
+    let periodValue: string | null = null;
+
+    if (selectedMonth.value) {
+        const month = selectedMonth.value.index < 9 ? `0${selectedMonth.value.index + 1}` : selectedMonth.value.index + 1;
+
+        periodValue = `${selectedMonth.value.year}-${month}`;
     }
 
-    /**
-     * Fetches payout information.
-     */
-    public async submit(): Promise<void> {
-        let period: string | null = null;
+    store.commit('payouts/setPayoutPeriod', periodValue);
 
-        if (this.selectedMonth) {
-            const month = this.selectedMonth.index < 9 ? `0${this.selectedMonth.index + 1}` : this.selectedMonth.index + 1;
-
-            period = `${this.selectedMonth.year}-${month}`;
+    try {
+        await store.dispatch('payouts/summary');
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
 
-        this.$store.commit('payouts/setPayoutPeriod', period);
-
-        try {
-            await this.$store.dispatch('payouts/summary');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
-
-        this.close();
+        // TODO: notify error
     }
 
-    /**
-     * Updates selected period label.
-     */
-    public updatePeriod(): void {
-        if (!this.selectedMonth) {
-            this.period = 'All time';
-
-            return;
-        }
-
-        this.period = `${monthNames[this.selectedMonth.index]}, ${this.selectedMonth.year}`;
-    }
-
-    /**
-     * Updates first selected month on click.
-     */
-    public checkMonth(month: MonthButton): void {
-        if (!month.active || month.selected) {
-            return;
-        }
-
-        if (this.selectedMonth) {
-            this.selectedMonth.selected = false;
-        }
-
-        this.selectedMonth = month;
-        month.selected = true;
-        this.updatePeriod();
-    }
-
-    /**
-     * selectAllTime resets selected payout period.
-     */
-    public selectAllTime(): void {
-        if (this.selectedMonth) {
-            this.selectedMonth.selected = false;
-        }
-
-        this.selectedMonth = null;
-        this.updatePeriod();
-
-        this.submit();
-    }
-
-    /**
-     * Increments year and updates current months set.
-     */
-    public incrementYear(): void {
-        const isCurrentYear = this.displayedYear === this.now.getUTCFullYear();
-
-        if (isCurrentYear) { return; }
-
-        this.displayedYear += 1;
-        this.populateMonths(this.displayedYear);
-        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
-    }
-
-    /**
-     * Decrement year and updates current months set.
-     */
-    public decrementYear(): void {
-        // TODO: remove hardcoded value
-        const minYear = 2000;
-
-        if (this.displayedYear === minYear) { return; }
-
-        this.displayedYear -= 1;
-        this.populateMonths(this.displayedYear);
-        this.currentDisplayedMonths = this.displayedMonths[this.displayedYear];
-    }
-
-    /**
-     * Sets months set in displayedMonths with year as key.
-     */
-    private populateMonths(year: number): void {
-        if (this.displayedMonths[year]) {
-            this.currentDisplayedMonths = this.displayedMonths[year];
-
-            return;
-        }
-
-        const months: MonthButton[] = [];
-
-        // Creates months entities and adds them to list.
-        for (let i = 0; i < 12; i++) {
-            months.push(new MonthButton(year, i, true, false));
-        }
-
-        this.displayedMonths[year] = months;
-    }
-
-    /**
-     * Closes calendar.
-     */
-    private close(): void {
-        this.$emit('onClose');
-    }
+    close();
 }
+
+function updatePeriod(): void {
+    if (!selectedMonth.value) {
+        period.value = 'All time';
+
+        return;
+    }
+
+    period.value = `${monthNames[selectedMonth.value.index]}, ${selectedMonth.value.year}`;
+}
+
+function checkMonth(month: MonthButton): void {
+    if (!month.active || month.selected) return;
+
+    if (selectedMonth.value) selectedMonth.value.selected = false;
+
+    selectedMonth.value = month;
+    month.selected = true;
+    updatePeriod();
+}
+
+function selectAllTime(): void {
+    if (selectedMonth.value) selectedMonth.value.selected = false;
+
+    selectedMonth.value = null;
+    updatePeriod();
+
+    submit();
+}
+
+function incrementYear(): void {
+    const isCurrentYear = displayedYear.value === now.getUTCFullYear();
+    if (isCurrentYear) return;
+
+    displayedYear.value += 1;
+    populateMonths(displayedYear.value);
+    currentDisplayedMonths.value = displayedMonths.value[displayedYear.value];
+}
+
+function decrementYear(): void {
+    // TODO: remove hardcoded value
+    const minYear = 2000;
+
+    if (displayedYear.value === minYear) return;
+
+    displayedYear.value -= 1;
+    populateMonths(displayedYear.value);
+    currentDisplayedMonths.value = displayedMonths.value[displayedYear.value];
+}
+
+function populateMonths(year: number): void {
+    if (displayedMonths.value[year]) {
+        currentDisplayedMonths.value = displayedMonths.value[year];
+
+        return;
+    }
+
+    const months: MonthButton[] = [];
+
+    // Creates months entities and adds them to list.
+    for (let i = 0; i < 12; i++) {
+        months.push(new MonthButton(year, i, true, false));
+    }
+
+    displayedMonths.value[year] = months;
+}
+
+function close(): void {
+    emit('onClose');
+}
+
+onMounted(() => {
+    populateMonths(displayedYear.value);
+    currentDisplayedMonths.value = displayedMonths.value[displayedYear.value];
+});
 </script>
 
 <style scoped lang="scss">

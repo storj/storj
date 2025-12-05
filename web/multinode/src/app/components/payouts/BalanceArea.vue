@@ -21,21 +21,16 @@
     </info-block>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import InfoBlock from '../common/InfoBlock.vue';
 
-// @vue/component
-@Component({
-    components: { InfoBlock },
-})
-export default class BalanceArea extends Vue {
-    @Prop({ default: 0 })
-    public undistributed: number;
-    @Prop({ default: 0 })
-    public currentMonthEstimation: number;
-}
+withDefaults(defineProps<{
+    undistributed: number;
+    currentMonthEstimation: number;
+}>(), {
+    undistributed: 0,
+    currentMonthEstimation: 0,
+});
 </script>
 
 <style scoped lang="scss">
