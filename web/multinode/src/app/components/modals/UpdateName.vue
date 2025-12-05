@@ -26,69 +26,64 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { UpdateNodeModel } from '@/nodes';
+import { useStore } from '@/app/utils/composables';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        HeaderedInput,
-        VModal,
-    },
-})
-export default class AddNewNode extends Vue {
-    @Prop({ default: '' })
-    public nodeId: string;
+const store = useStore();
 
-    public nodeName = '';
-    private nameError = '';
-    public isModalShown = false;
+const props = withDefaults(defineProps<{
+    nodeId: string;
+}>(), {
+    nodeId: '',
+});
 
-    private isLoading = false;
+const emit = defineEmits<{
+    (e: 'closeOptions'): void;
+}>();
 
-    /**
-     * Sets node name field from value string.
-     */
-    public setNodeName(value: string): void {
-        this.nodeName = value.trim();
-        this.nameError = '';
+const nodeName = ref<string>('');
+const nameError = ref<string>('');
+const isModalShown = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
+
+function setNodeName(value: string): void {
+    nodeName.value = value.trim();
+    nameError.value = '';
+}
+
+function openModal(): void {
+    isModalShown.value = true;
+}
+
+function closeModal(): void {
+    isLoading.value = false;
+    isModalShown.value = false;
+    emit('closeOptions');
+}
+
+async function onSetName(): Promise<void> {
+    if (isLoading.value) return;
+
+    if (!nodeName.value) {
+        nameError.value = 'This field is required. Please enter a valid node name';
+        return;
     }
 
-    public openModal(): void {
-        this.isModalShown = true;
-    }
+    isLoading.value = true;
 
-    public closeModal(): void {
-        this.isLoading = false;
-        this.isModalShown = false;
-        this.$emit('closeOptions');
-    }
-
-    public async onSetName(): Promise<void> {
-        if (this.isLoading) { return; }
-
-        if (!this.nodeName) {
-            this.nameError = 'This field is required. Please enter a valid node name';
-
-            return;
-        }
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch('nodes/updateName', new UpdateNodeModel(this.nodeId, this.nodeName));
-            this.closeModal();
-        } catch (error) {
-            console.error(error);
-            this.isLoading = false;
-        }
+    try {
+        await store.dispatch('nodes/updateName', new UpdateNodeModel(props.nodeId, nodeName.value));
+        closeModal();
+    } catch (error) {
+        console.error(error);
+        isLoading.value = false;
     }
 }
 </script>

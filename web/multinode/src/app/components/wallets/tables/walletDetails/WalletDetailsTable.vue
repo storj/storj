@@ -18,14 +18,6 @@
     </base-table>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import BaseTable from '@/app/components/common/BaseTable.vue';
-
-// @vue/component
-@Component({
-    components: { BaseTable },
-})
-export default class WalletDetailsTable extends Vue {}
 </script>

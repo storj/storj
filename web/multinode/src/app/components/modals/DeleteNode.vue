@@ -19,49 +19,50 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
+
+import { useStore } from '@/app/utils/composables';
 
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-    },
-})
-export default class AddNewNode extends Vue {
-    @Prop({ default: '' })
-    public nodeId: string;
+const store = useStore();
 
-    public isModalShown = false;
+const props = withDefaults(defineProps<{
+    nodeId: string;
+}>(), {
+    nodeId: '',
+});
 
-    private isLoading = false;
+const emit = defineEmits<{
+    (e: 'closeOptions'): void;
+}>();
 
-    public openModal(): void {
-        this.isModalShown = true;
-    }
+const isModalShown = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
 
-    public closeModal(): void {
-        this.isLoading = false;
-        this.isModalShown = false;
-        this.$emit('closeOptions');
-    }
+function openModal(): void {
+    isModalShown.value = true;
+}
 
-    public async onDelete(): Promise<void> {
-        if (this.isLoading) { return; }
+function closeModal(): void {
+    isLoading.value = false;
+    isModalShown.value = false;
+    emit('closeOptions');
+}
 
-        this.isLoading = true;
+async function onDelete(): Promise<void> {
+    if (isLoading.value) { return; }
 
-        try {
-            await this.$store.dispatch('nodes/delete', this.nodeId);
-            this.closeModal();
-        } catch (error) {
-            console.error(error);
-            this.isLoading = false;
-        }
+    isLoading.value = true;
+
+    try {
+        await store.dispatch('nodes/delete', props.nodeId);
+        closeModal();
+    } catch (error) {
+        console.error(error);
+        isLoading.value = false;
     }
 }
 </script>
