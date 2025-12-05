@@ -72,6 +72,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
+import { Notify } from '@/app/plugins';
 
 import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
 import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
@@ -100,6 +101,7 @@ export default class BandwidthPage extends Vue {
     public diskSpaceChartHeight = 0;
     public isEgressChartShown = false;
     public isIngressChartShown = false;
+    public notify = new Notify();
     public $refs: {
         chart: HTMLElement;
         diskSpaceChart: HTMLElement;
@@ -137,7 +139,7 @@ export default class BandwidthPage extends Vue {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
         }
 
         await this.fetchTraffic();
@@ -197,7 +199,8 @@ export default class BandwidthPage extends Vue {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         try {
@@ -207,7 +210,8 @@ export default class BandwidthPage extends Vue {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
+
         }
 
         try {
@@ -217,7 +221,7 @@ export default class BandwidthPage extends Vue {
                 // TODO: redirect to login screen.
             }
 
-            // TODO: notify error
+            this.notify.error({ message: error.message, title: error.name });
         }
     }
 }
