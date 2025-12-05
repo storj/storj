@@ -12,50 +12,40 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import DeleteNode from '@/app/components/modals/DeleteNode.vue';
 import UpdateName from '@/app/components/modals/UpdateName.vue';
 
 import MoreIcon from '@/../static/images/icons/more.svg';
 
-// @vue/component
-@Component({
-    components: {
-        UpdateName,
-        DeleteNode,
-        MoreIcon,
-    },
-})
-export default class NodeOptions extends Vue {
-    @Prop({ default: '' })
-    public id: string;
+const props = withDefaults(defineProps<{
+    id: string;
+}>(), {
+    id: '',
+});
 
-    public areOptionsShown = false;
+const areOptionsShown = ref<boolean>(false);
 
-    public openOptions(): void {
-        this.areOptionsShown = true;
+function openOptions(): void {
+    areOptionsShown.value = true;
+}
+
+function closeOptions(): void {
+    if (!areOptionsShown.value) return;
+
+    areOptionsShown.value = false;
+}
+
+async function onCopy(): Promise<void> {
+    try {
+        await navigator.clipboard.writeText(props.id);
+    } catch (error) {
+        console.error(error);
     }
 
-    public closeOptions(): void {
-        if (!this.areOptionsShown) { return; }
-
-        this.areOptionsShown = false;
-    }
-
-    /**
-     * Copies node id to clipboard and closes popup.
-     */
-    public async onCopy(): Promise<void> {
-        try {
-            await this.$copyText(this.id);
-        } catch (error) {
-            console.error(error);
-        }
-
-        this.closeOptions();
-    }
+    closeOptions();
 }
 </script>
 

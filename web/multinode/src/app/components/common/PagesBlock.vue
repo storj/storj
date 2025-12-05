@@ -13,19 +13,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { CheckSelected, Page } from '@/app/types/pagination';
 
-// @vue/component
-@Component
-export default class PagesBlock extends Vue {
-    @Prop({ default: () => [] })
-    public readonly pages: Page[];
-    @Prop({ default: () => false })
-    public readonly isSelected: CheckSelected;
-}
+withDefaults(defineProps<{
+    pages: Page[];
+    isSelected: CheckSelected;
+}>(), {
+    pages: () => [],
+    isSelected: () => false,
+});
 </script>
 
 <style scoped lang="scss">

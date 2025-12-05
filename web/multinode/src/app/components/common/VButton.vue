@@ -17,62 +17,56 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-/**
- * Custom button component with label.
- */
-// @vue/component
-@Component
-export default class VButton extends Vue {
-    @Prop({ default: 'Default' })
-    private readonly label: string;
-    @Prop({ default: 'inherit' })
-    private readonly width: string;
-    @Prop({ default: '48px' })
-    private readonly height: string;
-    @Prop({ default: false })
-    private readonly isWhite: boolean;
-    @Prop({ default: false })
-    private readonly isTransparent: boolean;
-    @Prop({ default: false })
-    private readonly isDeletion: boolean;
-    @Prop({ default: false })
-    private readonly isBlueWhite: boolean;
-    @Prop({ default: false })
-    private isDisabled: boolean;
-    @Prop({ default: false })
-    private withPlus: boolean;
-    @Prop({ default: false })
-    private inactive: boolean;
-    @Prop({ default: () => () => {} })
-    private readonly onPress: () => void;
+const props = withDefaults(defineProps<{
+    label?: string;
+    width?: string;
+    height?: string;
+    isWhite?: boolean;
+    isTransparent?: boolean;
+    isDeletion?: boolean;
+    isDisabled?: boolean;
+    withPlus?: boolean;
+    inactive?: boolean;
+    onPress?: () => void;
+}>(), {
+    label: 'Default',
+    width: 'inherit',
+    height: '48px',
+    isWhite: false,
+    isTransparent: false,
+    isDeletion: false,
+    isDisabled: false,
+    withPlus: false,
+    inactive: false,
+    onPress: () => {},
+});
 
-    public get style(): Record<string, unknown> {
-        return { width: this.width, height: this.height };
+const style = computed(() => {
+    return { width: props.width, height: props.height };
+});
+
+const containerClassName = computed(() => {
+    let className = `${props.inactive ? 'inactive' : ''}`;
+
+    switch (true) {
+    case props.isDisabled:
+        className = 'disabled';
+        break;
+    case props.isWhite:
+        className = 'white_btn';
+        break;
+    case props.isTransparent:
+        className = 'transparent';
+        break;
+    case props.isDeletion:
+        className = 'red_btn';
     }
 
-    public get containerClassName(): string {
-        let className = `${this.inactive ? 'inactive' : ''}`;
-
-        switch (true) {
-        case this.isDisabled:
-            className = 'disabled';
-            break;
-        case this.isWhite:
-            className = 'white_btn';
-            break;
-        case this.isTransparent:
-            className = 'transparent';
-            break;
-        case this.isDeletion:
-            className = 'red_btn';
-        }
-
-        return className;
-    }
-}
+    return className;
+});
 </script>
 
 <style lang="scss" scoped>

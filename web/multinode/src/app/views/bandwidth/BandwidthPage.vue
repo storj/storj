@@ -229,6 +229,7 @@ export default class BandwidthPage extends Vue {
         padding: 60px;
         height: 100%;
         overflow-y: auto;
+        background-color: var(--v-background-base);
 
         &__title {
             font-family: 'font_bold', sans-serif;

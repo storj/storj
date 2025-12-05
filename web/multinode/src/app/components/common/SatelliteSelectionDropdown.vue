@@ -5,46 +5,34 @@
     <v-dropdown :options="trustedSatellitesOptions" :preselected-option="selectedSatelliteOption" />
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { NodeURL } from '@/nodes';
+import { useStore } from '@/app/utils/composables';
+import { Option } from '@/app/types/common';
 
-import VDropdown, { Option } from '@/app/components/common/VDropdown.vue';
+import VDropdown from '@/app/components/common/VDropdown.vue';
 
-// @vue/component
-@Component({
-    components: { VDropdown },
-})
-export default class SatelliteSelectionDropdown extends Vue {
-    /**
-     * List of trusted satellites and all satellites options.
-     */
-    public get trustedSatellitesOptions(): Option[] {
-        const trustedSatellites: NodeURL[] = this.$store.state.nodes.trustedSatellites;
+const store = useStore();
 
-        const options: Option[] = trustedSatellites.map(
-            (satellite: NodeURL) => new Option(satellite.id, () => this.onSatelliteClick(satellite.id)),
-        );
+const trustedSatellitesOptions = computed<Option[]>(() => {
+    const trustedSatellites: NodeURL[] = store.state.nodes.trustedSatellites;
 
-        return [new Option('All Satellites', () => this.onSatelliteClick()), ...options];
-    }
+    const options: Option[] = trustedSatellites.map(
+        (satellite: NodeURL) => new Option(satellite.id, () => onSatelliteClick(satellite.id)),
+    );
 
-    /**
-     * Preselected satellite from store if any.
-     */
-    public get selectedSatelliteOption(): Option | null {
-        if (!this.$store.state.nodes.selectedSatellite) { return null; }
+    return [new Option('All Satellites', () => onSatelliteClick()), ...options];
+});
 
-        return new Option(this.$store.state.nodes.selectedSatellite.id, async() => Promise.resolve());
-    }
+const selectedSatelliteOption = computed<Option | null>(() => {
+    if (!store.state.nodes.selectedSatellite) { return null; }
 
-    /**
-     * Callback for satellite click.
-     * @param id
-     */
-    public async onSatelliteClick(id = ''): Promise<void> {
-        await this.$store.dispatch('nodes/selectSatellite', id);
-    }
+    return new Option(store.state.nodes.selectedSatellite.id, async () => Promise.resolve());
+});
+
+async function onSatelliteClick(id = ''): Promise<void> {
+    await store.dispatch('nodes/selectSatellite', id);
 }
 </script>

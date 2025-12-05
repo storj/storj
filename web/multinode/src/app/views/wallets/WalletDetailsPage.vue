@@ -82,6 +82,7 @@ export default class WalletDetailsPage extends Vue {
         overflow-y: auto;
         height: calc(100vh - 60px);
         color: var(--c-title);
+        background-color: var(--v-background-base);
 
         &__header {
             display: flex;

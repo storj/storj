@@ -55,42 +55,32 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, ref, watch } from 'vue';
 import { VBtn, VBtnToggle, VTooltip } from 'vuetify/lib';
 
-// @vue/component
-@Component({
-    components: {
-        VBtn,
-        VTooltip,
-        VBtnToggle,
-    },
-})
+import { useVuetify } from '@/app/utils/composables';
 
-export default class ThemeSelector extends Vue {
+const vuetify = useVuetify();
 
-    public activeTheme = 0;
+const activeTheme = ref<number>(0);
 
-    toggleTheme(newTheme: string): void {
-        if (newTheme === 'dark' && !this.$vuetify.theme.dark) {
-            this.$vuetify.theme.dark = true;
-        } else if (newTheme === 'light' && this.$vuetify.theme.dark) {
-            this.$vuetify.theme.dark = false;
-        }
-        localStorage.setItem('theme', newTheme);
+function toggleTheme(newTheme: string): void {
+    if (newTheme === 'dark' && !vuetify.theme.dark) {
+        vuetify.theme.dark = true;
+    } else if (newTheme === 'light' && vuetify.theme.dark) {
+        vuetify.theme.dark = false;
     }
-
-    @Watch('$vuetify.theme.dark', { immediate: true })
-    onThemeChange(newValue: boolean) {
-        this.activeTheme = newValue ? 1 : 0;
-    }
-
-    public mounted(): void {
-        this.toggleTheme(localStorage.getItem('theme') || 'light');
-    }
+    localStorage.setItem('theme', newTheme);
 }
 
+onMounted(() => {
+    toggleTheme(localStorage.getItem('theme') || 'light');
+});
+
+watch(() => vuetify.theme.dark, () => {
+    activeTheme.value = vuetify.theme.dark ? 1 : 0;
+}, { immediate: true });
 </script>
 
 <style lang="scss" scoped>
@@ -123,5 +113,4 @@ export default class ThemeSelector extends Vue {
         padding: 5px;
     }
 }
-
 </style>
