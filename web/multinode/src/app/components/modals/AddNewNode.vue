@@ -44,129 +44,108 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { CreateNodeFields } from '@/nodes';
+import { useStore } from '@/app/utils/composables';
 import { Notify } from '@/app/plugins';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        HeaderedInput,
-        VModal,
-    },
-})
-export default class AddNewNode extends Vue {
-    public isAddNewNodeModalShown = false;
-    private nodeToAdd: CreateNodeFields = new CreateNodeFields();
+const store = useStore();
+const notify = new Notify();
 
-    private isLoading = false;
-    // errors
-    private idError = '';
-    private publicIPError = '';
-    private apiKeyError = '';
-    private nameError = '';
-    public notify = new Notify();
+const isAddNewNodeModalShown = ref<boolean>(false);
+const nodeToAdd = ref<CreateNodeFields>(new CreateNodeFields());
+const isLoading = ref<boolean>(false);
 
-    public async openModal(): Promise<void> {
-        this.isAddNewNodeModalShown = true;
+const idError = ref<string>('');
+const publicIPError = ref<string>('');
+const apiKeyError = ref<string>('');
+const nameError = ref<string>('');
+
+function openModal(): void {
+    isAddNewNodeModalShown.value = true;
+}
+
+function closeModal(): void {
+    nodeToAdd.value = new CreateNodeFields();
+    idError.value = '';
+    publicIPError.value = '';
+    apiKeyError.value = '';
+    nameError.value = '';
+    isLoading.value = false;
+    isAddNewNodeModalShown.value = false;
+}
+
+function setNodeId(value: string): void {
+    nodeToAdd.value.id = value.trim();
+    idError.value = '';
+}
+
+function setPublicIP(value: string): void {
+    nodeToAdd.value.publicAddress = value.trim();
+    publicIPError.value = '';
+}
+
+function setApiKey(value: string): void {
+    nodeToAdd.value.apiSecret = value.trim();
+    apiKeyError.value = '';
+}
+
+function setNodeName(value: string): void {
+    nodeToAdd.value.name = value.trim();
+    nameError.value = '';
+}
+
+async function onCreate(): Promise<void> {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    if (!validateFields()) {
+        isLoading.value = false;
+        return;
     }
 
-    public closeModal(): void {
-        this.nodeToAdd = new CreateNodeFields();
-        this.idError = '';
-        this.publicIPError = '';
-        this.apiKeyError = '';
-        this.nameError = '';
-        this.isLoading = false;
-        this.isAddNewNodeModalShown = false;
+    try {
+        await store.dispatch('nodes/add', nodeToAdd.value);
+        notify.success({ message: 'Node Added Successfully' });
+    } catch (error) {
+        console.error(error);
+        isLoading.value = false;
     }
 
-    /**
-     * Sets node id field from value string.
-     */
-    public setNodeId(value: string): void {
-        this.nodeToAdd.id = value.trim();
-        this.idError = '';
+    closeModal();
+}
+
+function validateFields(): boolean {
+    let hasNoErrors = true;
+
+    if (!nodeToAdd.value.id) {
+        idError.value = 'This field is required. Please enter a valid node ID';
+        hasNoErrors = false;
     }
 
-    /**
-     * Sets node public ip field from value string.
-     */
-    public setPublicIP(value: string): void {
-        this.nodeToAdd.publicAddress = value.trim();
-        this.publicIPError = '';
+    if (!nodeToAdd.value.name) {
+        nameError.value = 'This field is required. Please enter a valid node Name';
+        hasNoErrors = false;
     }
 
-    /**
-     * Sets API key field from value string.
-     */
-    public setApiKey(value: string): void {
-        this.nodeToAdd.apiSecret = value.trim();
-        this.apiKeyError = '';
+    if (!nodeToAdd.value.publicAddress) {
+        publicIPError.value = 'This field is required. Please enter a valid node Public Address';
+        hasNoErrors = false;
     }
 
-    /**
-     * Sets node name field from value string.
-     */
-    public setNodeName(value: string): void {
-        this.nodeToAdd.name = value.trim();
-        this.nameError = '';
+    if (!nodeToAdd.value.apiSecret) {
+        apiKeyError.value = 'This field is required. Please enter a valid API Key';
+        hasNoErrors = false;
     }
 
-    public async onCreate(): Promise<void> {
-        if (this.isLoading) { return; }
-
-        this.isLoading = true;
-
-        if (!this.validateFields()) {
-            this.isLoading = false;
-
-            return;
-        }
-
-        try {
-            await this.$store.dispatch('nodes/add', this.nodeToAdd);
-            this.notify.success({ message: 'Node Added Successfully' });
-        } catch (error) {
-            console.error(error);
-            this.isLoading = false;
-        }
-
-        this.closeModal();
-    }
-
-    private validateFields(): boolean {
-        let hasNoErrors = true;
-
-        if (!this.nodeToAdd.id) {
-            this.idError = 'This field is required. Please enter a valid node ID';
-            hasNoErrors = false;
-        }
-
-        if (!this.nodeToAdd.name) {
-            this.nameError = 'This field is required. Please enter a valid node Name';
-            hasNoErrors = false;
-        }
-
-        if (!this.nodeToAdd.publicAddress) {
-            this.publicIPError = 'This field is required. Please enter a valid node Public Address';
-            hasNoErrors = false;
-        }
-
-        if (!this.nodeToAdd.apiSecret) {
-            this.apiKeyError = 'This field is required. Please enter a valid API Key';
-            hasNoErrors = false;
-        }
-
-        return hasNoErrors;
-    }
+    return hasNoErrors;
 }
 </script>
 
