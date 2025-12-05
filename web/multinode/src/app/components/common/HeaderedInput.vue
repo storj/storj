@@ -3,7 +3,7 @@
 
 <template>
     <div class="input-container">
-        <div v-if="!isOptional" class="label-container">
+        <div class="label-container">
             <div class="label-container__main">
                 <div v-if="error" class="label-container__main__error-icon-container">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -13,39 +13,14 @@
                     </svg>
                 </div>
                 <h3 v-if="!error" class="label-container__main__label">{{ label }}</h3>
-                <h3 v-if="!error" class="label-container__main__label add-label">{{ additionalLabel }}</h3>
                 <h3 v-if="error" class="label-container__main__error">{{ error }}</h3>
             </div>
-            <h3 v-if="isLimitShown" class="label-container__limit">{{ currentLimit }}/{{ maxSymbols }}</h3>
         </div>
-        <div v-if="isOptional" class="optional-label-container">
-            <h3 class="label-container__label">{{ label }}</h3>
-            <h4 class="optional-label-container__optional">Optional</h4>
-        </div>
-        <textarea
-            v-if="isMultiline"
-            :id="label"
-            v-model="value"
-            class="headered-textarea"
-            :placeholder="placeholder"
-            :style="style.inputStyle"
-            :rows="5"
-            :cols="40"
-            wrap="hard"
-            autocomplete="off"
-            @input="onInput"
-            @change="onInput"
-            @paste.prevent="onPaste"
-        />
         <input
-            v-if="!isMultiline"
-            :id="label"
-            v-model="value"
+            :value="val"
             class="headered-input"
             :placeholder="placeholder"
-            :type="[isPassword ? 'password': 'text']"
             autocomplete="off"
-            :style="style.inputStyle"
             @input="onInput"
             @change="onInput"
             @paste.prevent="onPaste"
@@ -53,33 +28,35 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-import HeaderlessInput from './HeaderlessInput.vue';
+withDefaults(defineProps<{
+    label: string;
+    placeholder: string;
+    error?: string;
+}>(), {
+    error: '',
+});
 
-// Custom input component with labeled header.
-// @vue/component
-@Component
-export default class HeaderedInput extends HeaderlessInput {
-    @Prop({ default: '' })
-    private readonly initValue: string;
-    @Prop({ default: '' })
-    private readonly additionalLabel: string;
-    @Prop({ default: 0 })
-    private readonly currentLimit: number;
-    @Prop({ default: false })
-    private readonly isOptional: boolean;
-    @Prop({ default: false })
-    private readonly isLimitShown: boolean;
-    @Prop({ default: false })
-    private readonly isMultiline: boolean;
+const emit = defineEmits(['setData']);
 
-    public value: string;
+const val = ref<string>('');
 
-    public created() {
-        this.value = this.initValue;
-    }
+function onInput(event: Event): void {
+    if (!event.target) return;
+
+    const target = event.target as HTMLInputElement;
+
+    val.value = target.value;
+    emit('setData', val.value);
+}
+
+function onPaste(event: ClipboardEvent): void {
+    if (!event || !event.clipboardData) return;
+
+    val.value = event.clipboardData.getData('text');
+    emit('setData', val.value);
 }
 </script>
 
@@ -126,36 +103,9 @@ export default class HeaderedInput extends HeaderlessInput {
                 display: flex;
             }
         }
-
-        &__limit {
-            font-size: 16px;
-            line-height: 21px;
-            color: rgb(56 75 101 / 40%);
-        }
     }
 
-    .optional-label-container {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        width: 100%;
-
-        &__optional {
-            font-size: 16px;
-            line-height: 21px;
-            color: var(--v-text-base);
-        }
-    }
-
-    .headered-textarea {
-        padding: 15px 22px;
-        text-indent: 0;
-        line-height: 26px;
-    }
-
-    .headered-input,
-    .headered-textarea {
+    .headered-input {
         font-size: 16px;
         line-height: 21px;
         resize: none;
@@ -184,10 +134,5 @@ export default class HeaderedInput extends HeaderlessInput {
         &:active {
             border: 2px solid var(--v-primary-base);
         }
-    }
-
-    .add-label {
-        margin-left: 5px;
-        color: rgb(56 75 101 / 40%);
     }
 </style>
