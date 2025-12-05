@@ -1,0 +1,104 @@
+#!/bin/bash
+set -euo pipefail
+
+## production helpers
+SETUP_PARAMS=""
+
+if [ -n "${IDENTITY_ADDR:-}" ]; then
+	export STORJ_SERVER_ADDRESS="${IDENTITY_ADDR}"
+fi
+
+if [ ! -f "${CONF_PATH}/config.yaml" ]; then
+	./satellite setup $SETUP_PARAMS
+fi
+
+RUN_PARAMS="${RUN_PARAMS:-} --config-dir ${CONF_PATH}"
+
+if [ "${SATELLITE_ADMIN:-}" = "true" ]; then
+  exec ./satellite run admin $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_API:-}" = "true" ]; then
+  exec ./satellite run api $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_UI:-}" = "true" ]; then
+  exec ./satellite run ui $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_GC:-}" = "true" ]; then
+  exec ./satellite run garbage-collection $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_MIGRATE:-}" = "true" ]; then
+  exec ./satellite run migration $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_REPAIR:-}" = "true" ]; then
+  exec ./satellite run repair $RUN_PARAMS "$@"
+fi
+
+if [ "${SATELLITE_AUDITOR:-}" = "true" ]; then
+  exec ./satellite run auditor $RUN_PARAMS "$@"
+fi
+
+## storj-up helpers
+if [ "${STORJUP_ROLE:-""}" ]; then
+
+  if [ "${STORJ_IDENTITY_DIR:-""}" ]; then
+    #Generate identity if missing
+    if [ ! -f "$STORJ_IDENTITY_DIR/identity.key" ]; then
+      if [ "$STORJ_USE_PREDEFINED_IDENTITY" ]; then
+        # use predictable, pre-generated identity
+        mkdir -p $(dirname $STORJ_IDENTITY_DIR)
+        cp -r /var/lib/storj/identities/$STORJ_USE_PREDEFINED_IDENTITY $STORJ_IDENTITY_DIR
+      else
+        identity --identity-dir $STORJ_IDENTITY_DIR --difficulty 8 create .
+      fi
+    fi
+  fi
+
+  if [ "${STORJ_WAIT_FOR_DB:-""}" ]; then
+    storj-up util wait-for-port cockroach:26257
+    storj-up util wait-for-port redis:6379
+  fi
+
+  if [ "${STORJUP_ROLE:-""}" == "satellite-api" ]; then
+    mkdir -p /var/lib/storj/.local
+
+    #only migrate first time
+    if [ ! -f "/var/lib/storj/.local/migrated" ]; then
+      satellite run migration --identity-dir $STORJ_IDENTITY_DIR
+      touch /var/lib/storj/.local/migrated
+    fi
+  fi
+
+  # default config generated without arguments is misleading
+  rm /root/.local/share/storj/satellite/config.yaml
+
+  mkdir -p /var/lib/storj/.local/share/storj/satellite || true
+
+  if [ "${GO_DLV:-""}" ]; then
+    echo "Starting with go dlv"
+
+    #absolute file path is required
+    CMD=$(which $1)
+    shift
+    /usr/local/bin/dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec --check-go-version=false -- $CMD "$@"
+    exit $?
+  fi
+fi
+
+# for backward compatibility reason, we use argument as command, only if it's an executable (and use it as satellite flags oterwise)
+set +eo nounset
+which "$1" > /dev/null
+VALID_EXECUTABLE=$?
+set -eo nounset
+
+if [ $VALID_EXECUTABLE -eq 0 ]; then
+  # this is a full command (what storj-up uses)
+  exec "$@"
+else
+  # legacy, run-only parameters
+  exec ./satellite run $RUN_PARAMS "$@"
+fi

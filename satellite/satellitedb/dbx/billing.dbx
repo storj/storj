@@ -1,0 +1,335 @@
+// stripe_customer contains the user Stripe information.
+model stripe_customer (
+	key user_id
+	unique customer_id
+
+	// user_id refers to user.id.
+	field user_id     blob
+	// customer_id is the Stripe customer identifier.
+	field customer_id text
+	// billing_customer_id is the Stripe customer identifier of the account to send invoices to.
+	field billing_customer_id text ( nullable, updatable )
+	// package_plan is the package plan currently applicable to the customer.
+	field package_plan text ( nullable, updatable )
+	// purchased_package_at is the time the package plan was purchased.
+	field purchased_package_at timestamp ( nullable, updatable )
+	// created_at is the time the customer was first added.
+	field created_at  timestamp ( autoinsert )
+)
+
+create stripe_customer ( )
+
+read one (
+	select stripe_customer.package_plan stripe_customer.purchased_package_at
+	where stripe_customer.user_id = ?
+)
+
+read one (
+	select stripe_customer.customer_id
+	where stripe_customer.user_id = ?
+)
+read one (
+	select stripe_customer.user_id
+	where stripe_customer.customer_id = ?
+)
+read one (
+	select stripe_customer.customer_id stripe_customer.billing_customer_id
+	where stripe_customer.user_id = ?
+)
+
+update stripe_customer (
+	where stripe_customer.user_id = ?
+)
+
+// billing_balance is the current balance for the user.
+model billing_balance (
+	key user_id
+
+	// user_id refers to user.id.
+	field user_id          blob
+	// balance is the currency in base units, which for USD is in cents.
+	field balance          int64   ( updatable )
+	// last_updated is when the balance was last updated.
+	field last_updated     timestamp ( autoinsert, autoupdate )
+)
+
+create billing_balance ( noreturn )
+
+update billing_balance (
+	where billing_balance.user_id = ?
+	where billing_balance.balance = ?
+)
+
+read one (
+	select billing_balance.balance
+	where billing_balance.user_id = ?
+)
+
+// billing_transaction holds deposit information to the satellite.
+model billing_transaction (
+	key id
+
+	// id is a unique identifier for the transaction.
+	field id               serial64
+	// user_id refers to user.id.
+	field user_id          blob
+	// amount is the amount of currency in base-units that was transferred.
+	field amount           int64
+	// currency indicates which currency was used for the transaction.
+	field currency         text
+	// description contains extra information about the transaction.
+	field description      text
+	// source indicates where the transfer came from.
+	field source           text
+	// status indicates the processing status of this transaction.
+	// It refers to billing.TransactionStatus, which can be "pending", "cancelled" or "complete".
+	field status           text      ( updatable )
+	// type indicates whether the transaction was credit or debit.
+	// The value refers to billing.TransactionType.
+	field type             text
+	// metadata contains extra information about the transaction.
+	field metadata         json      ( updatable )
+	// timestamp is the time this transaction happened.
+	field tx_timestamp        timestamp
+
+	// created_at is the time the transaction was inserted into the table.
+	field created_at timestamp ( autoinsert )
+
+	index ( fields tx_timestamp)
+)
+
+create billing_transaction ( )
+
+update billing_transaction (
+	where billing_transaction.id = ?
+	where billing_transaction.status = ?
+	noreturn
+)
+
+read one (
+	select billing_transaction
+	where billing_transaction.id = ?
+)
+
+read one (
+	select billing_transaction.metadata
+	where billing_transaction.id = ?
+)
+
+read all (
+	select billing_transaction
+	where billing_transaction.user_id = ?
+	orderby desc billing_transaction.tx_timestamp
+)
+
+read all (
+	select billing_transaction
+	where billing_transaction.user_id = ?
+	where billing_transaction.source = ?
+	orderby desc billing_transaction.tx_timestamp
+)
+
+read first (
+	select billing_transaction
+	where billing_transaction.source = ?
+	where billing_transaction.type = ?
+	orderby ( desc billing_transaction.created_at)
+)
+
+// storjscan_wallet contains user wallet addresses.
+model storjscan_wallet (
+	key user_id wallet_address
+
+	// user_id refers to user.id.
+	field user_id              blob
+	// wallet_address is the wallet address which is associated with this user.
+	field wallet_address       blob
+	// created_at is the time this wallet was added to the system.
+	field created_at           timestamp ( autoinsert )
+
+	index ( fields wallet_address )
+)
+
+create storjscan_wallet ( noreturn )
+
+read one (
+	select storjscan_wallet.user_id
+	where storjscan_wallet.wallet_address = ?
+)
+
+read one (
+	select storjscan_wallet.wallet_address
+	where storjscan_wallet.user_id = ?
+)
+
+read all (
+	select storjscan_wallet
+)
+
+// coinpayments_transaction records information about a pending or finished coinpayment transactions.
+model coinpayments_transaction (
+	key id
+
+	// id is the transaction identifier.
+	field id               text
+	// user_id refers to user.id
+	field user_id          blob
+	// address is the transaction address.
+	field address          text
+	// amount_numeric is the amount in base units that should be paid.
+	field amount_numeric   int64
+	// received_numeric is the actual amount in base units that was transferred.
+	field received_numeric int64 ( updatable )
+	// status is the status of this transaction. It refers to coinpayments.Status.
+	field status           int   ( updatable )
+	field key              text
+	// timeout specifies how long the payer has time to send the specified amount.
+	field timeout          int
+
+	// created_at is the time this transaction was added.
+	field created_at timestamp ( autoinsert )
+)
+
+create coinpayments_transaction ()
+update coinpayments_transaction ( where coinpayments_transaction.id = ? )
+
+read all (
+	select coinpayments_transaction
+	where coinpayments_transaction.user_id = ?
+	orderby desc coinpayments_transaction.created_at
+)
+
+// stripecoinpayments_apply_balance_intent contains information about adding balance updates.
+// This table seems unused at the moment.
+model stripecoinpayments_apply_balance_intent (
+	key tx_id
+
+	// tx_id refers to to the transaction id.
+	field tx_id coinpayments_transaction.id  cascade
+	// state is one of cancelled or completed.
+	field state int                          ( updatable )
+
+	field created_at timestamp ( autoinsert )
+)
+
+// stripecoinpayments_invoice_project_record contains information about invoices for a project.
+model stripecoinpayments_invoice_project_record (
+	key id
+
+	unique project_id period_start period_end
+
+	index (
+		name stripecoinpayments_invoice_project_records_unbilled_project_id_index
+		fields project_id
+		where stripecoinpayments_invoice_project_record.state = 0
+	)
+
+	// id is UUID for this record.
+	field id           blob
+	// project_id refers to projects.id.
+	field project_id   blob
+	// storage is the bytes*hour that are billed.
+	field storage      float64
+	// egress is the amount of bytes for the billing period.
+	field egress       int64
+	// objects is the count of objects for the billing period.
+	field objects      int64 ( nullable )
+	// segments is the count of segments for the billing period.
+	field segments     int64 ( nullable )
+	// period_start is the starting time the invoice covers.
+	field period_start timestamp
+	// period_end is the ending time the invoice covers.
+	field period_end   timestamp
+	// state = 0 indicates that the record has not been applied yet.
+	field state        int       ( updatable )
+
+	// created_at is the time this record was added.
+	field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_invoice_project_record ()
+update stripecoinpayments_invoice_project_record (
+	where stripecoinpayments_invoice_project_record.id = ?
+)
+read one (
+	select stripecoinpayments_invoice_project_record
+	where stripecoinpayments_invoice_project_record.project_id = ?
+	where stripecoinpayments_invoice_project_record.period_start = ?
+	where stripecoinpayments_invoice_project_record.period_end = ?
+)
+
+// stripecoinpayments_tx_conversion_rate contains information about a conversion-rate that was used in a transaction.
+model stripecoinpayments_tx_conversion_rate (
+	key tx_id
+
+	// tx_id refers to coinpayments transaction id.
+	field tx_id        text
+	// rate_numeric is the conversion rate.
+	field rate_numeric float64
+
+	// created_at is the time this conversion rate was added.
+	field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_tx_conversion_rate ()
+
+read one (
+	select stripecoinpayments_tx_conversion_rate
+	where stripecoinpayments_tx_conversion_rate.tx_id = ?
+)
+
+// storjscan_payment contains information about payments from storjscan.
+model storjscan_payment (
+	key block_hash log_index
+
+	index (fields chain_id block_number log_index)
+
+	// chain_id is the id of the chain the transaction was on.
+	field chain_id         int64 ( default 0)
+	// block_hash is the ethereum block hash where this transfer appeared in.
+	field block_hash       blob
+	// block_number is the ethereum block number where this transfer appeared in.
+	field block_number     int64
+	// transaction is the ethereum transaction hash.
+	field transaction      blob
+	// log_index is used for deduplicating multiple events.
+	field log_index        int
+	// from_address is the source account for the transfer.
+	field from_address     blob
+	// to_address is the destination account for the transfer.
+	field to_address       blob
+	// token_value is the amount in tokens.
+	field token_value      int64
+	// usd_value is the converted USD amount.
+	field usd_value        int64
+	// status refers to payments.Status, which is one of "pending" or "confirmed".
+	field status           text
+	// timestamp refers to when the payment happened.
+	field block_timestamp        timestamp
+	// created_at refers to when the payment was added to the table.
+	field created_at       timestamp ( autoinsert )
+)
+
+create storjscan_payment (
+	noreturn
+)
+
+read all (
+	select storjscan_payment
+	orderby ( asc storjscan_payment.chain_id, asc storjscan_payment.block_number, asc storjscan_payment.log_index )
+)
+read limitoffset (
+	select storjscan_payment
+	where storjscan_payment.to_address = ?
+	orderby ( desc storjscan_payment.chain_id, desc storjscan_payment.block_number, desc storjscan_payment.log_index )
+)
+read first (
+	select storjscan_payment.block_number
+	where storjscan_payment.status = ?
+	where storjscan_payment.chain_id = ?
+	orderby ( desc storjscan_payment.block_number, desc storjscan_payment.log_index )
+)
+
+delete storjscan_payment (
+	where storjscan_payment.status = ?
+)

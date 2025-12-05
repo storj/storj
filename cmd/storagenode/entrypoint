@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ "${STORJ_IDENTITY_DIR:-""}" ]; then
+  #Generate identity if missing
+  if [ ! -f "$STORJ_IDENTITY_DIR/identity.key" ]; then
+    identity --identity-dir $STORJ_IDENTITY_DIR --difficulty 0 create .
+  fi
+fi
+
+if [ "${STORJ_NODE_IP:-""}" ]; then
+  #Initialize config, required only to have all the dirs created
+  : ${STORJ_CONTACT_EXTERNAL_ADDRESS:=$STORJ_NODE_IP:28967}
+fi
+
+if [ "${STORJ_STORAGENODE_CONSOLE_STATIC_DIR:-}" ]; then
+#This is a workaround to set different static dir for statellite/storagenode with env variables.
+  : ${STORJ_CONSOLE_STATIC_DIR:=$STORJ_STORAGENODE_CONSOLE_STATIC_DIR}
+fi
+
+if [ "${STORJUP_ROLE:-""}" ]; then
+  if [ "$STORJ_WAIT_FOR_SATELLITE" ]; then
+    SATELLITE_ADDRESS=$(storj-up util wait-for-satellite satellite-api:7777)
+  fi
+  # storj-up uses environment variables, k8s may not have privileges to delete this
+  if [ -f "/var/lib/storj/.local/share/storj/storagenode/config.yaml" ]; then
+    rm "/var/lib/storj/.local/share/storj/storagenode/config.yaml"
+  fi
+  storagenode --identity-dir $STORJ_IDENTITY_DIR setup || true
+fi
+
+if [ "${GO_DLV:-""}" ]; then
+  echo "Starting with go dlv"
+
+  #absolute file path is required
+  CMD=$(which $1)
+  shift
+  /usr/local/bin/dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec --check-go-version=false -- $CMD "$@"
+  exit $?
+fi
+
+exec "$@"

@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+
+if [[ ! -f "/app/config/config.yaml" ]]; then
+	./multinode setup --config-dir config
+fi
+
+RUN_PARAMS="${RUN_PARAMS:-} --config-dir config"
+RUN_PARAMS="${RUN_PARAMS:-} --console.address=:15002"
+
+exec ./multinode run $RUN_PARAMS "$@"

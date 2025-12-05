@@ -1,0 +1,375 @@
+//--- satellite console ---//
+
+// User contains information about people who have frontend access.
+model user (
+	key id
+
+	index (
+		name users_email_status_index
+		fields normalized_email status
+	)
+
+	index (
+		name trial_expiration_index
+		fields trial_expiration
+	)
+
+	index (
+		name users_external_id_index
+		fields external_id
+		where user.external_id != null
+	)
+
+	index (
+		name users_status_status_updated_at_index
+		fields status status_updated_at
+		where user.status_updated_at != null
+	)
+
+	index (
+		name users_tenant_id_index
+		fields tenant_id
+		where user.tenant_id != null
+	)
+
+	index (
+		name users_normalized_email_tenant_id_status_index
+		fields normalized_email tenant_id status
+		where user.tenant_id != null
+	)
+
+	// id is an uuid for the user.
+	field id                 blob
+	// external_id is a user id provided by an external source, such as a single-sign-on identity provider.
+	field external_id        text      ( updatable, nullable )
+	// tenant_id is is used to associate the user with a tenant, allowing the same email to be used in different tenants.
+	field tenant_id          text      ( updatable, nullable )
+	// email is the user specified email.
+	field email              text      ( updatable )
+	// normalized_email is the email transformed by usual rules, e.g. case-insensitive.
+	// See satellitedb.normalizeEmail for the specific details.
+	field normalized_email   text      ( updatable )
+	// full_name is the user specified name.
+	field full_name          text      ( updatable )
+	// short_name is the user specified name, that should be usually used for informal information.
+	field short_name         text      ( updatable, nullable )
+	// password_hash is the bcrypt hash.
+	field password_hash      blob      ( updatable )
+
+	// new_unverified_email is the user specified email to be verified and used instead of existing email.
+	field new_unverified_email           text ( updatable, nullable )
+	// email_change_verification_step indicates how many email change verifications were completed by the user.
+	// as a TEMPORARY solution this field is also used for self-serve account delete flow.
+	// TODO: rename field or add a new one for self-serve account delete flow when DB schema freeze is over.
+	field email_change_verification_step int  ( updatable, default 0 )
+
+	// status indicates whether the user is inactive=0, active=1, or deleted=2. See console.UserStatus for details.
+	field status                   int       ( updatable, autoinsert )
+	// status_updated_at indicates the time at which the status last changed
+	field status_updated_at timestamp ( updatable, nullable )
+	// final_invoice_generated indicates whether the user's final invoice has been generated before account deletion.
+	field final_invoice_generated bool ( updatable, default false )
+
+	// user_agent contains the partner parameter from registration.
+	field user_agent               blob      ( updatable, nullable )
+	// created_at indicates when the user was created.
+	field created_at               timestamp ( autoinsert )
+
+	// project_limit limits how many projects a user can create.
+	field project_limit            int       ( updatable, default 0 )
+	// project_bandwidth_limit is project default maximum allowed bandwidth per month in bytes.
+	field project_bandwidth_limit  int64     ( updatable, default 0 )
+	// project_storage_limit is project default maximum allowed bytes that can be stored.
+	field project_storage_limit    int64     ( updatable, default 0 )
+	// segment_limit is project default on how many segments can be stored in the project.
+	field project_segment_limit    int64     ( updatable, default 0 )
+
+	// kind indicates the user kind. Free = 0, Paid = 1.
+	field kind                	   int      ( updatable, default 0 )
+
+	// position is user-specified position in a company.
+	field position           text      ( updatable, nullable )
+	// company_name is user-specified company name.
+	field company_name       text      ( updatable, nullable )
+	// company_size is user-specified company size estimate.
+	field company_size       int       ( updatable, nullable )
+	// working_on is user-specified info on what the user intends to use things for.
+	field working_on         text      ( updatable, nullable )
+	// is_professional indicates whether the user intends to use it for personal or business.
+	field is_professional    bool      ( updatable, default false )
+	// empolyee_count is user-specified estimate on the employee count in the company.
+	field employee_count     text      ( updatable, nullable )
+	// have_sales_contact indicates whether the user should be contacted by sales.
+	field have_sales_contact bool      ( updatable, default false )
+
+	// mfa_enabled indicates whether multi-factor authentication is enabled for this user.
+	field mfa_enabled        bool      ( updatable, default false )
+	// mfa_secret_key is the shared key between authenticator and the frontend.
+	field mfa_secret_key     text      ( updatable, nullable )
+	// mfa_recovery_codes is used for disabling multi-factor authentication.
+	field mfa_recovery_codes text      ( updatable, nullable )
+
+	// signup_promo_code is the promo code, if it was used when signing up.
+	field signup_promo_code  text      ( updatable, nullable )
+
+	// verification_reminders counts how many times a verification reminder email has been sent.
+	field verification_reminders int ( updatable, default 0 )
+	// trial_notifications counts how many times a trial notification email has been sent.
+	field trial_notifications int ( updatable, default 0 )
+
+	// failed_login_count keeps track on how many times login has failed.
+	field failed_login_count int ( updatable, nullable )
+	// login_lockout_expiration is used when the user has failed to login too many times.
+	field login_lockout_expiration timestamp ( updatable, nullable )
+
+	// signup_captcha is the captcha score recorded during sign-up.
+	field signup_captcha     float64    ( nullable )
+
+	// placement to be used for every new project as default for the buckets.
+	field default_placement int (nullable, updatable)
+
+	// activation_code is a code sent to a user's email on signup for account activation.
+	field activation_code     text      ( updatable, nullable )
+	// signup_id is a the request ID associated to a sign up session, used to also verify activation_code.
+	field signup_id     text      ( updatable, nullable )
+
+	// trial_expiration is used to indicate when free trial user should expire.
+	field trial_expiration timestamp ( updatable, nullable )
+	// upgrade_time is used to track when user upgraded to paid tier.
+	field upgrade_time timestamp ( updatable, nullable )
+
+	// hubspot_object_id is a HubSpot object ID corresponding to the current user.
+	field hubspot_object_id text ( updatable, nullable )
+)
+
+create user ( )
+update user ( where user.id = ? )
+delete user ( where user.id = ? )
+
+read all (
+	select user
+)
+
+read all (
+	select user
+	where user.normalized_email = ?
+)
+read all (
+	select user
+	where user.normalized_email = ?
+	where user.tenant_id = ?
+)
+read one (
+	select user
+	where user.normalized_email = ?
+	where user.status != 0
+)
+read one (
+	select user
+	where user.normalized_email = ?
+	where user.tenant_id = ?
+	where user.status != 0
+)
+read one (
+	select user
+	where user.id = ?
+)
+read one (
+	select user.project_limit
+	where user.id = ?
+)
+read one (
+	select user.kind
+	where user.id = ?
+)
+read one (
+	select user.upgrade_time
+	where user.id = ?
+)
+read one (
+	select user
+	where user.external_id = ?
+)
+
+read paged (
+	select account_freeze_event
+	join account_freeze_event.user_id = user.id
+	where user.status != ?
+	where account_freeze_event.event = ?
+)
+
+read one (
+	select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit
+	where user.id = ?
+)
+
+read count (
+	select user
+	where user.status = ?
+)
+
+read limitoffset (
+	select user.id user.email user.full_name
+	where user.status = ?
+)
+
+read one (
+	select user.status
+	join user.id = project.owner_id
+	where project.id = ?
+)
+
+model webapp_session (
+	key id
+	index ( fields user_id )
+
+	field id         blob
+	field user_id    blob
+	field ip_address text
+	field user_agent text
+	field status     int       ( updatable, autoinsert )
+	field expires_at timestamp ( updatable )
+)
+
+create webapp_session ( )
+update webapp_session ( where webapp_session.id = ? )
+delete webapp_session ( where webapp_session.id = ? )
+delete webapp_session (
+	where webapp_session.user_id = ?
+	where webapp_session.id != ?
+)
+delete webapp_session ( where webapp_session.user_id = ? )
+
+read all (
+	select webapp_session
+	where webapp_session.user_id = ?
+)
+read one (
+	select webapp_session
+	where webapp_session.id = ?
+)
+
+// registration_token is used to limit user registration to the satellite.
+model registration_token (
+	key secret
+	unique owner_id
+
+	// secret is random identifier used during registration.
+	field secret        blob
+	// owner_id is the user who claimed this token. This refers to user.id column.
+	field owner_id      blob       ( updatable, nullable )
+
+	// project_limit is the default limit on how many projects the user can create.
+	field project_limit int
+
+	field created_at    timestamp  ( autoinsert )
+)
+
+create registration_token ( )
+read one (
+	select registration_token
+	where  registration_token.secret = ?
+)
+read one (
+	select registration_token
+	where  registration_token.owner_id = ?
+)
+update registration_token ( where registration_token.secret = ? )
+
+// reset_password_token is a token that is used when resetting password.
+model reset_password_token (
+	key    secret
+	unique owner_id
+
+	// secret is sent to the users email, to verify their account.
+	field secret blob
+	// owner_id is the associated user. This refers to user.id column.
+	field owner_id blob        ( updatable )
+
+	field created_at timestamp ( autoinsert )
+)
+
+create reset_password_token ( )
+read one (
+	select reset_password_token
+	where reset_password_token.secret = ?
+)
+read one (
+	select reset_password_token
+	where reset_password_token.owner_id = ?
+)
+delete reset_password_token ( where reset_password_token.secret = ? )
+
+// account_freeze_event contains information about the user account getting
+// frozen due to suspicious or bad activity.
+model account_freeze_event (
+	key user_id event
+
+	// user_id refers to user.id column.
+	field user_id blob
+	// event indicates the console.AccountFreezeEventType. BillingFreeze=0, BillingWarning=1, ViolationFreeze=2, LegalFreeze=3.
+	field event int
+	// limits are the limits before the freeze begun.
+	field limits json ( nullable, updatable )
+	// days_till_escalation is the number of days till this event is escalated.
+	// e.g. if the user is warned for 15 days, the escalation is billing freeze.
+	field days_till_escalation int ( nullable, updatable )
+	// notifications_count counts how many a user has been notified for this event.
+	field notifications_count int ( updatable, default 0 )
+	// created_at indicates when the freeze was created.
+	field created_at timestamp ( default current_timestamp )
+)
+
+create account_freeze_event( replace )
+
+read one (
+	select account_freeze_event
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+read all (
+	select account_freeze_event
+	where account_freeze_event.user_id = ?
+)
+
+update account_freeze_event (
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+delete account_freeze_event ( where account_freeze_event.user_id = ? )
+
+delete account_freeze_event (
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+// user_settings table is used to persist user preferences.
+model user_settings (
+	key user_id
+
+	// user_id refers to user.id column.
+	field user_id blob
+	// session_minutes indicates the time when the user should be logged out.
+	field session_minutes uint ( nullable, updatable )
+	// passphrase_prompt indicates whether the user would like to be prompted for a passphrase when entering or switching projects.
+	field passphrase_prompt bool ( nullable, updatable )
+	// onboarding_start indicates whether the user has started the onboarding flow.
+	field onboarding_start bool ( updatable, default true )
+	// onboarding_end indicates whether the user has finished/skipped the onboarding flow.
+	field onboarding_end bool ( updatable, default true )
+	// onboarding_step indicates the step where a user exited onboarding without finishing.
+	field onboarding_step text ( nullable, updatable )
+	// notice_dismissal keeps track of the notices that the user has dismissed or not.
+	field notice_dismissal json ( updatable, default "{}" )
+)
+
+create user_settings ( noreturn )
+
+read one (
+	select user_settings
+	where user_settings.user_id = ?
+)
+
+update user_settings ( where user_settings.user_id = ? )

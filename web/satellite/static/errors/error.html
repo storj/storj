@@ -1,0 +1,31 @@
+<!--Copyright (C) 2023 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ .StatusCode }} | Storj</title>
+    <link rel="stylesheet" type="text/css" href="/static/static/errors/error.css">
+</head>
+<body>
+    <div class="error-area">
+        <a class="logo-wrapper" href="/">
+            <img class="logo" src="/static/static/errors/logo.svg" alt="Storj logo" />
+		</a>
+        <div class="container">
+            <h1 class="title">{{ .StatusCode }}</h1>
+            <h2 class="subtitle">
+                {{- if eq .StatusCode 400 -}}
+                    Bad request.
+                {{- else if eq .StatusCode 500 -}}
+                    Internal server error.
+                {{- else -}}
+                    An error occurred.
+                {{- end -}}
+            </h2>
+            <a href="/" class="button">Go to homepage</a>
+        </div>
+    </div>
+</body>
+</html>

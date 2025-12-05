@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask a general question or open a discussion
+    about: For general-purpose questions and answers, please check out the Storj community forum.
+    url: https://forum.storj.io
+  - name: For general Support
+    about: Please file a ticket at our support page
+    url: https://support.storj.io/

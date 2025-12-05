@@ -1,0 +1,94 @@
+/* Copyright (C) 2021 Storj Labs, Inc. */
+/* See LICENSE for copying information. */
+
+* {
+    margin: 0;
+    padding: 0;
+}
+
+.error-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 52px 24px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow-y: auto;
+}
+
+.error-area::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url("/static/static/errors/world.svg") no-repeat center;
+    background-size: auto 75%;
+    z-index: -1;
+    opacity: 0.15;
+}
+
+.logo-wrapper {
+    height: 30.89px;
+    display: flex;
+    justify-content: center;
+    position: absolute;
+    top: 52px;
+    left: 0;
+    right: 0;
+    margin-bottom: 52px;
+}
+
+.logo {
+    height: 100%;
+    width: auto;
+    cursor: pointer;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: sans-serif;
+    text-align: center;
+}
+
+.title {
+    font-size: 90px;
+    line-height: 90px;
+}
+
+.subtitle {
+    margin-top: 20px;
+    font-size: 28px;
+}
+
+.button {
+    margin-top: 32px;
+    padding: 16px 37.5px;
+    border-radius: 6px;
+    background-color: #0149ff;
+    color: white;
+    line-height: 20px;
+    text-decoration: none;
+}
+
+.button:hover {
+    background-color: #0059d0;
+}
+
+@media screen and (max-height: 500px) {
+
+    .error-area {
+        justify-content: flex-start;
+    }
+
+    .logo-wrapper {
+        position: unset;
+    }
+}

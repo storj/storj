@@ -1,0 +1,37 @@
+// Domain contains information about credentials used for static hosting.
+model domain (
+	key project_id subdomain
+
+	// subdomain configured for static hosting by user.
+	field subdomain      text
+	// project_id is the project the domain belongs to.
+	field project_id     project.id restrict
+	// prefix is the prefix where the domain files are stored.
+	// prefix (including bucket name), which will appear in one of the TXT DNS records.
+	field prefix         text                ( updatable )
+	// access_id is the access id for the domain.
+	// public-facing access credential, which will appear in another one of the TXT DNS records.
+	field access_id      text                ( updatable )
+	// created_by is an UUID of the user created this domain.
+	field created_by     user.id    restrict
+	// created_at indicates when the domain was created.
+	field created_at     timestamp           ( autoinsert )
+)
+
+create domain ()
+delete domain (
+	where domain.project_id = ?
+	where domain.subdomain = ?
+)
+delete domain ( where domain.project_id = ? )
+
+read one (
+	select domain
+	where domain.project_id = ?
+    where domain.subdomain = ?
+)
+
+read all (
+	select domain.subdomain
+	where domain.project_id = ?
+)

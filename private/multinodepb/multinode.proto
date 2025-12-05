@@ -1,0 +1,526 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/private/multinodepb";
+
+package multinode;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+message RequestHeader {
+  bytes api_key = 1;
+}
+
+service Storage {
+  rpc DiskSpace(DiskSpaceRequest) returns (DiskSpaceResponse);
+  rpc Usage(StorageUsageRequest) returns (StorageUsageResponse);
+  rpc UsageSatellite(StorageUsageSatelliteRequest) returns (StorageUsageSatelliteResponse);
+}
+
+message DiskSpaceRequest {
+  RequestHeader header = 1;
+}
+
+message DiskSpaceResponse {
+  int64 allocated = 1;
+  int64 used_pieces = 2;
+  int64 used_trash = 3;
+  // Free is the actual amount of free space on the whole disk, not just allocated disk space, in bytes.
+  int64 free = 4;
+  // Available is the amount of free space on the allocated disk space, in bytes.
+  int64 available = 5;
+  int64 overused = 6;
+  // All used space, including used_pieces and used_reclaimable and used_trash.
+  int64 used = 7;
+  // Reclaimable space, usually the hashstore override can be deleted with compaction.
+  int64 used_reclaimable = 8;
+}
+
+message StorageUsage {
+  double at_rest_total = 1;
+  google.protobuf.Timestamp interval_start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  double at_rest_total_bytes = 3;
+}
+
+message StorageUsageRequest {
+  RequestHeader header = 1;
+  google.protobuf.Timestamp from = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageResponse {
+  repeated StorageUsage storage_usage = 1;
+  double summary = 2;
+  double average_usage_bytes = 3;
+}
+
+message StorageUsageSatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  google.protobuf.Timestamp from = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageSatelliteResponse {
+  repeated StorageUsage storage_usage = 1;
+  double summary = 2;
+  double average_usage_bytes = 3;
+}
+
+service Bandwidth {
+  rpc MonthSummary(BandwidthMonthSummaryRequest) returns (BandwidthMonthSummaryResponse);
+  rpc BandwidthSummarySatellite(BandwidthSummarySatelliteRequest) returns (BandwidthSummarySatelliteResponse);
+  rpc BandwidthSummary(BandwidthSummaryRequest) returns (BandwidthSummaryResponse);
+  rpc EgressSummarySatellite(EgressSummarySatelliteRequest) returns (EgressSummarySatelliteResponse);
+  rpc EgressSummary(EgressSummaryRequest) returns (EgressSummaryResponse);
+  rpc IngressSummarySatellite(IngressSummarySatelliteRequest) returns (IngressSummarySatelliteResponse);
+  rpc IngressSummary(IngressSummaryRequest) returns (IngressSummaryResponse);
+  rpc DailySatellite(DailySatelliteRequest) returns (DailySatelliteResponse);
+  rpc Daily(DailyRequest) returns (DailyResponse);
+}
+
+message BandwidthMonthSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message BandwidthMonthSummaryResponse {
+  int64 used = 1;
+}
+
+message BandwidthSummarySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message BandwidthSummarySatelliteResponse {
+  int64 summary = 1;
+}
+
+message BandwidthSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message BandwidthSummaryResponse {
+  int64 summary = 1;
+}
+
+message EgressSummarySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message EgressSummarySatelliteResponse {
+  int64 summary = 1;
+}
+
+message EgressSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message EgressSummaryResponse {
+  int64 summary = 1;
+}
+
+message IngressSummarySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message IngressSummarySatelliteResponse {
+  int64 summary = 1;
+}
+
+message IngressSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message IngressSummaryResponse {
+  int64 summary = 1;
+}
+
+message DailySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message DailySatelliteResponse {
+  repeated UsageRollup usage_rollup = 1;
+}
+
+message DailyRequest {
+  RequestHeader header = 1;
+}
+
+message DailyResponse {
+  repeated UsageRollup usage_rollup = 1;
+}
+
+message UsageRollup {
+  Egress egress = 1;
+  Ingress ingress = 2;
+  int64 delete = 3;
+  google.protobuf.Timestamp interval_start = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message Egress {
+  int64 repair = 1;
+  int64 audit = 2;
+  int64 usage = 3;
+}
+
+message Ingress {
+  int64 repaid = 1;
+  int64 usage = 2;
+}
+
+service Node {
+  rpc Version(VersionRequest) returns (VersionResponse);
+  rpc LastContact(LastContactRequest) returns (LastContactResponse);
+  rpc Reputation(ReputationRequest) returns (ReputationResponse);
+  rpc TrustedSatellites(TrustedSatellitesRequest) returns (TrustedSatellitesResponse);
+  rpc Operator(OperatorRequest) returns (OperatorResponse);
+}
+
+message VersionRequest {
+  RequestHeader header = 1;
+}
+
+message VersionResponse {
+  string version = 1; // must be semver formatted
+}
+
+message LastContactRequest {
+  RequestHeader header = 1;
+}
+
+message LastContactResponse {
+  google.protobuf.Timestamp last_contact = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message ReputationRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message AuditWindow {
+  google.protobuf.Timestamp window_start = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  int32 online_count = 2;
+  int32 total_count = 3;
+}
+
+message ReputationResponse {
+  message Online {
+    double score = 1;
+  }
+  message Audit {
+    double score = 1;
+    double suspension_score = 2;
+    int64 total_count = 3;
+    int64 success_count = 4;
+    double alpha = 5;
+    double beta = 6;
+    double unknown_alpha = 7;
+    double unknown_beta = 8;
+    repeated AuditWindow history = 9;
+  }
+
+  Online online = 1;
+  Audit audit = 2;
+  google.protobuf.Timestamp disqualified_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp suspended_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp offline_suspended_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp offline_under_review_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp vetted_at = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp updated_at = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp joined_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message TrustedSatellitesRequest {
+  RequestHeader header = 1;
+}
+
+message TrustedSatellitesResponse {
+  message NodeURL {
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    string address = 2;
+  }
+
+  repeated NodeURL trusted_satellites = 1;
+}
+
+message OperatorRequest {
+  RequestHeader header = 1;
+}
+message OperatorResponse {
+  string email = 1;
+  string wallet = 2;
+  repeated string wallet_features = 3;
+}
+
+service Payouts {
+  rpc Summary(SummaryRequest) returns (SummaryResponse);
+  rpc SummaryPeriod(SummaryPeriodRequest) returns (SummaryPeriodResponse);
+  rpc SummarySatellite(SummarySatelliteRequest) returns (SummarySatelliteResponse);
+  rpc SummarySatellitePeriod(SummarySatellitePeriodRequest) returns (SummarySatellitePeriodResponse);
+  rpc Earned(EarnedRequest) returns (EarnedResponse);
+  rpc EarnedSatellite(EarnedSatelliteRequest) returns (EarnedSatelliteResponse);
+  rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
+  rpc EstimatedPayout(EstimatedPayoutRequest) returns (EstimatedPayoutResponse);
+  rpc Undistributed(UndistributedRequest) returns (UndistributedResponse);
+  rpc PaystubSatellite(PaystubSatelliteRequest) returns (PaystubSatelliteResponse);
+  rpc Paystub(PaystubRequest) returns (PaystubResponse);
+  rpc PaystubPeriod(PaystubPeriodRequest) returns (PaystubPeriodResponse);
+  rpc PaystubSatellitePeriod(PaystubSatellitePeriodRequest) returns (PaystubSatellitePeriodResponse);
+  rpc HeldAmountHistory(HeldAmountHistoryRequest) returns (HeldAmountHistoryResponse);
+}
+
+message EstimatedPayoutSatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message EstimatedPayoutSatelliteResponse {
+  int64 estimated_earnings = 1;
+}
+
+message EstimatedPayoutRequest {
+  RequestHeader header = 1;
+}
+
+message EstimatedPayoutResponse {
+  int64 estimated_earnings = 1;
+}
+
+message SummaryRequest {
+  RequestHeader header = 1;
+}
+
+message SummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SummaryPeriodRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message SummaryPeriodResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SummarySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SummarySatelliteResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SummarySatellitePeriodRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SummarySatellitePeriodResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message EarnedRequest {
+  RequestHeader header = 1;
+}
+
+message EarnedResponse {
+  int64 total = 1;
+}
+
+message EarnedSatelliteRequest {
+  RequestHeader header = 1;
+}
+
+message EarnedSatelliteResponse {
+  repeated EarnedSatellite earned_satellite = 1;
+}
+
+message EarnedSatellite {
+  int64 total = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message UndistributedRequest {
+  RequestHeader header = 1;
+}
+
+message UndistributedResponse {
+  int64 total = 1;
+}
+
+message PaystubSatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+message PaystubSatelliteResponse {
+  Paystub paystub = 1;
+}
+message PaystubRequest {
+  RequestHeader header = 1;
+}
+message PaystubResponse {
+  Paystub paystub = 1;
+}
+
+message PaystubPeriodRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message PaystubPeriodResponse {
+  Paystub paystub = 1;
+}
+
+message PaystubSatellitePeriodRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message PaystubSatellitePeriodResponse {
+  Paystub paystub = 1;
+}
+
+message PayoutInfo {
+  int64 held = 1;
+  int64 paid = 2;
+}
+
+message Paystub {
+  double  usage_at_rest = 1;
+  int64   usage_get = 2;
+  int64   usage_get_repair = 3;
+  int64   usage_get_audit = 4;
+  int64   comp_at_rest = 5;
+  int64   comp_get = 6;
+  int64   comp_get_repair = 7;
+  int64   comp_get_audit = 8;
+  int64   held = 9;
+  int64   paid = 10;
+  int64   distributed = 11;
+  int64   disposed = 12;
+}
+
+message HeldAmountHistoryRequest {
+  RequestHeader header = 1;
+}
+
+message HeldAmountHistoryResponse {
+  message HeldAmount {
+    string period = 1;
+    int64 amount = 2;
+  }
+
+  message HeldAmountHistory {
+    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    repeated HeldAmount held_amounts = 2;
+  }
+
+  repeated HeldAmountHistory history = 1;
+}
+
+service Payout {
+  rpc AllSatellitesSummary(AllSatellitesSummaryRequest) returns (AllSatellitesSummaryResponse);
+  rpc AllSatellitesPeriodSummary(AllSatellitesPeriodSummaryRequest) returns (AllSatellitesPeriodSummaryResponse);
+  rpc SatelliteSummary(SatelliteSummaryRequest) returns (SatelliteSummaryResponse);
+  rpc SatellitePeriodSummary(SatellitePeriodSummaryRequest) returns (SatellitePeriodSummaryResponse);
+  rpc Earned(EarnedRequest) returns (EarnedResponse);
+  rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
+  rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
+  rpc EstimatedPayoutTotal(EstimatedPayoutTotalRequest) returns (EstimatedPayoutTotalResponse);
+  rpc Undistributed(UndistributedRequest) returns (UndistributedResponse);
+  rpc SatellitePaystub(SatellitePaystubRequest) returns (SatellitePaystubResponse);
+  rpc Paystub(PaystubRequest) returns (PaystubResponse);
+  rpc PeriodPaystub(PeriodPaystubRequest) returns (PeriodPaystubResponse);
+  rpc SatellitePeriodPaystub(SatellitePeriodPaystubRequest) returns (SatellitePeriodPaystubResponse);
+}
+
+message EstimatedPayoutTotalRequest {
+  RequestHeader header = 1;
+}
+
+message EstimatedPayoutTotalResponse {
+  int64 estimated_earnings = 1;
+}
+
+message AllSatellitesSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message AllSatellitesSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message AllSatellitesPeriodSummaryRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message AllSatellitesPeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatelliteSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatelliteSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatellitePeriodSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message EarnedPerSatelliteRequest {
+  RequestHeader header = 1;
+}
+
+message EarnedPerSatelliteResponse {
+  repeated EarnedSatellite earned_satellite = 1;
+}
+
+message SatellitePaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatellitePaystubResponse {
+  Paystub paystub = 1;
+}
+
+message PeriodPaystubRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message PeriodPaystubResponse {
+  Paystub paystub = 1;
+}
+
+message SatellitePeriodPaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodPaystubResponse {
+  Paystub paystub = 1;
+}

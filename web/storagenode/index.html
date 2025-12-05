@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAC40lEQVRIDe1US0iUURQ+V8fJmcnykTJmNA0tMszETUVlCrkoR+2lWdFDk7AHlNQiCGaREhlUli3ETSRFqx4UlAi5ySgqS8hQiXLMTKca35k6j3O6d5zE//rnuNCF4Mdd3HvO+c53/3P/cxgRwUwiYCaTi9xzAn4rPPtLpPH7jaMBSDA4DE43AIFWAwYdBLApUf0L/OyFJ2/oWT28/wKd3Tw/RIdB4nLYnAjpa5gxzI8Mm6TRRlxQ8ZSuPQSbjYEGjEaICBHpegagww7gBpOJTm6HY+lMp/2/DBdQRfcA7bmIkEIaC+Vexqq3ZLPTkJOGndT6g6rfUf5V1FqIB+wqRkefag5hBFXP7yHKvoCQRHEFPBeOxgz8oZeNYvHNKGrqMeE48bAdRdj/zyglVBFApLM3EZJpXSHyy3K4PXTjMZpzMTCN+DIfwrJH6HILV7uDks4gbKLTFejxCIsEFYG6T6jPoKjd9MHmu3vpA4RUCrLQViumWb2VSeVv4/M2tuHivaSz0KtGn2W8hopAQZm4vrVSRDd9o1PlqM8Ukvdqffz7L3B+JkXm4OtmX6riu4KSd2UKAl39ZDpIoVnU4cBWO8XmixIv2EZHrivIWd4X0mfguVs44qLObozIwZj9ZO8Zf3uxl0dFUxt0dMHaFRQdwSprqPkjZG+h56VQkqfoqxPpULiPQgys5A6rriNjGNuwEjq7gNMlyAL2XnANQpxJhCXHs3IrXDrMEswQ7u2AMXLKalZ6lJ0/QIhQVSfMnIKDYO8ZC/Ft5E52ugA8EKIX7uR4sSbBrz4xOYK9XWaYJ4iCroQsYAgGpoPbNVD/WRk44TTsotoGFqyDneuFz9EPEAScLkEWWBoF4aHQ8p21tEuRE47ElkVTUS5sXMU8KCaVIRQ4XYI8i1xuaG4nMTX9IZBBzCIWuVDE8d5s+Ar8N4hdwrRBCqYsoHBOx0H+i6YjpyLHnICiHGqHuRKpVUVhm/0l+gsfrGM3Nzju5wAAAABJRU5ErkJggg==" type="image/x-icon">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="description" content="Node Dashboard page">
+        <link rel="shortcut icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAC40lEQVRIDe1US0iUURQ+V8fJmcnykTJmNA0tMszETUVlCrkoR+2lWdFDk7AHlNQiCGaREhlUli3ETSRFqx4UlAi5ySgqS8hQiXLMTKca35k6j3O6d5zE//rnuNCF4Mdd3HvO+c53/3P/cxgRwUwiYCaTi9xzAn4rPPtLpPH7jaMBSDA4DE43AIFWAwYdBLApUf0L/OyFJ2/oWT28/wKd3Tw/RIdB4nLYnAjpa5gxzI8Mm6TRRlxQ8ZSuPQSbjYEGjEaICBHpegagww7gBpOJTm6HY+lMp/2/DBdQRfcA7bmIkEIaC+Vexqq3ZLPTkJOGndT6g6rfUf5V1FqIB+wqRkefag5hBFXP7yHKvoCQRHEFPBeOxgz8oZeNYvHNKGrqMeE48bAdRdj/zyglVBFApLM3EZJpXSHyy3K4PXTjMZpzMTCN+DIfwrJH6HILV7uDks4gbKLTFejxCIsEFYG6T6jPoKjd9MHmu3vpA4RUCrLQViumWb2VSeVv4/M2tuHivaSz0KtGn2W8hopAQZm4vrVSRDd9o1PlqM8Ukvdqffz7L3B+JkXm4OtmX6riu4KSd2UKAl39ZDpIoVnU4cBWO8XmixIv2EZHrivIWd4X0mfguVs44qLObozIwZj9ZO8Zf3uxl0dFUxt0dMHaFRQdwSprqPkjZG+h56VQkqfoqxPpULiPQgys5A6rriNjGNuwEjq7gNMlyAL2XnANQpxJhCXHs3IrXDrMEswQ7u2AMXLKalZ6lJ0/QIhQVSfMnIKDYO8ZC/Ft5E52ugA8EKIX7uR4sSbBrz4xOYK9XWaYJ4iCroQsYAgGpoPbNVD/WRk44TTsotoGFqyDneuFz9EPEAScLkEWWBoF4aHQ8p21tEuRE47ElkVTUS5sXMU8KCaVIRQ4XYI8i1xuaG4nMTX9IZBBzCIWuVDE8d5s+Ar8N4hdwrRBCqYsoHBOx0H+i6YjpyLHnICiHGqHuRKpVUVhm/0l+gsfrGM3Nzju5wAAAABJRU5ErkJggg==" type="image/x-icon">
+        <title>Node Dashboard</title>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>

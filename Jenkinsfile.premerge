@@ -1,0 +1,329 @@
+pipeline {
+    agent {
+        docker {
+            label 'main'
+            image 'storjlabs/ci:latest'
+            alwaysPull true
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache/build:/root/.cache/go-build -v /tmp/gocache/benchmarks:/root/.cache/go-build-benchmarks -v "/tmp/npm":/npm'
+        }
+    }
+    options {
+        timeout(time: 4, unit: 'HOURS')
+        skipDefaultCheckout(true)
+    }
+    environment {
+        NPM_CONFIG_CACHE = '/npm/cache'
+        GOTRACEBACK = 'all'
+        COCKROACH_MEMPROF_INTERVAL=0
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                // Delete any content left over from a previous run.
+                sh "chmod -R 777 ."
+                // Bash requires extglob option to support !(.git) syntax,
+                // and we don't want to delete .git to have faster clones.
+                sh 'bash -O extglob -c "rm -rf !(.git)"'
+
+                checkout scm
+
+                sh 'mkdir -p .build'
+                sh 'git restore-mtime'
+
+                // download dependencies
+                sh 'go mod download'
+
+                // pre-check that we cannot do at a later stage reliably
+                sh 'check-large-files'
+            }
+        }
+        stage('Gerrit status') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh pre-merge start +1'
+                }
+            }
+        }
+
+       stage('Build Web') {
+            // The build code depends on the following assets being loaded.
+            parallel {
+                stage('web/satellite') {
+                    steps {
+                        sh './web/satellite/build.sh'
+                    }
+                }
+
+                stage('wasm') {
+                    steps {
+                        sh './testsuite/wasm/start.sh'
+                    }
+                }
+
+                stage('web/storagenode') {
+                    steps {
+                        sh './web/storagenode/build.sh'
+                    }
+                }
+
+                stage('web/multinode') {
+                    steps {
+                        sh './web/multinode/build.sh'
+                    }
+                }
+
+                stage('satellite/admin/ui') {
+                    steps {
+                        sh './satellite/admin/ui/build.sh'
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            parallel {
+                stage('go -race') {
+                    steps {
+                        // install storj-sim
+                        sh 'go install -race -v storj.io/storj/cmd/satellite '+
+                                'storj.io/storj/cmd/storagenode ' +
+                                'storj.io/storj/cmd/storj-sim ' +
+                                'storj.io/storj/cmd/versioncontrol ' +
+                                'storj.io/storj/cmd/uplink ' +
+                                'storj.io/storj/cmd/identity ' +
+                                'storj.io/storj/cmd/certificates ' +
+                                'storj.io/storj/cmd/multinode'
+                    }
+                }
+                stage('go -race gateway') {
+                    steps {
+                        // install gateway for storj-sim
+                        sh 'go install -race -v storj.io/gateway@latest'
+                    }
+                }
+
+                stage('db') {
+                    steps {
+                        sh 'service postgresql start'
+                        dir('.build') {
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                        }
+                    }
+                }
+
+                stage('Cross Compile') {
+                    steps {
+                        // verify most of the commands, we cannot check everything since some of them
+                        // have a C dependency and we don't have cross-compilation in storj/ci image
+                        sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
+
+                        dir("cmd/storagenode-updater") {
+                            sh 'GOOS=windows GOARCH=amd64 go vet -tags service .'
+                        }
+                    }
+                }
+
+                stage('Lint') {
+                    steps {
+                        // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
+                        // note: json-iterator is replaced by our stub, it should be ignored as storj.io/storj.
+                        sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
+                    }
+                }
+            }
+        }
+
+        stage('Check Benchmark') {
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_SPANNER = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                GOCACHE = '/root/.cache/go-build-benchmarks'
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database benchstorj;\''
+                sh 'go test -parallel 1 -p 16 -vet=off -timeout 60m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+            }
+        }
+
+        stage('Integration') {
+            parallel {
+                stage('Postgres') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.2'
+                        STORJ_NETWORK_HOST6 = '127.0.0.2'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj2;\''
+                        sh 'make test-sim'
+
+                        // sh 'make test-certificates' // flaky
+                    }
+                }
+
+                stage('Cockroach') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.4'
+                        STORJ_NETWORK_HOST6 = '127.0.0.4'
+
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
+                        sh 'make test-sim'
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
+                    }
+                }
+            }
+        }
+
+        stage('Backwards Compatibility') {
+            parallel {
+                stage('Postgres') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.3'
+                        STORJ_NETWORK_HOST6 = '127.0.0.3'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
+
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj3;\''
+                        sh 'make test-sim-backwards-compatible'
+                    }
+                }
+
+                stage('Cockroach') {
+                    environment {
+                        STORJ_NETWORK_HOST4 = '127.0.0.5'
+                        STORJ_NETWORK_HOST6 = '127.0.0.5'
+
+                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
+
+                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
+                    }
+
+                    steps {
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
+                        sh 'make test-sim-backwards-compatible'
+                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
+                    }
+                }
+            }
+        }
+
+        stage('Integration Redis unavailability') {
+            environment {
+                // use different hostname to avoid port conflicts
+                STORJ_NETWORK_HOST4 = '127.0.0.6'
+                STORJ_NETWORK_HOST6 = '127.0.0.6'
+                STORJ_REDIS_PORT = '7379'
+
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
+            }
+
+            steps {
+                sh 'psql -U postgres -c \'create database teststorj6;\''
+                sh 'make test-sim-redis-unavailability'
+            }
+        }
+
+        stage('Test Web') {
+            parallel {
+                stage('wasm npm') {
+                    steps {
+                        dir(".build") {
+                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cd tests && ./copy-wasm.sh'
+                            sh 'cd tests && npm install && npm run test'
+                        }
+                    }
+                }
+
+                stage('web/satellite') {
+                    steps {
+                        dir("web/satellite") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('web/storagenode') {
+                    steps {
+                        dir("web/storagenode") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('web/multinode') {
+                    steps {
+                        dir("web/multinode") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('satellite/admin/ui') {
+                    steps {
+                        dir("satellite/admin/ui") {
+                            sh script: 'npm audit', returnStatus: true
+                        }
+                    }
+                }
+
+                stage('satellite/admin/back-office/ui') {
+                    steps {
+                        dir("satellite/admin/back-office/ui") {
+                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Post') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'check-clean-directory'
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh pre-merge success +2'
+            }
+        }
+        failure {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh pre-merge failure -2'
+            }
+        }
+        aborted {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh pre-merge failure -2'
+            }
+        }
+    }
+}

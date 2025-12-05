@@ -1,0 +1,117 @@
+// storagenode_paystub contains pending payments to the storagenode.
+model storagenode_paystub (
+	// The (period, node_id) tuple is the primary key. The primary key index
+	// should serve for quick queries for all paystubs in a given period since
+	// it comes first but efficient queries for all paystubs with a given
+	// node_id will require a distinct index.
+
+	key period node_id
+
+	index ( fields node_id )
+
+	// period is YYYY-MM encoded month, which this paystub refers to. e.g. ""2020-02".
+	field period     text
+	// node_id is the storagenode storj.NodeID.
+	field node_id    blob
+	// created_at is when this paystub was created.
+	field created_at timestamp ( autoinsert )
+	// codes is a colon separated list of compensation.Code values that the billing entry can be.
+	// For example, whether the node is disqualified, sanctioned and others. For the full list see compensation.Code.
+	field codes      text
+
+	// usage_at_rest is byte*hours of data at rest for this period.
+	field usage_at_rest    float64
+	// usage_get bytes of data downloaded from the storagenode.
+	field usage_get        int64
+	// usage_put bytes of data uploaded to the storagenode.
+	field usage_put        int64
+	// usage_get_repair bytes of data downloaded from the storagenode for repair.
+	field usage_get_repair int64
+	// usage_put_repair bytes of data uploaded to the storagenode for repair.
+	field usage_put_repair int64
+	// usage_get_audit bytes of data downloaded from the storagenode for audit.
+	field usage_get_audit  int64
+
+	// comp_at_rest is compensation in micro-units of currency for usage_at_rest.
+	field comp_at_rest    int64
+	// comp_get is compensation in micro-units of currency for usage_get.
+	field comp_get        int64
+	// comp_put is compensation in micro-units of currency for usage_put.
+	field comp_put        int64
+	// comp_get_repair is compensation in micro-units of currency for usage_get_repair.
+	field comp_get_repair int64
+	// comp_put_repair is compensation in micro-units of currency for usage_put_repair.
+	field comp_put_repair int64
+	// comp_get_audit is compensation in micro-units of currency for usage_get_audit.
+	field comp_get_audit  int64
+
+	// surge_percent is surge percentage that is used for the compensation, or 0 if no surge.
+	field surge_percent int64
+
+	// held is micro-units of currency that has been held from sum(comp_*) for this period
+	field held        int64
+	// owed is the amount we intend to pay to the node (sum(comp_*) - held + disposed).
+	field owed        int64
+	// disposed is micro-units of currency owed that is due to graceful-exit or held period ending.
+	field disposed    int64
+	// paid is micro-units of currency is total amount ever paid to the node (but not necessarily dispensed).
+	field paid        int64
+	// distributed is micro-units of currency is total amount ever distributed to the node (always less than or equal to paid).
+	field distributed int64
+)
+
+create storagenode_paystub ( noreturn, replace )
+
+read one (
+	select storagenode_paystub
+	where storagenode_paystub.node_id = ?
+	where storagenode_paystub.period  = ?
+)
+
+read all (
+	select storagenode_paystub
+	where storagenode_paystub.node_id = ?
+)
+
+// storagenode_payment contains information about old payments.
+// The payment information has been moved into storagenode_paystub.
+model storagenode_payment (
+	key id
+
+	index ( fields node_id period )
+
+	// id is an identifier for the payment.
+	field id         serial64
+	// created_at is the time this payment information was added.
+	field created_at timestamp ( autoinsert )
+	// node_id is the storagenode storj.NodeID.
+	field node_id    blob
+	// period is YYYY-MM encoded month, which this paystub refers to. e.g. ""2020-02".
+	field period     text
+	// amount to be paid in micro-units of currency.
+	field amount     int64
+	// receipt is a receipt for the payment.
+	field receipt    text      ( nullable )
+	// notes contains any additional information about the payment.
+	field notes      text      ( nullable )
+)
+
+create storagenode_payment ( noreturn )
+
+read limitoffset (
+	select storagenode_payment
+	where storagenode_payment.node_id = ?
+	where storagenode_payment.period  = ?
+	orderby desc storagenode_payment.id
+)
+
+read all (
+	select storagenode_payment
+	where storagenode_payment.node_id = ?
+)
+
+read all (
+	select storagenode_payment
+	where storagenode_payment.node_id = ?
+	where storagenode_payment.period  = ?
+)

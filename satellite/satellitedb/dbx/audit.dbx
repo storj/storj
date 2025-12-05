@@ -1,0 +1,74 @@
+// verification_audits contains a queue of segments to verify.
+model verification_audits (
+	key inserted_at stream_id position
+
+	// inserted_at when the segment was queued for verification.
+	field inserted_at    timestamp ( default current_timestamp )
+	// stream_id refers to the metabase segments.stream_id.
+	field stream_id      blob
+	// position refers to the metabase segments.position.
+	field position       uint64
+	// expires_at is set to the segment's expiration timestamp, if there is one.
+	field expires_at     timestamp (nullable)
+	// encrypted_size is the size of the segment pre-expansion.
+	field encrypted_size int
+)
+
+// reverification_audits copntains a queue of segments where verification failed due to a timeout.
+model reverification_audits (
+	key node_id stream_id position
+
+	// node_id is the node that timed out on verification.
+	field node_id        blob
+	// stream_id refers to the metabase segments.stream_id.
+	field stream_id      blob
+	// position refers to the metabase segments.position.
+	field position       uint64
+	// piece_num is the piece index that the storage node stores.
+	field piece_num      int
+	// inserted_at is the time the reverification was queued.
+	field inserted_at    timestamp ( default current_timestamp )
+	// last_attempt is the last time the reverification was attempted.
+	field last_attempt   timestamp ( updatable, nullable )
+	// reverify_count is the number of times the reverification has been attempted, but failed.
+	field reverify_count int64     ( updatable, default 0 )
+
+	index ( fields inserted_at )
+)
+
+read first (
+	select reverification_audits
+	where reverification_audits.node_id = ?
+	orderby ( asc reverification_audits.stream_id, asc reverification_audits.position )
+)
+
+create reverification_audits ()
+
+delete reverification_audits (
+	where reverification_audits.node_id = ?
+	where reverification_audits.stream_id = ?
+	where reverification_audits.position = ?
+)
+
+// segment_pending_audits contains list of segments that need to be audited.
+// This table is deprecated, it was replaced by reverification_audits.
+model segment_pending_audits (
+	key node_id
+
+	// node_id is the node that should be audited.
+	field node_id             blob
+	// stream_id refers to the metabase segments.stream_id.
+	field stream_id           blob
+	// position refers to the metabase segments.position.
+	field position            uint64
+	// is the derived piece id that the storagenode is storing.
+	field piece_id            blob
+	// stripe_index is the stripe we are trying to audit.
+	field stripe_index        int64
+	// share_size is the size of the share.
+	field share_size          int64
+	// expected_share_hash is the hash that we should get as the audit result.
+	field expected_share_hash blob
+	// reverify_count is the number of times the audit has been attempted.
+	field reverify_count      int64 ( updatable )
+)

@@ -1,0 +1,249 @@
+// node table contains information about storagenodes.
+model node (
+	key id
+
+	// id is the storj.NodeID of the storagenode.
+	field id              blob
+	// address is how to contact the node, this can be a hostname or IP and it contains the port
+	field address         text  ( updatable, default "" ) // TODO: use compressed format
+	// last_net is the /24 of IPv4 or /64 subnet of IPv4. e.g for an IP of 1.2.3.4 it is going to be 1.2.3.
+	field last_net        text  ( updatable )
+	// last_ip_port is the IP and port of the storagenode, as it was last resolved.
+	// This is used as a shortcut to avoid overloading DNS.
+	// Connections will fall back to using 'address' if a connection here fails.
+	field last_ip_port    text  ( updatable, nullable )
+	// country_code is the ISO 3166 2-letter country code indicating where the node is located, according to geoip lookup.
+	// It is updated anytime we update last_ip_port.
+	field country_code    text  ( updatable, nullable )
+	// protocol refers to pb.NodeTransport. TCP+TLS = 0, QUIC+RPC = 1, TCP+NOISE+RPC = 2.
+	// This field seems unused at the moment.
+	field protocol        int   ( updatable, default 0 )
+	// email is the storage node operators contact email.
+	field email           text  ( updatable )
+	// wallet is the text version of the Ethereum (or other) wallet address.
+	field wallet          text  ( updatable )
+	// wallet_features is the comma delimited list of wallet features.
+	field wallet_features text  ( updatable, default "" )
+	// free_disk is the amount of free space that the storagenode has reported.
+	field free_disk       int64 ( updatable, default -1 )
+	// piece_count is an estimate on the number of pieces the storagenode stores.
+	field piece_count     int64 ( autoinsert, updatable, default 0 )
+
+	// major is the version major release.
+	field major             int64 ( updatable, default 0 )
+	// minor is the version minor release.
+	field minor             int64 ( updatable, default 0 )
+	// patch is the version patch release.
+	field patch             int64 ( updatable, default 0 )
+	// commit hash is the git commit hash of the release.
+	field commit_hash       text ( updatable, default "" )
+	// release_timestamp is the timestamp the release was built.
+	field release_timestamp         timestamp ( updatable, default "0001-01-01 00:00:00+00" )
+	// release indicates whether the storagenode is running a release version.
+	field release           bool ( updatable, default false )
+
+	// latency_90 is the 90 percentile estimate of latency.
+	// This column is unused.
+	field latency_90           int64   ( updatable, default 0 )
+	// vetted_at is the time the storagenode gained sufficient reputation to be trusted with more data.
+	field vetted_at            timestamp ( updatable, nullable )
+
+	// created_at is the time the storagenode first made a successful contact.
+	field created_at           timestamp ( autoinsert, default current_timestamp )
+	// updated_at is the time the details have been last updated.
+	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
+	// last_contact_success is the most recent time the storagenode was successfully contacted.
+	field last_contact_success timestamp ( updatable, default "epoch" )
+	// last_contact_failure is the most recent time the storagenode checked in, but the satellite wasn't able to ping it back.
+	field last_contact_failure timestamp ( updatable, default "epoch" )
+
+	// disqualified is set when the node fails too many audits or is offline for too long.
+	// Reputation table has a cached value of this field.
+	field disqualified            timestamp ( updatable, nullable )
+	// disqualification_reason contains information about why the node was disqualified.
+	// This corresponds to overlay.DisqualificationReason.
+	// 0=unknown, 1=audit failures, 2=suspended for too long, 3=offline for too long.
+	// Reputation table has a cached value of this field.
+	field disqualification_reason int       ( updatable, nullable )
+	// unknown_audit_suspended is set when the node is placed under inspection.
+	// This happens when it has too many unknown-error audits.
+	field unknown_audit_suspended timestamp ( updatable, nullable )
+	// offline_suspended is set when the node is offline for too many audits.
+	field offline_suspended timestamp ( updatable, nullable )
+	// under_review is set when the node is marked for offline, this marks the node for review
+	// so it can be checked later.
+	field under_review timestamp ( updatable, nullable )
+
+	// exit_initiated_at indicates whether and when the storagenode has started an graceful exit.
+	field exit_initiated_at         timestamp ( updatable, nullable )
+	// exit_loop_completed_at indicates when the satellite has collected all the pieces that need to be transferred.
+	field exit_loop_completed_at    timestamp ( updatable, nullable )
+	// exit_finished_at indicates when the storagenode finished the graceful exit.
+	field exit_finished_at          timestamp ( updatable, nullable )
+	// exit_success is whether the graceful exit ended successfully.
+	field exit_success              bool ( updatable, default false )
+
+	// contained indicates when and whether the storagenode has been placed into containment mode.
+	field contained                 timestamp ( updatable, nullable )
+
+	// last_offline_email indicates when the last offline email was sent to the storagenode operator.
+	field last_offline_email         timestamp ( updatable, nullable )
+	// last_software_update_email indicates when the last software update email was sent to the storagenode operator.
+	field last_software_update_email timestamp ( updatable, nullable )
+
+	// noise_proto is the noise protocol version that the storagenode has implemented.
+	field noise_proto int ( updatable, nullable )
+	// noise_public_key is the last known public key for the storagenode.
+	field noise_public_key blob ( updatable, nullable )
+
+	// debounce_limit is the limit of the number of identical messages this
+	// node can defend against. this is not the limit of messages, just the
+	// limit of how many of the same message can be debounced.
+	field debounce_limit int ( updatable, default 0 )
+
+	// features is a bitmask of pb.NodeAddress_Feature values.
+	field features int ( updatable, default 0 )
+)
+
+update node ( where node.id = ? )
+update node (
+	where node.id = ?
+	noreturn
+)
+
+update node (
+	where node.id = ?
+	where node.disqualified = null
+	where node.exit_finished_at = null
+	noreturn
+)
+
+// "Get" query; fails if node not found
+read one (
+	select node
+	where  node.id = ?
+)
+
+read all (
+	select node.id
+)
+
+read paged (
+	select node
+)
+
+read all (
+	select node.id node.piece_count
+	where node.disqualified = null
+	where node.exit_initiated_at = null
+	where node.exit_finished_at = null
+)
+
+// node_api_version is a table for storing the supported API.
+// This information is updated during order settlement.
+model node_api_version (
+	key id
+
+	// id is the storj.NodeID of the storagenode.
+	field id          blob
+	// api_version refers to the satellite/nodeapiversion.Version value.
+	field api_version int  ( updatable )
+
+	// created_at is the time the version was first added.
+	field created_at timestamp ( autoinsert )
+	// updated_at is the time the version was last updated.
+	field updated_at timestamp ( autoinsert, autoupdate )
+)
+
+create node_api_version (
+	noreturn
+	replace
+)
+
+read has (
+	select node_api_version
+	where node_api_version.id          =  ?
+	where node_api_version.api_version >= ?
+)
+
+update node_api_version (
+	where node_api_version.id          = ?
+	where node_api_version.api_version < ?
+	noreturn
+)
+
+// node_event table contains information that the storagenode should be updated about.
+// This information is collected to avoid sending too many messages to node operators.
+model node_event (
+	key id
+
+	index (
+		name node_events_email_event_created_at_index
+		fields email event created_at
+		where node_event.email_sent = null
+	)
+
+	// id is a UUID for this event.
+	field id             blob
+	// emails is the storagenode operators contact address.
+	field email          text
+	// last_ip_port is the last known ip and port of the storage node. Set if we want to send it to operator.
+	field last_ip_port    text  ( nullable )
+	// node_id is the storagenode storj.NodeID.
+	field node_id        blob
+	// event is the event kind, which refers to satellite/nodeevents.Type.
+	field event          int
+	// created_at is when this event was added.
+	field created_at     timestamp ( default current_timestamp )
+	// last_attempted is when nodeevents chore last tried to send the email.
+	field last_attempted timestamp ( nullable, updatable )
+	// email_sent when the email sending succeeded.
+	field email_sent     timestamp ( nullable, updatable )
+)
+
+create node_event()
+
+read one (
+	select node_event
+	where node_event.id = ?
+)
+
+read first (
+	select node_event
+	where node_event.email = ?
+	where node_event.event = ?
+	orderby desc node_event.created_at
+)
+
+delete node_event ( where node_event.created_at < ? )
+
+model node_tags (
+
+	key node_id name signer
+
+	// node_id is the storagenode storj.NodeID who reported the tag
+	field node_id            blob
+
+	// name is the identififer of the k=v pair
+	field name               text
+
+	// value structure depends on the name
+	field value              blob
+
+	// timestamp represents the time of the issue (also signed).
+	field signed_at          timestamp
+
+	// signer is the node_id of the signer
+	field signer             blob
+)
+
+create node_tags ( noreturn, replace )
+
+read all (
+	select node_tags
+	where node_tags.node_id = ?
+)
+
+read all (
+	select node_tags
+)

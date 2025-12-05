@@ -1,0 +1,74 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/satellite/internalpb";
+
+package satellite.delegated_repair;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "metainfo.proto";
+import "orders.proto";
+import "pointerdb.proto";
+
+service RepairCoordinator {
+    rpc RepairJob(RepairJobRequest) returns (RepairJobResponse) {}
+}
+
+message RepairJobRequest {
+    // When not the first request, this will include the result of the last job
+    RepairJobResult last_job_result = 1;
+}
+
+message RepairJobResponse {
+    // When a job is available, this will be filled in
+    RepairJobDefinition new_job = 1;
+    // Otherwise, client should wait this many milliseconds and then try again
+    int32 come_back_in_millis = 2;
+}
+
+message RepairJobDefinition {
+    // Identifier for this job
+    bytes job_id = 1;
+    // Signed GET orders for all believed-healthy pieces to be downloaded
+    repeated metainfo.AddressedOrderLimit get_orders = 2;
+    // Private piece key to use for fetching
+    bytes private_key_for_get = 3;
+    // Signed PUT orders for all possible pieces to be uploaded (not including
+    // piece numbers in get_orders)
+    repeated metainfo.AddressedOrderLimit put_orders = 4;
+    // Private piece key to use for storing
+    bytes private_key_for_put = 5;
+    // Redundancy scheme used by the segment to be repaired
+    pointerdb.RedundancyScheme redundancy = 6;
+    // Size of the segment to be repaired
+    int64 segment_size = 7;
+    // Target piece count (worker should try to upload enough pieces so that
+    // this count is achieved)
+    int32 desired_piece_count = 8;
+    // Job expiration time
+    google.protobuf.Timestamp expiration_time = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message RepairJobResult {
+    // Identifier for this job, as given in RepairJobResponse
+    bytes job_id = 1;
+    // Set nonzero only if the segment could not be reconstructed because of
+    // too few pieces available.
+    int32 irreparable_pieces_retrieved = 2;
+    // Set only if the segment could not be reconstructed.
+    string reconstruct_error = 3;
+    // Set only if new pieces could not be stored to any new nodes.
+    string store_error = 4;
+    // PieceHashes signed by storage nodes which were used to accomplish repair
+    repeated orders.PieceHash new_pieces_stored = 5;
+    // A copy of the put_orders list as provided in the corresponding
+    // RepairJobDefinition
+    repeated metainfo.AddressedOrderLimit put_orders = 6;
+    // Pieces which should be _removed_ from the pointer. This will include
+    // pieces for which the expected owning storage node returned a "not found"
+    // error, as well as pieces which were downloaded but failed their
+    // validation check.
+    repeated int32 delete_piece_nums = 7;
+}

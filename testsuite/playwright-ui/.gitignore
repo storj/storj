@@ -1,0 +1,7 @@
+node_modules/
+test-results/
+allure-results/
+allure-report/
+html-report/
+*.js
+/playwright-report

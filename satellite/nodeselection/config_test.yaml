@@ -1,0 +1,80 @@
+templates:
+  SIGNER_ZERO: 1111111111111111111111111111111VyS547o
+  NORMAL: exclude(tag("$SIGNER_ZERO","soc2","true")) && exclude(tag("$SIGNER_ZERO","datacenter","true"))
+placements:
+  - id: 0
+    name: global
+    filter: $NORMAL
+    invariant: maxcontrol("tag:owner",2)
+    selector: unvetted(0.0,random())
+  - id: 1
+    name: eu-1
+    filter: country("EU") && $NORMAL
+    invariant: maxcontrol("last_net",1)
+    selector: attribute("last_net")
+  - id: 2
+    name: choiceoftwo
+    selector: choiceoftwo(tracker, random())
+  - id: 3
+    name: ifeqselector
+    selector: attribute(if(eq("tag:surge","true"),"last_ip_port","last_net"))
+  - id: 4
+    name: subnet
+    selector: attribute(subnet(25))
+  - id: 5
+    name: dual
+    selector: dual(0.2,random(), filter(tag("12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S","test","true"),random()))
+  - id: 6
+    name: sa
+    filter: continent("SA") && $NORMAL
+  - id: 7
+    name: choiceofpieces
+    selector: choiceoftwo(piececount(10), random())
+  - id: 8
+    name: choiceofnselection1
+    selector: choiceofnselection(3, random(), maxgroup("last_ip"),median(piececount(1000000)),lastbut(tracker,2))
+  - id: 9
+    name: balancedf
+    selector: balancedf("last_ip", exclude(tag("12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S","test","true")))
+  - id: 10
+    name: weighted
+    selector: weighted("tag:$SIGNER_ZERO/signed",100.0,select("tag:surge","==", "true"))
+  - id: 11
+    name: weightedf
+    selector: weightedf(node_value("tag:$SIGNER_ZERO/weight?100") / 100,select("tag:surge","==", "true"))
+  - id: 12
+    name: topology
+    selector: topology(node_value("tag:$SIGNER_ZERO/weight?100") / 100,"3,2","tag:datacenter,tag:server", select("tag:surge","==", "true"))
+  - id: 13
+    name: uploadfilter
+    filter: country("EU")
+    upload-filter: exclude(country("DE"))
+  - id: 14
+    name: stream
+    selector: stream(randomstream, streamfilter(groupconstraint(node_attribute("last_ip"),1)), choiceofns(2,1 + node_value("free_disk") ^ 0.5 / 2500000))
+  - id: 15
+    name: reduce
+    selector: reduce(random(), node_value("free_disk") * -1, atleast(node_attribute("id"), 30), atleast(node_attribute("tag:server_name"), 10))
+  - id: 16
+    name: reduce
+    selector: reduce(random(), node_value("free_disk") * -1, atleast(node_attribute("id"), daily(20,10,10,10,20,20)), atleast(node_attribute("tag:server_name"), 10))
+  - id: 17
+    name: fixedmulti
+    selector: |-
+      multi(
+        fixed(50, filter(country("US"),random())),
+        fixed(50, filter(country("EU"),random()))
+      )
+  - id: 18
+    name: cohort_test
+    cohort-requirements: min(49) && withhold(attr("tag:$SIGNER_ZERO/dc"), 1, withhold(attr("tag:$SIGNER_ZERO/dc") + "-" + attr("tag:$SIGNER_ZERO/rack"), 3, min(29)))
+  - id: 19
+    name: download_selector
+    download-selector: |-
+      switch(
+        filter(country("EU"),random),
+        case(requestor("126fuL2fPdYYvAJwgEjF4NwBDkfGRoRwBT8JcXpjF9QmUMgLuVe"),filter(country("US"),random))
+      )
+  - id: 20
+    name: combined-invariant
+    invariant: maxcontrol("country",5) && filter(tag("$SIGNER_ZERO","dc","dc1"))

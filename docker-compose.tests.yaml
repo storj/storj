@@ -1,0 +1,44 @@
+# Support services used by tests
+
+version: "3.4"
+
+services:
+  postgres:
+    hostname: postgres
+    command: -c fsync=off
+    image: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5532:5432"
+  crdb1:
+    hostname: crdb1
+    command: [ "start-single-node", "--insecure", "--store=type=mem,size=2GiB", "--http-addr=localhost:8086", "--cache=512MiB", "--max-sql-memory=512MiB" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26356:26257"
+  crdb2:
+    hostname: crdb2
+    command: [ "start-single-node", "--insecure", "--store=type=mem,size=2GiB", "--http-addr=localhost:8086", "--cache=512MiB", "--max-sql-memory=512MiB" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26357:26257"
+  crdb3:
+    hostname: crdb3
+    command: [ "start-single-node", "--insecure", "--store=type=mem,size=2GiB", "--http-addr=localhost:8086", "--cache=512MiB", "--max-sql-memory=512MiB" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26358:26257"
+  crdb4:
+    hostname: crdb4
+    command: [ "start-single-node", "--insecure", "--store=type=mem,size=2GiB", "--http-addr=localhost:8086", "--cache=512MiB", "--max-sql-memory=512MiB" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26359:26257"
+  crdb5:
+    hostname: crdb5
+    command: [ "start-single-node", "--insecure", "--store=type=mem,size=2GiB", "--http-addr=localhost:8086", "--cache=512MiB", "--max-sql-memory=512MiB" ]
+    image: cockroachdb/cockroach
+    ports:
+      - "26360:26257"

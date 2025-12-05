@@ -1,0 +1,39 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+:root {
+    // colors
+    --c-title: #131d3a;
+    --c-gray: #74777e;
+    --c-label: #586474;
+    --c-placeholder: #a2aebe;
+    --c-background: #f4f6f9;
+    --c-line: #131d3a;
+    --c-gray--light: #e1e3e6;
+    --c-block-gray: #f8f8f9;
+    --c-primary: #0059d0;
+    --c-error: #eb5757;
+    --c-success: #04b978;
+    --c-warning: #f4b740;
+    --c-button-label: white;
+    --c-button-common: #2683ff;
+    --c-button-common-hover: #196cda;
+    --c-button-white: transparent;
+    --c-button-white--label: #354049;
+    --c-button-white-hover: #ededed;
+    --c-button-red: #ff4f4d;
+    --c-button-red-hover: #e70747;
+    --c-button-disabled: #dadde5;
+    --c-button-gray: #e7e9eb;
+    --c-payout-period: #444c63;
+    --wallet-feature-opted-in: #00ce7d;
+
+    // borders
+    --b-button-white: #afb7c1;
+
+    // border radiuses
+    --br-button: 6px;
+    --br-input: 6px;
+    --br-table: 6px;
+    --br-block: 6px;
+}

@@ -1,0 +1,55 @@
+# Mac OS X files
+.DS_Store
+
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+*.db
+*.wasm
+
+# Test binary, build with `go test -c`
+*.test
+*.prof
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# VSCode
+/.vscode
+
+# Visual Studio
+/.vs
+
+# Jetbrains
+.idea/
+
+*.coverprofile
+*.log
+
+/release/
+*.swp
+/bin
+resource.syso
+resource_*.syso
+
+*.resource.go
+
+.build
+
+# storj-up automatically generates these files and should not be commit
+/docker-compose.yaml
+/.history/
+dist
+
+# intellij project level runners. Add them explicitly if you would like to share.
+.run
+
+# Node Modules
+node_modules/
+
+# go workspaces
+go.work
+go.work.sum
+

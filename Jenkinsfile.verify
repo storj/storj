@@ -1,0 +1,192 @@
+pipeline {
+    agent {
+        docker {
+            label 'main'
+            image 'storjlabs/ci:latest'
+            alwaysPull true
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache/build:/root/.cache/go-build -v "/tmp/npm":/npm'
+        }
+    }
+    options {
+        timeout(time: 60, unit: 'MINUTES')
+        skipDefaultCheckout(true)
+    }
+    environment {
+        NPM_CONFIG_CACHE = '/npm/cache'
+        GOTRACEBACK = 'all'
+        COCKROACH_MEMPROF_INTERVAL=0
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                // Delete any content left over from a previous run.
+                sh "chmod -R 777 ."
+                // Bash requires extglob option to support !(.git) syntax,
+                // and we don't want to delete .git to have faster clones.
+                sh 'bash -O extglob -c "rm -rf !(.git)"'
+
+                checkout scm
+
+                sh 'mkdir -p .build'
+                sh 'git restore-mtime'
+
+                // download dependencies
+                sh 'go mod download'
+
+
+                // pre-check that we cannot do at a later stage reliably
+                sh 'check-large-files'
+            }
+        }
+        stage('Gerrit status') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh verify start 0'
+                }
+            }
+        }
+
+        stage('Build Web') {
+            // The build code depends on the following assets being loaded.
+            parallel {
+                stage('web/satellite') {
+                    steps {
+                        sh './web/satellite/build-if-changed.sh'
+                    }
+                }
+                stage('wasm') {
+                    steps {
+                        sh './testsuite/wasm/start.sh'
+                    }
+                }
+                stage('web/storagenode') {
+                    steps {
+                        sh './web/storagenode/build-if-changed.sh'
+                    }
+                }
+                stage('web/multinode') {
+                    steps {
+                        sh './web/multinode/build-if-changed.sh'
+                    }
+                }
+                stage('satellite/admin/ui') {
+                    steps {
+                        sh './satellite/admin/ui/build-if-changed.sh'
+                    }
+                }
+            }
+        }
+
+        stage('Lint') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'make llint'
+                    }
+                }
+                stage('Additional checks') {
+                    steps {
+                        sh './scripts/check-package-lock.sh'
+                        dir("testsuite/storjscan") {
+                            sh 'go vet ./...'
+                        }
+                    }
+
+                }
+            }
+        }
+
+
+        stage('Tests') {
+            environment {
+                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'info'
+                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
+                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
+                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
+            }
+            steps {
+                sh 'use-ports -from 1024 -to 10000 &'
+                sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+            }
+
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/tests.json'
+                    sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
+                    junit '.build/tests.xml'
+
+                    script {
+                        if(fileExists(".build/coverprofile")){
+                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                            cobertura coberturaReportFile: '.build/cobertura.xml',
+                                lineCoverageTargets: '70, 60, 50',
+                                autoUpdateHealth: false,
+                                autoUpdateStability: false,
+                                failUnhealthy: true
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Satellite UI Tests') {
+            environment {
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'debug'
+            }
+
+            steps {
+                dir('.build') {
+                    sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:0 --cache 1024MiB --max-sql-memory 1024MiB --background'
+                }
+
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh 'make test-satellite-ui'
+            }
+
+            post {
+                failure {
+                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
+                }
+            }
+        }
+
+        stage('Post') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'check-clean-directory'
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh verify success +1'
+            }
+        }
+        failure {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh verify failure -1'
+            }
+        }
+        aborted {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh verify failure -1'
+            }
+        }
+    }
+}

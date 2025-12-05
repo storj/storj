@@ -1,0 +1,30 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/certificate/certificatepb";
+
+package node;
+
+// These types are used for storing authorizations in a database.
+
+message AuthorizationGroup {
+    repeated Authorization authorizations = 1;
+}
+
+message Authorization {
+    Token token = 1;
+    Claim claim = 2;
+}
+
+message Token {
+    bytes user_id = 1;
+    bytes data = 2;
+}
+
+message Claim {
+    bytes addr = 1;
+    int64 timestamp = 2;
+    bytes identity = 3;
+    repeated bytes signed_chain_bytes = 4;
+}

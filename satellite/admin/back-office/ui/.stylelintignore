@@ -1,0 +1,14 @@
+*.*
+!*.vue
+!*.css
+!*.sss
+!*.less
+!*.scss
+!*.sass
+
+dist
+build
+node_modules
+coverage
+Dockerfile
+entrypoint

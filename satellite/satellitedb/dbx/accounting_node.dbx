@@ -1,0 +1,137 @@
+// accounting_rollup stores rolled up bandwidth information for a storage node.
+// Each row corresponds to a time-period between start_time and interval_end_time.
+model accounting_rollup (
+	key node_id start_time
+	index ( fields start_time )
+
+	// node_id refers to the storage node id.
+	field node_id           blob
+	// start_time is when the total measurement started.
+	field start_time        timestamp
+	// put_total is the number of bytes uploaded to the storagenode.
+	field put_total         int64
+	// get_total is the number of bytes downloaded from the storagenode.
+	field get_total         int64
+	// get_audit_total is the number of bytes downloaded from the storagenode for audit.
+	field get_audit_total   int64
+	// get_repair_total is the number of bytes downloaded from the storagenode for repair.
+	field get_repair_total  int64
+	// put_repair_total is the number of bytes uploaded to the storagenode for repair.
+	field put_repair_total  int64
+	// at_rest_total is bytes*hour stored on the storagenode.
+	field at_rest_total     float64
+	// interval_end_time is when the measurement finished and a new measurement began.
+	field interval_end_time timestamp ( updatable, nullable )
+)
+
+// storagenode_bandwidth_rollup contains rolled up bandwidth information for a storage node.
+model storagenode_bandwidth_rollup (
+	key    storagenode_id interval_start action
+
+	index (
+		name storagenode_bandwidth_rollups_interval_start_index
+		fields interval_start
+	)
+
+	// storagenode_id refers to the storagenode storj.NodeID.
+	field storagenode_id   blob
+	// interval_start is when the total measurement started.
+	field interval_start   timestamp
+	// interval_seconds is the duration of the measurement interval in seconds.
+	field interval_seconds uint
+	// action is the bandwidth operation, which refers to storj.io/common/pb.PieceAction.
+	// It is one of put = 1, get = 2, get audit = 3, get repair = 4, put repair = 5, delete = 6 or put graceful exit = 7.
+	field action           uint
+
+	// allocated is the number of bytes that the satellite has budgeted for.
+	field allocated uint64 ( updatable, nullable, default 0 )
+	// settled is the number of bytes of traffic that the storagenodes have reported back to the satellite.
+	field settled   uint64 ( updatable )
+)
+
+create storagenode_bandwidth_rollup()
+
+read all (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.storagenode_id = ?
+	where storagenode_bandwidth_rollup.interval_start = ?
+)
+
+read paged (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+read paged (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.storagenode_id = ?
+	where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+// storagenode_bandwidth_rollup_archive contains rolled up values for storagenode_bandwidth_rollup table.
+model storagenode_bandwidth_rollup_archive (
+	key    storagenode_id interval_start action
+
+	index (
+		name storagenode_bandwidth_rollup_archives_interval_start_index
+		fields interval_start
+	)
+
+	// storagenode_id refers to the storagenode storj.NodeID.
+	field storagenode_id   blob
+	// interval_start is when the total measurement started.
+	field interval_start   timestamp
+	// interval_seconds is the duration of the measurement interval in seconds.
+	field interval_seconds uint
+	// action is the bandwidth operation, which refers to storj.io/common/pb.PieceAction.
+	// It is one of put = 1, get = 2, get audit = 3, get repair = 4, put repair = 5, delete = 6 or put graceful exit = 7.
+	field action           uint
+
+	// allocated is the number of bytes that the satellite has budgeted for.
+	field allocated uint64 ( updatable, nullable, default 0 )
+	// settled is the number of bytes of traffic that the storagenodes have reported back to the satellite.
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+	select storagenode_bandwidth_rollup_archive
+	where storagenode_bandwidth_rollup_archive.interval_start >= ?
+)
+
+// storagenode_storage_tally contains the calculated at rest data for storagenode.
+model storagenode_storage_tally (
+	// this primary key will enforce uniqueness on interval_end_time,node_id
+	// and also creates an index on interval_end_time implicitly.
+	// the interval_end_time will be the same value for many rows so
+	// we put that first so we can use cockroachdb prefix compression.
+	// node_id is also used many times but interval_end_time is more
+	// repetative and will benefit greater.
+	key interval_end_time node_id
+
+	index ( fields node_id )
+
+	// node_id refers to the storagenode storj.NodeID.
+	field node_id           blob
+	// interval_end_time is when the measurement finished and a new measurement began.
+	field interval_end_time timestamp
+	// data_total is the estimated bytes*hour stored on the storagenode.
+	field data_total        float64
+)
+
+read all (
+	select storagenode_storage_tally
+)
+
+read all (
+	select storagenode_storage_tally
+	where storagenode_storage_tally.interval_end_time >= ?
+)
+
+read first (
+	select storagenode_storage_tally.interval_end_time
+	orderby asc storagenode_storage_tally.interval_end_time
+)
+
+delete storagenode_storage_tally (
+	where storagenode_storage_tally.interval_end_time < ?
+)

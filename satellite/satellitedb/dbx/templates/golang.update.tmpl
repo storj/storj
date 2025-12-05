@@ -1,0 +1,74 @@
+{{- define "name" -}}
+Update{{ if not .Return }}NoReturn{{ end }}_{{ .Suffix }}
+{{- end -}}
+
+{{- define "signature" -}}
+{{- template "name" . }}({{ ctxparam .Args }},
+	update {{ .Struct.UpdateStructName }}) (
+	{{ if .Return }}{{ param .Return }}, {{ end }}err error)
+{{- end -}}
+
+{{- define "invoke" -}}
+{{- template "name" . }}({{ ctxarg .Args }}, update)
+{{- end -}}
+
+{{- define "body" -}}{{/* gotype: storj.io/dbx/code/golang.Update */}}
+	{{ embedplaceholders .Info }}
+	{{ embedsql .Info "__embed_stmt" }}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	{{ range .Struct.UpdatableFields }}
+	if update.{{ .Name }}._set {
+		__values = append(__values, update.{{ .Name }}.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("{{ .Column }} = ?"))
+	}
+	{{ end }}
+
+	{{- if .NeedsNow }}
+	__now := obj.db.Hooks.Now().UTC()
+	{{ end -}}
+	{{ range .AutoFields }}
+	__values = append(__values, {{ .InitVal }})
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("{{ .Name }} = ?"))
+	{{ end }}
+
+	{{ if not .AutoFields }}
+	if len(__sets_sql.SQLs) == 0 {
+		{{- if .Return }}
+		return nil, emptyUpdate()
+		{{- else }}
+		return emptyUpdate()
+		{{- end }}
+	}
+	{{ end }}
+
+	{{ embedvalues .Args "__args" }}
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+	{{- if not .Return }}
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+	{{- else }}
+
+	{{ init .Return }}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Return) }})
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return {{ arg .Return }}, nil
+	{{- end }}
+{{- end -}}

@@ -1,0 +1,36 @@
+// peer_identity is a cache for storagenode certificates.
+model peer_identity (
+	key node_id
+
+	// node_id refers to storj.NodeID.
+	field node_id            blob
+	// leaf_serial_number is the certificate serial number.
+	field leaf_serial_number blob (updatable)
+	// chain is the x509 certificate as ASN.1 DER.
+	field chain              blob (updatable)
+	// updated_at is the time it was last updated.
+	field updated_at         timestamp ( autoinsert, autoupdate )
+)
+
+create peer_identity ( noreturn )
+update peer_identity (
+	where  peer_identity.node_id = ?
+	noreturn
+)
+
+read one (
+	select peer_identity
+	where  peer_identity.node_id = ?
+)
+read one (
+	select peer_identity.leaf_serial_number
+	where  peer_identity.node_id = ?
+)
+
+model revocation (
+	key revoked
+	field revoked blob
+	field api_key_id blob
+)
+
+create revocation ( noreturn )

@@ -1,0 +1,68 @@
+// reputation stores information about the storagenode reliability and their audit status.
+model reputation (
+	key id
+
+	// id is the storj.NodeID.
+	field id              blob
+
+	// audit_success_count is the total number of audits the node has passed.
+	field audit_success_count  int64   ( updatable, default 0 )
+	// total_audit_count is the total number of audits the node has been sent.
+	field total_audit_count    int64   ( updatable, default 0 )
+	// vetted_at is the time when the node became a reliable member of the network.
+	field vetted_at            timestamp ( updatable, nullable )
+
+	// created_at is the time when tracking of the node started.
+	field created_at           timestamp ( autoinsert, default current_timestamp )
+	// updated_at is the time when the reputation was last updated.
+	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
+
+	// disqualified is set when the node fails too many audits or is offline for too long.
+	field disqualified timestamp ( updatable, nullable )
+	// disqualification_reason contains information about why the node was disqualified.
+	// This corresponds to overlay.DisqualificationReason.
+	// 0=unknown, 1=audit failures, 2=suspended for too long, 3=offline for too long.
+	field disqualification_reason int ( updatable, nullable )
+
+	// unknown_audit_suspended is set when the node is placed under inspection.
+	// This happens when it has too many unknown-error audits.
+	field unknown_audit_suspended timestamp ( updatable, nullable )
+	// offline_suspended is set when the node is offline for too many audits.
+	field offline_suspended timestamp ( updatable, nullable )
+	// under_review is set when the node is marked for offline, this marks the node for review
+	// so it can be checked later.
+	field under_review timestamp ( updatable, nullable )
+	// online_score is the summarizing value for the node status.
+	// See storage-node-downtime-tracking-with-audits blueprint for details.
+	field online_score float64 ( updatable, default 1 )
+	// audit_history contains protobuf encoded AuditWindow-s for historic purposes.
+	// See reputation/audithistory.go for details.
+	field audit_history blob ( updatable )
+
+	// audit_reputation_alpha tracks information related to successful vs. failed error audits.
+	field audit_reputation_alpha  float64 ( updatable, default 1 )
+	// audit_reputation_beta tracks information related to successful vs. failed error audits.
+	field audit_reputation_beta   float64 ( updatable, default 0 )
+	// unknown_audit_reputation_alpha tracks information related to successful vs. unknown error audits.
+	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
+	// unknown_audit_reputation_beta tracks information related to successful vs. unknown error audits.
+	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
+)
+
+create reputation ()
+
+update reputation ( where reputation.id = ? )
+update reputation (
+	where reputation.id = ?
+	where reputation.audit_history = ?
+)
+update reputation (
+	where reputation.id = ?
+	noreturn
+)
+
+// "Get" query; fails if reputation not found
+read one (
+	select reputation
+	where  reputation.id = ?
+)

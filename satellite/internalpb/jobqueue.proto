@@ -1,0 +1,200 @@
+// Copyright (C) 2025 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/satellite/internalpb";
+
+package jobqueue;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+service JobQueue {
+  rpc Push(JobQueuePushRequest) returns (JobQueuePushResponse);
+  rpc PushBatch(JobQueuePushBatchRequest) returns (JobQueuePushBatchResponse);
+  rpc Pop(JobQueuePopRequest) returns (JobQueuePopResponse);
+  rpc Peek(JobQueuePeekRequest) returns (JobQueuePeekResponse);
+  rpc Delete(JobQueueDeleteRequest) returns (JobQueueDeleteResponse);
+  rpc Len(JobQueueLengthRequest) returns (JobQueueLengthResponse);
+  rpc Inspect(JobQueueInspectRequest) returns (JobQueueInspectResponse);
+  rpc Stat(JobQueueStatRequest) returns (JobQueueStatResponse);
+
+  rpc Truncate(JobQueueTruncateRequest) returns (JobQueueTruncateResponse);
+  rpc Clean(JobQueueCleanRequest) returns (JobQueueCleanResponse);
+  rpc Trim(JobQueueTrimRequest) returns (JobQueueTrimResponse);
+  rpc TestingSetAttemptedTime(JobQueueTestingSetAttemptedTimeRequest) returns (JobQueueTestingSetAttemptedTimeResponse);
+  rpc TestingSetUpdatedTime(JobQueueTestingSetUpdatedTimeRequest) returns (JobQueueTestingSetUpdatedTimeResponse);
+}
+
+message RepairJob {
+  bytes stream_id = 1;
+  uint64 position = 2;
+  double health = 3;
+  google.protobuf.Timestamp inserted_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp last_attempted_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  int32 num_attempts = 6;
+  int32 placement = 7;
+  int32 num_out_of_placement = 9;
+  google.protobuf.Timestamp updated_at = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  int32 num_normalized_healthy = 11;
+  int32 num_normalized_retrievable = 12;
+}
+
+message JobQueuePushRequest {
+  RepairJob job = 1;
+}
+
+message JobQueuePushResponse {
+  bool newly_inserted = 1;
+}
+
+message JobQueuePushBatchRequest {
+  repeated RepairJob jobs = 1;
+}
+
+message JobQueuePushBatchResponse {
+  repeated bool newly_inserted = 1;
+}
+
+message JobQueuePopRequest {
+  repeated int32 included_placements = 1;
+  repeated int32 excluded_placements = 2;
+  int32 limit = 3;
+}
+
+message JobQueuePopResponse {
+  repeated RepairJob jobs = 1;
+}
+
+message JobQueuePeekRequest {
+  repeated int32 included_placements = 1;
+  repeated int32 excluded_placements = 2;
+  int32 limit = 3;
+}
+
+message JobQueuePeekResponse {
+  repeated RepairJob jobs = 1;
+}
+
+message JobQueueDeleteRequest {
+  bytes stream_id = 1;
+  uint64 position = 2;
+  int32 placement = 3;
+}
+
+message JobQueueDeleteResponse {
+  bool did_delete = 1;
+}
+
+message JobQueueLengthRequest {
+  int32 placement = 1;
+  bool all_placements = 2;
+}
+
+message JobQueueLengthResponse {
+  int64 repair_length = 1;
+  int64 retry_length = 2;
+}
+
+message JobQueueTruncateRequest {
+  int32 placement = 1;
+  bool all_placements = 2;
+}
+
+message JobQueueTruncateResponse {}
+
+message JobQueueAddPlacementQueueRequest {
+  int32 placement = 1;
+}
+
+message JobQueueAddPlacementQueueResponse {}
+
+message JobQueueDestroyPlacementQueueRequest {
+  int32 placement = 1;
+}
+
+message JobQueueDestroyPlacementQueueResponse {}
+
+message JobQueueInspectRequest {
+  bytes stream_id = 1;
+  uint64 position = 2;
+  int32 placement = 3;
+}
+
+message JobQueueInspectResponse {
+  RepairJob job = 1;
+  bool found = 2;
+}
+
+message JobQueueStatRequest {
+  int32 placement = 1;
+  bool all_placements = 2;
+  bool with_histogram = 3;
+}
+
+message QueueStat {
+  int32 placement = 1;
+  int64 count = 2;
+  google.protobuf.Timestamp max_inserted_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp min_inserted_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp max_attempted_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp min_attempted_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  double min_segment_health = 7;
+  double max_segment_health = 8;
+  repeated QueueStatHistogram histogram = 9;
+}
+
+message QueueStatHistogram {
+  int64 count = 1;
+  int32 num_out_of_placement = 3;
+  bytes exemplar_stream_id = 4;
+  uint64 exemplar_position = 5;
+  int32 num_normalized_healthy = 6;
+  int32 num_normalized_retrievable = 7;
+}
+
+message JobQueueStatResponse {
+  repeated QueueStat stats = 1;
+}
+
+message JobQueueCleanRequest {
+  int32 placement = 1;
+  google.protobuf.Timestamp updated_before = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  bool all_placements = 3;
+}
+
+message JobQueueCleanResponse {
+  int32 removed_segments = 1;
+}
+
+message JobQueueTrimRequest {
+  int32 placement = 1;
+  double health_greater_than = 2;
+  bool all_placements = 3;
+}
+
+message JobQueueTrimResponse {
+  int32 removed_segments = 1;
+}
+
+message JobQueueTestingSetAttemptedTimeRequest {
+  int32 placement = 1;
+  bytes stream_id = 2;
+  uint64 position = 3;
+  google.protobuf.Timestamp new_time = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message JobQueueTestingSetAttemptedTimeResponse {
+  int32 rows_affected = 1;
+}
+
+message JobQueueTestingSetUpdatedTimeRequest {
+  int32 placement = 1;
+  bytes stream_id = 2;
+  uint64 position = 3;
+  google.protobuf.Timestamp new_time = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message JobQueueTestingSetUpdatedTimeResponse {
+  int32 rows_affected = 1;
+}

@@ -1,0 +1,128 @@
+// oauth_client stores information about known clients developed against stroj.
+model oauth_client (
+	key id
+
+	index ( fields user_id )
+
+	// id is a unique identifier for the client.
+	field id                blob
+	// encrypted_secret is a token that the client uses to authenticate.
+	field encrypted_secret  blob ( updatable )
+	// redirect_url is the uri where the user should be redirected after authentication.
+	field redirect_url      text ( updatable )
+	// user_id is a UUID which refers to user.id.
+	field user_id           blob
+	// app_name is text that should be displayed as the application requesting authentication.
+	field app_name          text ( updatable )
+	// app_logo_url is icon that should be shown for the application.
+	field app_logo_url      text ( updatable )
+)
+
+create oauth_client (
+	noreturn
+)
+
+read one (
+	select oauth_client
+	where oauth_client.id = ?
+)
+
+update oauth_client (
+	where oauth_client.id = ?
+	noreturn
+)
+
+delete oauth_client (
+	where oauth_client.id = ?
+)
+
+// oauth_code are single use tokens that are handed off to the third party applications.
+// they're exchanged for an access_token (and maybe a refresh_token).
+// they can only be claimed once.
+model oauth_code (
+	key code
+
+	index ( fields user_id )
+	index ( fields client_id )
+
+	// client_id is the oauth_client.id that requested this user.
+	field client_id     blob
+	// user_id is the user.id that tries to use this token.
+	field user_id       blob
+	// scope is Access Token Scope which specifies what the user is allowed to access.
+	field scope         text
+	// redirect_url is the location that user should be redirected to.
+	field redirect_url  text
+
+	// challenge is used for PKCE authorization flow. It is created from code verifier that the
+	// client uses to verify the response.
+	field challenge         text
+	// challenge_method is used for PKCE authorization flow.
+	// It is the method that was used to generate the challenge.
+	field challenge_method  text
+
+	// code contains the authorization code which the client will later exchange for an access token.
+	field code              text
+	// created_at specifies when the code was created.
+	field created_at        timestamp
+	// expires_at specifies when the code is invalid.
+	field expires_at        timestamp
+	// claimed_at specifies the time when the code was used.
+	field claimed_at        timestamp ( nullable, updatable )
+)
+
+create oauth_code (
+	noreturn
+)
+
+read one (
+	select oauth_code
+	where oauth_code.code = ?
+	where oauth_code.claimed_at = null
+)
+
+update oauth_code (
+	where oauth_code.code       = ?
+	where oauth_code.claimed_at = null
+	noreturn
+)
+
+// oauth_token can be an access or refresh token
+model oauth_token (
+	key token
+
+	index ( fields user_id )
+	index ( fields client_id )
+
+	// client_id is the oauth_client.id that requested this user.
+	field client_id     blob
+	// user_id is the user.id that tries to use this token.
+	field user_id       blob
+	// scope is Access Token Scope which specifies what the user is allowed to access.
+	field scope         text
+
+	// kind specifies the purpose of the token. It refers to oidc.OAuthTokenKind. unknown=0, access=1, refresh=2, rest=3.
+	field kind          int
+	// token is the access which is implemented as an encrypted macaroon.
+	field token         blob
+	// created_at is when the token was created.
+	field created_at    timestamp
+	// expires_at says when the token becomes invalid.
+	field expires_at    timestamp ( updatable )
+)
+
+create oauth_token (
+	noreturn
+)
+
+read one (
+	select oauth_token
+	where oauth_token.kind = ?
+	where oauth_token.token = ?
+)
+
+update oauth_token (
+	where oauth_token.token = ?
+	where oauth_token.kind = ?
+	noreturn
+)

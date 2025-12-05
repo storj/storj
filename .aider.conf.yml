@@ -1,0 +1,3 @@
+gitignore: false
+attribute-committer: false
+commit-prompt: "Commit style: `{scope}: {message}` format (e.g., `satellite/metainfo: add validation`). Never add AI attribution (author, committer or other additional lines) to the commit."

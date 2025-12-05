@@ -1,0 +1,423 @@
+// project contains information about a user project.
+model project (
+	key id
+
+	index (
+		name projects_public_id_index
+		fields public_id
+	)
+
+	index (
+		name projects_owner_id_index
+		fields owner_id
+	)
+
+	index (
+		name projects_status_status_updated_at_index
+		fields status status_updated_at
+		where project.status_updated_at != null
+	)
+
+	// id is a UUID used for identifying the project.
+	field id                                blob
+	// public_id is a UUID that's used in web requests.
+	field public_id                         blob      ( nullable )
+
+	// name is a identifier that's shown to the user.
+	field name                              text      ( updatable )
+	// description helps users to clarify what the project is for.
+	field description                       text      ( updatable )
+	// usage_limit defines maximum allowed bytes that can be stored.
+	field usage_limit                       int64     ( nullable, updatable )
+	// bandwidth_limit defines maximum allowed bandwidth per month in bytes.
+	field bandwidth_limit                   int64     ( nullable, updatable )
+	// user_specified_usage_limit is set by the user to limit their bytes that can be stored.
+	field user_specified_usage_limit        int64     ( nullable, updatable )
+	// user_specified_bandwidth_limit is set by the user to limit their bytes that downloaded.
+	field user_specified_bandwidth_limit    int64     ( nullable, updatable )
+	// segment_limit specifies how many segments can be stored in the project.
+	field segment_limit                     int64     ( nullable, updatable, default 1000000)
+
+	// rate_limit defines maximum requests per second the project can use.
+	// See golang.org/x/time/rate#Limiter for details.
+	field rate_limit                        int       ( nullable, updatable )
+	// burst_limit defines number of requests that are not throttled by rate_limit.
+	// See golang.org/x/time/rate#Limiter for details.
+	field burst_limit                       int       ( nullable, updatable )
+
+	// rate_limit_head defines maximum "head" requests per second the project can use.
+	field rate_limit_head                   int       ( nullable, updatable )
+	// burst_limit_head defines number of "head" requests that are not throttled by rate_limit_head.
+	field burst_limit_head                  int       ( nullable, updatable )
+
+	// rate_limit_get defines maximum "get" requests per second the project can use.
+	field rate_limit_get                    int       ( nullable, updatable )
+	// burst_limit_get defines number of "get" requests that are not throttled by rate_limit_get.
+	field burst_limit_get                   int       ( nullable, updatable )
+
+	// rate_limit_put defines maximum "put" requests per second the project can use.
+	field rate_limit_put                    int       ( nullable, updatable )
+	// burst_limit_put defines number of "put" requests that are not throttled by rate_limit_put.
+	field burst_limit_put                   int       ( nullable, updatable )
+
+	// rate_limit_list defines maximum "list" requests per second the project can use.
+	field rate_limit_list                   int       ( nullable, updatable )
+	// burst_limit_put defines number of "list" requests that are not throttled by rate_limit_list.
+	field burst_limit_list                  int       ( nullable, updatable )
+
+	// rate_limit_del defines maximum "delete" requests per second the project can use.
+	field rate_limit_del                    int       ( nullable, updatable )
+	// burst_limit_del defines number of "delete" requests that are not throttled by rate_limit_del.
+	field burst_limit_del                   int       ( nullable, updatable )
+
+	// max_buckets is the maximum number of buckets that can be created for the project.
+	field max_buckets                       int       ( nullable, updatable )
+	// user_agent is the referred partner who created the project.
+	field user_agent                        blob      ( nullable, updatable )
+	// owner_id refers to the user UUID in user.id.
+	field owner_id                          blob
+	// salt is used for salting the user passphrase for the content.
+	field salt                              blob      ( nullable )
+
+	// status is used to indicate status of the user's project.
+	// 0 - disabled or deleted by the user
+	// 1 - active
+	field status                            int       ( nullable, updatable, default 1 )
+	// status_updated_at indicates the time at which the status last changed
+	field status_updated_at timestamp ( updatable, nullable )
+
+	// created_at indicates when the project was created.
+	field created_at                        timestamp ( autoinsert )
+
+	// placement to be used for every new bucket.
+	field default_placement int (nullable, updatable)
+
+	// versioning state to be used for every new bucket.
+	//0 - unsupported (versioning for new buckets is not supported)
+	//1 - unversioned (versioning for new buckets is supported but not enabled)
+	//2 - VersioningEnabled (versioning for new buckets is supported and enabled)
+	// note: suspended is not a valid state for new buckets
+	field default_versioning int (updatable, default 1)
+
+	// TODO: drop this column after we're out of schema freeze.
+	// whether a user has been prompted to join versioning open beta
+	field prompted_for_versioning_beta bool ( updatable, default false )
+
+	// encrypted passphrase for satellite-managed-encryption projects
+	field passphrase_enc blob ( nullable, updatable )
+	// identifies which key was used to encrypt passphrase_enc
+	field passphrase_enc_key_id int ( nullable, updatable )
+	// whether path encryption is enabled for the project
+	field path_encryption bool ( updatable, default true )
+)
+
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
+
+read one (
+	select project.passphrase_enc project.passphrase_enc_key_id
+	where project.id = ?
+)
+
+read one (
+	select project.salt
+	where project.id = ?
+)
+read one (
+	select project
+	where project.public_id = ?
+)
+read one (
+	select project
+	where project.id = ?
+)
+read one (
+	select project
+	where (project.id = ?, project.public_id = ?)
+)
+read one (
+	select project.usage_limit
+	where  project.id = ?
+)
+read one (
+	select project.bandwidth_limit
+	where  project.id = ?
+)
+read one (
+	select project.user_specified_usage_limit
+	where  project.id = ?
+)
+read one (
+	select project.user_specified_bandwidth_limit
+	where  project.id = ?
+)
+read one (
+	select project.segment_limit
+	where  project.id = ?
+)
+read one (
+	select project.max_buckets
+	where project.id = ?
+)
+
+read one (
+	/* multiline comments used as a hack to avoid putting a lot of fields on a single line */
+	select project.bandwidth_limit /*
+		*/ project.user_specified_bandwidth_limit /*
+		*/ project.usage_limit /*
+		*/ project.user_specified_usage_limit /*
+		*/ project.segment_limit /*
+		*/ project.rate_limit /*
+		*/ project.burst_limit /*
+		*/ project.rate_limit_head /*
+		*/ project.burst_limit_head /*
+		*/ project.rate_limit_get /*
+		*/ project.burst_limit_get /*
+		*/ project.rate_limit_put /*
+		*/ project.burst_limit_put /*
+		*/ project.rate_limit_list /*
+		*/ project.burst_limit_list /*
+		*/ project.rate_limit_del /*
+		*/ project.burst_limit_del
+	where  project.id = ?
+)
+read one (
+	select project.default_versioning
+	where project.id = ?
+)
+read one (
+	select project.user_agent
+	where project.id = ?
+)
+read one (
+	select project.public_id
+	where project.id = ?
+)
+
+read all (
+	select project
+)
+read all (
+	select project
+	where project.created_at < ?
+	orderby asc project.created_at
+)
+read all (
+	select project
+	where project.owner_id = ?
+	orderby asc project.created_at
+)
+read all (
+	select project
+	where project.owner_id = ?
+	where project.status = ?
+	orderby asc project.created_at
+)
+read all (
+	select project
+	join project.id = project_member.project_id
+	where project_member.member_id = ?
+	orderby asc project.name
+)
+
+read limitoffset (
+	select project
+	where project.created_at < ?
+	orderby asc project.created_at
+)
+
+read limitoffset (
+	select project.id project.public_id project.owner_id
+	where project.status = ?
+	where project.status_updated_at < ?
+	orderby asc project.status_updated_at
+)
+
+// project_member is an association table between projects and users.
+// It indicates which users have access to the specific project.
+model project_member (
+	key member_id project_id
+
+	index ( fields project_id )
+
+	// member_id is the user that can access the project.
+	field member_id            user.id      cascade
+	// project_id is the project that can be accessed.
+	field project_id           project.id   cascade
+
+	// role indicates the console.ProjectMemberRole. Admin=0, Member=1.
+	field role int ( updatable, default 0 )
+
+	// created_at indicates when the user was added as a member.
+	field created_at           timestamp ( autoinsert )
+)
+
+create project_member ( )
+delete project_member (
+	where project_member.member_id = ?
+	where project_member.project_id = ?
+)
+
+update project_member (
+	where project_member.member_id = ?
+	where project_member.project_id = ?
+)
+
+read one (
+	select project_member
+	where project_member.member_id = ?
+	where project_member.project_id = ?
+)
+
+read all (
+	select project_member
+	where project_member.member_id = ?
+)
+
+// project_invitation contains info for pending project member invitations.
+model project_invitation (
+	key project_id email
+
+	index ( fields project_id )
+	index ( fields email )
+
+	// project_id is the ID of the project that the invitation is for.
+	field project_id  project.id  cascade
+	// email is the normalized form of the email address that the invitation email was sent to.
+	// See satellitedb.normalizeEmail for details.
+	field email       text
+	// inviter_id is the ID of the user who sent the invitation.
+	field inviter_id  user.id     cascade  ( nullable, updatable )
+	// created_at is the time that the invitation was created.
+	field created_at  timestamp            ( autoinsert, updatable )
+)
+
+create project_invitation ( replace )
+
+read one (
+	select project_invitation
+	where project_invitation.project_id = ?
+	where project_invitation.email = ?
+)
+
+read all (
+	select project_invitation
+	where project_invitation.email = ?
+)
+
+read all (
+	select project_invitation
+	join project_invitation.project_id = project.id
+	where project.status = ?
+	where project_invitation.email = ?
+)
+
+read all (
+	select project_invitation
+	where project_invitation.project_id = ?
+)
+
+update project_invitation (
+	where project_invitation.project_id = ?
+	where project_invitation.email = ?
+)
+
+delete project_invitation (
+	where project_invitation.project_id = ?
+	where project_invitation.email = ?
+)
+
+// api_key is used to authenticate in requests.
+model api_key (
+	key    id
+	unique head
+	unique name project_id
+
+	// id is a UUID for the api key.
+	field  id          blob
+	// project_id is a UUID that refers to project.id.
+	field  project_id  project.id cascade
+	// head is restrictions for the api key.
+	field  head        blob
+	// name helps users to identify the purpose of the api key.
+	field  name        text             (updatable)
+	// secret is the macaroon secret.
+	field  secret      blob
+	// user_agent is the referred partner who created the project.
+	field  user_agent  blob             (nullable)
+	// created_at indicates when the api key was added.
+	field  created_at  timestamp        (autoinsert)
+	// created_by is an UUID of the user who created this key.
+	field  created_by  user.id restrict (nullable)
+	// version specifies the version number of the api key.
+	// It refers to storj.io/common/macaroon.APIKeyVersion.
+	field  version     uint       (default 0)
+)
+
+create api_key ( )
+update api_key (
+	where api_key.id = ?
+	noreturn
+)
+delete api_key ( where api_key.id = ? )
+
+delete api_key ( where api_key.project_id = ? )
+
+read one (
+	select api_key project.public_id
+	join project.id = api_key.project_id
+	where api_key.id = ?
+)
+read one (
+	/* multiline comments used as a hack to avoid putting a lot of fields on a single line */
+	select api_key /*
+		*/ project.public_id /*
+		*/ project.rate_limit /*
+		*/ project.burst_limit /*
+		*/ project.rate_limit_head /*
+		*/ project.burst_limit_head /*
+		*/ project.rate_limit_get /*
+		*/ project.burst_limit_get /*
+		*/ project.rate_limit_put /*
+		*/ project.burst_limit_put /*
+		*/ project.rate_limit_list /*
+		*/ project.burst_limit_list /*
+		*/ project.rate_limit_del /*
+		*/ project.burst_limit_del /*
+		*/ project.segment_limit /*
+		*/ project.usage_limit /*
+		*/ project.bandwidth_limit /*
+		*/ project.user_specified_usage_limit /*
+		*/ project.user_specified_bandwidth_limit
+	join project.id = api_key.project_id
+	where api_key.head = ?
+)
+read one (
+	select api_key project.public_id
+	join project.id = api_key.project_id
+	where api_key.name = ?
+	where api_key.project_id = ?
+)
+
+// api_key_tail is the tail of an auditable api_key's children.
+model api_key_tail (
+	key tail
+
+	// root_key_id is the id of the root api_key that this tail is a child of.
+	field root_key_id  api_key.id cascade ( nullable )
+	// tail of the current macaroon.
+	field  tail        blob
+	// parent_tail is a tail of the parent macaroon.
+	field  parent_tail blob
+	// caveat is restriction applied to a macaroon.
+	field  caveat      blob
+	// last_used indicates when the macaroon was last used.
+	field  last_used   timestamp ( updatable )
+)
+
+create api_key_tail ( replace )
+read one (
+	select api_key_tail
+	where api_key_tail.tail = ?
+)

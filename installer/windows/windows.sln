@@ -1,0 +1,54 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29215.179
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "windows", "windows.wixproj", "{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}"
+	ProjectSection(ProjectDependencies) = postProject
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A} = {A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Storj", "Storj\Storj.csproj", "{DDD766C6-0AED-44C9-B61A-2D752D811B56}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StorjTests", "StorjTests\StorjTests.csproj", "{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Debug|Any CPU.Build.0 = Debug|x86
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Debug|x86.ActiveCfg = Debug|x86
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Debug|x86.Build.0 = Debug|x86
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Release|Any CPU.ActiveCfg = Release|x86
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Release|Any CPU.Build.0 = Release|x86
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Release|x86.ActiveCfg = Release|x86
+		{1FDEF912-9783-4E0B-B656-FB80AA4B5F68}.Release|x86.Build.0 = Release|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Debug|Any CPU.ActiveCfg = Debug|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Debug|Any CPU.Build.0 = Debug|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Debug|x86.ActiveCfg = Debug|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Debug|x86.Build.0 = Debug|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Release|Any CPU.ActiveCfg = Release|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Release|Any CPU.Build.0 = Release|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Release|x86.ActiveCfg = Release|x86
+		{DDD766C6-0AED-44C9-B61A-2D752D811B56}.Release|x86.Build.0 = Release|x86
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Debug|x86.Build.0 = Debug|Any CPU
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Release|x86.ActiveCfg = Release|Any CPU
+		{A3BAE3D4-CC1F-4B10-A75F-FCB97F63EF3A}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BB93A092-965F-4E9F-8F5B-8FED1B7F4BF6}
+	EndGlobalSection
+EndGlobal

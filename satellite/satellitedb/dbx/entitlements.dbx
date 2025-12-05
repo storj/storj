@@ -1,0 +1,28 @@
+// entitlement stores feature entitlements for a given scope.
+model entitlement (
+	key scope
+
+	// scope is an opaque identifier for the subject these entitlements apply to (e.g., a project).
+	// External code should never parse or construct this value directly - use helper functions instead.
+	field scope blob
+
+	// features stores the entitlements document for this scope as JSON.
+	// Updates should be done via read-modify-upsert to avoid overwriting unrelated fields.
+	field features json ( updatable, default "{}" )
+
+	// updated_at is when the record was last updated.
+   	field updated_at timestamp ( updatable )
+	// created_at is when the record was created.
+	field created_at timestamp ( autoinsert )
+)
+
+create entitlement ( replace )
+
+read one (
+	select entitlement
+	where entitlement.scope = ?
+)
+
+delete entitlement (
+	where entitlement.scope = ?
+)

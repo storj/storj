@@ -1,0 +1,42 @@
+{{/* gotype: storj.io/dbx/code/golang.footerData */}}
+type Methods interface {
+{{- range .Methods }}
+	{{ .Signature }}
+{{ end }}
+}
+
+type DialectMethods interface {
+	AsOfSystemTime(time.Time) string
+	AsOfSystemInterval(time.Duration) string
+	Rebind(s string) string
+}
+
+type TxMethods interface {
+	Methods
+	DialectMethods
+
+	Commit() error
+	Rollback() error
+}
+
+type txMethods interface {
+	TxMethods
+
+	deleteAll(ctx context.Context) (int64, error)
+	makeErr(err error) error
+}
+
+type DBMethods interface {
+	Methods
+	DialectMethods
+
+	Schema() []string
+	DropSchema() []string
+}
+
+type dbMethods interface {
+	DBMethods
+
+	wrapTx(tx *sql.Tx) txMethods
+	makeErr(err error) error
+}

@@ -1,0 +1,20 @@
+/cmd/multinode/ @profclems
+/cmd/storagenode/ @profclems
+/cmd/storagenode-updater/ @profclems
+/cmd/uplink/ @kaloyan-raev
+
+/multinode/ @profclems
+
+/satellite/analytics/ @mobyvb @wilfred-asomanii
+/satellite/console/ @mobyvb @cam-a
+/satellite/gracefulexit/ @mniewrzal
+/satellite/metabase/ @mniewrzal
+/satellite/metainfo/ @mniewrzal
+/satellite/payments/stripecoinpayments/ @mobyvb
+/satellite/repair/ @mniewrzal
+
+/storagenode/ @profclems
+
+/web/multinode/ @profclems
+/web/satellite/ @wilfred-asomanii @jewharton
+/web/storagenode/ @profclems

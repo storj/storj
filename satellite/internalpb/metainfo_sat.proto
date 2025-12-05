@@ -1,0 +1,51 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/satellite/internalpb";
+
+package satellite.metainfo;
+
+import "encryption.proto";
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+import "metainfo.proto";
+import "pointerdb.proto";
+
+message StreamID {
+    reserved 14;
+    bytes  bucket = 1;
+    bytes  encrypted_object_key = 2;
+    int64  version = 3;
+
+    encryption.EncryptionParameters encryption_parameters = 12;
+
+    google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    bool multipart_object = 11;
+
+    bytes satellite_signature = 9;
+
+    bytes stream_id = 10;
+
+    int32 placement = 13;
+
+    bool versioned = 15;
+
+    .metainfo.Retention retention = 16;
+    bool legal_hold = 17;
+}
+
+message SegmentID {
+    StreamID stream_id = 1;
+    int32    part_number = 2;
+    int32    index = 3;
+
+    bytes root_piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    repeated .metainfo.AddressedOrderLimit original_order_limits = 6;
+    google.protobuf.Timestamp creation_date = 7  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    pointerdb.RedundancyScheme redundancy_scheme = 9;
+
+    bytes satellite_signature = 8;
+}

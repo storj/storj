@@ -1,0 +1,2028 @@
+# how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event
+# account-freeze.billing-freeze-email-intervals: 720h0m0s,1200h0m0s,1416h0m0s
+
+# how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event
+# account-freeze.billing-warning-email-intervals: 240h0m0s,336h0m0s
+
+# whether to freeze event emails from this chore
+# account-freeze.emails-enabled: false
+
+# whether to run this chore.
+# account-freeze.enabled: false
+
+# whether to exclude storjscan-paying users from automatic warn/freeze
+# account-freeze.exclude-storjscan: false
+
+# How often to run this chore, which is how often unpaid invoices are checked.
+# account-freeze.interval: 24h0m0s
+
+# The failed invoice amount (in cents) beyond which an account will not be frozen
+# account-freeze.price-threshold: 100000
+
+# admin peer http listening address
+# admin.address: ""
+
+# the oauth host allowed to bypass token authentication.
+# admin.allowed-oauth-host: ""
+
+# max total JSON bytes recorded (0 = no limit)
+# admin.back-office.audit-logger.caps.max-bytes: 28672
+
+# max changed fields recorded per event (0 = no limit)
+# admin.back-office.audit-logger.caps.max-changes: 300
+
+# max struct depth to recurse when comparing (0 = no limit)
+# admin.back-office.audit-logger.caps.max-depth: 6
+
+# max map entries compared (0 = no limit)
+# admin.back-office.audit-logger.caps.max-map-entries: 200
+
+# max slice/array elements compared (0 = no limit)
+# admin.back-office.audit-logger.caps.max-slice-elements: 50
+
+# max string length recorded (0 = no limit)
+# admin.back-office.audit-logger.caps.max-string-len: 512
+
+# enable audit logging for admin operations
+# admin.back-office.audit-logger.enabled: false
+
+# an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
+# admin.back-office.static-dir: ""
+
+# the list of groups whose users has the administration role
+# admin.back-office.user-groups-role-admin: []
+
+# the list of groups whose users has the customer support role
+# admin.back-office.user-groups-role-customer-support: []
+
+# the list of groups whose users has the finance manager role
+# admin.back-office.user-groups-role-finance-manager: []
+
+# the list of groups whose users has the viewer role
+# admin.back-office.user-groups-role-viewer: []
+
+# the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
+# admin.groups.limit-update: ""
+
+# an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
+# admin.static-dir: ""
+
+# enable analytics reporting
+# analytics.enabled: false
+
+# whether account object created webhook is enabled
+# analytics.hub-spot.account-object-created-webhook-enabled: false
+
+# the endpoint for account object created webhook
+# analytics.hub-spot.account-object-created-webhook-endpoint: /api/v0/analytics/hubspot/account-object-created
+
+# the number of events that can be in the queue before dropping
+# analytics.hub-spot.channel-size: 1000
+
+# hubspot client ID
+# analytics.hub-spot.client-id: ""
+
+# hubspot client secret
+# analytics.hub-spot.client-secret: ""
+
+# the number of concurrent api requests that can be made
+# analytics.hub-spot.concurrent-sends: 4
+
+# the hubspot form URL for cunoFS beta
+# analytics.hub-spot.cuno-fs-beta-form-url: ""
+
+# the default timeout for the hubspot http client
+# analytics.hub-spot.default-timeout: 10s
+
+# the hubspot lifecycle stage for new accounts
+# analytics.hub-spot.life-cycle-stage: ""
+
+# the hubspot form URL for requesting object mount consultation
+# analytics.hub-spot.object-mount-consultation-form-url: ""
+
+# hubspot refresh token
+# analytics.hub-spot.refresh-token: ""
+
+# the event name for signup action
+# analytics.hub-spot.signup-event-name: ""
+
+# the hubspot form URL for signup
+# analytics.hub-spot.signup-form-url: ""
+
+# hubspot token refresh API
+# analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
+
+# the lifetime of the webhook request
+# analytics.hub-spot.webhook-request-lifetime: 5m0s
+
+# the url of the plausible API
+# analytics.plausible.api-url: https://plausible.io/api/event
+
+# the default timeout for the plausible http client
+# analytics.plausible.default-timeout: 10s
+
+# the domain set up on plausible for the satellite
+# analytics.plausible.domain: ""
+
+# segment write key
+# analytics.segment-write-key: ""
+
+# how often to run the containment-sync chore
+# audit.containment-sync-chore-interval: 2h0m0s
+
+# max number of times to attempt updating a statdb batch
+# audit.max-retries-stat-db: 3
+
+# limit above which we consider an audit is failed
+# audit.max-reverify-count: 3
+
+# the minimum acceptable bytes that storage nodes can transfer per second to the satellite
+# audit.min-bytes-per-second: 150.00 KB
+
+# the minimum duration for downloading a share from storage nodes before timing out
+# audit.min-download-timeout: 15s
+
+# restrict audit only to the filtered nodes
+# audit.node-filter: ""
+
+# how often to recheck an empty audit queue
+# audit.queue-interval: 1h0m0s
+
+# how long a single reverification job can take before it may be taken over by another worker
+# audit.reverification-retry-interval: 6h0m0s
+
+# number of workers to run reverify audits on pieces
+# audit.reverify-worker-concurrency: 2
+
+# number of reservoir slots allotted for nodes, currently capped at 3
+# audit.slots: 3
+
+# whether use Audit observer with ranged loop.
+# audit.use-ranged-loop: true
+
+# number of audit jobs to push at once to the verification queue
+# audit.verification-push-batch-size: 4096
+
+# number of workers to run audits on segments
+# audit.worker-concurrency: 2
+
+# defines which buckets are monitored for events (comma separated list of "project_id:bucket_name:topic_id")
+# bucket-eventing.buckets: ""
+
+# Treat pieces on the same network as in need of repair
+# checker.do-declumping: true
+
+# Treat pieces out of segment placement as in need of repair
+# checker.do-placement-check: true
+
+# Health score to use for segment health calculation. Options: 'probability', 'normalized'. 'probability' uses the original SegmentHealth logic with node count estimation, while 'normalized' uses a normalized health calculation (healthy -k).
+# checker.health-score: probability
+
+# how frequently checker should check for bad segments
+# checker.interval: 30s
+
+# the probability of a single node going down within the next checker iteration
+# checker.node-failure-rate: 5.435e-05
+
+# the amount of time without seeing a node before its considered offline
+# checker.online-window: 4h0m0s
+
+# how stale reliable node cache can be
+# checker.reliability-cache-staleness: 5m0s
+
+# Number of damaged segments to buffer in-memory before flushing to the repair queue
+# checker.repair-queue-insert-batch-size: 100
+
+# comma-separated override values for repair success target in the format k-target
+# checker.repair-target-overrides: ""
+
+# comma-separated override values for repair threshold in the format k-threshold
+# checker.repair-threshold-overrides: ""
+
+# percent of held amount disposed to node after leaving withheld
+compensation.dispose-percent: 50
+
+# rate for data at rest per GB/hour
+compensation.rates.at-rest-gb-hours: "0.00000208"
+
+# rate for audit egress bandwidth per TB
+compensation.rates.get-audit-tb: "10"
+
+# rate for repair egress bandwidth per TB
+compensation.rates.get-repair-tb: "10"
+
+# rate for egress bandwidth per TB
+compensation.rates.get-tb: "20"
+
+# rate for repair ingress bandwidth per TB
+compensation.rates.put-repair-tb: "0"
+
+# rate for ingress bandwidth per TB
+compensation.rates.put-tb: "0"
+
+# comma separated monthly withheld percentage rates
+compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
+
+# expiration time for account recovery and activation tokens
+# console-auth.token-expiration-time: 10m0s
+
+# interval for 'AS OF SYSTEM TIME' clause (CockroachDB specific) to read from the DB at a specific time in the past
+# console-db-cleanup.as-of-system-time-interval: -5m0s
+
+# whether to run this chore
+# console-db-cleanup.enabled: false
+
+# interval between chore cycles
+# console-db-cleanup.interval: 24h0m0s
+
+# maximum lifetime of unverified user account records
+# console-db-cleanup.max-unverified-user-age: 168h0m0s
+
+# maximum number of database records to scan at once
+# console-db-cleanup.page-size: 1000
+
+# the Flagship API key
+# console.ab-testing.api-key: ""
+
+# whether or not AB testing is enabled
+# console.ab-testing.enabled: false
+
+# the Flagship environment ID
+# console.ab-testing.env-id: ""
+
+# the Flagship API URL
+# console.ab-testing.flagship-url: https://decision.flagship.io/v2
+
+# the Flagship environment ID
+# console.ab-testing.hit-tracking-url: https://ariane.abtasty.com
+
+# whether the abbreviated self-serve delete account flow is enabled
+# console.abbreviated-delete-account-enabled: false
+
+# whether the abbreviated delete project flow is enabled
+# console.abbreviated-delete-project-enabled: false
+
+# url link for account activation redirect
+# console.account-activation-redirect-url: ""
+
+# How long to wait between a billing freeze event and setting pending deletion account status.
+# console.account-freeze.billing-freeze-grace-period: 1440h0m0s
+
+# How long to wait between a billing warning event and billing freezing an account.
+# console.account-freeze.billing-warn-grace-period: 360h0m0s
+
+# How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation.
+# console.account-freeze.trial-expiration-freeze-grace-period: 0s
+
+# Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired.
+# console.account-freeze.trial-expiration-rate-limits: 20
+
+# whether active sessions table view should be shown
+# console.active-sessions-view-enabled: false
+
+# number of add card events before the limit kicks in
+# console.add-card-rate-limiter.burst: 3
+
+# the rate at which add card requests are refilled
+# console.add-card-rate-limiter.duration: 2h24m0s
+
+# number of clients whose rate limits we store
+# console.add-card-rate-limiter.num-limits: 1000
+
+# server address of the http api gateway and frontend app
+# console.address: :10100
+
+# allowed usage report request date range
+# console.allowed-usage-report-date-range: 9360h0m0s
+
+# whether simplified native s3 pagination should be enabled for the huge buckets in the object browser
+# console.alt-obj-browser-paging-enabled: false
+
+# number of objects triggering simplified native S3 pagination
+# console.alt-obj-browser-paging-threshold: 10000
+
+# body of the announcement
+# console.announcement.body: ""
+
+# indicates whether announcement should be shown in the UI
+# console.announcement.enabled: false
+
+# name of the announcement
+# console.announcement.name: ""
+
+# title of the announcement
+# console.announcement.title: ""
+
+# default duration for AS OF SYSTEM TIME
+# console.as-of-system-time-duration: -5m0s
+
+# optional domain for cookies to use
+# console.auth-cookie-domain: ""
+
+# auth token needed for access to registration token creation endpoint
+# console.auth-token: ""
+
+# secret used to sign auth tokens
+# console.auth-token-secret: ""
+
+# the target URL of console back-end reverse proxy for local development when running a UI server
+# console.backend-reverse-proxy: ""
+
+# path to a local file with bad passwords list, empty path == skip check
+# console.bad-passwords-file: ""
+
+# url link for beta satellite feedback
+# console.beta-satellite-feedback-url: ""
+
+# url link for beta satellite support
+# console.beta-satellite-support-url: ""
+
+# indicates if billing features should be enabled
+# console.billing-features-enabled: true
+
+# indicates if billing information tab should be enabled
+# console.billing-information-tab-enabled: false
+
+# whether billing stripe checkout feature is enabled
+# console.billing-stripe-checkout-enabled: false
+
+# url of the transaction block explorer
+# console.block-explorer-url: https://etherscan.io/
+
+# The maximum body size allowed to be received by the API
+# console.body-size-limit: 100.00 KB
+
+# indicates if flagging bot accounts is enabled
+# console.captcha.flag-bots-enabled: false
+
+# whether or not captcha is enabled
+# console.captcha.login.hcaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.login.hcaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.login.hcaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.login.recaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.login.recaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.login.recaptcha.site-key: ""
+
+# max number of days before flagging a bot account
+# console.captcha.max-flag-bot-delay: 7
+
+# min number of days before flagging a bot account
+# console.captcha.min-flag-bot-delay: 1
+
+# whether or not captcha is enabled
+# console.captcha.registration.hcaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.registration.hcaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.registration.hcaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.registration.recaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.registration.recaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.registration.recaptcha.site-key: ""
+
+# bad captcha score threshold which is used to prevent bot user activity
+# console.captcha.score-cutoff-threshold: 0.8
+
+# whether to enable cloud GPU functionality
+# console.cloud-gpus-enabled: false
+
+# whether to collect billing information during onboarding
+# console.collect-billing-info-on-onboarding: false
+
+# url link for compute gateway requests
+# console.compute-gateway-url: ""
+
+# whether the compute UI is enabled
+# console.compute-ui-enabled: false
+
+# additional values for Content Security Policy connect-src, space separated
+# console.connect-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io'
+
+# url link to contacts page
+# console.contact-info-url: https://forum.storj.io
+
+# indicates if user is allowed to add coupon codes to account from billing
+# console.coupon-code-billing-ui-enabled: true
+
+# indicates if user is allowed to add coupon codes to account from signup
+# console.coupon-code-signup-ui-enabled: false
+
+# indicates if Content Security Policy is enabled
+# console.csp-enabled: true
+
+# whether CSRF protection is enabled for some of the endpoints
+# console.csrf-protection-enabled: false
+
+# whether prompt to join cunoFS beta is visible
+# console.cuno-fs-beta-enabled: false
+
+# days left before trial end notification
+# console.days-before-trial-end-notification: 3
+
+# default project limits for users
+# console.default-project-limit: 1
+
+# whether project deletion from satellite UI is enabled
+# console.delete-project-enabled: false
+
+# url link to documentation
+# console.documentation-url: https://docs.storj.io/
+
+# whether domains page should be shown
+# console.domains-page-enabled: false
+
+# whether prefix (bucket/folder) download is enabled
+# console.download-prefix-enabled: false
+
+# whether change user email flow is enabled
+# console.email-change-flow-enabled: false
+
+# whether emission impact view should be shown
+# console.emission-impact-view-enabled: true
+
+# whether to show region tag in UI
+# console.enable-region-tag: false
+
+# external endpoint of the satellite if hosted
+# console.external-address: ""
+
+# incremental duration of penalty for failed login attempts in minutes
+# console.failed-login-penalty: 2
+
+# indicates if file browser flow is disabled
+# console.file-browser-flow-disabled: false
+
+# allow domains to embed the satellite in a frame, space separated
+# console.frame-ancestors: tardigrade.io storj.io
+
+# duration for which users can access the system free of charge, 0 = unlimited time trial
+# console.free-trial-duration: 0s
+
+# server address of the front-end app
+# console.frontend-address: :10200
+
+# feature flag to toggle whether console back-end server should also serve front-end endpoints
+# console.frontend-enable: true
+
+# whether to show new gallery view
+# console.gallery-view-enabled: true
+
+# url link for gateway credentials requests
+# console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
+
+# url link to general request page
+# console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
+
+# indicates if generated console api should be used
+# console.generated-api-enabled: true
+
+# maximum number of ghost session email timestamps to keep in memory
+# console.ghost-session-cache-limit: 10000
+
+# whether to enable ghost session detection and notification
+# console.ghost-session-check-enabled: false
+
+# url link to storj.io homepage
+# console.homepage-url: https://www.storj.io
+
+# additional values for Content Security Policy img-src, space separated
+# console.img-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
+# indicates if satellite is in beta
+# console.is-beta-satellite: false
+
+# mapping of legacy placement IDs to product IDs for migration
+# console.legacy-placement-product-mapping-for-migration: ""
+
+# list of placement IDs that are considered legacy placements
+# console.legacy-placements: []
+
+# url link to let us know page
+# console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
+
+# whether to allow request limit increases directly from the UI
+# console.limit-increase-request-enabled: false
+
+# indicates whether limit card section of the UI is enabled
+# console.limits-area-enabled: true
+
+# url link for linksharing requests within the application
+# console.linksharing-url: https://link.storjsatelliteshare.io
+
+# whether to check if provided password is in bad passwords list
+# console.live-check-bad-passwords: false
+
+# number of times user can try to login without penalty
+# console.login-attempts-without-penalty: 3
+
+# indicates whether projects with managed encryption should have path encryption enabled
+# console.managed-encryption.path-encryption-enabled: false
+
+# maximum amount (in cents) allowed to be added to an account balance.
+# console.max-add-funds-amount: 250000
+
+# defines the maximum number of characters allowed for long form fields, e.g. comment type fields
+# console.max-long-form-field-characters: 500
+
+# defines the maximum number of characters allowed for names, e.g. user first/last names and company names
+# console.max-name-characters: 100
+
+# additional values for Content Security Policy media-src, space separated
+# console.media-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
+# whether member accounts are enabled
+# console.member-accounts-enabled: false
+
+# minimum amount (in cents) allowed to be added to an account balance.
+# console.min-add-funds-amount: 1000
+
+# indicates if storj native token payments system is enabled
+# console.native-token-payments-enabled: false
+
+# whether to use the new detailed usage report
+# console.new-detailed-usage-report-enabled: false
+
+# the date (YYYY-MM-DD) when new pricing tiers will be enabled
+# console.new-pricing-start-date: "2025-11-01"
+
+# whether to show unlimited-limits UI for pro users
+# console.no-limits-ui-enabled: false
+
+# how long oauth access tokens are issued for
+# console.oauth-access-token-expiry: 24h0m0s
+
+# how long oauth authorization codes are issued for
+# console.oauth-code-expiry: 10m0s
+
+# how long oauth refresh tokens are issued for
+# console.oauth-refresh-token-expiry: 720h0m0s
+
+# duration for which the object browser API key remains valid
+# console.object-browser-key-lifetime: 72h0m0s
+
+# prefix for object browser API key names
+# console.object-browser-key-name-prefix: .storj-web-file-browser-api-key-
+
+# whether object lock UI should be shown, regardless of whether the feature is enabled
+# console.object-lock-ui-enabled: true
+
+# whether object mount consultation request form is visible
+# console.object-mount-consultation-enabled: false
+
+# enable open registration
+# console.open-registration-enabled: false
+
+# optional url to external registration success page
+# console.optional-signup-success-url: ""
+
+# partner-specific UI configuration in YAML format or file path
+# console.partner-ui: ""
+
+# names and addresses of partnered satellites in JSON list format
+# console.partnered-satellites: '[{"name":"US1","address":"https://us1.storj.io"},{"name":"EU1","address":"https://eu1.storj.io"},{"name":"AP1","address":"https://ap1.storj.io"}]'
+
+# password hashing cost (0=automatic)
+# console.password-cost: 0
+
+# indicates if the overview onboarding step should render with pathways
+# console.pathway-overview-enabled: true
+
+# placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
+# console.placement-edge-url-overrides: ""
+
+# list of placement IDs that are allowed for new projects, e.g.[0, 10]
+# console.placement.allowed-placement-ids-for-new-projects: ""
+
+# human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details.
+# console.placement.self-serve-details: ""
+
+# whether self-serve placement selection feature is enabled
+# console.placement.self-serve-enabled: false
+
+# whether to allow purchasing pricing packages
+# console.pricing-packages-enabled: true
+
+# duration that project member invitations are valid for
+# console.project-invitation-expiration: 168h0m0s
+
+# url link to project limit increase request page
+# console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
+
+# url link for linksharing requests for external sharing
+# console.public-linksharing-url: https://link.storjshare.io
+
+# number of events before the limit kicks in
+# console.rate-limit.burst: 5
+
+# the rate at which request are allowed
+# console.rate-limit.duration: 5m0s
+
+# number of clients whose rate limits we store
+# console.rate-limit.num-limits: 1000
+
+# whether the rest API keys UI is enabled
+# console.rest-api-keys-ui-enabled: false
+
+# expiration to use if user does not specify an rest key expiration
+# console.rest-api-keys.default-expiration: 720h0m0s
+
+# indicates whether satellite managed encryption projects can be created.
+# console.satellite-managed-encryption-enabled: false
+
+# used to display at web satellite console
+# console.satellite-name: Storj
+
+# name of organization which set up satellite
+# console.satellite-operator: Storj Labs
+
+# url link to schedule a meeting with a storj representative
+# console.schedule-meeting-url: https://www.storj.io/landing/get-in-touch
+
+# whether self-serve account delete flow is enabled
+# console.self-serve-account-delete-enabled: false
+
+# used to communicate with web crawlers and other web robots
+# console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
+
+# duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)
+# console.session.duration: 168h0m0s
+
+# inactivity timer delay in seconds
+# console.session.inactivity-timer-duration: 1800
+
+# indicates if session can be timed out due inactivity
+# console.session.inactivity-timer-enabled: true
+
+# indicates whether remaining session time is shown for debugging
+# console.session.inactivity-timer-viewer-enabled: false
+
+# whether to show new pricing tiers in the UI
+# console.show-new-pricing-tiers: false
+
+# indicates whether the whether account activation is done using activation code
+# console.signup-activation-code-enabled: true
+
+# path to static resources
+# console.static-dir: ""
+
+# url link to terms and conditions page
+# console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
+
+# indicates whether invitation emails can be sent to unregistered email addresses
+# console.unregistered-invite-emails-enabled: true
+
+# amount (in cents) required to upgrade to a paid tier, use 0 to disable
+# console.upgrade-pay-upfront-amount: 500
+
+# the default free-tier bandwidth usage limit
+# console.usage-limits.bandwidth.free: 25.00 GB
+
+# the default NFR bandwidth usage limit
+# console.usage-limits.bandwidth.nfr: 15.00 TB
+
+# the default paid-tier bandwidth usage limit
+# console.usage-limits.bandwidth.paid: 150.00 TB
+
+# the default free-tier project limit
+# console.usage-limits.project.free: 1
+
+# the default NFR project limit
+# console.usage-limits.project.nfr: 1
+
+# the default paid-tier project limit
+# console.usage-limits.project.paid: 3
+
+# the default free-tier segment usage limit
+# console.usage-limits.segment.free: 10000
+
+# the default NFR segment usage limit
+# console.usage-limits.segment.nfr: 10000000
+
+# the default paid-tier segment usage limit
+# console.usage-limits.segment.paid: 100000000
+
+# the default free-tier storage usage limit
+# console.usage-limits.storage.free: 25.00 GB
+
+# the default NFR storage usage limit
+# console.usage-limits.storage.nfr: 10.00 TB
+
+# the default paid-tier storage usage limit
+# console.usage-limits.storage.paid: 100.00 TB
+
+# whether to use generated private API
+# console.use-generated-private-api: false
+
+# whether to use the new rest keys table
+# console.use-new-rest-keys-table: false
+
+# amount of base units of US micro dollars needed to upgrade user's tier status
+# console.user-balance-for-upgrade: 10000000
+
+# whether user feedback is enabled
+# console.user-feedback-enabled: false
+
+# url link to Valdi sign up page
+# console.valdi-sign-up-url: ""
+
+# list of valid announcement names that can be used in the UI
+# console.valid-announcement-names:
+# - '[]'
+
+# list of partners whose users will not see billing UI.
+# console.var-partners: []
+
+# whether to load templates on each request
+# console.watch: false
+
+# tenant-specific white label configuration in YAML format or file path
+# console.white-label: ""
+
+# maximum number of objects allowed for a zip format download
+# console.zip-download-limit: 1000
+
+# url of the zkSync transaction block explorer
+# console.zk-sync-block-explorer-url: https://explorer.zksync.io/
+
+# the STORJ zkSync Era contract address
+# console.zk-sync-contract-address: 0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5
+
+# allow private IPs in CheckIn and PingMe
+# contact.allow-private-ip: false
+
+# the public address of the node, useful for nodes behind NAT
+contact.external-address: ""
+
+# contact.hashstore-rollout.current.active-migrate: false
+
+# contact.hashstore-rollout.current.passive-migrate: false
+
+# contact.hashstore-rollout.current.read-new-first: false
+
+# contact.hashstore-rollout.current.ttl-to-new: false
+
+# contact.hashstore-rollout.current.write-to-new: false
+
+# the hashstore rollout cursor (between 0 and 1)
+# contact.hashstore-rollout.cursor: 0
+
+# contact.hashstore-rollout.next.active-migrate: false
+
+# contact.hashstore-rollout.next.passive-migrate: false
+
+# contact.hashstore-rollout.next.read-new-first: false
+
+# contact.hashstore-rollout.next.ttl-to-new: false
+
+# contact.hashstore-rollout.next.write-to-new: false
+
+# the hashstore rollout seed
+# contact.hashstore-rollout.seed: ""
+
+# the maximum burst size for the contact rate limit token bucket
+# contact.rate-limit-burst: 2
+
+# the number of nodes or addresses to keep token buckets for
+# contact.rate-limit-cache-size: 1000
+
+# the amount of time that should happen between contact attempts usually
+# contact.rate-limit-interval: 10m0s
+
+# timeout for pinging storage nodes
+# contact.timeout: 10m0s
+
+# satellite database connection string
+# database: postgres://
+
+# satellite database api key lru capacity
+# database-options.api-keys-cache.capacity: 10000
+
+# satellite database api key expiration
+# database-options.api-keys-cache.expiration: 1m0s
+
+# macaroon revocation cache capacity
+# database-options.revocations-cache.capacity: 10000
+
+# macaroon revocation cache expiration
+# database-options.revocations-cache.expiration: 5m0s
+
+# Maximum Database Connection Lifetime, -1ns means the stdlib default
+# db.conn_max_lifetime: 30m0s
+
+# Maximum Amount of Idle Database connections, -1 means the stdlib default
+# db.max_idle_conns: 1
+
+# Maximum Amount of Open Database connections, -1 means the stdlib default
+# db.max_open_conns: 5
+
+# address to listen on for debug endpoints
+# debug.addr: 127.0.0.1:0
+
+# provide the name of the peer to enable continuous cpu/mem profiling for
+# debug.profilername: ""
+
+# provide the google project id for continuous profiling (required only for non-k8s environments
+# debug.profilerproject: ""
+
+# If set, a path to write a process trace SVG to
+# debug.trace-out: ""
+
+# indicates whether the console API should not be served along with satellite API
+# disable-console-from-satellite-api: false
+
+# whether to enable durability report (rangedloop observer)
+# durability-report.enabled: true
+
+# Node attributes used by the durability segment loop to classify risks
+# durability.classes:
+# - last_net
+# - last_ip
+# - wallet
+# - email
+
+# how often to send reminders to users who need to verify their email
+# email-reminders.chore-interval: 24h0m0s
+
+# enable sending emails reminding users to verify their email
+# email-reminders.enable: true
+
+# enable sending emails about trial expirations
+# email-reminders.enable-trial-expiration-reminders: false
+
+# amount of time before sending first reminder to users who need to verify their email
+# email-reminders.first-verification-reminder: 24h0m0s
+
+# amount of time before sending second reminder to users who need to verify their email
+# email-reminders.second-verification-reminder: 120h0m0s
+
+# amount of time before trial expiration to send trial expiration reminder
+# email-reminders.trial-expiration-reminder: 72h0m0s
+
+# weighted average CO2 sequestered by a medium growth coniferous or deciduous tree, in kgCO2e/tree
+# emission.average-co2sequestered-by-tree: 60
+
+# carbon from power per year of operations, in kg/TB-year
+# emission.carbon-from-drive-powering: 15.9
+
+# amount of carbon emission per unit of energy, in kg/kW-hours
+# emission.co2per-energy: 0.2826
+
+# expansion factor of corporate data center networks
+# emission.corporate-dc-expansion-factor: 4
+
+# region count of corporate data center networks
+# emission.corporate-dc-region-count: 2
+
+# utilization fraction of corporate data center networks, in fraction
+# emission.corporate-dc-utilization-fraction: 0.4
+
+# amount of expanded data, in TB
+# emission.expanded-data: 48689
+
+# extended hard drive life period, in years
+# emission.extended-drive-life: 6
+
+# expansion factor of hyperscaler networks
+# emission.hyperscaler-expansion-factor: 3
+
+# region count of hyperscaler networks
+# emission.hyperscaler-region-count: 2
+
+# utilization fraction of hyperscaler networks, in fraction
+# emission.hyperscaler-utilization-fraction: 0.75
+
+# carbon footprint of producing 1TB HDD, in kg/TB
+# emission.new-drive-embodied-carbon: 20
+
+# amount of repaired data, in TB
+# emission.repaired-data: 667
+
+# shortened hard drive life period, in years
+# emission.shortened-drive-life: 3
+
+# standard hard drive life period, in years
+# emission.standard-drive-life: 4
+
+# amount of carbon emission from storj CRDB, in kg
+# emission.storj-crdb-carbon: 2650
+
+# amount of carbon emission from storj Edge, in kg
+# emission.storj-edge-carbon: 10924
+
+# amount of expanded network storage, in TB
+# emission.storj-expanded-network-storage: 18933
+
+# expansion factor of storj network
+# emission.storj-expansion-factor: 2.7
+
+# amount of carbon emission from storj GCP, in kg
+# emission.storj-gcp-carbon: 3600
+
+# network weighting of new nodes, in fraction
+# emission.storj-new-network-weighting: 0.582
+
+# region count of storj network
+# emission.storj-region-count: 1
+
+# network weighting of already provisioned, powered drives, in fraction
+# emission.storj-standard-network-weighting: 0.21
+
+# utilization fraction of storj network, in fraction
+# emission.storj-utilization-fraction: 0.85
+
+# energy needed to write 1GB of data, in W-hours/GB
+# emission.write-energy: 0.005
+
+# indicates whether the entitlements service is enabled
+# entitlements.enabled: false
+
+# how many delete queries are sent in parallel
+# expired-deletion.delete-concurrency: 1
+
+# set if expired segment cleanup is enabled or not
+# expired-deletion.enabled: true
+
+# the time between each attempt to go through the db and clean up expired segments
+# expired-deletion.interval: 24h0m0s
+
+# how many expired objects to query in a batch
+# expired-deletion.list-limit: 100
+
+# capacity of the circular buffer for database stack frame events.
+# flight-recorder.db-stack-frame-capacity: 1000
+
+# enable flight recorder
+# flight-recorder.enabled: false
+
+# Access Grant which will be used to upload bloom filters to the bucket
+# garbage-collection-bf.access-grant: ""
+
+# Bucket which will be used to upload bloom filters
+# garbage-collection-bf.bucket: ""
+
+# list of node IDs for which we will collect raw list of piece IDs
+# garbage-collection-bf.collect-nodes-piece-i-ds: ""
+
+# do not include expired pieces into bloom filter
+# garbage-collection-bf.exclude-expired-pieces: true
+
+# how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
+# garbage-collection-bf.expire-in: 336h0m0s
+
+# the false positive rate used for creating a garbage collection bloom filter
+# garbage-collection-bf.false-positive-rate: 0.1
+
+# the initial number of pieces expected for a storage node to have, used for creating a filter
+# garbage-collection-bf.initial-pieces: 400000
+
+# maximum size of a single bloom filter
+# garbage-collection-bf.max-bloom-filter-size: 2.00 MB
+
+# buffer size of piece IDs before will be uploaded
+# garbage-collection-bf.nodes-piece-i-ds-buffer-size: 1000000
+
+# set if garbage collection bloom filter process should only run once then exit
+# garbage-collection-bf.run-once: false
+
+# number of concurrent zip compression and uploads of bloom filters
+# garbage-collection-bf.upload-pack-concurrency: 4
+
+# whether to use test GC SyncObserver with ranged loop
+# garbage-collection-bf.use-sync-observer: true
+
+# whether to use SyncObserverV2 for GC
+# garbage-collection-bf.use-sync-observer-v2: false
+
+# how many bloom filters will be packed in a single zip
+# garbage-collection-bf.zip-batch-size: 40
+
+# Access to download the bloom filters. Needs read and write permission.
+# garbage-collection.access-grant: ""
+
+# bucket where retain info is stored
+# garbage-collection.bucket: ""
+
+# the number of nodes to concurrently send garbage collection retain filters to
+# garbage-collection.concurrent-sends: 100
+
+# set if loop to send garbage collection retain filters is enabled
+# garbage-collection.enabled: true
+
+# Expiration of newly created objects in the bucket. These objects are under the prefix error-[timestamp] and store error messages.
+# garbage-collection.expire-in: 336h0m0s
+
+# the time between each attempt to download and send garbage collection retain filters to storage nodes
+# garbage-collection.interval: 1h0m0s
+
+# the amount of time to allow a node to handle a retain request
+# garbage-collection.retain-send-timeout: 1m0s
+
+# whether or not graceful exit is enabled on the satellite side.
+# graceful-exit.enabled: true
+
+# number of days it takes to execute a passive graceful exit
+# graceful-exit.graceful-exit-duration-in-days: 30
+
+# a gracefully exiting node will fail GE if it falls below this online score (compare AuditHistoryConfig.OfflineThreshold)
+# graceful-exit.minimum-online-score: 0.8
+
+# minimum age for a node on the network in order to initiate graceful exit
+# graceful-exit.node-min-age-in-months: 6
+
+# how frequently to check uptime ratio of gracefully-exiting nodes
+# graceful-exit.offline-check-interval: 30m0s
+
+# The address to listen on for health check server
+# health-check.address: localhost:10500
+
+# Whether the health check server is enabled
+# health-check.enabled: false
+
+# the default timeout for the hubspot http client
+# hubspot-mails.default-timeout: 10s
+
+# a map of email kinds to their corresponding IDs in a format kind:id;kind1:id1
+# hubspot-mails.email-kind-id-map: ""
+
+# indicates whether the hubspot email service is enabled
+# hubspot-mails.enabled: false
+
+# hubspot send email API endpoint
+# hubspot-mails.send-email-api: https://api.hubapi.com/marketing/v3/transactional/single-email/send
+
+# path to the certificate chain for this identity
+identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
+
+# path to the private key for this identity
+identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+
+# "node URL" of the job queue server
+# job-queue.server-node-url: ""
+
+# if true, client leaves may contain the most recent certificate revocation for the current certificate
+# job-queue.tls.extensions.revocation: true
+
+# if true, client leaves must contain a valid "signed certificate extension" (NB: verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)
+# job-queue.tls.extensions.whitelist-signed-leaf: false
+
+# path to the CA cert whitelist (peer identities must be signed by one these to be verified). this will override the default peer whitelist
+# job-queue.tls.peer-ca-whitelist-path: ""
+
+# identity version(s) the server will be allowed to talk to
+# job-queue.tls.peer-id-versions: latest
+
+# url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
+# job-queue.tls.revocation-dburl: bolt://testdata/revocations.db
+
+# if true, uses peer ca whitelist checking
+# job-queue.tls.use-peer-ca-whitelist: true
+
+# the key ID to use for passphrase encryption.
+# key-management.default-master-key: 1
+
+# semicolon-separated key-id:version,checksum. With 'gsm' provider, version is the resource name. With 'local', it is the file path. Checksum is the integer crc32c checksum of the key data
+# key-management.key-infos: ""
+
+# the provider of the passphrase encryption keys: 'gsm' for google, 'local' for a local file
+# key-management.provider: gsm
+
+# as of system interval
+# live-accounting.as-of-system-interval: -10s
+
+# bandwidth cache key time to live
+# live-accounting.bandwidth-cache-ttl: 5m0s
+
+# how much projects usage should be requested from redis cache at once
+# live-accounting.batch-size: 5000
+
+# what to use for storing real-time accounting data
+# live-accounting.storage-backend: ""
+
+# if true, log function filename and line number
+# log.caller: false
+
+# custom level overrides for specific loggers in the format NAME1=ERROR,NAME2=WARN,... Only level increment is supported, and only for selected loggers!
+# log.custom-level: ""
+
+# if true, set logging to development mode
+# log.development: false
+
+# configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'.
+# log.encoding: ""
+
+# the minimum log level to log
+# log.level: info
+
+# can be stdout, stderr, or a filename
+# log.output: stderr
+
+# if true, log stack traces
+# log.stack: false
+
+# smtp authentication type
+# mail.auth-type: login
+
+# oauth2 app's client id
+# mail.client-id: ""
+
+# oauth2 app's client secret
+# mail.client-secret: ""
+
+# sender email address
+# mail.from: ""
+
+# plain/login auth user login
+# mail.login: ""
+
+# plain/login auth user password
+# mail.password: ""
+
+# refresh token used to retrieve new access token
+# mail.refresh-token: ""
+
+# smtp server address
+# mail.smtp-server-address: ""
+
+# path to email templates source
+# mail.template-path: ""
+
+# uri which is used when retrieving new access token
+# mail.token-uri: ""
+
+# if true, always update the global tracker with info, even if the uplink is registered
+# metainfo.always-update-global-tracker: false
+
+# API key tails cache capacity
+# metainfo.api-key-tails-config.cache-capacity: 10000
+
+# API key tails cache expiration
+# metainfo.api-key-tails-config.cache-expiration: 5m0s
+
+# whether combiner queue is enabled for processing API key tails
+# metainfo.api-key-tails-config.combiner-queue-enabled: false
+
+# size of API key tails combiner queue
+# metainfo.api-key-tails-config.queue-size: 100
+
+# enable the use of the bucket tagging endpoints
+# metainfo.bucket-tagging-enabled: false
+
+# the maximum number of segments that can be copied or moved in a single operation
+# metainfo.copy-move-segment-limit: 10000
+
+# the database connection string to use
+# metainfo.database-url: postgres://
+
+# enable the use of the DeleteObjects endpoint
+# metainfo.delete-objects-enabled: false
+
+# the number of requests to allow bursts beyond the rate limit
+# metainfo.download-limiter.burst-limit: 3
+
+# whether rate limiting is enabled.
+# metainfo.download-limiter.enabled: true
+
+# the number of hash indexes to make into the rate limit map
+# metainfo.download-limiter.hash-count: 3
+
+# how often we can upload to the single object (the same location) per API instance
+# metainfo.download-limiter.single-object-limit: 1ms
+
+# two to this power is the amount of rate limits to store in ram. higher has less collisions.
+# metainfo.download-limiter.size-exponent: 21
+
+# the chance to skip a failure tracker generation bump
+# metainfo.failure-tracker-chance-to-skip: 0.6
+
+# how often to bump the generation in the node failure tracker
+# metainfo.failure-tracker-tick-duration: 5s
+
+# minimum number of items to query at a time
+# metainfo.list-objects.min-batch-size: 100
+
+# prefixes to skip before requerying
+# metainfo.list-objects.prefix-skip-requery: 1000
+
+# extra items to list for non-recursive queries
+# metainfo.list-objects.query-extra-for-non-recursive: 10
+
+# versions to skip before requerying
+# metainfo.list-objects.version-skip-requery: 1000
+
+# maximum time allowed to pass between creating and committing a segment
+# metainfo.max-commit-interval: 48h0m0s
+
+# maximum encrypted object key length
+# metainfo.max-encrypted-object-key-length: 4000
+
+# maximum inline segment size
+# metainfo.max-inline-segment-size: 4.0 KiB
+
+# maximum segment metadata size
+# metainfo.max-metadata-size: 2.0 KiB
+
+# maximum number of parts object can contain
+# metainfo.max-number-of-parts: 10000
+
+# maximum segment size
+# metainfo.max-segment-size: 64.0 MiB
+
+# Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)
+# metainfo.metabase-compression: ""
+
+# minimum allowed part size (last part has no minimum size limit)
+# metainfo.min-part-size: 5.0 MiB
+
+# minimum remote segment size
+# metainfo.min-remote-segment-size: 1.2 KiB
+
+# node alias cache does a full refresh when a value is missing
+# metainfo.node-alias-cache-full-refresh: false
+
+# enable the use of bucket-level Object Lock
+# metainfo.object-lock-enabled: true
+
+# toggle flag if overlay is enabled
+# metainfo.overlay: true
+
+# max bucket count for a project.
+# metainfo.project-limits.max-buckets: 100
+
+# number of projects to cache.
+# metainfo.rate-limiter.cache-capacity: 10000
+
+# how long to cache the projects limiter.
+# metainfo.rate-limiter.cache-expiration: 10m0s
+
+# whether rate limiting is enabled.
+# metainfo.rate-limiter.enabled: true
+
+# request rate per project per second.
+# metainfo.rate-limiter.rate: 100
+
+# redundancy scheme configuration in the format k/m/o/n-sharesize
+# metainfo.rs: 29/35/80/110-256 B
+
+# send edge URL overrides through the GetProjectInfo endpoint
+# metainfo.send-edge-url-overrides: false
+
+# enable code for server-side copy, deprecated. please leave this to true.
+# metainfo.server-side-copy: true
+
+# disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
+# metainfo.server-side-copy-disabled: false
+
+# success tracker kind, bitshift or percent
+# metainfo.success-tracker-kind: percent
+
+# enable monkit monitoring of success tracker
+# metainfo.success-tracker-monitor-enabled: false
+
+# filter for nodes that should be monitored by success tracker monitor
+# metainfo.success-tracker-monitor-filter: none()
+
+# how often to bump the generation in the node success tracker
+# metainfo.success-tracker-tick-duration: 10m0s
+
+# list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually.
+# metainfo.success-tracker-trusted-uplinks: []
+
+# list of uplinks for success tracker
+# metainfo.success-tracker-uplinks: []
+
+# test the new query for non-recursive listing
+# metainfo.test-listing-query: false
+
+# enables optimization for uploading objects with single inline segment
+# metainfo.test-optimized-inline-object-upload: false
+
+# how many objects to delete in a single batch during a bucket deletion
+# metainfo.testing-delete-bucket-batch-size: 15
+
+# list of trusted uplinks
+# metainfo.trusted-uplinks: []
+
+# the number of requests to allow bursts beyond the rate limit
+# metainfo.upload-limiter.burst-limit: 3
+
+# DEPRECATED. number of object locations to cache.
+# metainfo.upload-limiter.cache-capacity: 10000
+
+# whether rate limiting is enabled.
+# metainfo.upload-limiter.enabled: true
+
+# the number of hash indexes to make into the rate limit map
+# metainfo.upload-limiter.hash-count: 3
+
+# how often we can upload to the single object (the same location) per API instance
+# metainfo.upload-limiter.single-object-limit: 1s
+
+# two to this power is the amount of rate limits to store in ram. higher has less collisions.
+# metainfo.upload-limiter.size-exponent: 21
+
+# enable the use of bucket level object versioning
+# metainfo.use-bucket-level-object-versioning: true
+
+# switch to new ListObjects implementation
+# metainfo.use-list-objects-for-listing: false
+
+# user info cache capacity
+# metainfo.user-info-validation.cache-capacity: 10000
+
+# user info cache expiration
+# metainfo.user-info-validation.cache-expiration: 5m0s
+
+# whether validation is enabled for user account info
+# metainfo.user-info-validation.enabled: false
+
+# address(es) to send telemetry to (comma-separated)
+# metrics.addr: collectora.storj.io:9000
+
+# application name for telemetry identification. Ignored for certain applications.
+# metrics.app: satellite
+
+# application suffix. Ignored for certain applications.
+# metrics.app-suffix: -release
+
+# address(es) to send telemetry to (comma-separated IP:port or complex BQ definition, like bigquery:app=...,project=...,dataset=..., depends on the config/usage)
+# metrics.event-addr: eventkitd.datasci.storj.io:9002
+
+# size of the internal eventkit queue for UDP sending
+# metrics.event-queue: 10000
+
+# instance id prefix
+# metrics.instance-prefix: ""
+
+# how frequently to send up telemetry. Ignored for certain applications.
+# metrics.interval: 1m0s
+
+# path to log for oom notices
+# monkit.hw.oomlog: /var/log/kern.log
+
+# api key for the customer.io api
+# node-events.customerio.api-key: ""
+
+# timeout for the http request to customer.io endpoint
+# node-events.customerio.request-timeout: 30s
+
+# the account id for the customer.io api
+# node-events.customerio.site-id: ""
+
+# the url for the customer.io endpoint to send node event data to
+# node-events.customerio.url: https://track.customer.io/api/v1
+
+# how long to wait before checking the node events DB again if there is nothing to work on
+# node-events.interval: 5m0s
+
+# which notification provider to use
+# node-events.notifier: ""
+
+# how long the earliest instance of an event for a particular email should exist in the DB before it is selected
+# node-events.selection-wait-period: 5m0s
+
+# batch size for saving tallies into DB
+# node-tally.batch-size: 1000
+
+# how long to wait between sending Node Offline emails
+# offline-nodes.cooldown: 24h0m0s
+
+# how often to check for offline nodes and send them emails
+# offline-nodes.interval: 1h0m0s
+
+# Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit
+# offline-nodes.limit: 1000
+
+# max number of offline emails to send a node operator until the node comes back online
+# offline-nodes.max-emails: 3
+
+# determine if orders from storage nodes should be accepted
+# orders.accept-orders: true
+
+# how many nodes should be used for downloads for certain k. must be >= k. if not specified, this is calculated from long tail tolerance. format is comma separated like k-d,k-d,k-d e.g. 29-35,3-5.
+# orders.download-tail-tolerance-overrides: ""
+
+# encryption keys to encrypt info in orders
+# orders.encryption-keys: ""
+
+# how long until an order expires
+# orders.expiration: 24h0m0s
+
+# how many items in the rollups write cache before they are flushed to the database
+# orders.flush-batch-size: 1000
+
+# how often to flush the rollups write cache to the database
+# orders.flush-interval: 1m0s
+
+# maximum commit delay to use for spanner (currently only used for updating bandwidth rollups). Disable it with 0 or negative
+# orders.max-commit-delay: 100ms
+
+# stops validating orders received from trusted nodes
+# orders.trusted-orders: false
+
+# default AS OF SYSTEM TIME for service
+# overlay.as-of-system-time: -10s
+
+# the location of the maxmind database containing geoip country information
+# overlay.geo-ip.db: ""
+
+# a mock list of countries the satellite will attribute to nodes (useful for testing)
+# overlay.geo-ip.mock-countries: []
+
+# the minimum node id difficulty required for new nodes. existing nodes remain allowed
+# overlay.minimum-new-node-id-difficulty: 36
+
+# the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
+# overlay.node-check-in-wait-period: 1h10m0s
+
+# disable node cache
+# overlay.node-selection-cache.disabled: false
+
+# how stale the node selection cache can be
+# overlay.node-selection-cache.staleness: 3m0s
+
+# the amount of time to wait between sending Node Software Update emails
+# overlay.node-software-update-email-cooldown: 168h0m0s
+
+# comma separated list of node tags for whom to add last ip and port to emails. Currently only for offline emails.
+# overlay.node-tags-ip-port-emails: []
+
+# default duration for AS OF SYSTEM TIME
+# overlay.node.as-of-system-time.default-interval: -10s
+
+# enables the use of the AS OF SYSTEM TIME feature in CRDB
+# overlay.node.as-of-system-time.enabled: true
+
+# require distinct IPs when choosing nodes for upload
+# overlay.node.distinct-ip: true
+
+# how much disk space a node at minimum must have to be selected for upload
+# overlay.node.minimum-disk-space: 5.00 GB
+
+# the minimum node software version for node selection queries
+# overlay.node.minimum-version: ""
+
+# the fraction of new nodes allowed per request (DEPRECATED: use placement definition instead)
+# overlay.node.new-node-fraction: 0.01
+
+# the amount of time without seeing a node before its considered offline
+# overlay.node.online-window: 4h0m0s
+
+# list of country codes to exclude from node selection for uploads (DEPRECATED: use placement definition instead)
+# overlay.node.upload-excluded-country-codes: []
+
+# list of country codes to exclude nodes from target repair selection
+# overlay.repair-excluded-country-codes: []
+
+# whether to send emails to nodes
+# overlay.send-node-emails: false
+
+# number of update requests to process per transaction
+# overlay.update-stats-batch-size: 100
+
+# flag to disable querying for new billing transactions by billing chore
+# payments.billing-config.disable-loop: true
+
+# billing chore interval to query for new transactions from all payment types
+# payments.billing-config.interval: 15s
+
+# amount of percents that user will earn as bonus credits by depositing in STORJ tokens
+# payments.bonus-rate: 10
+
+# the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold.
+# payments.delete-project-cost-threshold: 0
+
+# minimum amount in cents to charge customers per invoice period (0 to disable)
+# payments.minimum-charge.amount: 0
+
+# date after which all users will have minimum charges applied (YYYY-MM-DD), empty to apply immediately
+# payments.minimum-charge.effective-date: ""
+
+# semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
+# payments.package-plans: ""
+
+# a YAML mapping of partners to a mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details.
+# payments.partners-placement-price-overrides: ""
+
+# a YAML mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details.
+# payments.placement-price-overrides: ""
+
+# a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details.
+# payments.products: ""
+
+# payments provider to use
+# payments.provider: ""
+
+# basic auth identifier
+# payments.storjscan.auth.identifier: ""
+
+# basic auth secret
+# payments.storjscan.auth.secret: ""
+
+# required number of following blocks in the chain to accept payment as confirmed
+# payments.storjscan.confirmations: 15
+
+# flag to disable querying new storjscan payments by storjscan chore
+# payments.storjscan.disable-loop: true
+
+# storjscan API endpoint
+# payments.storjscan.endpoint: ""
+
+# storjscan chore interval to query new payments for all satellite deposit wallets
+# payments.storjscan.interval: 1m0s
+
+# toggle autoadvance feature for invoice creation
+# payments.stripe-coin-payments.auto-advance: false
+
+# whether to include SKU in the invoice item description
+# payments.stripe-coin-payments.inv-item-sku-in-description: true
+
+# maximum number of credit cards per customer
+# payments.stripe-coin-payments.max-credit-card-count: 8
+
+# the maximum number of concurrent Stripe API calls in invoicing methods
+# payments.stripe-coin-payments.max-parallel-calls: 10
+
+# whether to remove expired package credit or not
+# payments.stripe-coin-payments.remove-expired-credit: true
+
+# the duration of the first retry interval
+# payments.stripe-coin-payments.retries.initial-backoff: 20ms
+
+# the maximum duration of any retry interval
+# payments.stripe-coin-payments.retries.max-backoff: 5s
+
+# the maximum number of times to retry a request
+# payments.stripe-coin-payments.retries.max-retries: 10
+
+# the factor by which the retry interval will be multiplied on each iteration
+# payments.stripe-coin-payments.retries.multiplier: 2
+
+# whether to round up usage quantities on invoices
+# payments.stripe-coin-payments.round-up-invoice-usage: true
+
+# if set, skips the creation of empty invoices for customers with zero usage for the billing period
+# payments.stripe-coin-payments.skip-empty-invoices: true
+
+# whether we should use SKUs for product usages
+# payments.stripe-coin-payments.sku-enabled: false
+
+# stripe free tier coupon ID
+# payments.stripe-coin-payments.stripe-free-tier-coupon-id: ""
+
+# stripe API public key
+# payments.stripe-coin-payments.stripe-public-key: ""
+
+# stripe API secret key
+# payments.stripe-coin-payments.stripe-secret-key: ""
+
+# stripe webhookEvents secret token
+# payments.stripe-coin-payments.stripe-webhook-secret: ""
+
+# whether to use idempotency for create/update requests
+# payments.stripe-coin-payments.use-idempotency: true
+
+# semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
+# payments.usage-price-overrides: ""
+
+# price user should pay for egress in dollars/TB
+# payments.usage-price.egress-tb: "7"
+
+# price user should pay for segments stored on network per month in dollars/segment
+# payments.usage-price.segment: "0.0000088"
+
+# price user should pay for storage per month in dollars/TB
+# payments.usage-price.storage-tb: "4"
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.billing-freeze.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.billing-freeze.enabled: false
+
+# how many delete workers to run at a time
+# pending-delete-cleanup.delete-concurrency: 1
+
+# whether (pending deletion) user/project data should be deleted or not
+# pending-delete-cleanup.enabled: false
+
+# how often to run this chore
+# pending-delete-cleanup.interval: 24h0m0s
+
+# how many events to query in a batch
+# pending-delete-cleanup.list-limit: 100
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.project.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.project.enabled: false
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.trial-freeze.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.trial-freeze.enabled: false
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.user.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.user.enabled: false
+
+# how long after the resource is marked for deletion should we wait before deleting data
+# pending-delete-cleanup.violation-freeze.buffer-time: 720h0m0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.violation-freeze.enabled: false
+
+# batch size for updating nodes with number of pieces
+# piece-tracker.update-batch-size: 1000
+
+# whether to enable piece tracker observer with ranged loop
+# piece-tracker.use-ranged-loop: true
+
+# detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...).
+# placement: ""
+
+# how often to remove unused project bandwidth rollups
+# project-bw-cleanup.interval: 24h0m0s
+
+# number of months of project bandwidth rollups to retain, not including the current month
+# project-bw-cleanup.retain-months: 11
+
+# Node attributes to use for matching nodes with metrics
+# prometheus-tracker.attributes: []
+
+# Path to the CA certificate of the Prometheus server
+# prometheus-tracker.ca-cert-path: ""
+
+# Labels to use for matching nodes with metrics
+# prometheus-tracker.labels: []
+
+# Password for the basic auth of the Prometheus server
+# prometheus-tracker.password: ""
+
+# Prometheus query to get the scores
+# prometheus-tracker.query: ""
+
+# URL of the Prometheus server
+# prometheus-tracker.url: ""
+
+# Username for the basic auth of the Prometheus server
+# prometheus-tracker.username: ""
+
+# as of system interval
+# ranged-loop.as-of-system-interval: -5m0s
+
+# how many items to query in a batch
+# ranged-loop.batch-size: 2500
+
+# how often to run the loop
+# ranged-loop.interval: 2h0m0s
+
+# how many chunks of segments to process in parallel
+# ranged-loop.parallelism: 2
+
+# sets spanner stale read timestamp as now()-interval
+# ranged-loop.spanner-stale-interval: 0s
+
+# ratio where to consider processed count as supicious
+# ranged-loop.suspicious-processed-ratio: 0.03
+
+# how frequently core should check the size of the repair queue
+# repair-queue-check.interval: 1h0m0s
+
+# time limit for dialing storage node
+# repairer.dial-timeout: 5s
+
+# repair pieces on the same network to other nodes
+# repairer.do-declumping: true
+
+# repair pieces out of segment placement
+# repairer.do-placement-check: true
+
+# number of extra concurrent downloads beyond required count for faster repairs
+# repairer.download-long-tail: 0
+
+# time limit for downloading pieces from a node for repair
+# repairer.download-timeout: 5m0s
+
+# comma separated placement IDs (numbers), placements which should be ignored by the repairer
+# repairer.excluded-placements: ""
+
+# whether to download pieces for repair in memory (true) or download to disk (false)
+# repairer.in-memory-repair: false
+
+# whether to upload pieces for repair using memory (true) or disk (false)
+# repairer.in-memory-upload: false
+
+# comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)
+# repairer.included-placements: ""
+
+# how frequently repairer should try and repair more data
+# repairer.interval: 5m0s
+
+# ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload
+# repairer.max-excess-rate-optimal-threshold: 0.05
+
+# maximum segments that can be repaired concurrently
+# repairer.max-repair: 5
+
+# enable cache for nodes to upload repaired pieces
+# repairer.nodes-for-repair-cache-enabled: false
+
+# how often nodes for repaired pieces cache should be refreshed
+# repairer.nodes-for-repair-cache-interval: 5m0s
+
+# when does nodes for repaired pieces cache start blocking
+# repairer.nodes-for-repair-cache-stale: 10m0s
+
+# the amount of time without seeing a node before its considered offline
+# repairer.online-window: 4h0m0s
+
+# enable cache for participating nodes
+# repairer.participating-node-cache-enabled: false
+
+# how often participating nodes cache should be refreshed
+# repairer.participating-node-cache-interval: 5m0s
+
+# when does participating nodes cache start blocking
+# repairer.participating-node-cache-stale: 10m0s
+
+# whether the audit score of nodes should be updated as a part of repair
+# repairer.reputation-update-enabled: false
+
+# how many injured segments will be read from repair queue in single request
+# repairer.segments-select-batch-size: 1
+
+# time limit for uploading repaired pieces to new storage nodes
+# repairer.timeout: 5m0s
+
+# time limit for an entire repair job, from queue pop to upload completion
+# repairer.total-timeout: 45m0s
+
+# whether to enable repair checker observer with ranged loop
+# repairer.use-ranged-loop: true
+
+# the number of times a node has been audited to not be considered a New Node
+# reputation.audit-count: 100
+
+# the reputation cut-off for disqualifying SNs based on audit history
+# reputation.audit-dq: 0.96
+
+# The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
+# reputation.audit-history.grace-period: 168h0m0s
+
+# whether nodes will be disqualified if they have low online score after a review period
+# reputation.audit-history.offline-dq-enabled: false
+
+# whether nodes will be suspended if they have low online score
+# reputation.audit-history.offline-suspension-enabled: true
+
+# The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period.
+# reputation.audit-history.offline-threshold: 0.6
+
+# The length of time to track audit windows for node suspension and disqualification
+# reputation.audit-history.tracking-period: 720h0m0s
+
+# The length of time spanning a single audit window
+# reputation.audit-history.window-size: 12h0m0s
+
+# the forgetting factor used to update storage node reputation due to audits
+# reputation.audit-lambda: 0.999
+
+# weight to apply to audit reputation for total repair reputation calculation
+# reputation.audit-repair-weight: 1
+
+# weight to apply to audit reputation for total uplink reputation calculation
+# reputation.audit-uplink-weight: 1
+
+# the normalization weight used to calculate the audit SNs reputation
+# reputation.audit-weight: 1
+
+# the amount of time that should elapse before the cache retries failed database operations
+# reputation.error-retry-interval: 1m0s
+
+# the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)
+# reputation.flush-interval: 2h0m0s
+
+# the value to which an alpha reputation value should be initialized
+# reputation.initial-alpha: 1000
+
+# the value to which a beta reputation value should be initialized
+# reputation.initial-beta: 0
+
+# the minimum age a node must have since creation before being vetted
+# reputation.minimum-node-age: 504h0m0s
+
+# whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
+# reputation.suspension-dq-enabled: false
+
+# the time period that must pass before suspended nodes will be disqualified
+# reputation.suspension-grace-period: 168h0m0s
+
+# the reputation cut-off for disqualifying SNs based on returning 'unknown' errors during audit
+# reputation.unknown-audit-dq: 0.6
+
+# the forgetting factor used to update storage node reputation due to returning 'unknown' errors during audit'
+# reputation.unknown-audit-lambda: 0.95
+
+# age at which a rollup is archived
+# rollup-archive.archive-age: 2160h0m0s
+
+# number of records to delete per delete execution.
+# rollup-archive.batch-size: 100
+
+# whether or not the rollup archive is enabled.
+# rollup-archive.enabled: true
+
+# how frequently rollup archiver should run
+# rollup-archive.interval: 24h0m0s
+
+# option for deleting tallies after they are rolled up
+# rollup.delete-tallies: true
+
+# how many tallies to delete in a batch
+# rollup.delete-tallies-batch-size: 10000
+
+# how frequently rollup should run
+# rollup.interval: 24h0m0s
+
+# public address to listen on
+server.address: :7777
+
+# whether to debounce incoming messages
+# server.debouncing-enabled: true
+
+# if true, client leaves may contain the most recent certificate revocation for the current certificate
+# server.extensions.revocation: true
+
+# if true, client leaves must contain a valid "signed certificate extension" (NB: verified against certs in the peer ca whitelist; i.e. if true, a whitelist must be provided)
+# server.extensions.whitelist-signed-leaf: false
+
+# path to the CA cert whitelist (peer identities must be signed by one these to be verified). this will override the default peer whitelist
+# server.peer-ca-whitelist-path: ""
+
+# identity version(s) the server will be allowed to talk to
+# server.peer-id-versions: latest
+
+# private address to listen on
+server.private-address: 127.0.0.1:7778
+
+# url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
+# server.revocation-dburl: bolt://testdata/revocations.db
+
+# enable support for tcp fast open
+# server.tcp-fast-open: true
+
+# the size of the tcp fast open queue
+# server.tcp-fast-open-queue: 256
+
+# if true, uses peer ca whitelist checking
+# server.use-peer-ca-whitelist: true
+
+# semicolon-separated provider:email-regex as provided in oidc-provider-infos.
+# sso.email-provider-mappings: ""
+
+# whether SSO is enabled.
+# sso.enabled: false
+
+# semicolon-separated provider:client-id,client-secret,provider-url.
+# sso.oidc-provider-infos: ""
+
+# indicates whether the console API should be served as a standalone service
+# standalone-console-api-enabled: false
+
+# whether nodes will be disqualified if they have not been contacted in some time
+# stray-nodes.enable-dq: true
+
+# how often to check for and DQ stray nodes
+# stray-nodes.interval: 168h0m0s
+
+# Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit
+# stray-nodes.limit: 1000
+
+# length of time a node can go without contacting satellite before being disqualified
+# stray-nodes.max-duration-without-contact: 720h0m0s
+
+# comma-separated paths of additional cert files, used to validate signed node tags
+# tag-authorities: ""
+
+# as of system interval
+# tally.as-of-system-interval: -5m0s
+
+# whether to use fixed (start of process) timestamp for DB reads from objects table
+# tally.fixed-read-timestamp: true
+
+# how frequently the tally service should run
+# tally.interval: 1h0m0s
+
+# how many buckets to query in a batch
+# tally.list-limit: 2500
+
+# how large of batches GetBandwidthSince should process at a time
+# tally.read-rollup-batch-size: 10000
+
+# how many days to retain tallies or zero to retain indefinitely
+# tally.retention-days: 365
+
+# how large of batches SaveRollup should process at a time
+# tally.save-rollup-batch-size: 1000
+
+# how large should be insert into tallies
+# tally.save-tallies-batch-size: 10000
+
+# whether to enable small object remainder accounting
+# tally.small-object-remainder: false
+
+# whether to use partition query for DB reads from objects table
+# tally.use-partition-query: false
+
+# whether to enable node tally with ranged loop
+# tally.use-ranged-loop: true
+
+# address for jaeger agent
+# tracing.agent-addr: agent.tracing.datasci.storj.io:5775
+
+# application name for tracing identification
+# tracing.app: satellite
+
+# application suffix
+# tracing.app-suffix: -release
+
+# buffer size for collector batch packet size
+# tracing.buffer-size: 0
+
+# whether tracing collector is enabled
+# tracing.enabled: true
+
+# the possible hostnames that trace-host designated traces can be sent to
+# tracing.host-regex: \.storj\.tools:[0-9]+$
+
+# how frequently to flush traces to tracing agent
+# tracing.interval: 0s
+
+# buffer size for collector queue size
+# tracing.queue-size: 0
+
+# how frequent to sample traces
+# tracing.sample: 0
+
+# skip database (satellite/metabase) version check, use with caution
+# unsafe-skip-db-version-check: false
+
+# A comma delimited list of peers (IDs/addresses) allowed to use this endpoint.
+# userinfo.allowed-peers: ""
+
+# Whether the private Userinfo rpc endpoint is enabled
+# userinfo.enabled: false
+
+# base url of valdi external API
+# valdi.api-base-url: https://api.valdi.ai
+
+# path to RSA private key for signing valdi requests
+# valdi.rsa-key-path: ""
+
+# the base email address for valdi satellite project email addresses. Important: once this has been used to create users, it should not be changed
+# valdi.satellite-email: ""
+
+# Interval to check the version
+# version.check-interval: 15m0s
+
+# Request timeout for version checks
+# version.request-timeout: 1m0s
+
+# server address to check its version against
+# version.server-address: https://version.storj.io
+
+# as of system interval
+# zombie-deletion.as-of-system-interval: -5m0s
+
+# set if zombie object cleanup is enabled or not
+# zombie-deletion.enabled: true
+
+# after what time object will be deleted if there where no new upload activity
+# zombie-deletion.inactive-for: 24h0m0s
+
+# the time between each attempt to go through the db and clean up zombie objects
+# zombie-deletion.interval: 15h0m0s
+
+# how many objects to query in a batch
+# zombie-deletion.list-limit: 100

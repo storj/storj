@@ -1,0 +1,35 @@
+.DS_Store
+node_modules
+dist
+coverage
+temp
+
+# wasm related files
+wasm_exec.js
+wasm_exec.js.br
+wasm_exec.*.js
+wasm_exec.*.js.br
+*.wasm
+*.wasm.br
+wasm-manifest.json
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Allow images
+!*.svg
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw*

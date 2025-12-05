@@ -1,0 +1,872 @@
+// Copyright (C) 2024 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+html {
+  overflow-y: auto !important;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
+}
+
+.v-application {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+// Global theme
+
+.v-theme {
+  --v-medium-emphasis-opacity: 0.7;
+}
+.v-application, .v-sheet, .v-list, .v-btn-group, .v-table {
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+
+// Light Theme
+.v-theme--light {
+  --v-theme-overlay-multiplier: 0.75 !important;
+  --v-theme-on-background: var(--v-theme-secondary) !important;
+  --v-theme-on-surface: var(--v-theme-secondary) !important;
+  --v-theme-surface-variant: var(--v-theme-secondary) !important;
+  --v-border-color: 50,53,55 !important;
+  --v-border-opacity: 0.1 !important;
+}
+
+// Dark Theme
+.v-theme--dark {
+  --v-theme-overlay-multiplier: 0.75 !important;
+  --v-border-opacity: 0.14 !important;
+  --v-theme-surface-light: 10,18,38 !important;
+  --v-theme-on-surface-variant: 70,70,70 !important;
+}
+.v-theme--dark .text-primary {
+  color: rgb(var(--v-theme-secondary)) !important;
+}
+
+h1,h2,h3,h4,h5,h6 {
+  font-weight: 800 !important;
+}
+
+.v-theme--light p {
+  color: var(--v-theme-paragraph);
+}
+
+// Nav
+.app-bar-border::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 4px;
+  right: 4px;
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.v-app-bar-title {
+  padding-left: 3px;
+}
+
+// Nav toggle icon
+.v-app-bar-nav-icon {
+  opacity: 0.8 !important;
+}
+.v-app-bar-nav-icon:hover {
+  opacity: 1 !important;
+}
+
+// Toggle visibility class
+.show {
+  display: block;
+}
+
+// Custom rounded class
+.rounded-md {
+  border-radius: 6px !important;
+}
+.rounded-xlg {
+  border-radius: 12px !important;
+}
+.rounded-xxlg {
+  border-radius: 16px !important;
+}
+
+// Button Styles
+.v-btn.bg-primary:hover {
+  background-color: rgb(var(--v-theme-secondary)) !important;
+}
+.v-btn.bg-secondary:hover {
+  background-color: rgb(var(--v-theme-primary)) !important;
+}
+
+// Success Button Text
+.v-btn.v-theme--light.bg-success {
+  color: #fff;
+}
+
+// Button Shadow
+.v-btn--elevated,
+.v-btn--variant-flat {
+  box-shadow: rgba(31, 35, 40, 0.04) 0 1px 0 0, rgba(255, 255, 255, 0.25) 0 1px 0 0 inset;
+}
+.v-btn--variant-outlined {
+  box-shadow: rgba(31, 35, 40, 0.04) 0 1px 0 0;
+}
+.v-btn--elevated:hover,
+.v-btn--variant-flat:hover,
+.v-btn--variant-outlined {
+  box-shadow: rgba(31, 35, 40, 0.04) 0 1px 0 0;
+}
+
+// Button Outlines
+.v-btn.v-theme--light.text-default.v-btn--variant-outlined {
+  border-color: rgba(var(--v-border-color), 0.14);
+  background: rgb(var(--v-theme-surface));
+}
+.v-btn.v-theme--light.text-default.v-btn--variant-outlined:hover {
+  border-color: #9da3a7;
+  border-color: rgba(var(--v-border-color), 0.5);
+}
+.v-btn.v-theme--dark.text-default.v-btn--variant-outlined {
+  border-color: #a9b0b949;
+}
+.v-btn.v-theme--dark.text-default.v-btn--variant-outlined:hover {
+  border-color: #a9b0b979;
+}
+
+// Button focus style
+.v-btn:focus:active {
+  box-shadow: currentColor 0 0 0 1px, currentColor 0 0 0 1px !important;
+}
+// Button focus style for tabs and toggles
+.v-tabs .v-btn:focus:active, .v-btn-group .v-btn:focus:active {
+  box-shadow: none !important;
+}
+
+// Button sizes
+.v-btn--size-default {
+  --v-btn-size: 0.8rem;
+  --v-btn-height: 44px;
+}
+
+.v-btn--size-large {
+  --v-btn-size: 0.875rem;
+  --v-btn-height: 48px;
+}
+
+.v-btn-group--density-default.v-btn-group {
+  height: 44px;
+}
+
+.v-btn--icon.v-btn--size-default {
+  width: 44px;
+  height: 44px;
+  font-size: 11px;
+}
+
+.v-btn--icon.v-btn--size-large {
+  width: 48px;
+  height: 48px;
+}
+
+// Button Icons
+.v-btn__append {
+  margin-inline-start: calc(var(--v-btn-height) / 10);
+  margin-inline-end: calc(var(--v-btn-height) / -20);
+}
+.v-btn__prepend {
+  margin-inline-start: calc(var(--v-btn-height) / -20);
+  margin-inline-end: calc(var(--v-btn-height) / 10);
+}
+
+// Top Menu
+.v-toolbar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+}
+.v-toolbar.v-theme--dark {
+  box-shadow: 0px 2px 4px rgba(0,0,0,0.19) !important;
+}
+
+// Navigation Drawer
+.v-navigation-drawer {
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+}
+.v-navigation-drawer.v-theme--dark {
+  box-shadow: 0px 2px 4px rgba(0,0,0,0.19) !important;
+}
+.v-navigation-drawer::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 2px;
+  bottom: 2px;
+  border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.v-app-bar-nav-icon {
+  left: -1px;
+}
+
+// Menu
+.v-menu > .v-overlay__content > .v-card, .v-menu > .v-overlay__content > .v-sheet, .v-menu > .v-overlay__content > .v-list {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px !important;
+}
+.v-navigation-drawer--temporary {
+  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px !important;
+}
+.v-navigation-drawer--mobile {
+  box-shadow: none !important;
+}
+.v-navigation-drawer__scrim {
+  opacity: 0.3;
+}
+
+// Menu list item
+.v-list-item--active .v-list-item-title {
+  font-weight: 800 !important;
+}
+.v-list-item-subtitle {
+  opacity: 1 !important;
+}
+.v-list-item--variant-elevated, .v-list-item--variant-flat {
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+.v-list-item--nav {
+  padding-inline: 16px !important;
+
+}
+.v-list-item__prepend {
+  opacity: 1 !important;
+}
+.v-list-item--active>.v-list-item__overlay, .v-list-item[aria-haspopup=menu][aria-expanded=true]>.v-list-item__overlay {
+  opacity: 0.04 !important;
+}
+.v-list-item__overlay {
+  transition: opacity .07s ease-in-out !important;
+}
+.v-list .v-list-item--nav:not(:only-child) {
+  margin-bottom: 0 !important;
+}
+
+
+// Select Input Menu
+.v-select__content {
+  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px !important;
+  border-radius: 8px !important;
+}
+.v-select__content .v-list {
+  padding: 4px;
+}
+
+// List
+.v-list {
+  padding: 4px;
+}
+
+// Card
+.v-card--variant-elevated, .v-card--variant-flat {
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+
+// Card Light Theme
+.v-card.v-theme--light {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  background: #fff;
+}
+
+// Card Dark Theme
+.v-card.v-theme--dark {
+  background: --v-theme-surface;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  box-shadow: 0px 2px 4px rgba(0,0,0,0.19);
+}
+
+.v-card--variant-flat {
+  box-shadow: none !important;
+}
+
+// Card link hover
+a.v-card:hover {
+ box-shadow: none;
+}
+
+// Cards Padding
+.v-card-item__prepend {
+  padding-inline-end: 0.8rem !important;
+}
+
+// Cards Title
+.v-card-item .v-card-title {
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+// Cards Subtitle
+.v-card-item .v-card-subtitle {
+  padding: .25rem 0;
+}
+
+// Card Text
+.v-card-text {
+  font-size: 0.9375rem !important;
+  letter-spacing: 0 !important;
+}
+
+// Cards Hover
+.v-card--hover:hover {
+  box-shadow: 0 5px 5px -3px var(--v-shadow-key-umbra-opacity, rgba(0, 0, 0, .1)), 0 8px 10px 1px var(--v-shadow-key-penumbra-opacity, rgba(0, 0, 0, .07)), 0 3px 14px 2px var(--v-shadow-key-ambient-opacity, rgba(0, 0, 0, .05));
+}
+
+// Chips
+.v-chip--variant-tonal .v-chip__underlay {
+  opacity: 0.09 !important;
+}
+
+// Overlay behind modals/dialogs opacity and color
+.v-overlay__scrim {
+  background: #000;
+  opacity: 0.75;
+}
+
+// Fix dialog scroll
+.v-overlay .v-card .v-window {
+  overflow-y: auto !important;
+}
+
+// Account Setup Dialog
+.account-setup-dialog {
+  border-radius: 0px !important;
+}
+
+// Align the checkboxes in the tables
+.v-selection-control {
+  contain: inherit;
+}
+
+// Make the checkbox selection square instead of rounded
+.v-selection-control__input {
+  border-radius: 8px !important;
+}
+.v-selection-control__input::before {
+  border-radius: 8px !important;
+}
+
+// High contrast labels
+.v-label {
+  opacity: var(--v-high-emphasis-opacity) !important;
+}
+
+// Checkbox label
+.v-checkbox .v-label {
+  font-size: 100%;
+}
+
+// Ensure that the compact checkbox isn't too close to its label
+.v-selection-control--density-compact .v-label {
+  margin-left: 8px;
+}
+
+
+// Sorting icon
+.mdi-arrow-up::before, .mdi-arrow-down::before {
+  font-size: 14px;
+}
+
+// Breadcrumbs
+.v-breadcrumbs {
+  min-height: 24px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.v-breadcrumbs-item {
+  padding: 0 !important;
+  word-break: break-all;
+}
+.v-breadcrumbs-item--disabled {
+  opacity: 0.75;
+  margin-right: 12px !important;
+}
+
+// Snackbar
+.v-snackbar__content {
+  width: 100%;
+}
+
+.snackbar-multiple .v-snackbar__wrapper {
+  border: 1px solid #a9b0b939;
+}
+
+// Table
+.v-data-table {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+.v-field--variant-solo-filled {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+}
+
+// Table Header
+.v-data-table__thead {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.v-data-table-header__content span {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.v-table.v-table--fixed-header>.v-table__wrapper>table>thead>tr>th {
+  background: rgb(var(--v-theme-background)) !important;
+}
+.v-data-table-header__sort-icon {
+  margin: 0;
+  right: -5px;
+  font-size: 16px;
+  color: rgb(var(--v-theme-primary));
+}
+
+// Table Fonts
+table {
+  font-size: 14px;
+}
+
+// Table content
+.v-list-item__content {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.v-table > .v-table__wrapper > table > tbody > tr > td:first-child,
+.v-table > .v-table__wrapper > table > tbody > tr > th:first-child,
+.v-table > .v-table__wrapper > table > thead > tr > td:first-child,
+.v-table > .v-table__wrapper > table > thead > tr > th:first-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > td:first-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > th:first-child {
+  padding: 0 8px 0 16px;
+}
+
+.v-table > .v-table__wrapper > table > tbody > tr > td:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > tbody > tr > th:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > thead > tr > td:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > thead > tr > th:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > tfoot > tr > td:not(:first-child):not(:last-child),
+.v-table > .v-table__wrapper > table > tfoot > tr > th:not(:first-child):not(:last-child) {
+  padding: 0 8px !important;
+}
+
+.v-table > .v-table__wrapper > table > tbody > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tbody > tr > th:last-child,
+.v-table > .v-table__wrapper > table > thead > tr > td:last-child,
+.v-table > .v-table__wrapper > table > thead > tr > th:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > th:last-child {
+  padding: 0 12px 0 8px;
+}
+
+.v-table > .v-table__wrapper > table > tbody > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tbody > tr > th:last-child {
+  padding: 0 12px;
+  position: sticky !important;
+  right: 0 !important;
+  background: rgba(var(--v-theme-surface), 0.8) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  z-index: 1 !important;
+}
+.v-table > .v-table__wrapper > table > thead > tr > td:last-child,
+.v-table > .v-table__wrapper > table > thead > tr > th:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > td:last-child,
+.v-table > .v-table__wrapper > table > tfoot > tr > th:last-child {
+  padding: 0 12px;
+  position: sticky !important;
+  right: 0 !important;
+  background: rgba(var(--v-theme-background), 0.8) !important;
+  backdrop-filter: blur(5px) !important;
+  -webkit-backdrop-filter: blur(5px) !important;
+  z-index: 1 !important;
+
+
+}
+
+.v-data-table .v-table__wrapper>table>thead>tr>td.v-data-table-column--no-padding,
+.v-data-table .v-table__wrapper>table>thead>tr th.v-data-table-column--no-padding,
+.v-data-table .v-table__wrapper>table tbody>tr>td.v-data-table-column--no-padding,
+.v-data-table .v-table__wrapper>table tbody>tr th.v-data-table-column--no-padding {
+  padding: 0px 4px 0 8px !important;
+}
+
+// Table Footer
+.v-data-table-footer {
+  font-size: 14px;
+  justify-content: space-between !important;
+  padding: 8px 16px !important;
+  background-color: rgb(var(--v-theme-background));
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+.v-data-table-footer .v-field__input {
+  font-size: 14px;
+}
+.v-data-table-footer .v-field__outline__start, .v-data-table-footer .v-field__outline__end {
+  border-color: rgba(var(--v-theme-on-background),0.1) !important;
+}
+.v-data-table-footer__pagination .v-btn {
+  width: 2rem;
+  height: 2rem;
+  color: rgb(var(--v-theme-on-background)) !important;
+}
+.v-data-table-footer__items-per-page {
+  padding-inline-end: 8px !important;
+}
+.v-data-table-footer__items-per-page>span {
+  color: rgba(var(--v-theme-on-background),0.5);
+  padding-inline-end: 12px !important;
+  font-size: 13px;
+}
+.v-data-table-footer__info {
+  display: flex;
+  background: rgba(var(--v-theme-on-background),0.02);
+  color: rgba(var(--v-theme-on-background),0.5);
+  padding: 4px 16px !important;
+  border-radius: 40px;
+  font-size: 12px;
+}
+
+// Search styles
+.v-field.v-field--prepended {
+  --v-field-padding-start: 8px;
+  padding-left: 16px;
+}
+
+// Links
+.link {
+  text-decoration: underline;
+}
+.link:hover {
+  cursor: pointer;
+}
+.v-theme--light .link {
+  color: rgb(var(--v-theme-primary));
+}
+.v-theme--light .link:hover {
+  color: rgb(var(--v-theme-secondary));
+}
+.v-theme--dark .link {
+  color: rgb(var(--v-theme-secondary));
+}
+.v-theme--dark .link:hover {
+  color: rgb(var(--v-theme-on-background));
+}
+
+
+// Tooltips
+.v-tooltip>.v-overlay__content {
+  background: rgb(var(--v-theme-surface)) !important;
+  color: rgb(var(--v-theme-on-surface)) !important;
+  border: 1px solid rgba(var(--v-theme-on-surface),0.2);
+  box-shadow: rgba(0, 0, 0, 0.03) 0 1px 4px 2px !important;
+  border-radius: 10px !important;
+  padding: 8px 14px !important;
+  pointer-events: all !important;
+}
+.v-tooltip>.v-overlay__content .link {
+  color: rgb(var(--v-theme-on-surface)) !important;
+}
+
+// Upload Snackbar
+.upload-snackbar .v-snackbar__content {
+  padding: 2px;
+}
+
+// Scrollbar
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background-color: rgb(var(--v-theme-background));
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--v-theme-on-background), 0.33);
+  border-radius: 2px;
+  min-height: 5px;
+}
+::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+// Alerts
+.v-alert-title {
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+}
+.v-alert__prepend {
+  margin-top: 4px;
+  margin-inline-end: 12px;
+}
+.v-alert__content {
+  font-size: 14px;
+}
+.v-alert--variant-tonal .v-alert__content {
+  color: rgba(var(--v-theme-on-surface),0.9);
+}
+// Make Alert Close icon same color as alert
+.v-alert__close .v-btn {
+  color: currentColor !important;
+}
+// Tonal alert background
+.v-alert--variant-tonal .v-alert__underlay {
+  background: currentColor;
+  opacity: 0.09 !important;
+}
+.v-alert--variant-tonal .v-alert__border {
+  opacity: 1;
+}
+
+// Background color class
+.bg-on-surface-variant {
+  background-color: rgb(var(--v-theme-on-surface-variant)) !important;
+  color: rgb(var(--v-theme-surface-variant)) !important;
+}
+
+// Positions
+.pos-relative {
+  position: relative !important;
+}
+
+// Sizing
+.max-h-100 {
+  max-height: 100%;
+}
+
+// Text styles
+.text-cursor-pointer {
+  cursor: pointer;
+}
+
+.break-word {
+  word-break: break-word;
+}
+
+// Vuetify has a bug where any element with the attribute "disabled" forces the default cursor
+// even if the value of this attribute is "false".
+// This causes text in window items to appear to be unselectable.
+[disabled=false] {
+  cursor: unset;
+}
+
+// Opacity
+.opacity-100 {
+  opacity: 1 !important;
+}
+
+// Light background
+.bg-light {
+  background-color: rgba(var(--v-theme-on-background), 0.01);
+}
+
+// Preview Dialog
+.preview-card {
+  background: rgb(9 9 9) !important;
+}
+
+// Preview Slider Buttons
+.v-window__controls .v-btn {
+  border: 1px solid rgba(var(--v-border-color), 0.2);
+  transition: all 0.1s ease-in-out;
+  background: transparent;
+}
+.v-window__controls .v-btn:hover {
+  border: 1px solid rgba(var(--v-border-color), 0.3);
+}
+
+// Card Preview Img
+.card-preview-img {
+  transition: transform 0.15s ease-in-out;
+  border-bottom: 1px solid rgba(var(--v-theme-on-background), 0.02);
+}
+.card-preview-img:hover {
+  transform: scale(1.02);
+}
+
+// Card Preview Icon
+.card-preview-icon {
+  min-height: 240px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-background), 0.02);
+}
+.card-preview-icon, .card-preview-icon img {
+  transition: all 0.15s ease-in-out;
+}
+.card-preview-icon:hover {
+  background: none;
+  border-bottom-color: rgba(var(--v-theme-on-background), 0.04);
+}
+.card-preview-icon:hover img {
+  transform: scale(1.3);
+}
+
+// Expansion Panels
+.v-expansion-panel-title {
+  padding: 16px !important;
+}
+.v-expansion-panel-text__wrapper {
+  padding: 16px !important;
+}
+.v-expansion-panel-title--active {
+  font-weight: bold;
+  color: rgb(var(--v-theme-info));
+}
+.v-expansion-panels.v-theme--dark .v-expansion-panel-title--active {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.v-expansion-panel-title--active .v-expansion-panel-title__overlay {
+  opacity: 0.02;
+}
+
+// Dividers
+.v-divider {
+  opacity: 0.09 !important;
+}
+
+// Progress Bars
+.v-progress-linear__background {
+  opacity: 0.07 !important;
+}
+
+// Fix label position on fields
+.v-field--variant-outlined .v-field__outline .v-field__outline__start {
+  flex-basis: calc(var(--v-field-padding-start) - 4px) !important;
+}
+
+.white-background {
+  background-color: white;
+}
+
+// No pointer events helper class
+.no-pointer-events {
+  pointer-events: none;
+}
+
+.font-weight-semibold {
+  font-weight: 600 !important;
+}
+
+.white-link {
+  color: #fff;
+
+  &:visited {
+    color: #fff;
+  }
+}
+
+.loader {
+  background: rgb(var(--v-theme-background));
+}
+
+.v-field .v-field-label:has(~ .v-field__input:required)::after,
+.v-field .v-field-label:has(~ .v-field__input > input:required)::after {
+  content: "*";
+}
+
+.signup-heading {
+  line-height: 1.25;
+}
+
+// Date Picker Buttons
+.v-date-picker-month__day .v-btn {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+// fix for the table footer info width being too big for its small content
+// a huge min-width was added in Vuetify 3.4.11
+// https://github.com/vuetifyjs/vuetify/commit/a5254a2bada424c0bbdbc9d86fcea2afb6a86dc2
+.v-data-table-footer__info {
+  min-width: unset !important;
+}
+
+// Shadow helper class
+.elevation-1.v-theme--light {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+}
+.elevation-1.v-theme--dark {
+  box-shadow: 0px 2px 4px rgba(0,0,0,0.19) !important;
+}
+
+// No shadow helper class
+.no-shadow {
+  box-shadow: none !important;
+}
+
+.invisible {
+  visibility: hidden;
+}
+
+.hidden {
+  display: none !important;
+}
+
+// Target autofilled input fields in WebKit browsers (Chrome, Safari, Edge)
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
+    box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
+    -webkit-text-fill-color: inherit !important;
+    border-radius: 8px !important;
+}
+
+@media (max-width: 599px) {
+  .signup-heading {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 959px) {
+  .no-position {
+    position: unset !important;
+  }
+  // Responsiveness fix for multi step dialogs
+  .v-overlay .v-card .v-window {
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 960px) {
+  // Login and Signup Background
+  .signup-background::before {
+    content: "";
+    background-image: url('@/assets/bg-line-light.jpg');
+    background-position: center;
+    background-size: cover;
+    position: absolute;
+    top: 45%;
+    left: 0;
+    width: 100%;
+    height: 149px;
+    pointer-events: none; /* This will allow mouse events to pass through the pseudo-element */
+  }
+  .v-theme--dark .signup-background::before {
+    background-image: url('@/assets/bg-line-dark.jpg');
+  }
+}
+
+// Improve container width
+@media (min-width: 960px) and (max-width: 1279px) {
+  .v-container {
+    max-width: none !important;
+  }
+}
+@media (min-width: 1280px) and (max-width: 1919px) {
+  .v-container {
+      max-width: 1440px;
+  }
+}

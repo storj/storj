@@ -1,0 +1,41 @@
+// repair_queue contains items that should be repaired.
+model repair_queue (
+	table repair_queue
+
+	key stream_id position
+
+	// stream_id is uuid that refers to segments.stream_id column.
+	field stream_id blob
+	// position is a segment location that refers to segments.position column.
+	field position uint64
+	// attempted_at indicates the last time repair was tried.
+	field attempted_at timestamp (updatable, nullable)
+	// updated_at indicates when this row was last added (or re-added) to the queue.
+	field updated_at timestamp ( updatable, default current_timestamp )
+	// inserted_at indicate when this segment ended up in the repair queue the first time.
+	field inserted_at timestamp ( default current_timestamp )
+	// segment_health corresponds to the importance of this segment getting repaired.
+	// Lower health segments should be repaired first. See repair.SegmentHealth for more details.
+	field segment_health float64 (default 1)
+	// placement of the segment to be repaired.
+	field placement int (nullable, updatable)
+
+	// this index is used for efficient deletes of old entries.
+	index (
+		fields updated_at
+	)
+
+	// this index is used to efficiently find the segments that are most in
+	// danger becoming irreparable.
+	index (
+		name repair_queue_num_healthy_pieces_attempted_at_index
+		fields segment_health attempted_at
+	)
+
+	// this index is used for efficient deletes of old entries.
+	index (
+		fields placement
+	)
+)
+
+delete repair_queue ( where repair_queue.updated_at < ? )

@@ -1,0 +1,10 @@
+root = true
+
+[*.go]
+indent_style = tab
+
+[*.tmpl]
+indent_style = tab
+
+[*.dbx]
+indent_style = tab
