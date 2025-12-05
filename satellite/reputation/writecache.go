@@ -434,6 +434,12 @@ func (cdb *CachingDB) FlushAll(ctx context.Context) (err error) {
 	return errg.Err()
 }
 
+// Run runs the cache.
+// NOTE: Run is automatically called by mud framework, but Manage doesn't.
+func (cdb *CachingDB) Run(ctx context.Context) error {
+	return cdb.Manage(ctx)
+}
+
 // Manage should be run in its own goroutine while a CachingDB is in use. This
 // will schedule database flushes, trying to avoid too much load all at once.
 func (cdb *CachingDB) Manage(ctx context.Context) error {
