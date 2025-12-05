@@ -13,7 +13,7 @@ import (
 // read handles
 //
 
-// osMultiReadHandle implements MultiReadHandle for *os.Files.
+// newOSMultiReadHandle implements MultiReadHandle for *os.Files.
 func newOSMultiReadHandle(fh LocalBackendFile) (MultiReadHandle, error) {
 	fi, err := fh.Stat()
 	if err != nil {
