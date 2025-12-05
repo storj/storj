@@ -26,6 +26,20 @@ export const useNotificationsStore = defineStore('notifications', () => {
         }
     }
 
+    function pauseNotification(id: string): void {
+        const selectedNotification = state.notificationQueue.find(n => n.id === id);
+        if (selectedNotification) {
+            selectedNotification.pause();
+        }
+    }
+
+    function resumeNotification(id: string): void {
+        const selectedNotification = state.notificationQueue.find(n => n.id === id);
+        if (selectedNotification) {
+            selectedNotification.start();
+        }
+    }
+
     function notifySuccess(payload: NotificationPayload): void {
         const notification: DelayedNotification = new DelayedNotification(
             () => deleteNotification(notification.id),
@@ -81,6 +95,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
         notifyInfo,
         notifyWarning,
         notifyError,
+        pauseNotification,
+        deleteNotification,
+        resumeNotification,
         clear,
     };
 });

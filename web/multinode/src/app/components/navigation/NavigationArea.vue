@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div :class="['navigation-area', { '--collapsed': isCollasped }]">
+    <div :class="['navigation-area', { '--collapsed': isCollapsed }]">
         <button type="button" class="navigation-area__toggle-btn" @click="toggleSidebar">
-            <ArrowRightIcon v-if="isCollasped" width="13" height="13" />
+            <ArrowRightIcon v-if="isCollapsed" width="13" height="13" />
             <ArrowLeftIcon v-else width="13" height="13" />
         </button>
         <storj-logo class="navigation-area__logo" />
@@ -12,10 +12,10 @@
             v-for="navItem in navigation"
             :key="navItem.name"
             :aria-label="navItem.name"
-            :class="['navigation-area__item-container', { '--collapsed': isCollasped }]"
+            :class="['navigation-area__item-container', { '--collapsed': isCollapsed }]"
             :to="navItem.path"
         >
-            <v-tooltip v-if="isCollasped" right>
+            <v-tooltip v-if="isCollapsed" right>
                 <template #activator="{ on, attrs }">
                     <div
                         class="navigation-area__item-container__link" v-bind="attrs"
@@ -29,77 +29,46 @@
 
             <div v-else class="navigation-area__item-container__link">
                 <component :is="navItem.icon" />
-                <p :class="['navigation-area__item-container__link__title', { '--collapsed': isCollasped }]">{{ navItem.name }}</p>
+                <p :class="['navigation-area__item-container__link__title', { '--collapsed': isCollapsed }]">{{ navItem.name }}</p>
             </div>
         </router-link>
     </div>
 </template>
 
-<script lang="ts">
-import { Component } from 'vue-property-decorator';
-import Vue, { VueConstructor } from 'vue';
+<script setup lang="ts">
 import { VTooltip } from 'vuetify/lib';
+import { onMounted, ref } from 'vue';
 
 import { Config as RouterConfig } from '@/app/router';
+import { NavigationLink } from '@/app/types/common';
 
 import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
-import NotificationIcon from '@/../static/images/icons/navigation/notifications.svg';
 import WalletsIcon from '@/../static/images/icons/navigation/wallets.svg';
 import PayoutsIcon from '@/../static/images/icons/navigation/payouts.svg';
-import ReputationIcon from '@/../static/images/icons/navigation/reputation.svg';
 import TrafficIcon from '@/../static/images/icons/navigation/traffic.svg';
 import StorjLogo from '@/../static/images/Logo.svg';
 import ArrowRightIcon from '@/../static/images/icons/ArrowRight.svg';
 import ArrowLeftIcon from '@/../static/images/icons/ArrowLeft.svg';
 
-export class NavigationLink {
-    constructor(
-        public name: string,
-        public path: string,
-        public icon: VueConstructor<Vue>,
-    ) {}
+const navigation: NavigationLink[] = [
+    new NavigationLink(RouterConfig.MyNodes.name, RouterConfig.MyNodes.path, MyNodesIcon),
+    new NavigationLink(RouterConfig.Wallets.name, RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path, WalletsIcon),
+    new NavigationLink(RouterConfig.Payouts.name, RouterConfig.Payouts.path, PayoutsIcon),
+    new NavigationLink(RouterConfig.Bandwidth.name, RouterConfig.Bandwidth.path, TrafficIcon),
+];
+
+const isCollapsed = ref<boolean>(false);
+
+function toggleSidebar(): void {
+    isCollapsed.value = !isCollapsed.value;
+    localStorage.setItem('collapsed', isCollapsed.value.toString());
 }
 
-// @vue/component
-@Component({
-    components: {
-        VTooltip,
-        StorjLogo,
-        MyNodesIcon,
-        WalletsIcon,
-        PayoutsIcon,
-        ReputationIcon,
-        TrafficIcon,
-        ArrowRightIcon,
-        ArrowLeftIcon,
-        NotificationIcon,
-    },
-})
-export default class NavigationArea extends Vue {
-
-    public isCollasped = false;
-
-    public toggleSidebar(): void {
-        this.isCollasped = !this.isCollasped;
-        localStorage.setItem('collasped', this.isCollasped.toString());
+onMounted(() => {
+    if (localStorage.getItem('collapsed') === 'true') {
+        isCollapsed.value = true;
     }
-
-    /**
-     * Array of navigation links with icons.
-     */
-    public readonly navigation: NavigationLink[] = [
-        new NavigationLink(RouterConfig.MyNodes.name, RouterConfig.MyNodes.path, MyNodesIcon),
-        new NavigationLink(RouterConfig.Wallets.name, RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path, WalletsIcon),
-        new NavigationLink(RouterConfig.Payouts.name, RouterConfig.Payouts.path, PayoutsIcon),
-        new NavigationLink(RouterConfig.Bandwidth.name, RouterConfig.Bandwidth.path, TrafficIcon),
-    ];
-
-    public mounted(): void {
-        if (localStorage.getItem('collasped') && localStorage.getItem('collasped') === 'true') {
-            this.isCollasped = true;
-        }
-    }
-}
+});
 </script>
 
 <style scoped lang="scss">

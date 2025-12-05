@@ -15,40 +15,27 @@
     </v-alert>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
 import { VAlert } from 'vuetify/lib';
 
 import { DelayedNotification } from '@/app/types/delayedNotification';
+import { useStore } from '@/app/utils/composables';
 
-// @vue/component
-@Component({
-    components: {
-        VAlert,
-    },
-})
-export default class NotificationItem extends Vue {
-  @Prop({ required: true }) readonly item!: DelayedNotification;
+const store = useStore();
 
-  /**
- * Forces notification to stay on page on mouse over it.
- */
-  onMouseOver(id: string): void {
-      this.$store.dispatch('notification/pause', id);
-  }
+defineProps<{
+    item: DelayedNotification;
+}>();
 
-  /**
- * Resume notification flow when mouse leaves notification.
- */
-  onMouseLeave(id: string): void {
-      this.$store.dispatch('notification/resume', id);
-  }
+function onMouseOver(id: string): void {
+    store.dispatch('notification/pause', id);
+}
 
-  /**
- * Removes notification when the close button is clicked.
- */
-  onCloseClick(id: string): void {
-      this.$store.dispatch('notification/delete', id);
-  }
+function onMouseLeave(id: string): void {
+    store.dispatch('notification/resume', id);
+}
+
+function onCloseClick(id: string): void {
+    store.dispatch('notification/delete', id);
 }
 </script>

@@ -46,84 +46,68 @@
     </base-table>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, ref } from 'vue';
 
 import { Operator } from '@/operators';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import VLink from '@/app/components/common/VLink.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VLink,
-        BaseTable,
-    },
-})
-export default class WalletsTable extends Vue {
-    @Prop({ default: () => [] })
-    private readonly operators: Operator[];
+const props = defineProps<{
+    operators: Operator[];
+}>();
 
-    public redirectToWalletDetailsPage(_walletAddress: string): void {
-        // TODO: uncomment when undistributed will be added.
-        // this.$router.push({
-        //     name: RouterConfig.Wallets.with(RouterConfig.WalletDetails).name,
-        //     params: { address: walletAddress },
-        // });
-    }
+const sortByKey = ref<string>('');
+const sortDirection = ref<string>('asc');
 
-    // Initialize sorting variables
-    sortByKey = '';
-    sortDirection = 'asc';
+const sortArrow = computed<string>(() => sortDirection.value === 'asc' ? ' ↑' : ' ↓');
+const sortedOperators = computed<Operator[]>(() => {
+    const key = sortByKey.value;
+    const direction = sortDirection.value === 'asc' ? 1 : -1;
+    if (key === '') return props.operators;
+    return props.operators.slice().sort((a, b) => {
+        if (a[key] < b[key]) return -direction;
+        if (a[key] > b[key]) return direction;
+        return 0;
+    });
+});
 
-    // Cache the sort state in browser to persist between sessions
-    created() {
-        const savedSortByKey = localStorage.getItem('walletSortByKey');
-        const savedSortDirection = localStorage.getItem('walletSortDirection');
-        if (savedSortByKey) {
-            this.sortByKey = savedSortByKey;
-        }
-        if (savedSortDirection) {
-            this.sortDirection = savedSortDirection;
-        }
-    }
-
-    // Sorted operators getter
-    public get sortedOperators(): Operator[] {
-        const key = this.sortByKey;
-        const direction = this.sortDirection === 'asc' ? 1 : -1;
-        if (key === '') return this.operators;
-        return this.operators.slice().sort((a, b) => {
-            if (a[key] < b[key]) return -direction;
-            if (a[key] > b[key]) return direction;
-            return 0;
-        });
-    }
-
-    // Update sorting key and direction
-    public sortBy(key: string) {
-        if (this.sortByKey === key) {
-            if (this.sortDirection === 'asc') {
-                this.sortDirection = 'desc';
-            } else {
-                // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
-                this.sortByKey = '';
-            }
-        } else {
-            this.sortByKey = key;
-            this.sortDirection = 'asc';
-        }
-
-        localStorage.setItem('walletSortByKey', this.sortByKey);
-        localStorage.setItem('walletSortDirection', this.sortDirection);
-    }
-
-    // Determine arrow icon
-    public get sortArrow(): string {
-        return this.sortDirection === 'asc' ? ' ↑' : ' ↓';
-    }
+function redirectToWalletDetailsPage(_walletAddress: string): void {
+    // TODO: uncomment when undistributed will be added.
+    // this.$router.push({
+    //     name: RouterConfig.Wallets.with(RouterConfig.WalletDetails).name,
+    //     params: { address: walletAddress },
+    // });
 }
+
+function sortBy(key: string): void {
+    if (sortByKey.value === key) {
+        if (sortDirection.value === 'asc') {
+            sortDirection.value = 'desc';
+        } else {
+            // Disable sorting after three clicks (flow: asc -> desc -> disable -> asc -> ...)
+            sortByKey.value = '';
+        }
+    } else {
+        sortByKey.value = key;
+        sortDirection.value = 'asc';
+    }
+
+    localStorage.setItem('walletSortByKey', sortByKey.value);
+    localStorage.setItem('walletSortDirection', sortDirection.value);
+}
+
+onBeforeMount(() => {
+    const savedSortByKey = localStorage.getItem('walletSortByKey');
+    const savedSortDirection = localStorage.getItem('walletSortDirection');
+    if (savedSortByKey) {
+        sortByKey.value = savedSortByKey;
+    }
+    if (savedSortDirection) {
+        sortDirection.value = savedSortDirection;
+    }
+});
 </script>
 
 <style lang="scss" scoped>

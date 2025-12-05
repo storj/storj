@@ -23,25 +23,21 @@
     </tr>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { Node } from '@/nodes';
+import { useStore } from '@/app/utils/composables';
 
 import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
-// @vue/component
-@Component({
-    components: {
-        NodeOptions,
-    },
-})
-export default class NodeItem extends Vue {
-    @Prop({ default: () => new Node() })
-    public node: Node;
+const store = useStore();
 
-    public get isSatelliteSelected(): boolean {
-        return !!this.$store.state.nodes.selectedSatellite;
-    }
-}
+withDefaults(defineProps<{
+    node: Node;
+}>(), {
+    node: () => new Node(),
+});
+
+const isSatelliteSelected = computed(() => !!store.state.nodes.selectedSatellite);
 </script>
