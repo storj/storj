@@ -185,5 +185,6 @@ func DefaultRemoteRawSegment(obj metabase.ObjectStream, segmentPosition metabase
 // EqualRetention asserts that two Retention values are equal.
 func EqualRetention(t require.TestingT, expected, actual metabase.Retention) {
 	require.Equal(t, expected.Mode, actual.Mode)
-	require.WithinDuration(t, expected.RetainUntil, actual.RetainUntil, 0)
+	// use Microsecond delta to match Postgres precision
+	require.WithinDuration(t, expected.RetainUntil, actual.RetainUntil, time.Microsecond)
 }
