@@ -2,29 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="chart">
+    <div>
         <p class="egress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
-            id="egress-chart"
             :key="chartKey"
+            chart-id="egress-chart"
             :chart-data="chartData"
-            :width="chartWidth"
-            :height="chartHeight"
+            :width="width"
+            :height="height"
             :tooltip-constructor="egressTooltip"
         />
     </div>
 </template>
 
-<script lang="ts">
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import { ChartData, ChartType, TooltipModel } from 'chart.js';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
+import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { BandwidthRollup } from '@/bandwidth';
 import { Size } from '@/private/memory/size';
+import { useStore } from '@/app/utils/composables';
 
 import VChart from '@/app/components/common/VChart.vue';
-import BaseChart from '@/app/components/common/BaseChart.vue';
 
 /**
  * stores egress data for egress bandwidth chart's tooltip
@@ -43,72 +44,91 @@ class EgressTooltip {
     }
 }
 
-// @vue/component
-@Component({
-    components: { VChart },
-})
-export default class EgressChart extends BaseChart {
-    private get allBandwidth(): BandwidthRollup[] {
-        return ChartUtils.populateEmptyBandwidth(this.$store.state.bandwidth.traffic.bandwidthDaily);
+const store = useStore();
+
+const props = defineProps<{
+    width: number;
+    height: number;
+    isDarkMode: boolean;
+}>();
+
+const chartKey = ref<number>(0);
+
+const allBandwidth = computed<BandwidthRollup[]>(() => ChartUtils.populateEmptyBandwidth(store.state.bandwidth.traffic.bandwidthDaily));
+
+const chartDataDimension = computed<string>(() => {
+    if (!store.state.bandwidth.traffic.bandwidthDaily.length) {
+        return 'Bytes';
     }
 
-    public get chartDataDimension(): string {
-        if (!this.$store.state.bandwidth.traffic.bandwidthDaily.length) {
-            return 'Bytes';
-        }
+    return ChartUtils.getChartDataDimension(allBandwidth.value.map((elem) => elem.egress.audit + elem.egress.repair + elem.egress.usage));
+});
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => elem.egress.audit + elem.egress.repair + elem.egress.usage));
+const chartData = computed<ChartData>(() => {
+    let data: number[] = [0];
+
+    if (allBandwidth.value.length) {
+        data = ChartUtils.normalizeChartData(allBandwidth.value.map(elem => elem.egress.audit + elem.egress.repair + elem.egress.usage));
     }
 
-    public get chartData(): ChartData {
-        let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d2f7e8' : '#edf9f4';
-        const chartBorderColor = this.$vuetify.theme.dark ? '#10e089' : '#48a77f';
-        const chartBorderWidth = 1;
+    return {
+        labels: ChartUtils.daysDisplayedOnChart(),
+        datasets: [
+            {
+                data,
+                fill: true,
+                backgroundColor: props.isDarkMode ? '#d2f7e8' : '#edf9f4',
+                borderColor: props.isDarkMode ? '#10e089' : '#48a77f',
+                borderWidth: 1,
+                pointHoverBorderWidth: 3,
+                hoverRadius: 8,
+                hitRadius: 8,
+                pointRadius: 4,
+                pointBorderWidth: 1,
+            },
+        ],
+    };
+});
 
-        if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.egress.audit + elem.egress.repair + elem.egress.usage));
-        }
-
-        return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
-    }
-
-    public egressTooltip(tooltipModel: TooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
-            'egress-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            235, 94, 6, 4, '#48a77f');
-
-        Tooltip.custom(tooltipParams);
-    }
-
-    private tooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new EgressTooltip(this.allBandwidth[dataIndex]);
-
-        return `<div class='egress-tooltip-body'>
-                    <div class='egress-tooltip-body__info'>
-                        <p>USAGE</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
-                    </div>
-                    <div class='egress-tooltip-body__info'>
-                        <p>REPAIR</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
-                    </div>
-                    <div class='egress-tooltip-body__info'>
-                        <p>AUDIT</p>
-                        <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
-                    </div>
-                </div>
-                <div class='egress-tooltip-footer'>
-                    <p>${dataPoint.date}</p>
-                </div>`;
-    }
+function rebuildChart(): void {
+    chartKey.value += 1;
 }
+
+function egressTooltip(tooltipModel: TooltipModel<ChartType>): void {
+    const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
+        tooltipMarkUp(tooltipModel), 235, 94);
+
+    Tooltip.custom(tooltipParams);
+}
+
+function tooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
+    const dataPoint = new EgressTooltip(allBandwidth.value[dataIndex]);
+
+    return `<div class='egress-tooltip-body'>
+                <div class='egress-tooltip-body__info'>
+                    <p>USAGE</p>
+                    <b class="egress-tooltip-bold-text">${dataPoint.normalEgress}</b>
+                </div>
+                <div class='egress-tooltip-body__info'>
+                    <p>REPAIR</p>
+                    <b class="egress-tooltip-bold-text">${dataPoint.repairEgress}</b>
+                </div>
+                <div class='egress-tooltip-body__info'>
+                    <p>AUDIT</p>
+                    <b class="egress-tooltip-bold-text">${dataPoint.auditEgress}</b>
+                </div>
+            </div>
+            <div class='egress-tooltip-footer'>
+                <p>${dataPoint.date}</p>
+            </div>`;
+}
+
+watch([() => props.isDarkMode, chartData, () => props.width], rebuildChart);
 </script>
 
 <style lang="scss">
