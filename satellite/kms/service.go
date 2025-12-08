@@ -43,6 +43,12 @@ func NewService(config Config) *Service {
 	}
 }
 
+// Run runs the service.
+// NOTE: Run is automatically called by mud framework, but Initialize doesn't.
+func (s *Service) Run(ctx context.Context) (err error) {
+	return s.Initialize(ctx)
+}
+
 // Initialize initializes the service.
 func (s *Service) Initialize(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
