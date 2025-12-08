@@ -33,50 +33,37 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { OperatorsState } from '@/app/store/operators';
+import { useStore } from '@/app/utils/composables';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import VLink from '@/app/components/common/VLink.vue';
 import VPagination from '@/app/components/common/VPagination.vue';
 import WalletsTable from '@/app/components/wallets/tables/walletsSummary/WalletsTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VPagination,
-        VLink,
-        InfoBlock,
-        WalletsTable,
-    },
-})
-export default class WalletsPage extends Vue {
-    public async mounted(): Promise<void> {
-        await this.listPaginated(this.operatorsState.currentPage);
-    }
+const store = useStore();
 
-    /**
-     * retrieves all operator related data.
-     */
-    public get operatorsState(): OperatorsState {
-        return this.$store.state.operators;
-    }
+const operatorsState = computed<OperatorsState>(() => store.state.operators);
 
-    public async listPaginated(pageNumber: number): Promise<void> {
-        try {
-            await this.$store.dispatch('operators/listPaginated', pageNumber);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
+async function listPaginated(pageNumber: number): Promise<void> {
+    try {
+        await store.dispatch('operators/listPaginated', pageNumber);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
+
+        // TODO: notify error
     }
 }
+
+onMounted(async () => {
+    await listPaginated(operatorsState.value.currentPage);
+});
 </script>
 
 <style lang="scss" scoped>

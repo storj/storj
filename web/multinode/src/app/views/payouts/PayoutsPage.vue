@@ -33,11 +33,12 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { PayoutsState } from '@/app/store/payouts';
+import { useStore } from '@/app/utils/composables';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
@@ -45,53 +46,32 @@ import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        BalanceArea,
-        PayoutPeriodCalendarButton,
-        DetailsArea,
-        PayoutsSummaryTable,
-        SatelliteSelectionDropdown,
-    },
-})
-export default class PayoutsPage extends Vue {
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch('payouts/summary');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
+const store = useStore();
 
-            // TODO: notify error
+const payouts = computed<PayoutsState>(() => store.state.payouts);
+const period = computed<string>(() => store.getters['payouts/periodString']);
+
+onMounted(async () => {
+    try {
+        await store.dispatch('payouts/summary');
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
 
-        try {
-            await this.$store.dispatch('payouts/expectations');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
+        // TODO: notify error
+    }
 
-            // TODO: notify error
+    try {
+        await store.dispatch('payouts/expectations');
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
-    }
 
-    /**
-     * payoutsSummary contains payouts state from store.
-     */
-    public get payouts(): PayoutsState {
-        return this.$store.state.payouts;
+        // TODO: notify error
     }
-
-    /**
-     * period selected payout period from store.
-     */
-    public get period(): string {
-        return this.$store.getters['payouts/periodString'];
-    }
-}
+});
 </script>
 
 <style lang="scss" scoped>

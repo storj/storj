@@ -10,30 +10,24 @@
     </v-app>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
 import { VApp } from 'vuetify/lib';
+import { onMounted } from 'vue';
 
 import Notifications from './components/notification/Notifications.vue';
 
-// @vue/component
-@Component({
-    components:{
-        VApp,
-        Notifications,
-    },
-})
-export default class App extends Vue {
+import { useVuetify } from '@/app/utils/composables';
 
-    public mounted(): void {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        if (savedTheme === 'dark' && !this.$vuetify.theme.dark) {
-            this.$vuetify.theme.dark = true;
-        } else if (savedTheme === 'light' && this.$vuetify.theme.dark) {
-            this.$vuetify.theme.dark = false;
-        }
+const vuetify = useVuetify();
+
+onMounted(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark' && !vuetify.theme.dark) {
+        vuetify.theme.dark = true;
+    } else if (savedTheme === 'light' && vuetify.theme.dark) {
+        vuetify.theme.dark = false;
     }
-}
+});
 </script>
 
 <style lang="scss">
