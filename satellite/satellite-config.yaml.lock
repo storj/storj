@@ -169,6 +169,9 @@
 # defines which buckets are monitored for events (comma separated list of "project_id:bucket_name:topic_id")
 # bucket-eventing.buckets: ""
 
+# defines which projects are enabled for bucket eventing (comma separated list of project UUIDs)
+# bucket-eventing.projects: ""
+
 # Treat pieces on the same network as in need of repair
 # checker.do-declumping: true
 
