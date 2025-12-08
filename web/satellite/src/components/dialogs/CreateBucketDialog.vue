@@ -170,7 +170,7 @@
                                                     variant="tonal"
                                                     class="mt-3"
                                                 >
-                                                    Thanks for your interest! We'll notify you when Storj Select becomes available for your account.
+                                                    Thanks for your interest! We'll notify you when {{ configStore.brandName }} Select becomes available for your account.
                                                 </v-alert>
                                             </v-expand-transition>
 

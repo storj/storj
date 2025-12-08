@@ -178,8 +178,9 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/composables/useNotify';
 
 const analyticsStore = useAnalyticsStore();
-const { config } = useConfigStore().state;
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
+
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
@@ -211,14 +212,14 @@ const userMFARecoveryCodes = computed((): string[] => {
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return config.satelliteName;
+    return configStore.state.config.satelliteName;
 });
 
 /**
  * Returns the 2FA QR link.
  */
 const qrLink = computed((): string => {
-    return `otpauth://totp/${encodeURIComponent(usersStore.state.user.email)}?secret=${userMFASecret.value}&issuer=${encodeURIComponent(`STORJ ${satellite.value}`)}&algorithm=SHA1&digits=6&period=30`;
+    return `otpauth://totp/${encodeURIComponent(usersStore.state.user.email)}?secret=${userMFASecret.value}&issuer=${encodeURIComponent(`${configStore.brandName.toUpperCase()} ${satellite.value}`)}&algorithm=SHA1&digits=6&period=30`;
 });
 
 function onValueChange(value: string) {

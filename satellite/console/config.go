@@ -473,8 +473,16 @@ type TenantWhiteLabelConfig struct {
 
 // WhiteLabelConfig contains white-label configuration for a tenant.
 type WhiteLabelConfig struct {
-	TenantID string
-	HostName string `yaml:"host-name,omitempty"`
+	TenantID      string            `yaml:"-"`
+	HostName      string            `yaml:"host-name,omitempty"`
+	Name          string            `yaml:"name,omitempty"`
+	LogoURLs      map[string]string `yaml:"logo-urls,omitempty"`
+	FaviconURLs   map[string]string `yaml:"favicon-urls,omitempty"`
+	Colors        map[string]string `yaml:"colors,omitempty"`
+	SupportURL    string            `yaml:"support-url,omitempty"`
+	DocsURL       string            `yaml:"docs-url,omitempty"`
+	HomepageURL   string            `yaml:"homepage-url,omitempty"`
+	GetInTouchURL string            `yaml:"get-in-touch-url,omitempty"`
 }
 
 var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)

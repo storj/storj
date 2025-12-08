@@ -7,17 +7,17 @@
             <v-img
                 v-if="theme.global.current.value.dark"
                 class="error-area__logo-wrapper__logo"
-                src="@/assets/logo-dark.svg"
+                :src="configStore.darkLogo"
                 width="140"
-                alt="Storj Logo"
+                alt="Logo"
                 @click="goToHomepage"
             />
             <v-img
                 v-else
                 class="error-area__logo-wrapper__logo"
-                src="@/assets/logo.svg"
+                :src="configStore.logo"
                 width="140"
-                alt="Storj Logo"
+                alt="Logo"
                 @click="goToHomepage"
             />
         </div>
@@ -78,7 +78,7 @@ const isFatal = computed((): boolean => {
  * Navigates to the homepage.
  */
 function goToHomepage(): void {
-    window.location.href = configStore.state.config.homepageURL || 'https://www.storj.io';
+    window.location.href = configStore.homepageUrl;
 }
 
 /**

@@ -58,9 +58,11 @@
 
                 <template v-if="accessType === AccessType.S3">
                     <v-alert color="default" variant="tonal" width="auto">
-                        <p class="text-subtitle-2 mb-4">Gives access through S3 compatible applications. <a href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
+                        <p class="text-subtitle-2">Gives access through S3 compatible applications. <a href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
                         <v-autocomplete
+                            v-if="configStore.isDefaultBrand"
                             v-model="selectedApp"
+                            class="mt-4"
                             :items="applications"
                             :item-title="app => app.name"
                             :item-value="app => app"
@@ -96,9 +98,11 @@ import { IDialogFlowStep, RequiredRule, ValidationRule } from '@/types/common';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { Application, applications } from '@/types/applications';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const emit = defineEmits<{
     'nameChanged': [name: string];

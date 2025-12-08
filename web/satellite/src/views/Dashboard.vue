@@ -90,7 +90,7 @@
                     >
                         Click to learn more
                     </v-tooltip>
-                    <CardStatsComponent title="CO₂ Avoided" subtitle="By using Storj" :data="co2Saved" color="success" link />
+                    <CardStatsComponent title="CO₂ Avoided" :subtitle="avoidedSubtitle" :data="co2Saved" color="success" link />
                 </v-col>
             </template>
             <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="4" :lg="statsRowLgColSize">
@@ -387,6 +387,8 @@ const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogOpen = ref<boolean>(false);
 const datePickerModel = ref<Date[]>([]);
+
+const avoidedSubtitle = computed<string>(() => `By using ${configStore.brandName}`);
 
 /**
  * Returns formatted CO2 estimated info.

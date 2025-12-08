@@ -103,6 +103,19 @@ type FrontendConfig struct {
 	NewPricingStartDate               *time.Time                  `json:"newPricingStartDate"`
 	ProductPriceSummaries             []string                    `json:"productPriceSummaries"`
 	CollectBillingInfoOnOnboarding    bool                        `json:"collectBillingInfoOnOnboarding"`
+	ScheduleMeetingURL                string                      `json:"scheduleMeetingURL"`
+}
+
+// BrandingConfig holds branding configuration for the frontend.
+type BrandingConfig struct {
+	Name          string            `json:"name"`
+	LogoURLs      map[string]string `json:"logoUrls"`
+	FaviconURLs   map[string]string `json:"faviconUrls"`
+	Colors        map[string]string `json:"colors"`
+	SupportURL    string            `json:"supportUrl"`
+	DocsURL       string            `json:"docsUrl"`
+	HomepageURL   string            `json:"homepageUrl"`
+	GetInTouchURL string            `json:"getInTouchUrl"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

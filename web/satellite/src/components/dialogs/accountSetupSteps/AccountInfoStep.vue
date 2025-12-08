@@ -5,7 +5,8 @@
     <v-container>
         <v-row justify="center">
             <v-col class="text-center py-4">
-                <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                <v-img v-else :src="configStore.logo" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
                 <p class="text-overline mt-2 mb-1">
                     Welcome
                 </p>
@@ -81,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField } from 'vuetify/components';
+import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField, VImg } from 'vuetify/components';
 import { computed, ref, watch } from 'vue';
 import { ChevronRight } from 'lucide-vue-next';
 

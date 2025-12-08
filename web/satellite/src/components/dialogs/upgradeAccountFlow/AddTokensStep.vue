@@ -12,7 +12,7 @@
                 Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
                 If your account is not automatically upgraded, please fill out this
                 <a
-                    href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                    :href="supportUrl"
                     target="_blank"
                     class="link"
                     rel="noopener noreferrer"
@@ -231,6 +231,8 @@ const emit = defineEmits<{
     success: [];
     close: [];
 }>();
+
+const supportUrl = computed<string>(() => `${configStore.supportUrl}?ticket_form_id=360000683212`);
 
 /**
  * Returns wallet from store.

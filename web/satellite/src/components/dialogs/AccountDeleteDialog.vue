@@ -47,7 +47,7 @@
                             <v-row>
                                 <v-col>
                                     <p class="font-weight-bold mb-4">
-                                        You are about to permanently delete your Storj account, all of your projects and
+                                        You are about to permanently delete your {{ configStore.brandName }} account, all of your projects and
                                         all associated data. This action cannot be undone.
                                     </p>
                                     <p>Account:</p>
@@ -345,12 +345,14 @@ import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { RequiredRule } from '@/types/common';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const router = useRouter();
 
 const deleteResp = ref<AccountDeletionData | null>(null);
 
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const model = defineModel<boolean>({ required: true });
 const { isLoading, withLoading } = useLoading();

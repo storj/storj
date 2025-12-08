@@ -5,7 +5,7 @@
     <v-container class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
-                <v-card v-if="!isMFARequired" title="Welcome back" subtitle="Log in to your Storj account" class="pa-2 pa-sm-6 pb-sm-7">
+                <v-card v-if="!isMFARequired" title="Welcome back" :subtitle="subtitle" class="pa-2 pa-sm-6 pb-sm-7">
                     <v-card-text>
                         <v-alert
                             v-if="captchaError"
@@ -248,6 +248,8 @@ const emailRules: ((_: string) => boolean | string)[] = [
     RequiredRule,
     EmailRule,
 ];
+
+const subtitle = computed<string>(() => `Log in to your ${configStore.brandName} account`);
 
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 

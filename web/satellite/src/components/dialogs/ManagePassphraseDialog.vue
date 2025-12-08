@@ -46,7 +46,7 @@
                         @passphrase-changed="newPass => passphrase = newPass"
                         @submit="onNextClick"
                     >
-                        Please note that Storj does not know or store your encryption passphrase.
+                        Please note that {{ configStore.brandName }} does not know or store your encryption passphrase.
                         If you lose it, you will not be able to recover your files.
                     </enter-passphrase-step>
                 </v-window-item>
@@ -57,7 +57,7 @@
                         :name="projectName"
                         @passphrase-changed="newPass => passphrase = newPass"
                     >
-                        Please note that Storj does not know or store your encryption passphrase.
+                        Please note that {{ configStore.brandName }} does not know or store your encryption passphrase.
                         If you lose it, you will not be able to recover your files.
                     </passphrase-generated-step>
                 </v-window-item>
@@ -147,6 +147,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next';
 import { ManageProjectPassphraseStep, PassphraseOption } from '@/types/managePassphrase';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DialogStepComponent } from '@/types/common';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import ManageOptionsStep from '@/components/dialogs/managePassphraseSteps/ManageOptionsStep.vue';
 import CreateStep from '@/components/dialogs/managePassphraseSteps/CreateStep.vue';
@@ -193,6 +194,7 @@ const emit = defineEmits<{
 }>();
 
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const innerContent = ref<Component | null>(null);
 const step = ref<ManageProjectPassphraseStep>(

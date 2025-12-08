@@ -152,13 +152,13 @@
                     </template>
                 </navigation-item>
 
-                <navigation-item :title="ROUTES.Applications.name" :to="appsURL" @click="closeDrawer">
+                <navigation-item v-if="configStore.isDefaultBrand" :title="ROUTES.Applications.name" :to="appsURL" @click="closeDrawer">
                     <template #prepend>
                         <component :is="AppWindow" :size="18" />
                     </template>
                 </navigation-item>
 
-                <navigation-item v-if="domainsPageEnabled" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
+                <navigation-item v-if="domainsPageEnabled && configStore.isDefaultBrand" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
                     <template #prepend>
                         <component :is="Globe" :size="18" />
                     </template>
@@ -204,7 +204,7 @@
 
             <v-divider class="my-2" />
 
-            <navigation-item v-if="valdiSignUpURL" title="Cloud GPUs" @click="onCloudGPUClicked">
+            <navigation-item v-if="valdiSignUpURL && configStore.isDefaultBrand" title="Cloud GPUs" @click="onCloudGPUClicked">
                 <template #prepend>
                     <component :is="Microchip" :size="18" />
                 </template>
@@ -213,7 +213,7 @@
                 </template>
             </navigation-item>
 
-            <navigation-item v-if="showMountFeature" :title="mountFeatureTitle" :to="mountFeatureURL" @click="closeDrawer">
+            <navigation-item v-if="showMountFeature && configStore.isDefaultBrand" :title="mountFeatureTitle" :to="mountFeatureURL" @click="closeDrawer">
                 <template #prepend>
                     <component :is="HardDrive" :size="18" />
                 </template>
@@ -250,11 +250,12 @@
                             Documentation
                         </v-list-item-title>
                         <v-list-item-subtitle class="mx-4">
-                            <small>Go to the Storj docs.</small>
+                            <small>Go to the {{ configStore.brandName }} docs.</small>
                         </v-list-item-subtitle>
                     </v-list-item>
 
                     <v-list-item
+                        v-if="configStore.isDefaultBrand"
                         class="py-3"
                         href="https://forum.storj.io/"
                         target="_blank"
@@ -274,16 +275,16 @@
 
                     <v-list-item
                         class="py-3"
-                        href="https://supportdcs.storj.io/hc/en-us"
+                        :href="configStore.supportUrl"
                         target="_blank"
                         rel="noopener noreferrer"
-                        @click="() => trackViewSupportEvent('https://supportdcs.storj.io/hc/en-us')"
+                        @click="() => trackViewSupportEvent(configStore.supportUrl)"
                     >
                         <template #prepend>
                             <component :is="MessageCircleQuestion" :size="18" />
                         </template>
                         <v-list-item-title class="mx-4">
-                            Storj Support
+                            {{ configStore.brandName }} Support
                         </v-list-item-title>
                         <v-list-item-subtitle class="mx-4">
                             <small>Need help? Get support.</small>

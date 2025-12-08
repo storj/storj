@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { HttpClient } from '@/utils/httpClient';
-import { FrontendConfig, FrontendConfigApi } from '@/types/config';
+import { BrandingConfig, FrontendConfig, FrontendConfigApi } from '@/types/config';
 import { APIError } from '@/utils/error';
 
 /**
@@ -27,6 +27,35 @@ export class FrontendConfigHttpApi implements FrontendConfigApi {
             });
         }
         return await response.json() as FrontendConfig;
+    }
+
+    /**
+     * Returns branding config based on the tenant.
+     *
+     * @throws Error
+     */
+    public async getBranding(): Promise<BrandingConfig> {
+        const response = await this.http.get(`${this.ROOT_PATH}/branding`);
+        const result = await response.json();
+
+        if (response.ok) {
+            return new BrandingConfig(
+                result.name,
+                result.logoUrls ? new Map(Object.entries(result.logoUrls)) : new Map(),
+                result.faviconUrls ? new Map(Object.entries(result.faviconUrls)) : new Map(),
+                result.colors ? new Map(Object.entries(result.colors)) : new Map(),
+                result.supportUrl,
+                result.docsUrl,
+                result.homepageUrl,
+                result.getInTouchUrl,
+            );
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Cannot get branding config',
+            requestID: response.headers.get('x-request-id'),
+        });
     }
 
     /**

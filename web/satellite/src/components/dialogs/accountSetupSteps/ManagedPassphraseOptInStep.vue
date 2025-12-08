@@ -18,7 +18,7 @@
                 <v-card variant="outlined" rounded="xlg" class="h-100">
                     <div class="d-flex flex-column justify-space-between pa-6">
                         <h3 class="font-weight-black">Automatic <v-chip size="x-small" variant="outlined" color="secondary" class="ml-1 mb-1 font-weight-bold">Standard</v-chip></h3>
-                        <p>Storj securely manages the encryption and decryption of your project automatically.</p>
+                        <p>{{ configStore.brandName }} securely manages the encryption and decryption of your project automatically.</p>
                         <p>
                             <v-chip rounded="md" class="text-caption mt-2 mb-3 font-weight-medium" color="secondary" variant="tonal" size="small">
                                 Recommended for ease of use and teams
@@ -129,10 +129,12 @@ import {
     SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
 } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 defineProps<{
     loading: boolean,
