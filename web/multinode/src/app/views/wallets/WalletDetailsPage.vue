@@ -44,35 +44,27 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onBeforeMount } from 'vue';
 
 import { Config as RouterConfig } from '@/app/router';
+import { useRoute, useRouter } from '@/app/utils/composables';
 
 import VLink from '@/app/components/common/VLink.vue';
 import WalletDetailsTable from '@/app/components/wallets/tables/walletDetails/WalletDetailsTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        WalletDetailsTable,
-        VLink,
-    },
-})
-export default class WalletDetailsPage extends Vue {
-    /**
-     * Checks id address parameters and redirects if no provided.
-     */
-    public beforeMount(): void {
-        if (!this.$route.params.address) {
-            this.redirectToWalletsSummary();
-        }
-    }
+const route = useRoute();
+const router = useRouter();
 
-    public redirectToWalletsSummary(): void {
-        this.$router.push(RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path);
-    }
+function redirectToWalletsSummary(): void {
+    router.push(RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path);
 }
+
+onBeforeMount(() => {
+    if (!route.params.address) {
+        redirectToWalletsSummary();
+    }
+});
 </script>
 
 <style lang="scss" scoped>

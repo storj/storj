@@ -83,12 +83,13 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayouts } from '@/payouts';
+import { useRoute, useRouter, useStore } from '@/app/utils/composables';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
@@ -96,120 +97,87 @@ import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCal
 import HeldHistory from '@/app/components/payouts/tables/heldHistory/HeldHistory.vue';
 import PayoutsByNodeTable from '@/app/components/payouts/tables/payoutsByNode/PayoutsByNodeTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        HeldHistory,
-        PayoutsByNodeTable,
-        InfoBlock,
-        PayoutPeriodCalendarButton,
-        SatelliteSelectionDropdown,
-    },
-})
-export default class PayoutsPage extends Vue {
-    /**
-     * Checks id path parameters and redirects if no provided.
-     */
-    public beforeMount(): void {
-        if (!this.$route.params.id) {
-            this.redirectToPayoutSummary();
-        }
-    }
+const route = useRoute();
+const router = useRouter();
+const store = useStore();
 
-    /**
-     * Node id path parameter.
-     */
-    public get nodeId(): string {
-        return this.$route.params.id;
-    }
+const nodeId = computed<string>(() => route.params.id);
 
-    /**
-     * payoutsSummary contains payouts summary from store.
-     */
-    public get nodeTitle(): string {
-        const selectedNodeSummary = this.$store.state.payouts.summary.nodeSummary.find(summary => summary.nodeId === this.$route.params.id);
+const nodeTitle = computed<string>(() => {
+    const selectedNodeSummary = store.state.payouts.summary.nodeSummary.find(summary => summary.nodeId === nodeId.value);
+    if (!selectedNodeSummary) return nodeId.value;
 
-        if (!selectedNodeSummary) { return this.nodeId; }
+    return selectedNodeSummary.title;
+});
 
-        return selectedNodeSummary.title;
-    }
+const period = computed<string>(() => store.getters['payouts/periodString']);
 
-    /**
-     * Period selected payout period from store.
-     */
-    public get period(): string {
-        return this.$store.getters['payouts/periodString'];
-    }
+const selectedNodePayouts = computed<NodePayouts>(() => store.state.payouts.selectedNodePayouts);
 
-    /**
-     * Payout information for selected node.
-     */
-    public get selectedNodePayouts(): NodePayouts {
-        return this.$store.state.payouts.selectedNodePayouts;
-    }
+function redirectToPayoutSummary(): void {
+    router.push(RouterConfig.PayoutsSummary);
+}
 
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch('payouts/nodeTotals', this.$route.params.id);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
+async function fetchNodePayouts(): Promise<void> {
+    try {
+        await store.dispatch('payouts/heldHistory', nodeId.value);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
 
-        await this.fetchNodePayouts();
-
-        // Subscribes on period or satellite change
-        this.$store.subscribe(async(mutation) => {
-            const watchedMutations = ['payouts/setPayoutPeriod', 'nodes/setSelectedSatellite'];
-
-            if (watchedMutations.includes(mutation.type)) {
-                await this.fetchNodePayouts();
-            }
-        });
+        // TODO: notify error
     }
 
-    public redirectToPayoutSummary(): void {
-        this.$router.push(RouterConfig.PayoutsSummary);
+    try {
+        await store.dispatch('payouts/paystub', nodeId.value);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
+        }
+
+        // TODO: notify error
     }
 
-    /**
-     * Fetches node payouts information.
-     */
-    private async fetchNodePayouts(): Promise<void> {
-        try {
-            await this.$store.dispatch('payouts/heldHistory', this.nodeId);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
+    try {
+        await store.dispatch('payouts/expectations', nodeId.value);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
 
-        try {
-            await this.$store.dispatch('payouts/paystub', this.nodeId);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
-
-        try {
-            await this.$store.dispatch('payouts/expectations', this.nodeId);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
+        // TODO: notify error
     }
 }
+
+onBeforeMount(() => {
+    if (!route.params.id) {
+        redirectToPayoutSummary();
+    }
+});
+
+onMounted(async () => {
+    try {
+        await store.dispatch('payouts/nodeTotals', route.params.id);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
+        }
+
+        // TODO: notify error
+    }
+
+    await fetchNodePayouts();
+
+    // Subscribes on period or satellite change
+    store.subscribe(async(mutation) => {
+        const watchedMutations = ['payouts/setPayoutPeriod', 'nodes/setSelectedSatellite'];
+
+        if (watchedMutations.includes(mutation.type)) {
+            await fetchNodePayouts();
+        }
+    });
+});
 </script>
 
 <style lang="scss" scoped>
