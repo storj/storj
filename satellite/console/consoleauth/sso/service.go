@@ -74,7 +74,9 @@ func (s *Service) Run(ctx context.Context) (err error) {
 // Initialize initializes the OIDC providers.
 func (s *Service) Initialize(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
+	if !s.config.Enabled {
+		return nil
+	}
 	verifierMap := make(map[string]OidcSetup)
 	for providerName, info := range s.config.OidcProviderInfos.Values {
 		callbackAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName, "callback")
