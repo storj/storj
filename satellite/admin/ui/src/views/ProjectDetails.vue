@@ -186,59 +186,17 @@
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent
-                    title="Rate" :only-limit="true"
-                    :limit="project.rateLimit"
+                <RateAndBurstLimitsComponent
+                    is-rate
+                    :project
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
 
             <v-col cols="12" sm="6" lg="4">
-                <UsageProgressComponent
-                    title="Burst" :only-limit="true"
-                    :limit="project.burstLimit"
-                    @update-limits="onUpdateLimitsClicked"
-                />
-            </v-col>
-        </v-row>
-        <v-row>
-            <v-col>
-                <UsageProgressComponent
-                    title="Head limits"
-                    :rate-and-burst="{ rate: project.rateLimitHead, burst: project.burstLimitHead }"
-                    :limit="0"
-                    @update-limits="onUpdateLimitsClicked"
-                />
-            </v-col>
-            <v-col>
-                <UsageProgressComponent
-                    title="Get limits"
-                    :rate-and-burst="{ rate: project.rateLimitGet, burst: project.burstLimitGet }"
-                    :limit="0"
-                    @update-limits="onUpdateLimitsClicked"
-                />
-            </v-col>
-            <v-col>
-                <UsageProgressComponent
-                    title="List limits"
-                    :rate-and-burst="{ rate: project.rateLimitList, burst: project.burstLimitList }"
-                    :limit="0"
-                    @update-limits="onUpdateLimitsClicked"
-                />
-            </v-col>
-            <v-col>
-                <UsageProgressComponent
-                    title="Put limits"
-                    :rate-and-burst="{ rate: project.rateLimitPut, burst: project.burstLimitPut }"
-                    :limit="0"
-                    @update-limits="onUpdateLimitsClicked"
-                />
-            </v-col>
-            <v-col>
-                <UsageProgressComponent
-                    title="Delete limits"
-                    :rate-and-burst="{ rate: project.rateLimitDelete, burst: project.burstLimitDelete }"
-                    :limit="0"
+                <RateAndBurstLimitsComponent
+                    :is-rate="false"
+                    :project
                     @update-limits="onUpdateLimitsClicked"
                 />
             </v-col>
@@ -313,6 +271,7 @@ import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';
 import EntitlementsDialog from '@/components/EntitlementsDialog.vue';
 import ProjectDeleteDialog from '@/components/ProjectDeleteDialog.vue';
 import ProjectHistoryTableComponent from '@/components/ProjectHistoryTableComponent.vue';
+import RateAndBurstLimitsComponent from '@/components/RateAndBurstLimitsComponent.vue';
 
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();

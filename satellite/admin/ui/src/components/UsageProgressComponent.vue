@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card v-if="!rateAndBurst" :title="title" variant="flat" rounded="xlg">
+    <v-card :title="title" variant="flat" rounded="xlg">
         <template v-if="featureFlags.project.updateLimits" #append>
             <v-btn
                 size="small"
@@ -49,36 +49,11 @@
             </div>
         </v-card-text>
     </v-card>
-    <v-card v-else :title="title" variant="flat" rounded="xlg">
-        <template v-if="featureFlags.project.updateLimits" #append>
-            <v-btn
-                size="small"
-                density="comfortable"
-                variant="outlined"
-                color="default"
-                :icon="PenBox"
-                @click="emit('updateLimits')"
-            />
-        </template>
-        <v-card-text>
-            <div class="d-flex justify-space-between align-center">
-                <div>
-                    <p class="text-medium-emphasis">Rate</p>
-                    <p class="text-medium-emphasis">Burst</p>
-                </div>
-                <div>
-                    <p>{{ rateAndBurst.rate || '__' }}</p>
-                    <p>{{ rateAndBurst.burst || '__' }}</p>
-                </div>
-            </div>
-        </v-card-text>
-    </v-card>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { VBtn, VCard, VCardText, VCol, VDivider, VProgressLinear, VRow } from 'vuetify/components';
-import { PenBox } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -93,7 +68,6 @@ const props = defineProps<{
     used?: number;
     limit: number | null;
     userSpecified?: number | null;
-    rateAndBurst?: { rate: number | null; burst: number | null };
 }>();
 
 const emit = defineEmits<{
