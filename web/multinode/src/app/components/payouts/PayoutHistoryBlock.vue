@@ -10,20 +10,9 @@
     </info-block>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import VButton from '@/app/components/common/VButton.vue';
-
-// @vue/component
-@Component({
-    components: {
-        InfoBlock,
-        VButton,
-    },
-})
-export default class PayoutHistoryBlock extends Vue {}
 </script>
 
 <style scoped lang="scss">

@@ -17,31 +17,23 @@
                     <p class="table-item__name">{{ heldHistoryItem.satelliteAddress }}</p>
                     <p class="table-item__months">{{ heldHistoryItem.monthsCount }}</p>
                 </th>
-                <th>{{ heldHistoryItem.firstQuarter | centsToDollars }}</th>
-                <th>{{ heldHistoryItem.secondQuarter | centsToDollars }}</th>
-                <th>{{ heldHistoryItem.thirdQuarter | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(heldHistoryItem.firstQuarter) }}</th>
+                <th>{{ Currency.dollarsFromCents(heldHistoryItem.secondQuarter) }}</th>
+                <th>{{ Currency.dollarsFromCents(heldHistoryItem.thirdQuarter) }}</th>
             </tr>
         </tbody>
     </base-table>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { HeldAmountSummary } from '@/payouts';
+import { Currency } from '@/app/utils/currency';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        BaseTable,
-    },
-})
-export default class HeldHistory extends Vue {
-    @Prop({ default: () => [] })
-    public heldHistory: HeldAmountSummary[];
-}
+defineProps<{
+    heldHistory: HeldAmountSummary[];
+}>();
 </script>
 
 <style lang="scss" scoped>

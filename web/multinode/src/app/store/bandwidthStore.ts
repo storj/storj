@@ -7,13 +7,12 @@ import { reactive } from 'vue';
 import { BandwidthTraffic } from '@/bandwidth';
 import { Bandwidth } from '@/bandwidth/service';
 import { BandwidthClient } from '@/api/bandwidth';
-import { useNodesStore } from '@/app/store/pinia/nodesStore';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 class BandwidthState {
     public traffic: BandwidthTraffic = new BandwidthTraffic();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useBandwidthStore = defineStore('bandwidth', () => {
     const state = reactive<BandwidthState>(new BandwidthState());
 

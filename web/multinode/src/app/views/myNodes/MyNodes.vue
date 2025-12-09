@@ -9,34 +9,28 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        SatelliteSelectionDropdown,
-        NodesTable,
-    },
-})
-export default class MyNodes extends Vue {
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch('nodes/fetch');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
+const nodesStore = useNodesStore();
 
-            // TODO: notify error
+onMounted(async () => {
+    try {
+        await nodesStore.fetch();
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
+
+        // TODO: notify error
     }
-}
+});
 </script>
 
 <style lang="scss" scoped>

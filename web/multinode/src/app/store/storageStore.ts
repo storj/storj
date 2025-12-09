@@ -7,14 +7,13 @@ import { reactive } from 'vue';
 import { DiskSpace, DiskSpaceUsage } from '@/storage';
 import { StorageService } from '@/storage/service';
 import { StorageClient } from '@/api/storage';
-import { useNodesStore } from '@/app/store/pinia/nodesStore';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 class StorageState {
     public usage: DiskSpaceUsage = new DiskSpaceUsage();
     public diskSpace: DiskSpace = new DiskSpace();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useStorageStore = defineStore('storage', () => {
     const state = reactive(new StorageState());
 

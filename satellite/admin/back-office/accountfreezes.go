@@ -15,6 +15,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/console"
 )
 
@@ -134,11 +135,11 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.log.Error("failed to get account freeze state after change", zap.String("userID", userID.String()), zap.Error(err))
 	} else {
-		s.auditLogger.LogChangeEvent(userID, auditlogger.Event{
+		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+			UserID:     userID,
 			Action:     "toggle_freeze_user",
 			AdminEmail: authInfo.Email,
-			ItemType:   auditlogger.ItemTypeUser,
-			ItemID:     userID,
+			ItemType:   changehistory.ItemTypeUser,
 			Reason:     request.Reason,
 			Before:     beforeState,
 			After:      afterState,
@@ -212,11 +213,11 @@ func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID u
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.log.Error("failed to get account freeze state after change", zap.String("userID", userID.String()), zap.Error(err))
 	} else {
-		s.auditLogger.LogChangeEvent(userID, auditlogger.Event{
+		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+			UserID:     userID,
 			Action:     "unfreeze_user",
 			AdminEmail: authInfo.Email,
-			ItemType:   auditlogger.ItemTypeUser,
-			ItemID:     userID,
+			ItemType:   changehistory.ItemTypeUser,
 			Reason:     reason,
 			Before:     freezes,
 			After:      afterState,

@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
 	backoffice "storj.io/storj/satellite/admin/back-office"
+	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -316,6 +317,15 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		logger := auditlogger.New(log.Named("audit-logger"), peer.Analytics.Service, peer.DB.AdminChangeHistory(), config.Admin.BackOffice.AuditLogger)
+		if config.Admin.BackOffice.AuditLogger.Enabled {
+			peer.Services.Add(lifecycle.Item{
+				Name:  "admin-audit-logger",
+				Run:   logger.Run,
+				Close: logger.Close,
+			})
+		}
+
 		peer.Admin.Service = backoffice.NewService(
 			log.Named("back-office:service"),
 			peer.DB.Console(),
@@ -327,13 +337,13 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.Buckets.Service,
 			peer.Entitlements.Service,
 			metabaseDB,
+			logger,
 			peer.Payments.Accounts,
 			peer.REST.Keys,
 			placement,
 			productPrices,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,
-			config.Admin.BackOffice.AuditLogger,
 			adminConfig.BackOffice,
 			config.Console.Config,
 			time.Now,

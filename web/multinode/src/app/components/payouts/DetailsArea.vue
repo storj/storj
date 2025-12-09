@@ -11,40 +11,37 @@
             <div class="details-area__content">
                 <div class="details-area__content__item">
                     <p class="details-area__content__item__label">EARNED</p>
-                    <p class="details-area__content__item__value">{{ totalEarned | centsToDollars }}</p>
+                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalEarned) }}</p>
                 </div>
                 <div class="details-area__content__item">
                     <p class="details-area__content__item__label">HELD</p>
-                    <p class="details-area__content__item__value">{{ totalHeld | centsToDollars }}</p>
+                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalHeld) }}</p>
                 </div>
                 <div class="details-area__content__item">
                     <p class="details-area__content__item__label">PAID</p>
-                    <p class="details-area__content__item__value">{{ totalPaid | centsToDollars }}</p>
+                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalPaid) }}</p>
                 </div>
             </div>
         </div>
     </info-block>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { Currency } from '@/app/utils/currency';
 
-import InfoBlock from '../common/InfoBlock.vue';
+import InfoBlock from '@/app/components/common/InfoBlock.vue';
 
-// @vue/component
-@Component({
-    components: { InfoBlock },
-})
-export default class DetailsArea extends Vue {
-    @Prop({ default: 0 })
-    public totalEarned: number;
-    @Prop({ default: 0 })
-    public totalHeld: number;
-    @Prop({ default: 0 })
-    public totalPaid: number;
-    @Prop({ default: '' })
-    public period: string;
-}
+withDefaults(defineProps<{
+    totalEarned: number;
+    totalHeld: number;
+    totalPaid: number;
+    period: string;
+}>(), {
+    totalEarned: 0,
+    totalHeld: 0,
+    totalPaid: 0,
+    period: '',
+});
 </script>
 
 <style scoped lang="scss">

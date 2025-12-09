@@ -15,60 +15,53 @@
             <tr class="table-item">
                 <th class="align-left">Download</th>
                 <th>--</th>
-                <th>{{ paystub.usageGet | bytesToBase10String }}</th>
-                <th>{{ paystub.compGet | centsToDollars }}</th>
+                <th>{{ Size.toBase10String(paystub.usageGet) }}</th>
+                <th>{{ Currency.dollarsFromCents(paystub.compGet) }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Download Repair</th>
                 <th>--</th>
-                <th>{{ paystub.repairAndAuditUsage | bytesToBase10String }}</th>
-                <th>{{ paystub.repairAndAuditComp | centsToDollars }}</th>
+                <th>{{ Size.toBase10String(paystub.repairAndAuditUsage) }}</th>
+                <th>{{ Currency.dollarsFromCents(paystub.repairAndAuditComp) }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Disk Space</th>
-                <th>{{ paystub.usageAtRest | bytesToBase10String }}m</th>
+                <th>{{ Size.toBase10String(paystub.usageAtRest) }}m</th>
                 <th>--</th>
-                <th>{{ paystub.compAtRest | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(paystub.compAtRest) }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Gross Total</th>
                 <th /><th />
-                <th>{{ paystub.gross | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(paystub.gross) }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Held amount</th>
                 <th /><th />
-                <th>{{ paystub.held | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(paystub.held) }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">NET TOTAL</th>
                 <th /><th />
-                <th>{{ paystub.paid | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(paystub.paid) }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Distributed</th>
                 <th /><th />
-                <th>{{ paystub.distributed | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(paystub.distributed) }}</th>
             </tr>
         </tbody>
     </base-table>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { Paystub } from '@/payouts';
+import { Currency } from '@/app/utils/currency';
+import { Size } from '@/private/memory/size';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        BaseTable,
-    },
-})
-export default class PayoutsByNodeTable extends Vue {
-    @Prop({ default: () => new Paystub() })
-    public paystub: Paystub;
-}
+defineProps<{
+    paystub: Paystub;
+}>();
 </script>

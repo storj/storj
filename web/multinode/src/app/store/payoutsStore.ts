@@ -7,7 +7,7 @@ import { computed, reactive } from 'vue';
 import { Expectation, NodePayouts, PayoutsSummary } from '@/payouts';
 import { Payouts } from '@/payouts/service';
 import { PayoutsClient } from '@/api/payouts';
-import { useNodesStore } from '@/app/store/pinia/nodesStore';
+import { useNodesStore } from '@/app/store/nodesStore';
 import { monthNames } from '@/app/types/date';
 
 class PayoutsState {
@@ -18,7 +18,6 @@ class PayoutsState {
     public totalExpectations: Expectation = new Expectation();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const usePayoutsStore = defineStore('payouts', () => {
     const state = reactive(new PayoutsState());
 
@@ -41,7 +40,7 @@ export const usePayoutsStore = defineStore('payouts', () => {
         state.summary = await service.summary(selectedSatelliteId, state.selectedPayoutPeriod);
     }
 
-    async function expectations(nodeID: string | null): Promise<void> {
+    async function expectations(nodeID?: string): Promise<void> {
         const expectations = await service.expectations(nodeID);
 
         if (nodeID) {
@@ -70,6 +69,10 @@ export const usePayoutsStore = defineStore('payouts', () => {
         state.selectedNodePayouts = { ...state.selectedNodePayouts, heldHistory };
     }
 
+    function setPayoutPeriod(period: string | null): void {
+        state.selectedPayoutPeriod = period;
+    }
+
     return {
         state,
         periodString,
@@ -78,5 +81,6 @@ export const usePayoutsStore = defineStore('payouts', () => {
         paystub,
         nodeTotals,
         heldHistory,
+        setPayoutPeriod,
     };
 });

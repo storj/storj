@@ -18,36 +18,29 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted } from 'vue';
 
 import ThemeSelector from '../components/common/ThemeSelector.vue';
 
 import { UnauthorizedError } from '@/api';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import AddNewNode from '@/app/components/modals/AddNewNode.vue';
 import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
 
-// @vue/component
-@Component({
-    components: {
-        AddNewNode,
-        ThemeSelector,
-        NavigationArea,
-    },
-})
-export default class Dashboard extends Vue {
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch('nodes/trustedSatellites');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-            // TODO: notify error
+const nodesStore = useNodesStore();
+
+onMounted(async () => {
+    try {
+        await nodesStore.trustedSatellites();
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
+        // TODO: notify error
     }
-}
+});
 </script>
 
 <style lang="scss" scoped>

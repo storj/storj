@@ -24,12 +24,12 @@
                 <div slot="body" class="payouts-by-node__top-area__balance">
                     <div class="payouts-by-node__top-area__balance__item">
                         <h3 class="payouts-by-node__top-area__balance__item__label">Undistributed Balance</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ selectedNodePayouts.expectations.undistributed | centsToDollars }}</h2>
+                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.undistributed) }}</h2>
                     </div>
                     <div class="payouts-by-node__top-area__balance__divider" />
                     <div class="payouts-by-node__top-area__balance__item">
                         <h3 class="payouts-by-node__top-area__balance__item__label">Estimated Earnings (Apr)</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ selectedNodePayouts.expectations.currentMonthEstimation | centsToDollars }}</h2>
+                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.currentMonthEstimation) }}</h2>
                     </div>
                 </div>
             </info-block>
@@ -37,7 +37,7 @@
         <div class="payouts-by-node__content-area">
             <div class="payouts-by-node__content-area__dropdowns">
                 <satellite-selection-dropdown />
-                <payout-period-calendar-button :period="period" />
+                <payout-period-calendar-button :period="payoutsStore.periodString" />
             </div>
             <section class="payouts-by-node__content-area__main-info">
                 <payouts-by-node-table class="payouts-by-node__content-area__main-info__table" :paystub="selectedNodePayouts.paystubForPeriod" />
@@ -45,19 +45,19 @@
                     <info-block>
                         <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL PAID</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalPaid | centsToDollars }}</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalPaid) }}</p>
                         </div>
                     </info-block>
                     <info-block>
                         <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL HELD</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalHeld | centsToDollars }}</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalHeld) }}</p>
                         </div>
                     </info-block>
                     <info-block>
                         <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL EARNED</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalEarned | centsToDollars }}</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalEarned) }}</p>
                         </div>
                     </info-block>
                     <info-block class="information">
@@ -83,12 +83,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayouts } from '@/payouts';
+import { useRoute, useRouter } from '@/app/utils/composables';
+import { Currency } from '@/app/utils/currency';
+import { usePayoutsStore } from '@/app/store/payoutsStore';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
@@ -96,120 +100,77 @@ import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCal
 import HeldHistory from '@/app/components/payouts/tables/heldHistory/HeldHistory.vue';
 import PayoutsByNodeTable from '@/app/components/payouts/tables/payoutsByNode/PayoutsByNodeTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        HeldHistory,
-        PayoutsByNodeTable,
-        InfoBlock,
-        PayoutPeriodCalendarButton,
-        SatelliteSelectionDropdown,
-    },
-})
-export default class PayoutsPage extends Vue {
-    /**
-     * Checks id path parameters and redirects if no provided.
-     */
-    public beforeMount(): void {
-        if (!this.$route.params.id) {
-            this.redirectToPayoutSummary();
-        }
-    }
+const route = useRoute();
+const router = useRouter();
 
-    /**
-     * Node id path parameter.
-     */
-    public get nodeId(): string {
-        return this.$route.params.id;
-    }
+const payoutsStore = usePayoutsStore();
+const nodesStore = useNodesStore();
 
-    /**
-     * payoutsSummary contains payouts summary from store.
-     */
-    public get nodeTitle(): string {
-        const selectedNodeSummary = this.$store.state.payouts.summary.nodeSummary.find(summary => summary.nodeId === this.$route.params.id);
+const nodeId = computed<string>(() => route.params.id);
 
-        if (!selectedNodeSummary) { return this.nodeId; }
+const nodeTitle = computed<string>(() => {
+    const selectedNodeSummary = payoutsStore.state.summary.nodeSummary.find(summary => summary.nodeId === nodeId.value);
+    if (!selectedNodeSummary) return nodeId.value;
 
-        return selectedNodeSummary.title;
-    }
+    return selectedNodeSummary.title;
+});
 
-    /**
-     * Period selected payout period from store.
-     */
-    public get period(): string {
-        return this.$store.getters['payouts/periodString'];
-    }
+const selectedNodePayouts = computed<NodePayouts>(() => payoutsStore.state.selectedNodePayouts as NodePayouts);
 
-    /**
-     * Payout information for selected node.
-     */
-    public get selectedNodePayouts(): NodePayouts {
-        return this.$store.state.payouts.selectedNodePayouts;
-    }
+function redirectToPayoutSummary(): void {
+    router.push(RouterConfig.PayoutsSummary);
+}
 
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch('payouts/nodeTotals', this.$route.params.id);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
+async function fetchNodePayouts(): Promise<void> {
+    try {
+        await Promise.all([
+            payoutsStore.heldHistory(nodeId.value),
+            payoutsStore.paystub(nodeId.value),
+            payoutsStore.expectations(nodeId.value),
+        ]);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
 
-        await this.fetchNodePayouts();
-
-        // Subscribes on period or satellite change
-        this.$store.subscribe(async(mutation) => {
-            const watchedMutations = ['payouts/setPayoutPeriod', 'nodes/setSelectedSatellite'];
-
-            if (watchedMutations.includes(mutation.type)) {
-                await this.fetchNodePayouts();
-            }
-        });
-    }
-
-    public redirectToPayoutSummary(): void {
-        this.$router.push(RouterConfig.PayoutsSummary);
-    }
-
-    /**
-     * Fetches node payouts information.
-     */
-    private async fetchNodePayouts(): Promise<void> {
-        try {
-            await this.$store.dispatch('payouts/heldHistory', this.nodeId);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
-
-        try {
-            await this.$store.dispatch('payouts/paystub', this.nodeId);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
-
-        try {
-            await this.$store.dispatch('payouts/expectations', this.nodeId);
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
+        // TODO: notify error
     }
 }
+
+onBeforeMount(() => {
+    if (!route.params.id) {
+        redirectToPayoutSummary();
+    }
+});
+
+onMounted(async () => {
+    try {
+        await payoutsStore.nodeTotals(route.params.id);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
+        }
+
+        // TODO: notify error
+    }
+
+    await fetchNodePayouts();
+
+    payoutsStore.$onAction(({ name, after }) => {
+        if (name === 'setPayoutPeriod') {
+            after(async () => {
+                await fetchNodePayouts();
+            });
+        }
+    });
+    nodesStore.$onAction(({ name, after }) => {
+        if (name === 'selectSatellite') {
+            after(async () => {
+                await fetchNodePayouts();
+            });
+        }
+    });
+});
 </script>
 
 <style lang="scss" scoped>

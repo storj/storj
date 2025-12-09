@@ -73,7 +73,7 @@ export class PayoutsClient extends APIClient {
      * @throws {@link InternalError}
      * Thrown if something goes wrong on server side.
      */
-    public async expectations(nodeId: string | null): Promise<Expectation> {
+    public async expectations(nodeId?: string): Promise<Expectation> {
         let path = `${this.ROOT_PATH}/expectations`;
 
         if (nodeId) {

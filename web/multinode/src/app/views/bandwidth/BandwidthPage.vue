@@ -41,13 +41,13 @@
                     </button>
                 </div>
             </div>
-            <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ bandwidth.egressSummary | bytesToBase10String }}</b></p>
-            <p v-else-if="isIngressChartShown" class="chart-container__amount"><b>{{ bandwidth.ingressSummary | bytesToBase10String }}</b></p>
-            <p v-else class="chart-container__amount"><b>{{ bandwidth.bandwidthSummary | bytesToBase10String }}</b></p>
-            <div ref="chart" class="chart-container__chart" onresize="recalculateChartDimensions()">
-                <egress-chart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" />
-                <ingress-chart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" />
-                <bandwidth-chart v-else :height="chartHeight" :width="chartWidth" />
+            <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ Size.toBase10String(bandwidth.egressSummary) }}</b></p>
+            <p v-else-if="isIngressChartShown" class="chart-container__amount"><b>{{ Size.toBase10String(bandwidth.ingressSummary) }}</b></p>
+            <p v-else class="chart-container__amount"><b>{{ Size.toBase10String(bandwidth.bandwidthSummary) }}</b></p>
+            <div ref="chart" class="chart-container__chart">
+                <egress-chart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                <ingress-chart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
+                <bandwidth-chart v-else :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
             </div>
         </div>
         <section class="bandwidth__chart-area">
@@ -55,9 +55,9 @@
                 <div class="chart-container__title-area disk-space-title">
                     <p class="chart-container__title-area__title">Average Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}</b></p>
-                <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
-                    <disk-space-chart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" />
+                <p class="chart-container__amount disk-space-amount"><b>{{ Size.toBase10String(diskSpaceUsageSummary) }}</b></p>
+                <div ref="diskSpaceChart" class="chart-container__chart">
+                    <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
                 </div>
             </section>
             <section class="disk-stat-chart">
@@ -67,11 +67,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
+import { useVuetify } from '@/app/utils/composables';
+import { Size } from '@/private/memory/size';
+import { useStorageStore } from '@/app/store/storageStore';
+import { useBandwidthStore } from '@/app/store/bandwidthStore';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
 import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
@@ -81,146 +86,97 @@ import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelecti
 import DiskSpaceChart from '@/app/components/storage/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/storage/DiskStatChart.vue';
 
-// @vue/component
-@Component({
-    components: {
-        DiskStatChart,
-        DiskSpaceChart,
-        EgressChart,
-        IngressChart,
-        BandwidthChart,
-        NodeSelectionDropdown,
-        SatelliteSelectionDropdown,
-    },
-})
-export default class BandwidthPage extends Vue {
-    public chartWidth = 0;
-    public chartHeight = 0;
-    public diskSpaceChartWidth = 0;
-    public diskSpaceChartHeight = 0;
-    public isEgressChartShown = false;
-    public isIngressChartShown = false;
-    public $refs: {
-        chart: HTMLElement;
-        diskSpaceChart: HTMLElement;
-    };
+const vuetify = useVuetify();
 
-    public get bandwidth(): BandwidthTraffic {
-        return this.$store.state.bandwidth.traffic;
+const storageStore = useStorageStore();
+const bandwidthStore = useBandwidthStore();
+const nodesStore = useNodesStore();
+
+const chartWidth = ref(0);
+const chartHeight = ref(0);
+const diskSpaceChartWidth = ref(0);
+const diskSpaceChartHeight = ref(0);
+const isEgressChartShown = ref(false);
+const isIngressChartShown = ref(false);
+
+const chart = ref<HTMLElement>();
+const diskSpaceChart = ref<HTMLElement>();
+
+const bandwidth = computed<BandwidthTraffic>(() => bandwidthStore.state.traffic);
+const diskSpaceUsageSummary = computed<number>(() => storageStore.state.usage.diskSpaceSummaryBytes);
+const isDarkMode = computed<boolean>(() => vuetify.theme.dark);
+
+function recalculateChartDimensions(): void {
+    if (chart.value) {
+        chartWidth.value = chart.value.clientWidth;
+        chartHeight.value = chart.value.clientHeight;
     }
-
-    public get diskSpaceUsageSummary(): number {
-        return this.$store.state.storage.usage.diskSpaceSummaryBytes;
-    }
-
-    /**
-     * Used container size recalculation for charts resizing.
-     */
-    public recalculateChartDimensions(): void {
-        this.chartWidth = this.$refs.chart.clientWidth;
-        this.chartHeight = this.$refs.chart.clientHeight;
-        this.diskSpaceChartWidth = this.$refs.diskSpaceChart.clientWidth;
-        this.diskSpaceChartHeight = this.$refs.diskSpaceChart.clientHeight;
-    }
-
-    /**
-     * Lifecycle hook after initial render.
-     * Adds event on window resizing to recalculate size of charts.
-     */
-    public async mounted(): Promise<void> {
-        window.addEventListener('resize', this.recalculateChartDimensions);
-
-        try {
-            await this.$store.dispatch('nodes/fetchOnline');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
-
-        await this.fetchTraffic();
-
-        // Subscribes on period or satellite change
-        this.$store.subscribe(async(mutation) => {
-            const watchedMutations = ['nodes/setSelectedNode', 'nodes/setSelectedSatellite'];
-
-            if (watchedMutations.includes(mutation.type)) {
-                await this.fetchTraffic();
-            }
-        });
-
-        this.recalculateChartDimensions();
-    }
-
-    /**
-     * Lifecycle hook before component destruction.
-     * Removes event on window resizing.
-     */
-    public beforeDestroy(): void {
-        window.removeEventListener('resize', this.recalculateChartDimensions);
-    }
-
-    /**
-     * Changes bandwidth chart source to summary of ingress and egress.
-     */
-    public openBandwidthChart(): void {
-        this.isEgressChartShown = false;
-        this.isIngressChartShown = false;
-    }
-
-    /**
-     * Changes bandwidth chart source to ingress.
-     */
-    public openIngressChart(): void {
-        this.isEgressChartShown = false;
-        this.isIngressChartShown = true;
-    }
-
-    /**
-     * Changes bandwidth chart source to egress.
-     */
-    public openEgressChart(): void {
-        this.isEgressChartShown = true;
-        this.isIngressChartShown = false;
-    }
-
-    /**
-     * Fetches bandwidth and disk space information.
-     */
-    private async fetchTraffic(): Promise<void> {
-        try {
-            await this.$store.dispatch('bandwidth/fetch');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
-
-        try {
-            await this.$store.dispatch('storage/usage');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
-
-        try {
-            await this.$store.dispatch('storage/diskSpace');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
-
-            // TODO: notify error
-        }
+    if (diskSpaceChart.value) {
+        diskSpaceChartWidth.value = diskSpaceChart.value.clientWidth;
+        diskSpaceChartHeight.value = diskSpaceChart.value.clientHeight;
     }
 }
+
+function openBandwidthChart(): void {
+    isEgressChartShown.value = false;
+    isIngressChartShown.value = false;
+}
+
+function openIngressChart(): void {
+    isEgressChartShown.value = false;
+    isIngressChartShown.value = true;
+}
+
+function openEgressChart(): void {
+    isEgressChartShown.value = true;
+    isIngressChartShown.value = false;
+}
+
+async function fetchTraffic(): Promise<void> {
+    try {
+        await Promise.all([
+            bandwidthStore.fetch(),
+            storageStore.usage(),
+            storageStore.diskSpace(),
+        ]);
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
+        }
+
+        // TODO: notify error
+    }
+}
+
+onMounted(async () => {
+    window.addEventListener('resize', recalculateChartDimensions);
+
+    try {
+        await nodesStore.fetchOnline();
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
+        }
+
+        // TODO: notify error
+    }
+
+    await fetchTraffic();
+
+    nodesStore.$onAction(({ name, after }) => {
+        if (name === 'selectSatellite' || name === 'selectNode') {
+            after(async (_) => {
+                await fetchTraffic();
+            });
+        }
+    });
+
+    recalculateChartDimensions();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', recalculateChartDimensions);
+});
 </script>
 
 <style lang="scss" scoped>

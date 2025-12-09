@@ -17,45 +17,27 @@
     </v-snackbar>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 import { VSnackbar } from 'vuetify/lib';
-import { Component, Vue, Watch } from 'vue-property-decorator';
 
 import NotificationItem from './NotificationItem.vue';
 
 import { DelayedNotification } from '@/app/types/delayedNotification';
+import { useNotificationsStore } from '@/app/store/notificationsStore';
 
-// @vue/component
-@Component({
-    components: {
-        VSnackbar,
-        NotificationItem,
-    },
-})
-export default class Notifications extends Vue {
-    public doNotificationsExist = false;
+const notificationsStore = useNotificationsStore();
 
-    /**
- * Returns all notification queue from store.
- */
-    public get notifications(): DelayedNotification[] {
-        return this.$store.state.notification.notificationQueue;
-    }
+const doNotificationsExist = ref<boolean>(false);
 
-    /**
- * Indicates if any notifications are in queue.
- */
-    get hasNotifications(): boolean {
-        return this.notifications.length > 0;
-    }
+const notifications = computed<DelayedNotification[]>(() => notificationsStore.state.notificationQueue as DelayedNotification[]);
+const hasNotifications = computed<boolean>(() => notifications.value.length > 0);
 
-  @Watch('hasNotifications', { immediate: true })
-    onNotificationsChange(newValue: boolean) {
-        this.doNotificationsExist = newValue;
-    }
-
-}
+watch(hasNotifications, (newValue: boolean) => {
+    doNotificationsExist.value = newValue;
+}, { immediate: true });
 </script>
+
 <style lang="scss" scoped>
 .custom-snackbar {
 

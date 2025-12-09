@@ -8,24 +8,24 @@
             <div class="payouts__left-area">
                 <div class="payouts__left-area__dropdowns">
                     <satellite-selection-dropdown />
-                    <payout-period-calendar-button :period="period" />
+                    <payout-period-calendar-button :period="payoutsStore.periodString" />
                 </div>
                 <payouts-summary-table
-                    v-if="payouts.summary.nodeSummary"
+                    v-if="summary.nodeSummary"
                     class="payouts__left-area__table"
-                    :node-payouts-summary="payouts.summary.nodeSummary"
+                    :node-payouts-summary="summary.nodeSummary"
                 />
             </div>
             <div class="payouts__right-area">
                 <details-area
-                    :total-earned="payouts.summary.totalEarned"
-                    :total-held="payouts.summary.totalHeld"
-                    :total-paid="payouts.summary.totalPaid"
-                    :period="period"
+                    :total-earned="summary.totalEarned"
+                    :total-held="summary.totalHeld"
+                    :total-paid="summary.totalPaid"
+                    :period="payoutsStore.periodString"
                 />
                 <balance-area
-                    :current-month-estimation="payouts.totalExpectations.currentMonthEstimation"
-                    :undistributed="payouts.totalExpectations.undistributed"
+                    :current-month-estimation="totalExpectations.currentMonthEstimation"
+                    :undistributed="totalExpectations.undistributed"
                 />
                 <!--                <payout-history-block />-->
             </div>
@@ -33,11 +33,11 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
-import { PayoutsState } from '@/app/store/payouts';
+import { usePayoutsStore } from '@/app/store/payoutsStore';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
@@ -45,53 +45,32 @@ import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        BalanceArea,
-        PayoutPeriodCalendarButton,
-        DetailsArea,
-        PayoutsSummaryTable,
-        SatelliteSelectionDropdown,
-    },
-})
-export default class PayoutsPage extends Vue {
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch('payouts/summary');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
+const payoutsStore = usePayoutsStore();
 
-            // TODO: notify error
+const summary = computed(() => payoutsStore.state.summary);
+const totalExpectations = computed(() => payoutsStore.state.totalExpectations);
+
+onMounted(async () => {
+    try {
+        await payoutsStore.summary();
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
 
-        try {
-            await this.$store.dispatch('payouts/expectations');
-        } catch (error) {
-            if (error instanceof UnauthorizedError) {
-                // TODO: redirect to login screen.
-            }
+        // TODO: notify error
+    }
 
-            // TODO: notify error
+    try {
+        await payoutsStore.expectations();
+    } catch (error) {
+        if (error instanceof UnauthorizedError) {
+            // TODO: redirect to login screen.
         }
-    }
 
-    /**
-     * payoutsSummary contains payouts state from store.
-     */
-    public get payouts(): PayoutsState {
-        return this.$store.state.payouts;
+        // TODO: notify error
     }
-
-    /**
-     * period selected payout period from store.
-     */
-    public get period(): string {
-        return this.$store.getters['payouts/periodString'];
-    }
-}
+});
 </script>
 
 <style lang="scss" scoped>

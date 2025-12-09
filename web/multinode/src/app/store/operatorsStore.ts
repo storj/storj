@@ -18,7 +18,6 @@ class OperatorsState {
     ) {}
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useOperatorsStore = defineStore('operators', () => {
     const state = reactive(new OperatorsState());
 

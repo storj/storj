@@ -2,29 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="chart">
+    <div>
         <p class="bandwidth-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
-            id="bandwidth-chart"
             :key="chartKey"
+            chart-id="bandwidth-chart"
             :chart-data="chartData"
-            :width="chartWidth"
-            :height="chartHeight"
+            :width="width"
+            :height="height"
             :tooltip-constructor="bandwidthTooltip"
         />
     </div>
 </template>
 
-<script lang="ts">
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import { ChartData, ChartType, TooltipModel } from 'chart.js';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
+import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { BandwidthRollup } from '@/bandwidth';
 import { Size } from '@/private/memory/size';
+import { useBandwidthStore } from '@/app/store/bandwidthStore';
 
 import VChart from '@/app/components/common/VChart.vue';
-import BaseChart from '@/app/components/common/BaseChart.vue';
 
 /**
  * stores bandwidth data for bandwidth chart's tooltip
@@ -47,80 +48,98 @@ class BandwidthTooltip {
     }
 }
 
-// @vue/component
-@Component({
-    components: { VChart },
-})
-export default class BandwidthChart extends BaseChart {
-    private get allBandwidth(): BandwidthRollup[] {
-        return ChartUtils.populateEmptyBandwidth(this.$store.state.bandwidth.traffic.bandwidthDaily);
+const bandwidthStore = useBandwidthStore();
+
+const props = defineProps<{
+    width: number;
+    height: number;
+    isDarkMode: boolean;
+}>();
+
+const chartKey = ref<number>(0);
+
+const allBandwidth = computed<BandwidthRollup[]>(() => ChartUtils.populateEmptyBandwidth(bandwidthStore.state.traffic.bandwidthDaily));
+
+const chartDataDimension = computed<string>(() => {
+    if (!bandwidthStore.state.traffic.bandwidthDaily.length) {
+        return 'Bytes';
     }
 
-    public get chartDataDimension(): string {
-        if (!this.$store.state.bandwidth.traffic.bandwidthDaily.length) {
-            return 'Bytes';
-        }
+    return ChartUtils.getChartDataDimension(allBandwidth.value.map((elem) => elem.egress.usage + elem.egress.repair + elem.egress.audit
+            + elem.ingress.repair + elem.ingress.usage));
+});
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => elem.egress.usage + elem.egress.repair + elem.egress.audit
+const chartData = computed<ChartData>(() => {
+    let data: number[] = [0];
+    if (allBandwidth.value.length) {
+        data = ChartUtils.normalizeChartData(allBandwidth.value.map(elem => elem.egress.usage + elem.egress.repair + elem.egress.audit
                 + elem.ingress.repair + elem.ingress.usage));
     }
 
-    public get chartData(): ChartData {
-        let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d4effa' : '#F2F6FC';
-        const chartBorderColor = this.$vuetify.theme.dark ? '#0052FF' : '#1F49A3';
-        const chartBorderWidth = 1;
+    return {
+        labels: ChartUtils.daysDisplayedOnChart(),
+        datasets: [
+            {
+                data,
+                fill: true,
+                backgroundColor: props.isDarkMode ? '#d4effa' : '#F2F6FC',
+                borderColor: props.isDarkMode ? '#0052FF' : '#1F49A3',
+                borderWidth: 1,
+                pointHoverBorderWidth: 3,
+                hoverRadius: 8,
+                hitRadius: 8,
+                pointRadius: 4,
+                pointBorderWidth: 1,
+            },
+        ],
+    };
+});
 
-        if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.egress.usage + elem.egress.repair + elem.egress.audit
-                    + elem.ingress.repair + elem.ingress.usage));
-        }
-
-        return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
-    }
-
-    public bandwidthTooltip(tooltipModel: TooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
-            'bandwidth-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            285, 125, 6, 4, '#1f49a3');
-
-        Tooltip.custom(tooltipParams);
-    }
-
-    private tooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new BandwidthTooltip(this.allBandwidth[dataIndex]);
-
-        return `<div class='tooltip-header'>
-                    <p>EGRESS</p>
-                    <p class='tooltip-header__ingress'>INGRESS</p>
-                </div>
-                <div class='tooltip-body'>
-                    <div class='tooltip-body__info'>
-                        <p>USAGE</p>
-                        <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.normalEgress}</b></p>
-                        <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.normalIngress}</b></p>
-                    </div>
-                    <div class='tooltip-body__info'>
-                        <p>REPAIR</p>
-                        <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.repairEgress}</b></p>
-                        <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.repairIngress}</b></p>
-                    </div>
-                    <div class='tooltip-body__info'>
-                        <p>AUDIT</p>
-                        <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.auditEgress}</b></p>
-                    </div>
-                </div>
-                <div class='tooltip-footer'>
-                    <p>${dataPoint.date}</p>
-                </div>`;
-    }
+function rebuildChart(): void {
+    chartKey.value += 1;
 }
+
+function bandwidthTooltip(tooltipModel: TooltipModel<ChartType>): void {
+    const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
+        tooltipMarkUp(tooltipModel), 285, 125);
+
+    Tooltip.custom(tooltipParams);
+}
+
+function tooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
+    const dataPoint = new BandwidthTooltip(allBandwidth.value[dataIndex]);
+
+    return `<div class='tooltip-header'>
+                <p>EGRESS</p>
+                <p class='tooltip-header__ingress'>INGRESS</p>
+            </div>
+            <div class='tooltip-body'>
+                <div class='tooltip-body__info'>
+                    <p>USAGE</p>
+                    <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.normalEgress}</b></p>
+                    <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.normalIngress}</b></p>
+                </div>
+                <div class='tooltip-body__info'>
+                    <p>REPAIR</p>
+                    <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.repairEgress}</b></p>
+                    <p class='tooltip-body__info__ingress-value'><b class="tooltip-bold-text">${dataPoint.repairIngress}</b></p>
+                </div>
+                <div class='tooltip-body__info'>
+                    <p>AUDIT</p>
+                    <p class='tooltip-body__info__egress-value'><b class="tooltip-bold-text">${dataPoint.auditEgress}</b></p>
+                </div>
+            </div>
+            <div class='tooltip-footer'>
+                <p>${dataPoint.date}</p>
+            </div>`;
+}
+
+watch([() => props.isDarkMode, chartData, () => props.width], rebuildChart);
 </script>
 
 <style lang="scss">

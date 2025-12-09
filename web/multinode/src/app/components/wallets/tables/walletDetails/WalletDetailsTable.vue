@@ -12,20 +12,14 @@
         <tbody slot="body">
             <tr class="table-item">
                 <th class="align-left">My New Node</th>
-                <th>{{ 2000 | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(2000) }}</th>
             </tr>
         </tbody>
     </base-table>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { Currency } from '@/app/utils/currency';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
-
-// @vue/component
-@Component({
-    components: { BaseTable },
-})
-export default class WalletDetailsTable extends Vue {}
 </script>

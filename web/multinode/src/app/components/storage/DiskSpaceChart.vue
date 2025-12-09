@@ -2,29 +2,30 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="chart">
+    <div>
         <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
-            id="disk-space-chart"
             :key="chartKey"
+            chart-id="disk-space-chart"
             :chart-data="chartData"
-            :width="chartWidth"
-            :height="chartHeight"
+            :width="width"
+            :height="height"
             :tooltip-constructor="diskSpaceTooltip"
         />
     </div>
 </template>
 
-<script lang="ts">
-import { Component } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
+import { ChartData, ChartType, TooltipModel } from 'chart.js';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
+import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storage';
+import { useStorageStore } from '@/app/store/storageStore';
 
 import VChart from '@/app/components/common/VChart.vue';
-import BaseChart from '@/app/components/common/BaseChart.vue';
 
 /**
  * stores stamp data for disc space chart's tooltip
@@ -41,58 +42,78 @@ class StampTooltip {
     }
 }
 
-// @vue/component
-@Component({
-    components: { VChart },
-})
-export default class DiskSpaceChart extends BaseChart {
-    private get allStamps(): Stamp[] {
-        return ChartUtils.populateEmptyStamps(this.$store.state.storage.usage.diskSpaceDaily);
+const storageStore = useStorageStore();
+
+const props = defineProps<{
+    width: number;
+    height: number;
+    isDarkMode: boolean;
+}>();
+
+const chartKey = ref<number>(0);
+
+const allStamps = computed<Stamp[]>(() => ChartUtils.populateEmptyStamps(storageStore.state.usage.diskSpaceDaily));
+
+const chartDataDimension = computed<string>(() => {
+    if (!storageStore.state.usage.diskSpaceDaily.length) {
+        return 'Bytes';
     }
 
-    public get chartDataDimension(): string {
-        if (!this.$store.state.storage.usage.diskSpaceDaily.length) {
-            return 'Bytes';
-        }
+    return ChartUtils.getChartDataDimension(allStamps.value.map((elem) => elem.atRestTotalBytes));
+});
 
-        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => elem.atRestTotalBytes));
+const chartData = computed<ChartData>(() => {
+    let data: number[] = [0];
+
+    if (allStamps.value.length) {
+        data = ChartUtils.normalizeChartData(allStamps.value.map(elem => elem.atRestTotalBytes));
     }
 
-    public get chartData(): ChartData {
-        let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart();
-        const chartBackgroundColor = this.$vuetify.theme.dark ? '#d4effa' : '#F2F6FC';
-        const chartBorderColor = this.$vuetify.theme.dark ? '#0052FF' : '#1F49A3';
-        const chartBorderWidth = 1;
+    return {
+        labels: ChartUtils.daysDisplayedOnChart(),
+        datasets: [
+            {
+                data,
+                fill: true,
+                backgroundColor: props.isDarkMode ? '#d4effa' : '#F2F6FC',
+                borderColor: props.isDarkMode ? '#0052FF' : '#1F49A3',
+                borderWidth: 1,
+                pointHoverBorderWidth: 3,
+                hoverRadius: 8,
+                hitRadius: 8,
+                pointRadius: 4,
+                pointBorderWidth: 1,
+            },
+        ],
+    };
+});
 
-        if (this.allStamps.length) {
-            data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotalBytes));
-        }
-
-        return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
-    }
-
-    public diskSpaceTooltip(tooltipModel: TooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'disk-space-chart', 'disk-space-tooltip', 'disk-space-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            125, 89, 6, 4, '#1f49a3');
-
-        Tooltip.custom(tooltipParams);
-    }
-
-    private tooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
-
-        return `<div class='tooltip-body'>
-                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotalBytes}</b></p>
-                    <p class='tooltip-body__footer'>${dataPoint.date}</p>
-                </div>`;
-    }
+function rebuildChart(): void {
+    chartKey.value += 1;
 }
+
+function diskSpaceTooltip(tooltipModel: TooltipModel<ChartType>): void {
+    const tooltipParams = new TooltipParams(tooltipModel, 'disk-space-chart', 'disk-space-tooltip',
+        tooltipMarkUp(tooltipModel), 125, 89);
+
+    Tooltip.custom(tooltipParams);
+}
+
+function tooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
+    const dataPoint = new StampTooltip(allStamps.value[dataIndex]);
+
+    return `<div class='tooltip-body'>
+                <p class='tooltip-body__data'><b>${dataPoint.atRestTotalBytes}</b></p>
+                <p class='tooltip-body__footer'>${dataPoint.date}</p>
+            </div>`;
+}
+
+watch([() => props.isDarkMode, chartData, () => props.width], rebuildChart);
 </script>
 
 <style lang="scss">

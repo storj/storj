@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
+	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
@@ -418,11 +419,12 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, i
 	if err != nil {
 		s.log.Error("Failed to fetch project after updating limits", zap.Error(err))
 	} else {
-		s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+			UserID:     p.OwnerID,
+			ProjectID:  &p.PublicID,
 			Action:     "update_project_limits",
 			AdminEmail: authInfo.Email,
-			ItemType:   auditlogger.ItemTypeProject,
-			ItemID:     p.PublicID,
+			ItemType:   changehistory.ItemTypeProject,
 			Reason:     req.Reason,
 			Before:     p,
 			After:      afterState,
@@ -638,11 +640,12 @@ func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicI
 		}
 	}
 
-	s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     p.OwnerID,
+		ProjectID:  &p.PublicID,
 		Action:     "update_project",
 		AdminEmail: authInfo.Email,
-		ItemType:   auditlogger.ItemTypeProject,
-		ItemID:     p.PublicID,
+		ItemType:   changehistory.ItemTypeProject,
 		Reason:     req.Reason,
 		Before:     beforeState,
 		After:      *p,
@@ -812,11 +815,12 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 	afterState.Status = &disabledStatus
 
 	auditLog := func(action string) {
-		s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+			UserID:     p.OwnerID,
+			ProjectID:  &p.PublicID,
 			Action:     action,
 			AdminEmail: authInfo.Email,
-			ItemType:   auditlogger.ItemTypeProject,
-			ItemID:     p.PublicID,
+			ItemType:   changehistory.ItemTypeProject,
 			Reason:     request.Reason,
 			Before:     *p,
 			After:      afterState,
@@ -1101,11 +1105,12 @@ func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthI
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	s.auditLogger.LogChangeEvent(p.OwnerID, auditlogger.Event{
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     p.OwnerID,
+		ProjectID:  &p.PublicID,
 		Action:     "update_project_entitlements",
 		AdminEmail: authInfo.Email,
-		ItemType:   auditlogger.ItemTypeEntitlement,
-		ItemID:     p.PublicID,
+		ItemType:   changehistory.ItemTypeProject,
 		Reason:     request.Reason,
 		Before:     feats,
 		After:      newEntitlements,

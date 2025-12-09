@@ -1,6 +1,8 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import Vue, { VueConstructor } from 'vue';
+
 /**
  * OptionClick defines on click callback type for VDropdown Option.
  */
@@ -13,5 +15,13 @@ export class Option {
     public constructor(
         public label: string = 'no options',
         public onClick: OptionClick = async (_id) => Promise.resolve(),
+    ) {}
+}
+
+export class NavigationLink {
+    constructor(
+        public name: string,
+        public path: string,
+        public icon: VueConstructor<Vue>,
     ) {}
 }

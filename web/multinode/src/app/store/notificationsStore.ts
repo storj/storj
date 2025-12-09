@@ -10,7 +10,6 @@ class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useNotificationsStore = defineStore('notifications', () => {
     const state = reactive<NotificationsState>(new NotificationsState());
 
@@ -23,6 +22,20 @@ export const useNotificationsStore = defineStore('notifications', () => {
         if (selectedNotification) {
             selectedNotification.pause();
             state.notificationQueue.splice(state.notificationQueue.indexOf(selectedNotification), 1);
+        }
+    }
+
+    function pauseNotification(id: string): void {
+        const selectedNotification = state.notificationQueue.find(n => n.id === id);
+        if (selectedNotification) {
+            selectedNotification.pause();
+        }
+    }
+
+    function resumeNotification(id: string): void {
+        const selectedNotification = state.notificationQueue.find(n => n.id === id);
+        if (selectedNotification) {
+            selectedNotification.start();
         }
     }
 
@@ -81,6 +94,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
         notifyInfo,
         notifyWarning,
         notifyError,
+        pauseNotification,
+        deleteNotification,
+        resumeNotification,
         clear,
     };
 });

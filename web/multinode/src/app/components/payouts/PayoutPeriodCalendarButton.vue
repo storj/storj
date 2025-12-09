@@ -14,32 +14,29 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import PayoutPeriodCalendar from './PayoutPeriodCalendar.vue';
 
-// @vue/component
-@Component({
-    components: { PayoutPeriodCalendar },
-})
-export default class PayoutPeriodCalendarButton extends Vue {
-    @Prop({ default: '' })
-    public period: string;
+withDefaults(defineProps<{
+    period: string;
+}>(), {
+    period: '',
+});
 
-    public isCalendarShown = false;
+const isCalendarShown = ref<boolean>(false);
 
-    public toggleCalendar(): void {
-        this.isCalendarShown = !this.isCalendarShown;
-    }
+function toggleCalendar(): void {
+    isCalendarShown.value = !isCalendarShown.value;
+}
 
-    public closeCalendar(): void {
-        if (!this.isCalendarShown) { return; }
+function closeCalendar(): void {
+    if (!isCalendarShown.value) return;
 
-        setTimeout(() => {
-            this.isCalendarShown = false;
-        }, 1);
-    }
+    setTimeout(() => {
+        isCalendarShown.value = false;
+    }, 1);
 }
 </script>
 

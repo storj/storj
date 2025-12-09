@@ -5,16 +5,16 @@
     <tr class="table-item">
         <th class="align-left">{{ node.displayedName }}</th>
         <template v-if="isSatelliteSelected">
-            <th>{{ node.suspensionScore | floatToPercentage }}</th>
-            <th>{{ node.auditScore | floatToPercentage }}</th>
-            <th>{{ node.onlineScore | floatToPercentage }}</th>
+            <th>{{ Percentage.fromFloat(node.suspensionScore) }}</th>
+            <th>{{ Percentage.fromFloat(node.auditScore) }}</th>
+            <th>{{ Percentage.fromFloat(node.onlineScore) }}</th>
         </template>
         <template v-else>
-            <th>{{ node.diskSpaceUsed | bytesToBase10String }}</th>
-            <th>{{ node.diskSpaceLeft | bytesToBase10String }}</th>
-            <th>{{ node.bandwidthUsed | bytesToBase10String }}</th>
+            <th>{{ Size.toBase10String(node.diskSpaceUsed) }}</th>
+            <th>{{ Size.toBase10String(node.diskSpaceLeft) }}</th>
+            <th>{{ Size.toBase10String(node.bandwidthUsed) }}</th>
         </template>
-        <th>{{ node.earnedCents | centsToDollars }}</th>
+        <th>{{ Currency.dollarsFromCents(node.earnedCents) }}</th>
         <th>{{ node.version }}</th>
         <th :class="node.status">{{ node.status }}</th>
         <th class="overflow-visible">
@@ -23,25 +23,24 @@
     </tr>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { Node } from '@/nodes';
+import { Currency } from '@/app/utils/currency';
+import { Size } from '@/private/memory/size';
+import { Percentage } from '@/app/utils/percentage';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
-// @vue/component
-@Component({
-    components: {
-        NodeOptions,
-    },
-})
-export default class NodeItem extends Vue {
-    @Prop({ default: () => new Node() })
-    public node: Node;
+const nodesStore = useNodesStore();
 
-    public get isSatelliteSelected(): boolean {
-        return !!this.$store.state.nodes.selectedSatellite;
-    }
-}
+withDefaults(defineProps<{
+    node: Node;
+}>(), {
+    node: () => new Node(),
+});
+
+const isSatelliteSelected = computed(() => !!nodesStore.state.selectedSatellite);
 </script>

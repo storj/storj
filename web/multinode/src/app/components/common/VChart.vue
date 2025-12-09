@@ -1,152 +1,115 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<script lang="ts">
-import * as VueChart from 'vue-chartjs';
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+<template>
+    <canvas :id="chartId" :width="width" :height="height" />
+</template>
 
-import { ChartData, RenderChart } from '@/app/types/chart';
+<script setup lang="ts">
+import {
+    CategoryScale,
+    Chart as ChartJS,
+    LinearScale,
+    Tooltip as VTooltip,
+    LineController,
+    LineElement,
+    Filler,
+    PointElement,
+    TooltipModel,
+    ChartType,
+    ChartOptions,
+    ChartData,
+} from 'chart.js';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
-class DayShowingConditions {
-    public readonly day: string;
-    public readonly daysArray: string[];
+ChartJS.register(LineElement, PointElement, VTooltip, Filler, LineController, CategoryScale, LinearScale);
 
-    public constructor(day: string, daysArray: string[]) {
-        this.day = day;
-        this.daysArray = daysArray;
-    }
+const props = defineProps<{
+    chartId: string,
+    chartData: ChartData;
+    width: number,
+    height: number,
+    tooltipConstructor: (tooltipModel: TooltipModel<ChartType>) => void;
+}>();
 
-    public countMiddleDateValue(): number {
-        return this.daysArray.length / 2;
-    }
+const chart = ref<ChartJS>();
 
-    public isDayFirstOrLast(): boolean {
-        return this.day === this.daysArray[0] || this.day === this.daysArray[this.daysArray.length - 1];
-    }
-
-    public isDayAfterEighthDayOfTheMonth(): boolean {
-        return this.daysArray.length > 8 && this.daysArray.length <= 31;
-    }
-}
-
-// @vue/component
-@Component({
-    extends: VueChart.Line,
-})
-export default class VChart extends Vue {
-    @Prop({ default: '$' })
-    private readonly currency: string;
-    @Prop({ default: () => () => { console.error('Tooltip constructor is undefined'); } })
-    private tooltipConstructor: (tooltipModel) => void;
-    @Prop({ default: {} })
-    private readonly chartData: ChartData;
-
-    @Watch('chartData')
-    private onDataChange(_news: Record<string, unknown>, _old: Record<string, unknown>) {
-        /**
-         * renderChart method is inherited from BaseChart which is extended by VChart.Line
-         */
-        (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
-    }
-
-    public mounted(): void {
-        /**
-         * renderChart method is inherited from BaseChart which is extended by VChart.Line
-         */
-        (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
-    }
-
-    public get chartOptions(): Record<string, unknown> {
-        const filterCallback = this.filterDaysDisplayed;
-        const ticksColor = this.$vuetify.theme.dark? '#242d40' : '#e1e3e6';
-
-        return {
-            responsive: false,
-            maintainAspectRatios: false,
+const chartOptions = computed<ChartOptions>(() => {
+    return {
+        responsive: true,
+        clip: false,
+        animation: false,
+        layout: {
+            padding: {
+                top: 15,
+                left: 30,
+                right: 45,
+            },
+        },
+        elements: {
+            line: {
+                tension: 0.3,
+            },
+        },
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                grid: {
+                    display: true,
+                    drawTicks: true,
+                },
+                beginAtZero: true,
+            },
+            x: {
+                type: 'category',
+                display: true,
+                border: {
+                    display: false,
+                },
+                grid: {
+                    display: false,
+                },
+                ticks: {
+                    font: {
+                        family: 'sans-serif',
+                    },
+                    autoSkip: true,
+                    maxRotation: 0,
+                    minRotation: 0,
+                },
+            },
+        },
+        plugins: {
             legend: {
                 display: false,
             },
-            elements: {
-                point: {
-                    radius: 0,
-                    hoverRadius: 0,
-                    hitRadius: 500,
-                },
-            },
-            scales: {
-                yAxes: [{
-                    display: true,
-                    ticks: {
-                        beginAtZero: true,
-                        color: ticksColor,
-                    },
-                    gridLines: {
-                        borderDash: [2, 5],
-                        drawBorder: false,
-                        color: ticksColor,
-                    },
-                }],
-                xAxes: [{
-                    display: true,
-                    ticks: {
-                        fontFamily: 'font_regular',
-                        autoSkip: false,
-                        maxRotation: 0,
-                        minRotation: 0,
-                        callback: filterCallback,
-                        color: ticksColor,
-                    },
-                    gridLines: {
-                        display: false,
-                    },
-                }],
-            },
-            layout: {
-                padding: {
-                    left: 25,
-                },
-            },
-            tooltips: {
+            tooltip: {
                 enabled: false,
-
-                custom: (tooltipModel) => {
-                    this.tooltipConstructor(tooltipModel);
-                },
-
-                labels: {
-                    enabled: true,
+                external: (context) => {
+                    props.tooltipConstructor(context.tooltip);
                 },
             },
-        };
-    }
+        },
+    };
+});
 
-    private filterDaysDisplayed(day: string, _dayIndex: string, labelArray: string[]): string | undefined {
-        const eighthDayOfTheMonth = 8;
-        const isBeforeEighthDayOfTheMonth = labelArray.length <= eighthDayOfTheMonth;
-        const dayShowingConditions = new DayShowingConditions(day, labelArray);
-
-        if (isBeforeEighthDayOfTheMonth || this.areDaysShownOnEvenDaysAmount(dayShowingConditions)
-            || this.areDaysShownOnNotEvenDaysAmount(dayShowingConditions)) {
-            return day;
-        }
-    }
-
-    private areDaysShownOnEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
-        const isDaysAmountEven = dayShowingConditions.daysArray.length % 2 === 0;
-        const isDateValueInMiddleInEvenAmount = dayShowingConditions.day ===
-            dayShowingConditions.daysArray[dayShowingConditions.countMiddleDateValue() - 1];
-
-        return dayShowingConditions.isDayFirstOrLast() || isDaysAmountEven
-            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInEvenAmount;
-    }
-
-    private areDaysShownOnNotEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
-        const isDaysAmountNotEven = dayShowingConditions.daysArray.length % 2 !== 0;
-        const isDateValueInMiddleInNotEvenAmount = dayShowingConditions.day
-            === dayShowingConditions.daysArray[Math.floor(dayShowingConditions.countMiddleDateValue())];
-
-        return dayShowingConditions.isDayFirstOrLast() || isDaysAmountNotEven
-            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInNotEvenAmount;
-    }
+function buildChart(): void {
+    chart.value = new ChartJS(
+        document.getElementById(props.chartId) as HTMLCanvasElement,
+        {
+            type: 'line',
+            data: props.chartData,
+            options: chartOptions.value,
+        },
+    );
 }
+
+onMounted(() => {
+    buildChart();
+});
+
+onUnmounted(() => {
+    chart.value?.destroy();
+});
 </script>

@@ -4,7 +4,7 @@
 import Router, { RouterMode } from 'vue-router';
 import { Component } from 'vue-router/types/router';
 
-import { store } from '@/app/store';
+import { useNodesStore } from '@/app/store/nodesStore';
 import AddFirstNode from '@/app/views/AddFirstNode.vue';
 import BandwidthPage from '@/app/views/bandwidth/BandwidthPage.vue';
 import Dashboard from '@/app/views/Dashboard.vue';
@@ -137,14 +137,15 @@ const allowedRoutesNames = [Config.AddFirstNode.name, Config.Welcome.name];
  * Redirect to Add first node screen if so.
  */
 router.beforeEach(async(to, _from, next) => {
-    if (store.state.nodes.nodes.length) {
+    const nodesStore = useNodesStore();
+    if (nodesStore.state.nodes.length) {
         next();
     }
 
     if (!to.matched.some(record => allowedRoutesNames.includes(<string>record.name))) {
-        await store.dispatch('nodes/fetch');
+        await nodesStore.fetch();
 
-        if (!store.state.nodes.nodes.length) {
+        if (!nodesStore.state.nodes.length) {
             next(Config.AddFirstNode);
         } else {
             next();
