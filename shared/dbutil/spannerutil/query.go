@@ -158,27 +158,48 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 				table.PrimaryKey[ordinal-1] = columnName
 			case "FOREIGN KEY":
 				table := schema.EnsureTable(tableName)
-				column, ok := table.FindColumn(columnName)
-				if !ok {
-					return fmt.Errorf("did not find column %q in %q", columnName, tableName)
-				}
 
 				if targetTable == nil || targetColumn == nil || updateRule == nil || deleteRule == nil {
 					return fmt.Errorf("missing foreign key information for %q", constraintName)
 				}
 
-				if *updateRule == "NO ACTION" {
-					*updateRule = ""
+				// Normalize "NO ACTION" to empty string
+				onUpdate := *updateRule
+				if onUpdate == "NO ACTION" {
+					onUpdate = ""
 				}
-				if *deleteRule == "NO ACTION" {
-					*deleteRule = ""
+				onDelete := *deleteRule
+				if onDelete == "NO ACTION" {
+					onDelete = ""
 				}
-				column.Reference = &dbschema.Reference{
-					Table:    *targetTable,
-					Column:   *targetColumn,
-					OnUpdate: *updateRule,
-					OnDelete: *deleteRule,
+
+				// Find existing FK or create new one
+				var fk *dbschema.ForeignKey
+				for _, existing := range table.ForeignKeys {
+					if existing.Name == constraintName {
+						fk = existing
+						break
+					}
 				}
+				if fk == nil {
+					fk = &dbschema.ForeignKey{
+						Name:           constraintName,
+						LocalColumns:   make([]string, 0),
+						ForeignTable:   *targetTable,
+						ForeignColumns: make([]string, 0),
+						OnUpdate:       onUpdate,
+						OnDelete:       onDelete,
+					}
+					table.ForeignKeys = append(table.ForeignKeys, fk)
+				}
+
+				// Add this column to the FK (Spanner returns one row per column)
+				if int64(len(fk.LocalColumns)) < ordinal {
+					fk.LocalColumns = append(fk.LocalColumns, make([]string, ordinal-int64(len(fk.LocalColumns)))...)
+					fk.ForeignColumns = append(fk.ForeignColumns, make([]string, ordinal-int64(len(fk.ForeignColumns)))...)
+				}
+				fk.LocalColumns[ordinal-1] = columnName
+				fk.ForeignColumns[ordinal-1] = *targetColumn
 			case "UNIQUE":
 				table := schema.EnsureTable(tableName)
 				if ordinal == 1 {

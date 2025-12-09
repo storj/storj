@@ -59,9 +59,9 @@ func TestQuery(t *testing.T) {
 			{
 				Name: "users",
 				Columns: []*dbschema.Column{
-					{Name: "a", Type: "INTEGER", IsNullable: false, Reference: nil},
-					{Name: "b", Type: "INTEGER", IsNullable: false, Reference: nil},
-					{Name: "c", Type: "TEXT", IsNullable: true, Reference: nil},
+					{Name: "a", Type: "INTEGER", IsNullable: false},
+					{Name: "b", Type: "INTEGER", IsNullable: false},
+					{Name: "c", Type: "TEXT", IsNullable: true},
 				},
 				PrimaryKey: []string{"a"},
 				Unique: [][]string{
@@ -71,20 +71,25 @@ func TestQuery(t *testing.T) {
 			{
 				Name: "names",
 				Columns: []*dbschema.Column{
-					{Name: "users_a", Type: "INTEGER", IsNullable: true,
-						Reference: &dbschema.Reference{
-							Table:    "users",
-							Column:   "a",
-							OnDelete: "CASCADE",
-						}},
-					{Name: "a", Type: "TEXT", IsNullable: false, Reference: nil},
-					{Name: "x", Type: "TEXT", IsNullable: false, Reference: nil}, // not null, because primary key
-					{Name: "b", Type: "TEXT", IsNullable: true, Reference: nil},
+					{Name: "users_a", Type: "INTEGER", IsNullable: true},
+					{Name: "a", Type: "TEXT", IsNullable: false},
+					{Name: "x", Type: "TEXT", IsNullable: false}, // not null, because primary key
+					{Name: "b", Type: "TEXT", IsNullable: true},
 				},
 				PrimaryKey: []string{"a", "x"},
 				Unique: [][]string{
 					{"a", "b"},
 					{"x"},
+				},
+				ForeignKeys: []*dbschema.ForeignKey{
+					{
+						Name:           "fk_0",
+						LocalColumns:   []string{"users_a"},
+						ForeignTable:   "users",
+						ForeignColumns: []string{"a"},
+						OnDelete:       "CASCADE",
+						OnUpdate:       "",
+					},
 				},
 			},
 		},

@@ -233,6 +233,9 @@ func writeTableGoStruct(w io.Writer, table *dbschema.Table) (err error) {
 			}
 		})()
 	}
+	if len(table.ForeignKeys) > 0 {
+		printf("ForeignKeys: %#v,\n", table.ForeignKeys)
+	}
 
 	return err
 }
@@ -251,9 +254,6 @@ func writeColumnGoStruct(w io.Writer, column *dbschema.Column) (err error) {
 	printf("Name: %q,\n", column.Name)
 	printf("Type: %q,\n", column.Type)
 	printf("IsNullable: %t,\n", column.IsNullable)
-	if column.Reference != nil {
-		printf("Reference: %#v,\n", column.Reference)
-	}
 
 	return err
 }
