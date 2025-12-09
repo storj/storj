@@ -37,13 +37,15 @@ import { computed } from 'vue';
 import { ChartData } from 'chart.js';
 
 import { DiskSpace } from '@/storage';
-import { useStore, useVuetify } from '@/app/utils/composables';
+import { useVuetify } from '@/app/utils/composables';
 import { Size } from '@/private/memory/size';
+import { useStorageStore } from '@/app/store/storageStore';
 
 import DoughnutChart from '@/app/components/common/DoughnutChart.vue';
 
-const store = useStore();
 const vuetify = useVuetify();
+
+const storageStore = useStorageStore();
 
 const chartData = computed<ChartData>(() => {
     return {
@@ -60,7 +62,7 @@ const chartData = computed<ChartData>(() => {
     };
 });
 
-const diskSpace = computed<DiskSpace>(() => store.state.storage.diskSpace);
+const diskSpace = computed<DiskSpace>(() => storageStore.state.diskSpace);
 </script>
 
 <style lang="scss">

@@ -16,10 +16,8 @@
     "core-js": "3.22.4",
     "pinia": "2.0.23",
     "vue": "2.7.10",
-    "vue-clipboard2": "0.3.3",
     "vue-router": "3.5.3",
-    "vuetify": "2.7.2",
-    "vuex": "3.6.2"
+    "vuetify": "2.7.2"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "5.22.0",

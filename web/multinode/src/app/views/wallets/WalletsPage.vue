@@ -7,9 +7,9 @@
         <div class="wallets__content-area">
             <div class="wallets__left-area">
                 <wallets-table
-                    v-if="operatorsState.operators.length"
+                    v-if="operators.length"
                     class="wallets__left-area__table"
-                    :operators="operatorsState.operators"
+                    :operators="operators"
                 />
             </div>
             <div class="wallets__right-area">
@@ -22,13 +22,13 @@
                 </info-block>
             </div>
         </div>
-        <div v-if="operatorsState.pageCount > 1" class="wallets__pagination">
+        <div v-if="pageCount > 1" class="wallets__pagination">
             <v-pagination
-                :total-page-count="operatorsState.pageCount"
-                :preselected-current-page-number="operatorsState.currentPage"
+                :total-page-count="pageCount"
+                :preselected-current-page-number="currentPage"
                 :on-page-click-callback="listPaginated"
             />
-            <p class="wallets__pagination__info">Showing <strong>{{ operatorsState.operators.length }} of {{ operatorsState.totalCount }}</strong> wallets</p>
+            <p class="wallets__pagination__info">Showing <strong>{{ operators.length }} of {{ totalCount }}</strong> wallets</p>
         </div>
     </div>
 </template>
@@ -37,21 +37,24 @@
 import { computed, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
-import { OperatorsState } from '@/app/store/operators';
-import { useStore } from '@/app/utils/composables';
+import { useOperatorsStore } from '@/app/store/operatorsStore';
+import { Operator } from '@/operators';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import VLink from '@/app/components/common/VLink.vue';
 import VPagination from '@/app/components/common/VPagination.vue';
 import WalletsTable from '@/app/components/wallets/tables/walletsSummary/WalletsTable.vue';
 
-const store = useStore();
+const operatorsStore = useOperatorsStore();
 
-const operatorsState = computed<OperatorsState>(() => store.state.operators);
+const pageCount = computed<number>(() => operatorsStore.state.pageCount);
+const totalCount = computed<number>(() => operatorsStore.state.totalCount);
+const currentPage = computed<number>(() => operatorsStore.state.currentPage);
+const operators = computed<Operator[]>(() => operatorsStore.state.operators as Operator[]);
 
 async function listPaginated(pageNumber: number): Promise<void> {
     try {
-        await store.dispatch('operators/listPaginated', pageNumber);
+        await operatorsStore.listPaginated(pageNumber);
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.
@@ -62,7 +65,7 @@ async function listPaginated(pageNumber: number): Promise<void> {
 }
 
 onMounted(async () => {
-    await listPaginated(operatorsState.value.currentPage);
+    await listPaginated(currentPage.value);
 });
 </script>
 

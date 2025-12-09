@@ -39,17 +39,17 @@ import { onMounted, ref } from 'vue';
 import { UnauthorizedError } from '@/api';
 import { monthNames } from '@/app/types/date';
 import { MonthButton, StoredMonthsByYear } from '@/app/types/payouts';
-import { useStore } from '@/app/utils/composables';
+import { usePayoutsStore } from '@/app/store/payoutsStore';
 
 import VButton from '@/app/components/common/VButton.vue';
 
 import GrayArrowLeftIcon from '@/../static/images/icons/GrayArrowLeft.svg';
 
-const store = useStore();
-
 const emit = defineEmits<{
     (e: 'onClose'): void;
 }>();
+
+const payoutsStore = usePayoutsStore();
 
 const now = new Date();
 
@@ -68,10 +68,10 @@ async function submit(): Promise<void> {
         periodValue = `${selectedMonth.value.year}-${month}`;
     }
 
-    store.commit('payouts/setPayoutPeriod', periodValue);
+    payoutsStore.setPayoutPeriod(periodValue);
 
     try {
-        await store.dispatch('payouts/summary');
+        await payoutsStore.summary();
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.

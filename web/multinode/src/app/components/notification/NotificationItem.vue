@@ -19,23 +19,23 @@
 import { VAlert } from 'vuetify/lib';
 
 import { DelayedNotification } from '@/app/types/delayedNotification';
-import { useStore } from '@/app/utils/composables';
+import { useNotificationsStore } from '@/app/store/notificationsStore';
 
-const store = useStore();
+const notificationsStore = useNotificationsStore();
 
 defineProps<{
     item: DelayedNotification;
 }>();
 
 function onMouseOver(id: string): void {
-    store.dispatch('notification/pause', id);
+    notificationsStore.pauseNotification(id);
 }
 
 function onMouseLeave(id: string): void {
-    store.dispatch('notification/resume', id);
+    notificationsStore.resumeNotification(id);
 }
 
 function onCloseClick(id: string): void {
-    store.dispatch('notification/delete', id);
+    notificationsStore.deleteNotification(id);
 }
 </script>

@@ -24,13 +24,13 @@ import { VSnackbar } from 'vuetify/lib';
 import NotificationItem from './NotificationItem.vue';
 
 import { DelayedNotification } from '@/app/types/delayedNotification';
-import { useStore } from '@/app/utils/composables';
+import { useNotificationsStore } from '@/app/store/notificationsStore';
 
-const store = useStore();
+const notificationsStore = useNotificationsStore();
 
 const doNotificationsExist = ref<boolean>(false);
 
-const notifications = computed<DelayedNotification[]>(() => store.state.notification.notificationQueue);
+const notifications = computed<DelayedNotification[]>(() => notificationsStore.state.notificationQueue as DelayedNotification[]);
 const hasNotifications = computed<boolean>(() => notifications.value.length > 0);
 
 watch(hasNotifications, (newValue: boolean) => {

@@ -9,15 +9,15 @@
 import { computed } from 'vue';
 
 import { NodeURL } from '@/nodes';
-import { useStore } from '@/app/utils/composables';
 import { Option } from '@/app/types/common';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import VDropdown from '@/app/components/common/VDropdown.vue';
 
-const store = useStore();
+const nodesStore = useNodesStore();
 
 const trustedSatellitesOptions = computed<Option[]>(() => {
-    const trustedSatellites: NodeURL[] = store.state.nodes.trustedSatellites;
+    const trustedSatellites: NodeURL[] = nodesStore.state.trustedSatellites;
 
     const options: Option[] = trustedSatellites.map(
         (satellite: NodeURL) => new Option(satellite.id, () => onSatelliteClick(satellite.id)),
@@ -27,12 +27,12 @@ const trustedSatellitesOptions = computed<Option[]>(() => {
 });
 
 const selectedSatelliteOption = computed<Option | null>(() => {
-    if (!store.state.nodes.selectedSatellite) { return null; }
+    if (!nodesStore.state.selectedSatellite) { return null; }
 
-    return new Option(store.state.nodes.selectedSatellite.id, async () => Promise.resolve());
+    return new Option(nodesStore.state.selectedSatellite.id, async () => Promise.resolve());
 });
 
 async function onSatelliteClick(id = ''): Promise<void> {
-    await store.dispatch('nodes/selectSatellite', id);
+    await nodesStore.selectSatellite(id);
 }
 </script>

@@ -23,7 +23,7 @@ import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storage';
-import { useStore } from '@/app/utils/composables';
+import { useStorageStore } from '@/app/store/storageStore';
 
 import VChart from '@/app/components/common/VChart.vue';
 
@@ -42,7 +42,7 @@ class StampTooltip {
     }
 }
 
-const store = useStore();
+const storageStore = useStorageStore();
 
 const props = defineProps<{
     width: number;
@@ -52,10 +52,10 @@ const props = defineProps<{
 
 const chartKey = ref<number>(0);
 
-const allStamps = computed<Stamp[]>(() => ChartUtils.populateEmptyStamps(store.state.storage.usage.diskSpaceDaily));
+const allStamps = computed<Stamp[]>(() => ChartUtils.populateEmptyStamps(storageStore.state.usage.diskSpaceDaily));
 
 const chartDataDimension = computed<string>(() => {
-    if (!store.state.storage.usage.diskSpaceDaily.length) {
+    if (!storageStore.state.usage.diskSpaceDaily.length) {
         return 'Bytes';
     }
 

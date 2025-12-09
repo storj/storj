@@ -8,24 +8,24 @@
             <div class="payouts__left-area">
                 <div class="payouts__left-area__dropdowns">
                     <satellite-selection-dropdown />
-                    <payout-period-calendar-button :period="period" />
+                    <payout-period-calendar-button :period="payoutsStore.periodString" />
                 </div>
                 <payouts-summary-table
-                    v-if="payouts.summary.nodeSummary"
+                    v-if="summary.nodeSummary"
                     class="payouts__left-area__table"
-                    :node-payouts-summary="payouts.summary.nodeSummary"
+                    :node-payouts-summary="summary.nodeSummary"
                 />
             </div>
             <div class="payouts__right-area">
                 <details-area
-                    :total-earned="payouts.summary.totalEarned"
-                    :total-held="payouts.summary.totalHeld"
-                    :total-paid="payouts.summary.totalPaid"
-                    :period="period"
+                    :total-earned="summary.totalEarned"
+                    :total-held="summary.totalHeld"
+                    :total-paid="summary.totalPaid"
+                    :period="payoutsStore.periodString"
                 />
                 <balance-area
-                    :current-month-estimation="payouts.totalExpectations.currentMonthEstimation"
-                    :undistributed="payouts.totalExpectations.undistributed"
+                    :current-month-estimation="totalExpectations.currentMonthEstimation"
+                    :undistributed="totalExpectations.undistributed"
                 />
                 <!--                <payout-history-block />-->
             </div>
@@ -37,8 +37,7 @@
 import { computed, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
-import { PayoutsState } from '@/app/store/payouts';
-import { useStore } from '@/app/utils/composables';
+import { usePayoutsStore } from '@/app/store/payoutsStore';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
@@ -46,14 +45,14 @@ import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
-const store = useStore();
+const payoutsStore = usePayoutsStore();
 
-const payouts = computed<PayoutsState>(() => store.state.payouts);
-const period = computed<string>(() => store.getters['payouts/periodString']);
+const summary = computed(() => payoutsStore.state.summary);
+const totalExpectations = computed(() => payoutsStore.state.totalExpectations);
 
 onMounted(async () => {
     try {
-        await store.dispatch('payouts/summary');
+        await payoutsStore.summary();
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.
@@ -63,7 +62,7 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch('payouts/expectations');
+        await payoutsStore.expectations();
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.

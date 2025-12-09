@@ -48,15 +48,16 @@
 import { ref } from 'vue';
 
 import { CreateNodeFields } from '@/nodes';
-import { useStore } from '@/app/utils/composables';
 import { Notify } from '@/app/plugins';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
-const store = useStore();
 const notify = new Notify();
+
+const nodesStore = useNodesStore();
 
 const isAddNewNodeModalShown = ref<boolean>(false);
 const nodeToAdd = ref<CreateNodeFields>(new CreateNodeFields());
@@ -112,7 +113,7 @@ async function onCreate(): Promise<void> {
     }
 
     try {
-        await store.dispatch('nodes/add', nodeToAdd.value);
+        await nodesStore.add(nodeToAdd.value);
         notify.success({ message: 'Node Added Successfully' });
     } catch (error) {
         console.error(error);

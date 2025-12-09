@@ -30,13 +30,13 @@
 import { ref } from 'vue';
 
 import { UpdateNodeModel } from '@/nodes';
-import { useStore } from '@/app/utils/composables';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
-const store = useStore();
+const nodesStore = useNodesStore();
 
 const props = withDefaults(defineProps<{
     nodeId: string;
@@ -79,7 +79,7 @@ async function onSetName(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch('nodes/updateName', new UpdateNodeModel(props.nodeId, nodeName.value));
+        await nodesStore.updateName(new UpdateNodeModel(props.nodeId, nodeName.value));
         closeModal();
     } catch (error) {
         console.error(error);

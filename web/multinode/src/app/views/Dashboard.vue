@@ -24,16 +24,16 @@ import { onMounted } from 'vue';
 import ThemeSelector from '../components/common/ThemeSelector.vue';
 
 import { UnauthorizedError } from '@/api';
-import { useStore } from '@/app/utils/composables';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import AddNewNode from '@/app/components/modals/AddNewNode.vue';
 import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
 
-const store = useStore();
+const nodesStore = useNodesStore();
 
 onMounted(async () => {
     try {
-        await store.dispatch('nodes/trustedSatellites');
+        await nodesStore.trustedSatellites();
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.

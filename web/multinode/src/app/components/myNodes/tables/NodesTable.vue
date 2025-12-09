@@ -32,18 +32,18 @@
 import { computed, onBeforeMount, ref } from 'vue';
 
 import { Node } from '@/nodes';
-import { useStore } from '@/app/utils/composables';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import NodeItem from '@/app/components/myNodes/tables/NodeItem.vue';
 
-const store = useStore();
+const nodesStore = useNodesStore();
 
 const sortByKey = ref<string>('');
 const sortDirection = ref<string>('asc');
 
-const nodes = computed<Node[]>(() => store.state.nodes.nodes);
-const isSatelliteSelected = computed<boolean>(() => !!store.state.nodes.selectedSatellite);
+const nodes = computed<Node[]>(() => nodesStore.state.nodes);
+const isSatelliteSelected = computed<boolean>(() => !!nodesStore.state.selectedSatellite);
 const sortArrow = computed<string>(() => sortDirection.value === 'asc' ? ' ↑' : ' ↓');
 const sortedNodes = computed<Node[]>(() => {
     const key = sortByKey.value;

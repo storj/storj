@@ -13,16 +13,16 @@
 import { onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
-import { useStore } from '@/app/utils/composables';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
 
-const store = useStore();
+const nodesStore = useNodesStore();
 
 onMounted(async () => {
     try {
-        await store.dispatch('nodes/fetch');
+        await nodesStore.fetch();
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.
