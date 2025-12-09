@@ -94,7 +94,7 @@ function rebuildChart(): void {
 
 function ingressTooltip(tooltipModel: TooltipModel<ChartType>): void {
     const tooltipParams = new TooltipParams(tooltipModel, 'ingress-chart', 'ingress-tooltip',
-        tooltipMarkUp(tooltipModel), 185, 94);
+        tooltipMarkUp(tooltipModel), 200, 94);
 
     Tooltip.custom(tooltipParams);
 }

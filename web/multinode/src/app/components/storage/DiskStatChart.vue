@@ -35,15 +35,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { ChartData } from 'chart.js';
+import { useTheme } from 'vuetify';
 
 import { DiskSpace } from '@/storage';
-import { useVuetify } from '@/app/utils/composables';
 import { Size } from '@/private/memory/size';
 import { useStorageStore } from '@/app/store/storageStore';
 
 import DoughnutChart from '@/app/components/common/DoughnutChart.vue';
 
-const vuetify = useVuetify();
+const theme = useTheme();
 
 const storageStore = useStorageStore();
 
@@ -56,7 +56,7 @@ const chartData = computed<ChartData>(() => {
                     diskSpace.value.used,
                     diskSpace.value.overused,
                 ],
-                backgroundColor: vuetify.theme.dark ? ['#d4effa', '#0052FF', '#ff4747'] : ['#D6D6D6', '#0059D0', '#EB5757'],
+                backgroundColor: theme.global.current.value.dark ? ['#d4effa', '#0052FF', '#ff4747'] : ['#D6D6D6', '#0059D0', '#EB5757'],
             },
         ],
     };
@@ -156,7 +156,7 @@ const diskSpace = computed<DiskSpace>(() => storageStore.state.diskSpace);
         background: var(--v-overused-base);
     }
 
-    @media screen and (max-width: 1000px) {
+    @media screen and (width <= 1000px) {
 
         .disk-stat-area {
             width: 230px;

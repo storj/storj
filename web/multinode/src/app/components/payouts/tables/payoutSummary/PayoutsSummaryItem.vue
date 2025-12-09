@@ -13,9 +13,10 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
+
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayoutsSummary } from '@/payouts';
-import { useRouter } from '@/app/utils/composables';
 import { Currency } from '@/app/utils/currency';
 
 import NodeOptions from '@/app/components/common/NodeOptions.vue';
@@ -28,7 +29,7 @@ const props = defineProps<{
 
 function redirectToByNodePayoutsPage(): void {
     router.push({
-        name: RouterConfig.Payouts.with(RouterConfig.PayoutsByNode).name,
+        name: RouterConfig.PayoutsByNode.name,
         params: { id: props.payoutsSummary.nodeId },
     });
 }

@@ -3,26 +3,28 @@
 
 <template>
     <info-block>
-        <div slot="body" class="details-area">
-            <header class="details-area__header">
-                <h3 class="details-area__header__title">Details</h3>
-                <p class="details-area__header__period">{{ period }}</p>
-            </header>
-            <div class="details-area__content">
-                <div class="details-area__content__item">
-                    <p class="details-area__content__item__label">EARNED</p>
-                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalEarned) }}</p>
-                </div>
-                <div class="details-area__content__item">
-                    <p class="details-area__content__item__label">HELD</p>
-                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalHeld) }}</p>
-                </div>
-                <div class="details-area__content__item">
-                    <p class="details-area__content__item__label">PAID</p>
-                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalPaid) }}</p>
+        <template #body>
+            <div class="details-area">
+                <header class="details-area__header">
+                    <h3 class="details-area__header__title">Details</h3>
+                    <p class="details-area__header__period">{{ period }}</p>
+                </header>
+                <div class="details-area__content">
+                    <div class="details-area__content__item">
+                        <p class="details-area__content__item__label">EARNED</p>
+                        <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalEarned) }}</p>
+                    </div>
+                    <div class="details-area__content__item">
+                        <p class="details-area__content__item__label">HELD</p>
+                        <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalHeld) }}</p>
+                    </div>
+                    <div class="details-area__content__item">
+                        <p class="details-area__content__item__label">PAID</p>
+                        <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalPaid) }}</p>
+                    </div>
                 </div>
             </div>
-        </div>
+        </template>
     </info-block>
 </template>
 
@@ -32,10 +34,10 @@ import { Currency } from '@/app/utils/currency';
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 
 withDefaults(defineProps<{
-    totalEarned: number;
-    totalHeld: number;
-    totalPaid: number;
-    period: string;
+    totalEarned?: number;
+    totalHeld?: number;
+    totalPaid?: number;
+    period?: string;
 }>(), {
     totalEarned: 0,
     totalHeld: 0,

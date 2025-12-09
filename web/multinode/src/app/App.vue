@@ -2,36 +2,35 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-app>
+    <VApp>
         <div id="app">
             <router-view />
             <Notifications />
         </div>
-    </v-app>
+    </VApp>
 </template>
 
 <script setup lang="ts">
-import { VApp } from 'vuetify/lib';
 import { onMounted } from 'vue';
+import { VApp } from 'vuetify/components';
+import { useTheme } from 'vuetify';
 
 import Notifications from './components/notification/Notifications.vue';
 
-import { useVuetify } from '@/app/utils/composables';
-
-const vuetify = useVuetify();
+const theme = useTheme();
 
 onMounted(() => {
     const savedTheme = localStorage.getItem('theme') || 'light';
-    if (savedTheme === 'dark' && !vuetify.theme.dark) {
-        vuetify.theme.dark = true;
-    } else if (savedTheme === 'light' && vuetify.theme.dark) {
-        vuetify.theme.dark = false;
+    if (savedTheme === 'dark' && !theme.global.current.value.dark) {
+        theme.change('dark');
+    } else if (savedTheme === 'light' && theme.global.current.value.dark) {
+        theme.change('light');
     }
 });
 </script>
 
 <style lang="scss">
-@import 'static/styles/variables';
+@import '../../static/styles/variables';
 
 body {
     margin: 0 !important;

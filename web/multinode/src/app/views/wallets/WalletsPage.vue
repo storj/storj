@@ -14,11 +14,13 @@
             </div>
             <div class="wallets__right-area">
                 <info-block class="information">
-                    <div slot="body" class="wallets__information">
-                        <h3 class="wallets__information__title">Payouts with zkSync</h3>
-                        <p class="wallets__information__description">Short description how minimal threshold system works.</p>
-                        <v-link uri="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064" label="Learn more" />
-                    </div>
+                    <template #body>
+                        <div class="wallets__information">
+                            <h3 class="wallets__information__title">Payouts with zkSync</h3>
+                            <p class="wallets__information__description">Short description how minimal threshold system works.</p>
+                            <v-link uri="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064" label="Learn more" />
+                        </div>
+                    </template>
                 </info-block>
             </div>
         </div>

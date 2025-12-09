@@ -69,10 +69,10 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useTheme } from 'vuetify';
 
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
-import { useVuetify } from '@/app/utils/composables';
 import { Size } from '@/private/memory/size';
 import { useStorageStore } from '@/app/store/storageStore';
 import { useBandwidthStore } from '@/app/store/bandwidthStore';
@@ -86,7 +86,7 @@ import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelecti
 import DiskSpaceChart from '@/app/components/storage/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/storage/DiskStatChart.vue';
 
-const vuetify = useVuetify();
+const theme = useTheme();
 
 const storageStore = useStorageStore();
 const bandwidthStore = useBandwidthStore();
@@ -104,7 +104,7 @@ const diskSpaceChart = ref<HTMLElement>();
 
 const bandwidth = computed<BandwidthTraffic>(() => bandwidthStore.state.traffic);
 const diskSpaceUsageSummary = computed<number>(() => storageStore.state.usage.diskSpaceSummaryBytes);
-const isDarkMode = computed<boolean>(() => vuetify.theme.dark);
+const isDarkMode = computed<boolean>(() => theme.global.current.value.dark);
 
 function recalculateChartDimensions(): void {
     if (chart.value) {
@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
                 &__chart-choice-item {
                     padding: 6px 8px;
                     background-color: var(--v-active2-base);
-                    border-radius: 6px;
+                    border-radius: 12px;
                     font-size: 12px;
                     color: var(--v-text-base);
                     max-height: 25px;

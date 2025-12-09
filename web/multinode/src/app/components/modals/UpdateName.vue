@@ -4,24 +4,30 @@
 <template>
     <div class="update-name">
         <div class="update-name__button" @click.stop="openModal">Update Name</div>
-        <v-modal v-if="isModalShown" @onClose="closeModal">
-            <h2 slot="header">Set name for node</h2>
-            <div slot="body" class="update-name__body">
-                <div class="update-name__body__node-id-container">
-                    <span>{{ nodeId }}</span>
+        <v-modal v-if="isModalShown" @on-close="closeModal">
+            <template #header>
+                <h2>Set name for node</h2>
+            </template>
+            <template #body>
+                <div class="update-name__body">
+                    <div class="update-name__body__node-id-container">
+                        <span>{{ nodeId }}</span>
+                    </div>
+                    <headered-input
+                        class="update-name__body__input"
+                        label="Displayed name"
+                        placeholder="Name"
+                        :error="nameError"
+                        @set-data="setNodeName"
+                    />
                 </div>
-                <headered-input
-                    class="update-name__body__input"
-                    label="Displayed name"
-                    placeholder="Name"
-                    :error="nameError"
-                    @setData="setNodeName"
-                />
-            </div>
-            <div slot="footer" class="delete-node__footer">
-                <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Set Name" width="205px" :on-press="onSetName" />
-            </div>
+            </template>
+            <template #footer>
+                <div class="delete-node__footer">
+                    <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
+                    <v-button label="Set Name" width="205px" :on-press="onSetName" />
+                </div>
+            </template>
         </v-modal>
     </div>
 </template>
@@ -39,7 +45,7 @@ import VModal from '@/app/components/common/VModal.vue';
 const nodesStore = useNodesStore();
 
 const props = withDefaults(defineProps<{
-    nodeId: string;
+    nodeId?: string;
 }>(), {
     nodeId: '',
 });

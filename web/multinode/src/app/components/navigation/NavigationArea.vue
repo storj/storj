@@ -15,20 +15,17 @@
             :class="['navigation-area__item-container', { '--collapsed': isCollapsed }]"
             :to="navItem.path"
         >
-            <v-tooltip v-if="isCollapsed" right>
-                <template #activator="{ on, attrs }">
-                    <div
-                        class="navigation-area__item-container__link" v-bind="attrs"
-                        v-on="on"
-                    >
-                        <component :is="navItem.icon" />
+            <v-tooltip v-if="isCollapsed" location="right">
+                <template #activator="{ props }">
+                    <div class="navigation-area__item-container__link" v-bind="props">
+                        <component :is="navItem.icon" class="navigation-icon" />
                     </div>
                 </template>
                 <span>{{ navItem.name }}</span>
             </v-tooltip>
 
             <div v-else class="navigation-area__item-container__link">
-                <component :is="navItem.icon" />
+                <component :is="navItem.icon" class="navigation-icon" />
                 <p :class="['navigation-area__item-container__link__title', { '--collapsed': isCollapsed }]">{{ navItem.name }}</p>
             </div>
         </router-link>
@@ -36,25 +33,21 @@
 </template>
 
 <script setup lang="ts">
-import { VTooltip } from 'vuetify/lib';
 import { onMounted, ref } from 'vue';
+import { VTooltip } from 'vuetify/components';
 
 import { Config as RouterConfig } from '@/app/router';
 import { NavigationLink } from '@/app/types/common';
 
-import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
-import WalletsIcon from '@/../static/images/icons/navigation/wallets.svg';
-import PayoutsIcon from '@/../static/images/icons/navigation/payouts.svg';
-import TrafficIcon from '@/../static/images/icons/navigation/traffic.svg';
 import StorjLogo from '@/../static/images/Logo.svg';
 import ArrowRightIcon from '@/../static/images/icons/ArrowRight.svg';
 import ArrowLeftIcon from '@/../static/images/icons/ArrowLeft.svg';
 
 const navigation: NavigationLink[] = [
-    new NavigationLink(RouterConfig.MyNodes.name, RouterConfig.MyNodes.path, MyNodesIcon),
-    new NavigationLink(RouterConfig.Wallets.name, RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path, WalletsIcon),
-    new NavigationLink(RouterConfig.Payouts.name, RouterConfig.Payouts.path, PayoutsIcon),
-    new NavigationLink(RouterConfig.Bandwidth.name, RouterConfig.Bandwidth.path, TrafficIcon),
+    RouterConfig.MyNodes,
+    RouterConfig.Wallets,
+    RouterConfig.Payouts,
+    RouterConfig.Bandwidth,
 ];
 
 const isCollapsed = ref<boolean>(false);
@@ -133,8 +126,14 @@ onMounted(() => {
             width: calc(100% - 8px);
         }
 
-        :deep(path) {
-            fill: var(--v-text-base);
+        .navigation-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+
+            :deep(path) {
+                fill: var(--v-header-base);
+            }
         }
 
         &__link {
@@ -148,7 +147,7 @@ onMounted(() => {
                 line-height: 23px;
                 margin: 0 0 0 15px;
                 white-space: nowrap;
-                color: var(--v-text-base);
+                color: var(--v-header-base);
                 opacity: 1;
                 visibility: visible;
                 transition: opacity 0.1s ease, visibility 0.1s ease;
@@ -167,11 +166,11 @@ onMounted(() => {
             border-radius: 6px;
 
             .navigation-area__item-container__link__title {
-                color: var(--v-text-base);
+                color: var(--v-primary-base);
             }
 
-            :deep(path) {
-                fill: var(--v-text-base) !important;
+            .navigation-icon :deep(path) {
+                fill: var(--v-primary-base) !important;
                 opacity: 1;
             }
         }

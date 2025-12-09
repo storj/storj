@@ -134,7 +134,7 @@ func NewServer(log *zap.Logger, listener net.Listener, assets fs.FS, services Se
 	reputationRouter.HandleFunc("/satellites/{satelliteID}", reputationController.Stats)
 
 	staticServer := http.FileServer(http.FS(server.assets))
-	router.PathPrefix("/static").Handler(web.CacheHandler(staticServer))
+	router.PathPrefix("/static").Handler(http.StripPrefix("/static/", web.CacheHandler(staticServer)))
 	router.PathPrefix("/").HandlerFunc(server.appHandler)
 
 	server.http = http.Server{

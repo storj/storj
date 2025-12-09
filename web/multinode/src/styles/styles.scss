@@ -1,6 +1,26 @@
 // Copyright (C) 2024 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+:root {
+    --v-primary-base: rgb(var(--v-theme-primary));
+    --v-secondary-base: rgb(var(--v-theme-secondary));
+    --v-background-base: rgb(var(--v-theme-background));
+    --v-text-base: rgb(var(--v-theme-text));
+    --v-blue2-base: rgb(var(--v-theme-blue2));
+    --v-header-base: rgb(var(--v-theme-header));
+    --v-disabled-base: rgb(var(--v-theme-disabled));
+    --v-active2-base: rgb(var(--v-theme-active2));
+    --v-background2-base: rgb(var(--v-theme-background2));
+    --v-free-base: rgb(var(--v-theme-free));
+    --v-trash-base: rgb(var(--v-theme-trash));
+    --v-overused-base: rgb(var(--v-theme-overused));
+    --v-success-base: rgb(var(--v-theme-success));
+    --v-error-base: rgb(var(--v-theme-error));
+    --v-warning-base: rgb(var(--v-theme-warning));
+    --v-border-base: rgb(var(--v-theme-border));
+    --v-active-base: rgb(var(--v-theme-active));
+}
+
 .v-tooltip {
     z-index: 1000;
 }

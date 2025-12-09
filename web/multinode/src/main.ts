@@ -1,52 +1,44 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, { VNode } from 'vue';
-import Router from 'vue-router';
-import { DirectiveBinding } from 'vue/types/options';
-import { createPinia, setActivePinia, PiniaVuePlugin } from 'pinia';
+import { DirectiveBinding, createApp } from 'vue';
+import { createPinia, setActivePinia } from 'pinia';
 
 import App from '@/app/App.vue';
 import { vuetify } from '@/app/plugins';
 import { router } from '@/app/router';
 
-Vue.config.productionTip = false;
-
-Vue.use(PiniaVuePlugin);
 const pinia = createPinia();
 setActivePinia(pinia);
 
-Vue.use(Router);
-
-let clickOutsideEvent: EventListener;
+const app = createApp(App);
+app.use(pinia);
+app.use(vuetify);
+app.use(router);
 
 /**
- * Binds closing action to outside popups area.
+ * Click outside handlers.
  */
-Vue.directive('click-outside', {
-    bind: function(el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
-        clickOutsideEvent = function(event: Event): void {
-            if (el === event.target || el.contains(event.target as Node)) {
-                return;
-            }
+const handlers = new Map();
+document.addEventListener('click', event => {
+    for (const handler of handlers.values()) {
+        handler(event);
+    }
+});
 
-            if (vnode.context && binding.expression) {
-                vnode.context[binding.expression](event);
+app.directive('click-outside', {
+    mounted: function (el: HTMLElement, binding: DirectiveBinding): void {
+        const handler = event => {
+            if (el !== event.target && !el.contains(event.target)) {
+                binding.value(event);
             }
         };
 
-        document.body.addEventListener('click', clickOutsideEvent);
+        handlers.set(el, handler);
     },
-    unbind: function(): void {
-        document.body.removeEventListener('click', clickOutsideEvent);
+    unmounted: function(el: HTMLElement): void {
+        handlers.delete(el);
     },
 });
 
-const app = new Vue({
-    router,
-    pinia,
-    vuetify,
-    render: (h) => h(App),
-});
-
-app.$mount('#app');
+app.mount('#app');

@@ -42,9 +42,9 @@ import { OnPageClickCallback, Page } from '@/app/types/pagination';
 import PagesBlock from '@/app/components/common/PagesBlock.vue';
 
 const props = withDefaults(defineProps<{
-    totalPageCount: number;
-    preselectedCurrentPageNumber: number;
-    onPageClickCallback: OnPageClickCallback;
+    totalPageCount?: number;
+    preselectedCurrentPageNumber?: number;
+    onPageClickCallback?: OnPageClickCallback;
 }>(), {
     totalPageCount: 0,
     preselectedCurrentPageNumber: 1,

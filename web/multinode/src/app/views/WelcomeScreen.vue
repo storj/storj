@@ -18,8 +18,9 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router';
+
 import { Config as RouterConfig } from '@/app/router';
-import { useRouter } from '@/app/utils/composables';
 
 import VButton from '@/app/components/common/VButton.vue';
 

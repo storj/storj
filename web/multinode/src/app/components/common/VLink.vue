@@ -13,8 +13,8 @@
 
 <script setup lang="ts">
 withDefaults(defineProps<{
-    uri: string;
-    label: string;
+    uri?: string;
+    label?: string;
 }>(), {
     uri: '',
     label: '',

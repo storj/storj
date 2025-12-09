@@ -3,21 +3,23 @@
 
 <template>
     <info-block>
-        <div slot="body" class="balance-area">
-            <header class="balance-area__header">
-                <h3 class="balance-area__header__title">Balance</h3>
-            </header>
-            <div class="balance-area__content">
-                <div class="balance-area__content__item">
-                    <p class="balance-area__content__item__label">Undistributed Payouts</p>
-                    <p class="balance-area__content__item__value">{{ Currency.dollarsFromCents(undistributed) }}</p>
-                </div>
-                <div class="balance-area__content__item">
-                    <p class="balance-area__content__item__label">Current Month Estimated Earnings</p>
-                    <p class="balance-area__content__item__value">{{ Currency.dollarsFromCents(currentMonthEstimation) }}</p>
+        <template #body>
+            <div class="balance-area">
+                <header class="balance-area__header">
+                    <h3 class="balance-area__header__title">Balance</h3>
+                </header>
+                <div class="balance-area__content">
+                    <div class="balance-area__content__item">
+                        <p class="balance-area__content__item__label">Undistributed Payouts</p>
+                        <p class="balance-area__content__item__value">{{ Currency.dollarsFromCents(undistributed) }}</p>
+                    </div>
+                    <div class="balance-area__content__item">
+                        <p class="balance-area__content__item__label">Current Month Estimated Earnings</p>
+                        <p class="balance-area__content__item__value">{{ Currency.dollarsFromCents(currentMonthEstimation) }}</p>
+                    </div>
                 </div>
             </div>
-        </div>
+        </template>
     </info-block>
 </template>
 
@@ -27,8 +29,8 @@ import { Currency } from '@/app/utils/currency';
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 
 withDefaults(defineProps<{
-    undistributed: number;
-    currentMonthEstimation: number;
+    undistributed?: number;
+    currentMonthEstimation?: number;
 }>(), {
     undistributed: 0,
     currentMonthEstimation: 0,

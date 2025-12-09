@@ -3,17 +3,21 @@
 
 <template>
     <base-table v-if="nodePayoutsSummary.length">
-        <thead slot="head">
-            <tr>
-                <th class="align-left" @click="sortBy('nodeName')">NODE{{ sortByKey === 'nodeName' ? sortArrow : '' }}</th>
-                <th @click="sortBy('held')">HELD{{ sortByKey === 'held' ? sortArrow : '' }}</th>
-                <th @click="sortBy('paid')">PAID{{ sortByKey === 'paid' ? sortArrow : '' }}</th>
-                <th class="options" />
-            </tr>
-        </thead>
-        <tbody slot="body">
-            <payouts-summary-item v-for="payoutSummary in sortedNodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary" />
-        </tbody>
+        <template #head>
+            <thead>
+                <tr>
+                    <th class="align-left" @click="sortBy('nodeName')">NODE{{ sortByKey === 'nodeName' ? sortArrow : '' }}</th>
+                    <th @click="sortBy('held')">HELD{{ sortByKey === 'held' ? sortArrow : '' }}</th>
+                    <th @click="sortBy('paid')">PAID{{ sortByKey === 'paid' ? sortArrow : '' }}</th>
+                    <th class="options" />
+                </tr>
+            </thead>
+        </template>
+        <template #body>
+            <tbody>
+                <payouts-summary-item v-for="payoutSummary in sortedNodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary" />
+            </tbody>
+        </template>
     </base-table>
 </template>
 
@@ -26,7 +30,7 @@ import BaseTable from '@/app/components/common/BaseTable.vue';
 import PayoutsSummaryItem from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryItem.vue';
 
 const props = withDefaults(defineProps<{
-    nodePayoutsSummary: NodePayoutsSummary[];
+    nodePayoutsSummary?: NodePayoutsSummary[];
 }>(), {
     nodePayoutsSummary: () => [],
 });

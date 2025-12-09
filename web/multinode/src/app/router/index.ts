@@ -1,10 +1,11 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Router, { RouterMode } from 'vue-router';
-import { Component } from 'vue-router/types/router';
+import { createRouter, createWebHistory } from 'vue-router';
 
 import { useNodesStore } from '@/app/store/nodesStore';
+import { NavigationLink } from '@/app/types/common';
+
 import AddFirstNode from '@/app/views/AddFirstNode.vue';
 import BandwidthPage from '@/app/views/bandwidth/BandwidthPage.vue';
 import Dashboard from '@/app/views/Dashboard.vue';
@@ -17,115 +18,104 @@ import WalletsPage from '@/app/views/wallets/WalletsPage.vue';
 import WalletsRoot from '@/app/views/wallets/WalletsRoot.vue';
 import WelcomeScreen from '@/app/views/WelcomeScreen.vue';
 
-/**
- * Metadata holds arbitrary information to routes like transition names, who can access the route, etc.
- */
-class Metadata {
-    public requiresAuth: boolean;
-}
-
-/**
- * Route holds all needed information to fill up router config.
- */
-export class Route {
-    public readonly path: string;
-    public readonly name: string;
-    public readonly component: Component;
-    public children?: Route[];
-    public readonly meta?: Metadata;
-    public redirect?: Route;
-
-    /**
-     * default constructor.
-     * @param path - route path.
-     * @param name - name of the route, needed fot identifying route by name.
-     * @param component - component mapped to route.
-     * @param meta - arbitrary information to routes like transition names, who can access the route, etc.
-     * @param redirect
-     */
-    public constructor(
-        path: string,
-        name: string,
-        component: Component,
-        meta: Metadata | undefined = undefined,
-        redirect: Route | undefined = undefined,
-    ) {
-        this.path = path;
-        this.name = name;
-        this.component = component;
-        this.meta = meta;
-        this.redirect = redirect;
-    }
-
-    /**
-     * Adds children routes to route.
-     */
-    public addChildren(children: Route[]): Route {
-        this.children = children;
-
-        return this;
-    }
-
-    /**
-     * indicates if this route is a child route.
-     */
-    public isChild(): boolean {
-        return this.path[0] !== '/';
-    }
-
-    /**
-     * combines child route with its ancestor.
-     * @param child
-     */
-    public with(child: Route): Route {
-        if (!child.isChild()) {
-            throw new Error('provided child root is not defined');
-        }
-
-        return new Route(`${this.path}/${child.path}`, child.name, child.component, child.meta, child.redirect);
-    }
-}
+import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
+import WalletsIcon from '@/../static/images/icons/navigation/wallets.svg';
+import PayoutsIcon from '@/../static/images/icons/navigation/payouts.svg';
+import TrafficIcon from '@/../static/images/icons/navigation/traffic.svg';
 
 /**
  * Config contains configuration of all available routes for a Multinode Dashboard router.
  */
 export class Config {
-    public static Root: Route = new Route('/', 'Root', Dashboard, { requiresAuth: true });
-    public static Welcome: Route = new Route('/welcome', 'Welcome', WelcomeScreen);
+    public static Root = new NavigationLink('Root', '/');
+    public static Welcome = new NavigationLink('Welcome', '/welcome');
     // nodes.
-    public static AddFirstNode: Route = new Route('/add-first-node', 'AddFirstNode', AddFirstNode);
-    public static MyNodes: Route = new Route('/my-nodes', 'My Nodes', MyNodes);
+    public static AddFirstNode = new NavigationLink('AddFirstNode', '/add-first-node');
+    public static MyNodes = new NavigationLink('My Nodes', '/my-nodes', MyNodesIcon);
     // payouts.
-    public static PayoutsSummary: Route = new Route('summary', 'PayoutsSummary', PayoutsPage);
-    public static PayoutsByNode: Route = new Route('by-node/:id', 'PayoutsByNode', PayoutsByNode);
-    public static Payouts: Route = new Route('/payouts', 'Payouts', PayoutsRoot, undefined, Config.PayoutsSummary);
+    public static PayoutsSummary = new NavigationLink('PayoutsSummary', 'summary');
+    public static PayoutsByNode = new NavigationLink('PayoutsByNode', 'by-node/:id');
+    public static Payouts = new NavigationLink('Payouts', '/payouts', PayoutsIcon);
     // bandwidth and disk.
-    public static Bandwidth: Route = new Route('/bandwidth', 'Bandwidth & Disk', BandwidthPage);
+    public static Bandwidth = new NavigationLink('Bandwidth & Disk', '/bandwidth', TrafficIcon);
     // wallets.
-    public static WalletsSummary: Route = new Route('summary', 'WalletsSummary', WalletsPage);
-    public static WalletDetails: Route = new Route('details/:address', 'WalletDetails', WalletDetailsPage);
-    public static Wallets: Route = new Route('/wallets', 'Wallets', WalletsRoot, undefined, Config.WalletsSummary);
-
-    public static mode: RouterMode = 'history';
-    public static routes: Route[] = [
-        Config.Root.addChildren([
-            Config.MyNodes,
-            Config.Payouts.addChildren([
-                Config.PayoutsByNode,
-                Config.PayoutsSummary,
-            ]),
-            Config.Wallets.addChildren([
-                Config.WalletDetails,
-                Config.WalletsSummary,
-            ]),
-            Config.Bandwidth,
-        ]),
-        Config.Welcome,
-        Config.AddFirstNode,
-    ];
+    public static WalletsSummary = new NavigationLink('WalletsSummary', 'summary');
+    public static WalletDetails = new NavigationLink('WalletDetails', 'details/:address');
+    public static Wallets = new NavigationLink('Wallets', '/wallets', WalletsIcon);
 }
 
-export const router = new Router(Config);
+export const router = createRouter({
+    history: createWebHistory(import.meta.env.PROD ? '' : '/'),
+    routes: [
+        {
+            path: Config.Root.path,
+            name: Config.Root.name,
+            component: Dashboard,
+            redirect: { name: Config.MyNodes.name },
+            meta: {
+                requiresAuth: true,
+            },
+            children: [
+                {
+                    path: Config.MyNodes.path,
+                    name: Config.MyNodes.name,
+                    component: MyNodes,
+                },
+                {
+                    path: Config.Payouts.path,
+                    name: Config.Payouts.name,
+                    component: PayoutsRoot,
+                    redirect: { name: Config.PayoutsSummary.name },
+                    children: [
+                        {
+                            path: Config.PayoutsByNode.path,
+                            name: Config.PayoutsByNode.name,
+                            component: PayoutsByNode,
+                        },
+                        {
+                            path: Config.PayoutsSummary.path,
+                            name: Config.PayoutsSummary.name,
+                            component: PayoutsPage,
+                        },
+                    ],
+                },
+                {
+                    path: Config.Wallets.path,
+                    name: Config.Wallets.name,
+                    component: WalletsRoot,
+                    redirect: { name: Config.WalletsSummary.name },
+                    children: [
+                        {
+                            path: Config.WalletDetails.path,
+                            name: Config.WalletDetails.name,
+                            component: WalletDetailsPage,
+                        },
+                        {
+                            path: Config.WalletsSummary.path,
+                            name: Config.WalletsSummary.name,
+                            component: WalletsPage,
+                        },
+                    ],
+                },
+                {
+                    path: Config.Bandwidth.path,
+                    name: Config.Bandwidth.name,
+                    component: BandwidthPage,
+                },
+            ],
+        },
+        {
+            path: Config.Welcome.path,
+            name: Config.Welcome.name,
+            component: WelcomeScreen,
+        },
+        {
+            path: Config.AddFirstNode.path,
+            name: Config.AddFirstNode.name,
+            component: AddFirstNode,
+        },
+    ],
+});
 
 /**
  * List of allowed routes without any node added.
@@ -140,16 +130,18 @@ router.beforeEach(async(to, _from, next) => {
     const nodesStore = useNodesStore();
     if (nodesStore.state.nodes.length) {
         next();
+        return;
     }
 
     if (!to.matched.some(record => allowedRoutesNames.includes(<string>record.name))) {
         await nodesStore.fetch();
 
         if (!nodesStore.state.nodes.length) {
-            next(Config.AddFirstNode);
+            next(Config.AddFirstNode.path);
         } else {
             next();
         }
+        return;
     }
 
     next();

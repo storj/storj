@@ -46,9 +46,9 @@
 
 <script setup lang="ts">
 import { onBeforeMount } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { Config as RouterConfig } from '@/app/router';
-import { useRoute, useRouter } from '@/app/utils/composables';
 import { Currency } from '@/app/utils/currency';
 
 import VLink from '@/app/components/common/VLink.vue';
