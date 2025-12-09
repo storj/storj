@@ -78,6 +78,18 @@ CREATE TABLE bucket_storage_tallies (
 	object_count INT64 NOT NULL,
 	metadata_size INT64 NOT NULL
 ) PRIMARY KEY ( bucket_name, project_id, interval_start ) ;
+CREATE TABLE change_histories (
+	id BYTES(MAX) NOT NULL,
+	admin_email STRING(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX),
+	bucket_name BYTES(MAX),
+	item_type STRING(MAX) NOT NULL,
+	operation STRING(MAX) NOT NULL,
+	reason STRING(MAX) NOT NULL,
+	changes JSON NOT NULL,
+	timestamp TIMESTAMP NOT NULL DEFAULT (current_timestamp)
+) PRIMARY KEY ( id ) ;
 CREATE TABLE coinpayments_transactions (
 	id STRING(MAX) NOT NULL,
 	user_id BYTES(MAX) NOT NULL,
@@ -593,6 +605,10 @@ CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index O
 CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
 CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start ) ;
+CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp ) ;
+CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp ) ;
+CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp ) ;
+CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
