@@ -147,8 +147,8 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 
 			metabasetest.CreateObject(ctx, t, db, obj1, 37)
 
-			metabasetest.DeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket:    obj1.Location().Bucket(),
 					BatchSize: 2,
 				},
@@ -169,8 +169,8 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 				metabasetest.CreateObject(ctx, t, db, obj, 5)
 			}
 
-			metabasetest.DeleteAllBucketObjects{
-				Opts: metabase.DeleteAllBucketObjects{
+			metabasetest.UncoordinatedDeleteAllBucketObjects{
+				Opts: metabase.UncoordinatedDeleteAllBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 1,
 				},
