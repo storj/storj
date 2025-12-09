@@ -32,7 +32,7 @@
             </div>
             <div class="wallet-details__header__right-area">
                 <p class="wallet-details__header__right-area__label">Undistributed Balance</p>
-                <p class="wallet-details__header__right-area__value">{{ 25059 | centsToDollars }}</p>
+                <p class="wallet-details__header__right-area__value">{{ Currency.dollarsFromCents(25059) }}</p>
                 <v-link uri="#" label="View on Etherscan" />
                 <v-link uri="#" label="View on zkScan" />
             </div>
@@ -49,6 +49,7 @@ import { onBeforeMount } from 'vue';
 
 import { Config as RouterConfig } from '@/app/router';
 import { useRoute, useRouter } from '@/app/utils/composables';
+import { Currency } from '@/app/utils/currency';
 
 import VLink from '@/app/components/common/VLink.vue';
 import WalletDetailsTable from '@/app/components/wallets/tables/walletDetails/WalletDetailsTable.vue';

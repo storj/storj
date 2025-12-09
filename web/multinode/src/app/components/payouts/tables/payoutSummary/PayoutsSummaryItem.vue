@@ -4,8 +4,8 @@
 <template>
     <tr class="table-item payouts-summary-item" @click.prevent="redirectToByNodePayoutsPage">
         <th class="align-left node-name">{{ payoutsSummary.nodeName || payoutsSummary.nodeId }}</th>
-        <th>{{ payoutsSummary.held | centsToDollars }}</th>
-        <th>{{ payoutsSummary.paid | centsToDollars }}</th>
+        <th>{{ Currency.dollarsFromCents(payoutsSummary.held) }}</th>
+        <th>{{ Currency.dollarsFromCents(payoutsSummary.paid) }}</th>
         <th class="overflow-visible options">
             <node-options :id="payoutsSummary.nodeId" />
         </th>
@@ -16,6 +16,7 @@
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayoutsSummary } from '@/payouts';
 import { useRouter } from '@/app/utils/composables';
+import { Currency } from '@/app/utils/currency';
 
 import NodeOptions from '@/app/components/common/NodeOptions.vue';
 

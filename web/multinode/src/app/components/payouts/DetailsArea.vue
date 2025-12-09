@@ -11,15 +11,15 @@
             <div class="details-area__content">
                 <div class="details-area__content__item">
                     <p class="details-area__content__item__label">EARNED</p>
-                    <p class="details-area__content__item__value">{{ totalEarned | centsToDollars }}</p>
+                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalEarned) }}</p>
                 </div>
                 <div class="details-area__content__item">
                     <p class="details-area__content__item__label">HELD</p>
-                    <p class="details-area__content__item__value">{{ totalHeld | centsToDollars }}</p>
+                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalHeld) }}</p>
                 </div>
                 <div class="details-area__content__item">
                     <p class="details-area__content__item__label">PAID</p>
-                    <p class="details-area__content__item__value">{{ totalPaid | centsToDollars }}</p>
+                    <p class="details-area__content__item__value">{{ Currency.dollarsFromCents(totalPaid) }}</p>
                 </div>
             </div>
         </div>
@@ -27,7 +27,9 @@
 </template>
 
 <script setup lang="ts">
-import InfoBlock from '../common/InfoBlock.vue';
+import { Currency } from '@/app/utils/currency';
+
+import InfoBlock from '@/app/components/common/InfoBlock.vue';
 
 withDefaults(defineProps<{
     totalEarned: number;

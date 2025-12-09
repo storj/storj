@@ -41,9 +41,9 @@
                     </button>
                 </div>
             </div>
-            <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ bandwidth.egressSummary | bytesToBase10String }}</b></p>
-            <p v-else-if="isIngressChartShown" class="chart-container__amount"><b>{{ bandwidth.ingressSummary | bytesToBase10String }}</b></p>
-            <p v-else class="chart-container__amount"><b>{{ bandwidth.bandwidthSummary | bytesToBase10String }}</b></p>
+            <p v-if="isEgressChartShown" class="chart-container__amount"><b>{{ Size.toBase10String(bandwidth.egressSummary) }}</b></p>
+            <p v-else-if="isIngressChartShown" class="chart-container__amount"><b>{{ Size.toBase10String(bandwidth.ingressSummary) }}</b></p>
+            <p v-else class="chart-container__amount"><b>{{ Size.toBase10String(bandwidth.bandwidthSummary) }}</b></p>
             <div ref="chart" class="chart-container__chart">
                 <egress-chart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
                 <ingress-chart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth" :is-dark-mode="isDarkMode" />
@@ -55,7 +55,7 @@
                 <div class="chart-container__title-area disk-space-title">
                     <p class="chart-container__title-area__title">Average Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{ Size.toBase10String(diskSpaceUsageSummary) }}</b></p>
                 <div ref="diskSpaceChart" class="chart-container__chart">
                     <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
                 </div>
@@ -73,6 +73,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
 import { useStore, useVuetify } from '@/app/utils/composables';
+import { Size } from '@/private/memory/size';
 
 import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
 import EgressChart from '@/app/components/bandwidth/EgressChart.vue';

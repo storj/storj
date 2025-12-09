@@ -24,12 +24,12 @@
                 <div slot="body" class="payouts-by-node__top-area__balance">
                     <div class="payouts-by-node__top-area__balance__item">
                         <h3 class="payouts-by-node__top-area__balance__item__label">Undistributed Balance</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ selectedNodePayouts.expectations.undistributed | centsToDollars }}</h2>
+                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.undistributed) }}</h2>
                     </div>
                     <div class="payouts-by-node__top-area__balance__divider" />
                     <div class="payouts-by-node__top-area__balance__item">
                         <h3 class="payouts-by-node__top-area__balance__item__label">Estimated Earnings (Apr)</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ selectedNodePayouts.expectations.currentMonthEstimation | centsToDollars }}</h2>
+                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.currentMonthEstimation) }}</h2>
                     </div>
                 </div>
             </info-block>
@@ -45,19 +45,19 @@
                     <info-block>
                         <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL PAID</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalPaid | centsToDollars }}</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalPaid) }}</p>
                         </div>
                     </info-block>
                     <info-block>
                         <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL HELD</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalHeld | centsToDollars }}</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalHeld) }}</p>
                         </div>
                     </info-block>
                     <info-block>
                         <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL EARNED</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalEarned | centsToDollars }}</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalEarned) }}</p>
                         </div>
                     </info-block>
                     <info-block class="information">
@@ -90,6 +90,7 @@ import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayouts } from '@/payouts';
 import { useRoute, useRouter, useStore } from '@/app/utils/composables';
+import { Currency } from '@/app/utils/currency';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
