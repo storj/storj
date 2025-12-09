@@ -116,7 +116,6 @@ func TestQuerySchema(t *testing.T) {
 					Name:       "added_at",
 					Type:       "timestamp with time zone",
 					IsNullable: false,
-					Reference:  &dbschema.Reference{Table: "languages", Column: "added_at"},
 				},
 				{
 					Name:       "admin",
@@ -136,6 +135,16 @@ func TestQuerySchema(t *testing.T) {
 				},
 			},
 			PrimaryKey: []string{"added_at", "event", "admin"},
+			ForeignKeys: []*dbschema.ForeignKey{
+				{
+					Name:           "FK_language_events_languages_50B8A8E01FA990F9_1",
+					LocalColumns:   []string{"added_at"},
+					ForeignTable:   "languages",
+					ForeignColumns: []string{"added_at"},
+					OnDelete:       "",
+					OnUpdate:       "",
+				},
+			},
 		},
 		{
 			Name: "languages",
@@ -159,11 +168,20 @@ func TestQuerySchema(t *testing.T) {
 					Name:       "parent",
 					Type:       "text",
 					IsNullable: true,
-					Reference:  &dbschema.Reference{Table: "languages", Column: "name"},
 				},
 			},
 			PrimaryKey: []string{"name"},
 			Unique:     [][]string{{"added_at"}},
+			ForeignKeys: []*dbschema.ForeignKey{
+				{
+					Name:           "FK_languages_languages_47C046CFFD9FFD1A_1",
+					LocalColumns:   []string{"parent"},
+					ForeignTable:   "languages",
+					ForeignColumns: []string{"name"},
+					OnDelete:       "",
+					OnUpdate:       "",
+				},
+			},
 		},
 		{
 			Name: "letters",
@@ -172,7 +190,6 @@ func TestQuerySchema(t *testing.T) {
 					Name:       "language",
 					Type:       "text",
 					IsNullable: false,
-					Reference:  &dbschema.Reference{Table: "languages", Column: "name"},
 				},
 				{
 					Name:       "letter",
@@ -186,6 +203,16 @@ func TestQuerySchema(t *testing.T) {
 				},
 			},
 			PrimaryKey: []string{"letter", "language"},
+			ForeignKeys: []*dbschema.ForeignKey{
+				{
+					Name:           "FK_letters_languages_9130EA5FF4299669_1",
+					LocalColumns:   []string{"language"},
+					ForeignTable:   "languages",
+					ForeignColumns: []string{"name"},
+					OnDelete:       "",
+					OnUpdate:       "",
+				},
+			},
 		},
 		{
 			Name: "speakers",

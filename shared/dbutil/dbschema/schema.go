@@ -49,11 +49,12 @@ func (schema Schema) String() string {
 
 // Table is a sql table.
 type Table struct {
-	Name       string
-	Columns    []*Column
-	PrimaryKey []string
-	Unique     [][]string
-	Checks     []string
+	Name        string
+	Columns     []*Column
+	PrimaryKey  []string
+	Unique      [][]string
+	Checks      []string
+	ForeignKeys []*ForeignKey
 }
 
 func (table Table) String() string {
@@ -67,11 +68,17 @@ func (table Table) String() string {
 		uniques = append(uniques, strings.Join(unique, " "))
 	}
 
-	return fmt.Sprintf("Name: %s\nColumns:\n\t%s\nPrimaryKey: %s\nUniques:\n\t%s\nChecks:\n\t\t%s\n",
+	var foreignKeys []string
+	for _, fk := range table.ForeignKeys {
+		foreignKeys = append(foreignKeys, fk.String())
+	}
+
+	return fmt.Sprintf("Name: %s\nColumns:\n\t%s\nPrimaryKey: %s\nUniques:\n\t%s\nForeignKeys:\n\t%s\nChecks:\n\t\t%s\n",
 		table.Name,
 		indent(strings.Join(columns, "\n")),
 		strings.Join(table.PrimaryKey, " "),
 		indent(strings.Join(uniques, "\n")),
+		indent(strings.Join(foreignKeys, "\n")),
 		indent(strings.Join(table.Checks, "\n")),
 	)
 }
@@ -82,35 +89,37 @@ type Column struct {
 	Type       string
 	IsNullable bool
 	Default    string
-	Reference  *Reference
 }
 
 func (column Column) String() string {
-	return fmt.Sprintf("Name: %s\nType: %s\nNullable: %t\nDefault: %q\nReference: %s",
+	return fmt.Sprintf("Name: %s\nType: %s\nNullable: %t\nDefault: %q",
 		column.Name,
 		column.Type,
 		column.IsNullable,
-		column.Default,
-		column.Reference)
+		column.Default)
 }
 
-// Reference is a column foreign key.
-type Reference struct {
-	Table    string
-	Column   string
-	OnDelete string
-	OnUpdate string
+// ForeignKey represents a foreign key constraint (including composite foreign keys).
+type ForeignKey struct {
+	Name           string
+	LocalColumns   []string
+	ForeignTable   string
+	ForeignColumns []string
+	OnDelete       string
+	OnUpdate       string
 }
 
-func (reference *Reference) String() string {
-	if reference == nil {
+func (fk *ForeignKey) String() string {
+	if fk == nil {
 		return "nil"
 	}
-	return fmt.Sprintf("Reference<Table: %s, Column: %s, OnDelete: %s, OnUpdate: %s>",
-		reference.Table,
-		reference.Column,
-		reference.OnDelete,
-		reference.OnUpdate)
+	return fmt.Sprintf("ForeignKey<Name: %s, Columns: [%s], References: %s(%s), OnDelete: %s, OnUpdate: %s>",
+		fk.Name,
+		strings.Join(fk.LocalColumns, ", "),
+		fk.ForeignTable,
+		strings.Join(fk.ForeignColumns, ", "),
+		fk.OnDelete,
+		fk.OnUpdate)
 }
 
 // Index is an index for a table.
