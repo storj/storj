@@ -3,8 +3,6 @@
 
 import { getCurrentInstance } from 'vue';
 
-import { store } from '@/app/store';
-
 // TODO: remove after migration.
 export function useRoute() {
     return getCurrentInstance()?.proxy.$route;
@@ -12,10 +10,6 @@ export function useRoute() {
 
 export function useRouter() {
     return getCurrentInstance()?.proxy.$router;
-}
-
-export function useStore() {
-    return getCurrentInstance()?.proxy.$store ?? {} as typeof store;
 }
 
 export function useVuetify() {

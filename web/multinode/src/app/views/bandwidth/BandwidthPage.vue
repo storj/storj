@@ -72,8 +72,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
-import { useStore, useVuetify } from '@/app/utils/composables';
+import { useVuetify } from '@/app/utils/composables';
 import { Size } from '@/private/memory/size';
+import { useStorageStore } from '@/app/store/storageStore';
+import { useBandwidthStore } from '@/app/store/bandwidthStore';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
 import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
@@ -83,8 +86,11 @@ import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelecti
 import DiskSpaceChart from '@/app/components/storage/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/storage/DiskStatChart.vue';
 
-const store = useStore();
 const vuetify = useVuetify();
+
+const storageStore = useStorageStore();
+const bandwidthStore = useBandwidthStore();
+const nodesStore = useNodesStore();
 
 const chartWidth = ref(0);
 const chartHeight = ref(0);
@@ -96,8 +102,8 @@ const isIngressChartShown = ref(false);
 const chart = ref<HTMLElement>();
 const diskSpaceChart = ref<HTMLElement>();
 
-const bandwidth = computed<BandwidthTraffic>(() => store.state.bandwidth.traffic);
-const diskSpaceUsageSummary = computed<number>(() => store.state.storage.usage.diskSpaceSummaryBytes);
+const bandwidth = computed<BandwidthTraffic>(() => bandwidthStore.state.traffic);
+const diskSpaceUsageSummary = computed<number>(() => storageStore.state.usage.diskSpaceSummaryBytes);
 const isDarkMode = computed<boolean>(() => vuetify.theme.dark);
 
 function recalculateChartDimensions(): void {
@@ -128,27 +134,11 @@ function openEgressChart(): void {
 
 async function fetchTraffic(): Promise<void> {
     try {
-        await store.dispatch('bandwidth/fetch');
-    } catch (error) {
-        if (error instanceof UnauthorizedError) {
-            // TODO: redirect to login screen.
-        }
-
-        // TODO: notify error
-    }
-
-    try {
-        await store.dispatch('storage/usage');
-    } catch (error) {
-        if (error instanceof UnauthorizedError) {
-            // TODO: redirect to login screen.
-        }
-
-        // TODO: notify error
-    }
-
-    try {
-        await store.dispatch('storage/diskSpace');
+        await Promise.all([
+            bandwidthStore.fetch(),
+            storageStore.usage(),
+            storageStore.diskSpace(),
+        ]);
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.
@@ -162,7 +152,7 @@ onMounted(async () => {
     window.addEventListener('resize', recalculateChartDimensions);
 
     try {
-        await store.dispatch('nodes/fetchOnline');
+        await nodesStore.fetchOnline();
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.
@@ -173,12 +163,11 @@ onMounted(async () => {
 
     await fetchTraffic();
 
-    // Subscribes on period or satellite change
-    store.subscribe(async(mutation) => {
-        const watchedMutations = ['nodes/setSelectedNode', 'nodes/setSelectedSatellite'];
-
-        if (watchedMutations.includes(mutation.type)) {
-            await fetchTraffic();
+    nodesStore.$onAction(({ name, after }) => {
+        if (name === 'selectSatellite' || name === 'selectNode') {
+            after(async (_) => {
+                await fetchTraffic();
+            });
         }
     });
 

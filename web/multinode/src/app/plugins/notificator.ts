@@ -1,8 +1,8 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { store } from '@/app/store';
 import { NotificationPayload } from '@/app/types/delayedNotification';
+import { useNotificationsStore } from '@/app/store/notificationsStore';
 
 /**
  * Plugin for handling notifications.
@@ -18,7 +18,7 @@ export class Notify {
         if (!payload.title) {
             payload.title = 'Success';
         }
-        store.dispatch('notification/success', payload);
+        useNotificationsStore().notifySuccess(payload);
     }
 
     /**
@@ -29,7 +29,7 @@ export class Notify {
         if (!payload.title) {
             payload.title = 'Error';
         }
-        store.dispatch('notification/error', payload);
+        useNotificationsStore().notifyError(payload);
     }
 
     /**
@@ -40,7 +40,7 @@ export class Notify {
         if (!payload.title) {
             payload.title = 'Warning';
         }
-        store.dispatch('notification/warning', payload);
+        useNotificationsStore().notifyWarning(payload);
     }
 
     /**
@@ -51,6 +51,6 @@ export class Notify {
         if (!payload.title) {
             payload.title = 'Info';
         }
-        store.dispatch('notification/info', payload);
+        useNotificationsStore().notifyInfo(payload);
     }
 }

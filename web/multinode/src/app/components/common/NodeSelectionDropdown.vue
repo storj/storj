@@ -9,15 +9,15 @@
 import { computed } from 'vue';
 
 import { Node } from '@/nodes';
-import { useStore } from '@/app/utils/composables';
 import { Option } from '@/app/types/common';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import VDropdown from '@/app/components/common/VDropdown.vue';
 
-const store = useStore();
+const nodesStore = useNodesStore();
 
 const nodes = computed<Option[]>(() => {
-    const nodeList: Node[] = store.state.nodes.nodes;
+    const nodeList: Node[] = nodesStore.state.nodes;
 
     const options: Option[] = nodeList.map(
         (node: Node) => new Option(node.displayedName, () => onNodeClick(node.id)),
@@ -27,6 +27,6 @@ const nodes = computed<Option[]>(() => {
 });
 
 async function onNodeClick(nodeId = ''): Promise<void> {
-    await store.dispatch('nodes/selectNode', nodeId);
+    await nodesStore.selectNode(nodeId);
 }
 </script>

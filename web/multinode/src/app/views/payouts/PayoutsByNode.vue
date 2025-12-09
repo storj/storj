@@ -37,7 +37,7 @@
         <div class="payouts-by-node__content-area">
             <div class="payouts-by-node__content-area__dropdowns">
                 <satellite-selection-dropdown />
-                <payout-period-calendar-button :period="period" />
+                <payout-period-calendar-button :period="payoutsStore.periodString" />
             </div>
             <section class="payouts-by-node__content-area__main-info">
                 <payouts-by-node-table class="payouts-by-node__content-area__main-info__table" :paystub="selectedNodePayouts.paystubForPeriod" />
@@ -89,8 +89,10 @@ import { computed, onBeforeMount, onMounted } from 'vue';
 import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayouts } from '@/payouts';
-import { useRoute, useRouter, useStore } from '@/app/utils/composables';
+import { useRoute, useRouter } from '@/app/utils/composables';
 import { Currency } from '@/app/utils/currency';
+import { usePayoutsStore } from '@/app/store/payoutsStore';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
@@ -100,20 +102,20 @@ import PayoutsByNodeTable from '@/app/components/payouts/tables/payoutsByNode/Pa
 
 const route = useRoute();
 const router = useRouter();
-const store = useStore();
+
+const payoutsStore = usePayoutsStore();
+const nodesStore = useNodesStore();
 
 const nodeId = computed<string>(() => route.params.id);
 
 const nodeTitle = computed<string>(() => {
-    const selectedNodeSummary = store.state.payouts.summary.nodeSummary.find(summary => summary.nodeId === nodeId.value);
+    const selectedNodeSummary = payoutsStore.state.summary.nodeSummary.find(summary => summary.nodeId === nodeId.value);
     if (!selectedNodeSummary) return nodeId.value;
 
     return selectedNodeSummary.title;
 });
 
-const period = computed<string>(() => store.getters['payouts/periodString']);
-
-const selectedNodePayouts = computed<NodePayouts>(() => store.state.payouts.selectedNodePayouts);
+const selectedNodePayouts = computed<NodePayouts>(() => payoutsStore.state.selectedNodePayouts as NodePayouts);
 
 function redirectToPayoutSummary(): void {
     router.push(RouterConfig.PayoutsSummary);
@@ -121,27 +123,11 @@ function redirectToPayoutSummary(): void {
 
 async function fetchNodePayouts(): Promise<void> {
     try {
-        await store.dispatch('payouts/heldHistory', nodeId.value);
-    } catch (error) {
-        if (error instanceof UnauthorizedError) {
-            // TODO: redirect to login screen.
-        }
-
-        // TODO: notify error
-    }
-
-    try {
-        await store.dispatch('payouts/paystub', nodeId.value);
-    } catch (error) {
-        if (error instanceof UnauthorizedError) {
-            // TODO: redirect to login screen.
-        }
-
-        // TODO: notify error
-    }
-
-    try {
-        await store.dispatch('payouts/expectations', nodeId.value);
+        await Promise.all([
+            payoutsStore.heldHistory(nodeId.value),
+            payoutsStore.paystub(nodeId.value),
+            payoutsStore.expectations(nodeId.value),
+        ]);
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.
@@ -159,7 +145,7 @@ onBeforeMount(() => {
 
 onMounted(async () => {
     try {
-        await store.dispatch('payouts/nodeTotals', route.params.id);
+        await payoutsStore.nodeTotals(route.params.id);
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.
@@ -170,12 +156,18 @@ onMounted(async () => {
 
     await fetchNodePayouts();
 
-    // Subscribes on period or satellite change
-    store.subscribe(async(mutation) => {
-        const watchedMutations = ['payouts/setPayoutPeriod', 'nodes/setSelectedSatellite'];
-
-        if (watchedMutations.includes(mutation.type)) {
-            await fetchNodePayouts();
+    payoutsStore.$onAction(({ name, after }) => {
+        if (name === 'setPayoutPeriod') {
+            after(async () => {
+                await fetchNodePayouts();
+            });
+        }
+    });
+    nodesStore.$onAction(({ name, after }) => {
+        if (name === 'selectSatellite') {
+            after(async () => {
+                await fetchNodePayouts();
+            });
         }
     });
 });

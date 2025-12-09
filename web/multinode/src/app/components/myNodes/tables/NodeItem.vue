@@ -27,14 +27,14 @@
 import { computed } from 'vue';
 
 import { Node } from '@/nodes';
-import { useStore } from '@/app/utils/composables';
 import { Currency } from '@/app/utils/currency';
 import { Size } from '@/private/memory/size';
 import { Percentage } from '@/app/utils/percentage';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
-const store = useStore();
+const nodesStore = useNodesStore();
 
 withDefaults(defineProps<{
     node: Node;
@@ -42,5 +42,5 @@ withDefaults(defineProps<{
     node: () => new Node(),
 });
 
-const isSatelliteSelected = computed(() => !!store.state.nodes.selectedSatellite);
+const isSatelliteSelected = computed(() => !!nodesStore.state.selectedSatellite);
 </script>

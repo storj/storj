@@ -4,17 +4,17 @@
 import Vue, { VNode } from 'vue';
 import Router from 'vue-router';
 import { DirectiveBinding } from 'vue/types/options';
-import { createPinia, PiniaVuePlugin } from 'pinia';
+import { createPinia, setActivePinia, PiniaVuePlugin } from 'pinia';
 
 import App from '@/app/App.vue';
 import { vuetify } from '@/app/plugins';
 import { router } from '@/app/router';
-import { store } from '@/app/store';
 
 Vue.config.productionTip = false;
 
 Vue.use(PiniaVuePlugin);
 const pinia = createPinia();
+setActivePinia(pinia);
 
 Vue.use(Router);
 
@@ -44,7 +44,6 @@ Vue.directive('click-outside', {
 
 const app = new Vue({
     router,
-    store,
     pinia,
     vuetify,
     render: (h) => h(App),

@@ -47,7 +47,7 @@ export class Payouts {
      * @throws {@link InternalError}
      * Thrown if something goes wrong on server side.
      */
-    public async expectations(nodeId: string | null): Promise<Expectation> {
+    public async expectations(nodeId?: string): Promise<Expectation> {
         return await this.payouts.expectations(nodeId);
     }
 

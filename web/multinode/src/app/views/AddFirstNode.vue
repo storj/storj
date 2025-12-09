@@ -55,14 +55,16 @@ import { ref } from 'vue';
 
 import { Config as RouterConfig } from '@/app/router';
 import { CreateNodeFields } from '@/nodes';
-import { useRouter, useStore } from '@/app/utils/composables';
+import { useRouter } from '@/app/utils/composables';
+import { useNodesStore } from '@/app/store/nodesStore';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import ThemeSelector from '@/app/components/common/ThemeSelector.vue';
 
-const store = useStore();
 const router = useRouter();
+
+const nodesStore = useNodesStore();
 
 const nodeToAdd = ref<CreateNodeFields>(new CreateNodeFields());
 const isLoading = ref<boolean>(false);
@@ -129,7 +131,7 @@ async function onCreate(): Promise<void> {
     }
 
     try {
-        await store.dispatch('nodes/add', nodeToAdd.value);
+        await nodesStore.add(nodeToAdd.value);
     } catch (error) {
         console.error(error);
         isLoading.value = false;

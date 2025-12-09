@@ -23,7 +23,7 @@ import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { BandwidthRollup } from '@/bandwidth';
 import { Size } from '@/private/memory/size';
-import { useStore } from '@/app/utils/composables';
+import { useBandwidthStore } from '@/app/store/bandwidthStore';
 
 import VChart from '@/app/components/common/VChart.vue';
 
@@ -42,7 +42,7 @@ class IngressTooltip {
     }
 }
 
-const store = useStore();
+const bandwidthStore = useBandwidthStore();
 
 const props = defineProps<{
     width: number;
@@ -52,10 +52,10 @@ const props = defineProps<{
 
 const chartKey = ref<number>(0);
 
-const allBandwidth = computed<BandwidthRollup[]>(() => ChartUtils.populateEmptyBandwidth(store.state.bandwidth.traffic.bandwidthDaily));
+const allBandwidth = computed<BandwidthRollup[]>(() => ChartUtils.populateEmptyBandwidth(bandwidthStore.state.traffic.bandwidthDaily));
 
 const chartDataDimension = computed<string>(() => {
-    if (!store.state.bandwidth.traffic.bandwidthDaily.length) {
+    if (!bandwidthStore.state.traffic.bandwidthDaily.length) {
         return 'Bytes';
     }
 

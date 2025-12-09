@@ -10,7 +10,6 @@ class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useNotificationsStore = defineStore('notifications', () => {
     const state = reactive<NotificationsState>(new NotificationsState());
 
