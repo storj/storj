@@ -101,7 +101,7 @@ function rebuildChart(): void {
 
 function bandwidthTooltip(tooltipModel: TooltipModel<ChartType>): void {
     const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
-        tooltipMarkUp(tooltipModel), 285, 125);
+        tooltipMarkUp(tooltipModel), 300, 125);
 
     Tooltip.custom(tooltipParams);
 }

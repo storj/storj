@@ -4,42 +4,48 @@
 <template>
     <div class="add-new-node">
         <v-button :with-plus="true" label="New Node" :on-press="openModal" width="152px" />
-        <v-modal v-if="isAddNewNodeModalShown" @onClose="closeModal">
-            <h2 slot="header">Add New Node</h2>
-            <div slot="body" class="add-new-node__body">
-                <headered-input
-                    class="add-new-node__body__input"
-                    label="Node ID"
-                    placeholder="Enter Node ID"
-                    :error="idError"
-                    @setData="setNodeId"
-                />
-                <headered-input
-                    class="add-new-node__body__input"
-                    label="Node Name"
-                    placeholder="Enter Node Name"
-                    :error="nameError"
-                    @setData="setNodeName"
-                />
-                <headered-input
-                    class="add-new-node__body__input"
-                    label="Public IP Address"
-                    placeholder="Enter Public IP Address and Port"
-                    :error="publicIPError"
-                    @setData="setPublicIP"
-                />
-                <headered-input
-                    class="add-new-node__body__input"
-                    label="API Key"
-                    placeholder="Enter API Key"
-                    :error="apiKeyError"
-                    @setData="setApiKey"
-                />
-            </div>
-            <div slot="footer" class="add-new-node__footer">
-                <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Create" width="205px" :on-press="onCreate" />
-            </div>
+        <v-modal v-if="isAddNewNodeModalShown" @on-close="closeModal">
+            <template #header>
+                <h2>Add New Node</h2>
+            </template>
+            <template #body>
+                <div class="add-new-node__body">
+                    <headered-input
+                        class="add-new-node__body__input"
+                        label="Node ID"
+                        placeholder="Enter Node ID"
+                        :error="idError"
+                        @set-data="setNodeId"
+                    />
+                    <headered-input
+                        class="add-new-node__body__input"
+                        label="Node Name"
+                        placeholder="Enter Node Name"
+                        :error="nameError"
+                        @set-data="setNodeName"
+                    />
+                    <headered-input
+                        class="add-new-node__body__input"
+                        label="Public IP Address"
+                        placeholder="Enter Public IP Address and Port"
+                        :error="publicIPError"
+                        @set-data="setPublicIP"
+                    />
+                    <headered-input
+                        class="add-new-node__body__input"
+                        label="API Key"
+                        placeholder="Enter API Key"
+                        :error="apiKeyError"
+                        @set-data="setApiKey"
+                    />
+                </div>
+            </template>
+            <template #footer>
+                <div class="add-new-node__footer">
+                    <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
+                    <v-button label="Create" width="205px" :on-press="onCreate" />
+                </div>
+            </template>
         </v-modal>
     </div>
 </template>
@@ -150,7 +156,7 @@ function validateFields(): boolean {
 }
 </script>
 
-<style lang="scss">
+<style scoped lang="scss">
     .add-new-node {
 
         h2 {

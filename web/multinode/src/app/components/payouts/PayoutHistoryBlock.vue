@@ -3,10 +3,12 @@
 
 <template>
     <info-block>
-        <div slot="body" class="payouts-history-block">
-            <h3 class="payouts-history-block__title">Payout History</h3>
-            <v-button class="payouts-history-block__button" label="Download" :is-white="true" width="100%" />
-        </div>
+        <template #body>
+            <div class="payouts-history-block">
+                <h3 class="payouts-history-block__title">Payout History</h3>
+                <v-button class="payouts-history-block__button" label="Download" :is-white="true" width="100%" />
+            </div>
+        </template>
     </info-block>
 </template>
 

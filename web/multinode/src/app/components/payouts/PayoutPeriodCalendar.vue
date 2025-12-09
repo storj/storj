@@ -229,7 +229,7 @@ onMounted(() => {
         &__months-area {
             display: grid;
             grid-template-columns: 93px 93px 93px;
-            grid-gap: 1px;
+            gap: 1px;
             background: var(--v-border-base);
             overflow: hidden;
             border-radius: var(--br-table);

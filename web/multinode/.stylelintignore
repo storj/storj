@@ -9,3 +9,5 @@
 dist
 node_modules
 coverage
+Dockerfile
+entrypoint

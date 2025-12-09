@@ -94,7 +94,7 @@ function rebuildChart(): void {
 
 function diskSpaceTooltip(tooltipModel: TooltipModel<ChartType>): void {
     const tooltipParams = new TooltipParams(tooltipModel, 'disk-space-chart', 'disk-space-tooltip',
-        tooltipMarkUp(tooltipModel), 125, 89);
+        tooltipMarkUp(tooltipModel), 140, 89);
 
     Tooltip.custom(tooltipParams);
 }

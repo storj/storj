@@ -21,17 +21,19 @@
                 <!--                </div>-->
             </div>
             <info-block>
-                <div slot="body" class="payouts-by-node__top-area__balance">
-                    <div class="payouts-by-node__top-area__balance__item">
-                        <h3 class="payouts-by-node__top-area__balance__item__label">Undistributed Balance</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.undistributed) }}</h2>
+                <template #body>
+                    <div class="payouts-by-node__top-area__balance">
+                        <div class="payouts-by-node__top-area__balance__item">
+                            <h3 class="payouts-by-node__top-area__balance__item__label">Undistributed Balance</h3>
+                            <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.undistributed) }}</h2>
+                        </div>
+                        <div class="payouts-by-node__top-area__balance__divider" />
+                        <div class="payouts-by-node__top-area__balance__item">
+                            <h3 class="payouts-by-node__top-area__balance__item__label">Estimated Earnings (Apr)</h3>
+                            <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.currentMonthEstimation) }}</h2>
+                        </div>
                     </div>
-                    <div class="payouts-by-node__top-area__balance__divider" />
-                    <div class="payouts-by-node__top-area__balance__item">
-                        <h3 class="payouts-by-node__top-area__balance__item__label">Estimated Earnings (Apr)</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.expectations.currentMonthEstimation) }}</h2>
-                    </div>
-                </div>
+                </template>
             </info-block>
         </div>
         <div class="payouts-by-node__content-area">
@@ -43,35 +45,43 @@
                 <payouts-by-node-table class="payouts-by-node__content-area__main-info__table" :paystub="selectedNodePayouts.paystubForPeriod" />
                 <div class="payouts-by-node__content-area__main-info__totals-area">
                     <info-block>
-                        <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL PAID</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalPaid) }}</p>
-                        </div>
+                        <template #body>
+                            <div class="payouts-by-node__content-area__main-info__totals-area__item">
+                                <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL PAID</p>
+                                <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalPaid) }}</p>
+                            </div>
+                        </template>
                     </info-block>
                     <info-block>
-                        <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL HELD</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalHeld) }}</p>
-                        </div>
+                        <template #body>
+                            <div class="payouts-by-node__content-area__main-info__totals-area__item">
+                                <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL HELD</p>
+                                <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalHeld) }}</p>
+                            </div>
+                        </template>
                     </info-block>
                     <info-block>
-                        <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__item">
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL EARNED</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalEarned) }}</p>
-                        </div>
+                        <template #body>
+                            <div class="payouts-by-node__content-area__main-info__totals-area__item">
+                                <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL EARNED</p>
+                                <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ Currency.dollarsFromCents(selectedNodePayouts.totalEarned) }}</p>
+                            </div>
+                        </template>
                     </info-block>
                     <info-block class="information">
-                        <div slot="body" class="payouts-by-node__content-area__main-info__totals-area__information">
-                            <h3 class="payouts-by-node__content-area__main-info__totals-area__information__title">Minimal threshold & distributed payout system</h3>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__information__description">Short description how minimal threshold system works.</p>
-                            <!--                            TODO: consider moving link to config-->
-                            <a
-                                href="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064"
-                                class="payouts-by-node__content-area__main-info__totals-area__information__link"
-                            >
-                                Learn more
-                            </a>
-                        </div>
+                        <template #body>
+                            <div class="payouts-by-node__content-area__main-info__totals-area__information">
+                                <h3 class="payouts-by-node__content-area__main-info__totals-area__information__title">Minimal threshold & distributed payout system</h3>
+                                <p class="payouts-by-node__content-area__main-info__totals-area__information__description">Short description how minimal threshold system works.</p>
+                                <!--                            TODO: consider moving link to config-->
+                                <a
+                                    href="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064"
+                                    class="payouts-by-node__content-area__main-info__totals-area__information__link"
+                                >
+                                    Learn more
+                                </a>
+                            </div>
+                        </template>
                     </info-block>
                 </div>
             </section>
@@ -84,12 +94,12 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router';
 import { computed, onBeforeMount, onMounted } from 'vue';
 
 import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayouts } from '@/payouts';
-import { useRoute, useRouter } from '@/app/utils/composables';
 import { Currency } from '@/app/utils/currency';
 import { usePayoutsStore } from '@/app/store/payoutsStore';
 import { useNodesStore } from '@/app/store/nodesStore';
@@ -106,7 +116,7 @@ const router = useRouter();
 const payoutsStore = usePayoutsStore();
 const nodesStore = useNodesStore();
 
-const nodeId = computed<string>(() => route.params.id);
+const nodeId = computed<string>(() => route.params.id as string);
 
 const nodeTitle = computed<string>(() => {
     const selectedNodeSummary = payoutsStore.state.summary.nodeSummary.find(summary => summary.nodeId === nodeId.value);
@@ -145,7 +155,7 @@ onBeforeMount(() => {
 
 onMounted(async () => {
     try {
-        await payoutsStore.nodeTotals(route.params.id);
+        await payoutsStore.nodeTotals(nodeId.value);
     } catch (error) {
         if (error instanceof UnauthorizedError) {
             // TODO: redirect to login screen.

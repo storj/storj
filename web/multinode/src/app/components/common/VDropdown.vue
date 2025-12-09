@@ -28,7 +28,7 @@ import { onBeforeMount, ref } from 'vue';
 import { Option } from '@/app/types/common';
 
 const props = withDefaults(defineProps<{
-    options: Option[];
+    options?: Option[];
     preselectedOption?: Option | null;
 }>(), {
     options: () => [],
@@ -99,7 +99,7 @@ onBeforeMount(() => {
             z-index: 999;
 
             &__overflow-container {
-                overflow: overlay;
+                overflow: auto;
                 overflow-x: hidden;
                 max-height: 160px;
             }

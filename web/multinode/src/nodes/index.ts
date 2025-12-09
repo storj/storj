@@ -14,7 +14,7 @@ export enum NodeStatus {
     'offline' = 'Offline',
     'not reachable' = 'Not Reachable',
     'unauthorized' = 'Unauthorized',
-    'storagenode internal error' = 'Internal Error'
+    'storagenode internal error' = 'Internal Error',
 }
 
 /**

@@ -37,7 +37,7 @@ import NodeOptions from '@/app/components/common/NodeOptions.vue';
 const nodesStore = useNodesStore();
 
 withDefaults(defineProps<{
-    node: Node;
+    node?: Node;
 }>(), {
     node: () => new Node(),
 });

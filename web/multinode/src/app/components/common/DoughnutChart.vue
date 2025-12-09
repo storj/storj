@@ -66,7 +66,7 @@ watch(() => props.chartData, () => {
     height: 220px !important;
 }
 
-@media screen and (max-width: 1000px) {
+@media screen and (width <= 1000px) {
 
     .chart {
         width: 150px !important;

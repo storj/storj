@@ -3,8 +3,8 @@
 
 <template>
     <v-alert
-        border="left"
-        :type="item.type.toLowerCase()"
+        border="start"
+        :type="item.type"
         dismissible
         @mouseover="() => onMouseOver(item.id)"
         @mouseleave="() => onMouseLeave(item.id)"
@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { VAlert } from 'vuetify/lib';
+import { VAlert } from 'vuetify/components';
 
 import { DelayedNotification } from '@/app/types/delayedNotification';
 import { useNotificationsStore } from '@/app/store/notificationsStore';

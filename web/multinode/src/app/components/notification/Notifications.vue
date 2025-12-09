@@ -19,7 +19,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { VSnackbar } from 'vuetify/lib';
+import { VSnackbar } from 'vuetify/components';
 
 import NotificationItem from './NotificationItem.vue';
 

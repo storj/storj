@@ -3,28 +3,33 @@
 
 <template>
     <base-table v-if="nodes.length">
-        <thead slot="head">
-            <tr>
-                <th class="align-left" @click="sortBy('name')">NODE{{ sortByKey === 'name' ? sortArrow : '' }}</th>
-                <template v-if="isSatelliteSelected">
-                    <th @click="sortBy('suspensionScore')">SUSPENSION{{ sortByKey === 'suspensionScore' ? sortArrow : '' }}</th>
-                    <th @click="sortBy('auditScore')">AUDIT{{ sortByKey === 'auditScore' ? sortArrow : '' }}</th>
-                    <th @click="sortBy('onlineScore')">UPTIME{{ sortByKey === 'onlineScore' ? sortArrow : '' }}</th>
-                </template>
-                <template v-else>
-                    <th @click="sortBy('diskSpaceUsed')">DISK SPACE USED{{ sortByKey === 'diskSpaceUsed' ? sortArrow : '' }}</th>
-                    <th @click="sortBy('diskSpaceLeft')">DISK SPACE LEFT{{ sortByKey === 'diskSpaceLeft' ? sortArrow : '' }}</th>
-                    <th @click="sortBy('bandwidthUsed')">BANDWIDTH USED{{ sortByKey === 'bandwidthUsed' ? sortArrow : '' }}</th>
-                </template>
-                <th @click="sortBy('earned')">EARNED{{ sortByKey === 'earned' ? sortArrow : '' }}</th>
-                <th @click="sortBy('version')">VERSION{{ sortByKey === 'version' ? sortArrow : '' }}</th>
-                <th @click="sortBy('status')">STATUS{{ sortByKey === 'status' ? sortArrow : '' }}</th>
-                <th />
-            </tr>
-        </thead>
-        <tbody slot="body">
-            <node-item v-for="node in sortedNodes" :key="node.id" :node="node" />
-        </tbody>
+        <template #head>
+            <thead>
+                <tr>
+                    <th class="align-left" @click="sortBy('name')">NODE{{ sortByKey === 'name' ? sortArrow : '' }}</th>
+                    <template v-if="isSatelliteSelected">
+                        <th @click="sortBy('suspensionScore')">SUSPENSION{{ sortByKey === 'suspensionScore' ? sortArrow : '' }}</th>
+                        <th @click="sortBy('auditScore')">AUDIT{{ sortByKey === 'auditScore' ? sortArrow : '' }}</th>
+                        <th @click="sortBy('onlineScore')">UPTIME{{ sortByKey === 'onlineScore' ? sortArrow : '' }}</th>
+                    </template>
+                    <template v-else>
+                        <th @click="sortBy('diskSpaceUsed')">DISK SPACE USED{{ sortByKey === 'diskSpaceUsed' ? sortArrow : '' }}</th>
+                        <th @click="sortBy('diskSpaceLeft')">DISK SPACE LEFT{{ sortByKey === 'diskSpaceLeft' ? sortArrow : '' }}</th>
+                        <th @click="sortBy('bandwidthUsed')">BANDWIDTH USED{{ sortByKey === 'bandwidthUsed' ? sortArrow : '' }}</th>
+                    </template>
+                    <th @click="sortBy('earned')">EARNED{{ sortByKey === 'earned' ? sortArrow : '' }}</th>
+                    <th @click="sortBy('version')">VERSION{{ sortByKey === 'version' ? sortArrow : '' }}</th>
+                    <th @click="sortBy('status')">STATUS{{ sortByKey === 'status' ? sortArrow : '' }}</th>
+                    <th />
+                </tr>
+            </thead>
+        </template>
+
+        <template #body>
+            <tbody>
+                <node-item v-for="node in sortedNodes" :key="node.id" :node="node" />
+            </tbody>
+        </template>
     </base-table>
 </template>
 

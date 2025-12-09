@@ -4,17 +4,23 @@
 <template>
     <div class="delete-node">
         <div class="delete-node__button" @click.stop="openModal">Delete Node</div>
-        <v-modal v-if="isModalShown" @onClose="closeModal">
-            <h2 slot="header">Delete this node?</h2>
-            <div slot="body" class="delete-node__body">
-                <div class="delete-node__body__node-id-container">
-                    <span>{{ nodeId }}</span>
+        <v-modal v-if="isModalShown" @on-close="closeModal">
+            <template #header>
+                <h2>Delete this node?</h2>
+            </template>
+            <template #body>
+                <div class="delete-node__body">
+                    <div class="delete-node__body__node-id-container">
+                        <span>{{ nodeId }}</span>
+                    </div>
                 </div>
-            </div>
-            <div slot="footer" class="delete-node__footer">
-                <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Delete" :is-deletion="true" width="205px" :on-press="onDelete" />
-            </div>
+            </template>
+            <template #footer>
+                <div class="delete-node__footer">
+                    <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
+                    <v-button label="Delete" :is-deletion="true" width="205px" :on-press="onDelete" />
+                </div>
+            </template>
         </v-modal>
     </div>
 </template>
@@ -30,7 +36,7 @@ import VModal from '@/app/components/common/VModal.vue';
 const nodesStore = useNodesStore();
 
 const props = withDefaults(defineProps<{
-    nodeId: string;
+    nodeId?: string;
 }>(), {
     nodeId: '',
 });

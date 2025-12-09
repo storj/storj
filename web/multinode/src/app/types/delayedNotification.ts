@@ -9,10 +9,10 @@ import { getId } from '@/app/utils/idGenerator';
  * Hold notification types
  */
 export enum NotificationType {
-    Success = 'Success',
-    Info = 'Info',
-    Error = 'Error',
-    Warning = 'Warning',
+    Success = 'success',
+    Info = 'info',
+    Error = 'error',
+    Warning = 'warning',
 }
 
 /**
@@ -27,7 +27,7 @@ export type NotificationMessage = string | RenderFunction;
 export type NotificationPayload = {
     message: NotificationMessage,
     title?: string
-}
+};
 
 /**
  * Described notification object with it's methods and properties

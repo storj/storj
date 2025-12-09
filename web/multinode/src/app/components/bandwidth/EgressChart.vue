@@ -96,7 +96,7 @@ function rebuildChart(): void {
 
 function egressTooltip(tooltipModel: TooltipModel<ChartType>): void {
     const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
-        tooltipMarkUp(tooltipModel), 235, 94);
+        tooltipMarkUp(tooltipModel), 260, 94);
 
     Tooltip.custom(tooltipParams);
 }

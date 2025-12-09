@@ -18,28 +18,28 @@
                 label="Node ID"
                 placeholder="Enter Node ID"
                 :error="idError"
-                @setData="setNodeId"
+                @set-data="setNodeId"
             />
             <headered-input
                 class="add-first-node__left-area__input"
                 label="Node Name"
                 placeholder="Enter Node Name"
                 :error="nameError"
-                @setData="setNodeName"
+                @set-data="setNodeName"
             />
             <headered-input
                 class="add-first-node__left-area__input"
                 label="Public IP Address"
                 placeholder="Enter Public IP Address and Port"
                 :error="publicIPError"
-                @setData="setPublicIP"
+                @set-data="setPublicIP"
             />
             <headered-input
                 class="add-first-node__left-area__input"
                 label="API Key"
                 placeholder="Enter API Key"
                 :error="apiKeyError"
-                @setData="setApiKey"
+                @set-data="setApiKey"
             />
             <v-button class="add-first-node__left-area__button" label="Add Node" width="120px" :on-press="onCreate" />
         </div>
@@ -52,10 +52,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 import { Config as RouterConfig } from '@/app/router';
 import { CreateNodeFields } from '@/nodes';
-import { useRouter } from '@/app/utils/composables';
 import { useNodesStore } from '@/app/store/nodesStore';
 
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';

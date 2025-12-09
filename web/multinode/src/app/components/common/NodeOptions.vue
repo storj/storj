@@ -6,8 +6,8 @@
         <more-icon />
         <div v-if="areOptionsShown" v-click-outside="closeOptions" class="options">
             <div class="options__item" @click.stop="onCopy">Copy Node ID</div>
-            <delete-node :node-id="id" @closeOptions="closeOptions" />
-            <update-name :node-id="id" @closeOptions="closeOptions" />
+            <delete-node :node-id="id" @close-options="closeOptions" />
+            <update-name :node-id="id" @close-options="closeOptions" />
         </div>
     </div>
 </template>
@@ -21,7 +21,7 @@ import UpdateName from '@/app/components/modals/UpdateName.vue';
 import MoreIcon from '@/../static/images/icons/more.svg';
 
 const props = withDefaults(defineProps<{
-    id: string;
+    id?: string;
 }>(), {
     id: '',
 });
