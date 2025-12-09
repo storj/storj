@@ -10,11 +10,11 @@
             <div class="balance-area__content">
                 <div class="balance-area__content__item">
                     <p class="balance-area__content__item__label">Undistributed Payouts</p>
-                    <p class="balance-area__content__item__value">{{ undistributed | centsToDollars }}</p>
+                    <p class="balance-area__content__item__value">{{ Currency.dollarsFromCents(undistributed) }}</p>
                 </div>
                 <div class="balance-area__content__item">
                     <p class="balance-area__content__item__label">Current Month Estimated Earnings</p>
-                    <p class="balance-area__content__item__value">{{ currentMonthEstimation | centsToDollars }}</p>
+                    <p class="balance-area__content__item__value">{{ Currency.dollarsFromCents(currentMonthEstimation) }}</p>
                 </div>
             </div>
         </div>
@@ -22,7 +22,9 @@
 </template>
 
 <script setup lang="ts">
-import InfoBlock from '../common/InfoBlock.vue';
+import { Currency } from '@/app/utils/currency';
+
+import InfoBlock from '@/app/components/common/InfoBlock.vue';
 
 withDefaults(defineProps<{
     undistributed: number;

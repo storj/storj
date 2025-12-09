@@ -5,16 +5,16 @@
     <tr class="table-item">
         <th class="align-left">{{ node.displayedName }}</th>
         <template v-if="isSatelliteSelected">
-            <th>{{ node.suspensionScore | floatToPercentage }}</th>
-            <th>{{ node.auditScore | floatToPercentage }}</th>
-            <th>{{ node.onlineScore | floatToPercentage }}</th>
+            <th>{{ Percentage.fromFloat(node.suspensionScore) }}</th>
+            <th>{{ Percentage.fromFloat(node.auditScore) }}</th>
+            <th>{{ Percentage.fromFloat(node.onlineScore) }}</th>
         </template>
         <template v-else>
-            <th>{{ node.diskSpaceUsed | bytesToBase10String }}</th>
-            <th>{{ node.diskSpaceLeft | bytesToBase10String }}</th>
-            <th>{{ node.bandwidthUsed | bytesToBase10String }}</th>
+            <th>{{ Size.toBase10String(node.diskSpaceUsed) }}</th>
+            <th>{{ Size.toBase10String(node.diskSpaceLeft) }}</th>
+            <th>{{ Size.toBase10String(node.bandwidthUsed) }}</th>
         </template>
-        <th>{{ node.earnedCents | centsToDollars }}</th>
+        <th>{{ Currency.dollarsFromCents(node.earnedCents) }}</th>
         <th>{{ node.version }}</th>
         <th :class="node.status">{{ node.status }}</th>
         <th class="overflow-visible">
@@ -28,6 +28,9 @@ import { computed } from 'vue';
 
 import { Node } from '@/nodes';
 import { useStore } from '@/app/utils/composables';
+import { Currency } from '@/app/utils/currency';
+import { Size } from '@/private/memory/size';
+import { Percentage } from '@/app/utils/percentage';
 
 import NodeOptions from '@/app/components/common/NodeOptions.vue';
 

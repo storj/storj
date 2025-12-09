@@ -34,7 +34,7 @@
                         </div>
                     </div>
                 </th>
-                <th>{{ operator.undistributed | centsToDollars }}</th>
+                <th>{{ Currency.dollarsFromCents(operator.undistributed) }}</th>
                 <th class="align-left">
                     <div class="column">
                         <v-link :uri="operator.etherscanLink" label="View on Etherscan" />
@@ -50,6 +50,7 @@
 import { computed, onBeforeMount, ref } from 'vue';
 
 import { Operator } from '@/operators';
+import { Currency } from '@/app/utils/currency';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import VLink from '@/app/components/common/VLink.vue';
