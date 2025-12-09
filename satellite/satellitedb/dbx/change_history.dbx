@@ -1,0 +1,81 @@
+model change_history (
+	key id
+
+	index (
+		name change_history_user_id_timestamp_idx
+		fields user_id timestamp
+	)
+	index (
+		name change_history_user_id_item_type_timestamp_idx
+		fields user_id item_type timestamp
+	)
+	index (
+		name change_history_project_id_item_type_timestamp_idx
+		fields project_id item_type timestamp
+	)
+	index (
+		name change_history_bucket_name_timestamp_idx
+		fields bucket_name timestamp
+	)
+
+	// id is a unique UUID for the change.
+    field id              blob
+	// admin_email is the email of the admin who performed the operation.
+	field admin_email     text
+	// user_id is the ID of the user operated on.
+	field user_id         blob
+	// project_id is the ID of the project operated on, if applicable.
+	field project_id      blob ( nullable )
+	// bucket_name is the name of the bucket operated on, if applicable.
+	field bucket_name     blob ( nullable )
+	// item_type describes the type of item changed.
+	field item_type       text
+	// operation is a string describing the type of operation performed.
+	field operation       text
+	// reason for the change.
+	field reason		  text
+	// changes is a field containing details about the changes made in json.
+	field changes         json
+	// timestamp is the time when the change was made.
+	field timestamp       timestamp ( default current_timestamp )
+)
+
+create change_history ()
+
+// fetch all changes related to user.
+read all (
+	select change_history
+	where change_history.user_id = ?
+	orderby ( desc change_history.timestamp )
+)
+
+// strictly fetch user-level changes.
+read all (
+	select change_history
+	where change_history.user_id = ?
+	where change_history.item_type = ?
+	orderby ( desc change_history.timestamp )
+)
+
+// fetch all changes related to project.
+read all (
+	select change_history
+	where change_history.project_id = ?
+	where change_history.item_type != ?
+	orderby ( desc change_history.timestamp )
+)
+
+// strictly fetch project-level changes.
+read all (
+	select change_history
+	where change_history.project_id = ?
+	where change_history.item_type = ?
+	orderby ( desc change_history.timestamp )
+)
+
+// strictly fetch bucket-level changes.
+read all (
+	select change_history
+	where change_history.bucket_name = ?
+	orderby ( desc change_history.timestamp )
+)

@@ -1131,6 +1131,29 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					) PRIMARY KEY ( project_id, bucket_name )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add change_histories table",
+				Version:     308,
+				Action: migrate.SQL{
+					`CREATE TABLE change_histories (
+						id BYTES(MAX) NOT NULL,
+						admin_email STRING(MAX) NOT NULL,
+						user_id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX),
+						bucket_name BYTES(MAX),
+						item_type STRING(MAX) NOT NULL,
+						operation STRING(MAX) NOT NULL,
+						reason STRING(MAX) NOT NULL,
+						changes JSON NOT NULL,
+						timestamp TIMESTAMP NOT NULL DEFAULT (current_timestamp)
+					) PRIMARY KEY ( id )`,
+					`CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp );`,
+					`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4103,6 +4126,30 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 							ON DELETE CASCADE,
 						PRIMARY KEY ( project_id, bucket_name )
 					)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add change_histories table",
+				Version:     308,
+				Action: migrate.SQL{
+					`CREATE TABLE change_histories (
+						id bytea NOT NULL,
+						admin_email text NOT NULL,
+						user_id bytea NOT NULL,
+						project_id bytea,
+						bucket_name bytea,
+						item_type text NOT NULL,
+						operation text NOT NULL,
+						reason text NOT NULL,
+						changes jsonb NOT NULL,
+						timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( id )
+					)`,
+					`CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp );`,
+					`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp );`,
+					`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp );`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

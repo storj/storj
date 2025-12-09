@@ -451,6 +451,20 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 )`,
 
+		`CREATE TABLE change_histories (
+	id bytea NOT NULL,
+	admin_email text NOT NULL,
+	user_id bytea NOT NULL,
+	project_id bytea,
+	bucket_name bytea,
+	item_type text NOT NULL,
+	operation text NOT NULL,
+	reason text NOT NULL,
+	changes jsonb NOT NULL,
+	timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -1045,6 +1059,14 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
 
+		`CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp )`,
+
+		`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp )`,
+
+		`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp )`,
+
+		`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -1205,6 +1227,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS entitlements`,
 
 		`DROP TABLE IF EXISTS coinpayments_transactions`,
+
+		`DROP TABLE IF EXISTS change_histories`,
 
 		`DROP TABLE IF EXISTS bucket_storage_tallies`,
 
@@ -1416,6 +1440,20 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 )`,
 
+		`CREATE TABLE change_histories (
+	id bytea NOT NULL,
+	admin_email text NOT NULL,
+	user_id bytea NOT NULL,
+	project_id bytea,
+	bucket_name bytea,
+	item_type text NOT NULL,
+	operation text NOT NULL,
+	reason text NOT NULL,
+	changes jsonb NOT NULL,
+	timestamp timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	PRIMARY KEY ( id )
+)`,
+
 		`CREATE TABLE coinpayments_transactions (
 	id text NOT NULL,
 	user_id bytea NOT NULL,
@@ -2010,6 +2048,14 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
 
+		`CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp )`,
+
+		`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp )`,
+
+		`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp )`,
+
+		`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -2170,6 +2216,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS entitlements`,
 
 		`DROP TABLE IF EXISTS coinpayments_transactions`,
+
+		`DROP TABLE IF EXISTS change_histories`,
 
 		`DROP TABLE IF EXISTS bucket_storage_tallies`,
 
@@ -2374,6 +2422,19 @@ func (obj *spannerDB) Schema() []string {
 	object_count INT64 NOT NULL,
 	metadata_size INT64 NOT NULL
 ) PRIMARY KEY ( bucket_name, project_id, interval_start )`,
+
+		`CREATE TABLE change_histories (
+	id BYTES(MAX) NOT NULL,
+	admin_email STRING(MAX) NOT NULL,
+	user_id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX),
+	bucket_name BYTES(MAX),
+	item_type STRING(MAX) NOT NULL,
+	operation STRING(MAX) NOT NULL,
+	reason STRING(MAX) NOT NULL,
+	changes JSON NOT NULL,
+	timestamp TIMESTAMP NOT NULL DEFAULT (current_timestamp)
+) PRIMARY KEY ( id )`,
 
 		`CREATE TABLE coinpayments_transactions (
 	id STRING(MAX) NOT NULL,
@@ -2949,6 +3010,14 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX bucket_storage_tallies_interval_start_index ON bucket_storage_tallies ( interval_start )`,
 
+		`CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id, timestamp )`,
+
+		`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp )`,
+
+		`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp )`,
+
+		`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -3081,6 +3150,14 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS bucket_storage_tallies_project_id_interval_start_index`,
 
 		`DROP INDEX IF EXISTS bucket_storage_tallies_interval_start_index`,
+
+		`DROP INDEX IF EXISTS change_history_user_id_timestamp_idx`,
+
+		`DROP INDEX IF EXISTS change_history_user_id_item_type_timestamp_idx`,
+
+		`DROP INDEX IF EXISTS change_history_project_id_item_type_timestamp_idx`,
+
+		`DROP INDEX IF EXISTS change_history_bucket_name_timestamp_idx`,
 
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
@@ -3493,6 +3570,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS coinpayments_transactions_id`,
 
 		`DROP TABLE IF EXISTS coinpayments_transactions`,
+
+		`ALTER TABLE  change_histories ALTER id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS change_histories_id`,
+
+		`DROP TABLE IF EXISTS change_histories`,
 
 		`ALTER TABLE  bucket_storage_tallies ALTER bucket_name SET DEFAULT (null)`,
 
@@ -4928,6 +5011,226 @@ func BucketStorageTally_MetadataSize(v uint64) BucketStorageTally_MetadataSize_F
 }
 
 func (f BucketStorageTally_MetadataSize_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory struct {
+	Id         []byte
+	AdminEmail string
+	UserId     []byte
+	ProjectId  []byte
+	BucketName []byte
+	ItemType   string
+	Operation  string
+	Reason     string
+	Changes    []byte
+	Timestamp  time.Time
+}
+
+func (ChangeHistory) _Table() string { return "change_histories" }
+
+type ChangeHistory_Create_Fields struct {
+	ProjectId  ChangeHistory_ProjectId_Field
+	BucketName ChangeHistory_BucketName_Field
+	Timestamp  ChangeHistory_Timestamp_Field
+}
+
+type ChangeHistory_Update_Fields struct {
+}
+
+type ChangeHistory_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ChangeHistory_Id(v []byte) ChangeHistory_Id_Field {
+	return ChangeHistory_Id_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_AdminEmail_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ChangeHistory_AdminEmail(v string) ChangeHistory_AdminEmail_Field {
+	return ChangeHistory_AdminEmail_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_AdminEmail_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ChangeHistory_UserId(v []byte) ChangeHistory_UserId_Field {
+	return ChangeHistory_UserId_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ChangeHistory_ProjectId(v []byte) ChangeHistory_ProjectId_Field {
+	return ChangeHistory_ProjectId_Field{_set: true, _value: v}
+}
+
+func ChangeHistory_ProjectId_Raw(v []byte) ChangeHistory_ProjectId_Field {
+	if v == nil {
+		return ChangeHistory_ProjectId_Null()
+	}
+	return ChangeHistory_ProjectId(v)
+}
+
+func ChangeHistory_ProjectId_Null() ChangeHistory_ProjectId_Field {
+	return ChangeHistory_ProjectId_Field{_set: true, _null: true}
+}
+
+func (f ChangeHistory_ProjectId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f ChangeHistory_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_BucketName_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ChangeHistory_BucketName(v []byte) ChangeHistory_BucketName_Field {
+	return ChangeHistory_BucketName_Field{_set: true, _value: v}
+}
+
+func ChangeHistory_BucketName_Raw(v []byte) ChangeHistory_BucketName_Field {
+	if v == nil {
+		return ChangeHistory_BucketName_Null()
+	}
+	return ChangeHistory_BucketName(v)
+}
+
+func ChangeHistory_BucketName_Null() ChangeHistory_BucketName_Field {
+	return ChangeHistory_BucketName_Field{_set: true, _null: true}
+}
+
+func (f ChangeHistory_BucketName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f ChangeHistory_BucketName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_ItemType_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ChangeHistory_ItemType(v string) ChangeHistory_ItemType_Field {
+	return ChangeHistory_ItemType_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_ItemType_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_Operation_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ChangeHistory_Operation(v string) ChangeHistory_Operation_Field {
+	return ChangeHistory_Operation_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_Operation_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_Reason_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func ChangeHistory_Reason(v string) ChangeHistory_Reason_Field {
+	return ChangeHistory_Reason_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_Reason_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_Changes_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ChangeHistory_Changes(v []byte) ChangeHistory_Changes_Field {
+	return ChangeHistory_Changes_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_Changes_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type ChangeHistory_Timestamp_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ChangeHistory_Timestamp(v time.Time) ChangeHistory_Timestamp_Field {
+	return ChangeHistory_Timestamp_Field{_set: true, _value: v}
+}
+
+func (f ChangeHistory_Timestamp_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -15425,6 +15728,68 @@ func (obj *pgxImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Create_ChangeHistory(ctx context.Context,
+	change_history_id ChangeHistory_Id_Field,
+	change_history_admin_email ChangeHistory_AdminEmail_Field,
+	change_history_user_id ChangeHistory_UserId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field,
+	change_history_operation ChangeHistory_Operation_Field,
+	change_history_reason ChangeHistory_Reason_Field,
+	change_history_changes ChangeHistory_Changes_Field,
+	optional ChangeHistory_Create_Fields) (
+	change_history *ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := change_history_id.value()
+	__admin_email_val := change_history_admin_email.value()
+	__user_id_val := change_history_user_id.value()
+	__project_id_val := optional.ProjectId.value()
+	__bucket_name_val := optional.BucketName.value()
+	__item_type_val := change_history_item_type.value()
+	__operation_val := change_history_operation.value()
+	__reason_val := change_history_reason.value()
+	__changes_val := change_history_changes.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, admin_email, user_id, project_id, bucket_name, item_type, operation, reason, changes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO change_histories "), __clause, __sqlbundle_Literal(" RETURNING change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __admin_email_val, __user_id_val, __project_id_val, __bucket_name_val, __item_type_val, __operation_val, __reason_val, __changes_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	change_history = &ChangeHistory{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return change_history, nil
+
+}
+
 func (obj *pgxImpl) Create_Domain(ctx context.Context,
 	domain_subdomain Domain_Subdomain_Field,
 	domain_project_id Domain_ProjectId_Field,
@@ -18226,6 +18591,251 @@ func (obj *pgxImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId_Ord
 			return nil, obj.makeErr(err)
 		}
 		return row, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_ChangeHistory_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_user_id ChangeHistory_UserId_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE change_histories.user_id = ? ORDER BY change_histories.timestamp DESC")
+
+	var __values []any
+	__values = append(__values, change_history_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_ChangeHistory_By_UserId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_user_id ChangeHistory_UserId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE change_histories.user_id = ? AND change_histories.item_type = ? ORDER BY change_histories.timestamp DESC")
+
+	var __values []any
+	__values = append(__values, change_history_user_id.value(), change_history_item_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_ChangeHistory_By_ProjectId_And_ItemType_Not_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_project_id ChangeHistory_ProjectId_Field,
+	change_history_item_type_not ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" AND change_histories.item_type != ? ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_project_id.value())
+	}
+	__values = append(__values, change_history_item_type_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_ChangeHistory_By_ProjectId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_project_id ChangeHistory_ProjectId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" AND change_histories.item_type = ? ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_project_id.value())
+	}
+	__values = append(__values, change_history_item_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_ChangeHistory_By_BucketName_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_bucket_name ChangeHistory_BucketName_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.bucket_name", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_bucket_name.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_bucket_name.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -25741,6 +26351,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM change_histories;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -26293,6 +26913,68 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StorjscanPayment(ctx context.Context
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ChangeHistory(ctx context.Context,
+	change_history_id ChangeHistory_Id_Field,
+	change_history_admin_email ChangeHistory_AdminEmail_Field,
+	change_history_user_id ChangeHistory_UserId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field,
+	change_history_operation ChangeHistory_Operation_Field,
+	change_history_reason ChangeHistory_Reason_Field,
+	change_history_changes ChangeHistory_Changes_Field,
+	optional ChangeHistory_Create_Fields) (
+	change_history *ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := change_history_id.value()
+	__admin_email_val := change_history_admin_email.value()
+	__user_id_val := change_history_user_id.value()
+	__project_id_val := optional.ProjectId.value()
+	__bucket_name_val := optional.BucketName.value()
+	__item_type_val := change_history_item_type.value()
+	__operation_val := change_history_operation.value()
+	__reason_val := change_history_reason.value()
+	__changes_val := change_history_changes.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, admin_email, user_id, project_id, bucket_name, item_type, operation, reason, changes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO change_histories "), __clause, __sqlbundle_Literal(" RETURNING change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __admin_email_val, __user_id_val, __project_id_val, __bucket_name_val, __item_type_val, __operation_val, __reason_val, __changes_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	change_history = &ChangeHistory{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return change_history, nil
 
 }
 
@@ -29097,6 +29779,251 @@ func (obj *pgxcockroachImpl) First_StorjscanPayment_BlockNumber_By_Status_And_Ch
 			return nil, obj.makeErr(err)
 		}
 		return row, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ChangeHistory_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_user_id ChangeHistory_UserId_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE change_histories.user_id = ? ORDER BY change_histories.timestamp DESC")
+
+	var __values []any
+	__values = append(__values, change_history_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ChangeHistory_By_UserId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_user_id ChangeHistory_UserId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE change_histories.user_id = ? AND change_histories.item_type = ? ORDER BY change_histories.timestamp DESC")
+
+	var __values []any
+	__values = append(__values, change_history_user_id.value(), change_history_item_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ChangeHistory_By_ProjectId_And_ItemType_Not_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_project_id ChangeHistory_ProjectId_Field,
+	change_history_item_type_not ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" AND change_histories.item_type != ? ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_project_id.value())
+	}
+	__values = append(__values, change_history_item_type_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ChangeHistory_By_ProjectId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_project_id ChangeHistory_ProjectId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" AND change_histories.item_type = ? ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_project_id.value())
+	}
+	__values = append(__values, change_history_item_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ChangeHistory_By_BucketName_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_bucket_name ChangeHistory_BucketName_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.bucket_name", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_bucket_name.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_bucket_name.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, &change_history.Changes, &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -36612,6 +37539,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM change_histories;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37221,6 +38158,78 @@ func (obj *spannerImpl) CreateNoReturn_StorjscanPayment(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *spannerImpl) Create_ChangeHistory(ctx context.Context,
+	change_history_id ChangeHistory_Id_Field,
+	change_history_admin_email ChangeHistory_AdminEmail_Field,
+	change_history_user_id ChangeHistory_UserId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field,
+	change_history_operation ChangeHistory_Operation_Field,
+	change_history_reason ChangeHistory_Reason_Field,
+	change_history_changes ChangeHistory_Changes_Field,
+	optional ChangeHistory_Create_Fields) (
+	change_history *ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__id_val := change_history_id.value()
+	__admin_email_val := change_history_admin_email.value()
+	__user_id_val := change_history_user_id.value()
+	__project_id_val := optional.ProjectId.value()
+	__bucket_name_val := optional.BucketName.value()
+	__item_type_val := change_history_item_type.value()
+	__operation_val := change_history_operation.value()
+	__reason_val := change_history_reason.value()
+	__changes_val := spannerConvertJSON(change_history_changes.value())
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, admin_email, user_id, project_id, bucket_name, item_type, operation, reason, changes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO change_histories "), __clause, __sqlbundle_Literal(" THEN RETURN change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp")}}
+
+	var __values []any
+	__values = append(__values, __id_val, __admin_email_val, __user_id_val, __project_id_val, __bucket_name_val, __item_type_val, __operation_val, __reason_val, __changes_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Timestamp._set {
+		__values = append(__values, optional.Timestamp.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("timestamp"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	change_history = &ChangeHistory{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, spannerConvertJSON(&change_history.Changes), &change_history.Timestamp)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, spannerConvertJSON(&change_history.Changes), &change_history.Timestamp)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return change_history, nil
 
 }
 
@@ -40261,6 +41270,251 @@ func (obj *spannerImpl) First_StorjscanPayment_BlockNumber_By_Status_And_ChainId
 			return nil, obj.makeErr(err)
 		}
 		return row, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_ChangeHistory_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_user_id ChangeHistory_UserId_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE change_histories.user_id = ? ORDER BY change_histories.timestamp DESC")
+
+	var __values []any
+	__values = append(__values, change_history_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, spannerConvertJSON(&change_history.Changes), &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_ChangeHistory_By_UserId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_user_id ChangeHistory_UserId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE change_histories.user_id = ? AND change_histories.item_type = ? ORDER BY change_histories.timestamp DESC")
+
+	var __values []any
+	__values = append(__values, change_history_user_id.value(), change_history_item_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, spannerConvertJSON(&change_history.Changes), &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_ChangeHistory_By_ProjectId_And_ItemType_Not_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_project_id ChangeHistory_ProjectId_Field,
+	change_history_item_type_not ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" AND change_histories.item_type != ? ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_project_id.value())
+	}
+	__values = append(__values, change_history_item_type_not.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, spannerConvertJSON(&change_history.Changes), &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_ChangeHistory_By_ProjectId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_project_id ChangeHistory_ProjectId_Field,
+	change_history_item_type ChangeHistory_ItemType_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" AND change_histories.item_type = ? ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_project_id.value())
+	}
+	__values = append(__values, change_history_item_type.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, spannerConvertJSON(&change_history.Changes), &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_ChangeHistory_By_BucketName_OrderBy_Desc_Timestamp(ctx context.Context,
+	change_history_bucket_name ChangeHistory_BucketName_Field) (
+	rows []*ChangeHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "change_histories.bucket_name", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT change_histories.id, change_histories.admin_email, change_histories.user_id, change_histories.project_id, change_histories.bucket_name, change_histories.item_type, change_histories.operation, change_histories.reason, change_histories.changes, change_histories.timestamp FROM change_histories WHERE "), __cond_0, __sqlbundle_Literal(" ORDER BY change_histories.timestamp DESC")}}
+
+	var __values []any
+	if !change_history_bucket_name.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, change_history_bucket_name.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ChangeHistory, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				change_history := &ChangeHistory{}
+				err = __rows.Scan(&change_history.Id, &change_history.AdminEmail, &change_history.UserId, &change_history.ProjectId, &change_history.BucketName, &change_history.ItemType, &change_history.Operation, &change_history.Reason, spannerConvertJSON(&change_history.Changes), &change_history.Timestamp)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, change_history)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -47502,6 +48756,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM change_histories;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -47615,6 +48879,29 @@ type Methods interface {
 
 	All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
 		rows []*BucketStorageTally, err error)
+
+	All_ChangeHistory_By_BucketName_OrderBy_Desc_Timestamp(ctx context.Context,
+		change_history_bucket_name ChangeHistory_BucketName_Field) (
+		rows []*ChangeHistory, err error)
+
+	All_ChangeHistory_By_ProjectId_And_ItemType_Not_OrderBy_Desc_Timestamp(ctx context.Context,
+		change_history_project_id ChangeHistory_ProjectId_Field,
+		change_history_item_type_not ChangeHistory_ItemType_Field) (
+		rows []*ChangeHistory, err error)
+
+	All_ChangeHistory_By_ProjectId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+		change_history_project_id ChangeHistory_ProjectId_Field,
+		change_history_item_type ChangeHistory_ItemType_Field) (
+		rows []*ChangeHistory, err error)
+
+	All_ChangeHistory_By_UserId_And_ItemType_OrderBy_Desc_Timestamp(ctx context.Context,
+		change_history_user_id ChangeHistory_UserId_Field,
+		change_history_item_type ChangeHistory_ItemType_Field) (
+		rows []*ChangeHistory, err error)
+
+	All_ChangeHistory_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
+		change_history_user_id ChangeHistory_UserId_Field) (
+		rows []*ChangeHistory, err error)
 
 	All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
@@ -47872,6 +49159,17 @@ type Methods interface {
 		bucket_migration_state BucketMigration_State_Field,
 		optional BucketMigration_Create_Fields) (
 		bucket_migration *BucketMigration, err error)
+
+	Create_ChangeHistory(ctx context.Context,
+		change_history_id ChangeHistory_Id_Field,
+		change_history_admin_email ChangeHistory_AdminEmail_Field,
+		change_history_user_id ChangeHistory_UserId_Field,
+		change_history_item_type ChangeHistory_ItemType_Field,
+		change_history_operation ChangeHistory_Operation_Field,
+		change_history_reason ChangeHistory_Reason_Field,
+		change_history_changes ChangeHistory_Changes_Field,
+		optional ChangeHistory_Create_Fields) (
+		change_history *ChangeHistory, err error)
 
 	Create_CoinpaymentsTransaction(ctx context.Context,
 		coinpayments_transaction_id CoinpaymentsTransaction_Id_Field,
