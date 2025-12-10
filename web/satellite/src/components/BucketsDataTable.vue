@@ -476,7 +476,7 @@ function getTierIcon(bucket: Bucket): FunctionalComponent {
     // Legacy global location.
     if (bucket.location === 'global') return Earth;
 
-    const details = selfServeDetails.value.find(detail => bucket.location === detail.idName || bucket.location === detail.shortName);
+    const details = selfServeDetails.value.find(detail => bucket.defaultPlacement === detail.id);
     if (details?.lucideIcon) {
         // We can't dynamically import icons from lucide, because vite needs to know all imports at compile time.
         const icon = ICONS[details.lucideIcon];

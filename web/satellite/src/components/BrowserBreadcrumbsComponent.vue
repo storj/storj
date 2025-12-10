@@ -6,7 +6,7 @@
         <template #divider>
             <img src="@/assets/icon-right.svg" alt="Breadcrumbs separator" width="10">
         </template>
-        <v-chip v-if="showRegionTag && bucketLocation" variant="tonal" color="default" size="small" rounded-xl>
+        <v-chip v-if="showRegionTag && bucketLocation" class="text-capitalize" variant="tonal" color="default" size="small" rounded-xl>
             {{ bucketLocation }}
         </v-chip>
     </v-breadcrumbs>
