@@ -23,6 +23,7 @@ enum RouteName {
     Access = 'Access Keys',
     Team = 'Team',
     Domains = 'Domains',
+    Usage = 'Usage',
     CunoFS = 'cunoFS',
     ObjectMount = 'Object Mount',
     Applications = 'Applications',
@@ -54,6 +55,7 @@ export abstract class ROUTES {
     public static Access = new NavigationLink('access', RouteName.Access);
     public static Team = new NavigationLink('team', RouteName.Team);
     public static Domains = new NavigationLink('domains', RouteName.Domains);
+    public static Usage = new NavigationLink('usage', RouteName.Usage);
     public static CunoFSBeta = new NavigationLink('cuno-fs-beta', RouteName.CunoFS);
     public static ObjectMount = new NavigationLink('object-mount', RouteName.ObjectMount);
     public static Applications = new NavigationLink('applications', RouteName.Applications);
@@ -197,6 +199,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.Access.path,
                 name: ROUTES.Access.name,
                 component: () => import(/* webpackChunkName: "Access" */ '@/views/Access.vue'),
+            },
+            {
+                path: ROUTES.Usage.path,
+                name: ROUTES.Usage.name,
+                component: () => import(/* webpackChunkName: "Usage" */ '@/views/Usage.vue'),
             },
             {
                 path: ROUTES.Domains.path,
