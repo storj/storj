@@ -202,7 +202,7 @@ export class ComputeAPI implements IComputeAPI {
             instance.ipv4Address,
             instance.created ? new Date(instance.created) : new Date(),
             instance.updated ? new Date(instance.updated) : new Date(),
-            instance.remote,
+            instance.remote ?? { type: '', ipv4Address: '', port: 0 },
             instance.password ?? '',
             instance.deleting ?? false,
         );
