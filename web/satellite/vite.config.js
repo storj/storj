@@ -93,6 +93,7 @@ export default defineConfig(({ mode }) => {
             alias: {
                 '@': resolve(__dirname, './src'),
                 'stream': 'stream-browserify', // Passphrase mnemonic generation will not work without this
+                'util': 'util/',
             },
             extensions: [
                 '.js',
