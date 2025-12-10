@@ -63,7 +63,7 @@
                 </template>
             </template>
 
-            <template #item.bucketID="{ item }">
+            <template #item.bucketName="{ item }">
                 <v-chip v-if="item.bucketName" variant="tonal" size="small" rounded="lg">
                     {{ item.bucketName }}
                 </v-chip>
@@ -116,12 +116,12 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: 'Date', key: 'timestamp' },
         { title: 'Operation', key: 'operation' },
         { title: 'Project ID', key: 'projectID' },
-        { title: 'Bucket ID', key: 'bucketID' },
+        { title: 'Bucket Name', key: 'bucketName' },
         { title: 'Admin', key: 'adminEmail' },
         { title: '', key: 'data-table-expand' },
     ];
     if (exact.value) {
-        return h.filter(header => header.key !== 'projectID' && header.key !== 'bucketID');
+        return h.filter(header => header.key !== 'projectID' && header.key !== 'bucketName');
     }
     return h;
 });
