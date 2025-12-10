@@ -73,13 +73,6 @@
                                 </v-list-item-subtitle>
                             </v-list-item>
 
-                            <v-list-item class="px-0 pb-4" :prepend-icon="GlobeLock">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">Port</v-list-item-title>
-                                <v-list-item-subtitle class="mt-1">
-                                    {{ displayed.remote.port }}
-                                </v-list-item-subtitle>
-                            </v-list-item>
-
                             <v-list-item class="px-0 pb-4" :prepend-icon="CalendarCheck">
                                 <v-list-item-title class="text-body-2 text-medium-emphasis">Created At</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
@@ -127,7 +120,7 @@ import {
     VListItemTitle,
     VListItemSubtitle,
 } from 'vuetify/components';
-import { CalendarCheck, Computer, FolderPen, GlobeLock, Loader, MapPinHouse, ScreenShare, X } from 'lucide-vue-next';
+import { CalendarCheck, Computer, FolderPen, Loader, MapPinHouse, ScreenShare, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';

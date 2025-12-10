@@ -65,7 +65,7 @@
 
             <template #item.ipv4Address="{ item }">
                 <span class="text-no-wrap">
-                    {{ item.remote.ipv4Address }}:{{ item.remote.port }}
+                    {{ item.ipv4Address }}
                 </span>
             </template>
 
