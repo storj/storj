@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container class="pb-15">
+    <v-container>
         <announcement-banner />
 
         <minimum-charge-banner v-if="billingEnabled" />
@@ -98,7 +98,7 @@
             </v-col>
         </v-row>
 
-        <v-row align="center" justify="center" class="mb-5">
+        <v-row align="center" justify="center">
             <v-col cols="12" md="6" :xl="usageRowXlColSize">
                 <UsageProgressComponent
                     icon="storage"
@@ -182,91 +182,6 @@
 
         <v-row align="center" justify="space-between">
             <v-col cols="12" md="auto">
-                <v-card-title class="font-weight-bold pl-0">Daily Usage</v-card-title>
-                <p class="text-medium-emphasis">
-                    Select date range to view daily usage statistics.
-                </p>
-            </v-col>
-            <v-col cols="auto" class="pt-0 mt-2 mt-md-0 pt-md-7">
-                <v-date-input
-                    v-model="chartDateRange"
-                    :min="minDatePickerDate"
-                    :max="maxDatePickerDate"
-                    label="Select Date Range"
-                    min-width="265px"
-                    multiple="range"
-                    prepend-icon=""
-                    density="comfortable"
-                    variant="outlined"
-                    :loading="isLoading"
-                    class="bg-surface"
-                    show-adjacent-months
-                    hide-details
-                >
-                    <v-icon class="mr-2" size="20" :icon="Calendar" />
-                </v-date-input>
-            </v-col>
-        </v-row>
-
-        <v-row class="d-flex align-center justify-center mt-2 mb-5">
-            <v-col cols="12" md="6">
-                <v-card ref="chartContainer" class="pa-1 pb-3">
-                    <template #title>
-                        <v-card-title class="d-flex align-center">
-                            <v-icon :icon="Cloud" size="small" color="primary" class="mr-2" />
-                            Storage
-                        </v-card-title>
-                    </template>
-                    <v-card-item class="pt-1">
-                        <v-card class="dot-background" rounded="md">
-                            <StorageChart
-                                :width="chartWidth"
-                                :height="240"
-                                :data="storageUsage"
-                                :since="chartsSinceDate"
-                                :before="chartsBeforeDate"
-                            />
-                        </v-card>
-                    </v-card-item>
-                </v-card>
-            </v-col>
-            <v-col cols="12" md="6">
-                <v-card class="pa-1 pb-3">
-                    <template #title>
-                        <v-card-title class="d-flex align-center justify-space-between">
-                            <v-row class="ma-0 align-center">
-                                <v-icon :icon="CloudDownload" size="small" color="primary" class="mr-2" />
-                                Download
-                                <v-tooltip width="240" location="bottom">
-                                    <template #activator="{ props }">
-                                        <v-icon v-bind="props" size="12" :icon="Info" class="ml-2 text-medium-emphasis" />
-                                    </template>
-                                    <template #default>
-                                        <p>
-                                            Download bandwidth appears here after downloads complete or cancel within 48 hours.
-                                        </p>
-                                    </template>
-                                </v-tooltip>
-                            </v-row>
-                        </v-card-title>
-                    </template>
-                    <v-card-item class="pt-1">
-                        <v-card class="dot-background" rounded="md">
-                            <BandwidthChart
-                                :width="chartWidth"
-                                :height="240"
-                                :data="settledBandwidthUsage"
-                                :since="chartsSinceDate"
-                                :before="chartsBeforeDate"
-                            />
-                        </v-card>
-                    </v-card-item>
-                </v-card>
-            </v-col>
-        </v-row>
-
-        <v-row align="center" justify="space-between">
-            <v-col cols="12" md="auto">
                 <v-card-title class="font-weight-bold pl-0">
                     Storage Buckets
                     <v-tooltip width="240" location="bottom">
@@ -306,12 +221,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch , ComponentPublicInstance } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import {
     VBtn,
-    VCard,
     VCardTitle,
-    VCardItem,
     VCol,
     VContainer,
     VRow,
@@ -319,18 +232,16 @@ import {
     VTooltip,
     VChip,
 } from 'vuetify/components';
-import { VDateInput } from 'vuetify/labs/components';
 import { useRouter } from 'vue-router';
-import { Info, CirclePlus, CircleArrowUp, Cloud, CloudDownload, Calendar } from 'lucide-vue-next';
+import { Info, CirclePlus, CircleArrowUp } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { DataStamp, Emission, LimitToChange, Project, ProjectLimits } from '@/types/projects';
+import { Emission, LimitToChange, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
-import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/modules/appStore';
@@ -340,15 +251,12 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { AccountBalance, CreditCard } from '@/types/payments';
-import { useLoading } from '@/composables/useLoading';
 import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
-import BandwidthChart from '@/components/BandwidthChart.vue';
-import StorageChart from '@/components/StorageChart.vue';
 import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
@@ -378,15 +286,11 @@ const configStore = useConfigStore();
 const notify = useNotify();
 const router = useRouter();
 const isLowBalance = useLowTokenBalance();
-const { isLoading, withLoading } = useLoading();
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
-const chartWidth = ref<number>(0);
-const chartContainer = ref<ComponentPublicInstance>();
 const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogOpen = ref<boolean>(false);
-const datePickerModel = ref<Date[]>([]);
 
 const avoidedSubtitle = computed<string>(() => `By using ${configStore.brandName}`);
 
@@ -716,67 +620,6 @@ const bucketsCount = computed((): number => {
 });
 
 /**
- * Returns charts since date from store.
- */
-const chartsSinceDate = computed((): Date => {
-    return projectsStore.state.chartDataSince;
-});
-
-/**
- * Returns charts before date from store.
- */
-const chartsBeforeDate = computed((): Date => {
-    return projectsStore.state.chartDataBefore;
-});
-
-/**
- * Return a new 7 days range if datePickerModel is empty.
- */
-const chartDateRange = computed<Date[]>({
-    get: () => {
-        const dates: Date[] = [...datePickerModel.value];
-        if (!dates.length) {
-            for (let i = 6; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                dates.push(d);
-            }
-        }
-        return dates;
-    },
-    set: newValue => {
-        const newRange = [...newValue];
-        if (newRange.length === 0) {
-            return;
-        }
-        if (newRange.length < 2) {
-            const d = new Date();
-            d.setDate(newRange[0].getDate() + 1);
-            newRange.push(d);
-        }
-        datePickerModel.value = newRange;
-    },
-});
-
-/**
- * Returns storage chart data from store.
- */
-const storageUsage = computed((): DataStamp[] => {
-    return ChartUtils.populateEmptyUsage(
-        projectsStore.state.storageChartData, chartsSinceDate.value, chartsBeforeDate.value,
-    );
-});
-
-/**
- * Returns allocated bandwidth chart data from store.
- */
-const settledBandwidthUsage = computed((): DataStamp[] => {
-    return ChartUtils.populateEmptyUsage(
-        projectsStore.state.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
-    );
-});
-
-/**
  * Indicates if emission impact view should be shown.
  */
 const emissionImpactViewEnabled = computed<boolean>(() => {
@@ -788,17 +631,6 @@ const emissionImpactViewEnabled = computed<boolean>(() => {
  */
 const emission = computed<Emission>(()  => {
     return projectsStore.state.emission;
-});
-
-const minDatePickerDate = computed<string>(() => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() - 1);
-    return d.toISOString().split('T')[0];
-});
-
-const maxDatePickerDate = computed<string>(() => {
-    const d = new Date();
-    return d.toISOString().split('T')[0];
 });
 
 /**
@@ -837,13 +669,6 @@ function formattedValue(value: Size): string {
     default:
         return `${value.formattedBytes.replace(/\.0+$/, '')}${value.label}`;
     }
-}
-
-/**
- * Used container size recalculation for charts resizing.
- */
-function recalculateChartWidth(): void {
-    chartWidth.value = chartContainer.value?.$el.getBoundingClientRect().width - 16 || 0;
 }
 
 /**
@@ -948,11 +773,7 @@ onMounted(async (): Promise<void> => {
     const projectID = selectedProject.value.id;
     const FIRST_PAGE = 1;
 
-    window.addEventListener('resize', recalculateChartWidth);
-    recalculateChartWidth();
-
     const promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
-        projectsStore.getDailyProjectData({ since: chartDateRange.value[0], before: chartDateRange.value[chartDateRange.value.length - 1] }),
         agStore.getAccessGrants(FIRST_PAGE, projectID),
         bucketsStore.getBuckets(FIRST_PAGE, projectID),
     ];
@@ -981,49 +802,7 @@ onMounted(async (): Promise<void> => {
     }
 });
 
-/**
- * Lifecycle hook before component destruction.
- * Removes event listener on window resizing.
- */
 onBeforeUnmount((): void => {
-    window.removeEventListener('resize', recalculateChartWidth);
     appStore.toggleHasJustLoggedIn(false);
 });
-
-watch(datePickerModel, async (newRange) => {
-    if (newRange.length < 2) return;
-
-    await withLoading(async () => {
-        let startDate = newRange[0];
-        let endDate = newRange[newRange.length - 1];
-        if (startDate.getTime() > endDate.getTime()) {
-            [startDate, endDate] = [endDate, startDate];
-        }
-
-        const since = new Date(startDate);
-        const before = new Date(endDate);
-        before.setHours(23, 59, 59, 999);
-
-        try {
-            await projectsStore.getDailyProjectData({ since, before });
-        } catch (error) {
-            notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
-        }
-    });
-});
 </script>
-<style scoped lang="scss">
-:deep(.v-field__input) {
-    cursor: pointer;
-
-    input {
-        cursor: pointer;
-    }
-}
-
-.dot-background {
-    background-image: radial-gradient(circle, rgb(var(--v-theme-on-surface),0.04) 1px, transparent 1px);
-    background-size: 12px 12px;
-    background-color: rgb(var(--v-theme-surface));;
-}
-</style>

@@ -170,6 +170,12 @@
                     </template>
                 </navigation-item>
 
+                <navigation-item :title="ROUTES.Usage.name" :to="usageURL" @click="closeDrawer">
+                    <template #prepend>
+                        <component :is="ChartNoAxesColumn" :size="18" />
+                    </template>
+                </navigation-item>
+
                 <v-list-group v-if="computeUIEnabled" value="Compute">
                     <template #activator="{ props }">
                         <v-list-item v-bind="props" active-class="bg-background">
@@ -339,6 +345,7 @@ import {
     HardDrive,
     Computer,
     FileKey,
+    ChartNoAxesColumn,
 } from 'lucide-vue-next';
 
 import { Project, ProjectConfig } from '@/types/projects';
@@ -419,6 +426,8 @@ const appsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Applica
 const computeInstancesURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeInstances.path}`);
 
 const computeKeysURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ComputeKeys.path}`);
+
+const usageURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Usage.path}`);
 
 /**
  * Returns user's own projects.
