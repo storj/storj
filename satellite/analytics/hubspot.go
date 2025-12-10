@@ -143,11 +143,17 @@ func (q *HubSpotEvents) EnqueueCreateUserMinimal(fields TrackCreateUserFields) {
 	if fields.SignupCaptcha != nil {
 		formFields = append(formFields, newField("signup_captcha_score", *fields.SignupCaptcha))
 	}
+	if fields.TenantID != nil && *fields.TenantID != "" {
+		formFields = append(formFields, newField("tenant", *fields.TenantID))
+	}
 
 	properties := map[string]interface{}{
 		"userid":             fields.ID.String(),
 		"email":              fields.Email,
 		"satellite_selected": q.satelliteName,
+	}
+	if fields.TenantID != nil && *fields.TenantID != "" {
+		properties["tenant"] = *fields.TenantID
 	}
 
 	data := map[string]interface{}{
@@ -292,6 +298,9 @@ func (q *HubSpotEvents) EnqueueObjectMountConsultation(fields TrackObjectMountCo
 		newField("implementation_timeline", fields.ImplementationTimeline),
 		newField("additional_information", fields.AdditionalInformation),
 	}
+	if fields.TenantID != nil && *fields.TenantID != "" {
+		formFields = append(formFields, newField("tenant", *fields.TenantID))
+	}
 
 	requestObjectMountConsultation := HubSpotEvent{
 		Endpoint: q.config.ObjectMountConsultationFormURL,
@@ -327,6 +336,9 @@ func (q *HubSpotEvents) EnqueueUserOnboardingInfo(fields TrackOnboardingInfoFiel
 		"firstname": firstName,
 		"lastname":  lastName,
 		"use_case":  fields.StorageUseCase,
+	}
+	if fields.TenantID != nil && *fields.TenantID != "" {
+		properties["tenant"] = *fields.TenantID
 	}
 	if fields.Type == Professional {
 		properties["have_sales_contact"] = fields.HaveSalesContact

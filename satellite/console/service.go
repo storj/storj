@@ -4015,6 +4015,7 @@ func (s *Service) RequestObjectMountConsultation(ctx context.Context, data analy
 	}
 
 	data.Email = user.Email
+	data.TenantID = user.TenantID
 
 	s.analytics.RequestObjectMountConsultation(data)
 

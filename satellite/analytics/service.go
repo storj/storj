@@ -337,20 +337,21 @@ type TrackJoinPlacementWaitlistFields struct {
 
 // TrackObjectMountConsultationFields contains input data for tracking an object mount consultation event.
 type TrackObjectMountConsultationFields struct {
-	Email                  string `json:"email"`
-	CompanyName            string `json:"companyName"`
-	FirstName              string `json:"firstName"`
-	LastName               string `json:"lastName"`
-	JobTitle               string `json:"jobTitle"`
-	PhoneNumber            string `json:"phoneNumber"`
-	IndustryUseCase        string `json:"industryUseCase"`
-	CompanySize            string `json:"companySize"`
-	CurrentStorageSolution string `json:"currentStorageSolution"`
-	KeyChallenges          string `json:"keyChallenges"`
-	SpecificInterests      string `json:"specificInterests"`
-	StorageNeeds           string `json:"storageNeeds"`
-	ImplementationTimeline string `json:"implementationTimeline"`
-	AdditionalInformation  string `json:"additionalInformation"`
+	Email                  string  `json:"email"`
+	CompanyName            string  `json:"companyName"`
+	FirstName              string  `json:"firstName"`
+	LastName               string  `json:"lastName"`
+	JobTitle               string  `json:"jobTitle"`
+	PhoneNumber            string  `json:"phoneNumber"`
+	IndustryUseCase        string  `json:"industryUseCase"`
+	CompanySize            string  `json:"companySize"`
+	CurrentStorageSolution string  `json:"currentStorageSolution"`
+	KeyChallenges          string  `json:"keyChallenges"`
+	SpecificInterests      string  `json:"specificInterests"`
+	StorageNeeds           string  `json:"storageNeeds"`
+	ImplementationTimeline string  `json:"implementationTimeline"`
+	AdditionalInformation  string  `json:"additionalInformation"`
+	TenantID               *string `json:"-"`
 }
 
 // TrackOnboardingInfoFields contains input data entered after first login.
