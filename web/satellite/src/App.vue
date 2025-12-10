@@ -251,7 +251,10 @@ onBeforeMount(async (): Promise<void> => {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     if (configStore.state.config.analyticsEnabled) {
-        analyticsStore.pageVisit(route.matched[route.matched.length - 1].path, configStore.state.config.satelliteName);
+        const path = route.matched[route.matched.length - 1]?.path;
+        if (path) {
+            analyticsStore.pageVisit(path, configStore.state.config.satelliteName);
+        }
     }
 });
 
