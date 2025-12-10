@@ -639,7 +639,10 @@ const selectedPlacement = computed<PlacementDetails | null>(() => {
 });
 
 const bucketLocationName = computed<string>(() => {
-    return selectedPlacement.value?.name ?? '';
+    const details = selectedPlacement.value;
+    if (!details) return '';
+
+    return details.shortName || details.name;
 });
 
 const formInvalid = computed(() => !formValid.value || (selfPlacementEnabled.value && step.value === CreateStep.Location && !bucketLocation.value));

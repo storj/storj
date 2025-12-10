@@ -5577,7 +5577,7 @@ func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (l
 			Versioning: bucket.Versioning,
 			Placement: Placement{
 				DefaultPlacement: bucket.Placement,
-				Location:         s.placements[bucket.Placement].Name,
+				Location:         s.getLocationName(ctx, isMember.project.PublicID, bucket.Placement),
 			},
 			ObjectLockEnabled: bucket.ObjectLock.Enabled,
 		})
