@@ -19,7 +19,7 @@
             </v-col>
         </v-row>
 
-        <ComputeInstancesTableComponent class="mt-5" />
+        <ComputeInstancesTableComponent />
     </v-container>
 
     <create-compute-instance-dialog v-model="isCreateDialog" />
