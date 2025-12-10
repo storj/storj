@@ -155,6 +155,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	available := allocated - (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal
 	if available < 0 {
 		overused = -available
+		available = 0
 	}
 	if storageStatus.DiskFree < available {
 		available = storageStatus.DiskFree
@@ -168,6 +169,6 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		Free:          storageStatus.DiskFree,
 		Available:     available,
 		Overused:      overused,
-		Used:          (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal,
+		Used:          usedForPieces + usedForTrash + hashSpaceUsage.UsedTotal,
 	}, nil
 }
