@@ -76,7 +76,7 @@ func TestConvertModsToEvent_CommitInlineObject_Insert(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
+	assert.Equal(t, "ObjectCreated:Put", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -123,7 +123,7 @@ func TestConvertModsToEvent_CommitObject_Insert(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
+	assert.Equal(t, "ObjectCreated:Put", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -148,7 +148,7 @@ func TestConvertModsToEvent_CommitObject_Update(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectCreatedPut, record.EventName)
+	assert.Equal(t, "ObjectCreated:Put", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -173,7 +173,7 @@ func TestConvertModsToEvent_DeleteAllBucketObjects(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -187,7 +187,7 @@ func TestConvertModsToEvent_DeleteAllBucketObjects(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -201,7 +201,7 @@ func TestConvertModsToEvent_DeleteAllBucketObjects(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -226,7 +226,7 @@ func TestConvertModsToEvent_DeleteObjectExactVersion(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -251,7 +251,7 @@ func TestConvertModsToEvent_DeleteObjectExactVersionUsingObjectLock(t *testing.T
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -276,7 +276,7 @@ func TestConvertModsToEvent_DeleteObjectLastCommittedPlain(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDelete, record.EventName)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -301,7 +301,7 @@ func TestConvertModsToEvent_DeleteObjectLastCommittedSuspended(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
+	assert.Equal(t, "ObjectRemoved:DeleteMarkerCreated", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -326,7 +326,7 @@ func TestConvertModsToEvent_DeleteObjectLastCommittedVersioned(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectRemovedDeleteMarkerCreated, record.EventName)
+	assert.Equal(t, "ObjectRemoved:DeleteMarkerCreated", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -362,7 +362,7 @@ func TestConvertModsToEvent_FinishCopyObject_Update(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectCreatedCopy, record.EventName)
+	assert.Equal(t, "ObjectCreated:Copy", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -398,7 +398,7 @@ func TestConvertModsToEvent_FinishMoveObject_Insert(t *testing.T) {
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
-	assert.Equal(t, S3ObjectCreatedCopy, record.EventName)
+	assert.Equal(t, "ObjectCreated:Copy", record.EventName)
 	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
 	assert.Equal(t, "ObjectEvents", record.S3.ConfigurationId)
 	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
@@ -432,14 +432,14 @@ func TestConvertModsToEvent(t *testing.T) {
 			Mods: []*changestream.Mods{
 				{
 					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
+						Value: map[string]any{
 							"stream_id":        "k3JrjdBKRbuCT2cxhu5vlg==", // base64: TestStreamID
 							"total_plain_size": float64(100),
 						},
 						Valid: true,
 					},
 					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
+						Value: map[string]any{
 							"bucket_name": TestBucket,
 							"object_key":  "b2JqZWN0MS50eHQ=", // base64: object1.txt
 							"version":     float64(1),
@@ -449,14 +449,14 @@ func TestConvertModsToEvent(t *testing.T) {
 				},
 				{
 					NewValues: spanner.NullJSON{
-						Value: map[string]interface{}{
+						Value: map[string]any{
 							"stream_id":        "pcBVBgOOQmWX34uVMZBi1g==", // base64: TestStreamID
 							"total_plain_size": float64(200),
 						},
 						Valid: true,
 					},
 					Keys: spanner.NullJSON{
-						Value: map[string]interface{}{
+						Value: map[string]any{
 							"bucket_name": "bucket2",
 							"object_key":  "b2JqZWN0Mi50eHQ=", // base64: object2.txt
 							"version":     float64(2),
@@ -512,7 +512,7 @@ func TestConvertModsToEvent(t *testing.T) {
 	})
 
 	t.Run("Unknown event type is skipped", func(t *testing.T) {
-		newValues := map[string]interface{}{
+		newValues := map[string]any{
 			"bucket_name": "test-bucket",
 			"object_key":  "dGVzdC9vYmplY3QudHh0", // base64: test/object.txt
 			"status":      float64(1),             // Pending - should be skipped
@@ -564,34 +564,34 @@ func TestDetermineEventName(t *testing.T) {
 		{"begin-object-next-version	", "INSERT", ""},
 		{"begin-object-next-version	", "UPDATE", ""},
 		{"begin-object-next-version	", "DELETE", ""},
-		{"commit-inline-object", "INSERT", S3ObjectCreatedPut},
+		{"commit-inline-object", "INSERT", "ObjectCreated:Put"},
 		{"commit-inline-object", "UPDATE", ""},
 		{"commit-inline-object", "DELETE", ""},
-		{"commit-object", "INSERT", S3ObjectCreatedPut},
-		{"commit-object", "UPDATE", S3ObjectCreatedPut},
+		{"commit-object", "INSERT", "ObjectCreated:Put"},
+		{"commit-object", "UPDATE", "ObjectCreated:Put"},
 		{"commit-object", "DELETE", ""},
 		{"delete-all-bucket-objects", "INSERT", ""},
 		{"delete-all-bucket-objects", "UPDATE", ""},
-		{"delete-all-bucket-objects", "DELETE", S3ObjectRemovedDelete},
+		{"delete-all-bucket-objects", "DELETE", "ObjectRemoved:Delete"},
 		{"delete-object-exact-version", "INSERT", ""},
 		{"delete-object-exact-version", "UPDATE", ""},
-		{"delete-object-exact-version", "DELETE", S3ObjectRemovedDelete},
+		{"delete-object-exact-version", "DELETE", "ObjectRemoved:Delete"},
 		{"delete-object-exact-version-using-object-lock", "INSERT", ""},
 		{"delete-object-exact-version-using-object-lock", "UPDATE", ""},
-		{"delete-object-exact-version-using-object-lock", "DELETE", S3ObjectRemovedDelete},
+		{"delete-object-exact-version-using-object-lock", "DELETE", "ObjectRemoved:Delete"},
 		{"delete-object-last-committed-plain", "INSERT", ""},
 		{"delete-object-last-committed-plain", "UPDATE", ""},
-		{"delete-object-last-committed-plain", "DELETE", S3ObjectRemovedDelete},
-		{"delete-object-last-committed-suspended", "INSERT", S3ObjectRemovedDeleteMarkerCreated},
+		{"delete-object-last-committed-plain", "DELETE", "ObjectRemoved:Delete"},
+		{"delete-object-last-committed-suspended", "INSERT", "ObjectRemoved:DeleteMarkerCreated"},
 		{"delete-object-last-committed-suspended", "UPDATE", ""},
 		{"delete-object-last-committed-suspended", "DELETE", ""},
-		{"delete-object-last-committed-versioned", "INSERT", S3ObjectRemovedDeleteMarkerCreated},
+		{"delete-object-last-committed-versioned", "INSERT", "ObjectRemoved:DeleteMarkerCreated"},
 		{"delete-object-last-committed-versioned", "UPDATE", ""},
 		{"delete-object-last-committed-versioned", "DELETE", ""},
 		{"finish-copy-object", "INSERT", ""},
-		{"finish-copy-object", "UPDATE", S3ObjectCreatedCopy},
+		{"finish-copy-object", "UPDATE", "ObjectCreated:Copy"},
 		{"finish-copy-object", "DELETE", ""},
-		{"finish-move-object", "INSERT", S3ObjectCreatedCopy},
+		{"finish-move-object", "INSERT", "ObjectCreated:Copy"},
 		{"finish-move-object", "UPDATE", ""},
 		{"finish-move-object", "DELETE", ""},
 		{"object-copy-insert-pending", "INSERT", ""},
@@ -609,7 +609,7 @@ func TestDetermineEventName(t *testing.T) {
 }
 
 func TestExtractString(t *testing.T) {
-	values := map[string]interface{}{
+	values := map[string]any{
 		"string_key": "test_value",
 		"int_key":    123,
 		"nil_key":    nil,
@@ -641,7 +641,7 @@ func TestExtractString(t *testing.T) {
 }
 
 func TestExtractInt64(t *testing.T) {
-	values := map[string]interface{}{
+	values := map[string]any{
 		"int64_key":    int64(123),
 		"float64_key":  float64(456.0),
 		"string_key":   "not_a_number",
@@ -686,13 +686,13 @@ func TestExtractInt64(t *testing.T) {
 }
 
 func TestExtractFirst(t *testing.T) {
-	values1 := map[string]interface{}{
+	values1 := map[string]any{
 		"string_key": "first_value",
 		"int64_key":  int64(123),
 		"nil_key":    nil,
 	}
 
-	values2 := map[string]interface{}{
+	values2 := map[string]any{
 		"string_key": "second_value",
 		"int64_key":  int64(321),
 		"nil_key":    nil,
@@ -732,5 +732,79 @@ func TestExtractFirst(t *testing.T) {
 		result, ok := extractFirstInt64("any_key", nil, nil)
 		require.False(t, ok)
 		require.Equal(t, int64(0), result)
+	})
+}
+
+func TestValidateEventTypes(t *testing.T) {
+	t.Run("Valid event types", func(t *testing.T) {
+		// Individual specific event types
+		err := ValidateEventTypes([]string{"s3:ObjectCreated:Put"})
+		require.NoError(t, err)
+
+		err = ValidateEventTypes([]string{"s3:ObjectCreated:Copy"})
+		require.NoError(t, err)
+
+		err = ValidateEventTypes([]string{"s3:ObjectRemoved:Delete"})
+		require.NoError(t, err)
+
+		err = ValidateEventTypes([]string{"s3:ObjectRemoved:DeleteMarkerCreated"})
+		require.NoError(t, err)
+
+		// Wildcard event types
+		err = ValidateEventTypes([]string{"s3:ObjectCreated:*"})
+		require.NoError(t, err)
+
+		err = ValidateEventTypes([]string{"s3:ObjectRemoved:*"})
+		require.NoError(t, err)
+
+		// Multiple valid event types
+		err = ValidateEventTypes([]string{
+			"s3:ObjectCreated:Put",
+			"s3:ObjectCreated:Copy",
+			"s3:ObjectRemoved:Delete",
+		})
+		require.NoError(t, err)
+
+		// Mix of specific and wildcard types
+		err = ValidateEventTypes([]string{
+			"s3:ObjectCreated:*",
+			"s3:ObjectRemoved:Delete",
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("Invalid event types", func(t *testing.T) {
+		// Invalid event type
+		err := ValidateEventTypes([]string{"s3:ObjectCreated:Invalid"})
+		require.True(t, ErrInvalidEventType.Has(err))
+
+		// Missing s3: prefix
+		err = ValidateEventTypes([]string{"ObjectCreated:Put"})
+		require.True(t, ErrInvalidEventType.Has(err))
+
+		// Wrong category
+		err = ValidateEventTypes([]string{"s3:ObjectUpdated:Put"})
+		require.True(t, ErrInvalidEventType.Has(err))
+
+		// Mix of valid and invalid
+		err = ValidateEventTypes([]string{
+			"s3:ObjectCreated:Put",
+			"s3:InvalidEvent:Type",
+		})
+		require.True(t, ErrInvalidEventType.Has(err))
+
+		// Empty string
+		err = ValidateEventTypes([]string{""})
+		require.True(t, ErrInvalidEventType.Has(err))
+	})
+
+	t.Run("Empty event list", func(t *testing.T) {
+		err := ValidateEventTypes([]string{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one event type is required")
+
+		err = ValidateEventTypes(nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "at least one event type is required")
 	})
 }

@@ -18,13 +18,41 @@ import (
 	"storj.io/storj/satellite/metabase/changestream"
 )
 
-// S3ObjectEvent represents various event names triggered by S3 object operations.
+// ErrInvalidEventType is used when an invalid bucket event type is encountered.
+var ErrInvalidEventType = errs.Class("invalid bucket event type")
+
 const (
-	S3ObjectCreatedPut                 = "ObjectCreated:Put"
-	S3ObjectCreatedCopy                = "ObjectCreated:Copy"
-	S3ObjectRemovedDelete              = "ObjectRemoved:Delete"
-	S3ObjectRemovedDeleteMarkerCreated = "ObjectRemoved:DeleteMarkerCreated"
+	eventCategoryObjectCreated = "ObjectCreated"
+	eventCategoryObjectRemoved = "ObjectRemoved"
 )
+
+// Event names (without "s3:" prefix) used in the EventName field of published event records.
+const (
+	EventNameObjectCreatedPut                 = eventCategoryObjectCreated + ":Put"
+	EventNameObjectCreatedCopy                = eventCategoryObjectCreated + ":Copy"
+	EventNameObjectRemovedDelete              = eventCategoryObjectRemoved + ":Delete"
+	EventNameObjectRemovedDeleteMarkerCreated = eventCategoryObjectRemoved + ":DeleteMarkerCreated"
+)
+
+// Event types (with "s3:" prefix) used in bucket notification configuration.
+const (
+	EventTypeObjectCreatedPut                 = "s3:" + EventNameObjectCreatedPut
+	EventTypeObjectCreatedCopy                = "s3:" + EventNameObjectCreatedCopy
+	EventTypeObjectRemovedDelete              = "s3:" + EventNameObjectRemovedDelete
+	EventTypeObjectRemovedDeleteMarkerCreated = "s3:" + EventNameObjectRemovedDeleteMarkerCreated
+	EventTypeObjectCreatedAll                 = "s3:" + eventCategoryObjectCreated + ":*"
+	EventTypeObjectRemovedAll                 = "s3:" + eventCategoryObjectRemoved + ":*"
+)
+
+// allowedEvents is the set of valid event types.
+var allowedEvents = map[string]bool{
+	EventTypeObjectCreatedPut:                 true,
+	EventTypeObjectCreatedCopy:                true,
+	EventTypeObjectRemovedDelete:              true,
+	EventTypeObjectRemovedDeleteMarkerCreated: true,
+	EventTypeObjectCreatedAll:                 true,
+	EventTypeObjectRemovedAll:                 true,
+}
 
 // Event contains one or more event records.
 type Event struct {
@@ -198,28 +226,28 @@ func determineEventName(transactionTag, modType string) string {
 	switch transactionTag {
 	case "commit-inline-object":
 		if modType == "INSERT" {
-			return S3ObjectCreatedPut
+			return EventNameObjectCreatedPut
 		}
 	case "commit-object":
 		switch modType {
 		case "INSERT", "UPDATE":
-			return S3ObjectCreatedPut
+			return EventNameObjectCreatedPut
 		}
 	case "delete-all-bucket-objects", "delete-object-exact-version", "delete-object-exact-version-using-object-lock", "delete-object-last-committed-plain":
 		if modType == "DELETE" {
-			return S3ObjectRemovedDelete
+			return EventNameObjectRemovedDelete
 		}
 	case "delete-object-last-committed-suspended", "delete-object-last-committed-versioned":
 		if modType == "INSERT" {
-			return S3ObjectRemovedDeleteMarkerCreated
+			return EventNameObjectRemovedDeleteMarkerCreated
 		}
 	case "finish-copy-object":
 		if modType == "UPDATE" {
-			return S3ObjectCreatedCopy
+			return EventNameObjectCreatedCopy
 		}
 	case "finish-move-object":
 		if modType == "INSERT" {
-			return S3ObjectCreatedCopy
+			return EventNameObjectCreatedCopy
 		}
 	}
 	return ""
@@ -290,4 +318,19 @@ func (e *Event) JSONSize() (int64, error) {
 		return 0, err
 	}
 	return int64(len(eventJSON)), nil
+}
+
+// ValidateEventTypes validates that event types are in the allowed list or valid wildcards.
+func ValidateEventTypes(events []string) error {
+	if len(events) == 0 {
+		return errs.New("at least one event type is required")
+	}
+
+	for _, event := range events {
+		if !allowedEvents[event] {
+			return ErrInvalidEventType.New("%s", event)
+		}
+	}
+
+	return nil
 }
