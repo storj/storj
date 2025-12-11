@@ -132,24 +132,12 @@ func (a *GCSIterator) Next(ctx context.Context) (rc io.ReadCloser, err error) {
 	return reader, nil
 }
 
-// ObjectIterator is an iterator over RawObjects in Avro files.
-type ObjectIterator struct {
-	readerIterator ReaderIterator
-}
-
-// NewObjectIterator creates a new ObjectIterator.
-func NewObjectIterator(reader ReaderIterator) *ObjectIterator {
-	return &ObjectIterator{
-		readerIterator: reader,
-	}
-}
-
-// Iterate iterates over all RawObjects.
-func (oi *ObjectIterator) Iterate(ctx context.Context) iter.Seq2[metabase.RawObject, error] {
-	return func(yield func(metabase.RawObject, error) bool) {
+// iterateAvroRecords is a generic helper for iterating over Avro records.
+func iterateAvroRecords[T any](ctx context.Context, readerIterator ReaderIterator, parseRecord func(context.Context, map[string]any) (T, error)) iter.Seq2[T, error] {
+	return func(yield func(T, error) bool) {
 		for {
 			err := func() (err error) {
-				reader, err := oi.readerIterator.Next(ctx)
+				reader, err := readerIterator.Next(ctx)
 				if err != nil {
 					return err
 				}
@@ -174,7 +162,7 @@ func (oi *ObjectIterator) Iterate(ctx context.Context) iter.Seq2[metabase.RawObj
 					}
 
 					if recMap, ok := record.(map[string]any); ok {
-						entry, err := ObjectFromRecord(ctx, recMap)
+						entry, err := parseRecord(ctx, recMap)
 						if err != nil {
 							return errs.New("failed to parse Avro record: %v", err)
 						}
@@ -189,9 +177,44 @@ func (oi *ObjectIterator) Iterate(ctx context.Context) iter.Seq2[metabase.RawObj
 				break
 			}
 			if err != nil {
-				yield(metabase.RawObject{}, errs.Wrap(err))
+				var zero T
+				yield(zero, errs.Wrap(err))
 				return
 			}
 		}
 	}
+}
+
+// ObjectIterator is an iterator over RawObjects in Avro files.
+type ObjectIterator struct {
+	readerIterator ReaderIterator
+}
+
+// NewObjectIterator creates a new ObjectIterator.
+func NewObjectIterator(reader ReaderIterator) *ObjectIterator {
+	return &ObjectIterator{
+		readerIterator: reader,
+	}
+}
+
+// Iterate iterates over all RawObjects.
+func (oi *ObjectIterator) Iterate(ctx context.Context) iter.Seq2[metabase.RawObject, error] {
+	return iterateAvroRecords(ctx, oi.readerIterator, ObjectFromRecord)
+}
+
+// NodeAliasesIterator is an iterator over NodeAliases in Avro files.
+type NodeAliasesIterator struct {
+	readerIterator ReaderIterator
+}
+
+// NewNodeAliasesIterator creates a new NodeAliasesIterator.
+func NewNodeAliasesIterator(reader ReaderIterator) *NodeAliasesIterator {
+	return &NodeAliasesIterator{
+		readerIterator: reader,
+	}
+}
+
+// Iterate iterates over all NodeAliasEntry.
+func (nai *NodeAliasesIterator) Iterate(ctx context.Context) iter.Seq2[metabase.NodeAliasEntry, error] {
+	return iterateAvroRecords(ctx, nai.readerIterator, NodeAliasFromRecord)
 }

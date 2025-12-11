@@ -41,9 +41,14 @@ func (s *AvroSegmentsSplitter) CreateRanges(ctx context.Context, nRanges int, ba
 		nRanges = 1
 	}
 
-	nodeAliases, err := s.readNodeAliases(ctx)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	nodeAliases := []metabase.NodeAliasEntry{}
+	iterator := avrometabase.NewNodeAliasesIterator(s.nodeAliasesAvroIterator)
+	for nodeAlias, err := range iterator.Iterate(ctx) {
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		nodeAliases = append(nodeAliases, nodeAlias)
 	}
 
 	providers := make([]SegmentProvider, nRanges)
@@ -56,57 +61,6 @@ func (s *AvroSegmentsSplitter) CreateRanges(ctx context.Context, nRanges int, ba
 	}
 
 	return providers, nil
-}
-
-func (s *AvroSegmentsSplitter) readNodeAliases(ctx context.Context) ([]metabase.NodeAliasEntry, error) {
-	nodeAliases := []metabase.NodeAliasEntry{}
-
-	for {
-		err := func() error {
-			reader, err := s.nodeAliasesAvroIterator.Next(ctx)
-			if err != nil {
-				return err
-			}
-
-			if reader == nil {
-				return stopErr
-			}
-
-			defer func() {
-				err = errs.Combine(err, reader.Close())
-			}()
-
-			ocfReader, err := goavro.NewOCFReader(reader)
-			if err != nil {
-				return errs.New("failed to create Avro reader: %v", err)
-			}
-
-			for ocfReader.Scan() {
-				record, err := ocfReader.Read()
-				if err != nil {
-					return errs.New("failed to read Avro record: %v", err)
-				}
-
-				if recMap, ok := record.(map[string]any); ok {
-					nodeAlias, err := avrometabase.NodeAliasFromRecord(ctx, recMap)
-					if err != nil {
-						return errs.Wrap(err)
-					}
-
-					nodeAliases = append(nodeAliases, nodeAlias)
-				}
-			}
-			return nil
-		}()
-		if errors.Is(err, stopErr) {
-			break
-		}
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
-
-	return nodeAliases, nil
 }
 
 // AvroSegmentProvider provides segments from Avro files.
