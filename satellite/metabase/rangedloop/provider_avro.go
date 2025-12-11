@@ -10,7 +10,6 @@ import (
 	"github.com/linkedin/goavro/v2"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/avrometabase"
 )
@@ -89,20 +88,12 @@ func (s *AvroSegmentsSplitter) readNodeAliases(ctx context.Context) ([]metabase.
 				}
 
 				if recMap, ok := record.(map[string]any); ok {
-					nodeID, err := avrometabase.BytesToType(recMap["node_id"], storj.NodeIDFromBytes)
+					nodeAlias, err := avrometabase.NodeAliasFromRecord(ctx, recMap)
 					if err != nil {
 						return errs.Wrap(err)
 					}
 
-					nodeAlias, err := avrometabase.ToInt64(recMap["node_alias"])
-					if err != nil {
-						return errs.Wrap(err)
-					}
-
-					nodeAliases = append(nodeAliases, metabase.NodeAliasEntry{
-						ID:    nodeID,
-						Alias: metabase.NodeAlias(nodeAlias),
-					})
+					nodeAliases = append(nodeAliases, nodeAlias)
 				}
 			}
 			return nil
@@ -111,7 +102,7 @@ func (s *AvroSegmentsSplitter) readNodeAliases(ctx context.Context) ([]metabase.
 			break
 		}
 		if err != nil {
-			return nil, errs.Wrap(err)
+			return nil, Error.Wrap(err)
 		}
 	}
 
