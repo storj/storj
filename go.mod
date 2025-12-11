@@ -60,7 +60,7 @@ require (
 	github.com/zeebo/errs v1.4.0
 	github.com/zeebo/errs/v2 v2.0.5
 	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
-	github.com/zeebo/mwc v0.0.6
+	github.com/zeebo/mwc v0.0.7
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602
 	github.com/zeebo/sudo v1.0.2
 	github.com/zeebo/xxh3 v1.0.2
@@ -90,12 +90,12 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20251022143549-19bf6a9f274a
+	storj.io/common v0.0.0-20251208140929-8075c7c17951
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad
-	storj.io/uplink v1.13.2-0.20250807183920-f49c2319cb74
+	storj.io/uplink v1.13.2-0.20251205102608-fcbae6793ee8
 )
 
 require (

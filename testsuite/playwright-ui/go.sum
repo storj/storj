@@ -1548,8 +1548,8 @@ github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477 h1:W/fHn8aWJEBCQcLeeNBo
 github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477/go.mod h1:nbQ8jtLiWGVGehuiqVKJp/Oc9FnzA56AZ0tG/srGTGY=
 github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 h1:+cwNE5KJ3pika4HuzmDHkDlK5myo0G9Sv+eO7WWxnUQ=
 github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54/go.mod h1:EI8LcOBDlSL3POyqwC1eJhOYlMBMidES+613EtmmT5w=
-github.com/zeebo/mwc v0.0.6 h1:Kgs24P3WhWlBS67e8Iy7lHbXHMAab0LwTsP4845x9mc=
-github.com/zeebo/mwc v0.0.6/go.mod h1:0B32or6moOig1YGuqMoimBpU9QK9uYaGG2bBOuddqtE=
+github.com/zeebo/mwc v0.0.7 h1:0NerGhCww6ZQx+/xCx5iwznftveokvto1KILpYfENZk=
+github.com/zeebo/mwc v0.0.7/go.mod h1:0B32or6moOig1YGuqMoimBpU9QK9uYaGG2bBOuddqtE=
 github.com/zeebo/pcg v1.0.1 h1:lyqfGeWiv4ahac6ttHs+I5hwtH/+1mrhlCtVNQM2kHo=
 github.com/zeebo/pcg v1.0.1/go.mod h1:09F0S9iiKrwn9rlI5yjLkmrug154/YRW6KnnXVDM/l4=
 github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 h1:nMxsvi3pTJapmPpdShLdCO8sbCqd8XkjKYMssSJrfiM=
@@ -2409,8 +2409,8 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
-storj.io/common v0.0.0-20251022143549-19bf6a9f274a h1:g3stKez/XuRJ25RYRSUthdhG86DgFpBAvnOqHufHdDM=
-storj.io/common v0.0.0-20251022143549-19bf6a9f274a/go.mod h1:UgjRCGYYYQc2U5W9MiNZJYBa3pCM8t/TLVzlTfAjKBY=
+storj.io/common v0.0.0-20251208140929-8075c7c17951 h1:oLWkCOSPG05bwluR/zFYav7ToY6OwngFxK8pdFvA/Dk=
+storj.io/common v0.0.0-20251208140929-8075c7c17951/go.mod h1:XNX7uykja6aco92y2y8RuqaXIDRPpt1YA2OQDKlKEUk=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 h1:oqMwoF6vaOrCe92SKRyr8cc2WSjLYAd8fjpAHA7rNqY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 h1:8OE12DvUnB9lfZcHe7IDGsuhjrY9GBAr964PVHmhsro=
@@ -2431,7 +2431,7 @@ storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad h1:HkjZ/RDf2MiY7ENNhDW
 storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad/go.mod h1:ZS8oCmCdx8/cSCbQBeT3BSAgxqoHPclTerizqn5i+Os=
 storj.io/picobuf v0.0.4 h1:qswHDla+YZ2TovGtMnU4astjvrADSIz84FXRn0qgP6o=
 storj.io/picobuf v0.0.4/go.mod h1:hSMxmZc58MS/2qSLy1I0idovlO7+6K47wIGUyRZa6mg=
-storj.io/uplink v1.13.2-0.20250807183920-f49c2319cb74 h1:msPNsaanl9icEYR+9cRg0cHK0yBNnMFDDya043RV2c0=
-storj.io/uplink v1.13.2-0.20250807183920-f49c2319cb74/go.mod h1:kflX6f1z3rn8P/KdYCWYNr1b6AaJcxi9Mf9tthzq64w=
+storj.io/uplink v1.13.2-0.20251205102608-fcbae6793ee8 h1:aVXJiDwna6ZBb2MeBgMQhfiER3Y2P56Q8RefE4wsTkI=
+storj.io/uplink v1.13.2-0.20251205102608-fcbae6793ee8/go.mod h1:F7e8RputE+p2guYEUUyvU5jjt4Q6K6mAZElF+JtXFo0=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6/go.mod h1:MRnaO2kEXqZ+dd+InduHGg5RQy8gbrnPLaPp38CWDxg=

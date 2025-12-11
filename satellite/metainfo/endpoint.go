@@ -107,7 +107,7 @@ type Endpoint struct {
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
 	selfServePlacements            map[storj.PlacementConstraint]console.PlacementDetail
 	nodeSelectionStats             *NodeSelectionStats
-	bucketEventing                 eventingconfig.BucketLocationTopicIDMap
+	bucketEventing                 eventingconfig.Config
 	entitlementsService            *entitlements.Service
 	entitlementsConfig             entitlements.Config
 	keyTailsHandler                *keyTailsHandler
@@ -124,7 +124,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	projectMembers console.ProjectMembers, users console.Users, satellite signing.Signer, revocations revocation.DB,
 	successTrackers *SuccessTrackers, failureTracker SuccessTracker, trustedUplinks *trust.TrustedPeersList, config Config,
 	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
-	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventingconfig.BucketLocationTopicIDMap,
+	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventingconfig.Config,
 	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config) (
 	*Endpoint, error) {
 	trustedOrders := ordersConfig.TrustedOrders

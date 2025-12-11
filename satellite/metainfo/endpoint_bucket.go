@@ -18,6 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -523,7 +524,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 				return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 			}
 
-			transmitEvent := endpoint.bucketEventing.Enabled(bucket.ProjectID, bucket.Name)
+			transmitEvent := endpoint.bucketEventing.Buckets.Enabled(bucket.ProjectID, bucket.Name)
 			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket, transmitEvent)
 			if err != nil {
 				return nil, err
@@ -777,6 +778,179 @@ func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, 
 	}
 
 	return &pb.SetBucketObjectLockConfigurationResponse{}, nil
+}
+
+// GetBucketNotificationConfiguration retrieves the notification configuration for a bucket.
+func (endpoint *Endpoint) GetBucketNotificationConfiguration(ctx context.Context, req *pb.GetBucketNotificationConfigurationRequest) (resp *pb.GetBucketNotificationConfigurationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionGetBucketNotificationConfiguration,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitHead)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if len(req.Name) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")
+	}
+
+	// Check if bucket eventing is enabled for this project (project-level gating)
+	if !endpoint.bucketEventing.Projects.Enabled(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "bucket eventing is not enabled for this project")
+	}
+
+	// Check if bucket exists
+	exists, err := endpoint.buckets.HasBucket(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to check if bucket exists")
+	}
+	if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found")
+	}
+
+	// Get notification configuration from database (always query DB, not cache)
+	config, err := endpoint.buckets.GetBucketNotificationConfig(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get bucket notification configuration")
+	}
+
+	// config is nil when no configuration exists (sql.ErrNoRows handled by DB layer)
+	if config == nil {
+		return &pb.GetBucketNotificationConfigurationResponse{
+			Configuration: nil,
+		}, nil
+	}
+
+	// Convert database config to protobuf
+	pbConfig := &pb.NotificationConfiguration{
+		Id:        config.ConfigID,
+		TopicName: config.TopicName,
+		Events:    config.Events,
+	}
+
+	if len(config.FilterPrefix) > 0 || len(config.FilterSuffix) > 0 {
+		pbConfig.Filter = &pb.FilterRule{
+			Prefix: string(config.FilterPrefix),
+			Suffix: string(config.FilterSuffix),
+		}
+	}
+
+	return &pb.GetBucketNotificationConfigurationResponse{
+		Configuration: pbConfig,
+	}, nil
+}
+
+// SetBucketNotificationConfiguration sets the notification configuration for a bucket.
+func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context, req *pb.SetBucketNotificationConfigurationRequest) (resp *pb.SetBucketNotificationConfigurationResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:     macaroon.ActionPutBucketNotificationConfiguration,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	}, console.RateLimitPut)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if len(req.Name) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")
+	}
+
+	// Check if bucket eventing is enabled for this project (project-level gating)
+	if !endpoint.bucketEventing.Projects.Enabled(keyInfo.ProjectID) {
+		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "bucket eventing is not enabled for this project")
+	}
+
+	// Check if project has satellite-managed encryption (path encryption disabled)
+	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to get project")
+	}
+
+	if project.PathEncryption == nil || *project.PathEncryption {
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, "Bucket eventing requires satellite-managed encryption (path encryption must be disabled)")
+	}
+
+	// Check if bucket exists
+	exists, err := endpoint.buckets.HasBucket(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to check if bucket exists")
+	}
+	if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found")
+	}
+
+	// Handle empty configuration (delete)
+	if req.Configuration == nil {
+		err = endpoint.buckets.DeleteBucketNotificationConfig(ctx, req.Name, keyInfo.ProjectID)
+		if err != nil {
+			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to delete bucket notification configuration")
+		}
+		return &pb.SetBucketNotificationConfigurationResponse{}, nil
+	}
+
+	// Validate the configuration
+	if len(req.Configuration.Events) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "at least one event type is required")
+	}
+
+	// Validate topic name format: projects/PROJECT_ID/topics/TOPIC_ID
+	_, _, err = eventing.ParseTopicName(req.Configuration.TopicName)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	// Validate event types are in allowed list or valid wildcards
+	if err := eventing.ValidateEventTypes(req.Configuration.Events); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	// Send test event to Pub/Sub topic (synchronous validation with 10s timeout)
+	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	publisher, err := eventing.NewPublisher(testCtx, req.Configuration.TopicName)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "failed to create event publisher for topic")
+	}
+	defer func() { _ = publisher.Close() }()
+
+	err = publisher.Publish(testCtx, eventing.CreateTestEvent(string(req.Name)))
+	if err != nil {
+		return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "failed to publish test event to topic: %v", err)
+	}
+
+	// Convert protobuf config to database config
+	config := buckets.NotificationConfig{
+		ConfigID:  req.Configuration.Id,
+		TopicName: req.Configuration.TopicName,
+		Events:    req.Configuration.Events,
+	}
+
+	if req.Configuration.Filter != nil {
+		config.FilterPrefix = []byte(req.Configuration.Filter.Prefix)
+		config.FilterSuffix = []byte(req.Configuration.Filter.Suffix)
+	}
+
+	// Store configuration in database (UPSERT - replaces existing config)
+	err = endpoint.buckets.UpdateBucketNotificationConfig(ctx, req.Name, keyInfo.ProjectID, config)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket notification configuration")
+	}
+
+	// TODO: Invalidate Redis cache after successful database update
+
+	return &pb.SetBucketNotificationConfigurationResponse{}, nil
 }
 
 func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {

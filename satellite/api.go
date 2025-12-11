@@ -537,7 +537,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Console,
 			config.Orders,
 			nodeSelectionStats,
-			config.BucketEventing.Buckets,
+			config.BucketEventing,
 			peer.Entitlements.Service,
 			config.Entitlements,
 		)

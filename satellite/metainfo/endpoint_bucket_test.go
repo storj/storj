@@ -28,6 +28,8 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/eventing/eventingconfig"
+	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/uplink"
@@ -2146,6 +2148,421 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 			require.Equal(t, buckets.ObjectLockSettings{
 				Enabled: true,
 			}, bucket.ObjectLock)
+		})
+	})
+}
+
+func TestBucketNotificationConfiguration(t *testing.T) {
+	enabledProjects := eventingconfig.ProjectSet{}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.BucketEventing.Projects = enabledProjects
+				config.Console.SatelliteManagedEncryptionEnabled = true
+				config.KeyManagement.KeyInfos = kms.KeyInfos{
+					Values: map[int]kms.KeyInfo{
+						1: {
+							SecretVersion: "secretversion1", SecretChecksum: 12345,
+						},
+					},
+				}
+			},
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.APIKeyVersion = macaroon.APIKeyVersionEventing
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		// Project with path encryption enabled (default testplanet project)
+		projectWithPathEncryption := planet.Uplinks[0].Projects[0]
+		apiKeyWithPathEncryption := planet.Uplinks[0].APIKey[sat.ID()]
+
+		// Confirm path encryption is enabled for the project
+		proj, err := sat.DB.Console().Projects().Get(ctx, projectWithPathEncryption.ID)
+		require.NoError(t, err)
+		require.NotNil(t, proj)
+		require.NotNil(t, proj.PathEncryption)
+		require.True(t, *proj.PathEncryption)
+
+		// Create a second project with path encryption disabled for bucket eventing
+		userCtx, err := sat.UserContext(ctx, projectWithPathEncryption.Owner.ID)
+		require.NoError(t, err)
+
+		projectWithoutPathEncryption, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "no-path-encryption",
+			ManagePassphrase: true,
+		})
+		require.NoError(t, err)
+
+		// Confirm path encryption is disabled for the new project
+		proj, err = sat.DB.Console().Projects().Get(ctx, projectWithoutPathEncryption.ID)
+		require.NoError(t, err)
+		require.NotNil(t, proj)
+		require.NotNil(t, proj.PathEncryption)
+		require.False(t, *proj.PathEncryption)
+
+		// Create API key for the project without path encryption
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectWithoutPathEncryption.ID, "test-key", macaroon.APIKeyVersionEventing)
+		require.NoError(t, err)
+
+		// Enable bucket eventing for both projects
+		enabledProjects[projectWithPathEncryption.ID] = struct{}{}
+		enabledProjects[projectWithoutPathEncryption.ID] = struct{}{}
+
+		// Create third project that is not enabled for eventing
+		projectNotEnabled, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
+			Name:             "not-enabled",
+			ManagePassphrase: true,
+		})
+		require.NoError(t, err)
+
+		_, apiKeyNotEnabled, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectNotEnabled.ID, "test-key", macaroon.APIKeyVersionEventing)
+		require.NoError(t, err)
+
+		endpoint := sat.API.Metainfo.Endpoint
+
+		// Helper to create bucket with path encryption disabled (for normal eventing tests)
+		createBucket := func(t *testing.T) string {
+			bucketName := testrand.BucketName()
+			_, err := endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			return bucketName
+		}
+
+		t.Run("GetBucketNotificationConfiguration - no config returns empty", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			resp, err := endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			require.Nil(t, resp.Configuration)
+		})
+
+		t.Run("GetBucketNotificationConfiguration - bucket not found", func(t *testing.T) {
+			_, err := endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte("non-existent-bucket"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		})
+
+		t.Run("SetBucketNotificationConfiguration - bucket not found", func(t *testing.T) {
+			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte("non-existent-bucket"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+		})
+
+		t.Run("GetBucketNotificationConfiguration - missing bucket name", func(t *testing.T) {
+			_, err := endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte{},
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		})
+
+		t.Run("SetBucketNotificationConfiguration - missing bucket name", func(t *testing.T) {
+			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte{},
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		})
+
+		t.Run("GetBucketNotificationConfiguration - project not enabled for eventing", func(t *testing.T) {
+			_, err := endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKeyNotEnabled.SerializeRaw()},
+				Name:   []byte("test-bucket"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
+			require.Contains(t, err.Error(), "bucket eventing is not enabled for this project")
+		})
+
+		t.Run("SetBucketNotificationConfiguration - project not enabled for eventing", func(t *testing.T) {
+			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKeyNotEnabled.SerializeRaw()},
+				Name:   []byte("test-bucket"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
+			require.Contains(t, err.Error(), "bucket eventing is not enabled for this project")
+		})
+
+		t.Run("SetBucketNotificationConfiguration - path encryption enabled", func(t *testing.T) {
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKeyWithPathEncryption.SerializeRaw()},
+				Name:   []byte("test-bucket"),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
+			require.Contains(t, err.Error(), "path encryption must be disabled")
+		})
+
+		t.Run("SetBucketNotificationConfiguration - invalid topic name", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Configuration: &pb.NotificationConfiguration{
+					Id:        "test-config",
+					TopicName: "invalid/topic",
+					Events:    []string{"s3:ObjectCreated:Put"},
+				},
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+			require.Contains(t, err.Error(), "invalid fully-qualified topic name format")
+		})
+
+		t.Run("SetBucketNotificationConfiguration - invalid event type", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Configuration: &pb.NotificationConfiguration{
+					Id:        "test-config",
+					TopicName: "projects/test-project/topics/test-topic",
+					Events:    []string{"s3:InvalidEventType"},
+				},
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+			require.Contains(t, err.Error(), "invalid bucket event type")
+		})
+
+		t.Run("SetBucketNotificationConfiguration - no events", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+				Configuration: &pb.NotificationConfiguration{
+					Id:        "test-config",
+					TopicName: "projects/test-project/topics/test-topic",
+					Events:    []string{},
+				},
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+			require.Contains(t, err.Error(), "at least one event type is required")
+		})
+
+		t.Run("SetBucketNotificationConfiguration - set, update, and delete", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			// Verify no config exists initially
+			resp, err := endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			require.Nil(t, resp.Configuration)
+
+			// Set initial configuration
+			initialConfig := &pb.NotificationConfiguration{
+				Id:        "initial-config",
+				TopicName: "@log",
+				Events: []string{
+					"s3:ObjectCreated:Put",
+					"s3:ObjectCreated:Copy",
+					"s3:ObjectRemoved:Delete",
+				},
+			}
+
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:          []byte(bucketName),
+				Configuration: initialConfig,
+			})
+			require.NoError(t, err)
+
+			// Retrieve and verify initial configuration
+			resp, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			require.NotNil(t, resp.Configuration)
+			require.Equal(t, initialConfig.Id, resp.Configuration.Id)
+			require.Equal(t, initialConfig.TopicName, resp.Configuration.TopicName)
+			require.Equal(t, initialConfig.Events, resp.Configuration.Events)
+
+			// Update with new configuration
+			updatedConfig := &pb.NotificationConfiguration{
+				Id:        "updated-config",
+				TopicName: "@log",
+				Events: []string{
+					"s3:ObjectCreated:*",
+					"s3:ObjectRemoved:*",
+				},
+			}
+
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:          []byte(bucketName),
+				Configuration: updatedConfig,
+			})
+			require.NoError(t, err)
+
+			// Verify the updated configuration
+			resp, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			require.NotNil(t, resp.Configuration)
+			require.Equal(t, updatedConfig.Id, resp.Configuration.Id)
+			require.Equal(t, updatedConfig.TopicName, resp.Configuration.TopicName)
+			require.Equal(t, updatedConfig.Events, resp.Configuration.Events)
+
+			// Delete the configuration
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:          []byte(bucketName),
+				Configuration: nil,
+			})
+			require.NoError(t, err)
+
+			// Verify config is deleted
+			resp, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			require.Nil(t, resp.Configuration)
+
+			// Delete again to confirm idempotent deletion (should succeed even though no config exists)
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:          []byte(bucketName),
+				Configuration: nil,
+			})
+			require.NoError(t, err)
+
+			// Verify still no config
+			resp, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.NoError(t, err)
+			require.Nil(t, resp.Configuration)
+		})
+
+		t.Run("GetBucketNotificationConfiguration - restricted API key without permission", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			// Create API key that disallows GetBucketNotificationConfiguration
+			restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetBucketNotificationConfiguration: true,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		})
+
+		t.Run("SetBucketNotificationConfiguration - restricted API key without permission", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			// Create API key that disallows SetBucketNotificationConfiguration
+			restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowPutBucketNotificationConfiguration: true,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Name:   []byte(bucketName),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		})
+
+		t.Run("Bucket-specific API key - can only access allowed bucket", func(t *testing.T) {
+			// Create two buckets
+			bucket1 := createBucket(t)
+			bucket2 := createBucket(t)
+
+			// Set configuration on bucket1 using full API key
+			config := &pb.NotificationConfiguration{
+				Id:        "test-config",
+				TopicName: "@log",
+				Events:    []string{"s3:ObjectCreated:Put"},
+			}
+
+			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Name:          []byte(bucket1),
+				Configuration: config,
+			})
+			require.NoError(t, err)
+
+			// Create API key restricted to bucket1 only
+			restrictedAPIKey, err := apiKey.Restrict(macaroon.Caveat{
+				AllowedPaths: []*macaroon.Caveat_Path{
+					{Bucket: []byte(bucket1)},
+				},
+			})
+			require.NoError(t, err)
+
+			// Verify can access bucket1 configuration
+			resp, err := endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Name:   []byte(bucket1),
+			})
+			require.NoError(t, err)
+			require.NotNil(t, resp.Configuration)
+			require.Equal(t, config.Id, resp.Configuration.Id)
+
+			// Verify can set configuration on bucket1
+			updatedConfig := &pb.NotificationConfiguration{
+				Id:        "updated-config",
+				TopicName: "@log",
+				Events:    []string{"s3:ObjectRemoved:Delete"},
+			}
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header:        &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Name:          []byte(bucket1),
+				Configuration: updatedConfig,
+			})
+			require.NoError(t, err)
+
+			// Verify cannot access bucket2 configuration
+			_, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Name:   []byte(bucket2),
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+			// Verify cannot set configuration on bucket2
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header:        &pb.RequestHeader{ApiKey: restrictedAPIKey.SerializeRaw()},
+				Name:          []byte(bucket2),
+				Configuration: config,
+			})
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 		})
 	})
 }

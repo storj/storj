@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20251022143549-19bf6a9f274a
+	storj.io/common v0.0.0-20251208140929-8075c7c17951
 	storj.io/edge v1.103.1-0.20250804153022-178f571b318a
 	storj.io/storj v1.91.0-alpha.0.20240813103324-76441219aa95
 )
@@ -227,7 +227,7 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/goof v0.0.0-20230907150950-e9457bc94477 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
-	github.com/zeebo/mwc v0.0.6 // indirect
+	github.com/zeebo/mwc v0.0.7 // indirect
 	github.com/zeebo/structs v1.0.3-0.20230601144555-f2db46069602 // indirect
 	github.com/zeebo/sudo v1.0.2 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
@@ -281,5 +281,5 @@ require (
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
 	storj.io/picobuf v0.0.4 // indirect
-	storj.io/uplink v1.13.2-0.20250807183920-f49c2319cb74 // indirect
+	storj.io/uplink v1.13.2-0.20251205102608-fcbae6793ee8 // indirect
 )

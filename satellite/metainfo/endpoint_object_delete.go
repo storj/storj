@@ -213,7 +213,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 				BypassGovernance: opts.BypassGovernance,
 			},
 
-			TransmitEvent: endpoint.bucketEventing.Enabled(opts.ProjectID, opts.BucketName.String()),
+			TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(opts.ProjectID, opts.BucketName.String()),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -233,7 +233,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 				BypassGovernance: opts.BypassGovernance,
 			},
 
-			TransmitEvent: endpoint.bucketEventing.Enabled(opts.ProjectID, opts.BucketName.String()),
+			TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(opts.ProjectID, opts.BucketName.String()),
 		})
 	}
 	if err != nil {
@@ -399,7 +399,7 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 
 			Items: make([]metabase.DeleteObjectsItem, 0, numAllowedObjectKeys),
 
-			TransmitEvent: endpoint.bucketEventing.Enabled(keyInfo.ProjectID, string(req.Bucket)),
+			TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(keyInfo.ProjectID, string(req.Bucket)),
 		}
 
 		for _, item := range req.Items {
