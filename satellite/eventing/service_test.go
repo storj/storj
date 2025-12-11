@@ -61,7 +61,7 @@ func TestProcessRecord(t *testing.T) {
 				}: "projects/testproject/topics/testtopic",
 			},
 		}, eventing.Config{
-			TestNewPublisherFn: func() (eventing.EventPublisher, error) {
+			TestNewPublisherFn: func() (eventing.Publisher, error) {
 				return eventing.NewLogPublisher(observedLogger), nil
 			},
 		})
@@ -111,7 +111,7 @@ func TestProcessRecord_NoMatchingBucket(t *testing.T) {
 				}: "projects/testproject/topics/testtopic",
 			},
 		}, eventing.Config{
-			TestNewPublisherFn: func() (eventing.EventPublisher, error) {
+			TestNewPublisherFn: func() (eventing.Publisher, error) {
 				return eventing.NewLogPublisher(observedLogger), nil
 			},
 		})

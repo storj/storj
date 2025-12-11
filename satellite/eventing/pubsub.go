@@ -14,10 +14,27 @@ import (
 	"go.uber.org/zap"
 )
 
-// EventPublisher defines an interface for publishing events.
-type EventPublisher interface {
-	Publish(ctx context.Context, event Event) error
+// Publisher defines an interface for publishing events.
+type Publisher interface {
+	Publish(ctx context.Context, event any) error
 	io.Closer
+}
+
+// NewPublisher creates a new EventPublisher based on the provided topic name.
+func NewPublisher(ctx context.Context, topicName string) (Publisher, error) {
+	if topicName == "@log" {
+		return NewLogPublisher(zap.L()), nil
+	}
+
+	projectID, topicID, err := ParseTopicName(topicName)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewPubSubPublisher(ctx, PubSubConfig{
+		ProjectID: projectID,
+		TopicID:   topicID,
+	})
 }
 
 // PubSubConfig holds configuration for Pub/Sub publisher.
@@ -46,7 +63,7 @@ func NewPubSubPublisher(ctx context.Context, cfg PubSubConfig) (*PubSubPublisher
 }
 
 // Publish sends the event to the configured Pub/Sub topic.
-func (p *PubSubPublisher) Publish(ctx context.Context, event Event) error {
+func (p *PubSubPublisher) Publish(ctx context.Context, event any) error {
 	b, err := json.Marshal(event)
 	if err != nil {
 		return errs.Wrap(err)
@@ -70,9 +87,9 @@ func (p *PubSubPublisher) Close() error {
 	return nil
 }
 
-var _ EventPublisher = &PubSubPublisher{}
+var _ Publisher = &PubSubPublisher{}
 
-// LogPublisher implements EventPublisher by logging events.
+// LogPublisher implements Publisher by logging events.
 type LogPublisher struct {
 	log *zap.Logger
 }
@@ -85,7 +102,7 @@ func NewLogPublisher(log *zap.Logger) *LogPublisher {
 }
 
 // Publish logs the event.
-func (l *LogPublisher) Publish(ctx context.Context, event Event) error {
+func (l *LogPublisher) Publish(ctx context.Context, event any) error {
 	l.log.Info("Publishing event", zap.Any("event", event))
 	return nil
 }
@@ -93,7 +110,7 @@ func (l *LogPublisher) Publish(ctx context.Context, event Event) error {
 // Close is a no-op for LogPublisher.
 func (l *LogPublisher) Close() error { return nil }
 
-var _ EventPublisher = &LogPublisher{}
+var _ Publisher = &LogPublisher{}
 
 // ParseTopicName parses a fully-qualified Pub/Sub topic name into project ID and topic ID.
 func ParseTopicName(fullyQualifiedName string) (projectID, topicID string, err error) {

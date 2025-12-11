@@ -30,6 +30,21 @@ func testStreamVersionID(version int64) string {
 	return hex.EncodeToString(metabase.NewStreamVersionID(metabase.Version(version), TestStreamID).Bytes())
 }
 
+func TestCreateTestEvent(t *testing.T) {
+	bucketName := "test-bucket"
+	testEvent := CreateTestEvent(bucketName)
+
+	assert.Equal(t, "Storj S3", testEvent.Service)
+	assert.Equal(t, "s3:TestEvent", testEvent.Event)
+	assert.Equal(t, bucketName, testEvent.Bucket)
+
+	// Verify Time is in ISO8601 format and is recent
+	require.NotEmpty(t, testEvent.Time)
+	eventTime, err := time.Parse(ISO8601, testEvent.Time)
+	assert.NoError(t, err, "Time should be in ISO8601 format")
+	assert.WithinDuration(t, time.Now(), eventTime, 1*time.Second)
+}
+
 func TestConvertModsToEvent_BeginObjectExactVersion(t *testing.T) {
 	var r changestream.DataChangeRecord
 	raw, err := os.ReadFile("./testdata/begin-object-exact-version.json")

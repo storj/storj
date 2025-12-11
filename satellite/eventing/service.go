@@ -25,7 +25,7 @@ var ek = eventkit.Package()
 type Config struct {
 	Feedname string `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
 
-	TestNewPublisherFn func() (EventPublisher, error) `noflag:"true"`
+	TestNewPublisherFn func() (Publisher, error) `noflag:"true"`
 }
 
 // PublicProjectIDer is an interface for looking up public project IDs.
@@ -41,7 +41,7 @@ type Service struct {
 	projects   PublicProjectIDer
 	enabled    eventingconfig.Config
 	cfg        Config
-	publishers map[metabase.BucketLocation]EventPublisher
+	publishers map[metabase.BucketLocation]Publisher
 	mu         sync.RWMutex
 }
 
@@ -53,7 +53,7 @@ func NewService(log *zap.Logger, sdb changestream.Adapter, projects PublicProjec
 		projects:   projects,
 		enabled:    enabled,
 		cfg:        cfg,
-		publishers: make(map[metabase.BucketLocation]EventPublisher, len(enabled.Buckets)),
+		publishers: make(map[metabase.BucketLocation]Publisher, len(enabled.Buckets)),
 	}
 
 	// Validate configured topic names
@@ -212,8 +212,8 @@ func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.Data
 	return replaced, nil
 }
 
-// GetPublisher returns an EventPublisher for the given bucket location, initializing it if necessary.
-func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocation) (EventPublisher, error) {
+// GetPublisher returns a Publisher for the given bucket location, initializing it if necessary.
+func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocation) (Publisher, error) {
 	s.mu.RLock()
 	if publisher, ok := s.publishers[bucket]; ok {
 		s.mu.RUnlock()
@@ -235,25 +235,15 @@ func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocati
 		return nil, errs.New("no topic configured for bucket")
 	}
 
-	var publisher EventPublisher
+	var publisher Publisher
+	var err error
 	if s.cfg.TestNewPublisherFn != nil {
-		var err error
 		publisher, err = s.cfg.TestNewPublisherFn()
 		if err != nil {
 			return nil, err
 		}
-	} else if topicName == "@log" {
-		publisher = NewLogPublisher(s.log)
 	} else {
-		projectID, topicID, err := ParseTopicName(topicName)
-		if err != nil {
-			return nil, err
-		}
-
-		publisher, err = NewPubSubPublisher(ctx, PubSubConfig{
-			ProjectID: projectID,
-			TopicID:   topicID,
-		})
+		publisher, err = NewPublisher(ctx, topicName)
 		if err != nil {
 			return nil, err
 		}

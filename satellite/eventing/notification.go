@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
@@ -54,9 +55,29 @@ var allowedEvents = map[string]bool{
 	EventTypeObjectRemovedAll:                 true,
 }
 
+// ISO8601 is the time format used in S3 event notifications.
+const ISO8601 = "2006-01-02T15:04:05.000Z"
+
+// TestEvent represents an S3 test event sent to validate topic accessibility.
+type TestEvent struct {
+	Service string `json:"Service"`
+	Event   string `json:"Event"`
+	Time    string `json:"Time"`
+	Bucket  string `json:"Bucket"`
+}
+
 // Event contains one or more event records.
 type Event struct {
 	Records []EventRecord `json:"Records,omitempty"`
+}
+
+// JSONSize returns the message length.
+func (e *Event) JSONSize() (int64, error) {
+	eventJSON, err := json.Marshal(e)
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(eventJSON)), nil
 }
 
 // EventRecord represents a change of a database record. Modeled to be compatible with similar events from AWS.
@@ -96,8 +117,15 @@ type EventRecord struct {
 	} `json:"s3,omitempty"`
 }
 
-// ISO8601 is the time format used in S3 event notifications.
-const ISO8601 = "2006-01-02T15:04:05.000Z"
+// CreateTestEvent creates an S3-compatible test event for the given bucket.
+func CreateTestEvent(bucketName string) TestEvent {
+	return TestEvent{
+		Service: "Storj S3",
+		Event:   "s3:TestEvent",
+		Time:    time.Now().UTC().Format(ISO8601),
+		Bucket:  bucketName,
+	}
+}
 
 // ConvertModsToEvent converts a DataChangeRecord into an Event containing EventRecords.
 func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, err error) {
@@ -309,15 +337,6 @@ func extractFirstInt64(key string, values ...map[string]interface{}) (int64, boo
 		}
 	}
 	return 0, false
-}
-
-// JSONSize returns the message length.
-func (e *Event) JSONSize() (int64, error) {
-	eventJSON, err := json.Marshal(e)
-	if err != nil {
-		return 0, err
-	}
-	return int64(len(eventJSON)), nil
 }
 
 // ValidateEventTypes validates that event types are in the allowed list or valid wildcards.

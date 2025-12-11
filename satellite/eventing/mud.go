@@ -18,7 +18,7 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[PubSubConfig](ball, "change-stream.pubsub")
 	mud.Provide[*PubSubPublisher](ball, NewPubSubPublisher)
 	mud.Provide[*LogPublisher](ball, NewLogPublisher)
-	mud.RegisterInterfaceImplementation[EventPublisher, *PubSubPublisher](ball)
+	mud.RegisterInterfaceImplementation[Publisher, *PubSubPublisher](ball)
 
 	config.RegisterConfig[PubSubClientConfig](ball, "")
 	mud.Provide[*PubSubClient](ball, NewPubSubClient)
