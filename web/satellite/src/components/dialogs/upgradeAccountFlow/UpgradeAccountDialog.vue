@@ -10,7 +10,7 @@
         persistent
         :scrim="scrim"
     >
-        <v-card ref="content">
+        <v-card>
             <v-card-item class="pa-6">
                 <template v-if="step === UpgradeAccountStep.Success" #prepend>
                     <img class="d-block" src="@/assets/icon-success.svg" alt="success">
@@ -77,14 +77,14 @@
                     </v-window-item>
 
                     <v-window-item :value="UpgradeAccountStep.Success">
-                        <SuccessStep @continue="model = false" />
+                        <SuccessStep @continue="handleMemberAndClose" />
                     </v-window-item>
 
                     <v-window-item :value="UpgradeAccountStep.PricingPlan">
                         <PricingPlanStep
                             v-model:loading="isLoading"
                             :plan="plan"
-                            @close="model = false"
+                            @close="handleMemberAndClose"
                             @back="setStep(UpgradeAccountStep.Info)"
                         />
                     </v-window-item>
@@ -143,7 +143,6 @@ const notify = useNotify();
 
 const step = ref<UpgradeAccountStep>(UpgradeAccountStep.Info);
 const plan = ref<PricingPlanInfo>();
-const content = ref<HTMLElement | null>(null);
 const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);
 
 enum PaymentOption {
@@ -151,7 +150,7 @@ enum PaymentOption {
     StorjTokens,
 }
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
     scrim?: boolean,
     isMemberUpgrade?: boolean,
 }>(), {
@@ -159,11 +158,17 @@ withDefaults(defineProps<{
     isMemberUpgrade: false,
 });
 
+const emit = defineEmits<{
+    (e: 'memberUpgrade'): void;
+}>();
+
 const { isLoading, withLoading } = useLoading();
 
 const model = defineModel<boolean>({ required: true });
 
 const paymentTab = ref<PaymentOption>(PaymentOption.CreditCard);
+
+const memberUpgrade = ref<boolean>(false);
 
 const stepTitles = computed(() => {
     return {
@@ -197,6 +202,8 @@ const maxWidth = computed(() => {
  */
 const isPaidTier = computed((): boolean => usersStore.state.user.isPaid);
 
+const isMember = computed((): boolean => usersStore.state.user.isMember);
+
 /**
  * Handles starting free trial for Member accounts.
  */
@@ -207,11 +214,17 @@ function onStartFreeTrial(): void {
             await usersStore.getUser();
 
             notify.success('Your free trial has started!');
-            model.value = false;
+            handleMemberAndClose();
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         }
     });
+}
+
+function handleMemberAndClose(): void {
+    model.value = false;
+
+    if (memberUpgrade.value && !isMember.value) emit('memberUpgrade');
 }
 
 /**
@@ -257,10 +270,17 @@ watch(paymentTab, newTab => {
     if (newTab === PaymentOption.StorjTokens && !wallet.value.address) onAddTokens();
 });
 
-watch(content, (value) => {
+watch(model, (value) => {
     if (!value) {
+        memberUpgrade.value = false;
         setStep(UpgradeAccountStep.Info);
         return;
+    }
+
+    // We must cache this prop value to know if we are in member upgrade flow
+    // because user kind can update after a successful upgrade.
+    if (props.isMemberUpgrade) {
+        memberUpgrade.value = true;
     }
 });
 </script>

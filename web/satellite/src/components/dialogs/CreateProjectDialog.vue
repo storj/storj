@@ -257,6 +257,7 @@
         :is-member-upgrade="isMemberAccount && billingEnabled"
         :model-value="model && isUpgradeDialogShown"
         @update:model-value="v => model = isUpgradeDialogShown = v"
+        @member-upgrade="model = true"
     />
 </template>
 
