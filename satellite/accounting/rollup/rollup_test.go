@@ -15,12 +15,14 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/eventkit"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	evKit "storj.io/storj/shared/modular/eventkit"
 )
 
 func TestRollupNoDeletes(t *testing.T) {
@@ -344,4 +346,108 @@ func saveBWPhase3(ctx context.Context, ordersDB orders.DB, bwTotals map[storj.No
 		}
 	}
 	return nil
+}
+
+func TestEventkitIntegration(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		const (
+			atRestAmount    = 1000
+			getAmount       = 2000
+			putAmount       = 3000
+			getAuditAmount  = 4000
+			getRepairAmount = 5000
+			putRepairAmount = 6000
+		)
+
+		// Create storage nodes
+		storageNodes := createNodes(ctx, t, db)
+		require.NotEmpty(t, storageNodes)
+
+		now := time.Now()
+		// Use yesterday's date to ensure rollup processes it (rollup excludes current day)
+		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Add(-24 * time.Hour)
+
+		// Create tallies for storage nodes for yesterday
+		storageTotals := make([]float64, len(storageNodes))
+		for i := range storageTotals {
+			storageTotals[i] = float64(atRestAmount)
+		}
+		err := db.StoragenodeAccounting().SaveTallies(ctx, intervalStart, storageNodes, storageTotals)
+		require.NoError(t, err)
+
+		// Also create tallies for today so the rollup period isn't truncated
+		err = db.StoragenodeAccounting().SaveTallies(ctx, intervalStart.Add(24*time.Hour), storageNodes, storageTotals)
+		require.NoError(t, err)
+
+		// Create bandwidth data for yesterday
+		bwTotals := make(map[storj.NodeID][]int64)
+		for _, nodeID := range storageNodes {
+			bwTotals[nodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
+		}
+		err = saveBWPhase3(ctx, db.Orders(), bwTotals, intervalStart)
+		require.NoError(t, err)
+
+		// Create mock destination to capture events
+		mockDest := &evKit.MockEventkitDestination{}
+		eventkit.DefaultRegistry.AddDestination(mockDest)
+
+		// Create rollup service with eventkit tracking enabled
+		config := rollup.Config{
+			Interval:                120 * time.Second,
+			EventkitTrackingEnabled: true,
+		}
+
+		rollupService := rollup.New(testplanet.NewLogger(t), db.StoragenodeAccounting(), config, time.Hour)
+
+		// Run rollup - should succeed and emit events
+		err = rollupService.Rollup(ctx)
+		require.NoError(t, err)
+
+		// Verify event structure - filter for rollup events only
+		events := mockDest.GetEvents()
+		var storageRollupEvents []*eventkit.Event
+		var bandwidthRollupEvents []*eventkit.Event
+		for _, event := range events {
+			if event.Name == "storage_rollup" {
+				storageRollupEvents = append(storageRollupEvents, event)
+			} else if event.Name == "bandwidth_rollup" {
+				bandwidthRollupEvents = append(bandwidthRollupEvents, event)
+			}
+		}
+
+		require.NotEmpty(t, storageRollupEvents)
+		require.NotEmpty(t, bandwidthRollupEvents)
+
+		// Verify storage rollup event structure
+		for _, event := range storageRollupEvents {
+			tags := make(map[string]any, len(event.Tags))
+			for _, tag := range event.Tags {
+				tags[tag.Key] = struct{}{}
+			}
+
+			require.Contains(t, tags, "node_id")
+			require.Contains(t, tags, "day")
+			require.Contains(t, tags, "at_rest_total")
+			require.Contains(t, tags, "interval_start")
+			require.Contains(t, tags, "interval_end")
+			require.Contains(t, tags, "event_type")
+		}
+
+		// Verify bandwidth rollup event structure
+		for _, event := range bandwidthRollupEvents {
+			tags := make(map[string]any, len(event.Tags))
+			for _, tag := range event.Tags {
+				tags[tag.Key] = struct{}{}
+			}
+
+			require.Contains(t, tags, "node_id")
+			require.Contains(t, tags, "day")
+			require.Contains(t, tags, "put_total")
+			require.Contains(t, tags, "get_audit_total")
+			require.Contains(t, tags, "get_repair_total")
+			require.Contains(t, tags, "put_repair_total")
+			require.Contains(t, tags, "get_total")
+			require.Contains(t, tags, "event_type")
+		}
+	})
 }

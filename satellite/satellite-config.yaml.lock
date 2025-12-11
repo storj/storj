@@ -1433,6 +1433,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # encryption keys to encrypt info in orders
 # orders.encryption-keys: ""
 
+# whether to emit eventkit events for order settlement
+# orders.eventkit-tracking-enabled: false
+
 # how long until an order expires
 # orders.expiration: 24h0m0s
 
@@ -1886,6 +1889,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many tallies to delete in a batch
 # rollup.delete-tallies-batch-size: 10000
 
+# whether to emit eventkit events for storage and bandwidth rollup
+# rollup.eventkit-tracking-enabled: false
+
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
 
@@ -1951,6 +1957,9 @@ server.private-address: 127.0.0.1:7778
 
 # as of system interval
 # tally.as-of-system-interval: -5m0s
+
+# whether to emit eventkit events for storage tally
+# tally.eventkit-tracking-enabled: false
 
 # whether to use fixed (start of process) timestamp for DB reads from objects table
 # tally.fixed-read-timestamp: true

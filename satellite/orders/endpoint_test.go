@@ -16,11 +16,13 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/eventkit"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
+	evKit "storj.io/storj/shared/modular/eventkit"
 )
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
@@ -462,5 +464,66 @@ func TestSettlementWithWindowFinal_TrustedOrders(t *testing.T) {
 		result, err := planet.StorageNodes[0].OrdersStore.ListUnsentBySatellite(ctx, time.Now().Add(24*time.Hour))
 		require.NoError(t, err)
 		require.Empty(t, result)
+	})
+}
+
+func TestOrderSettlementEventkitIntegration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Orders.EventkitTrackingEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		node := planet.StorageNodes[0]
+		uplink := planet.Uplinks[0]
+
+		// Stop the async flush to control when values are written
+		sat.Orders.Chore.Loop.Pause()
+
+		// Create mock destination to capture events
+		mockDest := &evKit.MockEventkitDestination{}
+		eventkit.DefaultRegistry.AddDestination(mockDest)
+
+		// Upload data to generate orders
+		err := uplink.Upload(ctx, sat, "eventkit-bucket", "eventkit-object", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+
+		// Wait for storage node endpoints
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		// Send orders
+		node.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+
+		// Verify event structure - filter for order_settlement events only
+		events := mockDest.GetEvents()
+		var settlementEvents []*eventkit.Event
+		for _, event := range events {
+			if event.Name == "order_settlement" {
+				settlementEvents = append(settlementEvents, event)
+			}
+		}
+
+		require.NotEmpty(t, settlementEvents)
+
+		// Verify event structure
+		for _, event := range settlementEvents {
+			tags := make(map[string]any, len(event.Tags))
+			for _, tag := range event.Tags {
+				tags[tag.Key] = struct{}{}
+			}
+
+			require.Contains(t, tags, "node_id")
+			require.Contains(t, tags, "project_id")
+			require.Contains(t, tags, "bucket_name")
+			require.Contains(t, tags, "action")
+			require.Contains(t, tags, "timestamp")
+			require.Contains(t, tags, "settled_bytes")
+			require.Contains(t, tags, "dead_bytes")
+			require.Contains(t, tags, "window")
+			require.Contains(t, tags, "event_type")
+		}
 	})
 }

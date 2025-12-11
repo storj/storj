@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/entitlements"
@@ -23,6 +24,7 @@ import (
 var (
 	Error = errs.Class("tally")
 	mon   = monkit.Package()
+	ek    = eventkit.Package()
 )
 
 // Config contains configurable values for the tally service.
@@ -34,11 +36,12 @@ type Config struct {
 	SaveTalliesBatchSize int           `help:"how large should be insert into tallies" default:"10000"`
 	RetentionDays        int           `help:"how many days to retain tallies or zero to retain indefinitely" default:"365"`
 
-	ListLimit            int           `help:"how many buckets to query in a batch" default:"2500"`
-	AsOfSystemInterval   time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
-	FixedReadTimestamp   bool          `help:"whether to use fixed (start of process) timestamp for DB reads from objects table" default:"true" testDefault:"false"`
-	UsePartitionQuery    bool          `help:"whether to use partition query for DB reads from objects table" default:"false"`
-	SmallObjectRemainder bool          `help:"whether to enable small object remainder accounting" default:"false"`
+	ListLimit               int           `help:"how many buckets to query in a batch" default:"2500"`
+	AsOfSystemInterval      time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
+	FixedReadTimestamp      bool          `help:"whether to use fixed (start of process) timestamp for DB reads from objects table" default:"true" testDefault:"false"`
+	UsePartitionQuery       bool          `help:"whether to use partition query for DB reads from objects table" default:"false"`
+	SmallObjectRemainder    bool          `help:"whether to enable small object remainder accounting" default:"false"`
+	EventkitTrackingEnabled bool          `help:"whether to emit eventkit events for storage tally" default:"false"`
 }
 
 // ProductUsagePriceModel is defined to avoid import cycles.
@@ -242,6 +245,11 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 	updateLiveAccountingTotals(projectTotalsFromBuckets(collector.Bucket))
 
+	// Emit eventkit events for storage tally if enabled
+	if service.config.EventkitTrackingEnabled {
+		service.emitTallyEvents(ctx, intervalStart, collector.Bucket)
+	}
+
 	var total accounting.BucketTally
 	// TODO for now we don't have access to inline/remote stats per bucket
 	// but that may change in the future. To get back those stats we would
@@ -292,6 +300,37 @@ func (service *Service) flushTallies(ctx context.Context, intervalStart time.Tim
 		return Error.New("ProjectAccounting.SaveTallies failed: %v", err)
 	}
 	return nil
+}
+
+// emitTallyEvents emits eventkit events for storage tally data.
+func (service *Service) emitTallyEvents(ctx context.Context, timestamp time.Time, tallies map[metabase.BucketLocation]*accounting.BucketTally) {
+	for location, tally := range tallies {
+		// Get bucket placement information
+		bucket, err := service.bucketsDB.GetBucket(ctx, []byte(location.BucketName), location.ProjectID)
+		if err != nil {
+			service.log.Error("Failed to get bucket placement for eventkit",
+				zap.String("project_id", location.ProjectID.String()),
+				zap.String("bucket_name", string(location.BucketName)),
+				zap.Error(err))
+			// Continue emitting events for other buckets even if one fails
+			continue
+		}
+
+		// Emit storage tally event
+		ek.Event("storage_tally",
+			eventkit.Bytes("project_id", location.ProjectID.Bytes()),
+			eventkit.String("bucket_name", string(location.BucketName)),
+			eventkit.String("tenant_id", ""), // nullable for future use
+			eventkit.Int64("placement", int64(bucket.Placement)),
+			eventkit.Timestamp("timestamp", timestamp),
+			eventkit.Int64("bytes", tally.TotalBytes),
+			eventkit.Int64("segments", tally.TotalSegments),
+			eventkit.Int64("objects", tally.ObjectCount),
+			eventkit.Int64("pending_objects", tally.PendingObjectCount),
+			eventkit.Int64("metadata_size", tally.MetadataSize),
+			eventkit.String("event_type", "instantaneous"),
+		)
+	}
 }
 
 // BucketTallyCollector collects and adds up tallies for buckets.

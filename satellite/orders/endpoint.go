@@ -21,6 +21,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/private/date"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeapiversion"
@@ -123,7 +124,14 @@ var (
 	ErrUsingSerialNumber = errs.Class("serial number")
 
 	mon = monkit.Package()
+	ek  = eventkit.Package()
 )
+
+// bandwidthAmount tracks settled and dead bandwidth.
+type bandwidthAmount struct {
+	Settled int64
+	Dead    int64
+}
 
 // BucketBandwidthRollup contains all the info needed for a bucket bandwidth rollup.
 type BucketBandwidthRollup struct {
@@ -260,11 +268,6 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("SettlementWithWindow")
-
-	type bandwidthAmount struct {
-		Settled int64
-		Dead    int64
-	}
 
 	storagenodeSettled := map[int32]int64{}
 	bucketSettled := map[bucketIDAction]bandwidthAmount{}
@@ -404,6 +407,10 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 				log.Info("err updating bucket bandwidth settle", zap.Error(err))
 			}
 		}
+
+		if endpoint.config.EventkitTrackingEnabled {
+			endpoint.emitSettlementEvents(peer.ID, bucketSettled, time.Unix(0, window))
+		}
 	} else {
 		mon.Event("orders_already_processed")
 	}
@@ -462,6 +469,28 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 		return false
 	}
 	return true
+}
+
+// emitSettlementEvents emits eventkit events for order settlement.
+func (endpoint *Endpoint) emitSettlementEvents(nodeID storj.NodeID, bucketSettled map[bucketIDAction]bandwidthAmount, window time.Time) {
+	now := time.Now()
+	for action, bwAmount := range bucketSettled {
+		// Map action to string
+		actionStr := pb.PieceAction_name[int32(action.action)]
+
+		ek.Event("order_settlement",
+			eventkit.Bytes("node_id", nodeID.Bytes()),
+			eventkit.Bytes("project_id", action.projectID.Bytes()),
+			eventkit.String("bucket_name", action.bucketname),
+			eventkit.String("tenant_id", ""), // Reserved for future use
+			eventkit.String("action", actionStr),
+			eventkit.Int64("settled_bytes", bwAmount.Settled),
+			eventkit.Int64("dead_bytes", bwAmount.Dead),
+			eventkit.Timestamp("window", window),
+			eventkit.Timestamp("timestamp", now),
+			eventkit.String("event_type", "instantaneous"),
+		)
+	}
 }
 
 // TestingSetAcceptOrdersValid sets endpoint acceptOrders to the provided value. Used only for testing.

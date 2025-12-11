@@ -19,11 +19,13 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/metabase"
+	evKit "storj.io/storj/shared/modular/eventkit"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -835,5 +837,69 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 			require.EqualValues(t, 0, emptiedBucket.TotalSegments, "emptied bucket should have zero segments")
 			require.EqualValues(t, 0, emptiedBucket.RemainderBytes, "emptied bucket should have zero RemainderBytes")
 		})
+	})
+}
+
+func TestEventkitIntegration(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		uplink := planet.Uplinks[0]
+
+		// Upload some test data to create buckets with objects
+		err := uplink.Upload(ctx, sat, "test-bucket", "test-object", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		err = uplink.Upload(ctx, sat, "another-bucket", "another-object", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+
+		mockDest := &evKit.MockEventkitDestination{}
+		eventkit.DefaultRegistry.AddDestination(mockDest)
+
+		config := sat.Config.Tally
+		config.EventkitTrackingEnabled = true
+
+		service := tally.New(
+			sat.Log.Named("tally"),
+			sat.DB.StoragenodeAccounting(),
+			sat.DB.ProjectAccounting(),
+			sat.LiveAccounting.Cache,
+			sat.Metabase.DB,
+			sat.DB.Buckets(),
+			config,
+			nil,
+			nil,
+		)
+
+		err = service.Tally(ctx)
+		require.NoError(t, err)
+
+		tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, tallies)
+
+		var events []*eventkit.Event
+		for _, event := range mockDest.GetEvents() {
+			if event.Name == "storage_tally" {
+				events = append(events, event)
+			}
+		}
+
+		for _, event := range events {
+			tags := make(map[string]any, len(event.Tags))
+			for _, tag := range event.Tags {
+				tags[tag.Key] = struct{}{}
+			}
+
+			require.Contains(t, tags, "project_id")
+			require.Contains(t, tags, "bucket_name")
+			require.Contains(t, tags, "placement")
+			require.Contains(t, tags, "timestamp")
+			require.Contains(t, tags, "bytes")
+			require.Contains(t, tags, "segments")
+			require.Contains(t, tags, "objects")
+			require.Contains(t, tags, "event_type")
+		}
 	})
 }

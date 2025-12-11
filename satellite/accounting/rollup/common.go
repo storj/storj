@@ -6,10 +6,13 @@ package rollup
 import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+
+	"storj.io/eventkit"
 )
 
 // Error is a standard error class for this package.
 var (
 	Error = errs.Class("rollup")
 	mon   = monkit.Package()
+	ek    = eventkit.Package()
 )
