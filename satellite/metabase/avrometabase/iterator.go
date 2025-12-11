@@ -7,14 +7,20 @@ import (
 	"context"
 	"errors"
 	"io"
+	"iter"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"cloud.google.com/go/storage"
+	"github.com/linkedin/goavro/v2"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
+
+	"storj.io/storj/satellite/metabase"
 )
+
+var stopErr = errs.New("stop")
 
 // ReaderIterator is an iterator over Avro files.
 type ReaderIterator interface {
@@ -124,4 +130,68 @@ func (a *GCSIterator) Next(ctx context.Context) (rc io.ReadCloser, err error) {
 		return nil, errs.New("failed to create GCS object reader: %v", err)
 	}
 	return reader, nil
+}
+
+// ObjectIterator is an iterator over RawObjects in Avro files.
+type ObjectIterator struct {
+	readerIterator ReaderIterator
+}
+
+// NewObjectIterator creates a new ObjectIterator.
+func NewObjectIterator(reader ReaderIterator) *ObjectIterator {
+	return &ObjectIterator{
+		readerIterator: reader,
+	}
+}
+
+// Iterate iterates over all RawObjects.
+func (oi *ObjectIterator) Iterate(ctx context.Context) iter.Seq2[metabase.RawObject, error] {
+	return func(yield func(metabase.RawObject, error) bool) {
+		for {
+			err := func() (err error) {
+				reader, err := oi.readerIterator.Next(ctx)
+				if err != nil {
+					return err
+				}
+
+				if reader == nil {
+					return stopErr
+				}
+
+				defer func() {
+					err = errs.Combine(err, reader.Close())
+				}()
+
+				ocfReader, err := goavro.NewOCFReader(reader)
+				if err != nil {
+					return errs.New("failed to create Avro reader: %v", err)
+				}
+
+				for ocfReader.Scan() {
+					record, err := ocfReader.Read()
+					if err != nil {
+						return errs.New("failed to read Avro record: %v", err)
+					}
+
+					if recMap, ok := record.(map[string]any); ok {
+						entry, err := ObjectFromRecord(ctx, recMap)
+						if err != nil {
+							return errs.New("failed to parse Avro record: %v", err)
+						}
+						if !yield(entry, nil) {
+							return stopErr
+						}
+					}
+				}
+				return nil
+			}()
+			if errors.Is(err, stopErr) {
+				break
+			}
+			if err != nil {
+				yield(metabase.RawObject{}, errs.Wrap(err))
+				return
+			}
+		}
+	}
 }
