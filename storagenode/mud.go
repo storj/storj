@@ -358,7 +358,7 @@ func Module(ball *mud.Ball) {
 		})
 		mud.Provide[*piecemigrate.Chore](ball, func(log *zap.Logger, cfg piecemigrate.Config, config hashstore.Config, old *pieces.Store, new *piecestore.HashStoreBackend, piecestoreOldConfig piecestore.OldConfig, contactService *contact.Service) *piecemigrate.Chore {
 			logsPath, _ := config.Directories(piecestoreOldConfig.Path)
-			chore := piecemigrate.NewChore(log, cfg, satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate_chore"), old, new, contactService)
+			chore := piecemigrate.NewChore(log, cfg, satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate_chore"), old, new, contactService, filepath.Join(piecestoreOldConfig.Path, "blobs"))
 			mon.Chain(chore)
 			return chore
 		})

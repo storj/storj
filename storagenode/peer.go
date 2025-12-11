@@ -702,6 +702,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.StorageOld.Store,
 			peer.Storage2.HashStoreBackend,
 			peer.Contact.Service,
+			filepath.Join(config.Storage.Path, "blobs"),
 		)
 		mon.Chain(peer.Storage2.MigrationChore)
 
