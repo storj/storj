@@ -17,253 +17,192 @@ import (
 // Error is the base error class for avrometabase package errors.
 var Error = errs.Class("avrometabase")
 
-// record provides error accumulation for parsing Avro record maps.
-// Once an error occurs, subsequent operations are skipped.
-type record struct {
-	recMap map[string]any
-	err    error
-}
-
-// asRecord creates a new record parser from an Avro record map.
-func asRecord(recMap map[string]any) record {
-	return record{recMap: recMap}
-}
-
-// Err returns the accumulated error, if any.
-func (r *record) Err() error {
-	return r.err
-}
-
-// Int64 extracts an int64 value from the specified field.
+// int64Field extracts an int64 value from the specified field.
 // Handles both direct int64 values and Avro union types containing a "long" field.
-func (r *record) Int64(field string, dest *int64) {
-	if r.err != nil {
-		return
-	}
-
-	value, found := r.recMap[field]
+func int64Field(recMap map[string]any, field string, dest *int64) error {
+	value, found := recMap[field]
 	if !found {
-		return
+		return nil
 	}
 
 	switch value := value.(type) {
 	case int64:
 		*dest = value
+		return nil
 	case map[string]any:
-		nestedRecord := asRecord(value)
-		nestedRecord.Int64("long", dest)
-		if nestedRecord.err != nil {
-			r.err = nestedRecord.err
-		}
+		return int64Field(value, "long", dest)
 	default:
-		r.err = errs.New("unable to cast type to int64: %T", value)
+		return errs.New("unable to cast type to int64: %T", value)
 	}
 }
 
-// Int64AsType extracts an int64 value and converts it to a custom type using the provided function.
-func (r *record) Int64AsType(field string, fn func(value int64) error) {
-	if r.err != nil {
-		return
-	}
-
+// int64AsType extracts an int64 value and converts it to a custom type using the provided function.
+func int64AsType(recMap map[string]any, field string, fn func(value int64) error) error {
 	var value int64
-	r.Int64(field, &value)
-	if r.err != nil {
-		return
+	if err := int64Field(recMap, field, &value); err != nil {
+		return err
 	}
 
 	if err := fn(value); err != nil {
-		r.err = errs.New("failed to convert int64: %v", err)
+		return errs.New("failed to convert int64: %v", err)
 	}
+	return nil
 }
 
-// ToInt32 extracts an int64 value and converts it to int32 with overflow checking.
-func (r *record) ToInt32(field string, dest *int32) {
-	if r.err != nil {
-		return
-	}
-
+// toInt32 extracts an int64 value and converts it to int32 with overflow checking.
+func toInt32(recMap map[string]any, field string, dest *int32) error {
 	var value int64
-	r.Int64(field, &value)
-	if r.err != nil {
-		return
+	if err := int64Field(recMap, field, &value); err != nil {
+		return err
 	}
 
 	if int64(int32(value)) != value {
-		r.err = errs.New("int64 value %d overflows int32", value)
-		return
+		return errs.New("int64 value %d overflows int32", value)
 	}
 
 	*dest = int32(value)
+	return nil
 }
 
-// Time extracts a time value from the specified field.
+// timeField extracts a time value from the specified field.
 // If the field is nil or not present, dest is left unchanged.
-func (r *record) Time(field string, dest *time.Time) {
-	if r.err != nil {
-		return
-	}
-
+func timeField(recMap map[string]any, field string, dest *time.Time) error {
 	var t *time.Time
-	r.TimeP(field, &t)
-	if r.err != nil {
-		return
+	if err := timePField(recMap, field, &t); err != nil {
+		return err
 	}
 	if t == nil {
-		return
+		return nil
 	}
 	*dest = *t
+	return nil
 }
 
-// TimeP extracts a nullable time value from the specified field.
+// timePField extracts a nullable time value from the specified field.
 // Handles both RFC3339 string values and Avro union types containing a "string" field.
-func (r *record) TimeP(field string, dest **time.Time) {
-	if r.err != nil {
-		return
-	}
-
-	value, found := r.recMap[field]
+func timePField(recMap map[string]any, field string, dest **time.Time) error {
+	value, found := recMap[field]
 	if !found {
-		return
+		return nil
 	}
 
 	if value == nil {
 		*dest = nil
-		return
+		return nil
 	}
 
 	switch value := value.(type) {
 	case string:
 		if value == "" {
-			return
+			return nil
 		}
 		t, err := time.Parse(time.RFC3339, value)
 		if err != nil {
-			r.err = errs.New("failed to parse time: %v", err)
-			return
+			return errs.New("failed to parse time: %v", err)
 		}
 		*dest = &t
+		return nil
 	case map[string]any:
-		nestedRecord := asRecord(value)
-		nestedRecord.TimeP("string", dest)
-		if nestedRecord.err != nil {
-			r.err = nestedRecord.err
-		}
+		return timePField(value, "string", dest)
 	default:
-		r.err = errs.New("unable to cast type to time.Time: %T", value)
+		return errs.New("unable to cast type to time.Time: %T", value)
 	}
 }
 
-// Bytes extracts a byte slice from the specified field.
+// bytesField extracts a byte slice from the specified field.
 // Handles both direct []byte values and Avro union types containing a "bytes" field.
-func (r *record) Bytes(field string, dest *[]byte) {
-	if r.err != nil {
-		return
-	}
-
-	value, found := r.recMap[field]
+func bytesField(recMap map[string]any, field string, dest *[]byte) error {
+	value, found := recMap[field]
 	if !found {
-		return
+		return nil
 	}
 
 	if value == nil {
 		*dest = nil
-		return
+		return nil
 	}
 
 	switch value := value.(type) {
 	case []byte:
 		*dest = value
+		return nil
 	case map[string]any:
-		nestedRecord := asRecord(value)
-		nestedRecord.Bytes("bytes", dest)
-		if nestedRecord.err != nil {
-			r.err = nestedRecord.err
-		}
+		return bytesField(value, "bytes", dest)
 	default:
-		r.err = errs.New("unable to cast type to []byte: %T", value)
+		return errs.New("unable to cast type to []byte: %T", value)
 	}
 }
 
-// String extracts a string value and passes it to the provided callback function.
+// stringField extracts a string value and passes it to the provided callback function.
 // Handles string, []byte, and Avro union types containing a "string" field.
-func (r *record) String(field string, fn func(value string)) {
-	if r.err != nil {
-		return
-	}
-
-	value, found := r.recMap[field]
+func stringField(recMap map[string]any, field string, fn func(value string)) error {
+	value, found := recMap[field]
 	if !found {
-		return
+		return nil
 	}
 
 	switch value := value.(type) {
 	case string:
 		fn(value)
+		return nil
 	case []byte:
 		fn(string(value))
+		return nil
 	case map[string]any:
-		nestedRecord := asRecord(value)
-		nestedRecord.String("string", fn)
-		if nestedRecord.err != nil {
-			r.err = nestedRecord.err
-		}
+		return stringField(value, "string", fn)
 	default:
-		r.err = errs.New("unable to cast field %s to string: %T", field, value)
+		return errs.New("unable to cast field %s to string: %T", field, value)
 	}
 }
 
-// BytesAsType extracts a byte slice and converts it to a custom type using the provided function.
+// bytesAsType extracts a byte slice and converts it to a custom type using the provided function.
 // The callback function is always invoked, even for nil or empty byte slices, to allow
 // proper validation by the conversion function (e.g., uuid.FromBytes, storj.PieceIDFromBytes).
-func (r *record) BytesAsType(field string, fn func(value []byte) error) {
-	if r.err != nil {
-		return
-	}
-
+func bytesAsType(recMap map[string]any, field string, fn func(value []byte) error) error {
 	var b []byte
-	r.Bytes(field, &b)
-	if r.err != nil {
-		return
+	if err := bytesField(recMap, field, &b); err != nil {
+		return err
 	}
 
 	if err := fn(b); err != nil {
-		r.err = errs.New("failed to convert bytes: %v", err)
+		return errs.New("failed to convert bytes: %v", err)
 	}
+	return nil
 }
 
 // SegmentFromRecord parses a segment from an Avro record map.
 func SegmentFromRecord(ctx context.Context, recMap map[string]any, aliasCache *metabase.NodeAliasCache) (entry metabase.LoopSegmentEntry, err error) {
-	r := asRecord(recMap)
-	r.BytesAsType("stream_id", func(value []byte) error {
-		entry.StreamID, err = uuid.FromBytes(value)
-		return err
-	})
-	r.Int64AsType("position", func(value int64) error {
-		entry.Position = metabase.SegmentPositionFromEncoded(uint64(value))
-		return nil
-	})
-	r.Time("created_at", &entry.CreatedAt)
-	r.TimeP("expires_at", &entry.ExpiresAt)
-	r.TimeP("repaired_at", &entry.RepairedAt)
-	r.BytesAsType("root_piece_id", func(value []byte) error {
-		entry.RootPieceID, err = storj.PieceIDFromBytes(value)
-		return err
-	})
-	r.ToInt32("encrypted_size", &entry.EncryptedSize)
-	r.Int64("plain_offset", &entry.PlainOffset)
-	r.ToInt32("plain_size", &entry.PlainSize)
-	r.BytesAsType("remote_alias_pieces", func(value []byte) error {
-		return entry.AliasPieces.SetBytes(value)
-	})
-	r.Int64AsType("redundancy", func(value int64) error {
-		return entry.Redundancy.Scan(value)
-	})
-	r.Int64AsType("placement", func(value int64) error {
-		entry.Placement = storj.PlacementConstraint(value)
-		return nil
-	})
-	if err := r.Err(); err != nil {
+	err = errs.Combine(
+		bytesAsType(recMap, "stream_id", func(value []byte) error {
+			entry.StreamID, err = uuid.FromBytes(value)
+			return err
+		}),
+		int64AsType(recMap, "position", func(value int64) error {
+			entry.Position = metabase.SegmentPositionFromEncoded(uint64(value))
+			return nil
+		}),
+		timeField(recMap, "created_at", &entry.CreatedAt),
+		timePField(recMap, "expires_at", &entry.ExpiresAt),
+		timePField(recMap, "repaired_at", &entry.RepairedAt),
+		bytesAsType(recMap, "root_piece_id", func(value []byte) error {
+			entry.RootPieceID, err = storj.PieceIDFromBytes(value)
+			return err
+		}),
+		toInt32(recMap, "encrypted_size", &entry.EncryptedSize),
+		int64Field(recMap, "plain_offset", &entry.PlainOffset),
+		toInt32(recMap, "plain_size", &entry.PlainSize),
+		bytesAsType(recMap, "remote_alias_pieces", func(value []byte) error {
+			return entry.AliasPieces.SetBytes(value)
+		}),
+		int64AsType(recMap, "redundancy", func(value int64) error {
+			return entry.Redundancy.Scan(value)
+		}),
+		int64AsType(recMap, "placement", func(value int64) error {
+			entry.Placement = storj.PlacementConstraint(value)
+			return nil
+		}),
+	)
+	if err != nil {
 		return metabase.LoopSegmentEntry{}, Error.Wrap(err)
 	}
 
@@ -279,49 +218,50 @@ func SegmentFromRecord(ctx context.Context, recMap map[string]any, aliasCache *m
 
 // ObjectFromRecord parses a RawObject from an Avro record map.
 func ObjectFromRecord(ctx context.Context, recMap map[string]any) (entry metabase.RawObject, err error) {
-	r := asRecord(recMap)
-	r.BytesAsType("project_id", func(value []byte) error {
-		entry.ProjectID, err = uuid.FromBytes(value)
-		return err
-	})
-	r.String("bucket_name", func(value string) { entry.BucketName = metabase.BucketName(value) })
-	r.String("object_key", func(value string) { entry.ObjectKey = metabase.ObjectKey(value) })
-	r.Int64AsType("version", func(value int64) error {
-		entry.Version = metabase.Version(value)
-		return nil
-	})
-	r.BytesAsType("stream_id", func(value []byte) error {
-		entry.StreamID, err = uuid.FromBytes(value)
-		return err
-	})
-	r.Time("created_at", &entry.CreatedAt)
-	r.TimeP("expires_at", &entry.ExpiresAt)
-	r.Int64AsType("status", func(value int64) error {
-		entry.Status = metabase.ObjectStatus(value)
-		return nil
-	})
-	r.ToInt32("segment_count", &entry.SegmentCount)
-	r.Bytes("encrypted_metadata_nonce", &entry.EncryptedMetadataNonce)
-	r.Bytes("encrypted_metadata", &entry.EncryptedMetadata)
-	r.Bytes("encrypted_metadata_encrypted_key", &entry.EncryptedMetadataEncryptedKey)
-	r.Bytes("encrypted_etag", &entry.EncryptedETag)
-	r.Int64("total_plain_size", &entry.TotalPlainSize)
-	r.Int64("total_encrypted_size", &entry.TotalEncryptedSize)
-	r.ToInt32("fixed_segment_size", &entry.FixedSegmentSize)
-	r.Int64AsType("encryption", func(value int64) error { return entry.Encryption.Scan(value) })
-	r.TimeP("zombie_deletion_deadline", &entry.ZombieDeletionDeadline)
-	r.Int64AsType("retention_mode", func(value int64) error {
-		var retentionMode metabase.RetentionMode
-		err := retentionMode.Scan(value)
-		if err != nil {
+	err = errs.Combine(
+		bytesAsType(recMap, "project_id", func(value []byte) error {
+			entry.ProjectID, err = uuid.FromBytes(value)
 			return err
-		}
-		entry.Retention.Mode = retentionMode.Mode
-		entry.LegalHold = retentionMode.LegalHold
-		return nil
-	})
-	r.Time("retain_until", &entry.Retention.RetainUntil)
-	if err := r.Err(); err != nil {
+		}),
+		stringField(recMap, "bucket_name", func(value string) { entry.BucketName = metabase.BucketName(value) }),
+		stringField(recMap, "object_key", func(value string) { entry.ObjectKey = metabase.ObjectKey(value) }),
+		int64AsType(recMap, "version", func(value int64) error {
+			entry.Version = metabase.Version(value)
+			return nil
+		}),
+		bytesAsType(recMap, "stream_id", func(value []byte) error {
+			entry.StreamID, err = uuid.FromBytes(value)
+			return err
+		}),
+		timeField(recMap, "created_at", &entry.CreatedAt),
+		timePField(recMap, "expires_at", &entry.ExpiresAt),
+		int64AsType(recMap, "status", func(value int64) error {
+			entry.Status = metabase.ObjectStatus(value)
+			return nil
+		}),
+		toInt32(recMap, "segment_count", &entry.SegmentCount),
+		bytesField(recMap, "encrypted_metadata_nonce", &entry.EncryptedMetadataNonce),
+		bytesField(recMap, "encrypted_metadata", &entry.EncryptedMetadata),
+		bytesField(recMap, "encrypted_metadata_encrypted_key", &entry.EncryptedMetadataEncryptedKey),
+		bytesField(recMap, "encrypted_etag", &entry.EncryptedETag),
+		int64Field(recMap, "total_plain_size", &entry.TotalPlainSize),
+		int64Field(recMap, "total_encrypted_size", &entry.TotalEncryptedSize),
+		toInt32(recMap, "fixed_segment_size", &entry.FixedSegmentSize),
+		int64AsType(recMap, "encryption", func(value int64) error { return entry.Encryption.Scan(value) }),
+		timePField(recMap, "zombie_deletion_deadline", &entry.ZombieDeletionDeadline),
+		int64AsType(recMap, "retention_mode", func(value int64) error {
+			var retentionMode metabase.RetentionMode
+			err := retentionMode.Scan(value)
+			if err != nil {
+				return err
+			}
+			entry.Retention.Mode = retentionMode.Mode
+			entry.LegalHold = retentionMode.LegalHold
+			return nil
+		}),
+		timeField(recMap, "retain_until", &entry.Retention.RetainUntil),
+	)
+	if err != nil {
 		return metabase.RawObject{}, Error.Wrap(err)
 	}
 
@@ -330,16 +270,17 @@ func ObjectFromRecord(ctx context.Context, recMap map[string]any) (entry metabas
 
 // NodeAliasFromRecord parses a NodeAliasEntry from an Avro record map.
 func NodeAliasFromRecord(ctx context.Context, recMap map[string]any) (entry metabase.NodeAliasEntry, err error) {
-	r := asRecord(recMap)
-	r.BytesAsType("node_id", func(value []byte) error {
-		entry.ID, err = storj.NodeIDFromBytes(value)
-		return err
-	})
-	r.Int64AsType("node_alias", func(value int64) error {
-		entry.Alias = metabase.NodeAlias(value)
-		return nil
-	})
-	if err := r.Err(); err != nil {
+	err = errs.Combine(
+		bytesAsType(recMap, "node_id", func(value []byte) error {
+			entry.ID, err = storj.NodeIDFromBytes(value)
+			return err
+		}),
+		int64AsType(recMap, "node_alias", func(value int64) error {
+			entry.Alias = metabase.NodeAlias(value)
+			return nil
+		}),
+	)
+	if err != nil {
 		return metabase.NodeAliasEntry{}, Error.Wrap(err)
 	}
 
