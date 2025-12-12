@@ -8,7 +8,7 @@ cleanup(){
 }
 trap cleanup EXIT
 
-docker run --rm -d -p 5433:5432 --name $CONTAINER_NAME -e POSTGRES_PASSWORD=tmppass postgres:12.3 -c log_min_duration_statement=0
+docker run --rm -d -p 5433:5432 --name $CONTAINER_NAME -e POSTGRES_PASSWORD=tmppass postgres:17 -c log_min_duration_statement=0
 docker logs -f $CONTAINER_NAME > $LOG_FILE 2>&1 &
 
 STORJ_SIM_DATABASE=${STORJ_SIM_DATABASE:-"teststorj"}
