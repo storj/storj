@@ -52,4 +52,8 @@ func Module(ball *mud.Ball) {
 		return &Console{}
 	})
 	cli.RegisterSubcommand[*Console](ball, "console", "run console (web ui)")
+	mud.Provide[*Api](ball, func() *Api {
+		return &Api{}
+	})
+	cli.RegisterSubcommand[*Api](ball, "api", "run API services")
 }

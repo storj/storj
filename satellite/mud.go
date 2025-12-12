@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/csrf"
@@ -36,6 +37,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/contact"
@@ -44,6 +46,7 @@ import (
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -52,8 +55,10 @@ import (
 	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -70,12 +75,14 @@ import (
 	"storj.io/storj/satellite/repair/repairer/manual"
 	"storj.io/storj/satellite/reputation"
 	srevocation "storj.io/storj/satellite/revocation"
+	"storj.io/storj/satellite/snopayouts"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/eventkit"
 	"storj.io/storj/shared/modular/profiler"
 	"storj.io/storj/shared/modular/tracing"
 	"storj.io/storj/shared/mud"
+	"storj.io/storj/shared/nodetag"
 )
 
 // Module is a mud module.
@@ -98,6 +105,8 @@ func Module(ball *mud.Ball) {
 	})
 
 	contact.Module(ball)
+	nodetag.Module(ball)
+	gracefulexit.Module(ball)
 
 	// initialize here due to circular dependencies
 	mud.Provide[*consoleweb.Server](ball, CreateServer)
@@ -135,6 +144,7 @@ func Module(ball *mud.Ball) {
 	{
 		orders.Module(ball)
 		mud.View[DB, orders.DB](ball, DB.Orders)
+		mud.View[DB, nodeapiversion.DB](ball, DB.NodeAPIVersion)
 	}
 	audit.Module(ball)
 
@@ -207,12 +217,63 @@ func Module(ball *mud.Ball) {
 		config.RegisterConfig[entitlements.Config](ball, "entitlements")
 	}
 
+	compensation.Module(ball)
+	mud.View[DB, accounting.StoragenodeAccounting](ball, DB.StoragenodeAccounting)
+	nodestats.Module(ball)
+	userinfo.Module(ball)
+	snopayouts.Module(ball)
+	mud.View[DB, snopayouts.DB](ball, DB.SNOPayouts)
+
 	mud.Provide[*metainfo.MigrationModeFlagExtension](ball, metainfo.NewMigrationModeFlagExtension)
 	mud.Provide[eventingconfig.BucketLocationTopicIDMap](ball, func(config eventingconfig.Config) eventingconfig.BucketLocationTopicIDMap {
 		return config.Buckets
 	})
-	mud.Provide[*EndpointRegistration](ball, func(srv *server.Server, metainfoEndpoint *metainfo.Endpoint) (*EndpointRegistration, error) {
+	mud.Provide[*EndpointRegistration](ball, func(srv *server.Server,
+		metainfoEndpoint *metainfo.Endpoint,
+		endpoint *contact.Endpoint,
+		ne *nodestats.Endpoint,
+		ue *userinfo.Endpoint,
+		ucfg userinfo.Config,
+		se *snopayouts.Endpoint,
+		ge *gracefulexit.Endpoint,
+		gc gracefulexit.Config,
+		oe *orders.Endpoint,
+	) (*EndpointRegistration, error) {
 		err := pb.DRPCRegisterMetainfo(srv.DRPC(), metainfoEndpoint)
+		if err != nil {
+			return nil, err
+		}
+
+		err = pb.DRPCRegisterOrders(srv.DRPC(), oe)
+		if err != nil {
+			return nil, err
+		}
+
+		err = pb.DRPCRegisterHeldAmount(srv.DRPC(), se)
+		if err != nil {
+			return nil, err
+		}
+
+		if ucfg.Enabled {
+			err = pb.DRPCRegisterUserInfo(srv.DRPC(), ue)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if gc.Enabled {
+			err = pb.DRPCRegisterSatelliteGracefulExit(srv.DRPC(), ge)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		err = pb.DRPCRegisterNodeStats(srv.DRPC(), ne)
+		if err != nil {
+			return nil, err
+		}
+
+		err = pb.DRPCRegisterNode(srv.DRPC(), endpoint)
 		if err != nil {
 			return nil, err
 		}
