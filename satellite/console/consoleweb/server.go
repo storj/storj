@@ -1181,6 +1181,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewPricingStartDate:               newPricingStartDate,
 		ProductPriceSummaries:             server.productPriceSummaries,
 		CollectBillingInfoOnOnboarding:    server.config.CollectBillingInfoOnOnboarding,
+		RequireBillingAddress:             server.config.RequireBillingAddress,
 		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,

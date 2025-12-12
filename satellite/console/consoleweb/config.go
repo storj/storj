@@ -103,6 +103,7 @@ type FrontendConfig struct {
 	NewPricingStartDate               *time.Time                  `json:"newPricingStartDate"`
 	ProductPriceSummaries             []string                    `json:"productPriceSummaries"`
 	CollectBillingInfoOnOnboarding    bool                        `json:"collectBillingInfoOnOnboarding"`
+	RequireBillingAddress             bool                        `json:"requireBillingAddress"`
 	ScheduleMeetingURL                string                      `json:"scheduleMeetingURL"`
 }
 

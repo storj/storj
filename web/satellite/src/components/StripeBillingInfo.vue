@@ -2,9 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-expansion-panels class="mt-4">
-        <v-expansion-panel eager static @group:selected="({value}) => onPanelToggle(value)">
-            <v-expansion-panel-title>Billing info (optional)</v-expansion-panel-title>
+    <v-expansion-panels v-model="expandedPanel" :readonly="required" class="mt-4">
+        <v-expansion-panel static value="billing" @group:selected="({value}) => onPanelToggle(value)">
+            <v-expansion-panel-title :class="{ 'font-weight-bold': required }">
+                Billing info{{ required ? ' *' : ' (optional)' }}
+            </v-expansion-panel-title>
             <v-expansion-panel-text>
                 <v-progress-linear rounded indeterminate :active="isLoading" />
                 <v-row>
@@ -47,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import {
     Stripe,
@@ -76,12 +78,20 @@ import { useLoading } from '@/composables/useLoading';
 import { PurchaseBillingInfo, Tax } from '@/types/payments';
 import { useBillingStore } from '@/store/modules/billingStore';
 
+const props = withDefaults(defineProps<{
+    required?: boolean;
+}>(), {
+    required: false,
+});
+
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
 
 const notify = useNotify();
 const theme = useTheme();
 const { isLoading, withLoading } = useLoading();
+
+const expandedPanel = ref<string | undefined>(undefined);
 
 const addressElement = ref<StripeAddressElement>();
 const stripe = ref<Stripe | null>(null);
@@ -93,6 +103,12 @@ const selectedTax = ref<Tax>();
 const taxID = ref<string>();
 
 const taxes = computed<Tax[]>(() => billingStore.state.taxes);
+
+// Expose whether billing info is ready (for parent to potentially disable submit button)
+const isBillingInfoReady = computed<boolean>(() => {
+    if (!props.required) return true; // Not required, always ready
+    return addressElementReady.value; // Required, ready when address element is ready
+});
 
 function initStripe(): void {
     withLoading(async () => {
@@ -119,13 +135,27 @@ function initStripe(): void {
         elements.value = stripe.value.elements(options);
         if (!elements.value) {
             notify.error('Unable to instantiate elements', AnalyticsErrorEventSource.BILLING_STRIPE_INFO_FORM);
+            return;
+        }
+
+        // Auto-expand and initialize if required
+        if (props.required) {
+            expandedPanel.value = 'billing';
+            onPanelToggle(true);
         }
     });
 }
 
-function onPanelToggle(val: boolean): void {
+async function onPanelToggle(val: boolean): Promise<void> {
     if (!val) {
+        // Prevent closing if required
+        if (props.required) {
+            expandedPanel.value = 'billing';
+            return;
+        }
+        addressElement.value?.unmount();
         addressElement.value?.destroy();
+        addressElement.value = undefined;
         addressElementReady.value = false;
         taxID.value = undefined;
         return;
@@ -136,6 +166,13 @@ function onPanelToggle(val: boolean): void {
         return;
     }
 
+    // Clean up existing element before creating a new one
+    if (addressElement.value) {
+        addressElement.value?.unmount();
+        addressElement.value?.destroy();
+        addressElement.value = undefined;
+    }
+
     addressElement.value = elements.value.create('address', { mode: 'billing' });
     addressElement.value.on('ready', () => {
         addressElementReady.value = true;
@@ -143,6 +180,9 @@ function onPanelToggle(val: boolean): void {
     addressElement.value.on('change', (event: StripeAddressElementChangeEvent) => {
         if (countryCode.value !== event.value.address?.country) countryCode.value = event.value.address?.country;
     });
+
+    // Wait for DOM to update before mounting
+    await nextTick();
     addressElement.value.mount('#billing-address-element');
 }
 
@@ -156,6 +196,9 @@ async function onSubmit(): Promise<PurchaseBillingInfo> {
     }
 
     if (!(addressElement.value && addressElementReady.value)) {
+        if (props.required) {
+            throw new Error('Billing information is required');
+        }
         return {
             address: undefined,
             tax: undefined,
@@ -164,6 +207,9 @@ async function onSubmit(): Promise<PurchaseBillingInfo> {
 
     const { complete, value } = await addressElement.value.getValue();
     if (!complete) {
+        if (props.required) {
+            throw new Error('Please complete all required billing information fields.');
+        }
         throw new Error('Please fill out the form or skip it.');
     }
 
@@ -201,6 +247,16 @@ watch(countryCode, (code) => {
     });
 });
 
+// Watch for changes to required prop and ensure panel stays open
+watch(() => props.required, (isRequired) => {
+    if (isRequired && elements.value) {
+        expandedPanel.value = 'billing';
+        if (!addressElementReady.value) {
+            onPanelToggle(true);
+        }
+    }
+});
+
 onMounted(() => {
     initStripe();
 });
@@ -208,10 +264,14 @@ onMounted(() => {
 onBeforeUnmount(() => {
     addressElement.value?.off('change');
     addressElement.value?.off('ready');
+    addressElement.value?.unmount();
+    addressElement.value?.destroy();
+    addressElement.value = undefined;
 });
 
 defineExpose({
     onSubmit,
+    isBillingInfoReady,
 });
 </script>
 

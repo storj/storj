@@ -106,6 +106,7 @@ export class FrontendConfig {
     newPricingStartDate: Time | null;
     productPriceSummaries: string[] | null;
     collectBillingInfoOnOnboarding: boolean;
+    requireBillingAddress: boolean;
     scheduleMeetingURL: string;
 }
 

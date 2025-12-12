@@ -735,6 +735,18 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 		return payments.CreditCard{}, Error.New("card params are empty")
 	}
 
+	// Validate billing address if required by config.
+	if payment.service.config.RequireBillingAddress {
+		if params.Address == nil {
+			return payments.CreditCard{}, Error.New("billing address is required")
+		}
+		// Validate required fields per Stripe requirements.
+		if params.Address.Name == "" || params.Address.Line1 == "" ||
+			params.Address.City == "" || params.Address.Country == "" {
+			return payments.CreditCard{}, Error.New("billing address is incomplete: name, line1, city, and country are required")
+		}
+	}
+
 	user, err := payment.service.getUserAndAuditLog(ctx, "add card by payment method ID")
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
@@ -6604,6 +6616,18 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 	// Unlikely to happen.
 	if params == nil {
 		return Error.New("purchase params are empty")
+	}
+
+	// Validate billing address if required by config.
+	if payment.service.config.RequireBillingAddress {
+		if params.Address == nil {
+			return Error.New("billing address is required")
+		}
+		// Validate required fields per Stripe requirements.
+		if params.Address.Name == "" || params.Address.Line1 == "" ||
+			params.Address.City == "" || params.Address.Country == "" {
+			return Error.New("billing address is incomplete: name, line1, city, and country are required")
+		}
 	}
 
 	switch params.Intent {

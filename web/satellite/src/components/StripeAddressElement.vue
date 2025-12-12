@@ -10,7 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { VSkeletonLoader } from 'vuetify/components';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import {
@@ -127,6 +127,11 @@ async function onSubmit(): Promise<BillingAddress> {
  */
 onMounted(() => {
     initStripe();
+});
+
+onBeforeUnmount(() => {
+    addressElement.value?.unmount();
+    addressElement.value?.destroy();
 });
 
 defineExpose({

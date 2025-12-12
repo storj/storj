@@ -28,6 +28,7 @@
             <StripeBillingInfo
                 v-if="collectBillingInfo"
                 ref="stripeInfoForm"
+                :required="requireBillingAddress"
             />
         </div>
 
@@ -37,7 +38,7 @@
                     id="activate"
                     block
                     :color="plan.type === 'partner' ? 'secondary' : 'primary'"
-                    :disabled="!stripeReady && !isFree"
+                    :disabled="(!stripeReady && !isFree) || !isBillingInfoReady"
                     :loading="loading"
                     @click="onActivateClick"
                 >
@@ -76,7 +77,7 @@
                         id="activate"
                         block
                         :color="plan.type === 'partner' ? 'secondary' : 'primary'"
-                        :disabled="!stripeReady && !isFree"
+                        :disabled="(!stripeReady && !isFree) || !isBillingInfoReady"
                         :loading="loading"
                         @click="onActivateClick"
                     >
@@ -154,6 +155,7 @@ interface StripeForm {
 }
 interface StripeBillingInfoForm {
     onSubmit(): Promise<PurchaseBillingInfo>;
+    isBillingInfoReady: boolean;
 }
 
 const analyticsStore = useAnalyticsStore();
@@ -192,7 +194,14 @@ const loading = defineModel<boolean>('loading');
  */
 const isFree = computed<boolean>(() => props.plan?.type === PricingPlanType.FREE);
 
-const collectBillingInfo = computed(() => configStore.state.config.collectBillingInfoOnOnboarding && props.isAccountSetup);
+const requireBillingAddress = computed(() => configStore.state.config.requireBillingAddress && !isFree.value);
+
+const collectBillingInfo = computed(() => requireBillingAddress.value || (configStore.state.config.collectBillingInfoOnOnboarding && props.isAccountSetup));
+
+const isBillingInfoReady = computed<boolean>(() => {
+    if (!requireBillingAddress.value) return true;
+    return stripeInfoForm.value?.isBillingInfoReady ?? false;
+});
 
 function onBack(): void {
     stripeReady.value = false;
@@ -228,6 +237,13 @@ async function onActivateClick() {
         token = await stripeCardInput.value.onSubmit();
     } catch (error) {
         notify.notifyError(error, errorSource);
+        loading.value = false;
+        return;
+    }
+
+    // Validate required billing address
+    if (requireBillingAddress.value && !info?.address) {
+        notify.error('Billing address is required', errorSource);
         loading.value = false;
         return;
     }

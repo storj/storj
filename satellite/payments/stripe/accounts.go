@@ -303,6 +303,20 @@ func (accounts *accounts) SaveBillingAddress(ctx context.Context, customerID str
 			State:      stripe.String(address.State),
 			Country:    stripe.String(string(address.Country.Code)),
 		},
+		// Mirror billing address to shipping address for tax calculation purposes.
+		// Some tax integrations prioritize customer.shipping.address over customer.address
+		// for determining customer location for sales tax calculation.
+		Shipping: &stripe.CustomerShippingParams{
+			Name: &address.Name,
+			Address: &stripe.AddressParams{
+				Line1:      stripe.String(address.Line1),
+				Line2:      stripe.String(address.Line2),
+				City:       stripe.String(address.City),
+				PostalCode: stripe.String(address.PostalCode),
+				State:      stripe.String(address.State),
+				Country:    stripe.String(string(address.Country.Code)),
+			},
+		},
 	}
 	customerParams.AddExpand("tax_ids")
 
