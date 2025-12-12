@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"runtime/pprof"
 	"time"
 
@@ -511,7 +510,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup console
 		consoleConfig := config.Console
-		consoleConfig.SsoEnabled = config.SSO.Enabled
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -572,23 +570,16 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
-		consoleConfig.Config.SupportURL = consoleConfig.GeneralRequestURL
-		consoleConfig.Config.LoginURL, err = url.JoinPath(consoleConfig.ExternalAddress, "login")
+		loginURL, err := config.Console.LoginURL()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		consoleConfig.SkuEnabled = config.Payments.StripeCoinPayments.SkuEnabled
+		supportURL := config.Console.SupportURL()
 
 		productModels, err := config.Payments.Products.ToModels()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
-		}
-
-		for _, model := range productModels {
-			if model.PriceSummary != "" {
-				consoleConfig.ProductPriceSummaries = append(consoleConfig.ProductPriceSummaries, model.PriceSummary)
-			}
 		}
 
 		peer.Console.Service, err = console.NewService(
@@ -629,6 +620,8 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Payments.PlacementPriceOverrides.ToMap(),
 			productModels,
 			consoleConfig.Config,
+			config.Payments.StripeCoinPayments.SkuEnabled,
+			loginURL, supportURL,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -654,7 +647,10 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		consoleConfig.EntitlementsEnabled = config.Entitlements.Enabled
+		priceSummaries, err := consoleweb.CreateProductPriceSummaries(config.Payments.Products)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
@@ -678,7 +674,9 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Analytics,
 			config.Payments.MinimumCharge,
 			prices,
+			priceSummaries,
 			config.Entitlements.Enabled,
+			config.SSO.Enabled,
 		)
 
 		peer.Servers.Add(lifecycle.Item{
