@@ -283,6 +283,10 @@ type Service struct {
 	legacyPlacements []storj.PlacementConstraint
 
 	nowFn func() time.Time
+
+	loginURL   string
+	supportURL string
+	skuEnabled bool
 }
 
 func init() {
@@ -322,7 +326,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
-	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config) (*Service, error) {
+	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
+	skuEnabled bool, loginURL string, supportURL string) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -427,8 +432,10 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		entitlementsConfig:  entitlementsConfig,
 
 		legacyPlacements: legacyPlacements,
-
-		nowFn: time.Now,
+		skuEnabled:       skuEnabled,
+		nowFn:            time.Now,
+		supportURL:       supportURL,
+		loginURL:         loginURL,
 	}, nil
 }
 
@@ -685,7 +692,7 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 		payment.service.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},
-			&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+			&UpgradeToProEmail{LoginURL: payment.service.loginURL},
 		)
 		return card, nil
 	}
@@ -694,8 +701,8 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 		ctx,
 		[]post.Address{{Address: user.Email}},
 		&CreditCardAddedEmail{
-			SupportURL: payment.service.config.SupportURL,
-			LoginURL:   payment.service.config.LoginURL,
+			SupportURL: payment.service.supportURL,
+			LoginURL:   payment.service.loginURL,
 		},
 	)
 
@@ -759,7 +766,7 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 		payment.service.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: user.Email}},
-			&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+			&UpgradeToProEmail{LoginURL: payment.service.loginURL},
 		)
 		return card, nil
 	}
@@ -768,8 +775,8 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 		ctx,
 		[]post.Address{{Address: user.Email}},
 		&CreditCardAddedEmail{
-			SupportURL: payment.service.config.SupportURL,
-			LoginURL:   payment.service.config.LoginURL,
+			SupportURL: payment.service.supportURL,
+			LoginURL:   payment.service.loginURL,
 		},
 	)
 
@@ -1040,7 +1047,7 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 				payment.service.mailService.SendRenderedAsync(
 					ctx,
 					[]post.Address{{Address: user.Email}},
-					&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+					&UpgradeToProEmail{LoginURL: payment.service.loginURL},
 				)
 			}
 		}
@@ -5783,7 +5790,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	if !param.GroupByProject {
 		row = append(row, reportItem.BucketName)
 	}
-	if s.config.SkuEnabled {
+	if s.skuEnabled {
 		row = append(row, reportItem.StorageSKU)
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.Storage))
@@ -5791,7 +5798,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 	if param.IncludeCost {
 		row = append(row, fmt.Sprintf("%.2f", reportItem.StorageCost/100))
 	}
-	if s.config.SkuEnabled {
+	if s.skuEnabled {
 		row = append(row, reportItem.EgressSKU)
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.Egress))
@@ -5800,7 +5807,7 @@ func (s *Service) GetReportRow(param GetUsageReportParam, reportItem accounting.
 		row = append(row, fmt.Sprintf("%.2f", reportItem.EgressCost/100))
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.ObjectCount))
-	if s.config.SkuEnabled {
+	if s.skuEnabled {
 		row = append(row, reportItem.SegmentSKU)
 	}
 	row = append(row, fmt.Sprintf("%f", reportItem.SegmentCount))
@@ -5831,7 +5838,7 @@ func (s *Service) GetUsageReportHeaders(param GetUsageReportParam) (disclaimer [
 		"Estimated Segment Price ($)", "Estimated Total Amount ($)", "Since", "Before",
 	}
 
-	if !s.config.SkuEnabled {
+	if !s.skuEnabled {
 		updateHeaders := make([]string, 0, len(headers)-4)
 		for _, header := range headers {
 			if strings.Contains(header, "SKU") {
@@ -5873,7 +5880,7 @@ func (s *Service) transformProjectReportItem(ctx context.Context, item accountin
 		_, priceModel = s.accounts.GetPartnerPlacementPriceModel(ctx, item.ProjectPublicID, string(item.UserAgent), item.Placement)
 	}
 	item.ProductName = priceModel.ProductName
-	if s.config.SkuEnabled {
+	if s.skuEnabled {
 		item.StorageSKU = priceModel.StorageSKU
 		item.SegmentSKU = priceModel.SegmentSKU
 		item.EgressSKU = priceModel.EgressSKU
@@ -6781,7 +6788,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		payment.service.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: params.User.Email}},
-			&UpgradeToProEmail{LoginURL: payment.service.config.LoginURL},
+			&UpgradeToProEmail{LoginURL: payment.service.loginURL},
 		)
 	}
 

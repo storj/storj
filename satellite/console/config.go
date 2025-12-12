@@ -52,15 +52,12 @@ type Config struct {
 	UseNewRestKeysTable               bool                      `help:"whether to use the new rest keys table" default:"false"`
 	NewDetailedUsageReportEnabled     bool                      `help:"whether to use the new detailed usage report" default:"false"`
 	PricingPackagesEnabled            bool                      `help:"whether to allow purchasing pricing packages" default:"true"`
-	SkuEnabled                        bool                      `help:"whether we should use SKUs for product usages" default:"false" hidden:"true"`
 	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`
 	AuditableAPIKeyProjects           []string                  `help:"list of public project IDs for which auditable API keys are enabled" default:"[]" hidden:"true"`
 	ValidAnnouncementNames            []string                  `help:"list of valid announcement names that can be used in the UI" default:"[]"`
 	ComputeUiEnabled                  bool                      `help:"whether the compute UI is enabled" default:"false"`
 	ShowNewPricingTiers               bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
-	EntitlementsEnabled               bool                      `help:"whether entitlements are enabled" default:"false" hidden:"true"`
 	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
-	ProductPriceSummaries             []string                  `help:"the pricing summaries gotten from configured products" default:"" hidden:"true"`
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
 	CollectBillingInfoOnOnboarding    bool                      `help:"whether to collect billing information during onboarding" default:"false"`
 
@@ -78,9 +75,6 @@ type Config struct {
 	Session           SessionConfig
 	AccountFreeze     AccountFreezeConfig
 	Announcement      AnnouncementConfig
-
-	SupportURL string `help:"url link to general request page" hidden:"true"`
-	LoginURL   string `help:"url link to the satellite UI login" hidden:"true"`
 }
 
 // AnnouncementConfig contains configurations for announcements shown in the UI.
