@@ -157,9 +157,17 @@ type Config struct {
 
 	ABTesting abtesting.Config
 
-	SsoEnabled bool `help:"whether SSO is enabled" default:"false" hidden:"true"`
-
 	console.Config
+}
+
+// LoginURL returns the login URL for the console.
+func (c *Config) LoginURL() (string, error) {
+	return url.JoinPath(c.ExternalAddress, "login")
+}
+
+// SupportURL returns the support URL for the console.
+func (c *Config) SupportURL() string {
+	return c.GeneralRequestURL
 }
 
 // Server represents console web server.
@@ -203,7 +211,9 @@ type Server struct {
 	ghostSessionEmailSent  map[uuid.UUID]time.Time
 	ghostSessionEmailMutex sync.Mutex
 
-	entitlementsEnabled bool
+	entitlementsEnabled   bool
+	ssoEnabled            bool
+	productPriceSummaries []string
 }
 
 // NewServer creates new instance of console server.
@@ -212,7 +222,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config,
-	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, entitlementsEnabled bool) *Server {
+	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
+	entitlementsEnabled bool, ssoEnabled bool) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -238,6 +249,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 		ghostSessionEmailSent:           make(map[uuid.UUID]time.Time),
 		entitlementsEnabled:             entitlementsEnabled,
+		ssoEnabled:                      ssoEnabled,
+		productPriceSummaries:           pps,
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
@@ -510,7 +523,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
 	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
 
-	if config.SsoEnabled {
+	if ssoEnabled {
 		ssoRouter := router.PathPrefix("/sso").Subrouter()
 		ssoRouter.Handle("/url", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetSsoUrl)))
 		ssoRouter.Handle("/{provider}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
@@ -1143,7 +1156,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		VersioningUIEnabled:               server.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning,
 		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning && server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
-		SsoEnabled:                        server.config.SsoEnabled,
+		SsoEnabled:                        server.ssoEnabled,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
 		ObjectMountConsultationEnabled:    server.config.ObjectMountConsultationEnabled,
@@ -1162,11 +1175,11 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,
 		Announcement:                      server.config.Announcement,
 		ComputeUIEnabled:                  server.config.ComputeUiEnabled && server.entitlementsEnabled,
-		EntitlementsEnabled:               server.config.EntitlementsEnabled,
+		EntitlementsEnabled:               server.entitlementsEnabled,
 		ShowNewPricingTiers:               server.config.ShowNewPricingTiers,
 		ComputeGatewayURL:                 server.config.ComputeGatewayURL,
 		NewPricingStartDate:               newPricingStartDate,
-		ProductPriceSummaries:             server.config.ProductPriceSummaries,
+		ProductPriceSummaries:             server.productPriceSummaries,
 		CollectBillingInfoOnOnboarding:    server.config.CollectBillingInfoOnOnboarding,
 		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
 		MinimumCharge: console.MinimumChargeConfig{
@@ -1764,4 +1777,23 @@ func (c *apiCORS) Handle(w http.ResponseWriter, r *http.Request) (isPreflight bo
 	}
 
 	return false
+}
+
+// ProductPriceSummaries represents a list of product price summaries.
+type ProductPriceSummaries []string
+
+// CreateProductPriceSummaries creates ProductPriceSummaries from config.
+func CreateProductPriceSummaries(overrides paymentsconfig.ProductPriceOverrides) (ProductPriceSummaries, error) {
+	var res ProductPriceSummaries
+	productModels, err := overrides.ToModels()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, model := range productModels {
+		if model.PriceSummary != "" {
+			res = append(res, model.PriceSummary)
+		}
+	}
+	return res, nil
 }

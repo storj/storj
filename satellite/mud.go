@@ -353,7 +353,6 @@ func CreateServer(logger *zap.Logger,
 	storjscanCfg storjscan.Config,
 	pc paymentsconfig.Config) (*consoleweb.Server, error) {
 
-	cwconfig.SsoEnabled = ssoCfg.Enabled
 	listener, err := net.Listen("tcp", cwconfig.Address)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -370,9 +369,14 @@ func CreateServer(logger *zap.Logger,
 
 	stripePublicKey := stripeCfg.StripePublicKey
 
+	summaries, err := consoleweb.CreateProductPriceSummaries(pc.Products)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		olavc, analyticsConfig, pc.MinimumCharge, prices, ecfg.Enabled), nil
+		olavc, analyticsConfig, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled), nil
 }
 
 // CreateService creates console service.
@@ -394,9 +398,13 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		return nil, err
 	}
 
+	loginURL, err := cw.LoginURL()
+	if err != nil {
+		return nil, err
+	}
 	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
 		cw.ExternalAddress, cw.SatelliteName, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements, objectLockAndVersioningConfig,
 		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
-		pc.PlacementPriceOverrides.ToMap(), productModels, cfg)
+		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
 }

@@ -145,6 +145,9 @@ func TestSignupCouponCodes(t *testing.T) {
 			pc.PlacementPriceOverrides.ToMap(),
 			productPrices,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
+			false,
+			"",
+			"",
 		)
 
 		require.NoError(t, err)
