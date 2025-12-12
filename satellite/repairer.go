@@ -19,6 +19,7 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/version"
@@ -137,6 +138,15 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
+		if config.Repairer.ConnectionPool.Capacity > 0 {
+			peer.Dialer.Pool = rpcpool.New(rpcpool.Options{
+				Capacity:       config.Repairer.ConnectionPool.Capacity,
+				KeyCapacity:    config.Repairer.ConnectionPool.KeyCapacity,
+				IdleExpiration: config.Repairer.ConnectionPool.IdleExpiration,
+				MaxLifetime:    config.Repairer.ConnectionPool.MaxLifetime,
+			})
+		}
+
 		peer.Dialer.DialTimeout = config.Repairer.DialTimeout
 	}
 

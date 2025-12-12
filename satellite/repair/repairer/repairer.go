@@ -30,6 +30,14 @@ var (
 	mon   = monkit.Package()
 )
 
+// ConnectionPoolConfig contains configuration for RPC connection pools.
+type ConnectionPoolConfig struct {
+	Capacity       int           `help:"RPC connection pool capacity (0 disables connection pool)" default:"100"`
+	KeyCapacity    int           `help:"RPC connection pool limit per key" default:"5"`
+	IdleExpiration time.Duration `help:"RPC connection pool idle expiration" default:"2m0s"`
+	MaxLifetime    time.Duration `help:"RPC connection pool max lifetime of a connection" default:"0"`
+}
+
 // Config contains configurable values for repairer.
 type Config struct {
 	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1" testDefault:"10"`
@@ -60,6 +68,8 @@ type Config struct {
 
 	IncludedPlacements PlacementList `help:"comma separated placement IDs (numbers), which should checked by the repairer (other placements are ignored)" default:""`
 	ExcludedPlacements PlacementList `help:"comma separated placement IDs (numbers), placements which should be ignored by the repairer" default:""`
+
+	ConnectionPool ConnectionPoolConfig
 }
 
 // Overlay is used to fetch information about nodes for repairing segments.

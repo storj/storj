@@ -1718,6 +1718,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how frequently core should check the size of the repair queue
 # repair-queue-check.interval: 1h0m0s
 
+# RPC connection pool capacity (0 disables connection pool)
+# repairer.connection-pool.capacity: 100
+
+# RPC connection pool idle expiration
+# repairer.connection-pool.idle-expiration: 2m0s
+
+# RPC connection pool limit per key
+# repairer.connection-pool.key-capacity: 5
+
+# RPC connection pool max lifetime of a connection
+# repairer.connection-pool.max-lifetime: 0s
+
 # time limit for dialing storage node
 # repairer.dial-timeout: 5s
 
