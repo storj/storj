@@ -6,6 +6,8 @@ package contact
 import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+
+	"storj.io/eventkit"
 )
 
 var (
@@ -13,4 +15,6 @@ var (
 	Error = errs.Class("contact")
 
 	mon = monkit.Package()
+
+	ek = eventkit.Package()
 )
