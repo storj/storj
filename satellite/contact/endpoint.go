@@ -18,9 +18,9 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
+	"storj.io/eventkit"
 	"storj.io/storj/private/nodeoperator"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/shared/event"
 )
 
 var (
@@ -172,22 +172,26 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 		}
 	}
 
-	event.Annotate(ctx, "id", nodeInfo.NodeID.String())
-	event.Annotate(ctx, "addr", req.Address)
-	event.Annotate(ctx, "resolved-addr", nodeInfo.LastIPPort)
-	event.Annotate(ctx, "source-addr", sourceAddr)
-	event.Annotate(ctx, "country", nodeInfo.CountryCode.String())
-	event.Annotate(ctx, "ping-tpc-success", pingNodeTCPSuccess)
-	event.Annotate(ctx, "ping-quic-success", pingNodeQUICSuccess)
+	tags := []eventkit.Tag{
+		eventkit.String("id", nodeInfo.NodeID.String()),
+		eventkit.String("addr", req.Address),
+		eventkit.String("resolved-addr", nodeInfo.LastIPPort),
+		eventkit.String("source-addr", sourceAddr),
+		eventkit.String("country", nodeInfo.CountryCode.String()),
+		eventkit.Bool("ping-tpc-success", pingNodeTCPSuccess),
+		eventkit.Bool("ping-quic-success", pingNodeQUICSuccess),
+	}
 
 	if nodeInfo.Capacity != nil {
-		event.Annotate(ctx, "free-disk", nodeInfo.Capacity.FreeDisk)
+		tags = append(tags, eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk))
 	}
 
 	if nodeInfo.Version != nil {
-		event.Annotate(ctx, "build-time", nodeInfo.Version.Timestamp)
-		event.Annotate(ctx, "version", nodeInfo.Version.Version)
+		tags = append(tags, eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp))
+		tags = append(tags, eventkit.String("version", nodeInfo.Version.Version))
 	}
+
+	ek.Event("checkin", tags...)
 }
 
 // GetTime returns current timestamp.
