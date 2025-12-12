@@ -137,8 +137,13 @@ func (blob *blobWriter) Commit(ctx context.Context) (err error) {
 	blob.closed = true
 
 	if err := blob.buffer.Flush(); err != nil {
-		// TODO: when flush fails, it looks like we don't close the file handle
-		return err
+		var closeErr, removeErr error
+		if blob.file.fh != nil {
+			closeErr = blob.file.fh.Close()
+			removeErr = os.Remove(blob.file.fh.Name())
+		}
+		trackErr := blob.track.Close()
+		return Error.Wrap(errs.Combine(err, closeErr, removeErr, trackErr))
 	}
 
 	blob.flushed = true
