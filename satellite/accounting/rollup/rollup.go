@@ -207,15 +207,7 @@ func (r *Service) emitRollupEvents(rollupStats accounting.RollupStats) {
 		for nodeID, rollup := range nodeRollups {
 			// Emit storage rollup event if there's storage data
 			if rollup.AtRestTotal > 0 {
-				ek.Event("storage_rollup",
-					eventkit.Bytes("node_id", nodeID.Bytes()),
-					eventkit.String("tenant_id", ""), // Reserved for future use
-					eventkit.Timestamp("day", day),
-					eventkit.Timestamp("interval_start", rollup.StartTime),
-					eventkit.Timestamp("interval_end", rollup.IntervalEndTime),
-					eventkit.Float64("at_rest_total", rollup.AtRestTotal),
-					eventkit.String("event_type", "time_aggregated"),
-				)
+				r.emitStorageRollupEvents(nodeID, day, rollup)
 			}
 
 			// Emit bandwidth rollup event if there's bandwidth data
@@ -234,6 +226,59 @@ func (r *Service) emitRollupEvents(rollupStats accounting.RollupStats) {
 					eventkit.String("event_type", "time_aggregated"),
 				)
 			}
+		}
+	}
+}
+
+func (r *Service) emitStorageRollupEvents(nodeID storj.NodeID, day time.Time, rollup *accounting.Rollup) {
+	startTime := rollup.StartTime
+	endTime := rollup.IntervalEndTime
+
+	emitSingle := func() {
+		ek.Event("storage_rollup",
+			eventkit.Bytes("node_id", nodeID.Bytes()),
+			eventkit.String("tenant_id", ""), // Reserved for future use
+			eventkit.Timestamp("day", day),
+			eventkit.Timestamp("interval_start", startTime),
+			eventkit.Timestamp("interval_end", endTime),
+			eventkit.Float64("at_rest_total", rollup.AtRestTotal),
+			eventkit.String("event_type", "time_aggregated"),
+		)
+	}
+
+	// Check if the interval crosses day boundaries
+	if startTime.UTC().Truncate(24 * time.Hour).Equal(endTime.UTC().Truncate(24 * time.Hour)) {
+		emitSingle()
+	} else {
+		// Crosses day boundaries - normalize and emit one event per day
+		dailyEvents, err := accounting.NormalizeAcrossDayBoundaries(startTime, endTime, rollup.AtRestTotal)
+		if err != nil {
+			r.logger.Error("failed to normalize storage rollup across day boundaries; reporting single event instead", zap.Error(err))
+			emitSingle()
+			return
+		}
+		for _, dailyEvent := range dailyEvents {
+			dayStart := dailyEvent.Date
+			dayEnd := dayStart.Add(24 * time.Hour)
+
+			intervalStart := startTime
+			if intervalStart.Before(dayStart) {
+				intervalStart = dayStart
+			}
+			intervalEnd := endTime
+			if intervalEnd.After(dayEnd) {
+				intervalEnd = dayEnd
+			}
+
+			ek.Event("storage_rollup",
+				eventkit.Bytes("node_id", nodeID.Bytes()),
+				eventkit.String("tenant_id", ""), // Reserved for future use
+				eventkit.Timestamp("day", dailyEvent.Date),
+				eventkit.Timestamp("interval_start", intervalStart),
+				eventkit.Timestamp("interval_end", intervalEnd),
+				eventkit.Float64("at_rest_total", dailyEvent.Amount),
+				eventkit.String("event_type", "time_aggregated"),
+			)
 		}
 	}
 }
