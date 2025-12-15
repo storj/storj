@@ -588,25 +588,21 @@ func (s *SpannerAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCo
 	inserts := make([]*spanner.Mutation, 0, batchSize)
 
 	for i := range newSegments.Positions {
-		inserts = append(inserts, spanner.Insert("segments",
-			[]string{
-				"stream_id", "position", "expires_at",
-				"encrypted_key_nonce", "encrypted_key",
-				"root_piece_id",
-				"redundancy",
-				"encrypted_size", "plain_offset", "plain_size",
-				"remote_alias_pieces", "placement",
-				"inline_data",
-			}, []any{
-				opts.NewStreamID, newSegments.Positions[i], newSegments.ExpiresAts[i],
-				newSegments.EncryptedKeyNonces[i], newSegments.EncryptedKeys[i],
-				newSegments.RootPieceIDs[i],
-				newSegments.RedundancySchemes[i],
-				int64(newSegments.EncryptedSizes[i]), newSegments.PlainOffsets[i], int64(newSegments.PlainSizes[i]),
-				newSegments.PiecesLists[i], int64(newSegments.Placements[i]),
-				newSegments.InlineDatas[i],
-			},
-		))
+		inserts = append(inserts, spanner.InsertMap("segments", map[string]any{
+			"stream_id":           opts.NewStreamID,
+			"position":            newSegments.Positions[i],
+			"expires_at":          newSegments.ExpiresAts[i],
+			"encrypted_key_nonce": newSegments.EncryptedKeyNonces[i],
+			"encrypted_key":       newSegments.EncryptedKeys[i],
+			"root_piece_id":       newSegments.RootPieceIDs[i],
+			"redundancy":          newSegments.RedundancySchemes[i],
+			"encrypted_size":      int64(newSegments.EncryptedSizes[i]),
+			"plain_offset":        newSegments.PlainOffsets[i],
+			"plain_size":          int64(newSegments.PlainSizes[i]),
+			"remote_alias_pieces": newSegments.PiecesLists[i],
+			"placement":           int64(newSegments.Placements[i]),
+			"inline_data":         newSegments.InlineDatas[i],
+		}))
 
 		if len(inserts) >= batchSize {
 			if _, err := s.client.Apply(ctx, inserts); err != nil {
