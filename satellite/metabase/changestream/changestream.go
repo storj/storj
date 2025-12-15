@@ -176,9 +176,16 @@ func TestDeleteChangeStream(ctx context.Context, admin *database.DatabaseAdminCl
 	changeStream := spannerutil.QuoteIdentifier(name)
 	dropChangeStreamDDL := "DROP CHANGE STREAM " + changeStream
 
-	// Retry with exponential backoff to handle transient conflicts with active streaming queries
-	const maxRetries = 7
-	backoff := 100 * time.Millisecond
+	// Retry with fixed interval to handle transient conflicts with the Spanner
+	// emulator's churning thread. The emulator runs a background thread that
+	// creates read-write transactions to manage change stream partitions every
+	// ~1 second (with --override_change_stream_partition_token_alive_seconds=1).
+	// These transactions take database-wide locks that conflict with DDL
+	// operations. We use frequent, fixed-interval retries to maximize chances
+	// of catching a gap between churning cycles.
+	const maxRetries = 50
+	const retryInterval = 200 * time.Millisecond // Check 5 times per second
+	// Total retry time: 50 * 200ms = 10 seconds
 
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -186,8 +193,7 @@ func TestDeleteChangeStream(ctx context.Context, admin *database.DatabaseAdminCl
 			select {
 			case <-ctx.Done():
 				return errs.Wrap(ctx.Err())
-			case <-time.After(backoff):
-				backoff *= 2
+			case <-time.After(retryInterval):
 			}
 		}
 
