@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/admin/back-office/auditlogger"
 	"storj.io/storj/satellite/admin/back-office/changehistory"
 	"storj.io/storj/satellite/analytics"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restapikeys"
@@ -39,10 +40,11 @@ type Service struct {
 	authorizer  *Authorizer
 	auditLogger *auditlogger.Logger
 
-	accountingDB accounting.ProjectAccounting
-	consoleDB    console.DB
-	history      changehistory.DB
-	metabase     *metabase.DB
+	attributionDB attribution.DB
+	accountingDB  accounting.ProjectAccounting
+	consoleDB     console.DB
+	history       changehistory.DB
+	metabase      *metabase.DB
 
 	accountFreeze *console.AccountFreezeService
 	accounting    *accounting.Service
@@ -67,6 +69,7 @@ func NewService(
 	log *zap.Logger,
 	consoleDB console.DB,
 	history changehistory.DB,
+	attributionDB attribution.DB,
 	accountingDB accounting.ProjectAccounting,
 	accounting *accounting.Service,
 	authorizer *Authorizer,
@@ -92,6 +95,7 @@ func NewService(
 		history:       history,
 		restKeys:      restKeys,
 		analytics:     analytics,
+		attributionDB: attributionDB,
 		accountingDB:  accountingDB,
 		accounting:    accounting,
 		accountFreeze: accountFreeze,

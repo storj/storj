@@ -329,6 +329,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			log.Named("back-office:service"),
 			peer.DB.Console(),
 			peer.DB.AdminChangeHistory(),
+			db.Attribution(),
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.Service,
 			backoffice.NewAuthorizer(log.Named("back-office:auth"), adminConfig.BackOffice),

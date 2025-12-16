@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	backoffice "storj.io/storj/satellite/admin/back-office"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
@@ -222,6 +223,25 @@ func TestUpdateBucket(t *testing.T) {
 		})
 
 		t.Run("update successfully", func(t *testing.T) {
+			// Create an initial attribution record for the bucket
+			attributionDB := sat.DB.Attribution()
+			initialUserAgent := []byte("original-agent")
+			initialPlacement := storj.DefaultPlacement
+			_, err := attributionDB.Insert(ctx, &attribution.Info{
+				ProjectID:  project.ID,
+				BucketName: []byte(bucket.Name),
+				UserAgent:  initialUserAgent,
+				Placement:  &initialPlacement,
+			})
+			require.NoError(t, err)
+
+			// Verify initial attribution
+			initialAttribution, err := attributionDB.Get(ctx, project.ID, []byte(bucket.Name))
+			require.NoError(t, err)
+			require.Equal(t, initialUserAgent, initialAttribution.UserAgent)
+			require.Equal(t, initialPlacement, *initialAttribution.Placement)
+
+			// Update bucket with new user agent and placement
 			newUserAgent := "updated-agent"
 			newPlacement := storj.PlacementConstraint(10)
 			apiErr := service.UpdateBucket(ctx, authInfo, project.PublicID, bucket.Name, backoffice.UpdateBucketRequest{
@@ -231,11 +251,17 @@ func TestUpdateBucket(t *testing.T) {
 			})
 			require.NoError(t, apiErr.Err)
 
-			// Verify the update
+			// Verify the bucket update
 			updatedBucket, err := bucketsDB.GetBucket(ctx, []byte(bucket.Name), project.ID)
 			require.NoError(t, err)
 			require.Equal(t, newUserAgent, string(updatedBucket.UserAgent))
 			require.Equal(t, newPlacement, updatedBucket.Placement)
+
+			// Verify the attribution table was also updated
+			updatedAttribution, err := attributionDB.Get(ctx, project.ID, []byte(bucket.Name))
+			require.NoError(t, err)
+			require.Equal(t, []byte(newUserAgent), updatedAttribution.UserAgent)
+			require.Equal(t, newPlacement, *updatedAttribution.Placement)
 		})
 
 		t.Run("update placement unsuccessfully on non-empty bucket", func(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -208,6 +209,27 @@ func (s *Service) UpdateBucket(ctx context.Context, authInfo *AuthInfo, projectP
 		return api.HTTPError{
 			Status: status,
 			Err:    Error.Wrap(err),
+		}
+	}
+
+	if req.UserAgent != nil {
+		if err = s.attributionDB.UpdateUserAgent(ctx, project.ID, bucketName, []byte(*req.UserAgent)); err != nil {
+			s.log.Error("failed to update bucket attribution after user agent change",
+				zap.String("projectID", project.PublicID.String()),
+				zap.String("bucketName", bucketName),
+				zap.String("userAgent", *req.UserAgent),
+				zap.Error(err),
+			)
+		}
+	}
+	if req.Placement != nil {
+		if err = s.attributionDB.UpdatePlacement(ctx, project.ID, bucketName, req.Placement); err != nil {
+			s.log.Error("failed to update bucket attribution after placement change",
+				zap.String("projectID", project.PublicID.String()),
+				zap.String("bucketName", bucketName),
+				zap.Int("placement", int(*req.Placement)),
+				zap.Error(err),
+			)
 		}
 	}
 
