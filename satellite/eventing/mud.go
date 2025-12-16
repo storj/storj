@@ -15,6 +15,8 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*CachedPublicProjectIDs](ball, NewCachedPublicProjectIDs)
 	mud.RegisterInterfaceImplementation[PublicProjectIDer, *CachedPublicProjectIDs](ball)
 
+	mud.Provide[*ConfigCache](ball, NewConfigCache)
+
 	config.RegisterConfig[PubSubConfig](ball, "change-stream.pubsub")
 	mud.Provide[*PubSubPublisher](ball, NewPubSubPublisher)
 	mud.Provide[*LogPublisher](ball, NewLogPublisher)

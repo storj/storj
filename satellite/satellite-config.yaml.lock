@@ -169,6 +169,12 @@
 # defines which buckets are monitored for events (comma separated list of "project_id:bucket_name:topic_id")
 # bucket-eventing.buckets: ""
 
+# Redis address for bucket notification config cache
+# bucket-eventing.cache.address: ""
+
+# TTL for cached bucket notification configs
+# bucket-eventing.cache.ttl: 5m0s
+
 # defines which projects are enabled for bucket eventing (comma separated list of project UUIDs)
 # bucket-eventing.projects: ""
 
