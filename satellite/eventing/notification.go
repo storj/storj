@@ -4,11 +4,13 @@
 package eventing
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -352,4 +354,43 @@ func ValidateEventTypes(events []string) error {
 	}
 
 	return nil
+}
+
+// MatchEventType checks if the given event type matches any of the configured event types.
+// Supports wildcards like "s3:ObjectCreated:*" and "s3:ObjectRemoved:*".
+func MatchEventType(eventType string, configuredEvents []string) bool {
+	// Normalize event type by adding s3: prefix if missing
+	if !strings.HasPrefix(eventType, "s3:") {
+		eventType = "s3:" + eventType
+	}
+
+	for _, configuredEvent := range configuredEvents {
+		// Exact match
+		if configuredEvent == eventType {
+			return true
+		}
+
+		// Wildcard match
+		if strings.HasSuffix(configuredEvent, "*") {
+			prefix := strings.TrimSuffix(configuredEvent, "*")
+			if strings.HasPrefix(eventType, prefix) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// MatchFilters checks if the object key matches the prefix and suffix filters.
+func MatchFilters(objectKey []byte, filterPrefix []byte, filterSuffix []byte) bool {
+	if len(filterPrefix) > 0 && !bytes.HasPrefix(objectKey, filterPrefix) {
+		return false
+	}
+
+	if len(filterSuffix) > 0 && !bytes.HasSuffix(objectKey, filterSuffix) {
+		return false
+	}
+
+	return true
 }

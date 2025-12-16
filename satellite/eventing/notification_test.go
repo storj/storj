@@ -823,3 +823,178 @@ func TestValidateEventTypes(t *testing.T) {
 		require.Contains(t, err.Error(), "at least one event type is required")
 	})
 }
+
+func TestMatchEventType(t *testing.T) {
+	t.Run("Exact match with s3: prefix", func(t *testing.T) {
+		configuredEvents := []string{"s3:ObjectCreated:Put", "s3:ObjectRemoved:Delete"}
+
+		assert.True(t, MatchEventType("s3:ObjectCreated:Put", configuredEvents))
+		assert.True(t, MatchEventType("s3:ObjectRemoved:Delete", configuredEvents))
+	})
+
+	t.Run("Exact match - event without s3: prefix (normalized)", func(t *testing.T) {
+		configuredEvents := []string{"s3:ObjectCreated:Put", "s3:ObjectRemoved:Delete"}
+
+		// Event type without s3: prefix should be normalized by adding it
+		assert.True(t, MatchEventType("ObjectCreated:Put", configuredEvents))
+		assert.True(t, MatchEventType("ObjectRemoved:Delete", configuredEvents))
+	})
+
+	t.Run("Wildcard match - ObjectCreated:*", func(t *testing.T) {
+		configuredEvents := []string{"s3:ObjectCreated:*"}
+
+		assert.True(t, MatchEventType("s3:ObjectCreated:Put", configuredEvents))
+		assert.True(t, MatchEventType("s3:ObjectCreated:Copy", configuredEvents))
+		assert.True(t, MatchEventType("ObjectCreated:Put", configuredEvents))
+		assert.True(t, MatchEventType("ObjectCreated:Copy", configuredEvents))
+
+		// Should not match different category
+		assert.False(t, MatchEventType("s3:ObjectRemoved:Delete", configuredEvents))
+	})
+
+	t.Run("Wildcard match - ObjectRemoved:*", func(t *testing.T) {
+		configuredEvents := []string{"s3:ObjectRemoved:*"}
+
+		assert.True(t, MatchEventType("s3:ObjectRemoved:Delete", configuredEvents))
+		assert.True(t, MatchEventType("s3:ObjectRemoved:DeleteMarkerCreated", configuredEvents))
+		assert.True(t, MatchEventType("ObjectRemoved:Delete", configuredEvents))
+		assert.True(t, MatchEventType("ObjectRemoved:DeleteMarkerCreated", configuredEvents))
+
+		// Should not match different category
+		assert.False(t, MatchEventType("s3:ObjectCreated:Put", configuredEvents))
+	})
+
+	t.Run("Multiple configured events", func(t *testing.T) {
+		configuredEvents := []string{
+			"s3:ObjectCreated:Put",
+			"s3:ObjectRemoved:*",
+		}
+
+		assert.True(t, MatchEventType("s3:ObjectCreated:Put", configuredEvents))
+		assert.True(t, MatchEventType("s3:ObjectRemoved:Delete", configuredEvents))
+		assert.True(t, MatchEventType("s3:ObjectRemoved:DeleteMarkerCreated", configuredEvents))
+
+		assert.False(t, MatchEventType("s3:ObjectCreated:Copy", configuredEvents))
+	})
+
+	t.Run("No match", func(t *testing.T) {
+		configuredEvents := []string{"s3:ObjectCreated:Put"}
+
+		assert.False(t, MatchEventType("s3:ObjectCreated:Copy", configuredEvents))
+		assert.False(t, MatchEventType("s3:ObjectRemoved:Delete", configuredEvents))
+	})
+
+	t.Run("Empty configured events", func(t *testing.T) {
+		assert.False(t, MatchEventType("s3:ObjectCreated:Put", []string{}))
+		assert.False(t, MatchEventType("s3:ObjectCreated:Put", nil))
+	})
+
+	t.Run("Empty event type", func(t *testing.T) {
+		configuredEvents := []string{"s3:ObjectCreated:Put"}
+		// Empty event type gets normalized to "s3:" which won't match anything
+		assert.False(t, MatchEventType("", configuredEvents))
+	})
+}
+
+func TestMatchFilters(t *testing.T) {
+	t.Run("No filters - all objects match", func(t *testing.T) {
+		assert.True(t, MatchFilters([]byte("any/object/key"), nil, nil))
+		assert.True(t, MatchFilters([]byte("any/object/key"), []byte{}, []byte{}))
+		assert.True(t, MatchFilters([]byte(""), []byte{}, []byte{}))
+	})
+
+	t.Run("Prefix filter only", func(t *testing.T) {
+		filterPrefix := []byte("images/")
+
+		assert.True(t, MatchFilters([]byte("images/photo.jpg"), filterPrefix, nil))
+		assert.True(t, MatchFilters([]byte("images/subfolder/photo.jpg"), filterPrefix, nil))
+		assert.True(t, MatchFilters([]byte("images/"), filterPrefix, nil))
+
+		assert.False(t, MatchFilters([]byte("videos/movie.mp4"), filterPrefix, nil))
+		assert.False(t, MatchFilters([]byte("image.jpg"), filterPrefix, nil))
+		assert.False(t, MatchFilters([]byte(""), filterPrefix, nil))
+	})
+
+	t.Run("Suffix filter only", func(t *testing.T) {
+		filterSuffix := []byte(".jpg")
+
+		assert.True(t, MatchFilters([]byte("photo.jpg"), nil, filterSuffix))
+		assert.True(t, MatchFilters([]byte("folder/photo.jpg"), nil, filterSuffix))
+		assert.True(t, MatchFilters([]byte("images/subfolder/pic.jpg"), nil, filterSuffix))
+
+		assert.False(t, MatchFilters([]byte("photo.png"), nil, filterSuffix))
+		assert.False(t, MatchFilters([]byte("document.txt"), nil, filterSuffix))
+		assert.False(t, MatchFilters([]byte(""), nil, filterSuffix))
+	})
+
+	t.Run("Both prefix and suffix filters", func(t *testing.T) {
+		filterPrefix := []byte("images/")
+		filterSuffix := []byte(".jpg")
+
+		assert.True(t, MatchFilters([]byte("images/photo.jpg"), filterPrefix, filterSuffix))
+		assert.True(t, MatchFilters([]byte("images/subfolder/pic.jpg"), filterPrefix, filterSuffix))
+
+		assert.False(t, MatchFilters([]byte("images/photo.png"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte("videos/photo.jpg"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte("photo.jpg"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte(""), filterPrefix, filterSuffix))
+	})
+
+	t.Run("Empty prefix filter (treated as no filter)", func(t *testing.T) {
+		filterSuffix := []byte(".jpg")
+
+		assert.True(t, MatchFilters([]byte("photo.jpg"), []byte{}, filterSuffix))
+		assert.True(t, MatchFilters([]byte("folder/photo.jpg"), []byte{}, filterSuffix))
+	})
+
+	t.Run("Empty suffix filter (treated as no filter)", func(t *testing.T) {
+		filterPrefix := []byte("images/")
+
+		assert.True(t, MatchFilters([]byte("images/photo.jpg"), filterPrefix, []byte{}))
+		assert.True(t, MatchFilters([]byte("images/photo.png"), filterPrefix, []byte{}))
+	})
+
+	t.Run("Single character filters", func(t *testing.T) {
+		assert.True(t, MatchFilters([]byte("a/test"), []byte("a"), nil))
+		assert.True(t, MatchFilters([]byte("test.a"), nil, []byte("a")))
+		assert.False(t, MatchFilters([]byte("b/test"), []byte("a"), nil))
+		assert.False(t, MatchFilters([]byte("test.b"), nil, []byte("a")))
+	})
+
+	t.Run("Special characters in filters", func(t *testing.T) {
+		filterPrefix := []byte("logs/2024-01-")
+		filterSuffix := []byte(".log.gz")
+
+		assert.True(t, MatchFilters([]byte("logs/2024-01-15.log.gz"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte("logs/2024-02-15.log.gz"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte("logs/2024-01-15.log"), filterPrefix, filterSuffix))
+	})
+
+	t.Run("Unicode characters", func(t *testing.T) {
+		filterPrefix := []byte("données/")
+		filterSuffix := []byte(".txt")
+
+		assert.True(t, MatchFilters([]byte("données/fichier.txt"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte("data/fichier.txt"), filterPrefix, filterSuffix))
+	})
+
+	t.Run("Empty object key", func(t *testing.T) {
+		assert.True(t, MatchFilters([]byte(""), nil, nil))
+		assert.True(t, MatchFilters([]byte(""), []byte{}, []byte{}))
+		assert.False(t, MatchFilters([]byte(""), []byte("prefix"), nil))
+		assert.False(t, MatchFilters([]byte(""), nil, []byte("suffix")))
+	})
+
+	t.Run("Case sensitivity", func(t *testing.T) {
+		filterPrefix := []byte("Images/")
+		filterSuffix := []byte(".JPG")
+
+		// Exact case match - should pass
+		assert.True(t, MatchFilters([]byte("Images/photo.JPG"), filterPrefix, filterSuffix))
+
+		// Different case - should fail (filters are case-sensitive)
+		assert.False(t, MatchFilters([]byte("images/photo.JPG"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte("Images/photo.jpg"), filterPrefix, filterSuffix))
+		assert.False(t, MatchFilters([]byte("IMAGES/photo.JPG"), filterPrefix, filterSuffix))
+	})
+}
