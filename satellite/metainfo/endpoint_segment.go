@@ -183,7 +183,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
 	}
 
-	endpoint.log.Debug("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
+	endpoint.log.Debug("Segment Upload", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
 	mon.Meter("req_put_remote").Mark(1)
 
 	var cohortRequirements *pb.CohortRequirements
@@ -313,7 +313,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
 	}
 
-	endpoint.log.Debug("Segment Upload Piece Retry", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
+	endpoint.log.Debug("Segment Upload Piece Retry", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
 
 	return &pb.RetryBeginSegmentPiecesResponse{
 		SegmentId:       amendedSegmentID,
@@ -646,7 +646,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
-	endpoint.log.Debug("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
+	endpoint.log.Debug("Inline Segment Upload", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
 
 	return &pb.SegmentMakeInlineResponse{}, nil
@@ -819,7 +819,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth limits.
 		endpoint.log.Error("Could not track the new project's bandwidth usage when downloading a segment",
-			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Stringer("Public ID", keyInfo.ProjectPublicID),
 			zap.Error(err),
 		)
 	}
@@ -841,7 +841,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
 
-		endpoint.log.Debug("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
+		endpoint.log.Debug("Inline Segment Download", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
 		mon.Meter("req_get_inline").Mark(1)
 
 		return &pb.SegmentDownloadResponse{
@@ -870,7 +870,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			endpoint.log.Error("Unable to create order limits.",
-				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
 				zap.Stringer("API Key ID", keyInfo.ID),
 				zap.Error(err),
 			)
@@ -880,7 +880,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(segment.EncryptedSize))
 
-	endpoint.log.Debug("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
+	endpoint.log.Debug("Segment Download", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
 	mon.Meter("req_get_remote").Mark(1)
 
 	return &pb.SegmentDownloadResponse{
