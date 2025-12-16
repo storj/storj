@@ -221,6 +221,36 @@ func TestBuildChangeSet(t *testing.T) {
 				}
 			})
 		}
+
+		t.Run("byte slice change with user agent exception", func(t *testing.T) {
+			type S struct {
+				First []byte
+			}
+			before := S{
+				First: []byte("initial"),
+			}
+			after := S{
+				First: []byte("modified"),
+			}
+
+			got := auditlogger.BuildChangeSet(before, after, defaultAuditCapsConfig)
+			require.Contains(t, got, "First.count")
+			require.Equal(t, []any{7, 8}, got["First.count"])
+
+			type T struct {
+				UserAgent []byte
+			}
+			beforeUA := T{
+				UserAgent: []byte("initial"),
+			}
+			afterUA := T{
+				UserAgent: []byte("modified"),
+			}
+
+			gotUA := auditlogger.BuildChangeSet(beforeUA, afterUA, defaultAuditCapsConfig)
+			require.Contains(t, gotUA, "UserAgent")
+			require.Equal(t, []any{"initial", "modified"}, gotUA["UserAgent"])
+		})
 	})
 
 	t.Run("large slice: count only", func(t *testing.T) {

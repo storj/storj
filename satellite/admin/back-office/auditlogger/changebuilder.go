@@ -183,6 +183,12 @@ func (st *capState) compareSliceFields(bv, av reflect.Value, field string, chang
 		return
 	}
 
+	if lowerField := strings.ToLower(field); strings.Contains(lowerField, "useragent") {
+		// special treatment for user agents because they are readable text.
+		st.addChange(changes, field, string(bv.Bytes()), string(av.Bytes()))
+		return
+	}
+
 	// Length-only signal when sizes differ.
 	if bv.Len() != av.Len() {
 		st.addChange(changes, field+".count", bv.Len(), av.Len())
