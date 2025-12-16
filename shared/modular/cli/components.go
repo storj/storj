@@ -65,7 +65,7 @@ func (c *ComponentAll) Run() error {
 // ComponentGraphConfig contains configuration for the component graph command.
 type ComponentGraphConfig struct {
 	Selector string `help:"Selector for components to include in the graph" default:"all"`
-	Output   string `help:"Output file for the graph (without extension)" default:"compomnents"`
+	Output   string `help:"Output file for the graph (without extension)" default:"components"`
 }
 
 // ComponentGraph generates a graph visualization of components.
