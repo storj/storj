@@ -1494,7 +1494,7 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 			Name       string
 			Bucket     string
 			Prefixes   []string
-			UploadFunc func(bucket string, prefixe string) map[metabase.ObjectStream]struct{}
+			UploadFunc func(t *testing.T, bucket string, prefixe string) map[metabase.ObjectStream]struct{}
 		}
 
 		testCases := []TestCase{
@@ -1502,7 +1502,7 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 				Name:     "single location many pending objects",
 				Bucket:   "test1",
 				Prefixes: []string{"", "aprefix/"},
-				UploadFunc: func(bucket string, prefix string) map[metabase.ObjectStream]struct{} {
+				UploadFunc: func(t *testing.T, bucket string, prefix string) map[metabase.ObjectStream]struct{} {
 					// upload objects to the same location to have many pending objects
 					// with different versions
 					expectedKeys := make(map[metabase.ObjectStream]struct{})
@@ -1523,7 +1523,7 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 				Name:     "many locations many pending objects",
 				Bucket:   "test2",
 				Prefixes: []string{"", "aprefix/"},
-				UploadFunc: func(bucket string, prefix string) map[metabase.ObjectStream]struct{} {
+				UploadFunc: func(t *testing.T, bucket string, prefix string) map[metabase.ObjectStream]struct{} {
 					// upload to the same location many times to have internally different versions
 					expectedKeys := make(map[metabase.ObjectStream]struct{})
 					for i := range amount {
@@ -1553,7 +1553,7 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 		for _, testCase := range testCases {
 			t.Run(testCase.Name, func(t *testing.T) {
 				for _, prefix := range testCase.Prefixes {
-					expectedKeys := testCase.UploadFunc(testCase.Bucket, prefix)
+					expectedKeys := testCase.UploadFunc(t, testCase.Bucket, prefix)
 
 					prefixLabel := prefix
 					if prefixLabel == "" {
