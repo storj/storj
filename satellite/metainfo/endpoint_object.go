@@ -146,6 +146,16 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
 	}
 
+	encryptedUserData := metabase.EncryptedUserData{
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
+		EncryptedETag:                 req.EncryptedEtag,
+	}
+	if err := endpoint.checkEncryptedMetadataSize(encryptedUserData); err != nil {
+		return nil, err
+	}
+
 	err = endpoint.checkUploadLimits(ctx, keyInfo)
 	if err != nil {
 		return nil, err
@@ -210,12 +220,6 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 			Version:    metabase.NextVersion,
 		}
 
-		encryptedUserData := metabase.EncryptedUserData{
-			EncryptedMetadata:             req.EncryptedMetadata,
-			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
-			EncryptedETag:                 req.EncryptedEtag,
-		}
 		if _, ok := endpoint.config.TestingAlternativeBeginObjectProjects[keyInfo.ProjectID]; ok || endpoint.config.TestingAlternativeBeginObject {
 			opts := metabase.BeginObjectExactVersion{
 				ObjectStream: objectStream,

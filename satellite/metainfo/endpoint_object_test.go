@@ -264,7 +264,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 		})
 
 		// ensures that CommitObject returns an error when the metadata provided by the user is too large.
-		t.Run("validate metadata size", func(t *testing.T) {
+		t.Run("validate metadata size for CommitObject", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
 			err = planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
@@ -321,6 +321,58 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 					EncryptedMetadataEncryptedKey: randomEncryptedKey,
 				},
 			})
+			require.NoError(t, err)
+		})
+
+		t.Run("validate metadata size for BeginObject", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			err = planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
+
+			params := metaclient.BeginObjectParams{
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("encrypted-path"),
+				Redundancy: storj.RedundancyScheme{
+					Algorithm:      storj.ReedSolomon,
+					ShareSize:      256,
+					RequiredShares: 1,
+					RepairShares:   1,
+					OptimalShares:  3,
+					TotalShares:    4,
+				},
+				EncryptionParameters: storj.EncryptionParameters{
+					BlockSize:   256,
+					CipherSuite: storj.EncNull,
+				},
+				ExpiresAt: time.Now().Add(24 * time.Hour),
+			}
+
+			// Ensure that 5KiB metadata causes a failure because it's too large.
+			metadata, err := pb.Marshal(&pb.StreamMeta{
+				EncryptedStreamInfo: testrand.Bytes(5 * memory.KiB),
+			})
+			require.NoError(t, err)
+
+			params.EncryptedUserData = metaclient.EncryptedUserData{
+				EncryptedMetadata:             metadata,
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
+			}
+
+			_, err = metainfoClient.BeginObject(ctx, params)
+			require.Error(t, err)
+			assertInvalidArgument(t, err, true)
+
+			// Ensure that 1KiB metadata does not cause a failure.
+			metadata, err = pb.Marshal(&pb.StreamMeta{
+				EncryptedStreamInfo: testrand.Bytes(1 * memory.KiB),
+			})
+			require.NoError(t, err)
+
+			params.EncryptedUserData.EncryptedMetadata = metadata
+
+			_, err = metainfoClient.BeginObject(ctx, params)
 			require.NoError(t, err)
 		})
 
