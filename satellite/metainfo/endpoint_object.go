@@ -27,6 +27,7 @@ import (
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -446,7 +447,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		IfNoneMatch: req.IfNoneMatch,
 
-		TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(keyInfo.ProjectID, string(streamID.Bucket)),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, eventing.EventTypeObjectCreatedPut),
 
 		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 	}
@@ -739,7 +740,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 		IfNoneMatch: commitObjectReq.IfNoneMatch,
 
-		TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(keyInfo.ProjectID, string(beginObjectReq.Bucket)),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(beginObjectReq.Bucket), beginObjectReq.EncryptedObjectKey, eventing.EventTypeObjectCreatedPut),
 	})
 	if err != nil {
 		return nil, nil, nil, endpoint.ConvertMetabaseErr(err)
@@ -2845,8 +2846,8 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		Retention: retention,
 		LegalHold: req.LegalHold,
 
-		TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(keyInfo.ProjectID, string(streamID.Bucket)) ||
-			endpoint.bucketEventing.Buckets.Enabled(keyInfo.ProjectID, string(req.NewBucket)),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, eventing.EventTypeObjectCreatedCopy) ||
+			endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.NewBucket), req.NewEncryptedObjectKey, eventing.EventTypeObjectCreatedCopy),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -3143,7 +3144,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 
 		IfNoneMatch: req.IfNoneMatch,
 
-		TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(keyInfo.ProjectID, string(req.NewBucket)),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.NewBucket), req.NewEncryptedObjectKey, eventing.EventTypeObjectCreatedCopy),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)

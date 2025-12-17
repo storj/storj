@@ -524,7 +524,11 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 				return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, err.Error())
 			}
 
-			transmitEvent := endpoint.bucketEventing.Buckets.Enabled(bucket.ProjectID, bucket.Name)
+			// Check both event types since DeleteAllBucketObjects can delete
+			// objects or create delete markers
+			transmitEvent := endpoint.shouldTransmitEvent(ctx, bucket.ProjectID, bucket.Name, nil,
+				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
+
 			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket, transmitEvent)
 			if err != nil {
 				return nil, err
@@ -896,6 +900,18 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 		if err != nil {
 			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to delete bucket notification configuration")
 		}
+
+		// Invalidate Redis cache after successful delete
+		if endpoint.bucketEventingCache != nil {
+			if err := endpoint.bucketEventingCache.Invalidate(ctx, keyInfo.ProjectID, string(req.Name)); err != nil {
+				// Log error but don't fail the request - DB is already updated
+				endpoint.log.Warn("Failed to invalidate bucket eventing cache after delete",
+					zap.Stringer("project_id", keyInfo.ProjectID),
+					zap.ByteString("bucket_name", req.Name),
+					zap.Error(err))
+			}
+		}
+
 		return &pb.SetBucketNotificationConfigurationResponse{}, nil
 	}
 
@@ -948,7 +964,16 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket notification configuration")
 	}
 
-	// TODO: Invalidate Redis cache after successful database update
+	// Invalidate Redis cache after successful database update
+	if endpoint.bucketEventingCache != nil {
+		if err := endpoint.bucketEventingCache.Invalidate(ctx, keyInfo.ProjectID, string(req.Name)); err != nil {
+			// Log error but don't fail the request - DB is already updated
+			endpoint.log.Warn("Failed to invalidate bucket eventing cache after update",
+				zap.Stringer("project_id", keyInfo.ProjectID),
+				zap.ByteString("bucket_name", req.Name),
+				zap.Error(err))
+		}
+	}
 
 	return &pb.SetBucketNotificationConfigurationResponse{}, nil
 }

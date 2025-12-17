@@ -19,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 )
@@ -213,7 +214,10 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 				BypassGovernance: opts.BypassGovernance,
 			},
 
-			TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(opts.ProjectID, opts.BucketName.String()),
+			// Check both event types since DeleteObjectLastCommitted can either delete an object
+			// or create a delete marker depending on bucket versioning state.
+			TransmitEvent: endpoint.shouldTransmitEvent(ctx, opts.ProjectID, opts.BucketName.String(), []byte(opts.ObjectKey),
+				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -233,7 +237,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 				BypassGovernance: opts.BypassGovernance,
 			},
 
-			TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(opts.ProjectID, opts.BucketName.String()),
+			TransmitEvent: endpoint.shouldTransmitEvent(ctx, opts.ProjectID, opts.BucketName.String(), []byte(opts.ObjectKey), eventing.EventTypeObjectRemovedDelete),
 		})
 	}
 	if err != nil {
@@ -399,7 +403,10 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 
 			Items: make([]metabase.DeleteObjectsItem, 0, numAllowedObjectKeys),
 
-			TransmitEvent: endpoint.bucketEventing.Buckets.Enabled(keyInfo.ProjectID, string(req.Bucket)),
+			// Check both event types since we don't know beforehand whether objects will be deleted
+			// or delete markers will be created.
+			TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.Bucket), nil,
+				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated),
 		}
 
 		for _, item := range req.Items {

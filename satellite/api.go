@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
@@ -512,6 +513,28 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metainfo.Metabase = metabaseDB
 		config.Metainfo.SelfServePlacementSelectEnabled = config.Console.Placement.SelfServeEnabled
 
+		// Initialize bucket notification cache
+		var bucketEventingCache *eventing.ConfigCache
+		if config.BucketEventing.Cache.Address != "" {
+			bucketEventingCache, err = eventing.NewConfigCache(
+				peer.Log.Named("bucket-eventing-cache"),
+				peer.DB.Buckets(),
+				config.BucketEventing,
+			)
+			if err != nil {
+				peer.Log.Warn("Failed to initialize bucket notification cache, will continue without caching", zap.Error(err))
+				bucketEventingCache = nil
+			} else {
+				peer.Services.Add(lifecycle.Item{
+					Name: "bucket-eventing-cache",
+					Run:  bucketEventingCache.Ping,
+					Close: func() error {
+						return bucketEventingCache.Close()
+					},
+				})
+			}
+		}
+
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Buckets.Service,
@@ -538,6 +561,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Orders,
 			nodeSelectionStats,
 			config.BucketEventing,
+			bucketEventingCache,
 			peer.Entitlements.Service,
 			config.Entitlements,
 		)
