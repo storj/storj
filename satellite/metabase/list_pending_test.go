@@ -1409,9 +1409,6 @@ func TestListPendingObjects_Limit(t *testing.T) {
 
 		numberOfObjects := 0
 
-		const minVersion = -10000
-		const maxVersion = 10000
-
 		prefixes := []string{"", "aprefix/"}
 		for _, prefix := range prefixes {
 			for i := range 10 {
@@ -1419,7 +1416,7 @@ func TestListPendingObjects_Limit(t *testing.T) {
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					ObjectKey:  metabase.ObjectKey(prefix + "object" + strconv.Itoa(i)),
-					Version:    metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion),
+					Version:    randVersion(),
 					StreamID:   testrand.UUID(),
 				}, 0)
 				numberOfObjects++
@@ -1487,8 +1484,6 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 		projectID := testrand.UUID()
 
 		const amount = 23
-		const minVersion = -10000
-		const maxVersion = 10000
 
 		type TestCase struct {
 			Name       string
@@ -1511,7 +1506,7 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 							ProjectID:  projectID,
 							BucketName: metabase.BucketName(bucket),
 							ObjectKey:  metabase.ObjectKey(prefix + "object"),
-							Version:    metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion),
+							Version:    randVersion(),
 							StreamID:   testrand.UUID(),
 						}, 0)
 						expectedKeys[object.ObjectStream] = struct{}{}
@@ -1539,7 +1534,7 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 								ProjectID:  projectID,
 								BucketName: metabase.BucketName(bucket),
 								ObjectKey:  metabase.ObjectKey(prefix + fmt.Sprintf("object-%d", i)),
-								Version:    metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion),
+								Version:    randVersion(),
 								StreamID:   testrand.UUID(),
 							}, 0)
 							expectedKeys[object.ObjectStream] = struct{}{}
@@ -2133,4 +2128,15 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
 	})
+}
+
+func randVersion() metabase.Version {
+	const minVersion = -10000
+	const maxVersion = 10000
+
+	version := metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion)
+	if version == 0 {
+		version = 1
+	}
+	return version
 }
