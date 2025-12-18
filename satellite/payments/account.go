@@ -78,6 +78,9 @@ type Accounts interface {
 	// CalculateProjectUsagePrice calculates the price for given project usage and price model.
 	CalculateProjectUsagePrice(usage ProjectUsage, priceModel ProjectUsagePriceModel) UsageCost
 
+	// GetProjectUsagePriceModel returns the default project usage price model.
+	GetProjectUsagePriceModel() ProjectUsagePriceModel
+
 	// GetPlacementPriceModel returns the productID and related usage price model for a placement,
 	// if there is none defined for the project ID.
 	GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)

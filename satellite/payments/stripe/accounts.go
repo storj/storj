@@ -701,6 +701,11 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 	return charges, nil
 }
 
+// GetProjectUsagePriceModel returns the default project usage price model.
+func (accounts *accounts) GetProjectUsagePriceModel() payments.ProjectUsagePriceModel {
+	return accounts.service.pricingConfig.UsagePrices
+}
+
 // GetPlacementPriceModel returns the productID and related usage price model for a placement,
 // if there is none defined for the project ID.
 func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {

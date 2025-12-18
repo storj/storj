@@ -6850,6 +6850,11 @@ func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc stri
 	return nil
 }
 
+// GetProjectUsagePriceModel returns the default project usage price model.
+func (payment Payments) GetProjectUsagePriceModel() (_ payments.ProjectUsagePriceModel) {
+	return payment.service.accounts.GetProjectUsagePriceModel()
+}
+
 // GetPlacementPriceModel returns the product ID and related project usage price model for the project's placement.
 func (payment Payments) GetPlacementPriceModel(ctx context.Context, projectID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ payments.ProjectUsagePriceModel, _ error) {
 	user, err := GetUser(ctx)

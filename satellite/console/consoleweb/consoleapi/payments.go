@@ -646,6 +646,27 @@ func (p *Payments) WalletPaymentsWithConfirmations(w http.ResponseWriter, r *htt
 	}
 }
 
+// GetProjectUsagePriceModel returns the project usage price model for the user.
+func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	_, err = console.GetUser(ctx)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	pricing := p.service.Payments().GetProjectUsagePriceModel()
+
+	if err = json.NewEncoder(w).Encode(pricing); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // GetPlacementPriceModel returns the bucket usage price model for the placement.
 func (p *Payments) GetPlacementPriceModel(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
