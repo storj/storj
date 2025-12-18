@@ -261,7 +261,7 @@ test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}"
-update_access_script_path="$(version_dir "main")/testsuite/update-access.go"
+update_access_script_path="$(version_dir "main")/testsuite/update-access/main.go"
 
 # Uploading files to the network using the latest release version for each uplink version
 for ul_version in ${stage1_uplink_versions}; do

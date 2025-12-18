@@ -33,7 +33,7 @@ LINT_TARGET="./..."
 
 .PHONY: llint
 llint: ## Run all linting tools using local tools
-	go run ./scripts/lint.go \
+	go run ./scripts/lint/main.go \
 		-parallel 8 \
 		-race \
 		-modules \
@@ -63,6 +63,6 @@ lint: ## Run all linting tools with our CI image
 bump-lint: ## Bump all linting tools
 	curl https://raw.githubusercontent.com/storj/ci/refs/heads/main/images/tools | xargs -n1 go get -modfile ./scripts/go.mod -tool
 	curl https://raw.githubusercontent.com/storj/ci/refs/heads/main/images/internal-tools | xargs -n1 go get -modfile ./scripts/go.mod -tool
-	curl https://raw.githubusercontent.com/storj/ci/refs/heads/main/.golangci.yml -o .golangci.yml	
+	curl https://raw.githubusercontent.com/storj/ci/refs/heads/main/.golangci.yml -o .golangci.yml
 	cd scripts;\
 		go mod tidy;

@@ -1,8 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build ignore
-
 // Tests whether the uplink tool correctly times out when one of the storage nodes it's talking to
 // suddenly stops responding. In particular, this currently tests that happening during a Delete
 // operation, because that is where we have observed indefinite hangs before.
@@ -12,10 +10,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,12 +43,6 @@ func init() {
 	flag.Var(&fileSize, "file-size", "size of test file to use")
 }
 
-type randDefaultSource struct{}
-
-func (randSource *randDefaultSource) Read(p []byte) (int, error) {
-	return rand.Read(p)
-}
-
 func makeRandomContentsFile(path string, size memory.Size) (err error) {
 	outFile, err := os.Create(path)
 	if err != nil {
@@ -58,7 +51,8 @@ func makeRandomContentsFile(path string, size memory.Size) (err error) {
 	defer func() {
 		err = errs.Combine(err, outFile.Close())
 	}()
-	if _, err := io.CopyN(outFile, &randDefaultSource{}, int64(size)); err != nil {
+	r := &rand.ChaCha8{}
+	if _, err := io.CopyN(outFile, r, int64(size)); err != nil {
 		return err
 	}
 	return nil
@@ -93,7 +87,7 @@ func (ur *uplinkRunner) doesRemoteExist(remotePath string) (bool, error) {
 	}
 	bucketAndDir := strings.Join(pathParts[:len(pathParts)-1], "/")
 	filenamePart := []byte(pathParts[len(pathParts)-1])
-	output, err := ur.Run(nil, "ls", bucketAndDir)
+	output, err := ur.Run(context.Background(), "ls", bucketAndDir)
 	if err != nil {
 		return false, err
 	}
@@ -106,7 +100,7 @@ func (ur *uplinkRunner) doesRemoteExist(remotePath string) (bool, error) {
 }
 
 func storeFileAndCheck(uplink *uplinkRunner, srcFile, dstFile string) error {
-	if _, err := uplink.Run(nil, "cp", srcFile, dstFile); err != nil {
+	if _, err := uplink.Run(context.Background(), "cp", srcFile, dstFile); err != nil {
 		return errs.New("Could not copy file into storj-sim network: %v", err)
 	}
 	if exists, err := uplink.doesRemoteExist(dstFile); err != nil {
@@ -119,11 +113,11 @@ func storeFileAndCheck(uplink *uplinkRunner, srcFile, dstFile string) error {
 
 func stallNode(ctx context.Context, proc *os.Process) {
 	// send node a SIGSTOP, which causes it to freeze as if being traced
-	proc.Signal(syscall.SIGSTOP)
+	_ = proc.Signal(syscall.SIGSTOP)
 	// until the context is done
 	<-ctx.Done()
 	// then let the node continue again
-	proc.Signal(syscall.SIGCONT)
+	_ = proc.Signal(syscall.SIGCONT)
 }
 
 func deleteWhileStallingAndCheck(uplink *uplinkRunner, dstFile string, nodeProc *os.Process) error {
@@ -134,7 +128,7 @@ func deleteWhileStallingAndCheck(uplink *uplinkRunner, dstFile string, nodeProc 
 
 	output, err := uplink.Run(ctx, "rm", dstFile)
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			// (uplink did not time out, but this test did)
 			return errs.New("uplink DID NOT time out waiting for stalled node 0 while issuing a delete")
 		}
@@ -153,7 +147,7 @@ func deleteWhileStallingAndCheck(uplink *uplinkRunner, dstFile string, nodeProc 
 	return tryAgain
 }
 
-func runTest() error {
+func runTest(ctx context.Context) error {
 	// check run environment
 	configDir := os.Getenv("GATEWAY_0_DIR")
 	if configDir == "" {
@@ -184,14 +178,14 @@ func runTest() error {
 	if err := makeRandomContentsFile(srcFile, fileSize); err != nil {
 		return errs.New("could not create test file with random contents: %v", err)
 	}
-	if _, err := uplink.Run(nil, "mb", bucket); err != nil {
+	if _, err := uplink.Run(ctx, "mb", bucket); err != nil {
 		return errs.New("could not create test bucket: %v", err)
 	}
 	defer func() {
 		// explicitly ignoring errors here; we don't much care if they fail,
 		// because this is best-effort
-		_, _ = uplink.Run(nil, "rm", dstFile)
-		_, _ = uplink.Run(nil, "rb", bucket)
+		_, _ = uplink.Run(ctx, "rm", dstFile)
+		_, _ = uplink.Run(ctx, "rb", bucket)
 	}()
 
 	// run test
@@ -207,7 +201,7 @@ func runTest() error {
 			// success!
 			break
 		}
-		if err != tryAgain {
+		if !errors.Is(err, tryAgain) {
 			// unexpected error
 			return err
 		}
@@ -221,7 +215,7 @@ func runTest() error {
 func main() {
 	flag.Parse()
 
-	if err := runTest(); err != nil {
+	if err := runTest(context.Background()); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

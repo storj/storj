@@ -1,8 +1,6 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build ignore
-
 package main
 
 import (
@@ -97,7 +95,7 @@ func main() {
 			out, _ := cmd.CombinedOutput()
 			exitCode := cmd.ProcessState.ExitCode()
 			if exitCode > 0 {
-				log.Fatalln(prefix, "error", string(out))
+				log.Fatalln(prefix, "error", string(out)) //nolint:gocritic, it's fine to early stop
 			}
 		})
 	}
