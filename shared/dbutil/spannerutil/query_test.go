@@ -4,8 +4,11 @@
 package spannerutil
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -108,7 +111,7 @@ func TestQuerySchema(t *testing.T) {
 		},
 	}, schema.Indexes)
 
-	require.Equal(t, []*dbschema.Table{
+	expectedTables := []*dbschema.Table{
 		{
 			Name: "language_events",
 			Columns: []*dbschema.Column{
@@ -137,7 +140,7 @@ func TestQuerySchema(t *testing.T) {
 			PrimaryKey: []string{"added_at", "event", "admin"},
 			ForeignKeys: []*dbschema.ForeignKey{
 				{
-					Name:           "FK_language_events_languages_50B8A8E01FA990F9_1",
+					Name:           "FK_language_events_languages",
 					LocalColumns:   []string{"added_at"},
 					ForeignTable:   "languages",
 					ForeignColumns: []string{"added_at"},
@@ -174,7 +177,7 @@ func TestQuerySchema(t *testing.T) {
 			Unique:     [][]string{{"added_at"}},
 			ForeignKeys: []*dbschema.ForeignKey{
 				{
-					Name:           "FK_languages_languages_47C046CFFD9FFD1A_1",
+					Name:           "FK_languages_languages",
 					LocalColumns:   []string{"parent"},
 					ForeignTable:   "languages",
 					ForeignColumns: []string{"name"},
@@ -205,7 +208,7 @@ func TestQuerySchema(t *testing.T) {
 			PrimaryKey: []string{"letter", "language"},
 			ForeignKeys: []*dbschema.ForeignKey{
 				{
-					Name:           "FK_letters_languages_9130EA5FF4299669_1",
+					Name:           "FK_letters_languages",
 					LocalColumns:   []string{"language"},
 					ForeignTable:   "languages",
 					ForeignColumns: []string{"name"},
@@ -262,5 +265,16 @@ func TestQuerySchema(t *testing.T) {
 			PrimaryKey: []string{"id", "name"},
 			Unique:     [][]string{{"best_friend"}},
 		},
-	}, schema.Tables)
+	}
+
+	compareFKNames := cmp.Comparer(func(x, y dbschema.ForeignKey) bool {
+		// Consider names equal if one contains the other as expected Name contains only prefix.
+		if !strings.Contains(x.Name, y.Name) && !strings.Contains(y.Name, x.Name) {
+			return false
+		}
+
+		return cmp.Diff(x, y, cmpopts.IgnoreFields(dbschema.ForeignKey{}, "Name")) == ""
+	})
+
+	require.Empty(t, cmp.Diff(expectedTables, schema.Tables, compareFKNames))
 }
