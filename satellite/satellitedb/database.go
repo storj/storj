@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/admin/back-office/changehistory"
+	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/bucketmigrations"

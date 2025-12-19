@@ -22,50 +22,50 @@
 # admin peer http listening address
 # admin.address: ""
 
-# the oauth host allowed to bypass token authentication.
+# the oauth host allowed to host the backoffice.
 # admin.allowed-oauth-host: ""
 
 # max total JSON bytes recorded (0 = no limit)
-# admin.back-office.audit-logger.caps.max-bytes: 28672
+# admin.audit-logger.caps.max-bytes: 28672
 
 # max changed fields recorded per event (0 = no limit)
-# admin.back-office.audit-logger.caps.max-changes: 300
+# admin.audit-logger.caps.max-changes: 300
 
 # max struct depth to recurse when comparing (0 = no limit)
-# admin.back-office.audit-logger.caps.max-depth: 6
+# admin.audit-logger.caps.max-depth: 6
 
 # max map entries compared (0 = no limit)
-# admin.back-office.audit-logger.caps.max-map-entries: 200
+# admin.audit-logger.caps.max-map-entries: 200
 
 # max slice/array elements compared (0 = no limit)
-# admin.back-office.audit-logger.caps.max-slice-elements: 50
+# admin.audit-logger.caps.max-slice-elements: 50
 
 # max string length recorded (0 = no limit)
-# admin.back-office.audit-logger.caps.max-string-len: 512
+# admin.audit-logger.caps.max-string-len: 512
 
 # enable audit logging for admin operations
-# admin.back-office.audit-logger.enabled: false
-
-# an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
-# admin.back-office.static-dir: ""
-
-# the list of groups whose users has the administration role
-# admin.back-office.user-groups-role-admin: []
-
-# the list of groups whose users has the customer support role
-# admin.back-office.user-groups-role-customer-support: []
-
-# the list of groups whose users has the finance manager role
-# admin.back-office.user-groups-role-finance-manager: []
-
-# the list of groups whose users has the viewer role
-# admin.back-office.user-groups-role-viewer: []
+# admin.audit-logger.enabled: false
 
 # the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
-# admin.groups.limit-update: ""
+# admin.legacy.groups.limit-update: ""
 
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
+# admin.legacy.static-dir: ""
+
+# an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
 # admin.static-dir: ""
+
+# the list of groups whose users has the administration role
+# admin.user-groups-role-admin: []
+
+# the list of groups whose users has the customer support role
+# admin.user-groups-role-customer-support: []
+
+# the list of groups whose users has the finance manager role
+# admin.user-groups-role-finance-manager: []
+
+# the list of groups whose users has the viewer role
+# admin.user-groups-role-viewer: []
 
 # enable analytics reporting
 # analytics.enabled: false

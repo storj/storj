@@ -53,7 +53,7 @@ build-multinode-npm:
 build-satellite-admin-npm:
 	cd satellite/admin/ui && npm ci
 	# Temporary until the new back-office replaces the current admin API & UI
-	cd satellite/admin/back-office/ui && npm ci
+	cd satellite/admin/legacy/ui && npm ci
 
 ##@ Build
 
@@ -96,7 +96,7 @@ satellite-admin-ui:
 	# Temporary until the new back-office replaces the current admin API & UI
 	docker run --rm -i \
 		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
-		-w /go/src/storj.io/storj/satellite/admin/back-office/ui \
+		-w /go/src/storj.io/storj/satellite/admin/legacy/ui \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
 		node:${NODE_VERSION} \

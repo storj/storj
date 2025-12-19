@@ -1,41 +1,57 @@
-# Admin UI
+# essentials
 
-## Implementation details
+## Project setup
 
-This is a project based on the [Sveltekit](https://kit.svelte.dev).
+```
+# yarn
+yarn
 
-The project is set up with Typescript.
-
-The Web App is currently straightforward as we specified that v1 would be.
-
-The v1 is just a simple web page that exposes the Admin API through some forms and allow to a call the API without needing to use some HTTP REST clients (e.g. Postman, cURL, etc.).
-It doesn't offer any user authentication; the user has to know the API authorization token for using it.
-
-The UI has a set of Svelte components that collaborate together to render an HTML form with input elements from the Admin API client.
-The Svelte components expect some values of a certain Typescript interfaces, types, and classes, for being able to dynamically render the HTML form and elements.
-
-Each source has a brief doc comment about its functionality.
-
-## Development
-
-Install the dependencies...
-
-```bash
+# npm
 npm install
+
+# pnpm
+pnpm install
 ```
 
-...then run the development server with autoreload on changes
+### Compiles and hot-reloads for development
 
-```bash
+```
+# yarn
+yarn dev
+
+# npm
 npm run dev
+
+# pnpm
+pnpm dev
 ```
 
-Navigate to [localhost:3000](http://localhost:3000). You should see your app running.
+### Compiles and minifies for production
 
-## Building for production mode
+```
+# yarn
+yarn build
 
-To create an optimized version of the app:
-
-```bash
+# npm
 npm run build
+
+# pnpm
+pnpm build
 ```
+
+### Lints and fixes files
+
+```
+# yarn
+yarn lint
+
+# npm
+npm run lint
+
+# pnpm
+pnpm lint
+```
+
+### Customize configuration
+
+See [Configuration Reference](https://vitejs.dev/config/).

@@ -33,7 +33,7 @@ func TestGeneratedAPIs(t *testing.T) {
 	for _, genPath := range []string{
 		"satellite/console/consoleweb/consoleapi/gen",
 		"satellite/console/consoleweb/consoleapi/privateapi/gen",
-		"satellite/admin/back-office/gen",
+		"satellite/admin/gen",
 		"private/apigen/example",
 	} {
 		// generate files to test directory

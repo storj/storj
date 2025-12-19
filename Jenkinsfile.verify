@@ -69,9 +69,9 @@ pipeline {
                         sh './web/multinode/build-if-changed.sh'
                     }
                 }
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/ui/build-if-changed.sh'
+                        sh './satellite/admin/legacy/ui/build-if-changed.sh'
                     }
                 }
             }

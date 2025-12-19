@@ -23,8 +23,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/admin"
-	backoffice "storj.io/storj/satellite/admin/back-office"
-	"storj.io/storj/satellite/admin/back-office/auditlogger"
+	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -77,7 +76,7 @@ type Admin struct {
 	Admin struct {
 		Listener net.Listener
 		Server   *admin.Server
-		Service  *backoffice.Service
+		Service  *admin.Service
 	}
 
 	Buckets struct {
@@ -304,11 +303,11 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		}
 
 		adminConfig := config.Admin
-		adminConfig.AuthorizationToken = config.Console.AuthToken
-		adminConfig.BackOffice.AllowedOauthHost = adminConfig.AllowedOauthHost
+		adminConfig.Legacy.AuthorizationToken = config.Console.AuthToken
+		adminConfig.Legacy.AllowedOauthHost = adminConfig.AllowedOauthHost
 		if config.PendingDeleteCleanup.Enabled {
-			adminConfig.BackOffice.PendingDeleteUserCleanupEnabled = config.PendingDeleteCleanup.User.Enabled
-			adminConfig.BackOffice.PendingDeleteProjectCleanupEnabled = config.PendingDeleteCleanup.Project.Enabled
+			adminConfig.PendingDeleteUserCleanupEnabled = config.PendingDeleteCleanup.User.Enabled
+			adminConfig.PendingDeleteProjectCleanupEnabled = config.PendingDeleteCleanup.Project.Enabled
 		}
 
 		productPrices, err := config.Payments.Products.ToModels()
@@ -316,8 +315,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		logger := auditlogger.New(log.Named("audit-logger"), peer.Analytics.Service, peer.DB.AdminChangeHistory(), config.Admin.BackOffice.AuditLogger)
-		if config.Admin.BackOffice.AuditLogger.Enabled {
+		logger := auditlogger.New(log.Named("audit-logger"), peer.Analytics.Service, peer.DB.AdminChangeHistory(), config.Admin.AuditLogger)
+		if config.Admin.AuditLogger.Enabled {
 			peer.Services.Add(lifecycle.Item{
 				Name:  "admin-audit-logger",
 				Run:   logger.Run,
@@ -325,14 +324,14 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			})
 		}
 
-		peer.Admin.Service = backoffice.NewService(
-			log.Named("back-office:service"),
+		peer.Admin.Service = admin.NewService(
+			log.Named("admin:service"),
 			peer.DB.Console(),
 			peer.DB.AdminChangeHistory(),
 			db.Attribution(),
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.Service,
-			backoffice.NewAuthorizer(log.Named("back-office:auth"), adminConfig.BackOffice),
+			admin.NewAuthorizer(log.Named("admin:auth"), adminConfig),
 			peer.FreezeAccounts.Service,
 			peer.Analytics.Service,
 			peer.Buckets.Service,
@@ -345,7 +344,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			productPrices,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.Metainfo.RateLimiter.Rate,
-			adminConfig.BackOffice,
+			adminConfig,
 			config.Console.Config,
 			time.Now,
 		)

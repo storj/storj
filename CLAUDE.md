@@ -210,7 +210,7 @@ return Error.New("description")  // Create new errors
 - Update proto definitions if needed
 
 **Admin API**:
-- Add endpoints in `satellite/admin/back-office/`
+- Add endpoints in `satellite/admin/`
 
 ### Running Local Development Environment
 
@@ -258,6 +258,6 @@ See `DEVELOPING.md` for detailed instructions:
 - **CONTRIBUTING.md**: How to contribute code and report issues
 - **docs/testplan/**: Test plan templates and existing test plans
 - **satellite/console/consoleweb/consoleapi/apidocs.gen.md**: Console API reference
-- **satellite/admin/back-office/api-docs.gen.md**: Admin API reference
+- **satellite/admin/api-docs.gen.md**: Admin API reference
 - Design documents: https://github.com/storj/design-docs
 

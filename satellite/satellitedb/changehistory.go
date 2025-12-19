@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/admin/back-office/changehistory"
+	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 

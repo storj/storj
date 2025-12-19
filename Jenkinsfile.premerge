@@ -72,9 +72,9 @@ pipeline {
                     }
                 }
 
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/ui/build.sh'
+                        sh './satellite/admin/legacy/ui/build.sh'
                     }
                 }
             }
@@ -279,17 +279,17 @@ pipeline {
                     }
                 }
 
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        dir("satellite/admin/ui") {
+                        dir("satellite/admin/legacy/ui") {
                             sh script: 'npm audit', returnStatus: true
                         }
                     }
                 }
 
-                stage('satellite/admin/back-office/ui') {
+                stage('satellite/admin/ui') {
                     steps {
-                        dir("satellite/admin/back-office/ui") {
+                        dir("satellite/admin/ui") {
                             sh 'npm install --prefer-offline --no-audit --loglevel verbose'
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true

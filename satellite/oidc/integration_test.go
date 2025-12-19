@@ -97,7 +97,7 @@ func TestOIDC(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
-		adminAddr := sat.Admin.Admin.Listener.Addr().String()
+		adminAddr := sat.Admin.Admin.Listener.Addr().String() + "/legacy"
 		consoleAddr := sat.API.Console.Listener.Addr().String()
 
 		issuer := "http://" + consoleAddr + "/"

@@ -64,9 +64,9 @@ pipeline {
                     }
                 }
 
-                stage('satellite/admin/ui') {
+                stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/ui/build.sh'
+                        sh './satellite/admin/legacy/ui/build.sh'
                     }
                 }
             }

@@ -30,8 +30,8 @@ import (
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/satellite/admin"
-	"storj.io/storj/satellite/admin/back-office/changehistory"
+	backoffice "storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
@@ -187,7 +187,7 @@ type Config struct {
 
 	Placement nodeselection.ConfigurablePlacementRule `help:"detailed placement rules in the form 'id:definition;id:definition;...' where id is a 16 bytes integer (use >10 for backward compatibility), definition is a combination of the following functions:country(2 letter country codes,...), tag(nodeId, key, bytes(value)) all(...,...)."`
 
-	Admin admin.Config
+	Admin backoffice.Config
 
 	Contact      contact.Config
 	Overlay      overlay.Config
