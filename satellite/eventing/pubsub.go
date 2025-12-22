@@ -17,6 +17,7 @@ import (
 // Publisher defines an interface for publishing events.
 type Publisher interface {
 	Publish(ctx context.Context, event any) error
+	TopicName() string
 	io.Closer
 }
 
@@ -38,7 +39,6 @@ func NewPublisher(ctx context.Context, topicName string) (Publisher, error) {
 }
 
 // PubSubConfig holds configuration for Pub/Sub publisher.
-// TODO: later we need to use per-bucket destinations.
 type PubSubConfig struct {
 	ProjectID string `help:"GCP project ID for Pub/Sub" required:"true"`
 	TopicID   string `help:"GCP Pub/Sub topic to publish to" required:"true"`
@@ -73,6 +73,14 @@ func (p *PubSubPublisher) Publish(ctx context.Context, event any) error {
 	return errs.Wrap(err)
 }
 
+// TopicName returns the fully-qualified topic name for this publisher.
+func (p *PubSubPublisher) TopicName() string {
+	if p.publisher == nil {
+		return ""
+	}
+	return p.publisher.String()
+}
+
 // Close releases underlying Pub/Sub resources.
 func (p *PubSubPublisher) Close() error {
 	if p == nil {
@@ -105,6 +113,11 @@ func NewLogPublisher(log *zap.Logger) *LogPublisher {
 func (l *LogPublisher) Publish(ctx context.Context, event any) error {
 	l.log.Info("Publishing event", zap.Any("event", event))
 	return nil
+}
+
+// TopicName returns the special topic name for log publishers.
+func (l *LogPublisher) TopicName() string {
+	return "@log"
 }
 
 // Close is a no-op for LogPublisher.

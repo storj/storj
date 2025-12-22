@@ -12,10 +12,12 @@ import (
 func Module(ball *mud.Ball) {
 	mud.Provide[*Service](ball, NewService)
 	config.RegisterConfig[Config](ball, "change-stream")
+
 	mud.Provide[*CachedPublicProjectIDs](ball, NewCachedPublicProjectIDs)
-	mud.RegisterInterfaceImplementation[PublicProjectIDer, *CachedPublicProjectIDs](ball)
+	mud.RegisterInterfaceImplementation[PublicProjectIDGetter, *CachedPublicProjectIDs](ball)
 
 	mud.Provide[*ConfigCache](ball, NewConfigCache)
+	mud.RegisterInterfaceImplementation[BucketNotificationConfigGetter, *ConfigCache](ball)
 
 	config.RegisterConfig[PubSubConfig](ball, "change-stream.pubsub")
 	mud.Provide[*PubSubPublisher](ball, NewPubSubPublisher)

@@ -59,4 +59,4 @@ func (p *CachedPublicProjectIDs) GetPublicID(ctx context.Context, id uuid.UUID) 
 	return publicID, nil
 }
 
-var _ PublicProjectIDer = &CachedPublicProjectIDs{}
+var _ PublicProjectIDGetter = &CachedPublicProjectIDs{}
