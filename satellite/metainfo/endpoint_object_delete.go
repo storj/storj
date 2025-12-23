@@ -146,9 +146,9 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		// Info about deleted object is returned only if either Read, or List permission is granted
 		if err != nil {
 			endpoint.log.Error("failed to construct deleted object information",
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
-				zap.Stringer("Bucket", metabase.BucketName(req.Bucket)),
-				zap.String("Encrypted Path", string(req.EncryptedObjectKey)),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
+				zap.Stringer("bucket", metabase.BucketName(req.Bucket)),
+				zap.String("encrypted_path", string(req.EncryptedObjectKey)),
 				zap.Error(err),
 			)
 		}
@@ -160,7 +160,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		}
 	}
 
-	endpoint.log.Debug("Object Delete", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "delete"), zap.String("type", "object"))
+	endpoint.log.Debug("Object Delete", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "delete"), zap.String("type", "object"))
 	mon.Meter("req_delete_object").Mark(1)
 
 	return &pb.ObjectBeginDeleteResponse{
@@ -427,8 +427,8 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 		deleteObjectsResult, err := endpoint.metabase.DeleteObjects(ctx, deleteObjectsOpts)
 		if err != nil {
 			endpoint.log.Error("error deleting objects",
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
-				zap.Stringer("Bucket", metabase.BucketName(req.Bucket)),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
+				zap.Stringer("bucket", metabase.BucketName(req.Bucket)),
 				zap.Error(err),
 			)
 		}

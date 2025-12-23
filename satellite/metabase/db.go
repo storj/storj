@@ -168,7 +168,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		}
 
 		if log.Level() == zap.DebugLevel {
-			log.Debug("Connected", zap.String("db source", logging.Redacted(connstr)), zap.Int("db adapter ordinal", i))
+			log.Debug("Connected", zap.String("db_source", logging.Redacted(connstr)), zap.Int("db_adapter_ordinal", i))
 		}
 	}
 

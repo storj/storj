@@ -170,7 +170,7 @@ func TestOrderFileStoreSettle_UntrustedSatellite(t *testing.T) {
 		require.NotZero(t, observedLogs.All())
 		skipLogs := observedLogs.FilterMessage("skipping order settlement for untrusted satellite. Order will be archived").All()
 		require.Len(t, skipLogs, 1)
-		logFields := observedLogs.FilterField(zap.String("satellite ID", satellite2.ID().String())).All()
+		logFields := observedLogs.FilterField(zap.String("satellite_id", satellite2.ID().String())).All()
 		require.Len(t, logFields, 1)
 
 		toSend, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)

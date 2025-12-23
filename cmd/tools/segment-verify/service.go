@@ -243,7 +243,7 @@ func (service *Service) parseNodeFile(path string) (NodeAliasSet, error) {
 
 		alias, ok := service.aliasMap.Alias(nodeID)
 		if !ok {
-			service.log.Info("node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
+			service.log.Info("node ID not used", zap.Stringer("node_id", nodeID), zap.Error(err))
 			continue
 		}
 
@@ -592,7 +592,7 @@ func (service *Service) RemoveDeleted(ctx context.Context, segments []*Segment) 
 			continue
 		}
 		if err != nil {
-			service.log.Error("get segment by id failed", zap.Stringer("stream-id", seg.StreamID), zap.String("position", fmt.Sprint(seg.Position)))
+			service.log.Error("get segment by id failed", zap.Stringer("stream_id", seg.StreamID), zap.String("position", fmt.Sprint(seg.Position)))
 			if ctx.Err() != nil {
 				return valid, ctx.Err()
 			}

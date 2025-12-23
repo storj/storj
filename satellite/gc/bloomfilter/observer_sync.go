@@ -101,8 +101,8 @@ func (obs *SyncObserver) Finish(ctx context.Context) (err error) {
 	}
 
 	obs.log.Info("collecting bloom filters finished",
-		zap.Int("inline segments", obs.inlineCount),
-		zap.Int("remote segments", obs.remoteCount))
+		zap.Int("inline_segments", obs.inlineCount),
+		zap.Int("remote_segments", obs.remoteCount))
 
 	return nil
 }
@@ -134,9 +134,9 @@ func (obs *SyncObserver) Process(ctx context.Context, segments []rangedloop.Segm
 
 		// sanity check to detect if loop is not running against live database
 		if segment.CreatedAt.After(obs.startTime) {
-			obs.log.Error("segment created after loop started", zap.Stringer("StreamID", segment.StreamID),
-				zap.Time("loop started", obs.startTime),
-				zap.Time("segment created", segment.CreatedAt))
+			obs.log.Error("segment created after loop started", zap.Stringer("stream_id", segment.StreamID),
+				zap.Time("loop_started", obs.startTime),
+				zap.Time("segment_created", segment.CreatedAt))
 			return errs.New("segment created after loop started")
 		}
 

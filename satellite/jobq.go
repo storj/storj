@@ -158,7 +158,7 @@ func NewJobq(log *zap.Logger, identity *identity.FullIdentity, atomicLogLevel *z
 	}
 
 	{ // setup endpoint
-		log.Debug("initializing job queue", zap.Uint64("elements before queue resize", initElements), zap.Uint64("element mem release threshold", memReleaseThreshold))
+		log.Debug("initializing job queue", zap.Uint64("elements_before_queue_resize", initElements), zap.Uint64("element_mem_release_threshold", memReleaseThreshold))
 
 		queueFactory := func(placement storj.PlacementConstraint) (*jobqueue.Queue, error) {
 			return jobqueue.NewQueue(log.Named(fmt.Sprintf("placement-%d", placement)), config.RetryAfter, int(initElements), int(maxElements), int(memReleaseThreshold))

@@ -167,7 +167,7 @@ func TestFlightRecorder(t *testing.T) {
 				found := false
 				for _, entry := range warnEntries {
 					ctx := entry.ContextMap()
-					if ctx["eventType"] == "Unknown" {
+					if ctx["event_type"] == "Unknown" {
 						found = true
 						break
 					}

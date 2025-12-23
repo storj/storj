@@ -290,9 +290,9 @@ func TestFetchingInfoWhileEntryIsSyncing(t *testing.T) {
 			require.Zero(t, queriesFromCSeeingDirty)
 
 			logger.Debug("round complete",
-				zap.Int("B queries", queriesFromB),
-				zap.Int("B queries observing dirty state", queriesFromBSeeingDirty),
-				zap.Int("C queries", queriesFromC))
+				zap.Int("b_queries", queriesFromB),
+				zap.Int("b_queries_observing_dirty_state", queriesFromBSeeingDirty),
+				zap.Int("c_queries", queriesFromC))
 		}
 	})
 }

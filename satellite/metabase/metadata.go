@@ -78,8 +78,8 @@ func (db *DB) UpdateObjectLastCommittedMetadata(ctx context.Context, opts Update
 
 	if affected > 1 {
 		db.log.Warn("object with multiple committed versions were found!",
-			zap.Stringer("Project ID", opts.ProjectID), zap.Stringer("Bucket Name", opts.BucketName),
-			zap.String("Object Key", string(opts.ObjectKey)), zap.Stringer("Stream ID", opts.StreamID))
+			zap.Stringer("project_id", opts.ProjectID), zap.Stringer("bucket_name", opts.BucketName),
+			zap.String("object_key", string(opts.ObjectKey)), zap.Stringer("stream_id", opts.StreamID))
 		mon.Meter("multiple_committed_versions").Mark(1)
 	}
 

@@ -48,7 +48,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	return chore.TransactionCycle.Run(ctx, func(ctx context.Context) error {
 		if chore.disableLoop {
-			chore.log.Debug("Skipping chore iteration as loop is disabled", zap.Bool("disableLoop", chore.disableLoop))
+			chore.log.Debug("Skipping chore iteration as loop is disabled", zap.Bool("disable_loop", chore.disableLoop))
 			return nil
 		}
 
@@ -86,12 +86,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 						status = payments.PaymentStatusPending
 					}
 					chore.log.Debug("received new payments from storjscan",
-						zap.Int64("Chain ID", payment.ChainID),
-						zap.String("Block Hash", payment.BlockHash.Hex()),
-						zap.String("Transaction Hash", payment.Transaction.Hex()),
-						zap.Int64("Block Number", payment.BlockNumber),
-						zap.Int("Log Index", payment.LogIndex),
-						zap.String("USD Value", payment.USDValue.AsDecimal().String()))
+						zap.Int64("chain_id", payment.ChainID),
+						zap.String("block_hash", payment.BlockHash.Hex()),
+						zap.String("transaction_hash", payment.Transaction.Hex()),
+						zap.Int64("block_number", payment.BlockNumber),
+						zap.Int("log_index", payment.LogIndex),
+						zap.String("usd_value", payment.USDValue.AsDecimal().String()))
 					cachedPayments = append(cachedPayments, CachedPayment{
 						ChainID:     payment.ChainID,
 						From:        payment.From,

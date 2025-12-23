@@ -366,10 +366,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // version setup
 		if !versionInfo.IsZero() {
 			peer.Log.Debug("Version info",
-				zap.Stringer("Version", versionInfo.Version.Version),
-				zap.String("Commit Hash", versionInfo.CommitHash),
-				zap.Stringer("Build Timestamp", versionInfo.Timestamp),
-				zap.Bool("Release Build", versionInfo.Release),
+				zap.Stringer("version", versionInfo.Version.Version),
+				zap.String("commit_hash", versionInfo.CommitHash),
+				zap.Stringer("build_timestamp", versionInfo.Timestamp),
+				zap.Bool("release_build", versionInfo.Release),
 			)
 		}
 

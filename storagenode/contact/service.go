@@ -171,16 +171,16 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 		if err == nil {
 			return nil
 		}
-		service.log.Error("ping satellite failed ", zap.Stringer("Satellite ID", satellite), zap.Int("attempts", attempts), zap.Error(err))
+		service.log.Error("ping satellite failed ", zap.Stringer("satellite_id", satellite), zap.Int("attempts", attempts), zap.Error(err))
 
 		// Sleeps until interval times out, then continue. Returns if context is cancelled.
 		if !sync2.Sleep(ctx, interval) {
-			service.log.Info("context cancelled", zap.Stringer("Satellite ID", satellite))
+			service.log.Info("context cancelled", zap.Stringer("satellite_id", satellite))
 			return nil
 		}
 		interval *= 2
 		if interval >= maxInterval {
-			service.log.Info("retries timed out for this cycle", zap.Stringer("Satellite ID", satellite))
+			service.log.Info("retries timed out for this cycle", zap.Stringer("satellite_id", satellite))
 			return nil
 		}
 	}
@@ -233,7 +233,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID, 
 	}
 
 	if resp.PingErrorMessage != "" {
-		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("Satellite ID", id), zap.String("Error", resp.GetPingErrorMessage()))
+		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("satellite_id", id), zap.String("error", resp.GetPingErrorMessage()))
 	}
 
 	service.mu.Lock()
@@ -276,7 +276,7 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats
 		if err != nil {
 			stats.SetStatus(false)
 			// log warning and try the next trusted satellite
-			service.log.Warn("failed PingMe request to satellite", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+			service.log.Warn("failed PingMe request to satellite", zap.Stringer("satellite_id", satellite), zap.Error(err))
 			continue
 		}
 

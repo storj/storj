@@ -102,7 +102,7 @@ func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp
 
 // Start fetches the initial segments count.
 func (s *SegmentsCountValidation) Start(ctx context.Context, startTime time.Time) error {
-	s.log.Info("starting segments count validation", zap.Time("check timestamp", s.checkTimestamp))
+	s.log.Info("starting segments count validation", zap.Time("check_timestamp", s.checkTimestamp))
 
 	stats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
 	if err != nil {
@@ -144,9 +144,9 @@ func (s *SegmentsCountValidation) Finish(ctx context.Context) error {
 	if s.initialStats.SegmentCount != finalStats.SegmentCount || s.initialStats.SegmentCount != totalProcessed {
 		s.log.Warn("segments count validation failed",
 			zap.Int64("processed", totalProcessed),
-			zap.Any("processed by source", s.processedSegments),
-			zap.String("initial stats", fmt.Sprintf("%d %v", s.initialStats.SegmentCount, s.initialStats.PerAdapterSegmentCount)),
-			zap.String("final stats", fmt.Sprintf("%d %v", finalStats.SegmentCount, finalStats.PerAdapterSegmentCount)))
+			zap.Any("processed_by_source", s.processedSegments),
+			zap.String("initial_stats", fmt.Sprintf("%d %v", s.initialStats.SegmentCount, s.initialStats.PerAdapterSegmentCount)),
+			zap.String("final_stats", fmt.Sprintf("%d %v", finalStats.SegmentCount, finalStats.PerAdapterSegmentCount)))
 	}
 
 	return nil

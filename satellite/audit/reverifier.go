@@ -242,7 +242,7 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	}
 	// check for the correct size
 	if int64(len(pieceData)) != pieceSize {
-		logger.Info("ReverifyPiece: audit failure; downloaded piece has incorrect size", zap.Int64("expected-size", pieceSize), zap.Int("received-size", len(pieceData)))
+		logger.Info("ReverifyPiece: audit failure; downloaded piece has incorrect size", zap.Int64("expected_size", pieceSize), zap.Int("received_size", len(pieceData)))
 		outcome = OutcomeFailure
 		// continue to run, so we can check if the piece was legitimately changed before
 		// blaming the node
@@ -308,7 +308,7 @@ func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedO
 	}
 
 	targetNodeID := limit.GetLimit().StorageNodeId
-	log := reverifier.log.With(zap.Stringer("node-id", targetNodeID), zap.Stringer("piece-id", limit.GetLimit().PieceId))
+	log := reverifier.log.With(zap.Stringer("node_id", targetNodeID), zap.Stringer("piece_id", limit.GetLimit().PieceId))
 	var ps *piecestore.Client
 
 	// if cached IP is given, try connecting there first
@@ -319,7 +319,7 @@ func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedO
 		}
 		ps, err = piecestore.Dial(timedCtx, reverifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
-			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
+			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached_ip_and_port", cachedIPAndPort), zap.Error(err))
 		}
 	}
 

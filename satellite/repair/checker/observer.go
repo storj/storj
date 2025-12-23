@@ -392,7 +392,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 	fork.totalStats[segment.Placement].remoteSegmentsChecked++
 	stats.iterationAggregates.remoteSegmentsChecked++
 
-	log := fork.log.With(zap.Object("Segment", segment))
+	log := fork.log.With(zap.Object("segment", segment))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	segmentsBelowMinReqCounter.Inc(0)
@@ -519,8 +519,8 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 			return nil
 		}
 
-		log := log.With(zap.Int16("Repair Threshold", adjustedRedundancy.RepairShares), zap.Int16("Success Threshold", adjustedRedundancy.OptimalShares),
-			zap.Int("Total Pieces", len(pieces)), zap.Int16("Min Required", adjustedRedundancy.RequiredShares))
+		log := log.With(zap.Int16("repair_threshold", adjustedRedundancy.RepairShares), zap.Int16("success_threshold", adjustedRedundancy.OptimalShares),
+			zap.Int("total_pieces", len(pieces)), zap.Int16("min_required", adjustedRedundancy.RequiredShares))
 
 		switch {
 		case piecesCheck.Retrievable.Count() < int(adjustedRedundancy.RequiredShares):
@@ -551,7 +551,7 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 				}
 			}
 			log.Warn("checker found irreparable segment",
-				zap.String("Unavailable Node IDs", strings.Join(missingNodes, ",")))
+				zap.String("unavailable_node_ids", strings.Join(missingNodes, ",")))
 
 		case piecesCheck.Clumped.Count() > 0 && piecesCheck.Healthy.Count()+piecesCheck.Clumped.Count() > int(adjustedRedundancy.RepairShares) &&
 			piecesCheck.ForcingRepair.Count() == 0:
@@ -565,9 +565,9 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 			}
 			clumpedNets := clumpingReport{lastNets: lastNets}
 			log.Debug("segment needs repair only because of clumping",
-				zap.Stringer("Clumping", &clumpedNets))
+				zap.Stringer("clumping", &clumpedNets))
 		default:
-			log.Debug("segment requires repair", zap.Object("Classification", piecesCheck))
+			log.Debug("segment requires repair", zap.Object("classification", piecesCheck))
 		}
 
 		return nil

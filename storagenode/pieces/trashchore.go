@@ -81,13 +81,13 @@ func (chore *TrashChore) Run(ctx context.Context) (err error) {
 				defer func() { <-limiter }()
 
 				timeStart := time.Now()
-				chore.log.Info("emptying trash started", zap.Stringer("Satellite ID", satellite))
+				chore.log.Info("emptying trash started", zap.Stringer("satellite_id", satellite))
 				trashedBefore := time.Now().Add(-chore.trashExpiryInterval)
 				err := chore.store.EmptyTrash(ctx, satellite, trashedBefore)
 				if err != nil {
 					chore.log.Error("emptying trash failed", zap.Error(err))
 				} else {
-					chore.log.Info("emptying trash finished", zap.Stringer("Satellite ID", satellite), zap.Duration("elapsed", time.Since(timeStart)))
+					chore.log.Info("emptying trash finished", zap.Stringer("satellite_id", satellite), zap.Duration("elapsed", time.Since(timeStart)))
 				}
 			})
 			if !ok {
@@ -135,12 +135,12 @@ func (chore *TrashChore) StartRestore(ctx context.Context, satellite storj.NodeI
 	place.Start(chore.root, jobRestoreTrash, func(jobID interface{}) bool {
 		return jobID == jobEmptyTrash
 	}, func(ctx context.Context) {
-		chore.log.Info("restore trash started", zap.Stringer("Satellite ID", satellite))
+		chore.log.Info("restore trash started", zap.Stringer("satellite_id", satellite))
 		err := chore.store.RestoreTrash(ctx, satellite)
 		if err != nil {
-			chore.log.Error("restore trash failed", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+			chore.log.Error("restore trash failed", zap.Stringer("satellite_id", satellite), zap.Error(err))
 		} else {
-			chore.log.Info("restore trash finished", zap.Stringer("Satellite ID", satellite))
+			chore.log.Info("restore trash finished", zap.Stringer("satellite_id", satellite))
 		}
 	})
 

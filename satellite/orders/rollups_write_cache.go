@@ -200,11 +200,11 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 	if !ok && len(cache.pendingRollups) >= cache.batchSize {
 		mon.Event("rollups_write_cache_update_lost")
 		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand",
-			zap.Stringer("ProjectID", projectID),
-			zap.Stringer("Action", action),
-			zap.Int64("Allocated", allocated),
-			zap.Int64("Inline", inline),
-			zap.Int64("Settled", settled),
+			zap.Stringer("project_id", projectID),
+			zap.Stringer("action", action),
+			zap.Int64("allocated", allocated),
+			zap.Int64("inline", inline),
+			zap.Int64("settled", settled),
 		)
 	} else {
 

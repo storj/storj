@@ -644,7 +644,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			if firstInvite.InviterID != nil {
 				inviter, err := a.service.GetUser(ctx, *firstInvite.InviterID)
 				if err != nil {
-					a.log.Error("Error getting inviter info", zap.String("ID", firstInvite.InviterID.String()), zap.Error(err))
+					a.log.Error("Error getting inviter info", zap.String("id", firstInvite.InviterID.String()), zap.Error(err))
 				} else {
 					a.analytics.TrackInviteLinkSignup(inviter.Email, registerData.Email)
 				}

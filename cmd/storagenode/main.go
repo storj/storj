@@ -16,7 +16,7 @@ import (
 
 func main() {
 	logger, _, _ := process.NewLogger("storagenode")
-	zap.ReplaceGlobals(logger.With(zap.String("Process", "storagenode")))
+	zap.ReplaceGlobals(logger.With(zap.String("process", "storagenode")))
 
 	process.SetHardcodedApplicationName("storagenode")
 
@@ -28,7 +28,7 @@ func main() {
 	}
 
 	loggerFunc := func(logger *zap.Logger) *zap.Logger {
-		return logger.With(zap.String("Process", rootCmd.Use))
+		return logger.With(zap.String("process", rootCmd.Use))
 	}
 
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{

@@ -119,7 +119,7 @@ func (c *CustomerioNotifier) Notify(ctx context.Context, satellite string, event
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
-	c.log.Info("batch sent to customer.io", zap.String("email", email), zap.String("event", eventName), zap.String("node IDs", nodeIDs))
+	c.log.Info("batch sent to customer.io", zap.String("email", email), zap.String("event", eventName), zap.String("node_ids", nodeIDs))
 
 	if resp.StatusCode != http.StatusOK {
 		return errs.New("unexpected status code: %d", resp.StatusCode)

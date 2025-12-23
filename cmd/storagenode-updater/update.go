@@ -24,10 +24,10 @@ func update(ctx context.Context, standalone bool, restartMethod, serviceName, bi
 		return errs.Wrap(err)
 	}
 
-	log := zap.L().With(zap.String("Service", serviceName))
+	log := zap.L().With(zap.String("service", serviceName))
 
 	log.Info("Current binary version",
-		zap.String("Version", currentVersion.String()),
+		zap.String("version", currentVersion.String()),
 	)
 
 	// should update
@@ -110,10 +110,10 @@ func copyToStore(binaryLocation, storeDir string) error {
 
 	storeLocation := filepath.Join(storeDir, base)
 
-	log := zap.L().With(zap.String("Service", "copyToStore"))
+	log := zap.L().With(zap.String("service", "copyToStore"))
 
 	// copy binary to store
-	log.Info("Copying binary to store.", zap.String("From", binaryLocation), zap.String("To", storeLocation))
+	log.Info("Copying binary to store.", zap.String("from", binaryLocation), zap.String("to", storeLocation))
 	src, err := os.Open(binaryLocation)
 	if err != nil {
 		return errs.Wrap(err)
@@ -136,7 +136,7 @@ func copyToStore(binaryLocation, storeDir string) error {
 		return errs.Wrap(err)
 	}
 
-	log.Info("Binary copied to store.", zap.String("From", binaryLocation), zap.String("To", storeLocation))
+	log.Info("Binary copied to store.", zap.String("from", binaryLocation), zap.String("to", storeLocation))
 
 	return nil
 }
@@ -152,9 +152,9 @@ func restartAndCleanup(ctx context.Context, log *zap.Logger, standalone bool, re
 		log.Info("Service restarted successfully.")
 	}
 
-	log.Info("Cleaning up old binary.", zap.String("Path", backupPath))
+	log.Info("Cleaning up old binary.", zap.String("path", backupPath))
 	if err := os.Remove(backupPath); err != nil && !errs.Is(err, os.ErrNotExist) {
-		log.Error("Failed to remove backup binary. Consider removing manually.", zap.String("Path", backupPath), zap.Error(err))
+		log.Error("Failed to remove backup binary. Consider removing manually.", zap.String("path", backupPath), zap.Error(err))
 	}
 
 	if exit {

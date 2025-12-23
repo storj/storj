@@ -68,7 +68,7 @@ func cmdInfo(cmd *cobra.Command, cfg *nodeInfoCfg) (err error) {
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", identity.ID))
+		zap.L().Info("Identity loaded.", zap.Stringer("node_id", identity.ID))
 	}
 
 	db, err := storagenodedb.OpenExisting(ctx, zap.L().Named("db"), cfg.DatabaseConfig())

@@ -104,7 +104,7 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	for nodeAlias, count := range observer.pieceCounts {
 		nodeID, ok := nodeAliasMap.Node(nodeAlias)
 		if !ok {
-			observer.log.Error("unrecognized node alias in piecetracker ranged-loop", zap.Int32("node-alias", int32(nodeAlias)))
+			observer.log.Error("unrecognized node alias in piecetracker ranged-loop", zap.Int32("node_alias", int32(nodeAlias)))
 			continue
 		}
 		nodesToUpdate[nodeID] = count

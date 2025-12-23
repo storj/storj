@@ -49,7 +49,7 @@ func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *stri
 		return nodeEvent, err
 	}
 
-	ne.db.log.Info("node event inserted", zap.String("name", name), zap.String("email", email), zap.String("node ID", nodeID.String()))
+	ne.db.log.Info("node event inserted", zap.String("name", name), zap.String("email", email), zap.String("node_id", nodeID.String()))
 
 	return fromDBX(entry)
 }

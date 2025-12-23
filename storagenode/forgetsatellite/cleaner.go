@@ -50,7 +50,7 @@ func NewCleaner(log *zap.Logger, store *pieces.Store, trust *trust.Pool, usageCa
 func (c *Cleaner) Run(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx, satelliteID)(&err)
 
-	logger := c.log.With(zap.Stringer("satelliteID", satelliteID))
+	logger := c.log.With(zap.Stringer("satellite_id", satelliteID))
 
 	defer func() {
 		if err != nil {

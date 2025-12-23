@@ -78,7 +78,7 @@ func (reporter *DBReporter) RecordAudits(ctx context.Context, req Report) {
 
 	logger := reporter.log
 	if req.Segment != nil {
-		logger = logger.With(zap.Stringer("stream ID", req.Segment.StreamID), zap.Uint64("position", req.Segment.Position.Encode()))
+		logger = logger.With(zap.Stringer("stream_id", req.Segment.StreamID), zap.Uint64("position", req.Segment.Position.Encode()))
 	}
 	logger.Debug("Reporting audits",
 		zap.Int("successes", len(successes)),
@@ -218,7 +218,7 @@ func (reporter *DBReporter) recordFailedAudits(
 		// problem is more likely with the audit system itself and not with the pieces.
 		if len(piecesToRemove) > maxPiecesToRemoveAtOnce {
 			reporter.log.Error("cowardly refusing to remove large number of pieces for failed audit",
-				zap.Int("piecesToRemove", len(piecesToRemove)),
+				zap.Int("pieces_to_remove", len(piecesToRemove)),
 				zap.Int("threshold", maxPiecesToRemoveAtOnce))
 			return failedToRecord, errors.Err()
 		}
@@ -281,7 +281,7 @@ func (reporter *DBReporter) RecordReverificationResult(ctx context.Context, pend
 		})
 		if err != nil {
 			reporter.log.Error("could not look up segment after audit reverification",
-				zap.Stringer("stream ID", pendingJob.Locator.StreamID),
+				zap.Stringer("stream_id", pendingJob.Locator.StreamID),
 				zap.Uint64("position", pendingJob.Locator.Position.Encode()),
 				zap.Error(err),
 			)

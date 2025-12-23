@@ -121,7 +121,7 @@ func ProcessAttributions(rows []*attribution.BucketUsage, userAgents []string, l
 		if err != nil || len(row.UserAgent) == 0 {
 			if _, ok := userAgentParseFailures[string(row.UserAgent)]; !ok {
 				userAgentParseFailures[string(row.UserAgent)] = true
-				log.Error("error while parsing user agent", zap.String("user agent", string(row.UserAgent)), zap.Error(err))
+				log.Error("error while parsing user agent", zap.String("user_agent", string(row.UserAgent)), zap.Error(err))
 			}
 			continue
 		}
@@ -142,7 +142,7 @@ func ProcessAttributions(rows []*attribution.BucketUsage, userAgents []string, l
 
 		projID, err := uuid.FromBytes(row.ProjectID)
 		if err != nil {
-			log.Error("malformed project ID", zap.String("project ID", fmt.Sprintf("%x", projID)), zap.Error(err))
+			log.Error("malformed project ID", zap.String("project_id", fmt.Sprintf("%x", projID)), zap.Error(err))
 			continue
 		}
 

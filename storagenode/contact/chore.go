@@ -82,7 +82,7 @@ func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, sat
 		}
 
 		// Set up a new ping cycle for the newly trusted satellite
-		chore.log.Debug("Starting cycle", zap.Stringer("Satellite ID", satellite))
+		chore.log.Debug("Starting cycle", zap.Stringer("satellite_id", satellite))
 		cycle := sync2.NewCycle(chore.interval)
 		chore.cycles[satellite] = cycle
 		cycle.Start(ctx, group, func(ctx context.Context) error {
@@ -93,7 +93,7 @@ func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, sat
 	// Stop the ping cycle for satellites that are no longer trusted
 	for satellite, cycle := range chore.cycles {
 		if _, ok := trustedIDs[satellite]; !ok {
-			chore.log.Debug("Stopping cycle", zap.Stringer("Satellite ID", satellite))
+			chore.log.Debug("Stopping cycle", zap.Stringer("satellite_id", satellite))
 			cycle.Close()
 			delete(chore.cycles, satellite)
 		}

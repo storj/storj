@@ -98,7 +98,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 	}
 
 	// Log the record for debugging purposes
-	s.log.Debug("Received change record", zap.Any("Record", record))
+	s.log.Debug("Received change record", zap.Any("record", record))
 
 	// Check if project is enabled for bucket eventing
 	if !s.enabled.Projects.Enabled(privateID) {

@@ -105,7 +105,7 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 	}
 
 	log.Info("project information",
-		zap.Stringer("public-id", project.PublicID),
+		zap.Stringer("public_id", project.PublicID),
 		zap.String("name", project.Name),
 		zap.String("description", project.Description),
 		zap.Stringer("status", project.Status),
@@ -118,17 +118,17 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 
 	log.Info("project owner information",
 		zap.Stringer("id", owner.ID),
-		zap.String("full name", owner.FullName),
+		zap.String("full_name", owner.FullName),
 		zap.String("email", owner.Email),
-		zap.String("company name", owner.CompanyName),
-		zap.Stringer("user status", &owner.Status),
+		zap.String("company_name", owner.CompanyName),
+		zap.Stringer("user_status", &owner.Status),
 	)
 
 	if !strings.EqualFold(owner.Email, expectedOwnerEmail) {
 		return errs.New("project owner email %q does not match expected email %q", owner.Email, expectedOwnerEmail)
 	}
 
-	log.Info("verified project ownership", zap.String("owner email", owner.Email))
+	log.Info("verified project ownership", zap.String("owner_email", owner.Email))
 
 	bucket, err := satDB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 	if err != nil {
@@ -137,10 +137,10 @@ func cmdDeleteAllObjectsUncoordinated(cmd *cobra.Command, args []string) error {
 
 	log.Info("bucket information",
 		zap.String("name", bucket.Name),
-		zap.Stringer("created by", bucket.CreatedBy),
+		zap.Stringer("created_by", bucket.CreatedBy),
 		zap.Int("placement", int(bucket.Placement)),
 		zap.Stringer("versioning", bucket.Versioning),
-		zap.Any("object lock", bucket.ObjectLock),
+		zap.Any("object_lock", bucket.ObjectLock),
 	)
 
 	if !executeDeleteAllObjectsUncoordinated {

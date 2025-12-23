@@ -93,14 +93,14 @@ func (chore *TrialFreezeChore) attemptTrialExpirationFreeze(ctx context.Context)
 			}
 			chore.log.Error("Could not trial expiration freeze user",
 				zap.String("process", "trial expiration freeze"),
-				zap.Any("userID", user.ID),
+				zap.Any("user_id", user.ID),
 				zap.Error(trialFreezeError.Wrap(err)),
 			)
 		}
 	}
 
 	chore.log.Info("trial expiration freeze executed",
-		zap.Int("totalFrozen", totalFrozen))
+		zap.Int("total_frozen", totalFrozen))
 }
 
 func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.Context) {
@@ -132,7 +132,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 			if err != nil {
 				chore.log.Error("Could not check if trial expiration freeze should escalate",
 					zap.String("process", "trial expiration freeze escalation"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 					zap.Error(trialFreezeError.Wrap(err)),
 				)
 				totalSkipped++
@@ -141,7 +141,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 			if !shouldEscalate {
 				chore.log.Info("Skipping user; freeze event should not escalate",
 					zap.String("process", "trial expiration freeze escalation"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 				)
 				totalSkipped++
 				continue
@@ -151,7 +151,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 			if err != nil {
 				chore.log.Error("Could not get user for escalation",
 					zap.String("process", "trial expiration freeze escalation"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 					zap.Error(trialFreezeError.Wrap(err)),
 				)
 				totalSkipped++
@@ -161,7 +161,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 			if user.Status != console.Active {
 				chore.log.Info("Skipping user; account not active",
 					zap.String("process", "trial expiration freeze escalation"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 					zap.String("status", user.Status.String()),
 				)
 				totalSkipped++
@@ -174,7 +174,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 				// and the freeze was not cleared.
 				chore.log.Info("Skipping user; user is not in free trial",
 					zap.String("process", "trial expiration freeze escalation"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 				)
 				totalSkipped++
 
@@ -183,13 +183,13 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 				if err != nil {
 					chore.log.Error("Could not trial expiration unfreeze non-trial user",
 						zap.String("process", "trial expiration freeze escalation"),
-						zap.Any("userID", event.UserID),
+						zap.Any("user_id", event.UserID),
 						zap.Error(trialFreezeError.Wrap(err)),
 					)
 				} else {
 					chore.log.Info("Non-trial user unfrozen",
 						zap.String("process", "trial expiration freeze escalation"),
-						zap.Any("userID", event.UserID),
+						zap.Any("user_id", event.UserID),
 					)
 				}
 				continue
@@ -199,7 +199,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 			if err != nil {
 				chore.log.Error("Could not escalate trial expiration freeze",
 					zap.String("process", "trial expiration freeze escalation"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 					zap.Error(trialFreezeError.Wrap(err)),
 				)
 				totalSkipped++
@@ -210,7 +210,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 			if eErr != nil {
 				chore.log.Error("Could not send user email",
 					zap.String("process", "trial expiration freeze escalation"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 					zap.Error(trialFreezeError.Wrap(eErr)),
 				)
 			}
@@ -221,8 +221,8 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 	}
 
 	chore.log.Info("trial expiration freezes escalated",
-		zap.Int("totalMarkedForDeletion", totalMarkedForDeletion),
-		zap.Int("totalSkipped", totalSkipped),
+		zap.Int("total_marked_for_deletion", totalMarkedForDeletion),
+		zap.Int("total_skipped", totalSkipped),
 	)
 }
 

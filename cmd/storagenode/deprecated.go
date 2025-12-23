@@ -73,9 +73,9 @@ func mapDeprecatedConfigs(log *zap.Logger, cfg *StorageNodeFlags) {
 
 			reflect.ValueOf(migration.newValue).Elem().Set(reflect.ValueOf(override))
 			log.Debug("Found deprecated flag. Migrating value.",
-				zap.Stringer("Value", reflect.ValueOf(migration.newValue).Elem()),
-				zap.String("From", migration.oldConfigString),
-				zap.String("To", migration.newConfigString),
+				zap.Stringer("value", reflect.ValueOf(migration.newValue).Elem()),
+				zap.String("from", migration.oldConfigString),
+				zap.String("to", migration.newConfigString),
 			)
 		}
 	}

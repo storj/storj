@@ -135,7 +135,7 @@ cmdloop:
 			break cmdloop
 		default:
 			_ = m.log.Info(eventSuccess, fmt.Sprintf("Unexpected control request: %v", c.EventType))
-			zap.L().Info("Unexpected control request.", zap.Uint32("Event Type", c.EventType))
+			zap.L().Info("Unexpected control request.", zap.Uint32("event_type", c.EventType))
 		}
 	}
 

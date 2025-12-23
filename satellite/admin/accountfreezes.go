@@ -133,7 +133,7 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 
 	afterState, err := s.accountFreeze.GetAll(ctx, userID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.log.Error("failed to get account freeze state after change", zap.String("userID", userID.String()), zap.Error(err))
+		s.log.Error("failed to get account freeze state after change", zap.String("user_id", userID.String()), zap.Error(err))
 	} else {
 		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 			UserID:     userID,
@@ -211,7 +211,7 @@ func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID u
 
 	afterState, err := s.accountFreeze.GetAll(ctx, userID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.log.Error("failed to get account freeze state after change", zap.String("userID", userID.String()), zap.Error(err))
+		s.log.Error("failed to get account freeze state after change", zap.String("user_id", userID.String()), zap.Error(err))
 	} else {
 		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 			UserID:     userID,

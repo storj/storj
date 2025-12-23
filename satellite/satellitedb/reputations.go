@@ -467,7 +467,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	totalAuditCount := dbNode.TotalAuditCount
 	vettedAt := dbNode.VettedAt
 
-	logger := reputations.db.log.With(zap.Stringer("Node ID", zapNodeIDBytes(dbNode.Id)))
+	logger := reputations.db.log.With(zap.Stringer("node_id", zapNodeIDBytes(dbNode.Id)))
 
 	// Here we rely on the observation that, conceptually, if we have
 	// collected some list of successes failures while auditing node N
@@ -556,7 +556,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	//   a) Success/fail audit reputation falls below audit DQ threshold
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= config.AuditDQ {
-		logger.Info("Disqualified", zap.String("DQ type", "audit failure"))
+		logger.Info("Disqualified", zap.String("dq_type", "audit failure"))
 		mon.Meter("bad_audit_dqs").Mark(1)
 		updateFields.Disqualified = timeField{set: true, value: now}
 		updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonAuditFailure)}
@@ -566,7 +566,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 	unknownAuditRep := unknownAuditAlpha / (unknownAuditAlpha + unknownAuditBeta)
 	if unknownAuditRep <= config.UnknownAuditDQ {
 		if dbNode.UnknownAuditSuspended == nil {
-			logger.Info("Suspended", zap.String("Category", "Unknown Audits"))
+			logger.Info("Suspended", zap.String("category", "Unknown Audits"))
 			updateFields.UnknownAuditSuspended = timeField{set: true, value: now}
 		}
 
@@ -582,14 +582,14 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		if dbNode.UnknownAuditSuspended != nil && !updateFields.UnknownAuditSuspended.set &&
 			time.Since(*dbNode.UnknownAuditSuspended) > config.SuspensionGracePeriod &&
 			config.SuspensionDQEnabled {
-			logger.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"))
+			logger.Info("Disqualified", zap.String("dq_type", "suspension grace period expired for unknown audits"))
 			mon.Meter("unknown_suspension_dqs").Mark(1)
 			updateFields.Disqualified = timeField{set: true, value: now}
 			updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonSuspension)}
 			updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 		}
 	} else if dbNode.UnknownAuditSuspended != nil {
-		logger.Info("Suspension lifted", zap.String("Category", "Unknown Audits"))
+		logger.Info("Suspension lifted", zap.String("category", "Unknown Audits"))
 		updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 	}
 
@@ -631,7 +631,7 @@ func (reputations *reputations) populateUpdateNodeStats(dbNode *dbx.Reputation, 
 		if trackingPeriodPassed {
 			if penalizeOfflineNode {
 				if config.AuditHistory.OfflineDQEnabled {
-					logger.Info("Disqualified", zap.String("DQ type", "node offline"))
+					logger.Info("Disqualified", zap.String("dq_type", "node offline"))
 					mon.Meter("offline_dqs").Mark(1)
 					updateFields.Disqualified = timeField{set: true, value: now}
 					updateFields.DisqualificationReason = intField{set: true, value: int(overlay.DisqualificationReasonNodeOffline)}

@@ -139,7 +139,7 @@ func (cdb *CachingDB) Update(ctx context.Context, request UpdateRequest, auditTi
 func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, updates Mutations, config Config, now time.Time) (info *Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	logger := cdb.log.With(zap.Stringer("node-id", nodeID))
+	logger := cdb.log.With(zap.Stringer("node_id", nodeID))
 	doRequestSync := false
 
 	cdb.getEntry(ctx, nodeID, now, func(nodeEntry *cachedNodeReputationInfo) {
@@ -251,7 +251,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			if cachedInfo.Disqualified == nil {
 				cachedInfo.Disqualified = &now
 				cachedInfo.DisqualificationReason = overlay.DisqualificationReasonAuditFailure
-				logger.Info("Disqualified", zap.String("dq-type", "audit failure"))
+				logger.Info("Disqualified", zap.String("dq_type", "audit failure"))
 				// if we think the node is newly disqualified, perform a sync
 				// to have the best chance of propagating that information to
 				// other satellite services.
@@ -277,7 +277,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			if cachedInfo.UnknownAuditSuspended != nil &&
 				now.Sub(*cachedInfo.UnknownAuditSuspended) > config.SuspensionGracePeriod &&
 				config.SuspensionDQEnabled {
-				logger.Info("Disqualified", zap.String("dq-type", "suspension grace period expired for unknown-result audits"))
+				logger.Info("Disqualified", zap.String("dq_type", "suspension grace period expired for unknown-result audits"))
 				cachedInfo.Disqualified = &now
 				cachedInfo.DisqualificationReason = overlay.DisqualificationReasonSuspension
 				cachedInfo.UnknownAuditSuspended = nil
@@ -323,7 +323,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			if trackingPeriodPassed {
 				if penalizeOfflineNode {
 					if config.AuditHistory.OfflineDQEnabled {
-						logger.Info("Disqualified", zap.String("dq-type", "node offline"))
+						logger.Info("Disqualified", zap.String("dq_type", "node offline"))
 						cachedInfo.Disqualified = &now
 						cachedInfo.DisqualificationReason = overlay.DisqualificationReasonNodeOffline
 					}

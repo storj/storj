@@ -128,7 +128,7 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	}
 	var resp UsedSpaceResponse
 
-	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.Stringer("satelliteID", satelliteID))
+	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := newGenericWriter(log)
 	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, stdout, req)
@@ -158,7 +158,7 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 	}
 	var resp GCFilewalkerResponse
 
-	log := fw.log.Named(GCFilewalkerCmdName).With(zap.Stringer("satelliteID", satelliteID))
+	log := fw.log.Named(GCFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := NewTrashHandler(log, trashFunc)
 	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
@@ -190,7 +190,7 @@ func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 	}
 	var resp TrashCleanupResponse
 
-	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.Stringer("satelliteID", satelliteID))
+	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := newGenericWriter(log)
 	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, stdout, req)

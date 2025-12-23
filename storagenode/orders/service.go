@@ -200,7 +200,7 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 			attemptedSatellites++
 
 			group.Go(func() error {
-				log := service.log.With(zap.Stringer("satelliteID", satelliteID))
+				log := service.log.With(zap.Stringer("satellite_id", satelliteID))
 
 				skipSettlement := false
 				nodeURL, err := service.trustSource.GetNodeURL(ctx, satelliteID)
@@ -220,11 +220,11 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 					if err != nil {
 						// satellite returned an error, but settlement was not explicitly rejected; we want to retry later
 						addErrorSatellite(satelliteID)
-						log.Error("failed to settle orders for satellite", zap.String("satellite ID", satelliteID.String()), zap.Error(err))
+						log.Error("failed to settle orders for satellite", zap.String("satellite_id", satelliteID.String()), zap.Error(err))
 						return nil
 					}
 				} else {
-					log.Warn("skipping order settlement for untrusted satellite. Order will be archived", zap.String("satellite ID", satelliteID.String()))
+					log.Warn("skipping order settlement for untrusted satellite. Order will be archived", zap.String("satellite_id", satelliteID.String()))
 				}
 
 				err = service.ordersStore.Archive(satelliteID, unsentInfo, time.Now().UTC(), status)

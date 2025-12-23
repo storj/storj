@@ -52,15 +52,15 @@ func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storj.Node
 	}
 
 	report := []zap.Field{
-		zap.Stringer("Satellite ID", satelliteID),
-		zap.Int64("Total Audits", stats.Audit.TotalCount),
-		zap.Int64("Successful Audits", stats.Audit.SuccessCount),
-		zap.Float64("Audit Score", stats.Audit.Score),
-		zap.Float64("Online Score", stats.OnlineScore),
-		zap.Float64("Suspension Score", stats.Audit.UnknownScore),
-		zap.Float64("Audit Score Delta", stats.Audit.Score-rep.Audit.Score),
-		zap.Float64("Online Score Delta", stats.OnlineScore-rep.OnlineScore),
-		zap.Float64("Suspension Score Delta", stats.Audit.UnknownScore-rep.Audit.UnknownScore),
+		zap.Stringer("satellite_id", satelliteID),
+		zap.Int64("total_audits", stats.Audit.TotalCount),
+		zap.Int64("successful_audits", stats.Audit.SuccessCount),
+		zap.Float64("audit_score", stats.Audit.Score),
+		zap.Float64("online_score", stats.OnlineScore),
+		zap.Float64("suspension_score", stats.Audit.UnknownScore),
+		zap.Float64("audit_score_delta", stats.Audit.Score-rep.Audit.Score),
+		zap.Float64("online_score_delta", stats.OnlineScore-rep.OnlineScore),
+		zap.Float64("suspension_score_delta", stats.Audit.UnknownScore-rep.Audit.UnknownScore),
 	}
 
 	if stats.Audit.Score < rep.Audit.Score || stats.OnlineScore < rep.OnlineScore || stats.Audit.UnknownScore < rep.Audit.UnknownScore {

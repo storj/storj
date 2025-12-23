@@ -264,8 +264,8 @@ func (fw *FileWalker) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 
 		if curPrefix != "" && !progress.BloomfilterCreatedBefore.Equal(createdBefore) {
 			fw.log.Debug("bloomfilter createdBefore time does not match the one used in the last scan",
-				zap.Time("lastBloomfilterCreatedBefore", progress.BloomfilterCreatedBefore),
-				zap.Time("currentBloomfilterCreatedBefore", createdBefore))
+				zap.Time("last_bloomfilter_created_before", progress.BloomfilterCreatedBefore),
+				zap.Time("current_bloomfilter_created_before", createdBefore))
 
 			// The bloomfilter createdBefore time has changed since the last scan which indicates that this is
 			// a new bloomfilter. We need to start over.
@@ -379,7 +379,7 @@ func (fw *FileWalker) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 	for _, dk := range deletedKeysList {
 		pieceID, parseErr := storj.PieceIDFromBytes(dk)
 		if parseErr != nil {
-			fw.log.Error("stored blob has invalid pieceID", zap.ByteString("deletedKey", dk), zap.Error(parseErr))
+			fw.log.Error("stored blob has invalid pieceID", zap.ByteString("deleted_key", dk), zap.Error(parseErr))
 			continue
 		}
 		keysDeleted = append(keysDeleted, pieceID)

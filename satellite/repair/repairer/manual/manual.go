@@ -96,7 +96,7 @@ func (m *Repairer) Run(ctx context.Context) (err error) {
 // * reupload segment into new nodes
 // * replace segment.Pieces field with just new nodes.
 func (m *Repairer) RepairSegment(ctx context.Context, segment metabase.SegmentForRepair) bool {
-	log := m.log.With(zap.Stringer("stream-id", segment.StreamID), zap.Uint64("position", segment.Position.Encode()))
+	log := m.log.With(zap.Stringer("stream_id", segment.StreamID), zap.Uint64("position", segment.Position.Encode()))
 	segmentData, failedDownloads, err := m.downloadSegment(ctx, segment)
 	if err != nil {
 		log.Error("download failed", zap.Error(err))
@@ -200,7 +200,7 @@ func (m *Repairer) downloadSegment(ctx context.Context, segment metabase.Segment
 			continue
 		}
 
-		log := m.log.With(zap.Int("piece num", pieceNum))
+		log := m.log.With(zap.Int("piece_num", pieceNum))
 
 		var dnsErr *net.DNSError
 		var opError *net.OpError
@@ -225,9 +225,9 @@ func (m *Repairer) downloadSegment(ctx context.Context, segment metabase.Segment
 	}
 
 	m.log.Info("download summary",
-		zap.Int("number of pieces", len(segment.Pieces)), zap.Int("pieces downloaded", len(pieceReaders)),
-		zap.Int("file not found", numberOfFileNotFound), zap.Int("offline nodes", numberOfOffline),
-		zap.Int("other errors", numberOfOtherFailures),
+		zap.Int("number_of_pieces", len(segment.Pieces)), zap.Int("pieces_downloaded", len(pieceReaders)),
+		zap.Int("file_not_found", numberOfFileNotFound), zap.Int("offline_nodes", numberOfOffline),
+		zap.Int("other_errors", numberOfOtherFailures),
 	)
 
 	failedDownloads := numberOfFileNotFound + numberOfOtherFailures
@@ -264,7 +264,7 @@ func (m *Repairer) Handle(ctx context.Context, injured queue.InjuredSegment) {
 	defer func() {
 		err := m.queue.Release(ctx, injured, success)
 		if err != nil {
-			m.log.Error("Couldn't release segment", zap.Stringer("stream-id", injured.StreamID), zap.Uint64("position", injured.Position.Encode()))
+			m.log.Error("Couldn't release segment", zap.Stringer("stream_id", injured.StreamID), zap.Uint64("position", injured.Position.Encode()))
 		}
 	}()
 
@@ -278,7 +278,7 @@ func (m *Repairer) Handle(ctx context.Context, injured queue.InjuredSegment) {
 			success = true
 		} else {
 			m.log.Error("unknown error when getting segment metadata",
-				zap.Stringer("stream-id", segment.StreamID),
+				zap.Stringer("stream_id", segment.StreamID),
 				zap.Uint64("position", segment.Position.Encode()),
 				zap.Error(err))
 			printOutput(segment.StreamID, segment.Position.Encode(), "internal", 0, 0)

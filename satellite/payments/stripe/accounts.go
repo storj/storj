@@ -804,7 +804,7 @@ func (accounts *accounts) GetPlacements(ctx context.Context, projectPublicID uui
 			// log at info level, as this is not an error case
 			accounts.service.log.Info(
 				"no entitlements found for project, falling back to global placements",
-				zap.String("projectPublicID", projectPublicID.String()))
+				zap.String("project_public_id", projectPublicID.String()))
 		default:
 			return nil, false, err
 		}

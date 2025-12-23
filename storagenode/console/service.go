@@ -173,7 +173,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	for _, rep := range stats {
 		url, err := s.trust.GetNodeURL(ctx, rep.SatelliteID)
 		if err != nil {
-			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", rep.SatelliteID.String()),
+			s.log.Warn("unable to get Satellite URL", zap.String("satellite_id", rep.SatelliteID.String()),
 				zap.Error(SNOServiceErr.Wrap(err)))
 			continue
 		}
@@ -294,7 +294,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 
 	url, err := s.trust.GetNodeURL(ctx, satelliteID)
 	if err != nil {
-		s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", satelliteID.String()),
+		s.log.Warn("unable to get Satellite URL", zap.String("satellite_id", satelliteID.String()),
 			zap.Error(SNOServiceErr.Wrap(err)))
 	}
 
@@ -390,7 +390,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 
 		url, err := s.trust.GetNodeURL(ctx, satellitesIDs[i])
 		if err != nil {
-			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", satellitesIDs[i].String()),
+			s.log.Warn("unable to get Satellite URL", zap.String("satellite_id", satellitesIDs[i].String()),
 				zap.Error(SNOServiceErr.Wrap(err)))
 			continue
 		}

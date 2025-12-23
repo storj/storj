@@ -64,6 +64,6 @@ func (rc *ContainmentSyncChore) syncContainedStatus(ctx context.Context) (err er
 		return nil
 	}
 	rc.log.Info("updated containment status of all nodes as necessary",
-		zap.Int("num contained nodes", len(containedSet)))
+		zap.Int("num_contained_nodes", len(containedSet)))
 	return nil
 }

@@ -111,7 +111,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, cfg *gracefulExitCfg) error {
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		zap.L().Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	// display warning message
@@ -188,7 +188,7 @@ func cmdGracefulExitStatus(cmd *cobra.Command, cfg *gracefulExitCfg) (err error)
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		zap.L().Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	client, err := dialGracefulExitClient(ctx, cfg.Server.PrivateAddress)
@@ -279,7 +279,7 @@ func gracefulExitInit(ctx context.Context, satelliteIDs []storj.NodeID, w *tabwr
 		}
 		resp, err := client.initGracefulExit(ctx, req)
 		if err != nil {
-			zap.L().Debug("Initializing graceful exit failed.", zap.Stringer("Satellite ID", id), zap.Error(err))
+			zap.L().Debug("Initializing graceful exit failed.", zap.Stringer("satellite_id", id), zap.Error(err))
 			errgroup.Add(err)
 			continue
 		}

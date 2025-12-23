@@ -49,7 +49,7 @@ func cmdPopulatePlacementFromBucketMetainfos(cmd *cobra.Command, args []string) 
 
 func populatePlacementFromBucketMetainfos(ctx context.Context, log *zap.Logger, satDB satellite.DB, batchSize int) error {
 	log.Info("Starting to populate bucket placement constraints in value attribution",
-		zap.Int("batchSize", batchSize))
+		zap.Int("batch_size", batchSize))
 
 	var totalRowsProcessed int64
 	var batchCount int
@@ -65,9 +65,9 @@ func populatePlacementFromBucketMetainfos(ctx context.Context, log *zap.Logger, 
 
 		if rowsProcessed > 0 {
 			log.Info("Batch completed",
-				zap.Int64("rowsUpdated", rowsProcessed),
-				zap.Int("batchNumber", batchCount),
-				zap.Int64("totalRowsUpdated", totalRowsProcessed))
+				zap.Int64("rows_updated", rowsProcessed),
+				zap.Int("batch_number", batchCount),
+				zap.Int64("total_rows_updated", totalRowsProcessed))
 		}
 
 		// If no more rows to process or the last batch was empty, we're done.
@@ -77,8 +77,8 @@ func populatePlacementFromBucketMetainfos(ctx context.Context, log *zap.Logger, 
 	}
 
 	log.Info("Completed populating bucket placement constraints in value attribution",
-		zap.Int64("totalRowsUpdated", totalRowsProcessed),
-		zap.Int("batchesRun", batchCount))
+		zap.Int64("total_rows_updated", totalRowsProcessed),
+		zap.Int("batches_run", batchCount))
 
 	return nil
 }

@@ -81,10 +81,10 @@ func (worker *ReverifyWorker) process(ctx context.Context) (err error) {
 			defer cancel()
 
 			logger := worker.log.With(
-				zap.Stringer("Segment StreamID", reverifyJob.Locator.StreamID),
-				zap.Uint64("Segment Position", reverifyJob.Locator.Position.Encode()),
-				zap.Stringer("Node ID", reverifyJob.Locator.NodeID),
-				zap.Int("Piece Number", reverifyJob.Locator.PieceNum))
+				zap.Stringer("segment_stream_id", reverifyJob.Locator.StreamID),
+				zap.Uint64("segment_position", reverifyJob.Locator.Position.Encode()),
+				zap.Stringer("node_id", reverifyJob.Locator.NodeID),
+				zap.Int("piece_number", reverifyJob.Locator.PieceNum))
 			worker.work(ctx, logger, reverifyJob)
 		})
 		if !started {

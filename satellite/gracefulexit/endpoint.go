@@ -83,7 +83,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 		return rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", peer.ID))
+	endpoint.log.Debug("graceful exit process", zap.Stringer("node_id", peer.ID))
 
 	return endpoint.processTimeBased(ctx, stream, peer.ID)
 }
@@ -265,10 +265,10 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeInfo *overlay
 				reason = pb.ExitFailed_OVERALL_FAILURE_PERCENTAGE_EXCEEDED
 			}
 			endpoint.log.Info("node completed graceful exit",
-				zap.Float64("online score", reputationInfo.OnlineScore),
+				zap.Float64("online_score", reputationInfo.OnlineScore),
 				zap.Bool("suspended", reputationInfo.UnknownAuditSuspended != nil),
 				zap.Bool("success", request.ExitSuccess),
-				zap.Stringer("node ID", nodeInfo.Id))
+				zap.Stringer("node_id", nodeInfo.Id))
 			updatedNode, err := endpoint.overlaydb.UpdateExitStatus(ctx, request)
 			if err != nil {
 				return nil, Error.Wrap(err)
@@ -295,13 +295,13 @@ func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.G
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("graceful exit process", zap.Stringer("Node ID", peer.ID))
+	endpoint.log.Debug("graceful exit process", zap.Stringer("node_id", peer.ID))
 
 	var response pb.GracefulExitFeasibilityResponse
 
 	nodeDossier, err := endpoint.overlay.Get(ctx, peer.ID)
 	if err != nil {
-		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node ID", peer.ID))
+		endpoint.log.Error("unable to retrieve node dossier for attempted exiting node", zap.Stringer("node_id", peer.ID))
 		return nil, Error.Wrap(err)
 	}
 

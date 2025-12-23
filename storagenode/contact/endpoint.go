@@ -58,7 +58,7 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", peer.Addr))
+	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("src_addr", peer.Addr))
 	endpoint.pingStats.WasPinged(time.Now())
 	return &pb.ContactPingResponse{}, nil
 }

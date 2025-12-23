@@ -490,8 +490,8 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 			errMsg = err.Error()
 		}
 		service.log.Warn("Not enough nodes are available from Node Cache",
-			zap.Stringers("excludedIDs", req.ExcludedIDs),
-			zap.Stringers("alreadySelected", alreadySelectedIDs),
+			zap.Stringers("excluded_ids", req.ExcludedIDs),
+			zap.Stringers("already_selected", alreadySelectedIDs),
 			zap.Int("requested", req.RequestedCount),
 			zap.Int("available", len(selectedNodes)),
 			zap.String("errmsg", errMsg),
@@ -666,8 +666,8 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		if err != nil {
 			failureMeter.Mark(1)
 			service.log.Debug("failed to resolve country code for node",
-				zap.String("node address", node.Address.Address),
-				zap.Stringer("Node ID", node.NodeID),
+				zap.String("node_address", node.Address.Address),
+				zap.Stringer("node_id", node.NodeID),
 				zap.Error(err))
 		}
 
@@ -698,8 +698,8 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	if err != nil {
 		failureMeter.Mark(1)
 		service.log.Debug("failed to resolve country code for node",
-			zap.String("node address", node.Address.Address),
-			zap.Stringer("Node ID", node.NodeID),
+			zap.String("node_address", node.Address.Address),
+			zap.Stringer("node_id", node.NodeID),
 			zap.Error(err))
 	}
 
@@ -743,8 +743,8 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	}
 
 	service.log.Debug("ignoring unnecessary check-in",
-		zap.String("node address", node.Address.Address),
-		zap.Stringer("Node ID", node.NodeID))
+		zap.String("node_address", node.Address.Address),
+		zap.Stringer("node_id", node.NodeID))
 	mon.Event("unnecessary_node_check_in")
 
 	return nil
@@ -880,9 +880,9 @@ func (service *Service) TestAddNodes(ctx context.Context, nodes []*NodeDossier) 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
 func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
 	vettedTime, err = service.db.TestVetNode(ctx, nodeID)
-	service.log.Warn("node vetted", zap.Stringer("node ID", nodeID), zap.Stringer("vetted time", vettedTime))
+	service.log.Warn("node vetted", zap.Stringer("node_id", nodeID), zap.Stringer("vetted_time", vettedTime))
 	if err != nil {
-		service.log.Warn("error vetting node", zap.Stringer("node ID", nodeID))
+		service.log.Warn("error vetting node", zap.Stringer("node_id", nodeID))
 		return nil, err
 	}
 	err = service.UploadSelectionCache.Refresh(ctx)
@@ -897,7 +897,7 @@ func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (v
 func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
 	err = service.db.TestUnvetNode(ctx, nodeID)
 	if err != nil {
-		service.log.Warn("error unvetting node", zap.Stringer("node ID", nodeID), zap.Error(err))
+		service.log.Warn("error unvetting node", zap.Stringer("node_id", nodeID), zap.Error(err))
 		return err
 	}
 	err = service.UploadSelectionCache.Refresh(ctx)
@@ -912,7 +912,7 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 func (service *Service) TestSetNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
 	err = service.db.TestSetNodeCountryCode(ctx, nodeID, countryCode)
 	if err != nil {
-		service.log.Warn("error updating node", zap.Stringer("node ID", nodeID), zap.Error(err))
+		service.log.Warn("error updating node", zap.Stringer("node_id", nodeID), zap.Error(err))
 		return err
 	}
 

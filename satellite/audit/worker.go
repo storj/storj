@@ -103,8 +103,8 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 			err := worker.work(ctx, segment)
 			if err != nil {
 				worker.log.Error("error(s) during audit",
-					zap.String("Segment StreamID", segment.StreamID.String()),
-					zap.Uint64("Segment Position", segment.Position.Encode()),
+					zap.String("segment_stream_id", segment.StreamID.String()),
+					zap.Uint64("segment_position", segment.Position.Encode()),
 					zap.Error(err))
 			}
 		})

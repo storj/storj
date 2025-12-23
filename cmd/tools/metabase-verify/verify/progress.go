@@ -67,16 +67,16 @@ func (progress *ProgressObserver) Process(ctx context.Context, segments []ranged
 // Report reports the current progress.
 func (progress *ProgressObserver) Report() {
 	progress.Log.Debug("progress",
-		zap.Int64("remote segments", progress.RemoteSegmentCount),
-		zap.Int64("inline segments", progress.InlineSegmentCount),
+		zap.Int64("remote_segments", progress.RemoteSegmentCount),
+		zap.Int64("inline_segments", progress.InlineSegmentCount),
 	)
 
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	progress.Log.Debug("memory",
-		zap.String("Alloc", memory.Size(int64(m.Alloc)).String()),
-		zap.String("TotalAlloc", memory.Size(int64(m.TotalAlloc)).String()),
-		zap.String("Sys", memory.Size(int64(m.Sys)).String()),
-		zap.Uint32("NumGC", m.NumGC),
+		zap.String("alloc", memory.Size(int64(m.Alloc)).String()),
+		zap.String("total_alloc", memory.Size(int64(m.TotalAlloc)).String()),
+		zap.String("sys", memory.Size(int64(m.Sys)).String()),
+		zap.Uint32("num_gc", m.NumGC),
 	)
 }

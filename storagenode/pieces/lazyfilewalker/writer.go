@@ -108,7 +108,7 @@ func (t *TrashHandler) processTrashPiece(b []byte) error {
 
 	if !resp.Completed {
 		for _, pieceID := range resp.PieceIDs {
-			t.log.Debug("trashing piece", zap.Stringer("pieceID", pieceID))
+			t.log.Debug("trashing piece", zap.Stringer("piece_id", pieceID))
 			if err := t.trashFunc(pieceID); err != nil {
 				return err
 			}

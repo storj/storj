@@ -111,7 +111,7 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 			client, err = piecestore.Dial(rpcpool.WithForceDial(ctx), service.dialer, target, piecestore.DefaultConfig)
 			if err != nil {
 				service.log.Info("failed to dial node",
-					zap.Stringer("node-id", target.ID),
+					zap.Stringer("node_id", target.ID),
 					zap.Error(err))
 				client = nil
 				nextRequest, err = rateLimiter.next(ctx, nextRequest)
@@ -146,10 +146,10 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 	pieceNum := findPieceNum(segment, alias)
 
 	logger := service.log.With(
-		zap.Stringer("stream-id", segment.StreamID),
-		zap.Stringer("node-id", target.ID),
+		zap.Stringer("stream_id", segment.StreamID),
+		zap.Stringer("node_id", target.ID),
 		zap.Uint64("position", segment.Position.Encode()),
-		zap.Uint16("piece-num", pieceNum))
+		zap.Uint16("piece_num", pieceNum))
 
 	defer func() {
 		// report the outcome of the piece check, if required
@@ -162,7 +162,7 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 	limit, piecePrivateKey, _, err := service.orders.CreateAuditOrderLimit(ctx, target.ID, pieceNum, segment.RootPieceID, segment.Redundancy.ShareSize)
 	if err != nil {
 		logger.Error("failed to create order limit",
-			zap.Stringer("retrying in", service.config.OrderRetryThrottle),
+			zap.Stringer("retrying_in", service.config.OrderRetryThrottle),
 			zap.Error(err))
 
 		if !sync2.Sleep(ctx, service.config.OrderRetryThrottle) {

@@ -205,7 +205,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		numberOfRecords += records
 	}
 
-	service.log.Info("Number of processed entries.", zap.Int("Customers", numberOfCustomers), zap.Int("Projects", numberOfRecords))
+	service.log.Info("Number of processed entries.", zap.Int("customers", numberOfCustomers), zap.Int("projects", numberOfRecords))
 	return nil
 }
 
@@ -272,13 +272,13 @@ func (service *Service) createProjectRecords(ctx context.Context, customer *Cust
 
 		// This is unlikely to happen but still.
 		if project.Status != nil && *project.Status == console.ProjectDisabled {
-			service.log.Warn("Skipping disabled project.", zap.String("Customer ID", customer.ID), zap.String("Project ID", project.ID.String()))
+			service.log.Warn("Skipping disabled project.", zap.String("customer_id", customer.ID), zap.String("project_id", project.ID.String()))
 			continue
 		}
 
 		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
 			if errors.Is(err, ErrProjectRecordExists) {
-				service.log.Warn("Record for this project already exists.", zap.String("Customer ID", customer.ID), zap.String("Project ID", project.ID.String()))
+				service.log.Warn("Record for this project already exists.", zap.String("customer_id", customer.ID), zap.String("project_id", project.ID.String()))
 				continue
 			}
 
@@ -455,8 +455,8 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 	limiter.Wait()
 
 	service.log.Info("Processed regular project records.",
-		zap.Int64("Total", totalRecords.Load()),
-		zap.Int64("Skipped", totalSkipped.Load()))
+		zap.Int64("total", totalRecords.Load()),
+		zap.Int64("skipped", totalSkipped.Load()))
 	return errGrp.Err()
 }
 
@@ -570,7 +570,7 @@ func (service *Service) addCreditNoteToInvoice(ctx context.Context, invoiceID, c
 	params.AddMetadata("wallet address", wallet)
 	creditNote, err := service.stripeClient.CreditNotes().New(params)
 	if err != nil {
-		service.log.Warn("unable to add credit note for stripe customer", zap.String("Customer ID", cusID))
+		service.log.Warn("unable to add credit note for stripe customer", zap.String("customer_id", cusID))
 		return "", Error.Wrap(err)
 	}
 	return creditNote.ID, nil
@@ -597,7 +597,7 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 	}
 	txIDs, err := service.billingDB.Insert(ctx, transaction)
 	if err != nil {
-		service.log.Warn("unable to add transaction to billing DB for user", zap.String("User ID", userID.String()))
+		service.log.Warn("unable to add transaction to billing DB for user", zap.String("user_id", userID.String()))
 		return 0, Error.Wrap(err)
 	}
 	return txIDs[0], nil
@@ -672,7 +672,7 @@ func (service *Service) getAndProcessUsages(
 				egressSKU = product.EgressSKU
 				segmentSKU = product.SegmentSKU
 			} else {
-				service.log.Error("failed to get product for ID", zap.Int("productID", int(productID)))
+				service.log.Error("failed to get product for ID", zap.Int("product_id", int(productID)))
 				// fall back to  "Product x" as the name for an "unknown" product.
 				productName = fmt.Sprintf("Product %d", productID)
 			}
@@ -1162,7 +1162,7 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 	if len(failedUsers) > 0 {
 		service.log.Warn("Failed to get or apply free tier coupon to some customers:", zap.String("idlist", strings.Join(failedUsers, ", ")))
 	}
-	service.log.Info("Finished", zap.Int("number of coupons applied", appliedCoupons))
+	service.log.Info("Finished", zap.Int("number_of_coupons_applied", appliedCoupons))
 
 	return nil
 }
@@ -1247,7 +1247,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		nextCursor = cusPage.Cursor
 	}
 
-	service.log.Info("Number of created invoices", zap.Int("Draft", totalDraft), zap.Int("Scheduled", totalScheduled))
+	service.log.Info("Number of created invoices", zap.Int("draft", totalDraft), zap.Int("scheduled", totalScheduled))
 	return nil
 }
 
@@ -1517,7 +1517,7 @@ func (service *Service) SetInvoiceStatus(ctx context.Context, startPeriod, endPe
 	switch stripe.InvoiceStatus(strings.ToLower(status)) {
 	case stripe.InvoiceStatusUncollectible:
 		err = service.iterateInvoicesInTimeRange(ctx, startPeriod, endPeriod, func(invoiceId string) error {
-			service.log.Info("updating invoice status to uncollectible", zap.String("invoiceId", invoiceId))
+			service.log.Info("updating invoice status to uncollectible", zap.String("invoice_id", invoiceId))
 			if !dryRun {
 				_, err := service.stripeClient.Invoices().MarkUncollectible(invoiceId, &stripe.InvoiceMarkUncollectibleParams{})
 				if err != nil {
@@ -1528,7 +1528,7 @@ func (service *Service) SetInvoiceStatus(ctx context.Context, startPeriod, endPe
 		})
 	case stripe.InvoiceStatusVoid:
 		err = service.iterateInvoicesInTimeRange(ctx, startPeriod, endPeriod, func(invoiceId string) error {
-			service.log.Info("updating invoice status to void", zap.String("invoiceId", invoiceId))
+			service.log.Info("updating invoice status to void", zap.String("invoice_id", invoiceId))
 			if !dryRun {
 				_, err = service.stripeClient.Invoices().VoidInvoice(invoiceId, &stripe.InvoiceVoidInvoiceParams{})
 				if err != nil {
@@ -1539,7 +1539,7 @@ func (service *Service) SetInvoiceStatus(ctx context.Context, startPeriod, endPe
 		})
 	case stripe.InvoiceStatusPaid:
 		err = service.iterateInvoicesInTimeRange(ctx, startPeriod, endPeriod, func(invoiceId string) error {
-			service.log.Info("updating invoice status to paid", zap.String("invoiceId", invoiceId))
+			service.log.Info("updating invoice status to paid", zap.String("invoice_id", invoiceId))
 			if !dryRun {
 				payParams := &stripe.InvoicePayParams{
 					Params:        stripe.Params{Context: ctx},
@@ -1624,7 +1624,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 			continue
 		}
 
-		service.log.Info("Creating invoice item for customer prior balance", zap.String("CustomerID", itr.Customer().ID))
+		service.log.Info("Creating invoice item for customer prior balance", zap.String("customer_id", itr.Customer().ID))
 		itemParams := &stripe.InvoiceItemParams{
 			Params: stripe.Params{
 				Context: ctx,
@@ -1641,7 +1641,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 			errGrp.Add(err)
 			continue
 		}
-		service.log.Info("Updating customer balance to 0", zap.String("CustomerID", itr.Customer().ID))
+		service.log.Info("Updating customer balance to 0", zap.String("customer_id", itr.Customer().ID))
 		balanceParams := &stripe.CustomerBalanceTransactionParams{
 			Params: stripe.Params{
 				Context: ctx,
@@ -1657,7 +1657,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 			errGrp.Add(err)
 			continue
 		}
-		service.log.Info("Customer successfully updated", zap.String("CustomerID", itr.Customer().ID), zap.Int64("Prior Balance", itr.Customer().Balance), zap.Int64("New Balance", 0), zap.String("InvoiceItemID", invoiceItem.ID))
+		service.log.Info("Customer successfully updated", zap.String("customer_id", itr.Customer().ID), zap.Int64("prior_balance", itr.Customer().Balance), zap.Int64("new_balance", 0), zap.String("invoice_item_id", invoiceItem.ID))
 	}
 	if itr.Err() != nil {
 		service.log.Error("Failed to create invoice items for all customers", zap.Error(itr.Err()))
@@ -1709,7 +1709,7 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 		userID, err := service.db.Customers().GetUserID(ctx, stripeInvoice.Customer.ID)
 		if err != nil {
 			if errors.Is(err, ErrNoCustomer) {
-				service.log.Warn("User ID does not exist for invoiced customer.", zap.String("stripe customer", stripeInvoice.Customer.ID))
+				service.log.Warn("User ID does not exist for invoiced customer.", zap.String("stripe_customer", stripeInvoice.Customer.ID))
 				continue
 			}
 			return Error.Wrap(err)
@@ -1793,7 +1793,7 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 		_, err = service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
 		if err != nil {
 			service.log.Warn("unable to pay invoice",
-				zap.String("stripe-invoice-id", stripeInvoice.ID),
+				zap.String("stripe_invoice_id", stripeInvoice.ID),
 				zap.Error(err))
 			continue
 		}

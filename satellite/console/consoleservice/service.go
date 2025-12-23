@@ -77,17 +77,17 @@ func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.U
 	fields := append(
 		make([]zap.Field, 0, len(extra)+6),
 		zap.String("operation", operation),
-		zap.String("source-ip", sourceIP),
-		zap.String("forwarded-for-ip", forwardedForIP),
+		zap.String("source_ip", sourceIP),
+		zap.String("forwarded_for_ip", forwardedForIP),
 	)
 	if userID != nil {
-		fields = append(fields, zap.String("userID", userID.String()))
+		fields = append(fields, zap.String("user_id", userID.String()))
 	}
 	if email != "" {
 		fields = append(fields, zap.String("email", email))
 	}
 	if requestID := requestid.FromContext(ctx); requestID != "" {
-		fields = append(fields, zap.String("requestID", requestID))
+		fields = append(fields, zap.String("request_id", requestID))
 	}
 
 	fields = append(fields, extra...)

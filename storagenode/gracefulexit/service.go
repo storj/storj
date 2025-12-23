@@ -67,7 +67,7 @@ func (c *Service) ListPendingExits(ctx context.Context) (_ []ExitingSatellite, e
 		}
 		nodeURL, err := c.trust.GetNodeURL(ctx, sat.SatelliteID)
 		if err != nil {
-			c.log.Error("failed to get satellite address", zap.Stringer("Satellite ID", sat.SatelliteID), zap.Error(err))
+			c.log.Error("failed to get satellite address", zap.Stringer("satellite_id", sat.SatelliteID), zap.Error(err))
 			continue
 		}
 		exitingSatellites = append(exitingSatellites, ExitingSatellite{ExitProgress: sat, NodeURL: nodeURL})
@@ -97,7 +97,7 @@ func (c *Service) deleteSatellitePieces(ctx context.Context, satelliteID storj.N
 	defer mon.Task()(&ctx)(&err)
 
 	var totalDeleted int64
-	logger := c.log.With(zap.Stringer("Satellite ID", satelliteID), zap.String("action", "delete all pieces"))
+	logger := c.log.With(zap.Stringer("satellite_id", satelliteID), zap.String("action", "delete all pieces"))
 	err = c.store.WalkSatellitePieces(ctx, satelliteID, func(piece pieces.StoredPieceAccess) error {
 		err := c.store.Delete(ctx, satelliteID, piece.PieceID())
 		if err != nil {
@@ -105,13 +105,13 @@ func (c *Service) deleteSatellitePieces(ctx context.Context, satelliteID storj.N
 				return nil
 			}
 			logger.Error("failed to delete piece",
-				zap.Stringer("Piece ID", piece.PieceID()), zap.Error(err))
+				zap.Stringer("piece_id", piece.PieceID()), zap.Error(err))
 			// but continue
 		}
 		_, size, err := piece.Size(ctx)
 		if err != nil {
 			logger.Warn("failed to get piece size",
-				zap.Stringer("Piece ID", piece.PieceID()), zap.Error(err))
+				zap.Stringer("piece_id", piece.PieceID()), zap.Error(err))
 			return nil
 		}
 		totalDeleted += size

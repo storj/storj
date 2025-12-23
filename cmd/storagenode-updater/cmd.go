@@ -120,8 +120,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	zap.L().Info("Running on version",
-		zap.String("Service", updaterServiceName),
-		zap.String("Version", version.Build.Version.String()),
+		zap.String("service", updaterServiceName),
+		zap.String("version", version.Build.Version.String()),
 	)
 
 	ctx, _ := process.Ctx(cmd)
@@ -131,8 +131,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = loopFunc(ctx)
 	case runCfg.Version.CheckInterval < minCheckInterval:
 		zap.L().Error("Check interval below minimum. Overriding it minimum.",
-			zap.Stringer("Check Interval", runCfg.Version.CheckInterval),
-			zap.Stringer("Minimum Check Interval", minCheckInterval),
+			zap.Stringer("check_interval", runCfg.Version.CheckInterval),
+			zap.Stringer("minimum_check_interval", minCheckInterval),
 		)
 		runCfg.Version.CheckInterval = minCheckInterval
 		fallthrough
@@ -221,6 +221,6 @@ func openLog(logPath string) error {
 		return err
 	}
 
-	zap.ReplaceGlobals(logger.With(zap.String("Process", updaterServiceName)))
+	zap.ReplaceGlobals(logger.With(zap.String("process", updaterServiceName)))
 	return nil
 }

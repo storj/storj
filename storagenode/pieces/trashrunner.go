@@ -53,7 +53,7 @@ func (t *TrashRunOnce) Run(ctx context.Context) (err error) {
 		var satellite storj.NodeID
 		copy(satellite[:], namespace)
 		timeStart := time.Now()
-		t.log.Info("emptying trash started", zap.Stringer("Satellite ID", satellite))
+		t.log.Info("emptying trash started", zap.Stringer("satellite_id", satellite))
 		trashedBefore := time.Now().Add(-t.trashExpiryInterval)
 		if ws, ok := t.blobs.(SupportEmptyTrashWithoutStat); ok {
 			err = ws.EmptyTrashWithoutStat(ctx, namespace, trashedBefore)

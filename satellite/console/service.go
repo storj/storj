@@ -451,17 +451,17 @@ func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.U
 	fields := append(
 		make([]zap.Field, 0, len(extra)+6),
 		zap.String("operation", operation),
-		zap.String("source-ip", sourceIP),
-		zap.String("forwarded-for-ip", forwardedForIP),
+		zap.String("source_ip", sourceIP),
+		zap.String("forwarded_for_ip", forwardedForIP),
 	)
 	if userID != nil {
-		fields = append(fields, zap.String("userID", userID.String()))
+		fields = append(fields, zap.String("user_id", userID.String()))
 	}
 	if email != "" {
 		fields = append(fields, zap.String("email", email))
 	}
 	if requestID := requestid.FromContext(ctx); requestID != "" {
-		fields = append(fields, zap.String("requestID", requestID))
+		fields = append(fields, zap.String("request_id", requestID))
 	}
 
 	fields = append(fields, extra...)
@@ -477,8 +477,8 @@ func (s *Service) getUserAndAuditLog(ctx context.Context, operation string, extr
 				make([]zap.Field, 0, len(extra)+4),
 				zap.String("operation", operation),
 				zap.Error(err),
-				zap.String("source-ip", sourceIP),
-				zap.String("forwarded-for-ip", forwardedForIP),
+				zap.String("source_ip", sourceIP),
+				zap.String("forwarded_for_ip", forwardedForIP),
 			), extra...)...)
 		return nil, err
 	}
@@ -495,7 +495,7 @@ func (s *Service) Payments() Payments {
 func (s *Service) GetValdiAPIKey(ctx context.Context, projectID uuid.UUID) (key *valdiclient.CreateAPIKeyResponse, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get valdi api key", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get valdi api key", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, http.StatusInternalServerError, Error.Wrap(err)
 	}
@@ -1048,13 +1048,13 @@ func (payment Payments) handlePaymentIntentSucceeded(ctx context.Context, event 
 
 	user, err := payment.service.store.Users().Get(ctx, userID)
 	if err != nil {
-		payment.service.log.Error("Failed to get user for payment intent succeeded event", zap.String("ID", userID.String()), zap.Error(err))
+		payment.service.log.Error("Failed to get user for payment intent succeeded event", zap.String("id", userID.String()), zap.Error(err))
 	} else {
 		if user.IsFreeOrMember() {
 			// If the user is on a free tier, we upgrade them to paid tier.
 			err = payment.upgradeToPaidTier(ctx, user)
 			if err != nil {
-				payment.service.log.Error("Failed to upgrade user", zap.String("ID", user.ID.String()), zap.Error(err))
+				payment.service.log.Error("Failed to upgrade user", zap.String("id", user.ID.String()), zap.Error(err))
 			} else {
 				payment.service.mailService.SendRenderedAsync(
 					ctx,
@@ -1330,7 +1330,7 @@ func (payment Payments) AttemptPayOverdueInvoices(ctx context.Context) (err erro
 
 	err = payment.service.accounts.Invoices().AttemptPayOverdueInvoices(ctx, user.ID)
 	if err != nil {
-		payment.service.log.Warn("error attempting to pay overdue invoices for user", zap.String("user id", user.ID.String()), zap.Error(err))
+		payment.service.log.Warn("error attempting to pay overdue invoices for user", zap.String("user_id", user.ID.String()), zap.Error(err))
 		return Error.Wrap(err)
 	}
 
@@ -1753,7 +1753,7 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 	}
 
 	if user.ExternalID == nil || *user.ExternalID != externalID {
-		s.log.Info("updating external ID", zap.String("userID", user.ID.String()), zap.String("email", user.Email))
+		s.log.Info("updating external ID", zap.String("user_id", user.ID.String()), zap.String("email", user.Email))
 		// associate existing user with this external ID.
 		err = s.UpdateExternalID(ctx, user, externalID)
 		if err != nil {
@@ -3562,7 +3562,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sess
 // GetProject is a method for querying project by internal or public ID.
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "get project", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -3602,7 +3602,7 @@ func (s *Service) GetProjectNoAuth(ctx context.Context, projectID uuid.UUID) (p 
 // id may be project.ID or project.PublicID.
 func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "get project salt", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project salt", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -3627,7 +3627,7 @@ func (s *Service) JoinProjectNoAuth(ctx context.Context, projectID uuid.UUID, us
 		s.log.Warn("error adding user to project",
 			zap.Error(err),
 			zap.String("email", user.Email),
-			zap.String("projectID", projectID.String()),
+			zap.String("project_id", projectID.String()),
 		)
 		return
 	}
@@ -3637,7 +3637,7 @@ func (s *Service) JoinProjectNoAuth(ctx context.Context, projectID uuid.UUID, us
 		s.log.Warn("error deleting project invitation",
 			zap.Error(err),
 			zap.String("email", user.Email),
-			zap.String("projectID", projectID.String()),
+			zap.String("project_id", projectID.String()),
 		)
 	}
 }
@@ -3653,7 +3653,7 @@ type EmissionImpactResponse struct {
 func (s *Service) GetEmissionImpact(ctx context.Context, projectID uuid.UUID) (*EmissionImpactResponse, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "get project emission impact", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project emission impact", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -3699,7 +3699,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get project config", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project config", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -4219,7 +4219,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 		return nil, ErrForbidden.New("this feature is disabled")
 	}
 
-	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4267,7 +4267,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -4328,7 +4328,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, updatedProject UpsertProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4380,7 +4380,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.UUID, updatedLimits UpdateLimitsInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project limits", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project limits", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4558,7 +4558,7 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 func (s *Service) RequestLimitIncrease(ctx context.Context, projectID uuid.UUID, info LimitRequestInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "request limit increase", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "request limit increase", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4614,7 +4614,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project name and description", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -4724,7 +4724,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 // projectID here may be project.PublicID or project.ID.
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	user, err := s.getUserAndAuditLog(ctx, "add project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
+	user, err := s.getUserAndAuditLog(ctx, "add project members", zap.String("project_id", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4770,7 +4770,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
+	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("project_id", projectID.String()), zap.Strings("emails", emails))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4848,7 +4848,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, projectID uuid.UUID, newRole ProjectMemberRole) (pm *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("projectID", projectID.String()), zap.String("updatedMemberID", memberID.String()), zap.String("newRole", newRole.String()))
+	user, err := s.getUserAndAuditLog(ctx, "update project member role", zap.String("project_id", projectID.String()), zap.String("updated_member_id", memberID.String()), zap.String("new_role", newRole.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -4883,7 +4883,7 @@ func (s *Service) UpdateProjectMemberRole(ctx context.Context, memberID, project
 func (s *Service) GetProjectMember(ctx context.Context, memberID, projectID uuid.UUID) (pm *ProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get project member", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project member", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -4905,7 +4905,7 @@ func (s *Service) GetProjectMember(ctx context.Context, memberID, projectID uuid
 func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, cursor ProjectMembersCursor) (pmp *ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get project members", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project members", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4931,7 +4931,7 @@ func (s *Service) GetProjectMembersAndInvitations(ctx context.Context, projectID
 func (s *Service) CreateDomain(ctx context.Context, domain Domain) (created *Domain, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "create domain", zap.String("projectPublicID", domain.ProjectPublicID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "create domain", zap.String("project_public_id", domain.ProjectPublicID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -4965,7 +4965,7 @@ func (s *Service) CreateDomain(ctx context.Context, domain Domain) (created *Dom
 func (s *Service) DeleteDomain(ctx context.Context, projectID uuid.UUID, subdomain string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "delete domain", zap.String("projectPublicID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "delete domain", zap.String("project_public_id", projectID.String()))
 	if err != nil {
 		return ErrUnauthorized.Wrap(err)
 	}
@@ -4995,7 +4995,7 @@ func (s *Service) DeleteDomain(ctx context.Context, projectID uuid.UUID, subdoma
 func (s *Service) ListDomains(ctx context.Context, projectID uuid.UUID, cursor DomainCursor) (page *DomainPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "list domains", zap.String("projectPublicID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "list domains", zap.String("project_public_id", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -5021,7 +5021,7 @@ func (s *Service) ListDomains(ctx context.Context, projectID uuid.UUID, cursor D
 func (s *Service) GetAllDomainNames(ctx context.Context, projectID uuid.UUID) (names []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get all domain names", zap.String("projectPublicID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get all domain names", zap.String("project_public_id", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -5040,7 +5040,7 @@ func (s *Service) GetAllDomainNames(ctx context.Context, projectID uuid.UUID) (n
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string, version macaroon.APIKeyVersion) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
@@ -5093,7 +5093,7 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("projectID", requestInfo.ProjectID))
+	user, err := s.getUserAndAuditLog(ctx, "create api key", zap.String("project_id", requestInfo.ProjectID))
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -5222,7 +5222,7 @@ func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, 
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "get api key info",
-		zap.String("projectID", projectID.String()),
+		zap.String("project_id", projectID.String()),
 		zap.String("name", name))
 	if err != nil {
 		return nil, err
@@ -5245,7 +5245,7 @@ func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, 
 func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get api key info", zap.String("apiKeyID", id.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get api key info", zap.String("api_key_id", id.String()))
 	if err != nil {
 		return nil, err
 	}
@@ -5272,7 +5272,7 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 		idStrings = append(idStrings, id.String())
 	}
 
-	user, err := s.getUserAndAuditLog(ctx, "delete api keys", zap.Strings("apiKeyIDs", idStrings))
+	user, err := s.getUserAndAuditLog(ctx, "delete api keys", zap.Strings("api_key_ids", idStrings))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -5313,7 +5313,7 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 func (s *Service) GetAllAPIKeyNamesByProjectID(ctx context.Context, projectID uuid.UUID) (names []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get all api key names by project ID", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get all api key names by project ID", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5336,7 +5336,7 @@ func (s *Service) GetAllAPIKeyNamesByProjectID(ctx context.Context, projectID uu
 func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "delete api key by name and project ID", zap.String("apiKeyName", name), zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "delete api key by name and project ID", zap.String("api_key_name", name), zap.String("project_id", projectID.String()))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -5367,7 +5367,7 @@ func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name strin
 func (s *Service) GetAPIKeys(ctx context.Context, reqProjectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get api keys", zap.String("projectID", reqProjectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get api keys", zap.String("project_id", reqProjectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5402,7 +5402,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, reqProjectID uuid.UUID, cursor
 func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get project usage", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project usage", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5466,7 +5466,7 @@ func (s *Service) getLocationName(ctx context.Context, projectPublicID uuid.UUID
 func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get bucket totals", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get bucket totals", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5497,7 +5497,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID, bucketName string, before time.Time) (_ *accounting.BucketUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get single bucket totals", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get single bucket totals", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
@@ -5522,7 +5522,7 @@ func (s *Service) GetSingleBucketTotals(ctx context.Context, projectID uuid.UUID
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get all bucket names", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get all bucket names", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5558,7 +5558,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 func (s *Service) GetBucketMetadata(ctx context.Context, projectID uuid.UUID) (list []BucketMetadata, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get all bucket names and metadata", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get all bucket names and metadata", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -5911,7 +5911,7 @@ func (s *Service) GenGetBucketUsageRollups(ctx context.Context, reqProjectID uui
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", reqProjectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get bucket usage rollups", zap.String("project_id", reqProjectID.String()))
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -5952,7 +5952,7 @@ func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, reqProjectI
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get single bucket usage rollup", zap.String("projectID", reqProjectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get single bucket usage rollup", zap.String("project_id", reqProjectID.String()))
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -6014,7 +6014,7 @@ func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID,
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get project usage limits", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -6686,7 +6686,7 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 		if err != nil {
 			removeErr := payment.service.accounts.CreditCards().Remove(ctx, user.ID, card.ID, true)
 			if removeErr != nil {
-				payment.service.log.Warn("failed to remove credit card after failed purchase", zap.Error(removeErr), zap.String("cardID", card.ID), zap.String("userID", user.ID.String()))
+				payment.service.log.Warn("failed to remove credit card after failed purchase", zap.Error(removeErr), zap.String("card_id", card.ID), zap.String("user_id", user.ID.String()))
 			}
 
 			return err
@@ -7047,13 +7047,13 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 	fields := []zapcore.Field{}
 
 	if request.OnboardingStart != nil {
-		fields = append(fields, zap.Bool("onboardingStart", *request.OnboardingStart))
+		fields = append(fields, zap.Bool("onboarding_start", *request.OnboardingStart))
 	}
 	if request.OnboardingEnd != nil {
-		fields = append(fields, zap.Bool("onboardingEnd", *request.OnboardingEnd))
+		fields = append(fields, zap.Bool("onboarding_end", *request.OnboardingEnd))
 	}
 	if request.OnboardingStep != nil {
-		fields = append(fields, zap.String("onboardingStep", *request.OnboardingStep))
+		fields = append(fields, zap.String("onboarding_step", *request.OnboardingStep))
 	}
 
 	user, err := s.getUserAndAuditLog(ctx, "set user settings", fields...)
@@ -7114,7 +7114,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "project member invitation response",
-		zap.String("projectID", projectID.String()),
+		zap.String("project_id", projectID.String()),
 		zap.Any("response", response),
 	)
 	if err != nil {
@@ -7147,7 +7147,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 			s.log.Warn("error deleting project invitation",
 				zap.Error(err),
 				zap.String("email", user.Email),
-				zap.String("projectID", projectID.String()),
+				zap.String("project_id", projectID.String()),
 			)
 		}
 	}
@@ -7243,7 +7243,7 @@ func (s *Service) ReinviteProjectMembers(ctx context.Context, projectID uuid.UUI
 
 	user, err := s.getUserAndAuditLog(ctx,
 		"reinvite project members",
-		zap.String("projectID", projectID.String()),
+		zap.String("project_id", projectID.String()),
 		zap.Strings("emails", emails),
 	)
 	if err != nil {
@@ -7260,8 +7260,8 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 
 	user, err := s.getUserAndAuditLog(ctx,
 		"invite project member",
-		zap.String("projectID", projectID.String()),
-		zap.String("invitedEmail", email),
+		zap.String("project_id", projectID.String()),
+		zap.String("invited_email", email),
 	)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -7500,7 +7500,7 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("projectID", publicProjectID.String()), zap.String("email", email))
+	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("project_id", publicProjectID.String()), zap.String("email", email))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}

@@ -45,9 +45,9 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 				segment.Status.Retry = int32(len(segment.AliasPieces))
 			} else {
 				service.log.Error("segment contains too few pieces. skipping segment",
-					zap.Int("num-pieces", len(segment.AliasPieces)),
+					zap.Int("num_pieces", len(segment.AliasPieces)),
 					zap.Int32("expected", segment.Status.Retry),
-					zap.Stringer("stream-id", segment.StreamID),
+					zap.Stringer("stream_id", segment.StreamID),
 					zap.Uint64("position", segment.Position.Encode()))
 				continue
 			}

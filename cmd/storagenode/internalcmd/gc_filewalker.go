@@ -99,7 +99,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 		return err
 	}
 
-	log.Info("gc-filewalker started", zap.Time("createdBefore", req.CreatedBefore), zap.Int("bloomFilterSize", len(req.BloomFilter)))
+	log.Info("gc-filewalker started", zap.Time("created_before", req.CreatedBefore), zap.Int("bloom_filter_size", len(req.BloomFilter)))
 
 	filewalker := pieces.NewFileWalker(log, db.Pieces(), db.V0PieceInfo(), db.GCFilewalkerProgress(), nil)
 
@@ -127,7 +127,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 
 	trashPiecesCount := 0
 	piecesCount, piecesSkippedCount, err := filewalker.WalkSatellitePiecesToTrash(g.Ctx, req.SatelliteID, req.CreatedBefore, filter, func(pieceID storj.PieceID) error {
-		log.Debug("found a trash piece", zap.Stringer("pieceID", pieceID))
+		log.Debug("found a trash piece", zap.Stringer("piece_id", pieceID))
 		// we found a piece that needs to be trashed, so we notify the main process.
 		// do it in batches to avoid sending too many messages.
 		pieceIDs = append(pieceIDs, pieceID)
@@ -154,7 +154,7 @@ func gcCmdRun(g *RunOptions) (err error) {
 		Completed:          true,
 	}
 
-	log.Info("gc-filewalker completed", zap.Int64("piecesCount", piecesCount), zap.Int("Total Pieces To Trash", trashPiecesCount), zap.Int("Trashed Pieces", numTrashed), zap.Int64("Pieces Skipped", piecesSkippedCount))
+	log.Info("gc-filewalker completed", zap.Int64("pieces_count", piecesCount), zap.Int("total_pieces_to_trash", trashPiecesCount), zap.Int("trashed_pieces", numTrashed), zap.Int64("pieces_skipped", piecesSkippedCount))
 
 	// encode the response struct and write it to stdout
 	err = json.NewEncoder(g.stdout).Encode(resp)

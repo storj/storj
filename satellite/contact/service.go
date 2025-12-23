@@ -128,7 +128,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 			nodeurl.ID, nodeurl.Address, err,
 		)
 		service.log.Debug("pingBack failed to dial storage node",
-			zap.String("pingErrorMessage", pingErrorMessage),
+			zap.String("ping_error_message", pingErrorMessage),
 		)
 		return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
 	}
@@ -140,8 +140,8 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
 		service.log.Debug("pingBack pingNode error",
-			zap.Stringer("Node ID", nodeurl.ID),
-			zap.String("pingErrorMessage", pingErrorMessage),
+			zap.Stringer("node_id", nodeurl.ID),
+			zap.String("ping_error_message", pingErrorMessage),
 		)
 
 		return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
@@ -186,7 +186,7 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 		for _, t := range req.Tags {
 			verifiedTags, signerID, err := verifyTags(ctx, append(service.nodeTagAuthority, self), nodeID, t)
 			if err != nil {
-				service.log.Info("Failed to verify tags.", zap.Error(err), zap.Stringer("NodeID", nodeID))
+				service.log.Info("Failed to verify tags.", zap.Error(err), zap.Stringer("node_id", nodeID))
 				continue
 			}
 

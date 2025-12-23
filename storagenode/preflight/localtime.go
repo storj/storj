@@ -66,14 +66,14 @@ func (localTime *LocalTime) Check(ctx context.Context) (err error) {
 			currentLocalTime := time.Now().UTC()
 			satelliteTime, err := localTime.getSatelliteTime(ctx, satellite)
 			if err != nil {
-				localTime.log.Error("unable to get satellite system time", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+				localTime.log.Error("unable to get satellite system time", zap.Stringer("satellite_id", satellite), zap.Error(err))
 				results[i] = ErrClockOutOfSyncMajor.Wrap(err)
 				return nil
 			}
 
 			err = localTime.checkSatelliteTime(ctx, satelliteTime.GetTimestamp(), currentLocalTime)
 			if err != nil {
-				localTime.log.Error("system clock is out of sync with satellite", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+				localTime.log.Error("system clock is out of sync with satellite", zap.Stringer("satellite_id", satellite), zap.Error(err))
 				if ErrClockOutOfSyncMinor.Has(err) {
 					return nil
 				}

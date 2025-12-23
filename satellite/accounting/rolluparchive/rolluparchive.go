@@ -78,12 +78,12 @@ func (chore *Chore) ArchiveRollups(ctx context.Context, cutoff time.Time, batchS
 	defer mon.Task()(&ctx)(&err)
 	nodeRollupsArchived, err := chore.nodeAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
 	if err != nil {
-		chore.log.Error("archiving node bandwidth rollups", zap.Int("rollups-archived", nodeRollupsArchived), zap.Error(err))
+		chore.log.Error("archiving node bandwidth rollups", zap.Int("rollups_archived", nodeRollupsArchived), zap.Error(err))
 		return Error.Wrap(err)
 	}
 	bucketRollupsArchived, err := chore.projectAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
 	if err != nil {
-		chore.log.Error("archiving bucket bandwidth rollups", zap.Int("rollups-archived", bucketRollupsArchived), zap.Error(err))
+		chore.log.Error("archiving bucket bandwidth rollups", zap.Int("rollups_archived", bucketRollupsArchived), zap.Error(err))
 		return Error.Wrap(err)
 	}
 	return nil

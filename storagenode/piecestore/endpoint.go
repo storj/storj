@@ -222,8 +222,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	if endpoint.config.MaxConcurrentRequests > 0 && int(liveRequests) > endpoint.config.MaxConcurrentRequests {
 		endpoint.log.Info("upload rejected, too many requests",
-			zap.Int32("live requests", liveRequests),
-			zap.Int("requestLimit", endpoint.config.MaxConcurrentRequests),
+			zap.Int32("live_requests", liveRequests),
+			zap.Int("request_limit", endpoint.config.MaxConcurrentRequests),
 		)
 		errMsg := fmt.Sprintf("storage node overloaded, request limit: %d", endpoint.config.MaxConcurrentRequests)
 		return rpcstatus.NamedError("storagenode-overloaded", rpcstatus.Unavailable, errMsg)
@@ -280,10 +280,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 
 	log := endpoint.log.With(
-		zap.Stringer("Piece ID", limit.PieceId),
-		zap.Stringer("Satellite ID", limit.SatelliteId),
-		zap.Stringer("Action", limit.Action),
-		zap.String("Remote Address", getRemoteAddr(ctx)))
+		zap.Stringer("piece_id", limit.PieceId),
+		zap.Stringer("satellite_id", limit.SatelliteId),
+		zap.Stringer("action", limit.Action),
+		zap.String("remote_address", getRemoteAddr(ctx)))
 
 	var pieceWriter PieceWriter
 	// committed is set to true when the piece is committed.
@@ -314,7 +314,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
-			log.Info("upload canceled", zap.Int64("Size", uploadSize))
+			log.Info("upload canceled", zap.Int64("size", uploadSize))
 		} else if err != nil {
 			mon.Counter("upload_failure_count").Inc(1)
 			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
@@ -324,10 +324,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if errors.Is(err, context.Canceled) || errors.Is(err, io.ErrUnexpectedEOF) ||
 				rpcstatus.Code(err) == rpcstatus.Canceled || rpcstatus.Code(err) == rpcstatus.Aborted {
 				// This is common in normal operation, and shouldn't throw a full error.
-				log.Debug("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
+				log.Debug("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
 
 			} else {
-				log.Error("upload failed", zap.Int64("Size", uploadSize), zap.Error(err))
+				log.Error("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
 			}
 
 		} else {
@@ -336,11 +336,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
-			log.Info("uploaded", zap.Int64("Size", uploadSize))
+			log.Info("uploaded", zap.Int64("size", uploadSize))
 		}
 	}()
 
-	log.Debug("upload started", zap.Int64("Available Space", availableSpace))
+	log.Debug("upload started", zap.Int64("available_space", availableSpace))
 	mon.Counter("upload_started_count").Inc(1)
 
 	pieceWriter, err = endpoint.pieceBackend.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm, limit.PieceExpiration)
@@ -593,12 +593,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	remoteAddr := getRemoteAddr(ctx)
 	log := endpoint.log.With(
-		zap.Stringer("Piece ID", limit.PieceId),
-		zap.Stringer("Satellite ID", limit.SatelliteId),
-		zap.Stringer("Action", limit.Action),
-		zap.Int64("Offset", chunk.Offset),
-		zap.Int64("Size", chunk.ChunkSize),
-		zap.String("Remote Address", remoteAddr))
+		zap.Stringer("piece_id", limit.PieceId),
+		zap.Stringer("satellite_id", limit.SatelliteId),
+		zap.Stringer("action", limit.Action),
+		zap.Int64("offset", chunk.Offset),
+		zap.Int64("size", chunk.ChunkSize),
+		zap.String("remote_address", remoteAddr))
 
 	log.Debug("download started")
 

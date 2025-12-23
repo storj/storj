@@ -1160,9 +1160,9 @@ func generateDeleteMarkerStreamID() (uuid.UUID, error) {
 
 func logMultipleCommittedVersionsError(log *zap.Logger, loc ObjectLocation) {
 	log.Error("object with multiple committed versions were found!",
-		zap.Stringer("Project ID", loc.ProjectID),
-		zap.Stringer("Bucket Name", loc.BucketName),
-		zap.String("Object Key", hex.EncodeToString([]byte(loc.ObjectKey))),
+		zap.Stringer("project_id", loc.ProjectID),
+		zap.Stringer("bucket_name", loc.BucketName),
+		zap.String("object_key", hex.EncodeToString([]byte(loc.ObjectKey))),
 	)
 	mon.Meter("multiple_committed_versions").Mark(1)
 }

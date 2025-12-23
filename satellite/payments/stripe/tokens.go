@@ -114,9 +114,9 @@ func (tokens *storjTokens) ListDepositBonuses(ctx context.Context, userID uuid.U
 		err = json.Unmarshal([]byte(value), &credit)
 		if err != nil {
 			tokens.service.log.Error("Error unmarshaling credit history from Stripe metadata",
-				zap.String("Customer ID", cusID),
-				zap.String("Metadata Key", key),
-				zap.String("Metadata Value", value),
+				zap.String("customer_id", cusID),
+				zap.String("metadata_key", key),
+				zap.String("metadata_value", value),
 				zap.Error(err),
 			)
 			continue

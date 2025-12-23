@@ -188,9 +188,9 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 				}
 
 				log.Debug("attempting to fetch piece for repair",
-					zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-					zap.Stringer("Piece ID", limit.Limit.PieceId),
-					zap.Int("piece index", currentLimitIndex),
+					zap.Stringer("node_id", limit.GetLimit().StorageNodeId),
+					zap.Stringer("piece_id", limit.Limit.PieceId),
+					zap.Int("piece_index", currentLimitIndex),
 					zap.String("address", limit.GetStorageNodeAddress().Address),
 					zap.String("last_ip_port", info.LastIPPort),
 					zap.Binary("serial", limit.Limit.SerialNumber[:]))
@@ -222,16 +222,16 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 					// If download was canceled due to racing (we already have enough pieces), just return
 					if errors.Is(err, context.Canceled) && downloadCtx.Err() != nil {
 						log.Debug("Download canceled due to racing",
-							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId))
+							zap.Stringer("node_id", limit.GetLimit().StorageNodeId),
+							zap.Stringer("piece_id", limit.Limit.PieceId))
 						return
 					}
 
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
 						log.Info("audit failed",
-							zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId),
+							zap.Stringer("node_id", limit.GetLimit().StorageNodeId),
+							zap.Stringer("piece_id", limit.Limit.PieceId),
 							zap.String("reason", err.Error()))
 						pieces.Failed = append(pieces.Failed, PieceFetchResult{Piece: piece, Err: err})
 						errorCount++
@@ -248,32 +248,32 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 					switch pieceAudit {
 					case audit.PieceAuditFailure:
 						log.Debug("Failed to download piece for repair: piece not found (audit failed)",
-							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId),
+							zap.Stringer("node_id", limit.GetLimit().StorageNodeId),
+							zap.Stringer("piece_id", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Failed = append(pieces.Failed, PieceFetchResult{Piece: piece, Err: err})
 						errorCount++
 
 					case audit.PieceAuditOffline:
 						log.Debug("Failed to download piece for repair: dial timeout (offline)",
-							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId),
+							zap.Stringer("node_id", limit.GetLimit().StorageNodeId),
+							zap.Stringer("piece_id", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Offline = append(pieces.Offline, PieceFetchResult{Piece: piece, Err: err})
 						errorCount++
 
 					case audit.PieceAuditContained:
 						log.Info("Failed to download piece for repair: download timeout (contained)",
-							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId),
+							zap.Stringer("node_id", limit.GetLimit().StorageNodeId),
+							zap.Stringer("piece_id", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Contained = append(pieces.Contained, PieceFetchResult{Piece: piece, Err: err})
 						errorCount++
 
 					case audit.PieceAuditUnknown:
 						log.Info("Failed to download piece for repair: unknown transport error (skipped)",
-							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
-							zap.Stringer("Piece ID", limit.Limit.PieceId),
+							zap.Stringer("node_id", limit.GetLimit().StorageNodeId),
+							zap.Stringer("piece_id", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Unknown = append(pieces.Unknown, PieceFetchResult{Piece: piece, Err: err})
 						errorCount++
@@ -510,16 +510,16 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 		}(i, addressedLimit)
 	}
 	log.Debug("Starting a timer for repair so that the number of pieces will be closer to the success threshold",
-		zap.Duration("Timer", timeout),
-		zap.Int("Node Count", nonNilCount(limits)),
-		zap.Int("Optimal Threshold", rs.OptimalThreshold()),
+		zap.Duration("timer", timeout),
+		zap.Int("node_count", nonNilCount(limits)),
+		zap.Int("optimal_threshold", rs.OptimalThreshold()),
 	)
 
 	var successfulCount, failureCount, cancellationCount int32
 	timer := time.AfterFunc(timeout, func() {
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			log.Debug("Timer expired. Canceling the long tail...",
-				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
+				zap.Int32("successfully_repaired", atomic.LoadInt32(&successfulCount)),
 			)
 			cancel()
 		}
@@ -539,13 +539,13 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 			if !errs2.IsCanceled(info.err) {
 				failureCount++
 				log.Warn("Repair to a storage node failed",
-					zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
+					zap.Stringer("node_id", limits[info.i].GetLimit().StorageNodeId),
 					zap.Error(info.err),
 				)
 			} else {
 				cancellationCount++
 				log.Debug("Repair to storage node cancelled",
-					zap.Stringer("Node ID", limits[info.i].GetLimit().StorageNodeId),
+					zap.Stringer("node_id", limits[info.i].GetLimit().StorageNodeId),
 					zap.Error(info.err),
 				)
 			}
@@ -565,7 +565,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 			// actually be canceled. So, successfulCount should increase by one with each
 			// repeated logging.
 			log.Debug("Number of successful uploads met. Canceling the long tail...",
-				zap.Int32("Successfully repaired", atomic.LoadInt32(&successfulCount)),
+				zap.Int32("successfully_repaired", atomic.LoadInt32(&successfulCount)),
 			)
 			cancel()
 		}
@@ -588,7 +588,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 	}
 
 	log.Debug("Successfully repaired",
-		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
+		zap.Int32("success_count", atomic.LoadInt32(&successfulCount)),
 	)
 
 	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))
@@ -626,8 +626,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, log *zap.Logger, lim
 	})
 	if err != nil {
 		log.Debug("Failed dialing for putting piece to node",
-			zap.Stringer("Piece ID", pieceID),
-			zap.Stringer("Node ID", storageNodeID),
+			zap.Stringer("piece_id", pieceID),
+			zap.Stringer("node_id", storageNodeID),
 			zap.Error(err),
 		)
 		return nil, err
@@ -641,12 +641,12 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, log *zap.Logger, lim
 			// to slow connection. No error logging for this case.
 			if errors.Is(parent.Err(), context.Canceled) {
 				log.Debug("Upload to node canceled by user",
-					zap.Stringer("Node ID", storageNodeID),
-					zap.Stringer("Piece ID", pieceID))
+					zap.Stringer("node_id", storageNodeID),
+					zap.Stringer("piece_id", pieceID))
 			} else {
 				log.Debug("Node cut from upload due to slow connection",
-					zap.Stringer("Node ID", storageNodeID),
-					zap.Stringer("Piece ID", pieceID))
+					zap.Stringer("node_id", storageNodeID),
+					zap.Stringer("piece_id", pieceID))
 			}
 
 			// make sure context.Canceled is the primary error in the error chain
@@ -659,9 +659,9 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, log *zap.Logger, lim
 			}
 
 			log.Debug("Failed uploading piece to node",
-				zap.Stringer("Piece ID", pieceID),
-				zap.Stringer("Node ID", storageNodeID),
-				zap.String("Node Address", nodeAddress),
+				zap.Stringer("piece_id", pieceID),
+				zap.Stringer("node_id", storageNodeID),
+				zap.String("node_address", nodeAddress),
 				zap.Error(err),
 			)
 		}

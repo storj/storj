@@ -134,7 +134,7 @@ func cmdForgetSatellite(ctx context.Context, log *zap.Logger, cfg *forgetSatelli
 	if err != nil {
 		log.Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		log.Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		log.Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	client, err := dialForgetSatelliteClient(ctx, cfg.Server.PrivateAddress)
@@ -181,14 +181,14 @@ func startForgetSatellite(ctx context.Context, log *zap.Logger, client *forgetSa
 			inProgress := false
 			switch rpcstatus.Code(err) {
 			case rpcstatus.NotFound:
-				log.Error("Satellite not found. Specify --force to force data deletion", zap.Stringer("Satellite ID", id))
+				log.Error("Satellite not found. Specify --force to force data deletion", zap.Stringer("satellite_id", id))
 			case rpcstatus.AlreadyExists:
-				log.Error("Satellite is already being cleaned up", zap.Stringer("Satellite ID", id))
+				log.Error("Satellite is already being cleaned up", zap.Stringer("satellite_id", id))
 				inProgress = true
 			case rpcstatus.FailedPrecondition:
-				log.Error("Satellite is not untrusted. Specify --force to force data deletion", zap.Stringer("Satellite ID", id))
+				log.Error("Satellite is not untrusted. Specify --force to force data deletion", zap.Stringer("satellite_id", id))
 			default:
-				log.Error("Failed to initialize forget satellite", zap.Stringer("Satellite ID", id), zap.Error(err))
+				log.Error("Failed to initialize forget satellite", zap.Stringer("satellite_id", id), zap.Error(err))
 			}
 			statuses = append(statuses, &forgetSatelliteStatus{satelliteID: id, inProgress: inProgress, successful: false})
 			continue
@@ -210,7 +210,7 @@ func cmdForgetSatelliteStatus(ctx context.Context, log *zap.Logger, cfg *forgetS
 	if err != nil {
 		log.Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		log.Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		log.Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	client, err := dialForgetSatelliteClient(ctx, cfg.Server.PrivateAddress)
@@ -234,7 +234,7 @@ func cmdForgetSatelliteStatus(ctx context.Context, log *zap.Logger, cfg *forgetS
 
 		resp, err := client.getForgetSatelliteStatus(ctx, id)
 		if err != nil {
-			log.Error("Failed to get forget satellite status", zap.Stringer("Satellite ID", id), zap.Error(err))
+			log.Error("Failed to get forget satellite status", zap.Stringer("satellite_id", id), zap.Error(err))
 			statuses = append(statuses, &forgetSatelliteStatus{satelliteID: id, inProgress: false, successful: false})
 			continue
 		}

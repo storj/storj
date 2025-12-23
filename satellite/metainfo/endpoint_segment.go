@@ -183,7 +183,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
 	}
 
-	endpoint.log.Debug("Segment Upload", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
+	endpoint.log.Debug("Segment Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
 	mon.Meter("req_put_remote").Mark(1)
 
 	var cohortRequirements *pb.CohortRequirements
@@ -236,16 +236,16 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	for _, pieceNumber := range req.RetryPieceNumbers {
 		if pieceNumber < 0 || int(pieceNumber) >= len(segmentID.OriginalOrderLimits) {
 			endpoint.log.Debug("piece number is out of range",
-				zap.Int32("piece number", pieceNumber),
-				zap.Int("redundancy total", len(segmentID.OriginalOrderLimits)),
-				zap.Stringer("Segment ID", req.SegmentId),
+				zap.Int32("piece_number", pieceNumber),
+				zap.Int("redundancy_total", len(segmentID.OriginalOrderLimits)),
+				zap.Stringer("segment_id", req.SegmentId),
 			)
 			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d must be within range [0,%d]", pieceNumber, len(segmentID.OriginalOrderLimits)-1)
 		}
 		if _, ok := retryingPieceNumberSet[pieceNumber]; ok {
 			endpoint.log.Debug("piece number is duplicated",
-				zap.Int32("piece number", pieceNumber),
-				zap.Stringer("Segment ID", req.SegmentId),
+				zap.Int32("piece_number", pieceNumber),
+				zap.Stringer("segment_id", req.SegmentId),
 			)
 			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d is duplicated", pieceNumber)
 		}
@@ -313,7 +313,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create segment id")
 	}
 
-	endpoint.log.Debug("Segment Upload Piece Retry", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
+	endpoint.log.Debug("Segment Upload Piece Retry", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
 
 	return &pb.RetryBeginSegmentPiecesResponse{
 		SegmentId:       amendedSegmentID,
@@ -372,9 +372,9 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 	if numResults := len(req.UploadResult); numResults < int(rsParam.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
-			zap.Int("upload pieces results", numResults),
-			zap.Int32("redundancy optimal threshold", rsParam.GetSuccessThreshold()),
-			zap.Stringer("Segment ID", req.SegmentId),
+			zap.Int("upload_pieces_results", numResults),
+			zap.Int32("redundancy_optimal_threshold", rsParam.GetSuccessThreshold()),
+			zap.Stringer("segment_id", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
@@ -412,10 +412,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	if len(validPieces) < int(rs.OptimalShares) {
 		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
-			zap.Int("totalReceivedPieces", len(req.UploadResult)),
-			zap.Int("validPieces", len(validPieces)),
-			zap.Int("invalidPieces", len(invalidPieces)),
-			zap.Int("successThreshold", int(rs.OptimalShares)),
+			zap.Int("total_received_pieces", len(req.UploadResult)),
+			zap.Int("valid_pieces", len(validPieces)),
+			zap.Int("invalid_pieces", len(invalidPieces)),
+			zap.Int("success_threshold", int(rs.OptimalShares)),
 		)
 
 		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
@@ -508,8 +508,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		endpoint.log.Debug("data size mismatch",
 			zap.Int64("segment", segmentSize),
 			zap.Int64("pieces", totalStored),
-			zap.Int16("redundancy minimum requested", rs.RequiredShares),
-			zap.Int16("redundancy total", rs.TotalShares),
+			zap.Int16("redundancy_minimum_requested", rs.RequiredShares),
+			zap.Int16("redundancy_total", rs.TotalShares),
 		)
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 	}
@@ -646,7 +646,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
-	endpoint.log.Debug("Inline Segment Upload", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "inline"))
+	endpoint.log.Debug("Inline Segment Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
 
 	return &pb.SegmentMakeInlineResponse{}, nil
@@ -819,7 +819,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth limits.
 		endpoint.log.Error("Could not track the new project's bandwidth usage when downloading a segment",
-			zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+			zap.Stringer("public_id", keyInfo.ProjectPublicID),
 			zap.Error(err),
 		)
 	}
@@ -841,7 +841,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
 
-		endpoint.log.Debug("Inline Segment Download", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
+		endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
 		mon.Meter("req_get_inline").Mark(1)
 
 		return &pb.SegmentDownloadResponse{
@@ -870,8 +870,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			endpoint.log.Error("Unable to create order limits.",
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
-				zap.Stringer("API Key ID", keyInfo.ID),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
+				zap.Stringer("api_key_id", keyInfo.ID),
 				zap.Error(err),
 			)
 		}
@@ -880,7 +880,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(segment.EncryptedSize))
 
-	endpoint.log.Debug("Segment Download", zap.Stringer("Public ID", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
+	endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
 	mon.Meter("req_get_remote").Mark(1)
 
 	return &pb.SegmentDownloadResponse{

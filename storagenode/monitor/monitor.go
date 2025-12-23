@@ -168,7 +168,7 @@ func (service *Service) verifyStorageDir(ctx context.Context) error {
 		}
 		return Error.New("error verifying location and/or readability of storage directory: %v", err)
 	}
-	service.log.Debug("readability check done", zap.Duration("Duration", duration))
+	service.log.Debug("readability check done", zap.Duration("duration", duration))
 	mon.DurationVal("readability_check").Observe(duration)
 	return nil
 }
@@ -195,7 +195,7 @@ func (service *Service) verifyWritability(ctx context.Context) error {
 		}
 		return Error.New("error verifying writability of storage directory: %v", err)
 	}
-	service.log.Debug("writability check done", zap.Duration("Duration", duration))
+	service.log.Debug("writability check done", zap.Duration("duration", duration))
 	mon.DurationVal("writability_check").Observe(duration)
 	return nil
 }

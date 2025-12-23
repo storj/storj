@@ -100,7 +100,7 @@ type Adapter interface {
 func ReadPartition(ctx context.Context, log *zap.Logger, client *recordeddb.SpannerClient, name string, partitionToken string, from time.Time, callback func(record ChangeRecord) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	log.Info("Read partition", zap.String("Change Stream", name), zap.Time("From", from), zap.String("Partition Token", partitionToken))
+	log.Info("Read partition", zap.String("change_stream", name), zap.Time("from", from), zap.String("partition_token", partitionToken))
 
 	changeStream := spannerutil.QuoteIdentifier("READ_" + name)
 

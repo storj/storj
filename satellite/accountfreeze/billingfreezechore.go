@@ -112,8 +112,8 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 		userID, err := chore.accounts.Customers().GetUserID(ctx, invoice.CustomerID)
 		if err != nil {
 			chore.log.Error("Could not get userID",
-				zap.String("invoiceID", invoice.ID),
-				zap.String("customerID", invoice.CustomerID),
+				zap.String("invoice_id", invoice.ID),
+				zap.String("customer_id", invoice.CustomerID),
 				zap.Error(billingFreezeError.Wrap(err)),
 			)
 			continue
@@ -122,18 +122,18 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 		infoLog := func(message string) {
 			chore.log.Info(message,
 				zap.String("process", "billing freeze/warn"),
-				zap.String("invoiceID", invoice.ID),
-				zap.String("customerID", invoice.CustomerID),
-				zap.Any("userID", userID),
+				zap.String("invoice_id", invoice.ID),
+				zap.String("customer_id", invoice.CustomerID),
+				zap.Any("user_id", userID),
 			)
 		}
 
 		errorLog := func(message string, err error) {
 			chore.log.Error(message,
 				zap.String("process", "billing freeze/warn"),
-				zap.String("invoiceID", invoice.ID),
-				zap.String("customerID", invoice.CustomerID),
-				zap.Any("userID", userID),
+				zap.String("invoice_id", invoice.ID),
+				zap.String("customer_id", invoice.CustomerID),
+				zap.Any("user_id", userID),
 				zap.Error(billingFreezeError.Wrap(err)),
 			)
 		}
@@ -352,12 +352,12 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 	}
 
 	chore.log.Info("billing freezing/warning executed",
-		zap.Int("total invoices", len(invoices)),
-		zap.Int("user total", len(userMap)),
-		zap.Int("total billing warned", len(billingWarnedMap)),
-		zap.Int("total billing frozen", len(billingFrozenMap)),
-		zap.Int("total bypassed due to size of invoice", len(bypassedLargeMap)),
-		zap.Int("total bypassed due to storjscan payments", len(bypassedTokenMap)),
+		zap.Int("total_invoices", len(invoices)),
+		zap.Int("user_total", len(userMap)),
+		zap.Int("total_billing_warned", len(billingWarnedMap)),
+		zap.Int("total_billing_frozen", len(billingFrozenMap)),
+		zap.Int("total_bypassed_due_to_size_of_invoice", len(bypassedLargeMap)),
+		zap.Int("total_bypassed_due_to_storjscan_payments", len(bypassedTokenMap)),
 	)
 }
 
@@ -392,16 +392,16 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 			errorLog := func(message string, err error) {
 				chore.log.Error(message,
 					zap.String("process", "billing unfreeze/unwarn"),
-					zap.Any("userID", event.UserID),
-					zap.String("eventType", event.Type.String()),
+					zap.Any("user_id", event.UserID),
+					zap.String("event_type", event.Type.String()),
 					zap.Error(billingFreezeError.Wrap(err)),
 				)
 			}
 			infoLog := func(message string) {
 				chore.log.Info(message,
 					zap.String("process", "billing unfreeze/unwarn"),
-					zap.Any("userID", event.UserID),
-					zap.String("eventType", event.Type.String()),
+					zap.Any("user_id", event.UserID),
+					zap.String("event_type", event.Type.String()),
 					zap.Error(billingFreezeError.Wrap(err)),
 				)
 			}
@@ -449,9 +449,9 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 	}
 
 	chore.log.Info("billing unfreezing/unwarning executed",
-		zap.Int("user total", usersCount),
-		zap.Int("total unwarned", unwarnedCount),
-		zap.Int("total unfrozen", unfrozenCount),
+		zap.Int("user_total", usersCount),
+		zap.Int("total_unwarned", unwarnedCount),
+		zap.Int("total_unfrozen", unfrozenCount),
 	)
 }
 

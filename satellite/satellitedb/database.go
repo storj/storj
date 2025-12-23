@@ -162,7 +162,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	}
 
 	if log.Level() == zap.DebugLevel {
-		log.Debug("Connected to:", zap.String("db source", logging.Redacted(source)))
+		log.Debug("Connected to:", zap.String("db_source", logging.Redacted(source)))
 	}
 
 	name := "satellitedb"

@@ -38,13 +38,13 @@ func (b *Box) Enqueue(eventType EventType, skipCallers int) {
 	buffers := b.buffers.Load()
 
 	if int(eventType) >= len(*buffers) {
-		b.log.Warn("Invalid event type", zap.String("eventType", eventType.String()))
+		b.log.Warn("Invalid event type", zap.String("event_type", eventType.String()))
 		return
 	}
 
 	cb := buffers[eventType]
 	if cb == nil {
-		b.log.Warn("No buffer for event type", zap.String("eventType", eventType.String()))
+		b.log.Warn("No buffer for event type", zap.String("event_type", eventType.String()))
 		return
 	}
 

@@ -171,7 +171,7 @@ func (obs *Observer) Finish(ctx context.Context) (err error) {
 	}
 
 	obs.log.Info("Collecting bloom filters finished",
-		zap.Int("inline _segments", obs.inlineCount),
+		zap.Int("inline__segments", obs.inlineCount),
 		zap.Int("expired_segments", obs.expiredCount),
 		zap.Int("remote_segments", obs.remoteCount))
 

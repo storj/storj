@@ -110,7 +110,7 @@ func (s *Service) CreateNoAuth(ctx context.Context, userID uuid.UUID, expiration
 		return "", nil, Error.Wrap(err)
 	}
 
-	s.auditLog(ctx, "create rest key", &userID, "", zap.String("keyID", restKey.ID.String()))
+	s.auditLog(ctx, "create rest key", &userID, "", zap.String("key_id", restKey.ID.String()))
 
 	return apiKey, expiresAt, nil
 }
@@ -222,7 +222,7 @@ func (s *Service) RevokeByKeyNoAuth(ctx context.Context, apiKey string) (err err
 		return Error.Wrap(err)
 	}
 
-	s.auditLog(ctx, "revoke rest api key", nil, "", zap.String("keyID", restKey.ID.String()))
+	s.auditLog(ctx, "revoke rest api key", nil, "", zap.String("key_id", restKey.ID.String()))
 
 	err = s.restKeys.Revoke(ctx, restKey.ID)
 	if err != nil {

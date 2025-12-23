@@ -218,7 +218,7 @@ func (service *NodeCheckService) ProcessAll(ctx context.Context) (err error) {
 		for _, segment := range segments {
 			if err := service.Verify(ctx, segment); err != nil {
 				service.log.Warn("found",
-					zap.Stringer("stream-id", segment.StreamID),
+					zap.Stringer("stream_id", segment.StreamID),
 					zap.Uint64("position", segment.Position.Encode()),
 					zap.Error(err))
 			}

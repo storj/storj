@@ -158,8 +158,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	offlineNodes = getOfflineNodes(segmentInfo, orderLimits, skip)
 	if len(offlineNodes) > 0 {
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)",
-			zap.Strings("Node IDs", offlineNodes.Strings()),
-			zap.String("Segment", segmentInfoString(segment)))
+			zap.Strings("node_ids", offlineNodes.Strings()),
+			zap.String("segment", segmentInfoString(segment)))
 	}
 
 	// this will pass additional info to restored from trash event sent by underlying libuplink
@@ -200,10 +200,10 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 
 		pieceID := orderLimits[pieceNum].Limit.PieceId
 		errLogger := verifier.log.With(
-			zap.Stringer("Node ID", share.NodeID),
-			zap.String("Segment", segmentInfoString(segment)),
-			zap.Stringer("Piece ID", pieceID),
-			zap.Uint16("Placement", uint16(segmentInfo.Placement)),
+			zap.Stringer("node_id", share.NodeID),
+			zap.String("segment", segmentInfoString(segment)),
+			zap.Stringer("piece_id", pieceID),
+			zap.Uint16("placement", uint16(segmentInfo.Placement)),
 			zap.Error(share.Error),
 		)
 
@@ -229,7 +229,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 					eventkit.Int64("piece-num", int64(share.PieceNum)),
 					eventkit.Int64("placement", int64(segmentInfo.Placement)),
 				)
-				errLogger.Info("Verify: piece not found (audit failed)", zap.Int("piece-num", share.PieceNum))
+				errLogger.Info("Verify: piece not found (audit failed)", zap.Int("piece_num", share.PieceNum))
 				continue
 			}
 
@@ -243,7 +243,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			// unknown error
 			unknownNodes = append(unknownNodes, share.NodeID)
 			errLogger.Info("Verify: unknown error (skipped)",
-				zap.String("ErrorType", spew.Sprintf("%#+v", share.Error)))
+				zap.String("error_type", spew.Sprintf("%#+v", share.Error)))
 		}
 	}
 	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit)))
@@ -281,7 +281,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	pieceNums, _, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
 		mon.Counter("could_not_verify_audit_shares").Inc(1)
-		verifier.log.Error("could not verify shares", zap.String("Segment", segmentInfoString(segment)), zap.Error(err))
+		verifier.log.Error("could not verify shares", zap.String("segment", segmentInfoString(segment)), zap.Error(err))
 		return Report{
 			Segment:  &segmentInfo,
 			Fails:    failedNodes,
@@ -295,8 +295,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 
 	for _, pieceNum := range pieceNums {
 		verifier.log.Info("Verify: share data altered (audit failed)",
-			zap.Stringer("Node ID", shares[pieceNum].NodeID),
-			zap.String("Segment", segmentInfoString(segment)))
+			zap.Stringer("node_id", shares[pieceNum].NodeID),
+			zap.String("segment", segmentInfoString(segment)))
 		failedNodes = append(failedNodes, metabase.Piece{
 			StorageNode: shares[pieceNum].NodeID,
 			Number:      uint16(pieceNum),
@@ -386,7 +386,7 @@ func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Se
 			if ErrContainedNotFound.Has(err) {
 				continue
 			}
-			verifier.log.Error("can not determine if node is contained", zap.Stringer("node-id", piece.StorageNode), zap.Error(err))
+			verifier.log.Error("can not determine if node is contained", zap.Stringer("node_id", piece.StorageNode), zap.Error(err))
 			continue
 		}
 		skipList[piece.StorageNode] = true
@@ -429,7 +429,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		}
 		ps, err = piecestore.Dial(rpcpool.WithForceDial(timedCtx), verifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
-			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
+			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached_ip_and_port", cachedIPAndPort), zap.Error(err))
 		}
 	}
 

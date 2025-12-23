@@ -59,13 +59,13 @@ func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName s
 	// Wrap the adapter with notification capability
 	notifier := newNotifyingAdapter(adapter)
 
-	log.Info("Starting change stream processor", zap.String("Change Stream", feedName))
+	log.Info("Starting change stream processor", zap.String("change_stream", feedName))
 
 	err = processLoop(ctx, log, notifier, feedName, startTime, fn)
 	if errs2.IgnoreCanceled(err) != nil && spanner.ErrCode(err) != codes.Canceled {
-		log.Error("Change stream processor exited with error", zap.String("Change Stream", feedName), zap.Error(err))
+		log.Error("Change stream processor exited with error", zap.String("change_stream", feedName), zap.Error(err))
 	} else {
-		log.Info("Change stream processor exited", zap.String("Change Stream", feedName))
+		log.Info("Change stream processor exited", zap.String("change_stream", feedName))
 	}
 
 	return err
@@ -84,7 +84,7 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 
 		if noMetadata {
 			log.Debug("No partition metadata found. Adding the initial partition",
-				zap.String("Change Stream", feedName))
+				zap.String("change_stream", feedName))
 
 			err = adapter.AddChangeStreamPartition(childCtx, feedName, "", nil, startTime)
 			if err != nil {
@@ -100,8 +100,8 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 			}
 
 			log.Debug("Unfinished partitions found",
-				zap.String("Change Stream", feedName),
-				zap.Int("Count", len(unfinished)))
+				zap.String("change_stream", feedName),
+				zap.Int("count", len(unfinished)))
 
 			for partitionToken, startTime := range unfinished {
 				partitionToken, startTime := partitionToken, startTime
@@ -120,7 +120,7 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 			case <-childCtx.Done():
 				return childCtx.Err()
 			case <-adapter.notifyCh:
-				log.Debug("Received partition notification", zap.String("Change Stream", feedName))
+				log.Debug("Received partition notification", zap.String("change_stream", feedName))
 			}
 
 			count, err := adapter.ScheduleChangeStreamPartitions(childCtx, feedName)
@@ -129,8 +129,8 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 			}
 
 			log.Debug("New partitions scheduled",
-				zap.String("Change Stream", feedName),
-				zap.Int64("Count", count))
+				zap.String("change_stream", feedName),
+				zap.Int64("count", count))
 
 			scheduled, err := adapter.GetChangeStreamPartitionsByState(childCtx, feedName, StateScheduled)
 			if err != nil {
@@ -138,8 +138,8 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 			}
 
 			log.Debug("Scheduled partitions found",
-				zap.String("Change Stream", feedName),
-				zap.Int("Count", len(scheduled)))
+				zap.String("change_stream", feedName),
+				zap.Int("count", len(scheduled)))
 
 			if len(scheduled) == 0 {
 				continue
@@ -149,8 +149,8 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 				partitionToken, startTime := partitionToken, startTime
 
 				log.Debug("Mark partition as running",
-					zap.String("Change Stream", feedName),
-					zap.String("Partition Token", partitionToken))
+					zap.String("change_stream", feedName),
+					zap.String("partition_token", partitionToken))
 
 				err = adapter.UpdateChangeStreamPartitionState(childCtx, feedName, partitionToken, StateRunning)
 				if err != nil {
@@ -180,9 +180,9 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 			}
 
 			log.Debug("Received data change. Updating partition watermark",
-				zap.String("Change Stream", feedName),
-				zap.String("Partition Token", partitionToken),
-				zap.Time("Commit Timestamp", dataChange.CommitTimestamp))
+				zap.String("change_stream", feedName),
+				zap.String("partition_token", partitionToken),
+				zap.Time("commit_timestamp", dataChange.CommitTimestamp))
 
 			err = adapter.UpdateChangeStreamPartitionWatermark(ctx, feedName, partitionToken, dataChange.CommitTimestamp)
 			if err != nil {
@@ -192,12 +192,12 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 		for _, partition := range record.ChildPartitionsRecord {
 			for _, child := range partition.ChildPartitions {
 				log.Debug("Received child partition. Adding it to metabase",
-					zap.String("Change Stream", feedName),
-					zap.Time("Start Timestamp", partition.StartTimestamp),
-					zap.String("Record Sequence", partition.RecordSequence),
-					zap.String("Partition Token", partitionToken),
-					zap.String("Child Token", child.Token),
-					zap.Strings("Parent Tokens", child.ParentPartitionTokens))
+					zap.String("change_stream", feedName),
+					zap.Time("start_timestamp", partition.StartTimestamp),
+					zap.String("record_sequence", partition.RecordSequence),
+					zap.String("partition_token", partitionToken),
+					zap.String("child_token", child.Token),
+					zap.Strings("parent_tokens", child.ParentPartitionTokens))
 
 				err := adapter.AddChangeStreamPartition(ctx, feedName, child.Token, child.ParentPartitionTokens, partition.StartTimestamp)
 				if err != nil {
@@ -207,9 +207,9 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 		}
 		for _, hb := range record.HeartbeatRecord {
 			log.Debug("Received heartbeat. Updating partition watermark",
-				zap.String("Change Stream", feedName),
-				zap.String("Partition Token", partitionToken),
-				zap.Time("Timestamp", hb.Timestamp))
+				zap.String("change_stream", feedName),
+				zap.String("partition_token", partitionToken),
+				zap.Time("timestamp", hb.Timestamp))
 
 			err = adapter.UpdateChangeStreamPartitionWatermark(ctx, feedName, partitionToken, hb.Timestamp)
 			if err != nil {
@@ -223,8 +223,8 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 	}
 
 	log.Debug("Mark partition as finished",
-		zap.String("Change Stream", feedName),
-		zap.String("Partition Token", partitionToken))
+		zap.String("change_stream", feedName),
+		zap.String("partition_token", partitionToken))
 
 	err = adapter.UpdateChangeStreamPartitionState(ctx, feedName, partitionToken, StateFinished)
 	if err != nil {

@@ -231,9 +231,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	defer mon.Task()(&ctx, queueSegment.StreamID.String(), queueSegment.Position.Encode(), queueSegment.Placement)(&err)
 
 	log := repairer.log.With(
-		zap.Stringer("Stream ID", queueSegment.StreamID),
-		zap.Uint64("Position", queueSegment.Position.Encode()),
-		zap.Uint16("Placement", uint16(queueSegment.Placement)),
+		zap.Stringer("stream_id", queueSegment.StreamID),
+		zap.Uint64("position", queueSegment.Position.Encode()),
+		zap.Uint16("placement", uint16(queueSegment.Placement)),
 	)
 
 	segment, err := repairer.metabase.GetSegmentByPositionForRepair(ctx, metabase.GetSegmentByPosition{
@@ -277,7 +277,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
 	}
 	if len(selectedNodes) != len(segment.Pieces) {
-		log.Error("GetParticipatingNodes returned an invalid result", zap.Any("pieces", segment.Pieces), zap.Any("selectedNodes", selectedNodes))
+		log.Error("GetParticipatingNodes returned an invalid result", zap.Any("pieces", segment.Pieces), zap.Any("selected_nodes", selectedNodes))
 		return false, overlayQueryError.New("GetParticipatingNodes returned an invalid result")
 	}
 	pieces := segment.Pieces
@@ -292,8 +292,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		stats.repairerNodesUnavailable.Mark(1) //mon::locked
 
 		log.Warn("irreparable segment",
-			zap.Int("Pieces Available", piecesCheck.Retrievable.Count()),
-			zap.Int16("Pieces Required", newRedundancy.RequiredShares),
+			zap.Int("pieces_available", piecesCheck.Retrievable.Count()),
+			zap.Int16("pieces_required", newRedundancy.RequiredShares),
 		)
 		tags := make([]eventkit.Tag, 0, 18)
 		tags = append(tags,
@@ -366,14 +366,14 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 
 		stats.repairUnnecessary.Mark(1)
 		log.Info("segment above repair threshold",
-			zap.Int("numHealthy", piecesCheck.Healthy.Count()),
-			zap.Int16("repairThreshold", newRedundancy.RepairShares),
-			zap.Int16("repairTarget", newRedundancy.OptimalShares),
-			zap.Int("numClumped", piecesCheck.Clumped.Count()),
-			zap.Int("numExiting", piecesCheck.Exiting.Count()),
-			zap.Int("numOffPieces", piecesCheck.OutOfPlacement.Count()),
-			zap.Int("numExcluded", piecesCheck.InExcludedCountry.Count()),
-			zap.Int("droppedPieces", len(dropPieces)))
+			zap.Int("num_healthy", piecesCheck.Healthy.Count()),
+			zap.Int16("repair_threshold", newRedundancy.RepairShares),
+			zap.Int16("repair_target", newRedundancy.OptimalShares),
+			zap.Int("num_clumped", piecesCheck.Clumped.Count()),
+			zap.Int("num_exiting", piecesCheck.Exiting.Count()),
+			zap.Int("num_off_pieces", piecesCheck.OutOfPlacement.Count()),
+			zap.Int("num_excluded", piecesCheck.InExcludedCountry.Count()),
+			zap.Int("dropped_pieces", len(dropPieces)))
 		return true, nil
 	}
 
@@ -400,8 +400,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			stats.repairerNodesUnavailable.Mark(1)
 
 			log.Warn("irreparable segment: too many nodes offline",
-				zap.Int("Pieces Available", len(retrievablePieces)),
-				zap.Int16("Pieces Required", segment.Redundancy.RequiredShares),
+				zap.Int("pieces_available", len(retrievablePieces)),
+				zap.Int16("pieces_required", segment.Redundancy.RequiredShares),
 				zap.Error(err),
 			)
 		}
@@ -465,8 +465,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	}
 
 	log.Debug("fetching pieces for segment",
-		zap.Int("numOrderLimits", len(getOrderLimits)),
-		zap.Stringer("RS", segment.Redundancy))
+		zap.Int("num_order_limits", len(getOrderLimits)),
+		zap.Stringer("rs", segment.Redundancy))
 
 	// this will pass additional info to restored from trash event sent by underlying libuplink
 	//nolint: revive
@@ -562,16 +562,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 			}
 
 			log.Warn("irreparable segment: could not acquire enough shares",
-				zap.Int32("Pieces Available", irreparableErr.piecesAvailable),
-				zap.Int32("Pieces Required", irreparableErr.piecesRequired),
-				zap.Int("Failed Nodes", len(failedNodeIDs)),
-				zap.Stringers("Failed Nodes List", failedNodeIDs),
-				zap.Int("Offline Nodes", len(offlineNodeIDs)),
-				zap.Stringers("Offline Nodes List", offlineNodeIDs),
-				zap.Int("Timed Out Nodes", len(timedOutNodeIDs)),
-				zap.Stringers("Timed Out Nodes List", timedOutNodeIDs),
-				zap.Strings("Unknown Errors List", unknownErrs),
-				zap.Uint16("Placement", uint16(segment.Placement)),
+				zap.Int32("pieces_available", irreparableErr.piecesAvailable),
+				zap.Int32("pieces_required", irreparableErr.piecesRequired),
+				zap.Int("failed_nodes", len(failedNodeIDs)),
+				zap.Stringers("failed_nodes_list", failedNodeIDs),
+				zap.Int("offline_nodes", len(offlineNodeIDs)),
+				zap.Stringers("offline_nodes_list", offlineNodeIDs),
+				zap.Int("timed_out_nodes", len(timedOutNodeIDs)),
+				zap.Stringers("timed_out_nodes_list", timedOutNodeIDs),
+				zap.Strings("unknown_errors_list", unknownErrs),
+				zap.Uint16("placement", uint16(segment.Placement)),
 			)
 
 			tags := make([]eventkit.Tag, 0, 23)
@@ -723,9 +723,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	}
 
 	log.Debug("putting pieces for segment",
-		zap.Int("numOrderLimits", len(putLimits)),
-		zap.Int("minSuccessfulNeeded", minSuccessfulNeeded),
-		zap.Stringer("RS", newRedundancy))
+		zap.Int("num_order_limits", len(putLimits)),
+		zap.Int("min_successful_needed", minSuccessfulNeeded),
+		zap.Stringer("rs", newRedundancy))
 
 	// Upload the repaired pieces
 	successfulNodes, _, err := repairer.ec.Repair(ctx, log, putLimits, putPrivateKey, newRedundancyStrategy, segmentReader, repairer.timeout, minSuccessfulNeeded)
@@ -853,18 +853,18 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	stats.segmentTimeUntilRepair.Observe(int64(segmentAge.Seconds()))
 
 	log.Info("repaired segment",
-		zap.Int("clumped pieces", piecesCheck.Clumped.Count()),
-		zap.Int("exiting-node pieces", piecesCheck.Exiting.Count()),
-		zap.Int("out of placement pieces", piecesCheck.OutOfPlacement.Count()),
-		zap.Int("in excluded countries", piecesCheck.InExcludedCountry.Count()),
-		zap.Int("missing pieces", piecesCheck.Missing.Count()),
-		zap.Int("removed pieces", len(toRemove)),
-		zap.Int("repaired pieces", len(repairedPieces)),
-		zap.Int("retrievable pieces", piecesCheck.Retrievable.Count()),
-		zap.Int("healthy before repair", piecesCheck.Healthy.Count()),
-		zap.Int("healthy after repair", healthyAfterRepair),
-		zap.Int("total before repair", len(selectedNodes)),
-		zap.Int("total after repair", len(newPieces)))
+		zap.Int("clumped_pieces", piecesCheck.Clumped.Count()),
+		zap.Int("exiting_node_pieces", piecesCheck.Exiting.Count()),
+		zap.Int("out_of_placement_pieces", piecesCheck.OutOfPlacement.Count()),
+		zap.Int("in_excluded_countries", piecesCheck.InExcludedCountry.Count()),
+		zap.Int("missing_pieces", piecesCheck.Missing.Count()),
+		zap.Int("removed_pieces", len(toRemove)),
+		zap.Int("repaired_pieces", len(repairedPieces)),
+		zap.Int("retrievable_pieces", piecesCheck.Retrievable.Count()),
+		zap.Int("healthy_before_repair", piecesCheck.Healthy.Count()),
+		zap.Int("healthy_after_repair", healthyAfterRepair),
+		zap.Int("total_before_repair", len(selectedNodes)),
+		zap.Int("total_after_repair", len(newPieces)))
 	return true, nil
 }
 
@@ -952,9 +952,9 @@ func (repairer *SegmentRepairer) AdminFetchPieces(
 			address := limit.GetStorageNodeAddress().GetAddress()
 
 			log.Debug("piece download attempt",
-				zap.Stringer("Node ID", limit.Limit.StorageNodeId),
-				zap.Stringer("Piece ID", limit.Limit.PieceId),
-				zap.Int("piece index", currentLimitIndex),
+				zap.Stringer("node_id", limit.Limit.StorageNodeId),
+				zap.Stringer("piece_id", limit.Limit.PieceId),
+				zap.Int("piece_index", currentLimitIndex),
 				zap.String("address", limit.GetStorageNodeAddress().Address),
 				zap.String("last_ip_port", info.LastIPPort),
 				zap.Binary("serial", limit.Limit.SerialNumber[:]))

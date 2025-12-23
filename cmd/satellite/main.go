@@ -984,7 +984,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 		if err != nil {
 			log.Error("Error closing the output file after retrieving partner value attribution data.",
-				zap.String("Output File", partnerAttributionCfg.Output),
+				zap.String("output_file", partnerAttributionCfg.Output),
 				zap.Error(err),
 			)
 		}
@@ -1187,7 +1187,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	nonexistent := new(int64)
 
 	undelete := func(node *nodeselection.SelectedNode) {
-		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
+		log.Info("starting restore trash", zap.String("node_id", node.ID.String()))
 
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
@@ -1198,13 +1198,13 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		})
 		if err != nil {
 			atomic.AddInt64(failures, 1)
-			log.Error("unable to connect", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			log.Error("unable to connect", zap.String("node_id", node.ID.String()), zap.Error(err))
 			return
 		}
 		defer func() {
 			err := conn.Close()
 			if err != nil {
-				log.Error("close failure", zap.String("Node ID", node.ID.String()), zap.Error(err))
+				log.Error("close failure", zap.String("node_id", node.ID.String()), zap.Error(err))
 			}
 		}()
 
@@ -1212,12 +1212,12 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		_, err = client.RestoreTrash(ctx, &pb.RestoreTrashRequest{})
 		if err != nil {
 			atomic.AddInt64(failures, 1)
-			log.Error("unable to restore trash", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			log.Error("unable to restore trash", zap.String("node_id", node.ID.String()), zap.Error(err))
 			return
 		}
 
 		atomic.AddInt64(successes, 1)
-		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
+		log.Info("successful restore trash", zap.String("node_id", node.ID.String()))
 	}
 
 	var nodes []*nodeselection.SelectedNode
@@ -1233,13 +1233,13 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		for _, nodeid := range args {
 			parsedNodeID, err := storj.NodeIDFromString(nodeid)
 			if err != nil {
-				log.Error("unable to parse node id", zap.String("Node ID", nodeid), zap.Error(err))
+				log.Error("unable to parse node id", zap.String("node_id", nodeid), zap.Error(err))
 				atomic.AddInt64(nonexistent, 1)
 				continue
 			}
 			dossier, err := db.OverlayCache().Get(ctx, parsedNodeID)
 			if err != nil {
-				log.Error("unable to find node id", zap.String("Node ID", nodeid), zap.Error(err))
+				log.Error("unable to find node id", zap.String("node_id", nodeid), zap.Error(err))
 				atomic.AddInt64(nonexistent, 1)
 				continue
 			}
@@ -1288,7 +1288,7 @@ func cmdRegisterLostSegments(cmd *cobra.Command, args []string) error {
 	// we can't actually tell whether metrics is really enabled at this point;
 	// process.InitMetrics...() can return a nil error while disabling metrics
 	// entirely. make sure that's clear to the user.
-	log.Info("lost segment event(s) sent (if metrics are actually enabled)", zap.Int("lost-segments", numLostSegments))
+	log.Info("lost segment event(s) sent (if metrics are actually enabled)", zap.Int("lost_segments", numLostSegments))
 
 	return nil
 }

@@ -78,7 +78,7 @@ func trashCmdRun(opts *RunOptions) (err error) {
 		return errs.New("DateBefore is required")
 	}
 
-	log.Info("trash-filewalker started", zap.Time("dateBefore", req.DateBefore))
+	log.Info("trash-filewalker started", zap.Time("date_before", req.DateBefore))
 
 	db, err := storagenodedb.OpenExisting(opts.Ctx, log.Named("db"), opts.config.DatabaseConfig())
 	if err != nil {
@@ -100,7 +100,7 @@ func trashCmdRun(opts *RunOptions) (err error) {
 		KeysDeleted:  keysDeleted,
 	}
 
-	log.Info("trash-filewalker completed", zap.Int64("bytesDeleted", bytesDeleted), zap.Int("numKeysDeleted", len(keysDeleted)))
+	log.Info("trash-filewalker completed", zap.Int64("bytes_deleted", bytesDeleted), zap.Int("num_keys_deleted", len(keysDeleted)))
 
 	// encode the response struct and write it to stdout
 	return json.NewEncoder(opts.stdout).Encode(resp)

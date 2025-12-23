@@ -97,8 +97,8 @@ func MigrateProjects(ctx context.Context, log *zap.Logger, conn *pgx.Conn, confi
 			break
 		}
 		total += updated
-		log.Info("batch update complete", zap.Int("rows updated", updated), zap.Binary("last id", lastID))
+		log.Info("batch update complete", zap.Int("rows_updated", updated), zap.Binary("last_id", lastID))
 	}
-	log.Info("projects migration complete", zap.Int("total rows updated", total))
+	log.Info("projects migration complete", zap.Int("total_rows_updated", total))
 	return nil
 }

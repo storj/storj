@@ -124,9 +124,9 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 				// delete the piece from the storage
 				err := service.pieces.DeleteSkipV0(ctx, eiList.SatelliteID, pieceID, pieceSize)
 				if err != nil {
-					service.log.Warn("unable to delete piece", zap.Stringer("Satellite ID", eiList.SatelliteID), zap.Stringer("Piece ID", pieceID), zap.Error(err))
+					service.log.Warn("unable to delete piece", zap.Stringer("satellite_id", eiList.SatelliteID), zap.Stringer("piece_id", pieceID), zap.Error(err))
 				} else {
-					service.log.Debug("deleted expired piece", zap.Stringer("Satellite ID", eiList.SatelliteID), zap.Stringer("Piece ID", pieceID))
+					service.log.Debug("deleted expired piece", zap.Stringer("satellite_id", eiList.SatelliteID), zap.Stringer("piece_id", pieceID))
 				}
 			}
 		}

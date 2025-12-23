@@ -58,13 +58,13 @@ func (c *CombinedExpirationStore) GetExpired(ctx context.Context, expiresBefore 
 func (c *CombinedExpirationStore) DeleteExpirations(ctx context.Context, expiresAt time.Time) error {
 	var errList errs.Group
 
-	c.log.Debug("deleting expired pieces from flat file store", zap.Time("expiresAt", expiresAt))
+	c.log.Debug("deleting expired pieces from flat file store", zap.Time("expires_at", expiresAt))
 	if err := c.flatFileStore.DeleteExpirations(ctx, expiresAt); err != nil {
 		errList.Add(err)
 	}
 
 	if c.chainedDB != nil {
-		c.log.Debug("deleting expired pieces from chained db", zap.Time("expiresAt", expiresAt))
+		c.log.Debug("deleting expired pieces from chained db", zap.Time("expires_at", expiresAt))
 		errList.Add(c.chainedDB.DeleteExpirations(ctx, expiresAt))
 	}
 
@@ -75,13 +75,13 @@ func (c *CombinedExpirationStore) DeleteExpirations(ctx context.Context, expires
 func (c *CombinedExpirationStore) DeleteExpirationsBatch(ctx context.Context, now time.Time, opts ExpirationOptions) error {
 	var errList errs.Group
 
-	c.log.Debug("deleting expired pieces from flat file store", zap.Time("expiresAt", now), zap.Any("opts", opts))
+	c.log.Debug("deleting expired pieces from flat file store", zap.Time("expires_at", now), zap.Any("opts", opts))
 	if err := c.flatFileStore.DeleteExpirationsBatch(ctx, now, opts); err != nil {
 		errList.Add(err)
 	}
 
 	if c.chainedDB != nil {
-		c.log.Debug("deleting expired pieces from flat file store", zap.Time("expiresAt", now), zap.Any("opts", opts))
+		c.log.Debug("deleting expired pieces from flat file store", zap.Time("expires_at", now), zap.Any("opts", opts))
 		errList.Add(c.chainedDB.DeleteExpirationsBatch(ctx, now, opts))
 	}
 

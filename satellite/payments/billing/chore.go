@@ -63,7 +63,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	return chore.TransactionCycle.Run(ctx, func(ctx context.Context) error {
 		if chore.disableLoop {
-			chore.log.Debug("Skipping chore iteration as loop is disabled", zap.Bool("disableLoop", chore.disableLoop))
+			chore.log.Debug("Skipping chore iteration as loop is disabled", zap.Bool("disable_loop", chore.disableLoop))
 			return nil
 		}
 

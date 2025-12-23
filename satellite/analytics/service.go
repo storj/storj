@@ -719,7 +719,7 @@ func (service *Service) TrackGenericFreeze(userID uuid.UUID, email, freezeType s
 	props.Set("freeze_type", freezeType)
 	props.Set("admin_initiated", adminInitiated)
 
-	service.log.Info("user frozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freezeType", freezeType), zap.Bool("adminInitiated", adminInitiated))
+	service.log.Info("user frozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freeze_type", freezeType), zap.Bool("admin_initiated", adminInitiated))
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
@@ -739,7 +739,7 @@ func (service *Service) TrackGenericUnfreeze(userID uuid.UUID, email, freezeType
 	props.Set("freeze_type", freezeType)
 	props.Set("admin_initiated", adminInitiated)
 
-	service.log.Info("user unfrozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freezeType", freezeType), zap.Bool("adminInitiated", adminInitiated))
+	service.log.Info("user unfrozen", zap.String("email", email), zap.String("user_id", userID.String()), zap.String("freeze_type", freezeType), zap.Bool("admin_initiated", adminInitiated))
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
@@ -898,13 +898,13 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 
 	// do not track if the event name is an invalid client-side event
 	if !service.clientEvents[eventName] {
-		service.log.Error("Invalid client-triggered event", zap.String("eventName", eventName))
+		service.log.Error("Invalid client-triggered event", zap.String("event_name", eventName))
 		return
 	}
 
 	if v, ok := customProps["source"]; ok {
 		if _, ok = service.sources[v]; !ok {
-			service.log.Error("Event source is not in allowed list", zap.String("eventName", eventName), zap.String("source", v))
+			service.log.Error("Event source is not in allowed list", zap.String("event_name", eventName), zap.String("source", v))
 			return
 		}
 	}
@@ -957,7 +957,7 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email
 
 	// do not track if the event name is an invalid client-side event
 	if !service.clientEvents[eventName] {
-		service.log.Error("Invalid client-triggered event", zap.String("eventName", eventName))
+		service.log.Error("Invalid client-triggered event", zap.String("event_name", eventName))
 		return
 	}
 

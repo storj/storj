@@ -140,8 +140,8 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 				totalSize, sizeErr := w.blob.Size()
 				if sizeErr != nil {
 					w.log.Error("Failed to calculate piece size, cannot update the cache",
-						zap.Error(sizeErr), zap.Stringer("piece ID", pieceHeader.GetOrderLimit().PieceId),
-						zap.Stringer("satellite ID", w.satellite))
+						zap.Error(sizeErr), zap.Stringer("piece_id", pieceHeader.GetOrderLimit().PieceId),
+						zap.Stringer("satellite_id", w.satellite))
 					return
 				}
 				cache.Update(ctx, w.satellite, totalSize, w.Size(), 0)

@@ -83,14 +83,14 @@ func (chore *BotFreezeChore) attemptBotFreeze(ctx context.Context) {
 			errorLog := func(message string, err error) {
 				chore.log.Error(message,
 					zap.String("process", "delayed bot freeze"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 					zap.Error(botFreezeError.Wrap(err)),
 				)
 			}
 			infoLog := func(message string) {
 				chore.log.Info(message,
 					zap.String("process", "delayed bot freeze"),
-					zap.Any("userID", event.UserID),
+					zap.Any("user_id", event.UserID),
 					zap.Error(botFreezeError.Wrap(err)),
 				)
 			}
@@ -139,8 +139,8 @@ func (chore *BotFreezeChore) attemptBotFreeze(ctx context.Context) {
 	}
 
 	chore.log.Info("delayed bot freeze executed",
-		zap.Int("user total", usersCount),
-		zap.Int("total frozen", frozenCount),
+		zap.Int("user_total", usersCount),
+		zap.Int("total_frozen", frozenCount),
 	)
 }
 

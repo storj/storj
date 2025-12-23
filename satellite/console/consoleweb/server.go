@@ -253,7 +253,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		productPriceSummaries:           pps,
 	}
 
-	logger.Debug("Starting Satellite Console server.", zap.Stringer("Address", server.listener.Addr()))
+	logger.Debug("Starting Satellite Console server.", zap.Stringer("address", server.listener.Addr()))
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
 		Name: "_tokenKey",
@@ -626,7 +626,7 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 		csrfService:     csrfService,
 	}
 
-	logger.Debug("Starting Satellite UI server.", zap.Stringer("Address", server.listener.Addr()))
+	logger.Debug("Starting Satellite UI server.", zap.Stringer("address", server.listener.Addr()))
 
 	router := mux.NewRouter()
 
@@ -1241,7 +1241,7 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 				GetInTouchURL: wlConfig.GetInTouchURL,
 			}
 		} else {
-			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenantID", tenantCtx.TenantID))
+			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenant_id", tenantCtx.TenantID))
 		}
 	}
 
@@ -1615,15 +1615,15 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 				fields := make([]zapcore.Field, 0, 6)
 				fields = append(fields,
 					zap.String("method", r.Method),
-					zap.String("URI", r.RequestURI),
-					zap.String("IP", getClientIP(r)),
-					zap.Int("response-code", respWCode.code),
+					zap.String("uri", r.RequestURI),
+					zap.String("ip", getClientIP(r)),
+					zap.Int("response_code", respWCode.code),
 					zap.Duration("elapse", time.Since(begin)),
 				)
 
 				span := monkit.SpanFromCtx(ctx)
 				if span != nil {
-					fields = append(fields, zap.Int64("trace-id", span.Trace().Id()))
+					fields = append(fields, zap.Int64("trace_id", span.Trace().Id()))
 				}
 
 				log.Info("client HTTP request", fields...)
@@ -1635,7 +1635,7 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 			pathTpl, err := match.Route.GetPathTemplate()
 			if err != nil {
 				log.Warn("error when getting the route template path",
-					zap.Error(err), zap.String("request-uri", r.RequestURI),
+					zap.Error(err), zap.String("request_uri", r.RequestURI),
 				)
 				next.ServeHTTP(&respWCode, r)
 				return

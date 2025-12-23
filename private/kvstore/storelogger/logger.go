@@ -34,7 +34,7 @@ func New(log *zap.Logger, store kvstore.Store) *Logger {
 // Put adds a value to store.
 func (store *Logger) Put(ctx context.Context, key kvstore.Key, value kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Put", zap.ByteString("key", key), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))
+	store.log.Debug("Put", zap.ByteString("key", key), zap.Int("value_length", len(value)), zap.Binary("truncated_value", truncate(value)))
 	return store.store.Put(ctx, key, value)
 }
 
@@ -59,8 +59,8 @@ func (store *Logger) Range(ctx context.Context, fn func(context.Context, kvstore
 	return store.store.Range(ctx, func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
 		store.log.Debug("  ",
 			zap.ByteString("key", key),
-			zap.Int("value length", len(value)),
-			zap.Binary("truncated value", truncate(value)),
+			zap.Int("value_length", len(value)),
+			zap.Binary("truncated_value", truncate(value)),
 		)
 		return fn(ctx, key, value)
 	})
@@ -76,8 +76,8 @@ func (store *Logger) Close() error {
 func (store *Logger) CompareAndSwap(ctx context.Context, key kvstore.Key, oldValue, newValue kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("CompareAndSwap", zap.ByteString("key", key),
-		zap.Int("old value length", len(oldValue)), zap.Int("new value length", len(newValue)),
-		zap.Binary("truncated old value", truncate(oldValue)), zap.Binary("truncated new value", truncate(newValue)))
+		zap.Int("old_value_length", len(oldValue)), zap.Int("new_value_length", len(newValue)),
+		zap.Binary("truncated_old_value", truncate(oldValue)), zap.Binary("truncated_new_value", truncate(newValue)))
 	return store.store.CompareAndSwap(ctx, key, oldValue, newValue)
 }
 

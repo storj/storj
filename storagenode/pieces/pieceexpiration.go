@@ -119,7 +119,7 @@ func (peStore *PieceExpirationStore) flushOnTicks() {
 			peStore.handlePool.ForEach(func(key hourKey, value *hourFile) {
 				if err := value.flush(); err != nil {
 					peStore.log.Error("failed to flush piece expiration data",
-						zap.Stringer("satelliteID", key.satelliteID),
+						zap.Stringer("satellite_id", key.satelliteID),
 						zap.Time("hour", key.hour),
 						zap.String("filename", value.w.Name()),
 						zap.Error(err))
@@ -316,7 +316,7 @@ func (peStore *PieceExpirationStore) GetExpiredForSatellite(ctx context.Context,
 			err := hourFile.flush()
 			if err != nil {
 				peStore.log.Error("failed to flush piece expiration data",
-					zap.Stringer("satelliteID", satellite),
+					zap.Stringer("satellite_id", satellite),
 					zap.Time("hour", elapsedHour),
 					zap.String("filename", hourFile.w.Name()),
 					zap.Error(err))
@@ -503,7 +503,7 @@ func (peStore *PieceExpirationStore) openHour(key hourKey) *hourFile {
 	if err != nil {
 		err = ErrPieceExpiration.Wrap(err)
 		peStore.log.Error("failed to create piece expiration directory",
-			zap.Stringer("satelliteID", key.satelliteID),
+			zap.Stringer("satellite_id", key.satelliteID),
 			zap.Time("hour", key.hour),
 			zap.String("dirname", filepath.Dir(fileName)),
 			zap.Error(err))
@@ -517,7 +517,7 @@ func (peStore *PieceExpirationStore) openHour(key hourKey) *hourFile {
 	if err != nil {
 		err = ErrPieceExpiration.Wrap(err)
 		peStore.log.Error("failed to open piece expiration file",
-			zap.Stringer("satelliteID", key.satelliteID),
+			zap.Stringer("satellite_id", key.satelliteID),
 			zap.Time("hour", key.hour),
 			zap.String("filename", fileName),
 			zap.Error(err))
@@ -539,9 +539,9 @@ func (peStore *PieceExpirationStore) openHour(key hourKey) *hourFile {
 	const recordSize = int64(len(storj.PieceID{})) + 8
 	if pos%recordSize != 0 {
 		peStore.log.Warn("truncating piece expiration file to a multiple of record size",
-			zap.Int64("openedAtSize", pos),
-			zap.Int64("recordSize", recordSize),
-			zap.Stringer("satelliteID", key.satelliteID),
+			zap.Int64("opened_at_size", pos),
+			zap.Int64("record_size", recordSize),
+			zap.Stringer("satellite_id", key.satelliteID),
 			zap.Time("hour", key.hour),
 			zap.String("filename", w.Name()))
 		_, errSeek := w.Seek(pos-(pos%recordSize), io.SeekStart)
@@ -553,9 +553,9 @@ func (peStore *PieceExpirationStore) openHour(key hourKey) *hourFile {
 				err = ErrPieceExpiration.Wrap(errTrunc)
 			}
 			peStore.log.Error("failed to truncate piece expiration file",
-				zap.Int64("openedAtSize", pos),
-				zap.Int64("recordSize", recordSize),
-				zap.Stringer("satelliteID", key.satelliteID),
+				zap.Int64("opened_at_size", pos),
+				zap.Int64("record_size", recordSize),
+				zap.Stringer("satellite_id", key.satelliteID),
 				zap.Time("hour", key.hour),
 				zap.String("filename", w.Name()),
 				zap.Error(err))
@@ -582,7 +582,7 @@ func (peStore *PieceExpirationStore) closeHour(key hourKey, hourFile *hourFile) 
 				// this isn't fatal; piece expiration data may be lost,
 				// but those pieces will still be garbage collected.
 				peStore.log.Error("failed to flush writes to piece expiration list",
-					zap.Stringer("satelliteID", key.satelliteID),
+					zap.Stringer("satellite_id", key.satelliteID),
 					zap.Time("hour", key.hour),
 					zap.String("filename", hourFile.w.Name()),
 					zap.Error(err),
@@ -594,7 +594,7 @@ func (peStore *PieceExpirationStore) closeHour(key hourKey, hourFile *hourFile) 
 		if err != nil {
 			// also not fatal
 			peStore.log.Error("failed to complete writes to piece expiration list",
-				zap.Stringer("satelliteID", key.satelliteID),
+				zap.Stringer("satellite_id", key.satelliteID),
 				zap.Time("hour", key.hour),
 				zap.String("filename", hourFile.w.Name()),
 				zap.Error(err),

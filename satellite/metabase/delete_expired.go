@@ -38,11 +38,11 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 
 			for _, object := range objects {
 				db.log.Debug("Deleting expired object",
-					zap.Stringer("Project", object.ProjectID),
-					zap.Stringer("Bucket", object.BucketName),
-					zap.String("Object Key", string(object.ObjectKey)),
-					zap.Int64("Version", int64(object.Version)),
-					zap.Stringer("StreamID", object.StreamID),
+					zap.Stringer("project", object.ProjectID),
+					zap.Stringer("bucket", object.BucketName),
+					zap.String("object_key", string(object.ObjectKey)),
+					zap.Int64("version", int64(object.Version)),
+					zap.Stringer("stream_id", object.StreamID),
 				)
 			}
 

@@ -43,6 +43,6 @@ func (m *MockNotifier) Notify(ctx context.Context, satellite string, events []No
 	if err != nil {
 		return err
 	}
-	m.log.Info("node operator notified", zap.String("email", events[0].Email), zap.String("event", name), zap.String("node IDs", nodeIDs))
+	m.log.Info("node operator notified", zap.String("email", events[0].Email), zap.String("event", name), zap.String("node_ids", nodeIDs))
 	return nil
 }

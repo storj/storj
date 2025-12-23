@@ -70,7 +70,7 @@ func (chore *Chore) AddMissing(ctx context.Context) (err error) {
 		worker := NewWorker(chore.log, chore.service, chore.dialer, satellite.NodeURL, chore.config)
 		if _, ok := chore.exitingMap.LoadOrStore(satellite.SatelliteID, worker); ok {
 			// already running a worker for this satellite
-			chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", satellite.SatelliteID))
+			chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("satellite_id", satellite.SatelliteID))
 			continue
 		}
 

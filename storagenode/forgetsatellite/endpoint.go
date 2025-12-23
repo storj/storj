@@ -42,7 +42,7 @@ func NewEndpoint(log *zap.Logger, trust *trust.Pool, satellites satellites.DB) *
 func (e *Endpoint) InitForgetSatellite(ctx context.Context, req *internalpb.InitForgetSatelliteRequest) (_ *internalpb.InitForgetSatelliteResponse, err error) {
 	defer mon.Task()(&ctx, req.SatelliteId)(&err)
 
-	logger := e.log.With(zap.Stringer("satelliteID", req.SatelliteId)).With(zap.String("action", "InitForgetSatellite"))
+	logger := e.log.With(zap.Stringer("satellite_id", req.SatelliteId)).With(zap.String("action", "InitForgetSatellite"))
 
 	satellite, err := e.satellites.GetSatellite(ctx, req.SatelliteId)
 	if err != nil {
@@ -92,7 +92,7 @@ func (e *Endpoint) InitForgetSatellite(ctx context.Context, req *internalpb.Init
 func (e *Endpoint) ForgetSatelliteStatus(ctx context.Context, req *internalpb.ForgetSatelliteStatusRequest) (_ *internalpb.ForgetSatelliteStatusResponse, err error) {
 	defer mon.Task()(&ctx, req.SatelliteId)(&err)
 
-	logger := e.log.With(zap.Stringer("satelliteID", req.SatelliteId)).With(zap.String("action", "ForgetSatelliteStatus"))
+	logger := e.log.With(zap.Stringer("satellite_id", req.SatelliteId)).With(zap.String("action", "ForgetSatelliteStatus"))
 
 	satellite, err := e.satellites.GetSatellite(ctx, req.SatelliteId)
 	if err != nil {

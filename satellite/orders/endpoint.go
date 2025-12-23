@@ -306,7 +306,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		// don't process orders with serial numbers we've already seen
 		if _, ok := seenSerials[serialNum]; ok {
-			log.Debug("seen serial", zap.String("serial number", serialNum.String()))
+			log.Debug("seen serial", zap.String("serial_number", serialNum.String()))
 			continue
 		}
 		seenSerials[serialNum] = struct{}{}
@@ -355,8 +355,8 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		// without bucket name and project ID because segments loop doesn't have access to it
 		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
 			log.Warn("decrypt order: bucketName or projectID not set",
-				zap.Stringer("bucketName", bucketInfo.BucketName),
-				zap.String("projectID", bucketInfo.ProjectID.String()),
+				zap.Stringer("bucket_name", bucketInfo.BucketName),
+				zap.String("project_id", bucketInfo.ProjectID.String()),
 			)
 			mon.Event("bucketinfo_from_orders_metadata_error_3")
 			continue
@@ -375,7 +375,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	}
 
 	if len(storagenodeSettled) == 0 {
-		log.Debug("no orders were successfully processed", zap.Int("received count", receivedCount))
+		log.Debug("no orders were successfully processed", zap.Int("received_count", receivedCount))
 		status = pb.SettlementWithWindowResponse_REJECTED
 		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
 			Status:        status,
@@ -390,7 +390,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		return err
 	}
 	log.Debug("orders processed",
-		zap.Int("total orders received", receivedCount),
+		zap.Int("total_orders_received", receivedCount),
 		zap.Time("window", time.Unix(0, window)),
 		zap.String("status", status.String()),
 	)

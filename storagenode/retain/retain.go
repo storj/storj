@@ -142,7 +142,7 @@ type Service struct {
 
 // NewService creates a new retain service.
 func NewService(log *zap.Logger, store *pieces.Store, config Config) *Service {
-	log = log.With(zap.String("cachePath", config.CachePath))
+	log = log.With(zap.String("cache_path", config.CachePath))
 	cache, err := NewRequestStore(config.CachePath)
 	if err != nil {
 		log.Warn("encountered error(s) while loading cache", zap.Error(err))
@@ -174,20 +174,20 @@ func (s *Service) Queue(ctx context.Context, satelliteID storj.NodeID, req *pb.R
 	select {
 	case <-s.closed:
 
-		s.log.Info(closedErrMsg, zap.Stringer("Satellite ID", satelliteID))
+		s.log.Info(closedErrMsg, zap.Stringer("satellite_id", satelliteID))
 		return errs.New(closedErrMsg)
 	default:
 	}
 
 	ok, err := s.queue.Add(satelliteID, req)
 	if err != nil {
-		s.log.Warn("encountered an error while adding request to queue", zap.Error(err), zap.Bool("Queued", ok), zap.Stringer("Satellite ID", satelliteID))
+		s.log.Warn("encountered an error while adding request to queue", zap.Error(err), zap.Bool("queued", ok), zap.Stringer("satellite_id", satelliteID))
 		return err
 	}
 	if ok {
-		s.log.Info("Retain job queued", zap.Stringer("Satellite ID", satelliteID))
+		s.log.Info("Retain job queued", zap.Stringer("satellite_id", satelliteID))
 	} else {
-		s.log.Info(closedErrMsg, zap.Stringer("Satellite ID", satelliteID))
+		s.log.Info(closedErrMsg, zap.Stringer("satellite_id", satelliteID))
 	}
 
 	s.cond.Broadcast()
@@ -348,7 +348,7 @@ func (s *Service) finish(request Request, successful bool) {
 	if successful {
 		err := s.queue.DeleteCache(request)
 		if err != nil {
-			s.log.Warn("encountered an error while removing request from queue", zap.Error(err), zap.Stringer("Satellite ID", request.SatelliteID))
+			s.log.Warn("encountered an error while removing request from queue", zap.Error(err), zap.Stringer("satellite_id", request.SatelliteID))
 		}
 	}
 }
@@ -404,25 +404,25 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	mon.IntVal("garbage_collection_started").Observe(startedAt.Unix())
 
 	s.log.Info("Prepared to run a Retain request.",
-		zap.Time("Created Before", createdBefore),
-		zap.Int64("Filter Size", filter.Size()),
-		zap.Stringer("Satellite ID", satelliteID))
+		zap.Time("created_before", createdBefore),
+		zap.Int64("filter_size", filter.Size()),
+		zap.Stringer("satellite_id", satelliteID))
 
 	piecesToDeleteCount := 0
 	piecesCount, piecesSkipped, err := s.store.WalkSatellitePiecesToTrash(ctx, satelliteID, createdBefore, filter, func(pieceID storj.PieceID) error {
 		s.log.Debug("About to move piece to trash",
-			zap.String("BF", req.Filename),
-			zap.Stringer("Satellite ID", satelliteID),
-			zap.Stringer("Piece ID", pieceID),
-			zap.Stringer("Status", &s.config.Status))
+			zap.String("bf", req.Filename),
+			zap.Stringer("satellite_id", satelliteID),
+			zap.Stringer("piece_id", pieceID),
+			zap.Stringer("status", &s.config.Status))
 
 		piecesToDeleteCount++
 		// if retain status is enabled, trash the piece
 		if s.config.Status == Enabled {
 			if err := s.store.Trash(ctx, satelliteID, pieceID, startedAt); err != nil {
 				s.log.Warn("failed to trash piece",
-					zap.Stringer("Satellite ID", satelliteID),
-					zap.Stringer("Piece ID", pieceID),
+					zap.Stringer("satellite_id", satelliteID),
+					zap.Stringer("piece_id", pieceID),
 					zap.Error(err))
 				return nil
 			}
@@ -443,13 +443,13 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	duration := time.Now().UTC().Sub(startedAt)
 	mon.DurationVal("garbage_collection_loop_duration").Observe(duration)
 	s.log.Info("Moved pieces to trash during retain",
-		zap.Int("Deleted pieces", numTrashed),
-		zap.Int("Failed to delete", piecesToDeleteCount-numTrashed),
-		zap.Int64("Pieces failed to read", piecesSkipped),
-		zap.Int64("Pieces count", piecesCount),
-		zap.Stringer("Satellite ID", satelliteID),
-		zap.Duration("Duration", duration),
-		zap.String("Retain Status", s.config.Status.String()),
+		zap.Int("deleted_pieces", numTrashed),
+		zap.Int("failed_to_delete", piecesToDeleteCount-numTrashed),
+		zap.Int64("pieces_failed_to_read", piecesSkipped),
+		zap.Int64("pieces_count", piecesCount),
+		zap.Stringer("satellite_id", satelliteID),
+		zap.Duration("duration", duration),
+		zap.String("retain_status", s.config.Status.String()),
 	)
 
 	return nil

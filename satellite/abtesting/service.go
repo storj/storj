@@ -88,7 +88,7 @@ func (s *Service) GetABValues(ctx context.Context, user console.User) (values ma
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		s.log.Error("flagship: hit request response is not OK", zap.String("Status", resp.Status))
+		s.log.Error("flagship: hit request response is not OK", zap.String("status", resp.Status))
 		return nil, err
 	}
 
@@ -153,7 +153,7 @@ func (s *Service) SendHit(ctx context.Context, user console.User, action string)
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		s.log.Error("flagship: hit request response is not OK", zap.String("Status", resp.Status))
+		s.log.Error("flagship: hit request response is not OK", zap.String("status", resp.Status))
 		return
 	}
 }

@@ -249,7 +249,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 		// return from service.Run when queue fetch fails.
 		ctx, cancel := context.WithTimeout(ctx, service.config.TotalTimeout)
 
-		log := service.log.With(zap.Stringer("Stream ID", seg.StreamID), zap.Uint64("Position", seg.Position.Encode()))
+		log := service.log.With(zap.Stringer("stream_id", seg.StreamID), zap.Uint64("position", seg.Position.Encode()))
 		log.Debug("Retrieved segment from repair queue")
 
 		// this goroutine inherits the JobLimiter semaphore acquisition and is now responsible
@@ -271,8 +271,8 @@ func (service *Service) worker(ctx context.Context, seg queue.InjuredSegment) (e
 	workerStartTime := service.nowFn().UTC()
 
 	log := service.log.With(
-		zap.Stringer("Stream ID", seg.StreamID),
-		zap.Uint64("Position", seg.Position.Encode()))
+		zap.Stringer("stream_id", seg.StreamID),
+		zap.Uint64("position", seg.Position.Encode()))
 	log.Debug("Limiter running repair on segment")
 
 	// note that shouldDelete is used even in the case where err is not null

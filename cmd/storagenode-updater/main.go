@@ -16,7 +16,7 @@ func main() {
 	zap.ReplaceGlobals(logger)
 
 	loggerFunc := func(logger *zap.Logger) *zap.Logger {
-		return logger.With(zap.String("Process", updaterServiceName))
+		return logger.With(zap.String("process", updaterServiceName))
 	}
 
 	process.ExecWithCustomConfigAndLogger(rootCmd, true, process.LoadConfig, loggerFunc)

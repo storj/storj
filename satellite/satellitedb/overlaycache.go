@@ -1408,9 +1408,9 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 				return Error.Wrap(err)
 			}
 			cache.db.log.Info("Disqualified",
-				zap.String("DQ type", "stray node"),
-				zap.Stringer("Node ID", id),
-				zap.Stringer("Last contacted", lastContacted))
+				zap.String("dq_type", "stray node"),
+				zap.Stringer("node_id", id),
+				zap.Stringer("last_contacted", lastContacted))
 			nodeEmails[id] = email
 			count++
 		}

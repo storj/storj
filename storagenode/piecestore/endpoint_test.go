@@ -564,7 +564,7 @@ func TestTooManyRequests(t *testing.T) {
 						}
 						return nil
 					}
-					uplink.Log.Error("upload failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
+					uplink.Log.Error("upload failed", zap.Stringer("piece_id", pieceID), zap.Error(err))
 					return err
 				}
 

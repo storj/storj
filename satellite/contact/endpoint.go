@@ -55,7 +55,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		endpoint.log.Info("failed to get node ID from context", zap.String("node_address", req.Address), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
@@ -63,23 +63,23 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	// we need a string as a key for the limiter, but nodeID.String() has base58 encoding overhead
 	nodeIDBytesAsString := string(nodeID.Bytes())
 	if !endpoint.service.idLimiter.IsAllowed(ctx, nodeIDBytesAsString) {
-		endpoint.log.Info("node rate limited by id", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		endpoint.log.Info("node rate limited by id", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, errCheckInRateLimit.New("node rate limited by id").Error())
 	}
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
 	resolvedIP, port, resolvedNetwork, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
-		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
-		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		endpoint.log.Info("IP address not allowed", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
@@ -108,8 +108,8 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	if req.Operator != nil {
 		if err := nodeoperator.DefaultWalletFeaturesValidation.Validate(req.Operator.WalletFeatures); err != nil {
 			endpoint.log.Debug("ignoring invalid wallet features",
-				zap.Stringer("Node ID", nodeID),
-				zap.Strings("Wallet Features", req.Operator.WalletFeatures))
+				zap.Stringer("node_id", nodeID),
+				zap.Strings("wallet_features", req.Operator.WalletFeatures))
 
 			// TODO: Update CheckInResponse to include wallet feature validation error
 			req.Operator.WalletFeatures = nil
@@ -117,7 +117,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}
 	err = endpoint.service.processNodeTags(ctx, nodeID, signing.SigneeFromPeerIdentity(peerID), req.SignedTags)
 	if err != nil {
-		endpoint.log.Info("failed to update node tags", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to update node tags", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 	}
 
 	nodeInfo := overlay.NodeCheckInInfo{
@@ -140,7 +140,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
-		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to update check in", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		endpoint.service.idLimiter.BackOut(ctx, nodeIDBytesAsString)
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
@@ -151,7 +151,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("checking in", zap.Stringer("Node ID", nodeID), zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
+	endpoint.log.Debug("checking in", zap.Stringer("node_id", nodeID), zap.String("node_addr", req.Address), zap.Bool("ping_node_success", pingNodeSuccess), zap.String("ping_node_err_msg", pingErrorMessage))
 	return &pb.CheckInResponse{
 		PingNodeSuccess:     pingNodeSuccess,
 		PingNodeSuccessQuic: pingNodeSuccessQUIC,
@@ -205,7 +205,7 @@ func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (
 	}
 
 	currentTimestamp := time.Now().UTC()
-	endpoint.log.Debug("get system current time", zap.Stringer("timestamp", currentTimestamp), zap.Stringer("node id", peerID.ID))
+	endpoint.log.Debug("get system current time", zap.Stringer("timestamp", currentTimestamp), zap.Stringer("node_id", peerID.ID))
 	return &pb.GetTimeResponse{
 		Timestamp: currentTimestamp,
 	}, nil
@@ -218,7 +218,7 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 
 	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		endpoint.log.Info("failed to get node ID from context", zap.String("node_address", req.Address), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
@@ -230,11 +230,11 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 
 	resolvedIP, _, _, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
-		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
-		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		endpoint.log.Info("IP address not allowed", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
@@ -272,7 +272,7 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 }
 
 func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) error {
-	endpoint.log.Info("failed to ping back address", zap.String("node address", nodeURL.Address), zap.Stringer("Node ID", nodeURL.ID), zap.Error(err))
+	endpoint.log.Info("failed to ping back address", zap.String("node_address", nodeURL.Address), zap.Stringer("node_id", nodeURL.ID), zap.Error(err))
 	if errPingBackDial.Has(err) {
 		err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeURL.ID, nodeURL.Address, err)
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())

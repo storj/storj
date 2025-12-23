@@ -78,7 +78,7 @@ func cmdDashboard(cmd *cobra.Command, cfg *dashboardCfg) (err error) {
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
-		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+		zap.L().Info("Identity loaded.", zap.Stringer("node_id", ident.ID))
 	}
 
 	client, err := dialDashboardClient(ctx, cfg.Address)

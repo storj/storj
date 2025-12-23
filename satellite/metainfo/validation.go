@@ -811,15 +811,15 @@ func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *cons
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			endpoint.log.Error(
 				"Retrieving project bandwidth total failed; bandwidth limit won't be enforced",
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 				zap.Error(err),
 			)
 		}
 	} else if exceeded {
 		if limit > 0 {
 			endpoint.log.Warn("Monthly bandwidth limit exceeded",
-				zap.Stringer("Limit", limit),
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+				zap.Stringer("limit", limit),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 			)
 		}
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
@@ -838,8 +838,8 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	if limit.ExceedsSegments {
 		if limit.SegmentsLimit > 0 {
 			endpoint.log.Warn("Segment limit exceeded",
-				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+				zap.String("limit", strconv.Itoa(int(limit.SegmentsLimit))),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 			)
 		}
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
@@ -848,8 +848,8 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	if limit.ExceedsStorage {
 		if limit.StorageLimit > 0 {
 			endpoint.log.Warn("Storage limit exceeded",
-				zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+				zap.String("limit", strconv.Itoa(limit.StorageLimit.Int())),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 			)
 		}
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Storage Limit")
@@ -870,7 +870,7 @@ func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, keyInfo *consol
 			// track it, and the only thing that will be affected is our per-project
 			// bandwidth and storage limits.
 			endpoint.log.Error("Could not track new project's storage and segment usage",
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 				zap.Error(err),
 			)
 		}
@@ -883,7 +883,7 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 	if err != nil {
 		if accounting.ErrProjectLimitExceeded.Has(err) {
 			endpoint.log.Warn("Upload limit exceeded",
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 				zap.Error(err),
 			)
 			return rpcstatus.Error(rpcstatus.ResourceExhausted, err.Error())
@@ -893,7 +893,7 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			endpoint.log.Error(
 				"Updating project upload limits failed; limits won't be enforced",
-				zap.Stringer("Public ID", keyInfo.ProjectPublicID),
+				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 				zap.Error(err),
 			)
 		}

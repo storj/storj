@@ -895,9 +895,9 @@ func (s *Store) compactOnce(
 			zap.Uint64("nset", nset),
 			zap.Uint64("nexist", nexist),
 			zap.Bool("modifications", modifications),
-			zap.Uint64("curr logSlots", s.tbl.LogSlots()),
+			zap.Uint64("curr_log_slots", s.tbl.LogSlots()),
 			zapHumanBytes("curr logSlots size", hashtblSize(s.tbl.LogSlots())),
-			zap.Uint64("next logSlots", logSlots),
+			zap.Uint64("next_log_slots", logSlots),
 			zapHumanBytes("next logSlots size", hashtblSize(logSlots)),
 			zap.Uint64s("candidates", rewriteCandidatesByDead),
 			zap.Uint64s("rewrite", rewriteSorted),
@@ -1197,19 +1197,19 @@ func (s *Store) compactOnce(
 	if ce := s.log.Check(zapcore.InfoLevel, "hashtbl rewritten"); ce != nil {
 		ce.Write(
 			zap.Duration("duration", time.Since(s.stats.writeTime.Load().(time.Time))),
-			zap.Uint64("total records", totalRecords),
+			zap.Uint64("total_records", totalRecords),
 			zapHumanBytes("total bytes", totalBytes),
-			zap.Uint64("rewritten records", rewrittenRecords),
+			zap.Uint64("rewritten_records", rewrittenRecords),
 			zapHumanBytes("rewritten bytes", rewrittenBytes),
-			zap.Uint64("trashed records", trashedRecords),
+			zap.Uint64("trashed_records", trashedRecords),
 			zapHumanBytes("trashed bytes", trashedBytes),
-			zap.Uint64("restored records", restoredRecords),
+			zap.Uint64("restored_records", restoredRecords),
 			zapHumanBytes("restored bytes", restoredBytes),
-			zap.Uint64("expired records", expiredRecords),
+			zap.Uint64("expired_records", expiredRecords),
 			zapHumanBytes("expired bytes", expiredBytes),
-			zap.Uint64("reclaimed logs", reclaimedLogs),
+			zap.Uint64("reclaimed_logs", reclaimedLogs),
 			zapHumanBytes("reclaimed bytes", reclaimedBytes),
-			zap.Float64("reclaim ratio", float64(reclaimedBytes)/float64(rewrittenBytes)),
+			zap.Float64("reclaim_ratio", float64(reclaimedBytes)/float64(rewrittenBytes)),
 		)
 	}
 

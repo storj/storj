@@ -145,8 +145,8 @@ func (observer *SyncObserverV2) Finish(ctx context.Context) (err error) {
 	}
 
 	observer.log.Info("collecting bloom filters finished",
-		zap.Uint64("inline segments", observer.inlineCount.Load()),
-		zap.Uint64("remote segments", observer.remoteCount.Load()))
+		zap.Uint64("inline_segments", observer.inlineCount.Load()),
+		zap.Uint64("remote_segments", observer.remoteCount.Load()))
 
 	return nil
 }
@@ -176,9 +176,9 @@ func (observer *SyncObserverV2) Process(ctx context.Context, segments []rangedlo
 		// a live database.
 		if segment.CreatedAt.After(observer.startTime) {
 			observer.log.Error("segment created after loop started",
-				zap.Stringer("StreamID", segment.StreamID),
-				zap.Time("loop started", observer.startTime),
-				zap.Time("segment created", segment.CreatedAt))
+				zap.Stringer("stream_id", segment.StreamID),
+				zap.Time("loop_started", observer.startTime),
+				zap.Time("segment_created", segment.CreatedAt))
 			return errs.New("segment created after loop started")
 		}
 

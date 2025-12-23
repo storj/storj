@@ -71,13 +71,13 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *internalpb.
 		// get domain name
 		nodeurl, err := e.trust.GetNodeURL(ctx, trusted)
 		if err != nil {
-			e.log.Error("graceful exit: get satellite address", zap.Stringer("Satellite ID", trusted), zap.Error(err))
+			e.log.Error("graceful exit: get satellite address", zap.Stringer("satellite_id", trusted), zap.Error(err))
 			continue
 		}
 		// get space usage by satellites
 		_, piecesContentSize, err := e.usageCache.SpaceUsedBySatellite(ctx, trusted)
 		if err != nil {
-			e.log.Debug("graceful exit: get space used by satellite", zap.Stringer("Satellite ID", trusted), zap.Error(err))
+			e.log.Debug("graceful exit: get space used by satellite", zap.Stringer("satellite_id", trusted), zap.Error(err))
 			continue
 		}
 		availableSatellites = append(availableSatellites, &internalpb.NonExitingSatellite{
@@ -94,7 +94,7 @@ func (e *Endpoint) GetNonExitingSatellites(ctx context.Context, req *internalpb.
 
 // InitiateGracefulExit updates one or more satellites in the storagenode's database to be gracefully exiting.
 func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *internalpb.InitiateGracefulExitRequest) (*internalpb.ExitProgress, error) {
-	e.log.Debug("initialize graceful exit: start", zap.Stringer("Satellite ID", req.NodeId))
+	e.log.Debug("initialize graceful exit: start", zap.Stringer("satellite_id", req.NodeId))
 
 	nodeurl, err := e.trust.GetNodeURL(ctx, req.NodeId)
 	if err != nil {
@@ -105,13 +105,13 @@ func (e *Endpoint) InitiateGracefulExit(ctx context.Context, req *internalpb.Ini
 	// get space usage by satellites
 	_, piecesContentSize, err := e.usageCache.SpaceUsedBySatellite(ctx, req.NodeId)
 	if err != nil {
-		e.log.Debug("initialize graceful exit: retrieve space used", zap.Stringer("Satellite ID", req.NodeId), zap.Error(err))
+		e.log.Debug("initialize graceful exit: retrieve space used", zap.Stringer("satellite_id", req.NodeId), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	err = e.satellites.InitiateGracefulExit(ctx, req.NodeId, time.Now().UTC(), piecesContentSize)
 	if err != nil {
-		e.log.Debug("initialize graceful exit: save info into satellites table", zap.Stringer("Satellite ID", req.NodeId), zap.Error(err))
+		e.log.Debug("initialize graceful exit: save info into satellites table", zap.Stringer("satellite_id", req.NodeId), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -135,7 +135,7 @@ func (e *Endpoint) GetExitProgress(ctx context.Context, req *internalpb.GetExitP
 	for _, progress := range exitProgress {
 		nodeurl, err := e.trust.GetNodeURL(ctx, progress.SatelliteID)
 		if err != nil {
-			e.log.Debug("graceful exit: get satellite domain name", zap.Stringer("Satellite ID", progress.SatelliteID), zap.Error(err))
+			e.log.Debug("graceful exit: get satellite domain name", zap.Stringer("satellite_id", progress.SatelliteID), zap.Error(err))
 			continue
 		}
 

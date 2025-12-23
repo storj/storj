@@ -512,7 +512,7 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 			}
 
 			if err = s.payments.ChangeCustomerEmail(ctx, user.ID, cusID, *request.Email); err != nil {
-				s.log.Error("Failed to update customer email on stripe", zap.Stringer("userId", user.ID), zap.Error(err))
+				s.log.Error("Failed to update customer email on stripe", zap.Stringer("user_id", user.ID), zap.Error(err))
 				return err
 			}
 		}
@@ -899,7 +899,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 
 	err = s.payments.CreditCards().RemoveAll(ctx, user.ID)
 	if err != nil {
-		s.log.Error("Failed to remove credit cards for deleted user", zap.Stringer("userId", user.ID), zap.Error(err))
+		s.log.Error("Failed to remove credit cards for deleted user", zap.Stringer("user_id", user.ID), zap.Error(err))
 	}
 
 	auditLog("disable_user", *user, *afterState)
@@ -974,7 +974,7 @@ func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid
 
 	afterState, err := s.consoleDB.Users().Get(ctx, user.ID)
 	if err != nil {
-		s.log.Error("Failed to retrieve user after toggling MFA", zap.Stringer("userId", user.ID), zap.Error(err))
+		s.log.Error("Failed to retrieve user after toggling MFA", zap.Stringer("user_id", user.ID), zap.Error(err))
 	} else {
 		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 			UserID:     userID,

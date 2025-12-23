@@ -765,7 +765,7 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	var satPiecesContentSize int64
 	var satPiecesCount int64
 
-	log := store.log.With(zap.Stringer("Satellite ID", satelliteID))
+	log := store.log.With(zap.Stringer("satellite_id", satelliteID))
 
 	log.Info("used-space-filewalker started")
 
@@ -773,7 +773,7 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	if lowerIOPriority {
 		satPiecesTotal, satPiecesContentSize, satPiecesCount, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 		if err != nil {
-			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", true), zap.Error(err))
+			log.Error("used-space-filewalker failed", zap.Bool("lazy_file_walker", true), zap.Error(err))
 		} else {
 			failover = false
 		}
@@ -782,7 +782,7 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	if failover {
 		satPiecesTotal, satPiecesContentSize, satPiecesCount, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 		if err != nil {
-			log.Error("used-space-filewalker failed", zap.Bool("Lazy File Walker", false), zap.Error(err))
+			log.Error("used-space-filewalker failed", zap.Bool("lazy_file_walker", false), zap.Error(err))
 		}
 	}
 
@@ -791,11 +791,11 @@ func (store *Store) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sate
 	}
 
 	log.Info("used-space-filewalker completed",
-		zap.Bool("Lazy File Walker", !failover),
-		zap.Int64("Total Pieces Size", satPiecesTotal),
-		zap.Int64("Total Pieces Content Size", satPiecesContentSize),
-		zap.Int64("Total Pieces Count", satPiecesCount),
-		zap.Duration("Duration", time.Since(start)),
+		zap.Bool("lazy_file_walker", !failover),
+		zap.Int64("total_pieces_size", satPiecesTotal),
+		zap.Int64("total_pieces_content_size", satPiecesContentSize),
+		zap.Int64("total_pieces_count", satPiecesCount),
+		zap.Duration("duration", time.Since(start)),
 	)
 
 	return satPiecesTotal, satPiecesContentSize, nil

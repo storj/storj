@@ -199,7 +199,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 					service.log.Error(
 						"tally isn't updating the live accounting storage or segment usage of the project in this cycle",
-						zap.String("projectID", projectID.String()),
+						zap.String("project_id", projectID.String()),
 						zap.Error(err),
 					)
 				}
@@ -282,7 +282,7 @@ func (service *Service) Purge(ctx context.Context) (err error) {
 	}
 	monAccounting.IntVal("bucket_tallies_purged").Observe(count)
 	if count > 0 {
-		service.log.Info("Purged old bucket storage tallies", zap.Time("olderThan", olderThan), zap.Int64("count (estimation)", count))
+		service.log.Info("Purged old bucket storage tallies", zap.Time("older_than", olderThan), zap.Int64("count_estimation", count))
 	}
 	return nil
 }

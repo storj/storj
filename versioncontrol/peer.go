@@ -173,7 +173,7 @@ func (peer *Peer) updateResponse() (err error) {
 		return err
 	}
 
-	peer.Log.Debug("Setting version info.", zap.ByteString("Value", response.serialized))
+	peer.Log.Debug("Setting version info.", zap.ByteString("value", response.serialized))
 	peer.mu.Lock()
 	defer peer.mu.Unlock()
 	peer.response = response
@@ -309,7 +309,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		peer.Log.Info("Versioning server started.", zap.String("Address", peer.Addr()))
+		peer.Log.Info("Versioning server started.", zap.String("address", peer.Addr()))
 		err := peer.Server.Endpoint.Serve(peer.Server.Listener)
 		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
 			err = nil
@@ -343,7 +343,7 @@ func (versions ProcessesConfig) ValidateRollouts(log *zap.Logger) error {
 	for i := 0; i < fieldCount; i++ {
 		binary, ok := value.Field(i).Interface().(ProcessConfig)
 		if !ok {
-			log.Warn("non-binary field in versions config struct", zap.String("field name", value.Type().Field(i).Name))
+			log.Warn("non-binary field in versions config struct", zap.String("field_name", value.Type().Field(i).Name))
 			continue
 		}
 		if err := binary.Rollout.Validate(); err != nil {

@@ -121,7 +121,7 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 		totalSum += pieceSize
 		nodeID, ok := nodeAliasMap.Node(alias)
 		if !ok {
-			observer.log.Error("unrecognized node alias in ranged-loop tally", zap.Int32("node-alias", int32(alias)))
+			observer.log.Error("unrecognized node alias in ranged-loop tally", zap.Int32("node_alias", int32(alias)))
 			continue
 		}
 
@@ -195,7 +195,7 @@ func (partial *observerFork) processSegment(now time.Time, segment rangedloop.Se
 	minimumRequired := segment.Redundancy.RequiredShares
 
 	if minimumRequired <= 0 {
-		partial.log.Error("failed sanity check", zap.String("StreamID", segment.StreamID.String()), zap.Uint64("Position", segment.Position.Encode()))
+		partial.log.Error("failed sanity check", zap.String("stream_id", segment.StreamID.String()), zap.Uint64("position", segment.Position.Encode()))
 		return
 	}
 
