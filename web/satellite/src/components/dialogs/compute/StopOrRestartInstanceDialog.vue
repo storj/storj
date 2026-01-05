@@ -23,8 +23,8 @@
                         </v-sheet>
                     </template>
 
-                    <v-card-title class="font-weight-bold">
-                        Stop Instance
+                    <v-card-title class="font-weight-bold text-capitalize">
+                        {{ action }} Instance
                     </v-card-title>
 
                     <template #append>
@@ -43,7 +43,7 @@
 
             <v-card-item class="px-6">
                 <p>
-                    Are you sure you want to stop the instance
+                    Are you sure you want to {{ action }} the instance
                     <strong>{{ instance.name }}</strong>?
                 </p>
             </v-card-item>
@@ -68,10 +68,11 @@
                             color="primary"
                             variant="flat"
                             block
+                            class="text-capitalize"
                             :loading="isLoading"
-                            @click="stopInstance"
+                            @click="action === InstanceAction.STOP ? stopInstance() : restartInstance()"
                         >
-                            Stop
+                            {{ action }}
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -94,12 +95,13 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { Computer, X } from 'lucide-vue-next';
+import { onBeforeUnmount, ref } from 'vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useComputeStore } from '@/store/modules/computeStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { Instance } from '@/types/compute';
+import { Instance, InstanceAction } from '@/types/compute';
 
 const computeStore = useComputeStore();
 
@@ -107,10 +109,13 @@ const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
 const props = defineProps<{
-    instance: Instance
+    action: InstanceAction;
+    instance: Instance;
 }>();
 
 const model = defineModel<boolean>({ required: true });
+
+const pollingInterval = ref<NodeJS.Timeout>();
 
 function stopInstance(): void {
     withLoading(async () => {
@@ -124,4 +129,72 @@ function stopInstance(): void {
         }
     });
 }
+
+function restartInstance(): void {
+    clearPollingInterval();
+
+    withLoading(async () => {
+        const instanceId = props.instance.id;
+
+        try {
+            await computeStore.stopInstance(instanceId);
+            notify.success('Instance restart initiated');
+
+            // Poll until the instance is stopped (or timeout).
+            const timeoutMs = 2 * 60 * 1000; // 2 minutes.
+            const pollEveryMs = 5000;
+
+            const startedAt = Date.now();
+
+            await new Promise<void>((resolve, reject) => {
+                const tick = async () => {
+                    if (Date.now() - startedAt > timeoutMs) {
+                        clearPollingInterval();
+
+                        reject(new Error('Timed out waiting for the instance to stop'));
+                        return;
+                    }
+
+                    try {
+                        const instance = await computeStore.getInstance(instanceId);
+                        if (!instance.running) {
+                            clearPollingInterval();
+
+                            resolve();
+                        }
+                    } catch (error) {
+                        clearPollingInterval();
+
+                        reject(error);
+                    }
+                };
+
+                void tick();
+
+                pollingInterval.value = setInterval(() => {
+                    void tick();
+                }, pollEveryMs);
+            });
+
+            await computeStore.startInstance(instanceId);
+            notify.success('Instance restarted successfully');
+            model.value = false;
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.STOP_OR_RESTART_COMPUTE_INSTANCE_DIALOG);
+        } finally {
+            clearPollingInterval();
+        }
+    });
+}
+
+function clearPollingInterval(): void {
+    if (pollingInterval.value) {
+        clearInterval(pollingInterval.value);
+        pollingInterval.value = undefined;
+    }
+}
+
+onBeforeUnmount(() => {
+    clearPollingInterval();
+});
 </script>

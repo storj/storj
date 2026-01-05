@@ -113,12 +113,20 @@
                                     Start
                                 </v-list-item-title>
                             </v-list-item>
-                            <v-list-item density="comfortable" link @click="() => onStop(item)">
+                            <v-list-item density="comfortable" link @click="() => onStopOrRestart(item, InstanceAction.STOP)">
                                 <template #prepend>
                                     <component :is="OctagonPauseIcon" :size="18" />
                                 </template>
                                 <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
                                     Stop
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item density="comfortable" link @click="() => onStopOrRestart(item, InstanceAction.RESTART)">
+                                <template #prepend>
+                                    <component :is="RotateCcwIcon" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Restart
                                 </v-list-item-title>
                             </v-list-item>
                             <v-list-item class="text-error" density="comfortable" link @click="() => onDelete(item)">
@@ -139,40 +147,41 @@
     <delete-instance-dialog v-model="isDeleteDialog" :instance="instanceToDelete" />
     <instance-details-dialog v-model="isDetailsDialog" :instance="instanceToView" />
     <update-instance-dialog v-model="isUpdateDialog" :instance="instanceToUpdate" />
-    <stop-or-restart-instance-dialog v-model="isStopDialog" :instance="instanceToStop" />
+    <stop-or-restart-instance-dialog v-model="isStopOrRestartDialog" :instance="instanceToStopOrRestart" :action="instanceAction" />
 </template>
 
 <script setup lang="ts">
 import { computed, FunctionalComponent, onMounted, ref } from 'vue';
 import {
-    VCard,
-    VDataTable,
-    VTextField,
-    VListItem,
-    VChip,
-    VIcon,
     VBtn,
+    VCard,
+    VChip,
+    VDataTable,
+    VIcon,
     VList,
+    VListItem,
     VListItemTitle,
     VMenu,
+    VTextField,
 } from 'vuetify/components';
 import {
-    Computer,
-    Search,
-    CheckCircle,
-    StopCircle,
-    Cog,
-    HelpCircle,
-    Ellipsis,
-    Trash2,
     BoltIcon,
-    OctagonPauseIcon,
+    CheckCircle,
     CirclePlayIcon,
+    Cog,
+    Computer,
+    Ellipsis,
+    HelpCircle,
+    OctagonPauseIcon,
+    RotateCcwIcon,
+    Search,
+    StopCircle,
+    Trash2,
 } from 'lucide-vue-next';
 
 import { DataTableHeader } from '@/types/common';
 import { useComputeStore } from '@/store/modules/computeStore';
-import { Instance } from '@/types/compute';
+import { Instance, InstanceAction } from '@/types/compute';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
@@ -202,11 +211,12 @@ const search = ref<string>('');
 const isDeleteDialog = ref<boolean>(false);
 const isDetailsDialog = ref<boolean>(false);
 const isUpdateDialog = ref<boolean>(false);
-const isStopDialog = ref<boolean>(false);
+const isStopOrRestartDialog = ref<boolean>(false);
 const instanceToDelete = ref<Instance>(new Instance());
 const instanceToView = ref<Instance>(new Instance());
 const instanceToUpdate = ref<Instance>(new Instance());
-const instanceToStop = ref<Instance>(new Instance());
+const instanceToStopOrRestart = ref<Instance>(new Instance());
+const instanceAction = ref<InstanceAction>(InstanceAction.STOP);
 
 const instances = computed<Instance[]>(() => computeStore.state.instances);
 
@@ -246,9 +256,10 @@ function onStart(instance: Instance): void {
     });
 }
 
-function onStop(instance: Instance): void {
-    instanceToStop.value = instance;
-    isStopDialog.value = true;
+function onStopOrRestart(instance: Instance, action: InstanceAction): void {
+    instanceToStopOrRestart.value = instance;
+    instanceAction.value = action;
+    isStopOrRestartDialog.value = true;
 }
 
 function getStatusColor(status: string): string {

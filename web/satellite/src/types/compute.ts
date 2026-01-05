@@ -78,3 +78,8 @@ export class Instance {
         public running: boolean = false,
     ) { }
 }
+
+export enum InstanceAction {
+    STOP = 'stop',
+    RESTART = 'restart',
+}
