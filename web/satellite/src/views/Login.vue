@@ -60,8 +60,9 @@
                         />
                         <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent="onLoginClick">
                             <v-select
+                                v-if="configStore.isDefaultBrand"
                                 v-model="satellite"
-                                label="Satellite"
+                                label="Satellite (Metadata Region)"
                                 :items="satellites"
                                 item-title="satellite"
                                 :hint="satellite.hint"

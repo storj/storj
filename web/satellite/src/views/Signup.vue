@@ -23,6 +23,7 @@
                     <v-card-text>
                         <v-form ref="form" v-model="formValid" class="pt-3" @submit.prevent="onSignupClick">
                             <v-select
+                                v-if="configStore.isDefaultBrand"
                                 v-model="satellite"
                                 label="Satellite (Metadata Region)"
                                 :items="satellites"
