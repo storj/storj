@@ -90,6 +90,7 @@ func TestAutoUpdater(t *testing.T) {
 
 	// run updater (update)
 	args := []string{"run",
+		"--standalone",
 		"--config-dir", ctx.Dir(),
 		"--version.server-address", "http://" + versionControlPeer.Addr(),
 		"--binary-location", storagenodePath,

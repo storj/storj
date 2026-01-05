@@ -18,7 +18,7 @@ import (
 	"storj.io/common/version"
 )
 
-func update(ctx context.Context, restartMethod, serviceName, binaryLocation, storeDir string, ver version.Process) error {
+func update(ctx context.Context, standalone bool, restartMethod, serviceName, binaryLocation, storeDir string, ver version.Process) error {
 	currentVersion, err := binaryVersion(binaryLocation)
 	if err != nil {
 		return errs.Wrap(err)
@@ -91,7 +91,7 @@ func update(ctx context.Context, restartMethod, serviceName, binaryLocation, sto
 		backupPath = prependExtension(binaryLocation, "old."+currentVersion.String())
 	}
 
-	if err = restartAndCleanup(ctx, log, restartMethod, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {
+	if err = restartAndCleanup(ctx, log, standalone, restartMethod, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {
 		return errs.Wrap(err)
 	}
 	return nil
@@ -141,9 +141,9 @@ func copyToStore(binaryLocation, storeDir string) error {
 	return nil
 }
 
-func restartAndCleanup(ctx context.Context, log *zap.Logger, restartMethod, service, binaryLocation, newVersionPath, backupPath string) error {
+func restartAndCleanup(ctx context.Context, log *zap.Logger, standalone bool, restartMethod, service, binaryLocation, newVersionPath, backupPath string) error {
 	log.Info("Restarting service.")
-	exit, err := swapBinariesAndRestart(ctx, restartMethod, service, binaryLocation, newVersionPath, backupPath)
+	exit, err := swapBinariesAndRestart(ctx, standalone, restartMethod, service, binaryLocation, newVersionPath, backupPath)
 	if err != nil {
 		return err
 	}

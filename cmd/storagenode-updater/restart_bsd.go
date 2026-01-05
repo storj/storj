@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build service && (darwin || freebsd || dragonfly || netbsd || openbsd || solaris)
+//go:build darwin || freebsd || dragonfly || netbsd || openbsd || solaris
 
 package main
 
@@ -20,13 +20,12 @@ func cmdRestart(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func swapBinariesAndRestart(ctx context.Context, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (exit bool, err error) {
-	if err := os.Rename(binaryLocation, backupPath); err != nil {
+func swapBinariesAndRestart(ctx context.Context, standalone bool, restartMethod, service, binaryLocation, newVersionPath, backupPath string) (exit bool, err error) {
+	if err := swapBinaries(ctx, binaryLocation, newVersionPath, backupPath); err != nil {
 		return false, errs.Wrap(err)
 	}
-
-	if err := os.Rename(newVersionPath, binaryLocation); err != nil {
-		return false, errs.Combine(err, os.Rename(backupPath, binaryLocation), os.Remove(newVersionPath))
+	if standalone {
+		return false, nil
 	}
 
 	if service == updaterServiceName {
