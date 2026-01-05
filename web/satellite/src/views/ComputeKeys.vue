@@ -20,7 +20,7 @@
         <ComputeKeysTableComponent />
     </v-container>
 
-    <add-compute-s-s-h-key-dialog v-model="isAddKeyDialogShown" />
+    <add-ssh-key-dialog v-model="isAddKeyDialogShown" />
 </template>
 
 <script setup lang="ts">
@@ -36,7 +36,7 @@ import { PlusCircle } from 'lucide-vue-next';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ComputeKeysTableComponent from '@/components/ComputeKeysTableComponent.vue';
-import AddComputeSSHKeyDialog from '@/components/dialogs/AddComputeSSHKeyDialog.vue';
+import AddSshKeyDialog from '@/components/dialogs/compute/AddSSHKeyDialog.vue';
 
 const isAddKeyDialogShown = ref<boolean>(false);
 </script>

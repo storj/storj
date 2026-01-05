@@ -22,7 +22,7 @@
         <ComputeInstancesTableComponent />
     </v-container>
 
-    <create-compute-instance-dialog v-model="isCreateDialog" />
+    <create-instance-dialog v-model="isCreateDialog" />
 </template>
 
 <script setup lang="ts">
@@ -38,7 +38,7 @@ import { Plus } from 'lucide-vue-next';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ComputeInstancesTableComponent from '@/components/ComputeInstancesTableComponent.vue';
-import CreateComputeInstanceDialog from '@/components/dialogs/CreateComputeInstanceDialog.vue';
+import CreateInstanceDialog from '@/components/dialogs/compute/CreateInstanceDialog.vue';
 
 const isCreateDialog = ref<boolean>(false);
 </script>

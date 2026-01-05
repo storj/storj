@@ -53,7 +53,7 @@
         </v-data-table>
     </v-card>
 
-    <delete-compute-s-s-h-key-dialog v-model="isDeleteDialog" :ssh-key="keyToDelete" />
+    <delete-ssh-key-dialog v-model="isDeleteDialog" :ssh-key="keyToDelete" />
 </template>
 
 <script setup lang="ts">
@@ -76,7 +76,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
-import DeleteComputeSSHKeyDialog from '@/components/dialogs/DeleteComputeSSHKeyDialog.vue';
+import DeleteSshKeyDialog from '@/components/dialogs/compute/DeleteSSHKeyDialog.vue';
 
 const computeStore = useComputeStore();
 

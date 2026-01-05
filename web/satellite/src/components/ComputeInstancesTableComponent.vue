@@ -120,9 +120,9 @@
         </v-data-table>
     </v-card>
 
-    <delete-compute-instance-dialog v-model="isDeleteDialog" :instance="instanceToDelete" />
-    <compute-instance-details-dialog v-model="isDetailsDialog" :instance="instanceToView" />
-    <update-compute-instance-dialog v-model="isUpdateDialog" :instance="instanceToUpdate" />
+    <delete-instance-dialog v-model="isDeleteDialog" :instance="instanceToDelete" />
+    <instance-details-dialog v-model="isDetailsDialog" :instance="instanceToView" />
+    <update-instance-dialog v-model="isUpdateDialog" :instance="instanceToUpdate" />
 </template>
 
 <script setup lang="ts">
@@ -159,9 +159,9 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { Time } from '@/utils/time';
 
-import DeleteComputeInstanceDialog from '@/components/dialogs/DeleteComputeInstanceDialog.vue';
-import ComputeInstanceDetailsDialog from '@/components/dialogs/ComputeInstanceDetailsDialog.vue';
-import UpdateComputeInstanceDialog from '@/components/dialogs/UpdateComputeInstanceDialog.vue';
+import DeleteInstanceDialog from '@/components/dialogs/compute/DeleteInstanceDialog.vue';
+import InstanceDetailsDialog from '@/components/dialogs/compute/InstanceDetailsDialog.vue';
+import UpdateInstanceDialog from '@/components/dialogs/compute/UpdateInstanceDialog.vue';
 
 const computeStore = useComputeStore();
 
