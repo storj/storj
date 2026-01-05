@@ -51,6 +51,12 @@
                 </div>
             </template>
 
+            <template #item.hostname="{ item }">
+                <span class="text-no-wrap">
+                    {{ item.hostname || '-' }}
+                </span>
+            </template>
+
             <template #item.created="{ item }">
                 <span class="text-no-wrap">
                     {{ Time.formattedDate(item.created) }}

@@ -17,7 +17,7 @@ export interface IComputeAPI {
 
     getAvailableInstanceTypes(baseURL: string, authToken: string): Promise<string[]>;
     getAvailableImages(baseURL: string, authToken: string): Promise<string[]>;
-    getAvailableLocations(baseURL: string, authToken: string): Promise<string[]>;
+    getAvailableLocations(baseURL: string, authToken: string): Promise<Location[]>;
 }
 
 export interface CreateSSHKeyRequest {
@@ -36,18 +36,25 @@ export class SSHKey {
 
 export interface CreateInstanceRequest {
     name: string;
-    hostname: string;
     instanceType: string;
-    bootDiskSizeGB: number;
     image: string;
     location: string;
-    sshKeys: string[];
+    sshKeys?: string[];
+    hostname?: string;
+    bootDiskSizeGB?: number;
 }
 
 export interface Remote {
     type: string;
     ipv4Address: string;
     port: number;
+}
+
+export class Location {
+    constructor(
+        public name: string = '',
+        public label: string = '',
+    ) { }
 }
 
 export class Instance {

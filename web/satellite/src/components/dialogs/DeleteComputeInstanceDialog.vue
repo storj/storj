@@ -21,7 +21,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Remove Instance
+                    Delete Instance
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -57,7 +57,7 @@
                     </v-col>
                     <v-col>
                         <v-btn color="error" variant="flat" block :loading="isLoading" @click="onDeleteClick">
-                            Remove
+                            Delete
                         </v-btn>
                     </v-col>
                 </v-row>

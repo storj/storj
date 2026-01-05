@@ -43,7 +43,7 @@ import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { ProjectConfig } from '@/types/projects';
 import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
 import { DARK_THEME_QUERY, useThemeStore } from '@/store/modules/themeStore';
-import { ColorKey, createDefaultBranding, FaviconKey, FrontendConfig } from '@/types/config';
+import { ColorKey, FaviconKey, FrontendConfig } from '@/types/config';
 
 import Notifications from '@/layouts/default/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';

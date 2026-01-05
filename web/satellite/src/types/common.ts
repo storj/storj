@@ -131,6 +131,8 @@ export function PublicSSHKeyRule(value: string): string | boolean {
 }
 
 export function HostnameRule(value: string): string | boolean {
+    if (!value) return true;
+
     return Validator.hostname(value) || 'Hostname must be valid.';
 }
 

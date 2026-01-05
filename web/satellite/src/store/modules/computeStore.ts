@@ -10,6 +10,7 @@ import {
     IComputeAPI,
     Instance,
     SSHKey,
+    Location,
 } from '@/types/compute';
 import { ComputeAPI } from '@/api/compute';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -20,7 +21,7 @@ export class ComputeState {
     public instances: Instance[] = [];
     public availableInstanceTypes: string[] = [];
     public availableImages: string[] = [];
-    public availableLocations: string[] = [];
+    public availableLocations: Location[] = [];
 }
 
 export const useComputeStore = defineStore('compute', () => {
@@ -119,7 +120,7 @@ export const useComputeStore = defineStore('compute', () => {
         return images;
     }
 
-    async function getAvailableLocations(): Promise<string[]> {
+    async function getAvailableLocations(): Promise<Location[]> {
         const locations = await api.getAvailableLocations(computeGatewayURL.value, computeAuthToken.value);
 
         state.availableLocations = locations;

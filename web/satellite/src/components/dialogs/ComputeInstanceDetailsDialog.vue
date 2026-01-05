@@ -55,7 +55,7 @@
                             <v-list-item class="px-0 pb-4" :prepend-icon="ScreenShare">
                                 <v-list-item-title class="text-body-2 text-medium-emphasis">Hostname</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
-                                    {{ displayed.hostname }}
+                                    {{ displayed.hostname || '-' }}
                                 </v-list-item-subtitle>
                             </v-list-item>
 

@@ -8,6 +8,7 @@ import {
     IComputeAPI,
     Instance,
     SSHKey,
+    Location,
 } from '@/types/compute';
 import { APIError } from '@/utils/error';
 
@@ -177,7 +178,7 @@ export class ComputeAPI implements IComputeAPI {
         return (result ?? []).map((image => image.name));
     }
 
-    public async getAvailableLocations(baseURL: string, authToken: string): Promise<string[]> {
+    public async getAvailableLocations(baseURL: string, authToken: string): Promise<Location[]> {
         const path = `${baseURL}/api/v1/location`;
         const response = await this.http.get(path, { authToken });
         const result = await response.json();
@@ -190,7 +191,10 @@ export class ComputeAPI implements IComputeAPI {
             });
         }
 
-        return (result ?? []).map((loc => loc.name));
+        return (result ?? []).map(loc => new Location(
+            loc.name,
+            loc.label,
+        ));
     }
 
     private instanceFromJSON(instance: Record<string, never>): Instance {
