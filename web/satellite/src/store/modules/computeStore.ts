@@ -104,6 +104,14 @@ export const useComputeStore = defineStore('compute', () => {
         state.instances = state.instances.filter(i => i.id !== id);
     }
 
+    async function startInstance(id: string): Promise<void> {
+        await api.startInstance(computeGatewayURL.value, computeAuthToken.value, id);
+    }
+
+    async function stopInstance(id: string): Promise<void> {
+        await api.stopInstance(computeGatewayURL.value, computeAuthToken.value, id);
+    }
+
     async function getAvailableInstanceTypes(): Promise<string[]> {
         const types = await api.getAvailableInstanceTypes(computeGatewayURL.value, computeAuthToken.value);
 
@@ -146,6 +154,8 @@ export const useComputeStore = defineStore('compute', () => {
         getInstance,
         updateInstanceType,
         deleteInstance,
+        startInstance,
+        stopInstance,
         getAvailableInstanceTypes,
         getAvailableImages,
         getAvailableLocations,

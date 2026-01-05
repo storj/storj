@@ -105,6 +105,22 @@
                                     Update Type
                                 </v-list-item-title>
                             </v-list-item>
+                            <v-list-item density="comfortable" link @click="() => onStart(item)">
+                                <template #prepend>
+                                    <component :is="CirclePlayIcon" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Start
+                                </v-list-item-title>
+                            </v-list-item>
+                            <v-list-item density="comfortable" link @click="() => onStop(item)">
+                                <template #prepend>
+                                    <component :is="OctagonPauseIcon" :size="18" />
+                                </template>
+                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                    Stop
+                                </v-list-item-title>
+                            </v-list-item>
                             <v-list-item class="text-error" density="comfortable" link @click="() => onDelete(item)">
                                 <template #prepend>
                                     <component :is="Trash2" :size="18" />
@@ -123,6 +139,7 @@
     <delete-instance-dialog v-model="isDeleteDialog" :instance="instanceToDelete" />
     <instance-details-dialog v-model="isDetailsDialog" :instance="instanceToView" />
     <update-instance-dialog v-model="isUpdateDialog" :instance="instanceToUpdate" />
+    <stop-or-restart-instance-dialog v-model="isStopDialog" :instance="instanceToStop" />
 </template>
 
 <script setup lang="ts">
@@ -149,6 +166,8 @@ import {
     Ellipsis,
     Trash2,
     BoltIcon,
+    OctagonPauseIcon,
+    CirclePlayIcon,
 } from 'lucide-vue-next';
 
 import { DataTableHeader } from '@/types/common';
@@ -162,6 +181,7 @@ import { Time } from '@/utils/time';
 import DeleteInstanceDialog from '@/components/dialogs/compute/DeleteInstanceDialog.vue';
 import InstanceDetailsDialog from '@/components/dialogs/compute/InstanceDetailsDialog.vue';
 import UpdateInstanceDialog from '@/components/dialogs/compute/UpdateInstanceDialog.vue';
+import StopOrRestartInstanceDialog from '@/components/dialogs/compute/StopOrRestartInstanceDialog.vue';
 
 const computeStore = useComputeStore();
 
@@ -182,9 +202,11 @@ const search = ref<string>('');
 const isDeleteDialog = ref<boolean>(false);
 const isDetailsDialog = ref<boolean>(false);
 const isUpdateDialog = ref<boolean>(false);
+const isStopDialog = ref<boolean>(false);
 const instanceToDelete = ref<Instance>(new Instance());
 const instanceToView = ref<Instance>(new Instance());
 const instanceToUpdate = ref<Instance>(new Instance());
+const instanceToStop = ref<Instance>(new Instance());
 
 const instances = computed<Instance[]>(() => computeStore.state.instances);
 
@@ -211,6 +233,22 @@ function viewDetails(instance: Instance): void {
 function onUpdate(instance: Instance): void {
     instanceToUpdate.value = instance;
     isUpdateDialog.value = true;
+}
+
+function onStart(instance: Instance): void {
+    withLoading(async () => {
+        try {
+            await computeStore.startInstance(instance.id);
+            notify.success(`Instance started successfully`);
+        } catch (error) {
+            notify.notifyError(error, AnalyticsErrorEventSource.COMPUTE_INSTANCES_TABLE);
+        }
+    });
+}
+
+function onStop(instance: Instance): void {
+    instanceToStop.value = instance;
+    isStopDialog.value = true;
 }
 
 function getStatusColor(status: string): string {

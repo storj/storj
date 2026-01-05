@@ -66,6 +66,20 @@
                                 </v-list-item-subtitle>
                             </v-list-item>
 
+                            <v-list-item class="px-0 pb-4" :prepend-icon="CircleXIcon">
+                                <v-list-item-title class="text-body-2 text-medium-emphasis">Is Deleting</v-list-item-title>
+                                <v-list-item-subtitle class="mt-1">
+                                    {{ displayed.deleting ? 'Yes' : 'No' }}
+                                </v-list-item-subtitle>
+                            </v-list-item>
+
+                            <v-list-item class="px-0 pb-4" :prepend-icon="MonitorPlayIcon">
+                                <v-list-item-title class="text-body-2 text-medium-emphasis">Is Running</v-list-item-title>
+                                <v-list-item-subtitle class="mt-1">
+                                    {{ displayed.running ? 'Yes' : 'No' }}
+                                </v-list-item-subtitle>
+                            </v-list-item>
+
                             <v-list-item class="px-0 pb-4" :prepend-icon="MapPinHouse">
                                 <v-list-item-title class="text-body-2 text-medium-emphasis">IPv4 Address</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
@@ -120,7 +134,17 @@ import {
     VListItemTitle,
     VListItemSubtitle,
 } from 'vuetify/components';
-import { CalendarCheck, Computer, FolderPen, Loader, MapPinHouse, ScreenShare, X } from 'lucide-vue-next';
+import {
+    CalendarCheck,
+    CircleXIcon,
+    Computer,
+    FolderPen,
+    Loader,
+    MapPinHouse,
+    MonitorPlayIcon,
+    ScreenShare,
+    X,
+} from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';

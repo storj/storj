@@ -146,6 +146,36 @@ export class ComputeAPI implements IComputeAPI {
         }
     }
 
+    public async startInstance(baseURL: string, authToken: string, id: string): Promise<void> {
+        const path = `${baseURL}/api/v1/instance/${id}/start`;
+        const response = await this.http.post(path, null, { authToken });
+
+        if (response.status !== 204) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.message || 'Can not start Instance',
+                requestID: result.requestID,
+            });
+        }
+    }
+
+    public async stopInstance(baseURL: string, authToken: string, id: string): Promise<void> {
+        const path = `${baseURL}/api/v1/instance/${id}/stop`;
+        const response = await this.http.post(path, null, { authToken });
+
+        if (response.status !== 204) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.message || 'Can not stop Instance',
+                requestID: result.requestID,
+            });
+        }
+    }
+
     public async getAvailableInstanceTypes(baseURL: string, authToken: string): Promise<string[]> {
         const path = `${baseURL}/api/v1/instance-type`;
         const response = await this.http.get(path, { authToken });
@@ -209,6 +239,7 @@ export class ComputeAPI implements IComputeAPI {
             instance.remote ?? { type: '', ipv4Address: '', port: 0 },
             instance.password ?? '',
             instance.deleting ?? false,
+            instance.running ?? false,
         );
     }
 }

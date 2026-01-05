@@ -14,6 +14,8 @@ export interface IComputeAPI {
     getInstances(baseURL: string, authToken: string): Promise<Instance[]>;
     updateInstanceType(baseURL: string, authToken: string, id: string, instanceType: string): Promise<Instance>;
     deleteInstance(baseURL: string, authToken: string, id: string): Promise<void>;
+    startInstance(baseURL: string, authToken: string, id: string): Promise<void>;
+    stopInstance(baseURL: string, authToken: string, id: string): Promise<void>;
 
     getAvailableInstanceTypes(baseURL: string, authToken: string): Promise<string[]>;
     getAvailableImages(baseURL: string, authToken: string): Promise<string[]>;
@@ -73,5 +75,6 @@ export class Instance {
         },
         public password: string = '',
         public deleting: boolean = false,
+        public running: boolean = false,
     ) { }
 }
