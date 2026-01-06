@@ -479,6 +479,18 @@ func (obj *pgxDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE deletion_remainder_charges (
+	project_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone NOT NULL,
+	object_size bigint NOT NULL,
+	remainder_hours real NOT NULL,
+	product_id integer,
+	billed boolean NOT NULL DEFAULT false,
+	PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at )
+)`,
+
 		`CREATE TABLE entitlements (
 	scope bytea NOT NULL,
 	features jsonb NOT NULL DEFAULT '{}',
@@ -1068,6 +1080,8 @@ func (obj *pgxDB) Schema() []string {
 
 		`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp )`,
 
+		`CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -1226,6 +1240,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS nodes`,
 
 		`DROP TABLE IF EXISTS entitlements`,
+
+		`DROP TABLE IF EXISTS deletion_remainder_charges`,
 
 		`DROP TABLE IF EXISTS coinpayments_transactions`,
 
@@ -1469,6 +1485,18 @@ func (obj *pgxcockroachDB) Schema() []string {
 	PRIMARY KEY ( id )
 )`,
 
+		`CREATE TABLE deletion_remainder_charges (
+	project_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	deleted_at timestamp with time zone NOT NULL,
+	object_size bigint NOT NULL,
+	remainder_hours real NOT NULL,
+	product_id integer,
+	billed boolean NOT NULL DEFAULT false,
+	PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at )
+)`,
+
 		`CREATE TABLE entitlements (
 	scope bytea NOT NULL,
 	features jsonb NOT NULL DEFAULT '{}',
@@ -2058,6 +2086,8 @@ func (obj *pgxcockroachDB) Schema() []string {
 
 		`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp )`,
 
+		`CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -2216,6 +2246,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS nodes`,
 
 		`DROP TABLE IF EXISTS entitlements`,
+
+		`DROP TABLE IF EXISTS deletion_remainder_charges`,
 
 		`DROP TABLE IF EXISTS coinpayments_transactions`,
 
@@ -2450,6 +2482,17 @@ func (obj *spannerDB) Schema() []string {
 	timeout INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id )`,
+
+		`CREATE TABLE deletion_remainder_charges (
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP NOT NULL,
+	object_size INT64 NOT NULL,
+	remainder_hours FLOAT32 NOT NULL,
+	product_id INT64,
+	billed BOOL NOT NULL DEFAULT (false)
+) PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at )`,
 
 		`CREATE TABLE entitlements (
 	scope BYTES(MAX) NOT NULL,
@@ -3021,6 +3064,8 @@ func (obj *spannerDB) Schema() []string {
 
 		`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp )`,
 
+		`CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed )`,
+
 		`CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at )`,
 
 		`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id )`,
@@ -3161,6 +3206,8 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP INDEX IF EXISTS change_history_project_id_item_type_timestamp_idx`,
 
 		`DROP INDEX IF EXISTS change_history_bucket_name_timestamp_idx`,
+
+		`DROP INDEX IF EXISTS deletion_remainder_charges_project_id_deleted_at_billed_index`,
 
 		`DROP INDEX IF EXISTS node_events_email_event_created_at_index`,
 
@@ -3567,6 +3614,24 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS entitlements_scope`,
 
 		`DROP TABLE IF EXISTS entitlements`,
+
+		`ALTER TABLE  deletion_remainder_charges ALTER project_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS deletion_remainder_charges_project_id`,
+
+		`ALTER TABLE  deletion_remainder_charges ALTER bucket_name SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS deletion_remainder_charges_bucket_name`,
+
+		`ALTER TABLE  deletion_remainder_charges ALTER deleted_at SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS deletion_remainder_charges_deleted_at`,
+
+		`ALTER TABLE  deletion_remainder_charges ALTER created_at SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS deletion_remainder_charges_created_at`,
+
+		`DROP TABLE IF EXISTS deletion_remainder_charges`,
 
 		`ALTER TABLE  coinpayments_transactions ALTER id SET DEFAULT (null)`,
 
@@ -5441,6 +5506,179 @@ func CoinpaymentsTransaction_CreatedAt(v time.Time) CoinpaymentsTransaction_Crea
 }
 
 func (f CoinpaymentsTransaction_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge struct {
+	ProjectId      []byte
+	BucketName     []byte
+	CreatedAt      time.Time
+	DeletedAt      time.Time
+	ObjectSize     uint64
+	RemainderHours float32
+	ProductId      *int
+	Billed         bool
+}
+
+func (DeletionRemainderCharge) _Table() string { return "deletion_remainder_charges" }
+
+type DeletionRemainderCharge_Create_Fields struct {
+	ProductId DeletionRemainderCharge_ProductId_Field
+	Billed    DeletionRemainderCharge_Billed_Field
+}
+
+type DeletionRemainderCharge_Update_Fields struct {
+	Billed DeletionRemainderCharge_Billed_Field
+}
+
+type DeletionRemainderCharge_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func DeletionRemainderCharge_ProjectId(v []byte) DeletionRemainderCharge_ProjectId_Field {
+	return DeletionRemainderCharge_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f DeletionRemainderCharge_ProjectId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge_BucketName_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func DeletionRemainderCharge_BucketName(v []byte) DeletionRemainderCharge_BucketName_Field {
+	return DeletionRemainderCharge_BucketName_Field{_set: true, _value: v}
+}
+
+func (f DeletionRemainderCharge_BucketName_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func DeletionRemainderCharge_CreatedAt(v time.Time) DeletionRemainderCharge_CreatedAt_Field {
+	return DeletionRemainderCharge_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f DeletionRemainderCharge_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge_DeletedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func DeletionRemainderCharge_DeletedAt(v time.Time) DeletionRemainderCharge_DeletedAt_Field {
+	return DeletionRemainderCharge_DeletedAt_Field{_set: true, _value: v}
+}
+
+func (f DeletionRemainderCharge_DeletedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge_ObjectSize_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func DeletionRemainderCharge_ObjectSize(v uint64) DeletionRemainderCharge_ObjectSize_Field {
+	return DeletionRemainderCharge_ObjectSize_Field{_set: true, _value: v}
+}
+
+func (f DeletionRemainderCharge_ObjectSize_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge_RemainderHours_Field struct {
+	_set   bool
+	_null  bool
+	_value float32
+}
+
+func DeletionRemainderCharge_RemainderHours(v float32) DeletionRemainderCharge_RemainderHours_Field {
+	return DeletionRemainderCharge_RemainderHours_Field{_set: true, _value: v}
+}
+
+func (f DeletionRemainderCharge_RemainderHours_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge_ProductId_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func DeletionRemainderCharge_ProductId(v int) DeletionRemainderCharge_ProductId_Field {
+	return DeletionRemainderCharge_ProductId_Field{_set: true, _value: &v}
+}
+
+func DeletionRemainderCharge_ProductId_Raw(v *int) DeletionRemainderCharge_ProductId_Field {
+	if v == nil {
+		return DeletionRemainderCharge_ProductId_Null()
+	}
+	return DeletionRemainderCharge_ProductId(*v)
+}
+
+func DeletionRemainderCharge_ProductId_Null() DeletionRemainderCharge_ProductId_Field {
+	return DeletionRemainderCharge_ProductId_Field{_set: true, _null: true}
+}
+
+func (f DeletionRemainderCharge_ProductId_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f DeletionRemainderCharge_ProductId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type DeletionRemainderCharge_Billed_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func DeletionRemainderCharge_Billed(v bool) DeletionRemainderCharge_Billed_Field {
+	return DeletionRemainderCharge_Billed_Field{_set: true, _value: v}
+}
+
+func (f DeletionRemainderCharge_Billed_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -26379,6 +26617,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM deletion_remainder_charges;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coinpayments_transactions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -37558,6 +37806,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM entitlements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM deletion_remainder_charges;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -48775,6 +49033,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM entitlements;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM deletion_remainder_charges;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

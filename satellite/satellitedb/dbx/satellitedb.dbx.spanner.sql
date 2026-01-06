@@ -102,6 +102,16 @@ CREATE TABLE coinpayments_transactions (
 	timeout INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
+CREATE TABLE deletion_remainder_charges (
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name BYTES(MAX) NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	deleted_at TIMESTAMP NOT NULL,
+	object_size INT64 NOT NULL,
+	remainder_hours FLOAT32 NOT NULL,
+	product_id INT64,
+	billed BOOL NOT NULL DEFAULT (false)
+) PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at ) ;
 CREATE TABLE entitlements (
 	scope BYTES(MAX) NOT NULL,
 	features JSON NOT NULL DEFAULT (JSON "{}"),
@@ -610,6 +620,7 @@ CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id,
 CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp ) ;
 CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp ) ;
 CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp ) ;
+CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;

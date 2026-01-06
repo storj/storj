@@ -170,3 +170,37 @@ read all (
 )
 
 delete bucket_storage_tally ( where bucket_storage_tally.interval_start < ? )
+
+// deletion_remainder_charge contains records of charges for objects deleted before the minimum storage retention.
+model deletion_remainder_charge (
+	key    project_id bucket_name deleted_at created_at
+
+	index (
+		name deletion_remainder_charges_project_id_deleted_at_billed_index
+		fields project_id deleted_at billed
+	)
+
+	// project_id is an UUID that refers to projects.id.
+	field project_id        blob
+
+	// bucket_name refers to buckets.name table.
+	field bucket_name       blob
+
+	// created_at is when the object was created.
+	field created_at       timestamp
+
+	// deleted_at is when the object was deleted.
+	field deleted_at       timestamp
+
+	// object_size is the size of the deleted object.
+	field object_size     uint64
+
+	// remainder_hours is the number of hours the remainder bytes are charged for.
+	field remainder_hours float
+
+	// product_id identifies with which product the usage is associated.
+	field product_id int ( nullable )
+
+	// billed indicates whether this charge has been billed.
+	field billed      bool ( updatable, default false )
+)
