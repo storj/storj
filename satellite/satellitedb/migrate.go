@@ -1154,6 +1154,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add remainder_bytes column to bucket_storage_tallies",
+				Version:     309,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes INT64 NOT NULL DEFAULT (0);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4150,6 +4158,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp );`,
 					`CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp );`,
 					`CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add remainder_bytes column to bucket_storage_tallies",
+				Version:     309,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes bigint NOT NULL DEFAULT 0;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
