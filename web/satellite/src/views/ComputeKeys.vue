@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onBeforeMount, ref } from 'vue';
 import {
     VContainer,
     VCol,
@@ -32,11 +32,24 @@ import {
     VBtn,
 } from 'vuetify/components';
 import { PlusCircle } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+
+import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ComputeKeysTableComponent from '@/components/ComputeKeysTableComponent.vue';
 import AddSshKeyDialog from '@/components/dialogs/compute/AddSSHKeyDialog.vue';
 
+const router = useRouter();
+const configStore = useConfigStore();
+
 const isAddKeyDialogShown = ref<boolean>(false);
+
+onBeforeMount(() => {
+    if (!configStore.isDefaultBrand) {
+        router.replace({ name: ROUTES.Dashboard.name });
+    }
+});
 </script>

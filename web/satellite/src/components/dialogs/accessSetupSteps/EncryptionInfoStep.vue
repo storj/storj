@@ -4,8 +4,8 @@
 <template>
     <v-row class="pa-4 ma-0">
         <v-col cols="12">
-            By generating S3 credentials, you are opting in to
-            <a class="link" href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/" target="_blank" rel="noopener noreferrer">
+            By generating S3 credentials, you are opting in to {{ configStore.isDefaultBrand ? '' : 'server-side encryption.' }}
+            <a v-if="configStore.isDefaultBrand" class="link" href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/" target="_blank" rel="noopener noreferrer">
                 server-side encryption.
             </a>
         </v-col>
@@ -27,8 +27,10 @@ import { VRow, VCol, VCheckbox } from 'vuetify/components';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 

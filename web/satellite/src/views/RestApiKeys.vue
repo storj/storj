@@ -33,6 +33,7 @@ import { useRouter } from 'vue-router';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -41,6 +42,7 @@ import NewApiKeyDialog from '@/components/dialogs/NewRestApiKeyDialog.vue';
 
 const router = useRouter();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
 
 const dialog = ref<boolean>(false);
 
@@ -52,7 +54,7 @@ function onCreateAPIKey(): void {
 }
 
 onBeforeMount(() => {
-    if (!userStore.state.user.hasPaidPrivileges) {
+    if (!userStore.state.user.hasPaidPrivileges || !configStore.isDefaultBrand) {
         router.replace(ROUTES.Projects.path);
     }
 });

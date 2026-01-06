@@ -92,7 +92,9 @@
                     <strong>Closing this page may interrupt the process.</strong>
                     <br><br>
                     If there are millions of objects, this process may time out.
-                    We recommend using one of the approaches mentioned <strong><a href="https://storj.dev/dcs/buckets/delete-buckets" target="_blank" rel="noopener noreferrer">here</a></strong>.
+                    <span v-if="configStore.isDefaultBrand">
+                        We recommend using one of the approaches mentioned <strong><a href="https://storj.dev/dcs/buckets/delete-buckets" target="_blank" rel="noopener noreferrer">here</a></strong>.
+                    </span>
                     <br><br>
                     Object count and statistics might not reflect changes made in the past 24 hours.
                 </v-alert>

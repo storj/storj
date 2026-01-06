@@ -120,7 +120,7 @@
                             Close
                         </v-btn>
                     </v-col>
-                    <v-col>
+                    <v-col v-if="configStore.isDefaultBrand">
                         <v-btn color="primary" variant="flat" block @click="goToDocs">
                             Learn More
                         </v-btn>
@@ -156,8 +156,10 @@ import {
     PageVisitSource,
 } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const analyticsStore = useAnalyticsStore();
+const configStore = useConfigStore();
 
 defineProps<{
     file: FullBrowserObject | null,

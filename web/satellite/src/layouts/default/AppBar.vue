@@ -132,7 +132,7 @@
                         </v-list-item-title>
                     </v-list-item>
 
-                    <v-list-item class="py-2 text-medium-emphasis">
+                    <v-list-item v-if="configStore.isDefaultBrand" class="py-2 text-medium-emphasis">
                         <template #prepend>
                             <icon-satellite size="18" />
                             <v-tooltip activator="parent" location="top">

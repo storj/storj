@@ -4,10 +4,10 @@
 <template>
     <v-list-item :title="item.Key" class="px-4" height="54" :link="props.item.status === UploadingStatus.Finished">
         <template #append>
-            <v-tooltip v-if="isBetween5GBand30GB" location="top">
+            <v-tooltip v-if="isBetween5GBand30GB && configStore.isDefaultBrand" location="top">
                 <p>
                     For files over 5GB, we recommend using
-                    <a href="https://storj.dev/dcs/api/uplink-cli" target="_blank" rel="noopener noreferrer">Storj CLI</a>
+                    <a href="https://storj.dev/dcs/api/uplink-cli" target="_blank" rel="noopener noreferrer">Uplink CLI</a>
                 </p>
                 <p>
                     for better reliability than browser upload.
@@ -67,8 +67,11 @@ import {
 } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const obStore = useObjectBrowserStore();
+const configStore = useConfigStore();
+
 const notify = useNotify();
 
 const props = defineProps<{

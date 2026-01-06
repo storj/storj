@@ -11,7 +11,7 @@
         />
         <PageSubtitleComponent
             subtitle="Buckets are where you upload and organize your data."
-            link="https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket"
+            :link="configStore.isDefaultBrand ? 'https://docs.storj.io/learn/concepts/key-architecture-constructs#bucket' : undefined"
         />
 
         <v-row class="mt-1 mb-2">
@@ -39,12 +39,15 @@ import {
 import { CirclePlus } from 'lucide-vue-next';
 
 import { usePreCheck } from '@/composables/usePreCheck';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+
+const configStore = useConfigStore();
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 

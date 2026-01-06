@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, reactive, UnwrapNestedRefs, h } from 'vue';
+import { computed, reactive, UnwrapNestedRefs, h, VNode } from 'vue';
 import { defineStore } from 'pinia';
 import {
     _Object,
@@ -43,7 +43,6 @@ import { ObjectDeleteError } from '@/utils/error';
 import { useConfigStore } from '@/store/modules/configStore';
 import { LocalData } from '@/utils/localData';
 import { ObjectLockStatus, Retention } from '@/types/objectLock';
-import { NotifyRenderedUplinkCLIMessage } from '@/types/DelayedNotification';
 
 export type BrowserObject = {
     Key: string;
@@ -222,6 +221,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
     const uploadingLength = computed(() => {
         return state.uploading.filter(f => f.status === UploadingStatus.InProgress).length;
+    });
+
+    const notifyRenderedUplinkCLIMessage = computed<VNode>(() => {
+        if (configStore.isDefaultBrand) return h('a', { class: 'link', href: 'https://storj.dev/dcs/api/uplink-cli', target: '_blank', rel: 'noopener noreferrer' }, 'Uplink CLI');
+        return h('span', {}, 'Uplink CLI');
     });
 
     function setCursor(cursor: ObjectBrowserCursor): void {
@@ -712,7 +716,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             notifyError(() => {
                 return [
                     h('span', {}, `${key}: To upload files above 30GB, please use the `),
-                    ...NotifyRenderedUplinkCLIMessage,
+                    notifyRenderedUplinkCLIMessage.value,
                 ];
             }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
 
@@ -808,7 +812,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             notifyWarning(() => {
                 return [
                     h('span', {}, `To upload large files, please consider using the `),
-                    ...NotifyRenderedUplinkCLIMessage,
+                    notifyRenderedUplinkCLIMessage.value,
                 ];
             }, undefined, 10000);
         }

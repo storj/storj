@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onBeforeMount, ref } from 'vue';
 import {
     VContainer,
     VCard,
@@ -42,10 +42,23 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { useRouter } from 'vue-router';
+
+import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ComputeInstanceTypesTableComponent from '@/components/ComputeInstanceTypesTableComponent.vue';
 
+const router = useRouter();
+const configStore = useConfigStore();
+
 const tab = ref<'reserved' | 'on-demand'>('on-demand');
+
+onBeforeMount(() => {
+    if (!configStore.isDefaultBrand) {
+        router.replace({ name: ROUTES.Dashboard.name });
+    }
+});
 </script>

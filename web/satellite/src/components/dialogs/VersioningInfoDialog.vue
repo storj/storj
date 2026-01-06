@@ -68,7 +68,7 @@
                                 title="Next steps"
                                 elevation="0"
                                 rounded="lg"
-                                class="border mb-6 font-weight-bold"
+                                class="border font-weight-bold"
                                 static
                             >
                                 <v-expansion-panel-text class="text-body-2">
@@ -80,7 +80,7 @@
                             </v-expansion-panel>
                         </v-expansion-panels>
 
-                        <p class="text-body-2">
+                        <p v-if="configStore.isDefaultBrand" class="text-body-2 mt-6">
                             For more information, <a
                                 :href="docsLink"
                                 class="link"
@@ -107,7 +107,7 @@
                             Close
                         </v-btn>
                     </v-col>
-                    <v-col>
+                    <v-col v-if="configStore.isDefaultBrand">
                         <v-btn
                             variant="flat"
                             color="primary"

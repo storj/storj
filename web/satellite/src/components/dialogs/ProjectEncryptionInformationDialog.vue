@@ -66,7 +66,7 @@
                                 <p class="text-body-2 my-2">
                                     The team members will automatically have access to your project's data.
                                 </p>
-                                <p class="text-body-2 mt-2">
+                                <p v-if="configStore.isDefaultBrand" class="text-body-2 mt-2">
                                     <a class="link" @click="goToDocs">Learn more in the documentation.</a>
                                 </p>
                             </v-alert>
@@ -86,7 +86,7 @@
                                 <p class="text-body-2 my-2">
                                     Team members must share and enter the same encryption passphrase to access the data.
                                 </p>
-                                <p class="text-body-2 mt-2">
+                                <p v-if="configStore.isDefaultBrand" class="text-body-2 mt-2">
                                     <a href="" class="link">Learn more in the documentation.</a>
                                 </p>
                             </v-alert>

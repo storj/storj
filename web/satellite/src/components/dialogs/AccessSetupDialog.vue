@@ -172,9 +172,8 @@
                             {{ stepInfos[step].prevText.value }}
                         </v-btn>
                     </v-col>
-                    <v-col>
+                    <v-col v-if="step !== SetupStep.AccessCreatedStep">
                         <v-btn
-                            v-if="step !== SetupStep.AccessCreatedStep"
                             color="primary"
                             variant="flat"
                             block
@@ -184,8 +183,9 @@
                         >
                             {{ stepInfos[step].nextText.value }}
                         </v-btn>
+                    </v-col>
+                    <v-col v-else-if="configStore.isDefaultBrand">
                         <v-btn
-                            v-else
                             color="primary"
                             variant="flat"
                             block

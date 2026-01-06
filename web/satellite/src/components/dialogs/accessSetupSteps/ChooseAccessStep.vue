@@ -58,7 +58,10 @@
 
                 <template v-if="accessType === AccessType.S3">
                     <v-alert color="default" variant="tonal" width="auto">
-                        <p class="text-subtitle-2">Gives access through S3 compatible applications. <a href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
+                        <p class="text-subtitle-2">
+                            Gives access through S3 compatible applications.
+                            <a v-if="configStore.isDefaultBrand" href="https://docs.storj.io/dcs/access#create-s3-credentials" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a>
+                        </p>
                         <v-autocomplete
                             v-if="configStore.isDefaultBrand"
                             v-model="selectedApp"
@@ -78,11 +81,17 @@
                 </template>
 
                 <v-alert v-else-if="accessType === AccessType.AccessGrant" color="default" variant="tonal" width="auto">
-                    <p class="text-subtitle-2">Gives access through native clients such as uplink. <a href="https://docs.storj.io/learn/concepts/access/access-grants" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
+                    <p class="text-subtitle-2">
+                        Gives access through native clients such as uplink.
+                        <a v-if="configStore.isDefaultBrand" href="https://docs.storj.io/learn/concepts/access/access-grants" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a>
+                    </p>
                 </v-alert>
 
                 <v-alert v-else-if="accessType === AccessType.APIKey" color="default" variant="tonal" width="auto">
-                    <p class="text-subtitle-2">Use it for generating access keys programatically. <a href="https://docs.storj.io/learn/concepts/access/access-grants/api-key" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a></p>
+                    <p class="text-subtitle-2">
+                        Use it for generating access keys programatically.
+                        <a v-if="configStore.isDefaultBrand" href="https://docs.storj.io/learn/concepts/access/access-grants/api-key" target="_blank" rel="noopener noreferrer" class="link">Learn more in the documentation.</a>
+                    </p>
                 </v-alert>
             </v-col>
         </v-row>

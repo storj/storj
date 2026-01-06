@@ -132,6 +132,9 @@ const steps = computed<StepData[]>(() => {
     if (hasManagedPassphrase.value) {
         onBoardSteps = onBoardSteps.filter(s => s !== OnboardingStep.EncryptionPassphrase);
     }
+    if (!configStore.isDefaultBrand) {
+        onBoardSteps = onBoardSteps.filter(s => s !== OnboardingStep.CreateAccess);
+    }
     return onBoardSteps.map<StepData>((step, i) => {
         const data: StepData = {
             stepTxt: `Step ${i + 1}`,

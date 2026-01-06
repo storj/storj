@@ -8,7 +8,7 @@
         <PageTitleComponent title="Team Members" />
         <PageSubtitleComponent
             subtitle="Invite people and manage the team of this project."
-            link="https://docs.storj.io/support/users"
+            :link="configStore.isDefaultBrand ? 'https://docs.storj.io/support/users' : undefined"
         />
 
         <v-col>
@@ -50,6 +50,7 @@ import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { ProjectRole } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -60,6 +61,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 const usersStore = useUsersStore();
 const pmStore = useProjectMembersStore();
 const projectsStore = useProjectsStore();
+const configStore = useConfigStore();
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck } = usePreCheck();
 const { isLoading, withLoading } = useLoading();

@@ -33,7 +33,7 @@
                 >
                     <p class="text-body-2">
                         <strong>Do not use this form for account, billing, or support issues.</strong>
-                        If you need help with those, please <a :href="supportURL" target="_blank" rel="noopener noreferrer">create a support ticket here.</a>
+                        If you need help with those, please <a :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">create a support ticket here.</a>
                     </p>
                 </v-alert>
             </v-card-item>
@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import {
     VBtn,
     VCard,
@@ -142,8 +142,6 @@ const allowContact = ref<boolean>(false);
 const formValid = ref(false);
 
 const form = ref<VForm>();
-
-const supportURL = computed<string>(() => configStore.state.config.generalRequestURL);
 
 function sendFeedback(): void {
     if (!formValid.value) {

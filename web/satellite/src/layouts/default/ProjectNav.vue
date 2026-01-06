@@ -176,7 +176,7 @@
                     </template>
                 </navigation-item>
 
-                <v-list-group v-if="computeUIEnabled" value="Compute">
+                <v-list-group v-if="computeUIEnabled && configStore.isDefaultBrand" value="Compute">
                     <template #activator="{ props }">
                         <v-list-item v-bind="props" active-class="bg-background">
                             <template #prepend>
@@ -243,6 +243,7 @@
 
                 <v-list class="pa-2">
                     <v-list-item
+                        v-if="configStore.isDefaultBrand"
                         class="py-3"
                         href="https://docs.storj.io/"
                         target="_blank"

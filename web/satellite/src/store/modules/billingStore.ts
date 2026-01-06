@@ -85,23 +85,6 @@ export const useBillingStore = defineStore('billing', () => {
 
     const minimumCharge = computed(() => configStore.minimumCharge);
 
-    const minimumChargeMsg = computed<string>(() => {
-        const minimumChargeTxt = `with a ${minimumChargeLink} of ${minimumCharge.value.amount}.`;
-        // even if startDate is null, priorNoticeEnabled and noticeEnabled will be false
-        const isAfterStartDate = new Date() >= (minimumCharge.value.startDate ?? new Date());
-
-        let subtitle = '';
-        if (minimumCharge.value.priorNoticeEnabled) {
-            subtitle += `. A ${minimumChargeLink} of ${minimumCharge.value.amount} ${isAfterStartDate ? 'applies' : 'will apply'} starting on ${minimumCharge.value.shortStartDateStr}.`;
-        } else if (minimumCharge.value.isEnabled) {
-            subtitle += `, ${minimumChargeTxt}`;
-        } else {
-            subtitle += ', no minimum';
-        }
-
-        return subtitle;
-    });
-
     const proPlanCostInfo = computed<string>(() => {
         let minimumChargeTxt = '';
 
@@ -375,7 +358,6 @@ export const useBillingStore = defineStore('billing', () => {
         state,
         defaultCard,
         proPlanInfo,
-        minimumChargeMsg,
         storagePrice,
         egressPrice,
         segmentPrice,

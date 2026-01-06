@@ -517,7 +517,7 @@ watch(betaJoined, value => {
 });
 
 onBeforeMount(() => {
-    if (!configStore.state.config.cunoFSBetaEnabled) {
+    if (!configStore.state.config.cunoFSBetaEnabled || !configStore.isDefaultBrand) {
         router.push({ name: ROUTES.Dashboard.name });
     }
 });

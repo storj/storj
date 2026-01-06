@@ -72,6 +72,7 @@
 
                     <v-list class="pa-2">
                         <v-list-item
+                            v-if="configStore.isDefaultBrand"
                             class="py-3"
                             href="https://docs.storj.io/"
                             target="_blank"
@@ -90,6 +91,7 @@
                         </v-list-item>
 
                         <v-list-item
+                            v-if="configStore.isDefaultBrand"
                             class="py-3"
                             href="https://forum.storj.io/"
                             target="_blank"
@@ -118,7 +120,7 @@
                                 <component :is="MessageCircleQuestion" :size="18" />
                             </template>
                             <v-list-item-title class="mx-4">
-                                Storj Support
+                                {{ configStore.brandName }} Support
                             </v-list-item-title>
                             <v-list-item-subtitle class="mx-4">
                                 <small>Need help? Get support.</small>

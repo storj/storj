@@ -32,7 +32,7 @@
                 />
                 <PageSubtitleComponent
                     subtitle="View your project statistics, check daily usage, and set project limits."
-                    link="https://docs.storj.io/support/projects"
+                    :link="configStore.isDefaultBrand ? 'https://docs.storj.io/support/projects' : undefined"
                 />
             </v-col>
             <v-col cols="auto" class="pt-0 mt-0 pt-md-5">
@@ -136,12 +136,14 @@
                     :limit="`Limit: ${limits.segmentLimit.toLocaleString()}`"
                     :available="`${availableSegment.toLocaleString()} Available`"
                     :cta="getCTALabel(segmentUsedPercent, true)"
+                    :hide-cta="!configStore.isDefaultBrand"
                     @cta-click="onSegmentsCTAClicked"
                 >
                     <template #extraInfo>
                         <p>
                             Segments are the encrypted parts of an uploaded object.
                             <a
+                                v-if="configStore.isDefaultBrand"
                                 class="link"
                                 href="https://storj.dev/dcs/pricing/legacy#segment-fees"
                                 target="_blank"

@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onBeforeMount, ref } from 'vue';
 import {
     VContainer,
     VRow,
@@ -34,11 +34,24 @@ import {
     VBtn,
 } from 'vuetify/components';
 import { Plus } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+
+import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import ComputeInstancesTableComponent from '@/components/ComputeInstancesTableComponent.vue';
 import CreateInstanceDialog from '@/components/dialogs/compute/CreateInstanceDialog.vue';
 
+const router = useRouter();
+const configStore = useConfigStore();
+
 const isCreateDialog = ref<boolean>(false);
+
+onBeforeMount(() => {
+    if (!configStore.isDefaultBrand) {
+        router.replace({ name: ROUTES.Dashboard.name });
+    }
+});
 </script>

@@ -8,7 +8,10 @@
                 <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
                 <PageTitleComponent title="Project Settings" />
-                <PageSubtitleComponent subtitle="Edit project information and set custom project limits." link="https://docs.storj.io/learn/concepts/limits" />
+                <PageSubtitleComponent
+                    subtitle="Edit project information and set custom project limits."
+                    :link="configStore.isDefaultBrand ? 'https://docs.storj.io/learn/concepts/limits' : undefined"
+                />
             </v-col>
         </v-row>
 

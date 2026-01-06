@@ -519,7 +519,7 @@ function submitForm(): void {
 
 // Redirect to dashboard if feature is not enabled
 onBeforeMount(() => {
-    if (!configStore.state.config.objectMountConsultationEnabled) {
+    if (!configStore.state.config.objectMountConsultationEnabled || !configStore.isDefaultBrand) {
         router.push({ name: ROUTES.Dashboard.name });
     }
 });

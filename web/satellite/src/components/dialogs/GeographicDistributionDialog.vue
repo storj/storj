@@ -65,7 +65,7 @@
                             Close
                         </v-btn>
                     </v-col>
-                    <v-col>
+                    <v-col v-if="configStore.isDefaultBrand">
                         <v-btn
                             variant="outlined"
                             block
