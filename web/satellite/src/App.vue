@@ -182,20 +182,37 @@ function onThemeChange(e: MediaQueryListEvent) {
 }
 
 function setFavicons(): void {
-    if (configStore.isDefaultBrand) return;
-
     const branding = configStore.state.branding;
 
     const faviconDefs = [
-        { selector: `link[rel='icon'][sizes='16x16']`, href: branding.getFavicon(FaviconKey.Small) },
-        { selector: `link[rel='icon'][sizes='32x32']`, href: branding.getFavicon(FaviconKey.Large) },
-        { selector: `link[rel='apple-touch-icon'][sizes='180x180']`, href: branding.getFavicon(FaviconKey.AppleTouch) },
+        {
+            rel: 'icon',
+            type: 'image/png',
+            sizes: '16x16',
+            href: branding.getFavicon(FaviconKey.Small),
+        },
+        {
+            rel: 'icon',
+            type: 'image/png',
+            sizes: '32x32',
+            href: branding.getFavicon(FaviconKey.Large),
+        },
+        {
+            rel: 'apple-touch-icon',
+            sizes: '180x180',
+            href: branding.getFavicon(FaviconKey.AppleTouch),
+        },
     ];
 
-    for (const { selector, href } of faviconDefs) {
+    for (const { rel, type, sizes, href } of faviconDefs) {
         if (!href) continue;
-        const tag = document.querySelector<HTMLLinkElement>(selector);
-        if (tag) tag.href = href;
+
+        const tag = document.createElement('link');
+        tag.rel = rel;
+        if (type) tag.type = type;
+        tag.sizes = sizes;
+        tag.href = href;
+        document.head.appendChild(tag);
     }
 }
 

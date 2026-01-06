@@ -1216,6 +1216,11 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 			"full-light": "/static/static/images/logo.svg",
 			"full-dark":  "/static/static/images/logo-dark.svg",
 		},
+		FaviconURLs: map[string]string{
+			"16x16":       "/static/static/images/favicons/favicon-16x16.png",
+			"32x32":       "/static/static/images/favicons/favicon-32x32.png",
+			"apple-touch": "/static/static/images/favicons/apple-touch-icon.png",
+		},
 		Colors: map[string]string{
 			"primary-light":   "#0052FF",
 			"primary-dark":    "#0052FF",

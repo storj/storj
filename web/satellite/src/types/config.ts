@@ -44,7 +44,11 @@ export function createDefaultBranding(): BrandingConfig {
             [LogoKey.FullLight, '/static/static/images/logo.svg'],
             [LogoKey.FullDark, '/static/static/images/logo-dark.svg'],
         ]),
-        new Map(), // No custom favicons, use defaults from HTML.
+        new Map([
+            [FaviconKey.Small, '/static/static/images/favicons/favicon-16x16.png'],
+            [FaviconKey.Large, '/static/static/images/favicons/favicon-32x32.png'],
+            [FaviconKey.AppleTouch, '/static/static/images/favicons/apple-touch-icon.png'],
+        ]),
         new Map([
             [ColorKey.PrimaryLight, '#0052FF'],
             [ColorKey.PrimaryDark, '#0052FF'],
