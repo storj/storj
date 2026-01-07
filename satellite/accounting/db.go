@@ -327,6 +327,9 @@ type ProjectAccounting interface {
 	// GetPreviouslyNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 	// whose most recent tally does not represent empty usage.
 	GetPreviouslyNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) ([]metabase.BucketLocation, error)
+	// GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange returns a map of bucket locations to their placement
+	// for buckets within the given range whose most recent tally does not represent empty usage.
+	GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (map[metabase.BucketLocation]storj.PlacementConstraint, error)
 	// GetBucketsWithEntitlementsInRange returns all bucket locations within the given range along with their placement and entitlements.
 	// The HasPreviousTally field indicates whether each bucket had a non-empty tally in the past.
 	GetBucketsWithEntitlementsInRange(ctx context.Context, from, to metabase.BucketLocation, projectScopePrefix string) ([]BucketLocationWithEntitlements, error)

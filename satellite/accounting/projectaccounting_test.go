@@ -977,6 +977,15 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 		err = uplink.Upload(ctx, satellite, bucketName, "file", data)
 		require.NoError(t, err)
 
+		placement := storj.PlacementConstraint(20)
+		attributionDB := planet.Satellites[0].DB.Attribution()
+		_, err = attributionDB.Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: []byte(bucketName),
+			Placement:  &placement,
+		})
+		require.NoError(t, err)
+
 		// Run tally to create storage tallies for the bucket
 		satellite.Accounting.Tally.Loop.TriggerWait()
 
@@ -1000,6 +1009,17 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 			}),
 			"bucket should be found in non-empty buckets")
 
+		bucketsWithPlacements, err := satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, from, to, 0)
+		require.NoError(t, err)
+
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: metabase.BucketName(bucketName),
+		}
+		p, found := bucketsWithPlacements[bucketLocation]
+		require.True(t, found, "bucket should be found in non-empty buckets")
+		require.Equal(t, placement, p)
+
 		// Now delete all objects and the bucket itself
 		err = uplink.DeleteObject(ctx, satellite, bucketName, "file")
 		require.NoError(t, err)
@@ -1019,6 +1039,13 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 			}),
 			"bucket should be found still until zero tally")
 
+		bucketsWithPlacements, err = satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, from, to, 0)
+		require.NoError(t, err)
+
+		p, found = bucketsWithPlacements[bucketLocation]
+		require.True(t, found, "bucket should be found still until zero tally")
+		require.Equal(t, placement, p)
+
 		// Run tally again to create a final zero tally for the bucket
 		satellite.Accounting.Tally.Loop.TriggerWait()
 
@@ -1034,6 +1061,12 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 				return string(loc.BucketName) == bucketName
 			}),
 			"bucket should not be found in non-empty buckets after deletion")
+
+		bucketsWithPlacements, err = satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, from, to, 0)
+		require.NoError(t, err)
+
+		_, found = bucketsWithPlacements[bucketLocation]
+		require.False(t, found, "bucket should not be found in non-empty buckets after deletion")
 	})
 }
 

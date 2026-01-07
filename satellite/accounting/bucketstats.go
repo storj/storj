@@ -4,6 +4,7 @@
 package accounting
 
 import (
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -18,6 +19,8 @@ type BucketTally struct {
 	RemainderBytes     int64
 
 	MetadataSize int64
+
+	Placement storj.PlacementConstraint
 }
 
 // Combine aggregates all the tallies.

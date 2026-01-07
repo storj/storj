@@ -344,6 +344,85 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 	return result, nil
 }
 
+// GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange returns a map of bucket locations to their placement
+// for buckets within the given range whose most recent tally does not represent empty usage.
+func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result map[metabase.BucketLocation]storj.PlacementConstraint, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows tagsql.Rows
+	switch db.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		rows, err = db.db.QueryContext(ctx, `
+		SELECT bm.project_id, bm.bucket_name, COALESCE(va.placement, 0) AS placement
+		FROM (
+			SELECT project_id, bucket_name
+			FROM bucket_storage_tallies
+			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4)
+			GROUP BY project_id, bucket_name
+		) bm
+		LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.bucket_name = va.bucket_name`+
+			db.db.impl.AsOfSystemInterval(asOfSystemInterval)+
+			` WHERE NOT 0 IN (
+			SELECT object_count FROM bucket_storage_tallies
+			WHERE (project_id, bucket_name) = (bm.project_id, bm.bucket_name)
+			ORDER BY interval_start DESC
+			LIMIT 1
+		)
+		`, from.ProjectID, []byte(from.BucketName), to.ProjectID, []byte(to.BucketName))
+	case dbutil.Spanner:
+		var fromTuple string
+		var toTuple string
+
+		fromTuple, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		toTuple, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		rows, err = db.db.QueryContext(ctx, `
+			SELECT bm.project_id, bm.bucket_name, COALESCE(va.placement, 0) AS placement
+			FROM (
+				SELECT
+					project_id,
+					bucket_name,
+					ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
+				FROM
+					bucket_storage_tallies
+				WHERE `+fromTuple+` AND `+toTuple+`
+				GROUP BY
+					project_id,
+					bucket_name
+				HAVING
+					last_object_count > 0
+			) bm
+			LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.bucket_name = va.bucket_name
+		`, sql.Named("from_project_id", from.ProjectID), sql.Named("from_name", []byte(from.BucketName)), sql.Named("to_project_id", to.ProjectID), sql.Named("to_name", []byte(to.BucketName)))
+	default:
+		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
+	}
+
+	result = make(map[metabase.BucketLocation]storj.PlacementConstraint)
+	err = withRows(rows, err)(func(r tagsql.Rows) error {
+		for r.Next() {
+			loc := metabase.BucketLocation{}
+			var placement storj.PlacementConstraint
+			if err := r.Scan(&loc.ProjectID, &loc.BucketName, &placement); err != nil {
+				return err
+			}
+			result[loc] = placement
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return result, nil
+}
+
 // GetBucketsWithEntitlementsInRange returns all buckets in a given range with their entitlements.
 func (db *ProjectAccounting) GetBucketsWithEntitlementsInRange(
 	ctx context.Context,
