@@ -132,7 +132,7 @@ model bucket_storage_tally (
 	// product_id identifies with which product the usage is associated.
 	field product_id int ( nullable )
 
-	// total_bytes is the total bytes at rest.
+	// total_bytes is the total bytes stored in the bucket including remainder bytes.
 	field total_bytes     uint64 ( default 0)
 	// remainder_bytes is the bytes to be charged due to minimum object size policy.
 	field remainder_bytes uint64 ( nullable, updatable )

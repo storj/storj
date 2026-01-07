@@ -548,8 +548,10 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 		bucket.ObjectCount = tally.ObjectCount
 		bucket.PendingObjectCount = tally.PendingObjectCount
 
-		// Get the bytes value for this bucket's remainder from the map
+		// TotalBytes includes actual bytes stored for the bucket including all remainders.
+		// RemainderBytes is the portion of TotalBytes that is considered remainder.
 		bucket.TotalBytes = tally.BytesByRemainder[remainder]
+		bucket.RemainderBytes = bucket.TotalBytes - tally.BytesByRemainder[0]
 	}
 
 	return nil

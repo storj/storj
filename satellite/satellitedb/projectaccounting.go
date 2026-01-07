@@ -58,12 +58,13 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		var bucketNames, projectIDs [][]byte
-		var totalBytes, metadataSizes []int64
+		var totalBytes, remainderBytes, metadataSizes []int64
 		var totalSegments, objectCounts []int64
 		for _, info := range bucketTallies {
 			bucketNames = append(bucketNames, []byte(info.BucketName))
 			projectIDs = append(projectIDs, info.ProjectID[:])
 			totalBytes = append(totalBytes, info.TotalBytes)
+			remainderBytes = append(remainderBytes, info.RemainderBytes)
 			totalSegments = append(totalSegments, info.TotalSegments)
 			objectCounts = append(objectCounts, info.ObjectCount)
 			metadataSizes = append(metadataSizes, info.MetadataSize)
@@ -74,24 +75,25 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
           bucket_name, project_id,
           total_bytes, inline, remote,
           total_segments_count, remote_segments_count, inline_segments_count,
-          object_count, metadata_size)
+          object_count, metadata_size, remainder_bytes)
        SELECT
           $1,
           unnest($2::bytea[]), unnest($3::bytea[]),
           unnest($4::int8[]), $5, $6,
           unnest($7::int8[]), $8, $9,
-          unnest($10::int8[]), unnest($11::int8[])`),
+          unnest($10::int8[]), unnest($11::int8[]), unnest($12::int8[])`),
 			intervalStart,
 			pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
 			pgutil.Int8Array(totalBytes), 0, 0,
 			pgutil.Int8Array(totalSegments), 0, 0,
-			pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes))
+			pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes), pgutil.Int8Array(remainderBytes))
 		return Error.Wrap(err)
 	case dbutil.Spanner:
 		type bucketTally struct {
 			BucketName          []byte
 			ProjectID           []byte
 			TotalBytes          int64
+			RemainderBytes      int64
 			Inline              int64
 			Remote              int64
 			TotalSegmentsCount  int64
@@ -107,6 +109,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 				BucketName:          []byte(info.BucketName),
 				ProjectID:           info.ProjectID[:],
 				TotalBytes:          info.TotalBytes,
+				RemainderBytes:      info.RemainderBytes,
 				Inline:              0,
 				Remote:              0,
 				TotalSegmentsCount:  info.TotalSegments,
@@ -129,7 +132,8 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			remote_segments_count,
 			inline_segments_count,
 			object_count,
-			metadata_size
+			metadata_size,
+			remainder_bytes
 		)
 		SELECT
 			?,
@@ -143,6 +147,7 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			InlineSegmentsCount,
 			ObjectCount,
 			MetadataSize,
+			RemainderBytes,
 		FROM UNNEST(?) AS bucket_name
        `
 		_, err = db.db.ExecContext(
@@ -182,15 +187,21 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 			totalSegments = dbxTally.InlineSegmentsCount + dbxTally.RemoteSegmentsCount
 		}
 
+		remainderBytes := int64(0)
+		if dbxTally.RemainderBytes != nil {
+			remainderBytes = int64(*dbxTally.RemainderBytes)
+		}
+
 		tallies = append(tallies, accounting.BucketTally{
 			BucketLocation: metabase.BucketLocation{
 				ProjectID:  projectID,
 				BucketName: metabase.BucketName(dbxTally.BucketName),
 			},
-			ObjectCount:   int64(dbxTally.ObjectCount),
-			TotalSegments: int64(totalSegments),
-			TotalBytes:    int64(totalBytes),
-			MetadataSize:  int64(dbxTally.MetadataSize),
+			ObjectCount:    int64(dbxTally.ObjectCount),
+			TotalSegments:  int64(totalSegments),
+			TotalBytes:     int64(totalBytes),
+			RemainderBytes: remainderBytes,
+			MetadataSize:   int64(dbxTally.MetadataSize),
 		})
 	}
 
@@ -237,18 +248,18 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 			bucket_name, project_id,
 			total_bytes, inline, remote,
 			total_segments_count, remote_segments_count, inline_segments_count,
-			object_count, metadata_size)
+			object_count, metadata_size, remainder_bytes)
 		VALUES (
 			?,
 			?, ?,
 			?, ?, ?,
 			?, ?, ?,
-			?, ?
+			?, ?, ?
 		)`), tally.IntervalStart,
 		[]byte(tally.BucketName), tally.ProjectID,
 		tally.TotalBytes, 0, 0,
 		tally.TotalSegmentCount, 0, 0,
-		tally.ObjectCount, tally.MetadataSize,
+		tally.ObjectCount, tally.MetadataSize, tally.RemainderBytes,
 	)
 
 	return Error.Wrap(err)
@@ -1052,6 +1063,7 @@ func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, pro
 		SELECT
 			bst1.interval_start,
 			bst1.total_bytes,
+			bst1.remainder_bytes,
 			bst1.inline,
 			bst1.remote,
 			bst1.total_segments_count,
@@ -1139,12 +1151,16 @@ func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, pro
 			tally := accounting.BucketStorageTally{}
 
 			var inline, remote int64
-			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.TotalSegmentCount, &tally.ObjectCount)
+			var remainderBytes *int64
+			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &remainderBytes, &inline, &remote, &tally.TotalSegmentCount, &tally.ObjectCount)
 			if err != nil {
 				return nil, errs.Combine(err, storageTalliesRows.Close())
 			}
 			if tally.TotalBytes == 0 {
 				tally.TotalBytes = inline + remote
+			}
+			if remainderBytes != nil {
+				tally.RemainderBytes = *remainderBytes
 			}
 
 			if prevTally == nil {
@@ -1157,6 +1173,7 @@ func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, pro
 
 			hours := prevTally.IntervalStart.Sub(tally.IntervalStart).Hours()
 			usage.Storage += memory.Size(tally.TotalBytes).Float64() * hours
+			usage.RemainderStorage += memory.Size(tally.RemainderBytes).Float64() * hours
 			usage.SegmentCount += float64(tally.TotalSegmentCount) * hours
 			usage.ObjectCount += float64(tally.ObjectCount) * hours
 

@@ -19,6 +19,7 @@ func TestBucketTallyCombine(t *testing.T) {
 		PendingObjectCount: 5,
 		TotalSegments:      20,
 		TotalBytes:         1000,
+		RemainderBytes:     100,
 		MetadataSize:       50,
 	}
 
@@ -28,6 +29,7 @@ func TestBucketTallyCombine(t *testing.T) {
 		PendingObjectCount: 10,
 		TotalSegments:      25,
 		TotalBytes:         2000,
+		RemainderBytes:     200,
 		MetadataSize:       100,
 	}
 
@@ -38,5 +40,6 @@ func TestBucketTallyCombine(t *testing.T) {
 	require.Equal(t, int64(15), tally1.PendingObjectCount)
 	require.Equal(t, int64(45), tally1.TotalSegments)
 	require.Equal(t, int64(3000), tally1.TotalBytes)
+	require.Equal(t, int64(300), tally1.RemainderBytes)
 	require.Equal(t, int64(150), tally1.MetadataSize)
 }

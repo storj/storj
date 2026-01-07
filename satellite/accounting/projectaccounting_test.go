@@ -276,6 +276,7 @@ func TestGetProjectTotal(t *testing.T) {
 			require.Equal(t, usage.Egress, expectedEgress)
 			require.Equal(t, usage.Since, tallies[0].IntervalStart)
 			require.Equal(t, usage.Before, tallies[2].IntervalStart.Add(time.Minute))
+			require.InDelta(t, usage.RemainderStorage, float64(tallies[0].RemainderBytes)+float64(tallies[1].RemainderBytes), epsilon)
 
 			// Ensure that GetProjectTotal treats the 'before' arg as exclusive
 			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, tallies[0].IntervalStart, tallies[2].IntervalStart)
@@ -286,6 +287,7 @@ func TestGetProjectTotal(t *testing.T) {
 			require.Equal(t, usage.Egress, expectedEgress)
 			require.Equal(t, usage.Since, tallies[0].IntervalStart)
 			require.Equal(t, usage.Before, tallies[2].IntervalStart)
+			require.InDelta(t, usage.RemainderStorage, float64(tallies[0].RemainderBytes), epsilon)
 
 			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, rollups[0].IntervalStart, rollups[1].IntervalStart)
 			require.NoError(t, err)
@@ -295,6 +297,7 @@ func TestGetProjectTotal(t *testing.T) {
 			require.Equal(t, usage.Egress, rollups[0].Inline+rollups[0].Settled)
 			require.Equal(t, usage.Since, rollups[0].IntervalStart)
 			require.Equal(t, usage.Before, rollups[1].IntervalStart)
+			require.Zero(t, usage.RemainderStorage)
 		},
 	)
 }
@@ -664,10 +667,11 @@ func TestGetProjectTotalByPlacement(t *testing.T) {
 			require.NoError(t, err)
 
 			type expectedTotal struct {
-				storage  float64
-				segments float64
-				objects  float64
-				egress   int64
+				storage          float64
+				remainderStorage float64
+				segments         float64
+				objects          float64
+				egress           int64
 			}
 
 			// Keys are in the format of placement number as string (e.g., "0", "1")
@@ -713,6 +717,7 @@ func TestGetProjectTotalByPlacement(t *testing.T) {
 							ProjectID:         project.ID,
 							IntervalStart:     since.Add(time.Duration(i) * usagePeriod / tallyRollupCount),
 							TotalBytes:        100 + int64(i*10),
+							RemainderBytes:    int64(i * 5),
 							ObjectCount:       50 + int64(i*5),
 							TotalSegmentCount: 25 + int64(i*2),
 						}
@@ -722,6 +727,7 @@ func TestGetProjectTotalByPlacement(t *testing.T) {
 						usageHours := (usagePeriod / tallyRollupCount).Hours()
 						if i < tallyRollupCount {
 							total.storage += float64(tally.TotalBytes) * usageHours
+							total.remainderStorage += float64(tally.RemainderBytes) * usageHours
 							total.objects += float64(tally.ObjectCount) * usageHours
 							total.segments += float64(tally.TotalSegmentCount) * usageHours
 						}
@@ -748,12 +754,8 @@ func TestGetProjectTotalByPlacement(t *testing.T) {
 			}
 
 			requireTotal := func(t *testing.T, expected expectedTotal, expectedSince, expectedBefore time.Time, actual accounting.ProjectUsage) {
-				t.Logf("Expected: storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
-					expected.storage, expected.segments, expected.objects, expected.egress)
-				t.Logf("Actual:   storage=%.2f, segments=%.2f, objects=%.2f, egress=%d",
-					actual.Storage, actual.SegmentCount, actual.ObjectCount, actual.Egress)
-
 				require.InDelta(t, expected.storage, actual.Storage, epsilon)
+				require.InDelta(t, expected.remainderStorage, actual.RemainderStorage, epsilon)
 				require.InDelta(t, expected.segments, actual.SegmentCount, epsilon)
 				require.InDelta(t, expected.objects, actual.ObjectCount, epsilon)
 				require.Equal(t, expected.egress, actual.Egress)
@@ -801,6 +803,7 @@ func TestGetProjectTotalByPlacement(t *testing.T) {
 				expected := expectedTotal{}
 				for _, usage := range expectedTotals {
 					expected.storage += usage.storage
+					expected.remainderStorage += usage.remainderStorage
 					expected.objects += usage.objects
 					expected.segments += usage.segments
 					expected.egress += usage.egress
@@ -827,6 +830,7 @@ func randTally(bucketName string, projectID uuid.UUID, intervalStart time.Time) 
 		TotalBytes:        int64(testrand.Intn(1000)),
 		ObjectCount:       int64(testrand.Intn(1000)),
 		TotalSegmentCount: int64(testrand.Intn(1000)),
+		RemainderBytes:    int64(testrand.Intn(1000)),
 	}
 }
 

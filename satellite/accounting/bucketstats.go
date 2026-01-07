@@ -15,6 +15,7 @@ type BucketTally struct {
 	PendingObjectCount int64
 	TotalSegments      int64
 	TotalBytes         int64
+	RemainderBytes     int64
 
 	MetadataSize int64
 }
@@ -25,6 +26,7 @@ func (s *BucketTally) Combine(o *BucketTally) {
 	s.PendingObjectCount += o.PendingObjectCount
 	s.TotalSegments += o.TotalSegments
 	s.TotalBytes += o.TotalBytes
+	s.RemainderBytes += o.RemainderBytes
 	s.MetadataSize += o.MetadataSize
 }
 

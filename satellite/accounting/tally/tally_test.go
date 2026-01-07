@@ -688,11 +688,22 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 			require.Equal(t, bucketSmall.TotalBytes, remainder,
 				"Small object (5KB) size should be equal to remainder size (50KB)")
 			require.EqualValues(t, 1, bucketSmall.ObjectCount, "should have 1 object")
+			// RemainderBytes = TotalBytes - BytesByRemainder[0]
+			// For small object, TotalBytes = 50KB (remainder), BytesByRemainder[0] = actual bytes (~5KB).
+			// So RemainderBytes should be ~45KB (the difference).
+			require.Greater(t, bucketSmall.RemainderBytes, int64(0),
+				"Small bucket should have positive RemainderBytes")
+			require.Less(t, bucketSmall.RemainderBytes, bucketSmall.TotalBytes,
+				"RemainderBytes should be less than TotalBytes")
 
 			// Medium bucket (30KB) should be counted as 50KB (remainder applies).
 			require.Equal(t, bucketMedium.TotalBytes, remainder,
 				"Medium object (30KB) size should be equal to remainder size (50KB)")
 			require.EqualValues(t, 1, bucketMedium.ObjectCount, "should have 1 object")
+			require.Greater(t, bucketMedium.RemainderBytes, int64(0),
+				"Medium bucket should have positive RemainderBytes")
+			require.Less(t, bucketMedium.RemainderBytes, bucketMedium.TotalBytes,
+				"RemainderBytes should be less than TotalBytes for medium bucket")
 
 			// Large bucket (100KB) should be counted at actual size (already larger than remainder).
 			// The actual bytes will be > 100KB due to encoding overhead, so just verify it's reasonable.
@@ -701,6 +712,10 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 			require.Greater(t, bucketLarge.TotalBytes, int64(100*memory.KiB),
 				"Large object should be at least 100KB")
 			require.EqualValues(t, 1, bucketLarge.ObjectCount, "should have 1 object")
+			// For large bucket, TotalBytes = BytesByRemainder[0] (actual size, no remainder applied).
+			// So RemainderBytes = TotalBytes - BytesByRemainder[0] = 0
+			require.Equal(t, bucketLarge.RemainderBytes, int64(0),
+				"Large bucket should have zero RemainderBytes when actual size > remainder")
 
 			// Verify size ordering: small = medium < large (since small and medium both get remainder).
 			require.Equal(t, bucketSmall.TotalBytes, bucketMedium.TotalBytes,
@@ -818,6 +833,7 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 			require.EqualValues(t, 0, emptiedBucket.TotalBytes, "emptied bucket should have zero bytes")
 			require.EqualValues(t, 0, emptiedBucket.ObjectCount, "emptied bucket should have zero objects")
 			require.EqualValues(t, 0, emptiedBucket.TotalSegments, "emptied bucket should have zero segments")
+			require.EqualValues(t, 0, emptiedBucket.RemainderBytes, "emptied bucket should have zero RemainderBytes")
 		})
 	})
 }

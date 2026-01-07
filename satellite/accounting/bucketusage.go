@@ -19,6 +19,7 @@ type BucketStorageTally struct {
 
 	TotalSegmentCount int64
 	TotalBytes        int64
+	RemainderBytes    int64
 
 	MetadataSize int64
 }
