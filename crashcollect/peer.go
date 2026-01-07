@@ -73,7 +73,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config) (peer *Pee
 		return nil, err
 	}
 
-	peer.Log.Info("id = ", zap.Any("", full.ID.String()))
+	peer.Log.Info("id = " + full.ID.String())
 
 	return peer, nil
 }
