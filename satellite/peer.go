@@ -5,11 +5,9 @@ package satellite
 
 import (
 	"context"
-	"os"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
@@ -288,16 +286,6 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 	// Extract tenant configurations from console config
 	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
 	for tenantID, config := range consoleConfig.WhiteLabel.Value {
-		// Validate and retrieve password from environment if needed
-		var password string
-		if config.SMTP.PasswordEnv != "" {
-			var found bool
-			password, found = os.LookupEnv(config.SMTP.PasswordEnv)
-			if !found && config.SMTP.AuthType != "" && config.SMTP.AuthType != "simulated" && config.SMTP.AuthType != "nomail" && config.SMTP.AuthType != "insecure" {
-				return nil, errs.New("missing SMTP password environment variable %s for tenant ID %s", config.SMTP.PasswordEnv, tenantID)
-			}
-		}
-
 		tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
 			Branding: mailservice.WhiteLabelConfig{
 				BrandName:         config.Name,
@@ -321,7 +309,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 				SMTPServerAddress: config.SMTP.ServerAddress,
 				AuthType:          config.SMTP.AuthType,
 				Login:             config.SMTP.Login,
-				Password:          password,
+				Password:          config.SMTP.Password,
 			},
 		}
 	}

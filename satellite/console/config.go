@@ -496,7 +496,7 @@ type SMTPConfig struct {
 	From          string `yaml:"from,omitempty"`
 	AuthType      string `yaml:"auth-type,omitempty"`
 	Login         string `yaml:"login,omitempty"`
-	PasswordEnv   string `yaml:"password-env,omitempty"`
+	Password      string `yaml:"password,omitempty"`
 }
 
 var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)
