@@ -328,7 +328,7 @@ func TestInvoiceByProduct(t *testing.T) {
 	})
 }
 
-func TestInvoiceByProduct_withPlaceholderItems(t *testing.T) {
+func TestInvoiceByProduct_withFees(t *testing.T) {
 	// Define price models.
 	defaultPrice := paymentsconfig.ProjectUsagePrice{
 		StorageTB: "1",
@@ -341,6 +341,7 @@ func TestInvoiceByProduct_withPlaceholderItems(t *testing.T) {
 		Name:                "Product Both Fees",
 		SmallObjectFee:      "0.10",
 		MinimumRetentionFee: "0.05",
+		StorageRemainder:    "50KB",
 		ProjectUsagePrice:   defaultPrice,
 	}
 	productWithNoFees := paymentsconfig.ProductUsagePrice{
@@ -353,6 +354,7 @@ func TestInvoiceByProduct_withPlaceholderItems(t *testing.T) {
 		Name:                "Product Small Object Fee",
 		SmallObjectFee:      "0.12",
 		MinimumRetentionFee: "0",
+		StorageRemainder:    "100KB",
 		ProjectUsagePrice:   defaultPrice,
 	}
 	productWithRetentionFee := paymentsconfig.ProductUsagePrice{
@@ -423,131 +425,172 @@ func TestInvoiceByProduct_withPlaceholderItems(t *testing.T) {
 		planet.Satellites[0].Accounting.Rollup.Loop.Pause()
 		planet.Satellites[0].Accounting.RollupArchive.Loop.Pause()
 
-		// Create one project with buckets for each placement to test different fee combinations.
-		project, err := db.Console().Projects().Insert(
-			ctx, &console.Project{ID: testrand.UUID(), Name: "test project"})
-		require.NoError(t, err)
+		// Test both scenarios: with and without populating min object size invoice line items.
+		for _, populateMinObjectSize := range []bool{false, true} {
+			t.Run(fmt.Sprintf("PopulateMinObjectSize=%t", populateMinObjectSize), func(t *testing.T) {
+				// Set the feature flag for this test iteration.
+				stripeService.TestSetPopulateMinObjectSizeInvoiceLineItem(populateMinObjectSize)
 
-		bucket1, err := db.Buckets().CreateBucket(
-			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket1", ProjectID: project.ID, Placement: placement0})
-		require.NoError(t, err)
-		bucket2, err := db.Buckets().CreateBucket(
-			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket2", ProjectID: project.ID, Placement: placement10})
-		require.NoError(t, err)
-		bucket3, err := db.Buckets().CreateBucket(
-			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket3", ProjectID: project.ID, Placement: placement20})
-		require.NoError(t, err)
-		bucket4, err := db.Buckets().CreateBucket(
-			ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket4", ProjectID: project.ID, Placement: placement30})
-		require.NoError(t, err)
+				// Create one project with buckets for each placement to test different fee combinations.
+				project, err := db.Console().Projects().Insert(
+					ctx, &console.Project{ID: testrand.UUID(), Name: "test project"})
+				require.NoError(t, err)
 
-		// Create attributions for each bucket (no partner needed)
-		_, err = db.Attribution().Insert(ctx, &attribution.Info{
-			ProjectID:  project.ID,
-			BucketName: []byte(bucket1.Name),
-			Placement:  &placement0,
-		})
-		require.NoError(t, err)
-		_, err = db.Attribution().Insert(ctx, &attribution.Info{
-			ProjectID:  project.ID,
-			BucketName: []byte(bucket2.Name),
-			Placement:  &placement10,
-		})
-		require.NoError(t, err)
-		_, err = db.Attribution().Insert(ctx, &attribution.Info{
-			ProjectID:  project.ID,
-			BucketName: []byte(bucket3.Name),
-			Placement:  &placement20,
-		})
-		require.NoError(t, err)
-		_, err = db.Attribution().Insert(ctx, &attribution.Info{
-			ProjectID:  project.ID,
-			BucketName: []byte(bucket4.Name),
-			Placement:  &placement30,
-		})
-		require.NoError(t, err)
+				bucket1, err := db.Buckets().CreateBucket(
+					ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket1", ProjectID: project.ID, Placement: placement0})
+				require.NoError(t, err)
+				bucket2, err := db.Buckets().CreateBucket(
+					ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket2", ProjectID: project.ID, Placement: placement10})
+				require.NoError(t, err)
+				bucket3, err := db.Buckets().CreateBucket(
+					ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket3", ProjectID: project.ID, Placement: placement20})
+				require.NoError(t, err)
+				bucket4, err := db.Buckets().CreateBucket(
+					ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket4", ProjectID: project.ID, Placement: placement30})
+				require.NoError(t, err)
 
-		dataVal := int64(1000000)
+				// Create attributions for each bucket (no partner needed)
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(bucket1.Name),
+					Placement:  &placement0,
+				})
+				require.NoError(t, err)
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(bucket2.Name),
+					Placement:  &placement10,
+				})
+				require.NoError(t, err)
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(bucket3.Name),
+					Placement:  &placement20,
+				})
+				require.NoError(t, err)
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  project.ID,
+					BucketName: []byte(bucket4.Name),
+					Placement:  &placement30,
+				})
+				require.NoError(t, err)
 
-		// Generate usage for each bucket.
-		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket1.Name, dataVal, dataVal, dataVal)
-		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket2.Name, dataVal, dataVal, dataVal)
-		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket3.Name, dataVal, dataVal, dataVal)
-		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket4.Name, dataVal, dataVal, dataVal)
+				dataVal := int64(1000000)
+				totalBytesProduct1 := int64(200 * memory.MB)
+				remainderBytesProduct1 := int64(50 * memory.MB) // 50MB remainder for product 1 (both fees)
+				totalBytesProduct3 := int64(300 * memory.MB)
+				remainderBytesProduct3 := int64(100 * memory.MB) // 100MB remainder for product 3 (small object fee only)
 
-		productUsages := make(map[int32]accounting.ProjectUsage)
-		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+				// Generate usage for each bucket.
+				// Product 1 (Both fees) - with remainder.
+				generateProjectUsageWithRemainder(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket1.Name, dataVal, totalBytesProduct1, dataVal, remainderBytesProduct1)
+				// Product 2 (No fees) - no remainder.
+				generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket2.Name, dataVal, dataVal, dataVal)
+				// Product 3 (Small object fee only) - with remainder.
+				generateProjectUsageWithRemainder(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket3.Name, dataVal, totalBytesProduct3, dataVal, remainderBytesProduct3)
+				// Product 4 (Retention fee only) - no remainder (retention fee is separate).
+				generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket4.Name, dataVal, dataVal, dataVal)
 
-		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+				productUsages := make(map[int32]accounting.ProjectUsage)
+				productInfos := make(map[int32]payments.ProductUsagePriceModel)
 
-		records := []stripe.ProjectRecord{
-			{ProjectID: project.ID, Storage: 1},
-		}
+				start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+				end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 
-		for _, r := range records {
-			skipped, err := stripeService.ProcessRecord(ctx, r, productUsages, productInfos, start, end)
-			require.NoError(t, err)
-			require.False(t, skipped)
-		}
-		require.Len(t, productUsages, 4)
-		require.Len(t, productInfos, 4)
-
-		expectedProductIDs := []int32{1, 2, 3, 4}
-		var gotUsageProductIDs []int32
-		for pr, usage := range productUsages {
-			gotUsageProductIDs = append(gotUsageProductIDs, pr)
-			require.Equal(t, dataVal, usage.Egress)
-			require.Greater(t, usage.Storage, float64(0))
-		}
-		require.ElementsMatch(t, expectedProductIDs, gotUsageProductIDs)
-
-		var gotInfoProductIDs []int32
-		for pr := range productInfos {
-			gotInfoProductIDs = append(gotInfoProductIDs, pr)
-		}
-		require.ElementsMatch(t, expectedProductIDs, gotInfoProductIDs)
-
-		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
-
-		// Calculate expected total invoice items.
-		expectedTotalItems := 0
-		for _, productID := range expectedProductIDs {
-			expectedTotalItems += expectedInvoiceItemsPerProduct[productID]
-		}
-		require.Len(t, invoiceItems, expectedTotalItems)
-
-		// Verify placeholder fees are included in invoice items.
-		itemIndex := 0
-		for _, productID := range expectedProductIDs {
-			t.Run(fmt.Sprintf("Product %d Items", productID), func(t *testing.T) {
-				productInfo := productInfos[productID]
-				currentIndex := itemIndex + 3 // Skip storage, egress, segment items
-
-				// Verify small object fee item if present
-				if !productInfo.SmallObjectFeeCents.IsZero() {
-					smallObjectFeeItem := invoiceItems[currentIndex]
-					require.NotNil(t, smallObjectFeeItem)
-					require.Contains(t, *smallObjectFeeItem.Description, productInfo.ProductName)
-					require.Contains(t, *smallObjectFeeItem.Description, "Minimum Object Size Remainder")
-					require.Equal(t, int64(0), *smallObjectFeeItem.Quantity)
-					smallObjectFeePrice, _ := productInfo.SmallObjectFeeCents.Float64()
-					require.Equal(t, smallObjectFeePrice, *smallObjectFeeItem.UnitAmountDecimal)
-					currentIndex++
+				records := []stripe.ProjectRecord{
+					{ProjectID: project.ID, Storage: 1},
 				}
 
-				// Verify minimum retention fee item if present
-				if !productInfo.MinimumRetentionFeeCents.IsZero() {
-					minimumRetentionFeeItem := invoiceItems[currentIndex]
-					require.NotNil(t, minimumRetentionFeeItem)
-					require.Contains(t, *minimumRetentionFeeItem.Description, productInfo.ProductName)
-					require.Contains(t, *minimumRetentionFeeItem.Description, "Minimum Storage Retention Remainder")
-					require.Equal(t, int64(0), *minimumRetentionFeeItem.Quantity)
-					minimumRetentionFeePrice, _ := productInfo.MinimumRetentionFeeCents.Float64()
-					require.Equal(t, minimumRetentionFeePrice, *minimumRetentionFeeItem.UnitAmountDecimal)
+				for _, r := range records {
+					skipped, err := stripeService.ProcessRecord(ctx, r, productUsages, productInfos, start, end)
+					require.NoError(t, err)
+					require.False(t, skipped)
+				}
+				require.Len(t, productUsages, 4)
+				require.Len(t, productInfos, 4)
+
+				expectedProductIDs := []int32{1, 2, 3, 4}
+				var gotUsageProductIDs []int32
+				for pr, usage := range productUsages {
+					gotUsageProductIDs = append(gotUsageProductIDs, pr)
+					require.Equal(t, dataVal, usage.Egress)
+					require.Greater(t, usage.Storage, float64(0))
+				}
+				require.ElementsMatch(t, expectedProductIDs, gotUsageProductIDs)
+
+				var gotInfoProductIDs []int32
+				for pr := range productInfos {
+					gotInfoProductIDs = append(gotInfoProductIDs, pr)
+				}
+				require.ElementsMatch(t, expectedProductIDs, gotInfoProductIDs)
+
+				invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+				// Calculate expected total invoice items.
+				expectedTotalItems := 0
+				for _, productID := range expectedProductIDs {
+					expectedTotalItems += expectedInvoiceItemsPerProduct[productID]
+				}
+				require.Len(t, invoiceItems, expectedTotalItems)
+
+				// Verify placeholder fees are included in invoice items.
+				itemIndex := 0
+				for _, productID := range expectedProductIDs {
+					t.Run(fmt.Sprintf("Product %d Items", productID), func(t *testing.T) {
+						productInfo := productInfos[productID]
+						currentIndex := itemIndex + 3 // Skip storage, egress, segment items.
+
+						// Verify small object fee item if present.
+						if !productInfo.SmallObjectFeeCents.IsZero() {
+							smallObjectFeeItem := invoiceItems[currentIndex]
+							require.NotNil(t, smallObjectFeeItem)
+							require.Contains(t, *smallObjectFeeItem.Description, productInfo.ProductName)
+							require.Contains(t, *smallObjectFeeItem.Description, "Object Size Remainder")
+
+							if populateMinObjectSize {
+								// When feature flag is enabled, verify real data is populated.
+								if productInfo.StorageRemainderBytes > 0 {
+									storageRemainderStr := memory.Size(productInfo.StorageRemainderBytes).Base10String()
+									require.Contains(t, *smallObjectFeeItem.Description, storageRemainderStr,
+										"Description should include remainder size when flag is enabled")
+									// Verify quantity is greater than 0 when there's remainder storage.
+									require.Greater(t, *smallObjectFeeItem.Quantity, int64(0),
+										"Quantity should be > 0 when there's remainder storage and flag is enabled")
+								} else {
+									// When there's no remainder configured, quantity should be 0.
+									require.Equal(t, int64(0), *smallObjectFeeItem.Quantity)
+								}
+							} else {
+								// When feature flag is disabled, verify placeholder behavior (quantity = 0).
+								require.Equal(t, int64(0), *smallObjectFeeItem.Quantity,
+									"Quantity should be 0 when flag is disabled (placeholder behavior)")
+								// Description should NOT include the remainder size when flag is disabled.
+								if productInfo.StorageRemainderBytes > 0 {
+									storageRemainderStr := memory.Size(productInfo.StorageRemainderBytes).Base10String()
+									require.NotContains(t, *smallObjectFeeItem.Description, storageRemainderStr,
+										"Description should NOT include remainder size when flag is disabled")
+								}
+							}
+
+							smallObjectFeePrice, _ := productInfo.SmallObjectFeeCents.Float64()
+							require.Equal(t, smallObjectFeePrice, *smallObjectFeeItem.UnitAmountDecimal)
+							currentIndex++
+						}
+
+						// Verify minimum retention fee item if present
+						if !productInfo.MinimumRetentionFeeCents.IsZero() {
+							minimumRetentionFeeItem := invoiceItems[currentIndex]
+							require.NotNil(t, minimumRetentionFeeItem)
+							require.Contains(t, *minimumRetentionFeeItem.Description, productInfo.ProductName)
+							require.Contains(t, *minimumRetentionFeeItem.Description, "Minimum Storage Retention Remainder")
+							require.Equal(t, int64(0), *minimumRetentionFeeItem.Quantity)
+							minimumRetentionFeePrice, _ := productInfo.MinimumRetentionFeeCents.Float64()
+							require.Equal(t, minimumRetentionFeePrice, *minimumRetentionFeeItem.UnitAmountDecimal)
+						}
+					})
+					itemIndex += expectedInvoiceItemsPerProduct[productID]
 				}
 			})
-			itemIndex += expectedInvoiceItemsPerProduct[productID]
 		}
 	})
 }
@@ -1486,6 +1529,10 @@ func TestUnitsAdjustment_WithEgressOverageMode(t *testing.T) {
 }
 
 func generateProjectUsage(ctx context.Context, tb testing.TB, db satellite.DB, projectID uuid.UUID, start, end time.Time, bucket string, egress, totalBytes, totalSegments int64) {
+	generateProjectUsageWithRemainder(ctx, tb, db, projectID, start, end, bucket, egress, totalBytes, totalSegments, 0)
+}
+
+func generateProjectUsageWithRemainder(ctx context.Context, tb testing.TB, db satellite.DB, projectID uuid.UUID, start, end time.Time, bucket string, egress, totalBytes, totalSegments, remainderBytes int64) {
 	err := db.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte(bucket),
 		pb.PieceAction_GET, egress, 0, start)
 	require.NoError(tb, err)
@@ -1496,8 +1543,9 @@ func generateProjectUsage(ctx context.Context, tb testing.TB, db satellite.DB, p
 				ProjectID:  projectID,
 				BucketName: metabase.BucketName(bucket),
 			},
-			TotalBytes:    totalBytes,
-			TotalSegments: totalSegments,
+			TotalBytes:     totalBytes,
+			TotalSegments:  totalSegments,
+			RemainderBytes: remainderBytes,
 		},
 	}
 	err = db.ProjectAccounting().SaveTallies(ctx, start, tallies)

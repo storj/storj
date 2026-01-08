@@ -24,6 +24,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/currency"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -651,12 +652,20 @@ func (service *Service) getAndProcessUsages(
 		// Create or update the product usage entry.
 		if existingUsage, ok := productUsages[productID]; ok {
 			// Add to existing usage.
-			existingUsage.Storage += usage.Storage
+			if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+				existingUsage.Storage += usage.Storage - usage.RemainderStorage // We subtract remainder storage here to have Storage as actual usage.
+				existingUsage.RemainderStorage += usage.RemainderStorage
+			} else {
+				existingUsage.Storage += usage.Storage
+			}
 			existingUsage.Egress += usage.Egress
 			existingUsage.SegmentCount += usage.SegmentCount
 			productUsages[productID] = existingUsage
 		} else {
 			// Initialize with this usage.
+			if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+				usage.Storage -= usage.RemainderStorage // We subtract remainder storage here to have Storage as actual usage.
+			}
 			productUsages[productID] = usage
 
 			// Get product name and SKU.
@@ -692,6 +701,7 @@ func (service *Service) getAndProcessUsages(
 				IncludedEgressSKU:        priceModel.IncludedEgressSKU,
 				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
 				UseGBUnits:               priceModel.UseGBUnits,
+				StorageRemainderBytes:    priceModel.StorageRemainderBytes,
 			}
 		}
 	}
@@ -734,21 +744,11 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		var storageDesc string
 		if info.UseGBUnits {
 			storageDesc = prefix + " - Storage (GB-Month)"
-		} else {
-			storageDesc = prefix + " - Storage (MB-Month)"
-		}
-		if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
-			storageItem.AddMetadata("SKU", info.StorageSKU)
-			if service.stripeConfig.InvItemSKUInDescription {
-				storageDesc += " - " + info.StorageSKU
-			}
-		}
-		storageItem.Description = stripe.String(storageDesc)
-		if info.UseGBUnits {
+
+			var storageQuantity int64
 			// New products: convert from byte-hours to GB-Month.
 			// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
 			storageAdjustedMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
-			var storageQuantity int64
 			if service.stripeConfig.RoundUpInvoiceUsage {
 				storageQuantity = storageAdjustedMonth.Ceil().IntPart()
 				// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
@@ -759,16 +759,25 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				storageQuantity = storageAdjustedMonth.Round(0).IntPart()
 			}
 			storageItem.Quantity = stripe.Int64(storageQuantity)
+
 			// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
 			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
 			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
 		} else {
+			storageDesc = prefix + " - Storage (MB-Month)"
+
 			// Legacy products: use MB-Month with rounding.
-			storageMBMonth := storageMBMonthDecimal(discountedUsage.Storage)
-			storageItem.Quantity = stripe.Int64(storageMBMonth.IntPart())
+			storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
 			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
 			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
 		}
+		if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
+			storageItem.AddMetadata("SKU", info.StorageSKU)
+			if service.stripeConfig.InvItemSKUInDescription {
+				storageDesc += " - " + info.StorageSKU
+			}
+		}
+		storageItem.Description = stripe.String(storageDesc)
 		if service.stripeConfig.UseIdempotency {
 			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
 		}
@@ -945,24 +954,65 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 		if !info.SmallObjectFeeCents.IsZero() {
 			smallObjectFeeItem := &stripe.InvoiceItemParams{}
-			var smallObjectFeeDesc string
-			if info.UseGBUnits {
-				smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (GB-Month)"
+			if service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+				storageRemainderStr := memory.Size(info.StorageRemainderBytes).Base10String()
+
+				var smallObjectFeeDesc string
+				if info.UseGBUnits {
+					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (GB-Month)"
+
+					var smallObjectFeeQuantity int64
+					// New products: convert from byte-hours to GB-Month.
+					// storage remainder (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+					storageRemainderAdjustedMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
+					if service.stripeConfig.RoundUpInvoiceUsage {
+						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Ceil().IntPart()
+						// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
+						if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
+							smallObjectFeeQuantity = 1
+						}
+					} else {
+						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Round(0).IntPart()
+					}
+					smallObjectFeeItem.Quantity = stripe.Int64(smallObjectFeeQuantity)
+
+					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				} else {
+					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (MB-Month)"
+
+					smallObjectFeeItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.RemainderStorage).IntPart())
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				}
+				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
+					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+					if service.stripeConfig.InvItemSKUInDescription {
+						smallObjectFeeDesc += " - " + info.SmallObjectFeeSKU
+					}
+				}
+				smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
 			} else {
-				smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (MB-Month)"
-			}
-			smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
-			smallObjectFeeItem.Quantity = stripe.Int64(0) // not applied for now.
-			if info.UseGBUnits {
-				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
-				smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
-				smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
-			} else {
-				smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
-				smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
-			}
-			if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
-				smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+				var smallObjectFeeDesc string
+				if info.UseGBUnits {
+					smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (GB-Month)"
+				} else {
+					smallObjectFeeDesc = prefix + " - Minimum Object Size Remainder (MB-Month)"
+				}
+				smallObjectFeeItem.Description = stripe.String(smallObjectFeeDesc)
+				smallObjectFeeItem.Quantity = stripe.Int64(0) // not applied for now.
+				if info.UseGBUnits {
+					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				} else {
+					smallObjectFeePrice, _ := info.SmallObjectFeeCents.Float64()
+					smallObjectFeeItem.UnitAmountDecimal = stripe.Float64(smallObjectFeePrice)
+				}
+				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
+					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+				}
 			}
 			if service.stripeConfig.UseIdempotency {
 				smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
@@ -2081,6 +2131,11 @@ func (service *Service) SetNow(now func() time.Time) {
 func (service *Service) TestSetMinimumChargeCfg(amount int64, allUsersDate *time.Time) {
 	service.pricingConfig.MinimumChargeAmount = amount
 	service.pricingConfig.MinimumChargeDate = allUsersDate
+}
+
+// TestSetPopulateMinObjectSizeInvoiceLineItem sets the PopulateMinObjectSizeInvoiceLineItem config flag for testing.
+func (service *Service) TestSetPopulateMinObjectSizeInvoiceLineItem(populate bool) {
+	service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem = populate
 }
 
 // getFromToDates returns from/to date values used for data usage calculations depending on users upgrade time and status.
