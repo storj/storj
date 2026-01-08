@@ -245,6 +245,11 @@ func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounti
 	return &ProjectAccounting{db: dbc.getByName("projectaccounting")}
 }
 
+// DeletionRemainderCharges returns database for deletion remainder charges.
+func (dbc *satelliteDBCollection) DeletionRemainderCharges() accounting.DeletionRemainderDB {
+	return &deletionRemainderDB{db: dbc.getByName("deletionremaindercharges")}
+}
+
 // Revocation returns the database to deal with macaroon revocation.
 func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 	db := dbc.getByName("revocation")

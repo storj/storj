@@ -204,3 +204,13 @@ model deletion_remainder_charge (
 	// billed indicates whether this charge has been billed.
 	field billed      bool ( updatable, default false )
 )
+
+create deletion_remainder_charge ( noreturn )
+
+read all (
+	select deletion_remainder_charge
+	where deletion_remainder_charge.project_id = ?
+	where deletion_remainder_charge.deleted_at >= ?
+	where deletion_remainder_charge.deleted_at < ?
+	where deletion_remainder_charge.billed = false
+)

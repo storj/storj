@@ -15617,6 +15617,64 @@ func (obj *pgxImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) CreateNoReturn_DeletionRemainderCharge(ctx context.Context,
+	deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+	deletion_remainder_charge_bucket_name DeletionRemainderCharge_BucketName_Field,
+	deletion_remainder_charge_created_at DeletionRemainderCharge_CreatedAt_Field,
+	deletion_remainder_charge_deleted_at DeletionRemainderCharge_DeletedAt_Field,
+	deletion_remainder_charge_object_size DeletionRemainderCharge_ObjectSize_Field,
+	deletion_remainder_charge_remainder_hours DeletionRemainderCharge_RemainderHours_Field,
+	optional DeletionRemainderCharge_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__project_id_val := deletion_remainder_charge_project_id.value()
+	__bucket_name_val := deletion_remainder_charge_bucket_name.value()
+	__created_at_val := deletion_remainder_charge_created_at.value()
+	__deleted_at_val := deletion_remainder_charge_deleted_at.value()
+	__object_size_val := deletion_remainder_charge_object_size.value()
+	__remainder_hours_val := deletion_remainder_charge_remainder_hours.value()
+	__product_id_val := optional.ProductId.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("project_id, bucket_name, created_at, deleted_at, object_size, remainder_hours, product_id")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO deletion_remainder_charges "), __clause}}
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val, __deleted_at_val, __object_size_val, __remainder_hours_val, __product_id_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Billed._set {
+		__values = append(__values, optional.Billed.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("billed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) Create_ReverificationAudits(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -18109,6 +18167,53 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_DeletionRemainderCharge_By_ProjectId_And_DeletedAt_GreaterOrEqual_And_DeletedAt_Less_And_Billed_Equal_False(ctx context.Context,
+	deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+	deletion_remainder_charge_deleted_at_greater_or_equal DeletionRemainderCharge_DeletedAt_Field,
+	deletion_remainder_charge_deleted_at_less DeletionRemainderCharge_DeletedAt_Field) (
+	rows []*DeletionRemainderCharge, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT deletion_remainder_charges.project_id, deletion_remainder_charges.bucket_name, deletion_remainder_charges.created_at, deletion_remainder_charges.deleted_at, deletion_remainder_charges.object_size, deletion_remainder_charges.remainder_hours, deletion_remainder_charges.product_id, deletion_remainder_charges.billed FROM deletion_remainder_charges WHERE deletion_remainder_charges.project_id = ? AND deletion_remainder_charges.deleted_at >= ? AND deletion_remainder_charges.deleted_at < ? AND deletion_remainder_charges.billed = false")
+
+	var __values []any
+	__values = append(__values, deletion_remainder_charge_project_id.value(), deletion_remainder_charge_deleted_at_greater_or_equal.value(), deletion_remainder_charge_deleted_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeletionRemainderCharge, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				deletion_remainder_charge := &DeletionRemainderCharge{}
+				err = __rows.Scan(&deletion_remainder_charge.ProjectId, &deletion_remainder_charge.BucketName, &deletion_remainder_charge.CreatedAt, &deletion_remainder_charge.DeletedAt, &deletion_remainder_charge.ObjectSize, &deletion_remainder_charge.RemainderHours, &deletion_remainder_charge.ProductId, &deletion_remainder_charge.Billed)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, deletion_remainder_charge)
 			}
 			return rows, nil
 		}()
@@ -26815,6 +26920,64 @@ func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollup(ctx context.Conte
 
 }
 
+func (obj *pgxcockroachImpl) CreateNoReturn_DeletionRemainderCharge(ctx context.Context,
+	deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+	deletion_remainder_charge_bucket_name DeletionRemainderCharge_BucketName_Field,
+	deletion_remainder_charge_created_at DeletionRemainderCharge_CreatedAt_Field,
+	deletion_remainder_charge_deleted_at DeletionRemainderCharge_DeletedAt_Field,
+	deletion_remainder_charge_object_size DeletionRemainderCharge_ObjectSize_Field,
+	deletion_remainder_charge_remainder_hours DeletionRemainderCharge_RemainderHours_Field,
+	optional DeletionRemainderCharge_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__project_id_val := deletion_remainder_charge_project_id.value()
+	__bucket_name_val := deletion_remainder_charge_bucket_name.value()
+	__created_at_val := deletion_remainder_charge_created_at.value()
+	__deleted_at_val := deletion_remainder_charge_deleted_at.value()
+	__object_size_val := deletion_remainder_charge_object_size.value()
+	__remainder_hours_val := deletion_remainder_charge_remainder_hours.value()
+	__product_id_val := optional.ProductId.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("project_id, bucket_name, created_at, deleted_at, object_size, remainder_hours, product_id")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO deletion_remainder_charges "), __clause}}
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val, __deleted_at_val, __object_size_val, __remainder_hours_val, __product_id_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Billed._set {
+		__values = append(__values, optional.Billed.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("billed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxcockroachImpl) Create_ReverificationAudits(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -29307,6 +29470,53 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_DeletionRemainderCharge_By_ProjectId_And_DeletedAt_GreaterOrEqual_And_DeletedAt_Less_And_Billed_Equal_False(ctx context.Context,
+	deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+	deletion_remainder_charge_deleted_at_greater_or_equal DeletionRemainderCharge_DeletedAt_Field,
+	deletion_remainder_charge_deleted_at_less DeletionRemainderCharge_DeletedAt_Field) (
+	rows []*DeletionRemainderCharge, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT deletion_remainder_charges.project_id, deletion_remainder_charges.bucket_name, deletion_remainder_charges.created_at, deletion_remainder_charges.deleted_at, deletion_remainder_charges.object_size, deletion_remainder_charges.remainder_hours, deletion_remainder_charges.product_id, deletion_remainder_charges.billed FROM deletion_remainder_charges WHERE deletion_remainder_charges.project_id = ? AND deletion_remainder_charges.deleted_at >= ? AND deletion_remainder_charges.deleted_at < ? AND deletion_remainder_charges.billed = false")
+
+	var __values []any
+	__values = append(__values, deletion_remainder_charge_project_id.value(), deletion_remainder_charge_deleted_at_greater_or_equal.value(), deletion_remainder_charge_deleted_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeletionRemainderCharge, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				deletion_remainder_charge := &DeletionRemainderCharge{}
+				err = __rows.Scan(&deletion_remainder_charge.ProjectId, &deletion_remainder_charge.BucketName, &deletion_remainder_charge.CreatedAt, &deletion_remainder_charge.DeletedAt, &deletion_remainder_charge.ObjectSize, &deletion_remainder_charge.RemainderHours, &deletion_remainder_charge.ProductId, &deletion_remainder_charge.Billed)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, deletion_remainder_charge)
 			}
 			return rows, nil
 		}()
@@ -38023,6 +38233,68 @@ func (obj *spannerImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) CreateNoReturn_DeletionRemainderCharge(ctx context.Context,
+	deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+	deletion_remainder_charge_bucket_name DeletionRemainderCharge_BucketName_Field,
+	deletion_remainder_charge_created_at DeletionRemainderCharge_CreatedAt_Field,
+	deletion_remainder_charge_deleted_at DeletionRemainderCharge_DeletedAt_Field,
+	deletion_remainder_charge_object_size DeletionRemainderCharge_ObjectSize_Field,
+	deletion_remainder_charge_remainder_hours DeletionRemainderCharge_RemainderHours_Field,
+	optional DeletionRemainderCharge_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+	__project_id_val := deletion_remainder_charge_project_id.value()
+	__bucket_name_val := deletion_remainder_charge_bucket_name.value()
+	__created_at_val := deletion_remainder_charge_created_at.value()
+	__deleted_at_val := deletion_remainder_charge_deleted_at.value()
+	__object_size_val := deletion_remainder_charge_object_size.value()
+	__remainder_hours_val := deletion_remainder_charge_remainder_hours.value()
+	__product_id_val := optional.ProductId.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("project_id, bucket_name, created_at, deleted_at, object_size, remainder_hours, product_id")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO deletion_remainder_charges "), __clause}}
+
+	var __values []any
+	__values = append(__values, __project_id_val, __bucket_name_val, __created_at_val, __deleted_at_val, __object_size_val, __remainder_hours_val, __product_id_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Billed._set {
+		__values = append(__values, optional.Billed.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("billed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("billed"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *spannerImpl) Create_ReverificationAudits(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -40808,6 +41080,53 @@ func (obj *spannerImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_I
 					return nil, err
 				}
 				rows = append(rows, bucket_storage_tally)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) All_DeletionRemainderCharge_By_ProjectId_And_DeletedAt_GreaterOrEqual_And_DeletedAt_Less_And_Billed_Equal_False(ctx context.Context,
+	deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+	deletion_remainder_charge_deleted_at_greater_or_equal DeletionRemainderCharge_DeletedAt_Field,
+	deletion_remainder_charge_deleted_at_less DeletionRemainderCharge_DeletedAt_Field) (
+	rows []*DeletionRemainderCharge, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT deletion_remainder_charges.project_id, deletion_remainder_charges.bucket_name, deletion_remainder_charges.created_at, deletion_remainder_charges.deleted_at, deletion_remainder_charges.object_size, deletion_remainder_charges.remainder_hours, deletion_remainder_charges.product_id, deletion_remainder_charges.billed FROM deletion_remainder_charges WHERE deletion_remainder_charges.project_id = ? AND deletion_remainder_charges.deleted_at >= ? AND deletion_remainder_charges.deleted_at < ? AND deletion_remainder_charges.billed = false")
+
+	var __values []any
+	__values = append(__values, deletion_remainder_charge_project_id.value(), deletion_remainder_charge_deleted_at_greater_or_equal.value(), deletion_remainder_charge_deleted_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*DeletionRemainderCharge, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				deletion_remainder_charge := &DeletionRemainderCharge{}
+				err = __rows.Scan(&deletion_remainder_charge.ProjectId, &deletion_remainder_charge.BucketName, &deletion_remainder_charge.CreatedAt, &deletion_remainder_charge.DeletedAt, &deletion_remainder_charge.ObjectSize, &deletion_remainder_charge.RemainderHours, &deletion_remainder_charge.ProductId, &deletion_remainder_charge.Billed)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, deletion_remainder_charge)
 			}
 			return rows, nil
 		}()
@@ -49213,6 +49532,12 @@ type Methods interface {
 		coinpayments_transaction_user_id CoinpaymentsTransaction_UserId_Field) (
 		rows []*CoinpaymentsTransaction, err error)
 
+	All_DeletionRemainderCharge_By_ProjectId_And_DeletedAt_GreaterOrEqual_And_DeletedAt_Less_And_Billed_Equal_False(ctx context.Context,
+		deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+		deletion_remainder_charge_deleted_at_greater_or_equal DeletionRemainderCharge_DeletedAt_Field,
+		deletion_remainder_charge_deleted_at_less DeletionRemainderCharge_DeletedAt_Field) (
+		rows []*DeletionRemainderCharge, err error)
+
 	All_Domain_Subdomain_By_ProjectId(ctx context.Context,
 		domain_project_id Domain_ProjectId_Field) (
 		rows []*Subdomain_Row, err error)
@@ -49333,6 +49658,16 @@ type Methods interface {
 	CreateNoReturn_BillingBalance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,
 		billing_balance_balance BillingBalance_Balance_Field) (
+		err error)
+
+	CreateNoReturn_DeletionRemainderCharge(ctx context.Context,
+		deletion_remainder_charge_project_id DeletionRemainderCharge_ProjectId_Field,
+		deletion_remainder_charge_bucket_name DeletionRemainderCharge_BucketName_Field,
+		deletion_remainder_charge_created_at DeletionRemainderCharge_CreatedAt_Field,
+		deletion_remainder_charge_deleted_at DeletionRemainderCharge_DeletedAt_Field,
+		deletion_remainder_charge_object_size DeletionRemainderCharge_ObjectSize_Field,
+		deletion_remainder_charge_remainder_hours DeletionRemainderCharge_RemainderHours_Field,
+		optional DeletionRemainderCharge_Create_Fields) (
 		err error)
 
 	CreateNoReturn_OauthClient(ctx context.Context,
