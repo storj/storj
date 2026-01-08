@@ -870,6 +870,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 		after.Status = status
 
 		auditLog("mark_user_pending_deletion", *user, after)
+		s.analytics.TrackDeleteUser(user.ID, user.Email, true, user.HubspotObjectID, user.TenantID)
 
 		return s.getUserAccount(ctx, &after)
 	}
@@ -909,6 +910,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	}
 
 	auditLog("disable_user", *user, *afterState)
+	s.analytics.TrackDeleteUser(user.ID, user.Email, true, user.HubspotObjectID, user.TenantID)
 
 	return s.getUserAccount(ctx, afterState)
 }

@@ -3054,7 +3054,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 			zap.String("user_id", user.ID.String()),
 			zap.String("user_email", user.Email),
 		)
-		s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+		s.analytics.TrackDeleteUser(user.ID, user.Email, false, user.HubspotObjectID, user.TenantID)
 
 		s.mailService.SendRenderedAsync(
 			ctx,
@@ -3133,7 +3133,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 	)
-	s.analytics.TrackDeleteUser(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+	s.analytics.TrackDeleteUser(user.ID, user.Email, false, user.HubspotObjectID, user.TenantID)
 
 	s.mailService.SendRenderedAsync(
 		ctx,

@@ -456,13 +456,15 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 }
 
 // TrackDeleteUser sends an "Account Deleted" event to Segment.
-func (service *Service) TrackDeleteUser(userID uuid.UUID, email string, hubspotObjectID, tenantID *string) {
+// The adminInitiated parameter specifies whether the deletion was initiated by an admin action or by the user.
+func (service *Service) TrackDeleteUser(userID uuid.UUID, email string, adminInitiated bool, hubspotObjectID, tenantID *string) {
 	if !service.config.Enabled {
 		return
 	}
 
 	props := service.newPropertiesWithOpts(hubspotObjectID, tenantID)
 	props.Set("email", email)
+	props.Set("admin_initiated", adminInitiated)
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
