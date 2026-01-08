@@ -529,8 +529,8 @@ type precommitUnversionedObjectFull struct {
 	Status       ObjectStatus `spanner:"status"`
 	SegmentCount int64        `spanner:"segment_count"`
 
-	EncryptedMetadata             []byte `spanner:"encrypted_metadata_nonce"`
-	EncryptedMetadataNonce        []byte `spanner:"encrypted_metadata"`
+	EncryptedMetadata             []byte `spanner:"encrypted_metadata"`
+	EncryptedMetadataNonce        []byte `spanner:"encrypted_metadata_nonce"`
 	EncryptedMetadataEncryptedKey []byte `spanner:"encrypted_metadata_encrypted_key"`
 	EncryptedETag                 []byte `spanner:"encrypted_etag"`
 
