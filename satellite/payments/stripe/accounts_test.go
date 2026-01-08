@@ -4,6 +4,7 @@
 package stripe_test
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -651,5 +652,268 @@ func TestProductCharges_WithRounding(t *testing.T) {
 			"Product 2 storage should be less than product 1 (no rounding applied)")
 		require.Less(t, product2Charge.ProjectUsage.Egress, product1Charge.ProjectUsage.Egress,
 			"Product 2 egress should be less than product 1 (no rounding applied)")
+	})
+}
+
+func TestProductCharges_WithFees(t *testing.T) {
+	// Define price models with different fee configurations.
+	// Note: SmallObjectFee and MinimumRetentionFee are configured in dollars per TB-Month (same units as StorageTB).
+	// The system converts these to cents per MB-Month for internal calculations.
+	// These test values are set higher than production values to produce measurable fees in tests.
+	productWithBothFees := paymentsconfig.ProductUsagePrice{
+		Name:                "Product Both Fees",
+		SmallObjectFee:      "100000",
+		MinimumRetentionFee: "50000",
+		StorageRemainder:    "50KB",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "7000",
+			EgressTB:  "10000",
+			Segment:   "0",
+		},
+	}
+	productWithNoFees := paymentsconfig.ProductUsagePrice{
+		Name:           "Product No Fees",
+		SmallObjectFee: "0",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "7000",
+			EgressTB:  "10000",
+			Segment:   "0",
+		},
+	}
+	productWithSmallObjectFeeOnly := paymentsconfig.ProductUsagePrice{
+		Name:             "Product Small Object Fee",
+		SmallObjectFee:   "120000",
+		StorageRemainder: "100KB",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "7000",
+			EgressTB:  "10000",
+			Segment:   "0",
+		},
+	}
+	productWithGBRounding := paymentsconfig.ProductUsagePrice{
+		Name:             "Product with GB Rounding",
+		SmallObjectFee:   "80000",
+		StorageRemainder: "25KB",
+		UseGBUnits:       true,
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "7000",
+			EgressTB:  "10000",
+			Segment:   "0",
+		},
+	}
+
+	var productOverrides paymentsconfig.ProductPriceOverrides
+	productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+		1: productWithBothFees,
+		2: productWithNoFees,
+		3: productWithSmallObjectFeeOnly,
+		4: productWithGBRounding,
+	})
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");10:annotation("location", "test1");20:annotation("location", "test2");30:annotation("location", "test3")`,
+				}
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{
+					0:  1, // Both fees
+					10: 2, // No fees
+					20: 3, // Small object fee only
+					30: 4, // With GB rounding
+				})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				config.Payments.Products = productOverrides
+
+				config.Payments.StripeCoinPayments.RoundUpInvoiceUsage = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		accounts := sat.API.Payments.Accounts
+		user := planet.Uplinks[0].Projects[0].Owner
+		projectID := planet.Uplinks[0].Projects[0].ID
+		db := sat.DB
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		now := time.Now()
+		since := now.AddDate(0, -1, 0)
+
+		_, err := accounts.Setup(ctx, user.ID, user.Email, "")
+		require.NoError(t, err)
+
+		placement0 := storj.DefaultPlacement         // Both fees.
+		placement10 := storj.PlacementConstraint(10) // No fees.
+		placement20 := storj.PlacementConstraint(20) // Small object fee only.
+		placement30 := storj.PlacementConstraint(30) // With GB rounding.
+
+		bucket1, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "bucket-both-fees",
+			ProjectID: projectID,
+			Placement: placement0,
+		})
+		require.NoError(t, err)
+		bucket2, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "bucket-no-fees",
+			ProjectID: projectID,
+			Placement: placement10,
+		})
+		require.NoError(t, err)
+		bucket3, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "bucket-small-obj-fee",
+			ProjectID: projectID,
+			Placement: placement20,
+		})
+		require.NoError(t, err)
+		bucket4, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "bucket-gb-rounding",
+			ProjectID: projectID,
+			Placement: placement30,
+		})
+		require.NoError(t, err)
+
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: []byte(bucket1.Name),
+			Placement:  &placement0,
+		})
+		require.NoError(t, err)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: []byte(bucket2.Name),
+			Placement:  &placement10,
+		})
+		require.NoError(t, err)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: []byte(bucket3.Name),
+			Placement:  &placement20,
+		})
+		require.NoError(t, err)
+		_, err = db.Attribution().Insert(ctx, &attribution.Info{
+			ProjectID:  projectID,
+			BucketName: []byte(bucket4.Name),
+			Placement:  &placement30,
+		})
+		require.NoError(t, err)
+
+		firstDayOfMonth := time.Date(since.Year(), since.Month(), 1, 0, 0, 0, 0, time.UTC)
+		secondDayOfMonth := time.Date(since.Year(), since.Month(), 2, 0, 0, 0, 0, time.UTC)
+		lastDayOfMonth := time.Date(since.Year(), since.Month()+1, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
+
+		dataVal := int64(1000000)
+		totalBytesProduct1 := int64(20_000_000_000)     // 20 GB
+		remainderBytesProduct1 := int64(5_000_000_000)  // 5 GB remainder for product 1
+		totalBytesProduct3 := int64(30_000_000_000)     // 30 GB
+		remainderBytesProduct3 := int64(10_000_000_000) // 10 GB remainder for product 3
+		totalBytesProduct4 := int64(15_000_000_000)     // 15 GB
+		remainderBytesProduct4 := int64(2_500_000_000)  // 2.5 GB remainder for product 4
+
+		// Test both scenarios: with and without PopulateMinObjectSizeInvoiceLineItem flag.
+		for _, populateFlag := range []bool{false, true} {
+			t.Run(fmt.Sprintf("PopulateMinObjectSize=%t", populateFlag), func(t *testing.T) {
+				// Set the feature flag.
+				sat.API.Payments.StripeService.TestSetPopulateMinObjectSizeInvoiceLineItem(populateFlag)
+
+				// Clear previous test data.
+				_, err := db.ProjectAccounting().DeleteTalliesBefore(ctx, lastDayOfMonth.AddDate(0, 0, 1))
+				require.NoError(t, err)
+
+				// Generate usage with remainder for different buckets.
+				generateProjectUsageWithRemainder(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket1.Name, dataVal, totalBytesProduct1, dataVal, remainderBytesProduct1)
+				generateProjectUsage(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket2.Name, dataVal, dataVal, dataVal)
+				generateProjectUsageWithRemainder(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket3.Name, dataVal, totalBytesProduct3, dataVal, remainderBytesProduct3)
+				generateProjectUsageWithRemainder(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket4.Name, dataVal, totalBytesProduct4, dataVal, remainderBytesProduct4)
+
+				charges, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
+				require.NoError(t, err)
+				require.NotEmpty(t, charges)
+
+				projectCharges, ok := charges[planet.Uplinks[0].Projects[0].PublicID]
+				require.True(t, ok, "Should have charges for the test project")
+				require.Len(t, projectCharges, 4, "Should have charges for 4 products")
+
+				// Verify Product 1: Both fees configured.
+				product1Charge, ok := projectCharges[1]
+				require.True(t, ok, "Should have charges for product 1")
+				require.Equal(t, "Product Both Fees", product1Charge.ProductName)
+
+				if populateFlag {
+					// When flag is enabled, fees should be calculated based on remainder storage.
+					require.Greater(t, product1Charge.SmallObjectFeeMBMonthCents, int64(0),
+						"Product 1 should have small object fee > 0 when flag is enabled")
+					// Minimum retention fee is currently a placeholder, so it should be 0.
+					require.Equal(t, int64(0), product1Charge.MinimumRetentionFeeMBMonthCents,
+						"Product 1 minimum retention fee should be 0 (placeholder)")
+					// Verify remainder storage is present in usage.
+					require.Greater(t, product1Charge.ProjectUsage.RemainderStorage, float64(0),
+						"Product 1 should have remainder storage when flag is enabled")
+				} else {
+					// When flag is disabled, fees should be 0.
+					require.Equal(t, int64(0), product1Charge.SmallObjectFeeMBMonthCents,
+						"Product 1 small object fee should be 0 when flag is disabled")
+					require.Equal(t, int64(0), product1Charge.MinimumRetentionFeeMBMonthCents,
+						"Product 1 minimum retention fee should be 0 when flag is disabled")
+				}
+
+				// Verify Product 2: No fees configured.
+				product2Charge, ok := projectCharges[2]
+				require.True(t, ok, "Should have charges for product 2")
+				require.Equal(t, "Product No Fees", product2Charge.ProductName)
+				require.Equal(t, int64(0), product2Charge.SmallObjectFeeMBMonthCents,
+					"Product 2 should have no small object fee (not configured)")
+				require.Equal(t, int64(0), product2Charge.MinimumRetentionFeeMBMonthCents,
+					"Product 2 should have no minimum retention fee (not configured)")
+
+				// Verify Product 3: Small object fee only.
+				product3Charge, ok := projectCharges[3]
+				require.True(t, ok, "Should have charges for product 3")
+				require.Equal(t, "Product Small Object Fee", product3Charge.ProductName)
+
+				if populateFlag {
+					require.Greater(t, product3Charge.SmallObjectFeeMBMonthCents, int64(0),
+						"Product 3 should have small object fee > 0 when flag is enabled")
+					// Verify product 3 has higher fee than product 1 due to higher remainder and price.
+					require.Greater(t, product3Charge.SmallObjectFeeMBMonthCents, product1Charge.SmallObjectFeeMBMonthCents,
+						"Product 3 should have higher fee than product 1 (more remainder, higher price)")
+				} else {
+					require.Equal(t, int64(0), product3Charge.SmallObjectFeeMBMonthCents,
+						"Product 3 small object fee should be 0 when flag is disabled")
+				}
+				require.Equal(t, int64(0), product3Charge.MinimumRetentionFeeMBMonthCents,
+					"Product 3 should have no minimum retention fee (not configured)")
+
+				// Verify Product 4: With GB rounding.
+				product4Charge, ok := projectCharges[4]
+				require.True(t, ok, "Should have charges for product 4")
+				require.Equal(t, "Product with GB Rounding", product4Charge.ProductName)
+
+				if populateFlag {
+					require.Greater(t, product4Charge.SmallObjectFeeMBMonthCents, int64(0),
+						"Product 4 should have small object fee > 0 when flag is enabled")
+					// With GB rounding enabled, remainder storage should be rounded up.
+					// Verify that rounded remainder storage is used for calculation.
+					const hoursPerMonth = 720
+					const mbToGBConversionFactor = 1000
+					// Expected: remainder should be rounded up to nearest GB-Month.
+					minExpectedRemainderByteHours := float64(mbToGBConversionFactor * 1e6 * hoursPerMonth) // 1 GB-Month
+					require.GreaterOrEqual(t, product4Charge.ProjectUsage.RemainderStorage, minExpectedRemainderByteHours,
+						"Product 4 remainder storage should be rounded up to at least 1 GB-Month")
+				} else {
+					require.Equal(t, int64(0), product4Charge.SmallObjectFeeMBMonthCents,
+						"Product 4 small object fee should be 0 when flag is disabled")
+				}
+			})
+		}
 	})
 }

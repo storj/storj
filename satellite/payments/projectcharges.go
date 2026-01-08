@@ -33,6 +33,10 @@ type ProductCharge struct {
 	EgressMBCents int64 `json:"egressPrice"`
 	// SegmentMonthCents is how many cents we should pay for objects count.
 	SegmentMonthCents int64 `json:"segmentPrice"`
+	// SmallObjectFeeMBMonthCents is how many cents we should pay for remainder storage MB*months.
+	SmallObjectFeeMBMonthCents int64 `json:"smallObjectFeePrice"`
+	// MinimumRetentionFeeMBMonthCents is how many cents we should pay for minimum retention remainder MB*months.
+	MinimumRetentionFeeMBMonthCents int64 `json:"minimumRetentionFeePrice"`
 }
 
 // ProjectChargesResponse represents a collection of project usage charges grouped by project ID and partner name.
@@ -72,9 +76,9 @@ type ProductUsagePriceModel struct {
 	ProductID                int32           `json:"productID"`
 	ProductName              string          `json:"productName"`
 	ProductShortName         string          `json:"productShortName"`
-	StorageSKU               string          `json:"storageSKU"`
-	EgressSKU                string          `json:"egressSKU"`
-	SegmentSKU               string          `json:"segmentSKU"`
+	StorageSKU               string          `json:"-"`
+	EgressSKU                string          `json:"-"`
+	SegmentSKU               string          `json:"-"`
 	SmallObjectFeeCents      decimal.Decimal `json:"smallObjectFeeCents"`
 	MinimumRetentionFeeCents decimal.Decimal `json:"minimumRetentionFeeCents"`
 	SmallObjectFeeSKU        string          `json:"-"`
@@ -84,9 +88,9 @@ type ProductUsagePriceModel struct {
 	IncludedEgressSKU string `json:"-"`
 	// StorageRemainderBytes is the minimum size in bytes that objects should be counted as.
 	// Objects smaller than this value will be counted as this value for billing purposes.
-	StorageRemainderBytes int64 `json:"-"`
+	StorageRemainderBytes int64 `json:"storageRemainderBytes"`
 	// UseGBUnits when true, invoice line items will use GB units instead of MB units.
-	UseGBUnits bool `json:"useGBUnits"`
+	UseGBUnits bool `json:"-"`
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string `json:"-"`
 	ProjectUsagePriceModel
