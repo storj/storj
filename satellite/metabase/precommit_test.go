@@ -248,5 +248,55 @@ func TestPrecommitQuery(t *testing.T) {
 
 			require.EqualExportedValues(t, expect, info)
 		})
+
+		// Regression test for swapped Spanner struct tags bug in precommitUnversionedObjectFull.
+		// Previously, the spanner tags for EncryptedMetadata and EncryptedMetadataNonce were swapped.
+		// This test ensures the fields are correctly mapped when using FullUnversioned option.
+		t.Run("FullUnversioned-encrypted-metadata-fields", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+
+			// Create specific test data to verify field mapping
+			encryptedUserData := metabasetest.RandEncryptedUserData()
+
+			// Ensure metadata and nonce are different sizes to catch any swap
+			require.NotEqual(t, len(encryptedUserData.EncryptedMetadata), len(encryptedUserData.EncryptedMetadataNonce),
+				"test should use different sizes for metadata and nonce")
+
+			// Create a committed unversioned object
+			committed, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:              obj,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         encryptedUserData,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			// Query with FullUnversioned to trigger the code path that uses precommitUnversionedObjectFull
+			info, err := precommit(metabase.PrecommitQuery{
+				ObjectStream:    obj,
+				FullUnversioned: true,
+				HighestVisible:  true,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, info.FullUnversioned, "FullUnversioned should be returned")
+
+			// Verify that the fields are not swapped
+			require.Equal(t, encryptedUserData.EncryptedMetadata, info.FullUnversioned.EncryptedMetadata,
+				"EncryptedMetadata should match original")
+			require.Equal(t, encryptedUserData.EncryptedMetadataNonce, info.FullUnversioned.EncryptedMetadataNonce,
+				"EncryptedMetadataNonce should match original")
+			require.Equal(t, encryptedUserData.EncryptedMetadataEncryptedKey, info.FullUnversioned.EncryptedMetadataEncryptedKey,
+				"EncryptedMetadataEncryptedKey should match original")
+			require.Equal(t, encryptedUserData.EncryptedETag, info.FullUnversioned.EncryptedETag,
+				"EncryptedETag should match original")
+
+			// Verify the complete object matches
+			require.Equal(t, committed.Version, info.FullUnversioned.Version)
+			require.Equal(t, committed.StreamID, info.FullUnversioned.StreamID)
+			require.Equal(t, encryptedUserData.EncryptedMetadataEncryptedKey, info.FullUnversioned.EncryptedMetadataEncryptedKey)
+			require.Equal(t, encryptedUserData.EncryptedETag, info.FullUnversioned.EncryptedETag)
+		})
 	})
 }
