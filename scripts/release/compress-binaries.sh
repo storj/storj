@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Copyright (C) 2025 Storj Labs, Inc.
+# See LICENSE for copying information.
+
 set -euo pipefail
 
 # Check if directory argument is provided

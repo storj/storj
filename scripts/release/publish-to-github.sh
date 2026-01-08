@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # usage: $0 vMAJOR.MINOR.PATCH[-rc[-*]] PATH/TO/BINARIES
 
+# Copyright (C) 2025 Storj Labs, Inc.
+# See LICENSE for copying information.
+
 set -euo pipefail
 
 apps="identity uplink storagenode multinode"
@@ -22,7 +25,7 @@ fi
 echo "Creating release"
 current_release_version=$(echo "$TAG" | cut -d '.' -f 1-2)
 previous_release_version=$(git describe --tags $(git rev-list --exclude='*rc*' --exclude=$current_release_version* --tags --max-count=1))
-changelog=$(python3 -W "ignore" scripts/changelog.py "$previous_release_version" "$TAG" 2>&1)
+changelog=$(python3 -W "ignore" scripts/release/changelog.py "$previous_release_version" "$TAG" 2>&1)
 github-release release --user storj --repo storj --tag "$TAG" --description "$changelog" $FLAGS
 
 echo "Sleep 10 seconds in order to wait for release propagation"

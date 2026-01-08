@@ -62,16 +62,12 @@ node('node') {
 
     stage('Build Binaries') {
       lastStage = env.STAGE_NAME
-      sh 'make binaries'
+      sh 'make release/binaries/build'
+
+      // Check that we created release binaries.
+      sh 'make release/binaries/check-release'
 
       stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
-
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    stage('Build Darwin Binaries') {
-      lastStage = env.STAGE_NAME
-      sh 'make darwin-binaries'
 
       echo "Current build result: ${currentBuild.result}"
     }
@@ -122,31 +118,31 @@ node('node') {
       }
     }
 
-    stage('Sign Windows Installer') {
+    stage('Sign Installers') {
       lastStage = env.STAGE_NAME
       unstash "storagenode-installer"
 
-      sh 'make sign-windows-installer'
+      sh 'make release/binaries/sign-installers'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
-
-    stage('Upload') {
+    stage('Upload Binaries To Google Storage') {
       lastStage = env.STAGE_NAME
-      sh 'make binaries-upload'
+
+      sh 'make release/binaries/upload-to-google-storage'
 
       echo "Current build result: ${currentBuild.result}"
     }
-    stage('Publish Release') {
+
+    stage('Publish Release To Github') {
       withCredentials([string(credentialsId: 'GITHUB_RELEASE_TOKEN', variable: 'GITHUB_TOKEN')]) {
         lastStage = env.STAGE_NAME
-        sh 'make publish-release'
+        sh 'make release/binaries/publish-to-github'
 
         echo "Current build result: ${currentBuild.result}"
       }
     }
-
   }
   catch (err) {
     echo "Caught errors! ${err}"
@@ -156,13 +152,11 @@ node('node') {
     slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
     throw err
-
   }
   finally {
     stage('Cleanup') {
       sh 'make clean-images'
       deleteDir()
     }
-
   }
 }

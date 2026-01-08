@@ -42,6 +42,11 @@ release/binaries/build: ## Cross-compile everything into release folder.
 	@echo "Building release binaries"
 	docker bake -f release-binaries.docker-bake.hcl
 
+.PHONY: release/binaries/check-release
+release/binaries/check-release: ## Check that the built binaries are releases.
+	@echo "Checking release binaries"
+	./scripts/release/check-release-binaries.sh "release/$(VERSION)"
+
 .PHONY: release/binaries/sign
 release/binaries/sign: ## Sign the binaries for platforms that need it.
 	@echo "Signing release binaries"
@@ -56,7 +61,7 @@ release/binaries/build-installers: ## Build installers for platforms that need i
 .PHONY: release/binaries/sign-installers
 release/binaries/sign-installers: ## Sign installers for platforms that need it.
 	@echo "Signing installers"
-	storj-sign "release/$(VERSION)/windows_amd64/storagenode_windows_amd64.msi"
+	storj-sign "release/$(VERSION)/windows_amd64/storagenode.msi"
 
 .PHONY: release/binaries/compress
 release/binaries/compress: ## Compress all components into a single archive for a given platform.
@@ -74,4 +79,9 @@ release/binaries/upload-to-google-storage: ## Upload binaries to Google Storage 
 .PHONY: release/binaries/publish-to-github
 release/binaries/publish-to-github: ## Publish the release to github.
 	@echo "Publishing release to Github"
-	scripts/publish-release.sh "${BRANCH_NAME}" "release/$(VERSION)"
+	scripts/release/publish-to-github.sh "$(BRANCH_NAME)" "release/$(VERSION)"
+
+.PHONY: release/binaries/clean
+release/binaries/clean: ## Clean the release folder
+	@echo "Cleaning the release folder"
+	rm -rf release

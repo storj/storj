@@ -1,16 +1,12 @@
 ARG GO_VERSION=1.24.7
 
 FROM storjlabs/golang:${GO_VERSION} AS wasm
-WORKDIR /go/src/storj.io/storj
-ENV GOOS=js
-ENV GOARM=6
-ENV CGO_ENABLED=1
-ENV TAG=docker
+WORKDIR /work
 COPY go.mod go.sum ./
 COPY satellite/console/wasm satellite/console/wasm
-COPY scripts/build-wasm.sh scripts/build-wasm.sh
+COPY scripts/release/satellite-wasm.sh scripts/release/satellite-wasm.sh
 COPY satellite/console/consolewasm satellite/console/consolewasm
-RUN scripts/build-wasm.sh
+RUN scripts/release/satellite-wasm.sh /out/wasm
 
 
 FROM debian:bookworm AS build
@@ -29,4 +25,4 @@ RUN npm ci --prefer-offline --no-audit --loglevel verbose && npm run build
 FROM scratch as ui
 COPY --from=build /work/dist /var/www/html
 COPY --from=build /work/static /var/www/static
-COPY --from=wasm /go/src/storj.io/storj/release/docker/wasm /var/www/static/wasm
+COPY --from=wasm /out/wasm /var/www/static/wasm
