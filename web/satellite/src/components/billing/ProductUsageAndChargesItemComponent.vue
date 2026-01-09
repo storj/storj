@@ -125,16 +125,16 @@
 
                                 <tr v-if="parseFloat(charge.priceModel.smallObjectFeeCents) > 0">
                                     <td>
-                                        <p>Minimum Object Size Remainder</p>
+                                        <p>Minimum {{ Size.toBase10String(charge.priceModel.storageRemainderBytes) }} Object Size Remainder</p>
                                     </td>
                                     <td class="d-none d-md-table-cell">
                                         <p>{{ getPeriod(charge) }}</p>
                                     </td>
                                     <td class="d-none d-sm-table-cell">
-                                        <p>MB-month</p>
+                                        <p>{{ getStorageRemainderFormatted(charge) }} Gigabyte-month</p>
                                     </td>
                                     <td class="text-right">
-                                        <p>$0</p>
+                                        <p>{{ centsToDollars(charge.smallObjectFeePrice) }}</p>
                                     </td>
                                 </tr>
 
@@ -194,6 +194,7 @@ import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportD
  * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
  */
 const HOURS_IN_MONTH = 720;
+const BYTES_IN_GB = 1000000000;
 
 const props = withDefaults(defineProps<{
     /**
@@ -271,9 +272,14 @@ function egressFormatted(egress: number): Size {
  * Returns formatted storage used in GB x month dimension.
  */
 function getStorageFormatted(charge: ProjectCharge): string {
-    const bytesInGB = 1000000000;
+    return (charge.storage / HOURS_IN_MONTH / BYTES_IN_GB).toFixed(2);
+}
 
-    return (charge.storage / HOURS_IN_MONTH / bytesInGB).toFixed(2);
+/**
+ * Returns formatted storage remainder used in GB x month dimension.
+ */
+function getStorageRemainderFormatted(charge: ProjectCharge): string {
+    return (charge.remainderStorage / HOURS_IN_MONTH / BYTES_IN_GB).toFixed(2);
 }
 
 /**
