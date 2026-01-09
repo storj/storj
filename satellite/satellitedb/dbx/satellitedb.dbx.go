@@ -441,7 +441,7 @@ func (obj *pgxDB) Schema() []string {
 	interval_start timestamp with time zone NOT NULL,
 	product_id integer,
 	total_bytes bigint NOT NULL DEFAULT 0,
-	remainder_bytes bigint NOT NULL DEFAULT 0,
+	remainder_bytes bigint,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
 	total_segments_count integer NOT NULL DEFAULT 0,
@@ -1431,7 +1431,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	interval_start timestamp with time zone NOT NULL,
 	product_id integer,
 	total_bytes bigint NOT NULL DEFAULT 0,
-	remainder_bytes bigint NOT NULL DEFAULT 0,
+	remainder_bytes bigint,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
 	total_segments_count integer NOT NULL DEFAULT 0,
@@ -2416,7 +2416,7 @@ func (obj *spannerDB) Schema() []string {
 	interval_start TIMESTAMP NOT NULL,
 	product_id INT64,
 	total_bytes INT64 NOT NULL DEFAULT (0),
-	remainder_bytes INT64 NOT NULL DEFAULT (0),
+	remainder_bytes INT64,
 	inline INT64 NOT NULL,
 	remote INT64 NOT NULL,
 	total_segments_count INT64 NOT NULL DEFAULT (0),
@@ -4781,7 +4781,7 @@ type BucketStorageTally struct {
 	IntervalStart       time.Time
 	ProductId           *int
 	TotalBytes          uint64
-	RemainderBytes      uint64
+	RemainderBytes      *uint64
 	Inline              uint64
 	Remote              uint64
 	TotalSegmentsCount  uint
@@ -4907,11 +4907,26 @@ func (f BucketStorageTally_TotalBytes_Field) value() any {
 type BucketStorageTally_RemainderBytes_Field struct {
 	_set   bool
 	_null  bool
-	_value uint64
+	_value *uint64
 }
 
 func BucketStorageTally_RemainderBytes(v uint64) BucketStorageTally_RemainderBytes_Field {
-	return BucketStorageTally_RemainderBytes_Field{_set: true, _value: v}
+	return BucketStorageTally_RemainderBytes_Field{_set: true, _value: &v}
+}
+
+func BucketStorageTally_RemainderBytes_Raw(v *uint64) BucketStorageTally_RemainderBytes_Field {
+	if v == nil {
+		return BucketStorageTally_RemainderBytes_Null()
+	}
+	return BucketStorageTally_RemainderBytes(*v)
+}
+
+func BucketStorageTally_RemainderBytes_Null() BucketStorageTally_RemainderBytes_Field {
+	return BucketStorageTally_RemainderBytes_Field{_set: true, _null: true}
+}
+
+func (f BucketStorageTally_RemainderBytes_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
 }
 
 func (f BucketStorageTally_RemainderBytes_Field) value() any {

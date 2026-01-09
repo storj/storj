@@ -1159,7 +1159,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 				Description: "add remainder_bytes column to bucket_storage_tallies",
 				Version:     309,
 				Action: migrate.SQL{
-					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes INT64 NOT NULL DEFAULT (0);`,
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes INT64;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
@@ -4165,7 +4165,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Description: "add remainder_bytes column to bucket_storage_tallies",
 				Version:     309,
 				Action: migrate.SQL{
-					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN remainder_bytes bigint;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

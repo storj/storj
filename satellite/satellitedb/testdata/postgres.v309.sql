@@ -76,7 +76,7 @@ CREATE TABLE bucket_storage_tallies (
 	interval_start timestamp with time zone NOT NULL,
 	product_id integer,
 	total_bytes bigint NOT NULL DEFAULT 0,
-	remainder_bytes bigint NOT NULL DEFAULT 0,
+	remainder_bytes bigint,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
 	total_segments_count integer NOT NULL DEFAULT 0,
