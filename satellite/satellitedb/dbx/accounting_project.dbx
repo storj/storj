@@ -135,7 +135,7 @@ model bucket_storage_tally (
 	// total_bytes is the total bytes at rest.
 	field total_bytes     uint64 ( default 0)
 	// remainder_bytes is the bytes to be charged due to minimum object size policy.
-	field remainder_bytes uint64 ( updatable, default 0 )
+	field remainder_bytes uint64 ( nullable, updatable )
 
 	// inline is the amount of bytes stored in inline segments.
 	field inline uint64
