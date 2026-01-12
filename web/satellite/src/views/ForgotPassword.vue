@@ -20,9 +20,11 @@
                         </v-alert>
                     </v-card-item>
                     <v-card-text>
-                        <p>Select your account satellite, enter your email address, and we will send you a password reset link.</p>
+                        <p v-if="configStore.isDefaultBrand">Select your account satellite, enter your email address, and we will send you a password reset link.</p>
+                        <p v-else>Enter your email address, we will send you a password reset link.</p>
                         <v-form v-model="formValid" class="pt-4" @submit.prevent>
                             <v-select
+                                v-if="configStore.isDefaultBrand"
                                 v-model="satellite"
                                 label="Satellite"
                                 :items="satellites"
