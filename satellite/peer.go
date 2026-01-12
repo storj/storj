@@ -114,8 +114,8 @@ type DB interface {
 	StoragenodeAccounting() accounting.StoragenodeAccounting
 	// ProjectAccounting returns database for storing information about project data use
 	ProjectAccounting() accounting.ProjectAccounting
-	// DeletionRemainderCharges returns database for deletion remainder charges
-	DeletionRemainderCharges() accounting.DeletionRemainderDB
+	// RetentionRemainderCharges returns database for retention remainder charges
+	RetentionRemainderCharges() accounting.RetentionRemainderDB
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
 	// VerifyQueue returns queue for segments chosen for verification

@@ -1164,20 +1164,18 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "add deletion_remainder_charge table",
+				Description: "add retention_remainder_charge table",
 				Version:     310,
 				Action: migrate.SQL{
-					`CREATE TABLE deletion_remainder_charges (
+					`CREATE TABLE retention_remainder_charges (
 						project_id BYTES(MAX) NOT NULL,
 						bucket_name BYTES(MAX) NOT NULL,
-						created_at TIMESTAMP NOT NULL,
 						deleted_at TIMESTAMP NOT NULL,
-						object_size INT64 NOT NULL,
-						remainder_hours FLOAT32 NOT NULL,
+						remainder_byte_hours FLOAT64 NOT NULL,
 						product_id INT64,
 						billed BOOL NOT NULL DEFAULT (false)
-					) PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at );`,
-					`CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed ) ;`,
+					) PRIMARY KEY ( project_id, bucket_name, deleted_at );`,
+					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
@@ -4188,21 +4186,19 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "add deletion_remainder_charge table",
+				Description: "add retention_remainder_charge table",
 				Version:     310,
 				Action: migrate.SQL{
-					`CREATE TABLE deletion_remainder_charges (
+					`CREATE TABLE retention_remainder_charges (
 						project_id bytea NOT NULL,
 						bucket_name bytea NOT NULL,
-						created_at timestamp with time zone NOT NULL,
 						deleted_at timestamp with time zone NOT NULL,
-						object_size bigint NOT NULL,
-						remainder_hours real NOT NULL,
+						remainder_byte_hours double precision NOT NULL,
 						product_id integer,
 						billed boolean NOT NULL DEFAULT false,
-						PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at )
+						PRIMARY KEY ( project_id, bucket_name, deleted_at )
 					);`,
-					`CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed ) ;`,
+					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

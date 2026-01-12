@@ -102,16 +102,6 @@ CREATE TABLE coinpayments_transactions (
 	timeout INT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( id ) ;
-CREATE TABLE deletion_remainder_charges (
-	project_id BYTES(MAX) NOT NULL,
-	bucket_name BYTES(MAX) NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	deleted_at TIMESTAMP NOT NULL,
-	object_size INT64 NOT NULL,
-	remainder_hours FLOAT32 NOT NULL,
-	product_id INT64,
-	billed BOOL NOT NULL DEFAULT (false)
-) PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at ) ;
 CREATE TABLE entitlements (
 	scope BYTES(MAX) NOT NULL,
 	features JSON NOT NULL DEFAULT (JSON "{}"),
@@ -302,6 +292,14 @@ CREATE TABLE reset_password_tokens (
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_reset_password_tokens_owner_id ON reset_password_tokens ( owner_id ) ;
+CREATE TABLE retention_remainder_charges (
+	project_id BYTES(MAX) NOT NULL,
+	bucket_name BYTES(MAX) NOT NULL,
+	deleted_at TIMESTAMP NOT NULL,
+	remainder_byte_hours FLOAT64 NOT NULL,
+	product_id INT64,
+	billed BOOL NOT NULL DEFAULT (false)
+) PRIMARY KEY ( project_id, bucket_name, deleted_at ) ;
 CREATE TABLE reverification_audits (
 	node_id BYTES(MAX) NOT NULL,
 	stream_id BYTES(MAX) NOT NULL,
@@ -635,7 +633,6 @@ CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id,
 CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp ) ;
 CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp ) ;
 CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp ) ;
-CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
@@ -649,6 +646,7 @@ CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwi
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
+CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
@@ -909,4 +907,4 @@ INSERT INTO `change_histories` (`id`, `admin_email`, `user_id`, `project_id`, `b
 
 -- NEW DATA --
 
-INSERT INTO `deletion_remainder_charges` (`project_id`, `bucket_name`, `created_at`, `deleted_at`, `object_size`, `remainder_hours`, `product_id`, `billed`) VALUES (B'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300', B'testbucketuniquename', '2025-06-01 12:00:00+00', '2025-06-02 12:00:00+00', 1048576, 24, 1, false);
+INSERT INTO `retention_remainder_charges` (`project_id`, `bucket_name`, `deleted_at`, `remainder_byte_hours`, `product_id`, `billed`) VALUES (B'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300', B'testbucketuniquename', '2025-06-02 12:00:00+00', 24, 1, false);

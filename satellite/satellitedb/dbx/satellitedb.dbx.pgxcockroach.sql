@@ -111,17 +111,6 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 ) ;
-CREATE TABLE deletion_remainder_charges (
-	project_id bytea NOT NULL,
-	bucket_name bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	deleted_at timestamp with time zone NOT NULL,
-	object_size bigint NOT NULL,
-	remainder_hours real NOT NULL,
-	product_id integer,
-	billed boolean NOT NULL DEFAULT false,
-	PRIMARY KEY ( project_id, bucket_name, deleted_at, created_at )
-) ;
 CREATE TABLE entitlements (
 	scope bytea NOT NULL,
 	features jsonb NOT NULL DEFAULT '{}',
@@ -326,6 +315,15 @@ CREATE TABLE reset_password_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
+) ;
+CREATE TABLE retention_remainder_charges (
+	project_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
+	deleted_at timestamp with time zone NOT NULL,
+	remainder_byte_hours double precision NOT NULL,
+	product_id integer,
+	billed boolean NOT NULL DEFAULT false,
+	PRIMARY KEY ( project_id, bucket_name, deleted_at )
 ) ;
 CREATE TABLE reverification_audits (
 	node_id bytea NOT NULL,
@@ -657,7 +655,6 @@ CREATE INDEX change_history_user_id_timestamp_idx ON change_histories ( user_id,
 CREATE INDEX change_history_user_id_item_type_timestamp_idx ON change_histories ( user_id, item_type, timestamp ) ;
 CREATE INDEX change_history_project_id_item_type_timestamp_idx ON change_histories ( project_id, item_type, timestamp ) ;
 CREATE INDEX change_history_bucket_name_timestamp_idx ON change_histories ( bucket_name, timestamp ) ;
-CREATE INDEX deletion_remainder_charges_project_id_deleted_at_billed_index ON deletion_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
@@ -671,6 +668,7 @@ CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwi
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;
+CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
