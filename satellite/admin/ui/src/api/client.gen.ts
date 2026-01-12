@@ -33,6 +33,7 @@ export class AccountMin {
     kind: KindInfo;
     status: UserStatusInfo;
     createdAt: Time;
+    tenantID: string | null;
 }
 
 export class BucketFlags {
@@ -307,6 +308,7 @@ export class UserAccount {
     freezeStatus: FreezeEventType | null;
     trialExpiration: Time | null;
     mfaEnabled: boolean;
+    tenantID: string | null;
 }
 
 export class UserProject {

@@ -41,6 +41,7 @@ type AccountMin struct {
 	Kind      console.KindInfo       `json:"kind"`
 	Status    console.UserStatusInfo `json:"status"`
 	CreatedAt time.Time              `json:"createdAt"`
+	TenantID  *string                `json:"tenantID"`
 }
 
 // UserAccount holds information about a user's account.
@@ -60,6 +61,7 @@ type UserAccount struct {
 	FreezeStatus     *FreezeEventType          `json:"freezeStatus"`
 	TrialExpiration  *time.Time                `json:"trialExpiration"`
 	MFAEnabled       bool                      `json:"mfaEnabled"`
+	TenantID         *string                   `json:"tenantID"`
 }
 
 // UpdateUserRequest represents a request to update a user.
@@ -198,6 +200,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Kind:      user.Kind.Info(),
 				Status:    user.Status.Info(),
 				CreatedAt: user.CreatedAt,
+				TenantID:  user.TenantID,
 			}}, api.HTTPError{}
 		}
 		return make([]AccountMin, 0), api.HTTPError{}
@@ -220,6 +223,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Kind:      user.Kind.Info(),
 				Status:    user.Status.Info(),
 				CreatedAt: user.CreatedAt,
+				TenantID:  user.TenantID,
 			}}, api.HTTPError{}
 		}
 		return make([]AccountMin, 0), api.HTTPError{}
@@ -243,6 +247,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 			Kind:      u.Kind.Info(),
 			Status:    u.Status.Info(),
 			CreatedAt: u.CreatedAt,
+			TenantID:  u.TenantID,
 		})
 	}
 
@@ -767,6 +772,7 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 		MFAEnabled:       user.MFAEnabled,
 		Projects:         usageLimits,
 		FreezeStatus:     freezeStatus,
+		TenantID:         user.TenantID,
 	}, api.HTTPError{}
 }
 

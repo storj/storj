@@ -243,6 +243,7 @@ Search users by email or name. Results are limited to 100 users.
 		}
 
 		createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		tenantID: string
 	}
 
 ]
@@ -307,6 +308,7 @@ Gets user by email address
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
+	tenantID: string
 }
 
 ```
@@ -369,6 +371,7 @@ Gets user by ID
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
+	tenantID: string
 }
 
 ```
@@ -451,6 +454,7 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
+	tenantID: string
 }
 
 ```
@@ -523,6 +527,7 @@ Disables user by ID. User can only be disabled if they have no active projects a
 	freezeStatus: unknown
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
+	tenantID: string
 }
 
 ```
@@ -1015,6 +1020,7 @@ Searches for users by email or name and projects by ID. Results are limited to 1
 			}
 
 			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+			tenantID: string
 		}
 
 	]

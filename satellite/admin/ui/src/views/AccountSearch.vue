@@ -92,6 +92,15 @@
                                 Created on {{ formatDate(item.createdAt) }}
                             </span>
                         </template>
+
+                        <template #item.tenantID="{ item }">
+                            <v-chip v-if="item.tenantID" color="warning" variant="tonal" size="small" class="font-weight-medium">
+                                <span v-tooltip="item.tenantID" class="text-truncate" style="max-width: 150px;">Tenant ID: {{ item.tenantID }}</span>
+                            </v-chip>
+                            <v-chip v-else color="success" variant="tonal" size="small" class="font-weight-medium">
+                                <span class="text-truncate" style="max-width: 150px;">No Tenant</span>
+                            </v-chip>
+                        </template>
                     </v-data-table>
                 </v-card>
             </v-col>
@@ -103,7 +112,7 @@
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { VContainer, VDataTable, VChip, VRow, VCol, VIcon, VBtn, VCard, VTextField } from 'vuetify/components';
-import { PlusCircle, Search, User } from 'lucide-vue-next';
+import { CheckCircleIcon, PlusCircle, Search, User, XCircleIcon } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
 import { AccountMin, FeatureFlags, UserStatusInfo } from '@/api/client.gen';
@@ -130,6 +139,7 @@ const headers = [
     { title: 'Name', key: 'fullName' },
     { title: 'Kind', key: 'kind' },
     { title: 'Status', key: 'status' },
+    { title: 'Tenant', key: 'tenantID' },
     { title: 'Date Created', key: 'createdAt' },
 ];
 

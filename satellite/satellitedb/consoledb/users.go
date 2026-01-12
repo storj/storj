@@ -72,7 +72,7 @@ func (users *users) Search(ctx context.Context, term string) (_ []console.UserIn
 
 	search := "%" + strings.ReplaceAll(term, " ", "%") + "%"
 	query := `
-		SELECT id, full_name, email, status, kind, created_at
+		SELECT id, full_name, email, status, kind, created_at, tenant_id
 		FROM users
 		WHERE normalized_email LIKE UPPER(?)
 		   OR LOWER(full_name) LIKE LOWER(?)
@@ -88,7 +88,7 @@ func (users *users) Search(ctx context.Context, term string) (_ []console.UserIn
 	var userInfos []console.UserInfo
 	for rows.Next() {
 		var usr console.UserInfo
-		if err := rows.Scan(&usr.ID, &usr.FullName, &usr.Email, &usr.Status, &usr.Kind, &usr.CreatedAt); err != nil {
+		if err := rows.Scan(&usr.ID, &usr.FullName, &usr.Email, &usr.Status, &usr.Kind, &usr.CreatedAt, &usr.TenantID); err != nil {
 			return nil, err
 		}
 		userInfos = append(userInfos, usr)
@@ -113,7 +113,7 @@ func (users *users) GetByCustomerID(ctx context.Context, customerID string) (_ *
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT u.id, u.full_name, u.email, u.status, u.kind, u.created_at
+		SELECT u.id, u.full_name, u.email, u.status, u.kind, u.created_at, u.tenant_id
 		FROM users AS u
 		WHERE u.id = (SELECT user_id FROM stripe_customers WHERE customer_id = ?);
 	`
@@ -122,7 +122,7 @@ func (users *users) GetByCustomerID(ctx context.Context, customerID string) (_ *
 		return nil, Error.Wrap(row.Err())
 	}
 	var usr console.UserInfo
-	err = row.Scan(&usr.ID, &usr.FullName, &usr.Email, &usr.Status, &usr.Kind, &usr.CreatedAt)
+	err = row.Scan(&usr.ID, &usr.FullName, &usr.Email, &usr.Status, &usr.Kind, &usr.CreatedAt, &usr.TenantID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

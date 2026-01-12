@@ -18,6 +18,10 @@
                             {{ date.format(createdAt, 'fullDate') }}
                         </v-tooltip>
                     </v-chip>
+
+                    <v-chip>
+                        Tenant ID: {{ userAccount.tenantID || '-' }}
+                    </v-chip>
                 </div>
             </div>
 
@@ -233,7 +237,6 @@ import {
     VChip,
     VCol,
     VContainer,
-    VDivider,
     VIcon,
     VRow,
     VTooltip,
@@ -252,7 +255,6 @@ import { Size } from '@/utils/bytesSize';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import AccountProjectsTableComponent from '@/components/AccountProjectsTableComponent.vue';
 import AccountActionsMenu from '@/components/AccountActionsMenu.vue';
-import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import AccountFreezeDialog from '@/components/AccountFreezeDialog.vue';
 import AccountUpdateDialog from '@/components/AccountUpdateDialog.vue';

@@ -4,7 +4,7 @@
 import { KindInfo } from '@/api/client.gen';
 
 export enum UserKind {
-    Free, Paid, NFR,
+    Free, Paid, NFR, Member, Tenant,
 }
 
 export function userIsPaid(user: { kind: KindInfo }): boolean {

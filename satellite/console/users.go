@@ -142,6 +142,7 @@ type UserInfo struct {
 	Kind      UserKind
 	CreatedAt time.Time
 	Status    UserStatus
+	TenantID  *string
 }
 
 // CreateUser struct holds info for User creation.
