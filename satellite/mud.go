@@ -146,6 +146,7 @@ func Module(ball *mud.Ball) {
 
 	mud.View[DB, buckets.DB](ball, DB.Buckets)
 	mud.View[DB, attribution.DB](ball, DB.Attribution)
+	mud.View[DB, accounting.RetentionRemainderDB](ball, DB.RetentionRemainderCharges)
 	mud.View[DB, overlay.PeerIdentities](ball, DB.PeerIdentities)
 	mud.View[DB, srevocation.DB](ball, DB.Revocation)
 	mud.View[DB, console.DB](ball, DB.Console)

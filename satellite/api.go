@@ -535,10 +535,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
+		placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
+
+		// Parse product prices for use in metainfo endpoint
+		productPrices, err := config.Payments.Products.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Buckets.Service,
 			peer.Metainfo.Metabase,
+			peer.DB.RetentionRemainderCharges(),
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
@@ -564,6 +573,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			bucketEventingCache,
 			peer.Entitlements.Service,
 			config.Entitlements,
+			stripe.PricingConfig{
+				ProductPriceMap:     productPrices,
+				PlacementProductMap: placementOverrideMap,
+			},
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

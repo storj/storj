@@ -211,16 +211,17 @@ func (p *PriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel,
 
 // ProductUsagePrice represents the product name, SKUs and usage price for a product.
 type ProductUsagePrice struct {
-	ID                     int32
-	Name                   string
-	ShortName              string
-	SmallObjectFee         string
-	MinimumRetentionFee    string
-	SmallObjectFeeSKU      string
-	MinimumRetentionFeeSKU string
-	EgressOverageMode      bool
-	IncludedEgressSKU      string
-	StorageRemainder       string
+	ID                       int32
+	Name                     string
+	ShortName                string
+	SmallObjectFee           string
+	MinimumRetentionFee      string
+	SmallObjectFeeSKU        string
+	MinimumRetentionFeeSKU   string
+	MinimumRetentionDuration string
+	EgressOverageMode        bool
+	IncludedEgressSKU        string
+	StorageRemainder         string
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string
 	UseGBUnits   bool
@@ -244,23 +245,24 @@ func (*ProductPriceOverrides) Type() string { return "paymentsconfig.ProductPric
 // ProductUsagePriceYaml represents the YAML representation of a product usage price.
 // Exported for testing purposes.
 type ProductUsagePriceYaml struct {
-	ID                     int32  `yaml:"id" json:"id"`
-	Name                   string `yaml:"name" json:"name"`
-	ShortName              string `yaml:"short-name" json:"short_name"`
-	Storage                string `yaml:"storage" json:"storage"`
-	StorageSKU             string `yaml:"storage-sku" json:"storage_sku"`
-	Egress                 string `yaml:"egress" json:"egress"`
-	EgressSKU              string `yaml:"egress-sku" json:"egress_sku"`
-	Segment                string `yaml:"segment" json:"segment"`
-	SegmentSKU             string `yaml:"segment-sku" json:"segment_sku"`
-	EgressDiscountRatio    string `yaml:"egress-discount-ratio" json:"egress_discount_ratio"`
-	SmallObjectFee         string `yaml:"small-object-fee" json:"-"`
-	MinimumRetentionFee    string `yaml:"minimum-retention-fee" json:"-"`
-	SmallObjectFeeSKU      string `yaml:"small-object-fee-sku" json:"-"`
-	MinimumRetentionFeeSKU string `yaml:"minimum-retention-fee-sku" json:"-"`
-	EgressOverageMode      bool   `yaml:"egress-overage-mode" json:"-"`
-	IncludedEgressSKU      string `yaml:"included-egress-sku" json:"-"`
-	StorageRemainder       string `yaml:"storage-remainder" json:"-"`
+	ID                       int32  `yaml:"id" json:"id"`
+	Name                     string `yaml:"name" json:"name"`
+	ShortName                string `yaml:"short-name" json:"short_name"`
+	Storage                  string `yaml:"storage" json:"storage"`
+	StorageSKU               string `yaml:"storage-sku" json:"storage_sku"`
+	Egress                   string `yaml:"egress" json:"egress"`
+	EgressSKU                string `yaml:"egress-sku" json:"egress_sku"`
+	Segment                  string `yaml:"segment" json:"segment"`
+	SegmentSKU               string `yaml:"segment-sku" json:"segment_sku"`
+	EgressDiscountRatio      string `yaml:"egress-discount-ratio" json:"egress_discount_ratio"`
+	SmallObjectFee           string `yaml:"small-object-fee" json:"-"`
+	MinimumRetentionFee      string `yaml:"minimum-retention-fee" json:"-"`
+	SmallObjectFeeSKU        string `yaml:"small-object-fee-sku" json:"-"`
+	MinimumRetentionFeeSKU   string `yaml:"minimum-retention-fee-sku" json:"-"`
+	MinimumRetentionDuration string `yaml:"minimum-retention-duration" json:"-"`
+	EgressOverageMode        bool   `yaml:"egress-overage-mode" json:"-"`
+	IncludedEgressSKU        string `yaml:"included-egress-sku" json:"-"`
+	StorageRemainder         string `yaml:"storage-remainder" json:"-"`
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string `yaml:"price-summary" json:"-"`
 	UseGBUnits   bool   `yaml:"use-gb-units" json:"-"`
@@ -275,24 +277,25 @@ func (p *ProductPriceOverrides) String() string {
 	pricesConv := make([]ProductUsagePriceYaml, len(*p))
 	for i, price := range *p {
 		pricesConv[i] = ProductUsagePriceYaml{
-			ID:                     price.ID,
-			Name:                   price.Name,
-			ShortName:              price.ShortName,
-			Storage:                price.StorageTB,
-			StorageSKU:             price.StorageSKU,
-			Egress:                 price.EgressTB,
-			EgressSKU:              price.EgressSKU,
-			Segment:                price.Segment,
-			SegmentSKU:             price.SegmentSKU,
-			EgressDiscountRatio:    fmt.Sprintf("%.2f", price.EgressDiscountRatio),
-			SmallObjectFee:         price.SmallObjectFee,
-			MinimumRetentionFee:    price.MinimumRetentionFee,
-			SmallObjectFeeSKU:      price.SmallObjectFeeSKU,
-			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
-			EgressOverageMode:      price.EgressOverageMode,
-			IncludedEgressSKU:      price.IncludedEgressSKU,
-			StorageRemainder:       price.StorageRemainder,
-			UseGBUnits:             price.UseGBUnits,
+			ID:                       price.ID,
+			Name:                     price.Name,
+			ShortName:                price.ShortName,
+			Storage:                  price.StorageTB,
+			StorageSKU:               price.StorageSKU,
+			Egress:                   price.EgressTB,
+			EgressSKU:                price.EgressSKU,
+			Segment:                  price.Segment,
+			SegmentSKU:               price.SegmentSKU,
+			EgressDiscountRatio:      fmt.Sprintf("%.2f", price.EgressDiscountRatio),
+			SmallObjectFee:           price.SmallObjectFee,
+			MinimumRetentionFee:      price.MinimumRetentionFee,
+			MinimumRetentionDuration: price.MinimumRetentionDuration,
+			SmallObjectFeeSKU:        price.SmallObjectFeeSKU,
+			MinimumRetentionFeeSKU:   price.MinimumRetentionFeeSKU,
+			EgressOverageMode:        price.EgressOverageMode,
+			IncludedEgressSKU:        price.IncludedEgressSKU,
+			StorageRemainder:         price.StorageRemainder,
+			UseGBUnits:               price.UseGBUnits,
 		}
 	}
 	prices, err := yaml.Marshal(pricesConv)
@@ -363,15 +366,16 @@ func (p *ProductPriceOverrides) Set(s string) error {
 				Segment:             price.Segment,
 				EgressDiscountRatio: egressDiscount,
 			},
-			SmallObjectFee:         price.SmallObjectFee,
-			MinimumRetentionFee:    price.MinimumRetentionFee,
-			SmallObjectFeeSKU:      price.SmallObjectFeeSKU,
-			MinimumRetentionFeeSKU: price.MinimumRetentionFeeSKU,
-			EgressOverageMode:      price.EgressOverageMode,
-			IncludedEgressSKU:      price.IncludedEgressSKU,
-			StorageRemainder:       price.StorageRemainder,
-			PriceSummary:           price.PriceSummary,
-			UseGBUnits:             price.UseGBUnits,
+			SmallObjectFee:           price.SmallObjectFee,
+			MinimumRetentionFee:      price.MinimumRetentionFee,
+			SmallObjectFeeSKU:        price.SmallObjectFeeSKU,
+			MinimumRetentionFeeSKU:   price.MinimumRetentionFeeSKU,
+			MinimumRetentionDuration: price.MinimumRetentionDuration,
+			EgressOverageMode:        price.EgressOverageMode,
+			IncludedEgressSKU:        price.IncludedEgressSKU,
+			StorageRemainder:         price.StorageRemainder,
+			PriceSummary:             price.PriceSummary,
+			UseGBUnits:               price.UseGBUnits,
 		}
 	}
 	*p = prices
@@ -426,6 +430,14 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			storageRemainderBytes = storageRemainder.Int64()
 		}
 
+		var minimumRetentionDuration time.Duration
+		if prices.MinimumRetentionDuration != "" {
+			minimumRetentionDuration, err = time.ParseDuration(prices.MinimumRetentionDuration)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
+
 		models[prices.ID] = payments.ProductUsagePriceModel{
 			ProductID:                prices.ID,
 			ProductName:              prices.Name,
@@ -438,6 +450,7 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			MinimumRetentionFeeCents: minimumRetentionFee.Shift(-6).Shift(2),
 			SmallObjectFeeSKU:        prices.SmallObjectFeeSKU,
 			MinimumRetentionFeeSKU:   prices.MinimumRetentionFeeSKU,
+			MinimumRetentionDuration: minimumRetentionDuration,
 			EgressOverageMode:        prices.EgressOverageMode,
 			IncludedEgressSKU:        prices.IncludedEgressSKU,
 			StorageRemainderBytes:    storageRemainderBytes,

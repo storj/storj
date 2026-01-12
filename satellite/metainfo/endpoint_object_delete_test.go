@@ -29,11 +29,13 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 func TestEndpoint_DeleteCommittedObject(t *testing.T) {
@@ -1925,4 +1927,284 @@ func (adapter *deleteObjectsTestAdapter) DeleteObjectExactVersion(ctx context.Co
 		return metabase.DeleteObjectResult{}, errors.New("internal error")
 	}
 	return adapter.Adapter.DeleteObjectExactVersion(ctx, opts)
+}
+
+func TestEndpoint_DeleteObject_MinimumRetentionCharges(t *testing.T) {
+	// Configure 30 day minimum retention (720 hours)
+	minRetentionProduct := paymentsconfig.ProductUsagePrice{
+		ID:   1,
+		Name: "Min Retention Product",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "4",
+			EgressTB:  "7",
+			Segment:   "0.0000088",
+		},
+		MinimumRetentionDuration: "720h",
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(13*memory.KiB),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.DeleteObjectsEnabled = true
+					config.Metainfo.CreateRemainderChargeOnObjectDelete = true
+					config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+						minRetentionProduct.ID: minRetentionProduct,
+					})
+					config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+						int(storj.DefaultPlacement): minRetentionProduct.ID,
+					})
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		projectID := project.ID
+		bucketName := "test-bucket"
+
+		now := time.Now()
+		now = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+		options := accounting.GetUnbilledChargesOptions{
+			ProjectID: projectID,
+			From:      now,
+			To:        now.AddDate(0, 0, 1),
+			Limit:     10,
+		}
+
+		require.NoError(t, planet.Uplinks[0].CreateBucket(ctx, sat, bucketName))
+
+		t.Run("charge within retention period", func(t *testing.T) {
+			t.Cleanup(func() {
+				testDB := sat.DB.Testing()
+				_, _ = testDB.RawDB().ExecContext(ctx, `DELETE FROM retention_remainder_charges WHERE TRUE;`)
+			})
+
+			err := planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			obj := objects[0]
+
+			// Manually set the object's created_at to simulate it being stored 20days (480 hours ago)
+			_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, time.Now().Add(-480*time.Hour))
+			require.NoError(t, err)
+
+			_, err = sat.Metainfo.Endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  obj.ObjectKey,
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+				},
+				Version: []byte{},
+			})
+			require.NoError(t, err)
+
+			charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
+			require.NoError(t, err)
+
+			// Verify that a charge was created
+			require.Len(t, charges, 1, "expected exactly one deletion remainder charge")
+
+			charge := charges[0]
+			require.Equal(t, projectID, charge.ProjectID)
+			require.Equal(t, minRetentionProduct.ID, charge.ProductID)
+			require.Equal(t, bucketName, charge.BucketName)
+			require.False(t, charge.Billed)
+
+			// check that remaining byte-hours is 240 hours (720 - 480) * 10 KiB
+			require.InDelta(t, float64(240*obj.TotalEncryptedSize), charge.RemainderByteHours, 1.0, "expected remaining byte-hours to be approximately 240 hours * 10 KiB")
+
+			// upload another object
+			err = planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object-2", testrand.Bytes(10*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err = sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			obj = objects[0]
+
+			// Manually set the object's created_at to simulate it being stored 20days (480 hours ago)
+			_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, time.Now().Add(-480*time.Hour))
+			require.NoError(t, err)
+
+			_, err = sat.Metainfo.Endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  obj.ObjectKey,
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+				},
+				Version: []byte{},
+			})
+			require.NoError(t, err)
+
+			// Verify that the existing charge was aggregated to include the new deletion
+			oldCharge := charge
+
+			charges, _, err = sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
+			require.NoError(t, err)
+
+			require.Len(t, charges, 1, "expected exactly one deletion remainder charge")
+
+			charge = charges[0]
+
+			// check that updated includes previous remainder byte-hours + new object's remainder byte-hours
+			require.InDelta(t, oldCharge.RemainderByteHours+float64(240*obj.TotalEncryptedSize), charge.RemainderByteHours, 1.0, "expected remaining byte-hours to be approximately 240 hours * 10 KiB")
+		})
+
+		t.Run("no charge after retention period", func(t *testing.T) {
+			err := planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			obj := objects[0]
+
+			// Manually set the object's created_at to simulate it being stored 40days (960 hours ago)
+			_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, time.Now().Add(-960*time.Hour))
+			require.NoError(t, err)
+
+			_, err = sat.Metainfo.Endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  obj.ObjectKey,
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+				},
+				Version: []byte{},
+			})
+			require.NoError(t, err)
+
+			charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
+			require.NoError(t, err)
+
+			// Verify that NO charge was created (object was stored past retention period)
+			require.Len(t, charges, 0, "expected no deletion remainder charge for object stored past retention period")
+		})
+
+		t.Run("charges for bulk deletions", func(t *testing.T) {
+			t.Cleanup(func() {
+				testDB := sat.DB.Testing()
+				_, _ = testDB.RawDB().ExecContext(ctx, `DELETE FROM retention_remainder_charges WHERE TRUE;`)
+			})
+
+			objectKeys := []string{"object1", "object2", "object3"}
+			for _, key := range objectKeys {
+				err := planet.Uplinks[0].Upload(ctx, sat, bucketName, key, testrand.Bytes(10*memory.KiB))
+				require.NoError(t, err)
+			}
+
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, len(objectKeys))
+
+			for _, obj := range objects {
+				_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, time.Now().Add(-240*time.Hour))
+				require.NoError(t, err)
+			}
+
+			deleteItems := make([]*pb.DeleteObjectsRequestItem, 0, len(objectKeys))
+			for _, obj := range objects {
+				deleteItems = append(deleteItems, &pb.DeleteObjectsRequestItem{
+					EncryptedObjectKey: []byte(obj.ObjectKey),
+				})
+			}
+
+			_, err = sat.Metainfo.Endpoint.DeleteObjects(ctx, &pb.DeleteObjectsRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: project.RawAPIKey.SerializeRaw(),
+				},
+				Bucket: []byte(bucketName),
+				Items:  deleteItems,
+			})
+			require.NoError(t, err)
+
+			charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
+			require.NoError(t, err)
+
+			// Verify that charges were created for each deleted object
+			require.Len(t, charges, 1, "expected 1 aggregated deletion remainder charge for bulk deletion")
+			charge := charges[0]
+			require.Equal(t, projectID, charge.ProjectID)
+			require.Equal(t, minRetentionProduct.ID, charge.ProductID)
+			require.Equal(t, bucketName, charge.BucketName)
+			var expectedRemainderByteHours float64
+			for _, obj := range objects {
+				expectedRemainderByteHours += float64(480 * obj.TotalEncryptedSize) // each object has 480 hours remaining (720 - 240)
+			}
+			require.False(t, charge.Billed)
+
+			// check that remaining retention duration is 480 hours (720 - 240) * total size of all objects
+			// Use higher delta (10) for bulk operations to accommodate floating point precision differences in Spanner
+			require.InDelta(t, expectedRemainderByteHours, charge.RemainderByteHours, 10, "expected remaining retention hours to be approximately 480 hours")
+		})
+
+		t.Run("no charge for versioned deletes", func(t *testing.T) {
+			bucketName = "versioned-bucket"
+			// create new versioned bucket
+			_, err := sat.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: project.RawAPIKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			require.NoError(t, err)
+
+			// Enable versioning on the bucket
+			_, err = sat.Metainfo.Endpoint.SetBucketVersioning(ctx, &pb.SetBucketVersioningRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: project.RawAPIKey.SerializeRaw(),
+				},
+				Name:       []byte(bucketName),
+				Versioning: true,
+			})
+			require.NoError(t, err)
+
+			_, err = sat.Metainfo.Endpoint.SetBucketVersioning(ctx, &pb.SetBucketVersioningRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: project.RawAPIKey.SerializeRaw(),
+				},
+				Name:       []byte(bucketName),
+				Versioning: true,
+			})
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, sat, bucketName, "versioned-object", testrand.Bytes(10*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			obj := objects[0]
+
+			// manually set the object's created_at to simulate it being stored 20days (480 hours ago)
+			_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, time.Now().Add(-480*time.Hour))
+			require.NoError(t, err)
+
+			_, err = sat.Metainfo.Endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  obj.ObjectKey,
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+				},
+			})
+			require.NoError(t, err)
+
+			charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
+			require.NoError(t, err)
+
+			// verify that no charge was created for versioned delete
+			require.Len(t, charges, 0, "expected no deletion remainder charge for versioned object delete")
+		})
+	})
 }

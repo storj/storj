@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -84,8 +85,10 @@ type DeleteObjectsResultItem struct {
 // DeleteObjectsInfo contains information about an object that was deleted or a delete marker that was inserted
 // as a result of processing a DeleteObjects request item.
 type DeleteObjectsInfo struct {
-	StreamVersionID StreamVersionID
-	Status          ObjectStatus
+	StreamVersionID    StreamVersionID
+	Status             ObjectStatus
+	CreatedAt          time.Time
+	TotalEncryptedSize int64
 }
 
 // DeleteObjects deletes specific objects from a bucket.
@@ -158,8 +161,10 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			removed := deleteObjectResult.Removed[0]
 			sv := removed.StreamVersionID()
 			deleteInfo := &DeleteObjectsInfo{
-				StreamVersionID: sv,
-				Status:          CommittedUnversioned,
+				StreamVersionID:    sv,
+				Status:             CommittedUnversioned,
+				CreatedAt:          removed.CreatedAt,
+				TotalEncryptedSize: removed.TotalEncryptedSize,
 			}
 			resultItem.Removed = deleteInfo
 			resultItem.Status = storj.DeleteObjectsStatusOK
@@ -181,8 +186,10 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		if len(deleteObjectResult.Markers) > 0 {
 			marker := deleteObjectResult.Markers[0]
 			resultItem.Marker = &DeleteObjectsInfo{
-				StreamVersionID: marker.StreamVersionID(),
-				Status:          marker.Status,
+				StreamVersionID:    marker.StreamVersionID(),
+				Status:             marker.Status,
+				CreatedAt:          marker.CreatedAt,
+				TotalEncryptedSize: marker.TotalEncryptedSize,
 			}
 			resultItem.Status = storj.DeleteObjectsStatusOK
 		}
@@ -238,8 +245,10 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 		if len(deleteObjectResult.Removed) > 0 {
 			resultItem.Status = storj.DeleteObjectsStatusOK
 			resultItem.Removed = &DeleteObjectsInfo{
-				StreamVersionID: resultItem.RequestedStreamVersionID,
-				Status:          deleteObjectResult.Removed[0].Status,
+				StreamVersionID:    resultItem.RequestedStreamVersionID,
+				Status:             deleteObjectResult.Removed[0].Status,
+				CreatedAt:          deleteObjectResult.Removed[0].CreatedAt,
+				TotalEncryptedSize: deleteObjectResult.Removed[0].TotalEncryptedSize,
 			}
 		}
 

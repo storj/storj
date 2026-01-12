@@ -106,8 +106,10 @@ func TestDeleteObjects(t *testing.T) {
 							{
 								ObjectKey: obj2.ObjectKey,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj2.StreamVersionID(),
-									Status:          metabase.CommittedUnversioned,
+									StreamVersionID:    obj2.StreamVersionID(),
+									Status:             metabase.CommittedUnversioned,
+									CreatedAt:          obj2.CreatedAt,
+									TotalEncryptedSize: obj2.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -115,8 +117,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
-									Status:          metabase.CommittedUnversioned,
+									StreamVersionID:    obj1StreamVersionID,
+									Status:             metabase.CommittedUnversioned,
+									CreatedAt:          obj1.CreatedAt,
+									TotalEncryptedSize: obj1.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -254,8 +258,10 @@ func TestDeleteObjects(t *testing.T) {
 							ObjectKey:                obj.ObjectKey,
 							RequestedStreamVersionID: sv,
 							Removed: &metabase.DeleteObjectsInfo{
-								StreamVersionID: sv,
-								Status:          metabase.Pending,
+								StreamVersionID:    sv,
+								Status:             metabase.Pending,
+								CreatedAt:          obj.CreatedAt,
+								TotalEncryptedSize: obj.TotalEncryptedSize,
 							},
 							Status: storj.DeleteObjectsStatusOK,
 						}},
@@ -290,8 +296,10 @@ func TestDeleteObjects(t *testing.T) {
 							ObjectKey:                obj.ObjectKey,
 							RequestedStreamVersionID: sv,
 							Removed: &metabase.DeleteObjectsInfo{
-								StreamVersionID: sv,
-								Status:          metabase.CommittedUnversioned,
+								StreamVersionID:    sv,
+								Status:             metabase.CommittedUnversioned,
+								CreatedAt:          obj.CreatedAt,
+								TotalEncryptedSize: obj.TotalEncryptedSize,
 							},
 							Status: storj.DeleteObjectsStatusOK,
 						}},
@@ -311,8 +319,10 @@ func TestDeleteObjects(t *testing.T) {
 				sv := obj.StreamVersionID()
 
 				expectedRemoved := &metabase.DeleteObjectsInfo{
-					StreamVersionID: sv,
-					Status:          metabase.CommittedUnversioned,
+					StreamVersionID:    sv,
+					Status:             metabase.CommittedUnversioned,
+					CreatedAt:          obj.CreatedAt,
+					TotalEncryptedSize: obj.TotalEncryptedSize,
 				}
 
 				opts := metabasetest.DeleteObjects{
@@ -355,7 +365,8 @@ func TestDeleteObjects(t *testing.T) {
 
 				metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				createObject(t, obj.ObjectStream, false)
+				obj, _ = createObject(t, obj.ObjectStream, false)
+				expectedRemoved.CreatedAt = obj.CreatedAt
 				opts.Opts.Items[0], opts.Opts.Items[1] = opts.Opts.Items[1], opts.Opts.Items[0]
 				opts.Check(ctx, t, db)
 
@@ -444,8 +455,10 @@ func TestDeleteObjects(t *testing.T) {
 								{
 									ObjectKey: lastCommittedObj.ObjectKey,
 									Removed: &metabase.DeleteObjectsInfo{
-										StreamVersionID: lastCommittedObj.StreamVersionID(),
-										Status:          metabase.CommittedUnversioned,
+										StreamVersionID:    lastCommittedObj.StreamVersionID(),
+										Status:             metabase.CommittedUnversioned,
+										CreatedAt:          lastCommittedObj.CreatedAt,
+										TotalEncryptedSize: lastCommittedObj.TotalEncryptedSize,
 									},
 									Status: storj.DeleteObjectsStatusOK,
 								},
@@ -453,8 +466,10 @@ func TestDeleteObjects(t *testing.T) {
 									ObjectKey:                exactVersionObj.ObjectKey,
 									RequestedStreamVersionID: exactVersionStreamVersionID,
 									Removed: &metabase.DeleteObjectsInfo{
-										StreamVersionID: exactVersionStreamVersionID,
-										Status:          metabase.CommittedUnversioned,
+										StreamVersionID:    exactVersionStreamVersionID,
+										Status:             metabase.CommittedUnversioned,
+										CreatedAt:          exactVersionObj.CreatedAt,
+										TotalEncryptedSize: exactVersionObj.TotalEncryptedSize,
 									},
 									Status: storj.DeleteObjectsStatusOK,
 								},
@@ -546,8 +561,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    obj1StreamVersionID,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          obj1.CreatedAt,
+									TotalEncryptedSize: obj1.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -555,8 +572,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                obj2.ObjectKey,
 								RequestedStreamVersionID: obj2StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj2StreamVersionID,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    obj2StreamVersionID,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          obj2.CreatedAt,
+									TotalEncryptedSize: obj2.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -740,8 +759,10 @@ func TestDeleteObjects(t *testing.T) {
 							ObjectKey:                pending.ObjectKey,
 							RequestedStreamVersionID: sv,
 							Removed: &metabase.DeleteObjectsInfo{
-								StreamVersionID: sv,
-								Status:          metabase.Pending,
+								StreamVersionID:    sv,
+								Status:             metabase.Pending,
+								CreatedAt:          pending.CreatedAt,
+								TotalEncryptedSize: pending.TotalEncryptedSize,
 							},
 							Status: storj.DeleteObjectsStatusOK,
 						}},
@@ -793,8 +814,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    obj1StreamVersionID,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          obj1.CreatedAt,
+									TotalEncryptedSize: obj1.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -853,8 +876,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: sv,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    sv,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          obj.CreatedAt,
+									TotalEncryptedSize: obj.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -876,7 +901,8 @@ func TestDeleteObjects(t *testing.T) {
 
 				metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				createObject(t, obj.ObjectStream, true)
+				obj, _ = createObject(t, obj.ObjectStream, true)
+				opts.Result.Items[1].Removed.CreatedAt = obj.CreatedAt
 				opts.Opts.Items[0], opts.Opts.Items[1] = opts.Opts.Items[1], opts.Opts.Items[0]
 				opts.Check(ctx, t, db)
 
@@ -998,8 +1024,10 @@ func TestDeleteObjects(t *testing.T) {
 									ObjectKey:                exactVersionObj.ObjectKey,
 									RequestedStreamVersionID: exactVersionStreamVersionID,
 									Removed: &metabase.DeleteObjectsInfo{
-										StreamVersionID: exactVersionStreamVersionID,
-										Status:          metabase.CommittedUnversioned,
+										StreamVersionID:    exactVersionStreamVersionID,
+										Status:             metabase.CommittedUnversioned,
+										CreatedAt:          exactVersionObj.CreatedAt,
+										TotalEncryptedSize: exactVersionObj.TotalEncryptedSize,
 									},
 									Status: storj.DeleteObjectsStatusOK,
 								},
@@ -1086,8 +1114,10 @@ func TestDeleteObjects(t *testing.T) {
 							{
 								ObjectKey: lastCommittedObj1.ObjectKey,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: lastCommittedObj1.StreamVersionID(),
-									Status:          metabase.CommittedUnversioned,
+									StreamVersionID:    lastCommittedObj1.StreamVersionID(),
+									Status:             metabase.CommittedUnversioned,
+									CreatedAt:          lastCommittedObj1.CreatedAt,
+									TotalEncryptedSize: lastCommittedObj1.TotalEncryptedSize,
 								},
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj1.Version+1, uuid.UUID{}),
@@ -1107,8 +1137,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                exactVersionObj1.ObjectKey,
 								RequestedStreamVersionID: exactVersionObj1SVID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: exactVersionObj1SVID,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    exactVersionObj1SVID,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          exactVersionObj1.CreatedAt,
+									TotalEncryptedSize: exactVersionObj1.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -1116,8 +1148,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                exactVersionObj2.ObjectKey,
 								RequestedStreamVersionID: exactVersionObj2SVID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: exactVersionObj2SVID,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    exactVersionObj2SVID,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          exactVersionObj2.CreatedAt,
+									TotalEncryptedSize: exactVersionObj2.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -1278,8 +1312,10 @@ func TestDeleteObjects(t *testing.T) {
 							ObjectKey:                pending.ObjectKey,
 							RequestedStreamVersionID: sv,
 							Removed: &metabase.DeleteObjectsInfo{
-								StreamVersionID: sv,
-								Status:          metabase.Pending,
+								StreamVersionID:    sv,
+								Status:             metabase.Pending,
+								CreatedAt:          pending.CreatedAt,
+								TotalEncryptedSize: pending.TotalEncryptedSize,
 							},
 							Status: storj.DeleteObjectsStatusOK,
 						}},
@@ -1329,8 +1365,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                obj1.ObjectKey,
 								RequestedStreamVersionID: obj1StreamVersionID,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: obj1StreamVersionID,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    obj1StreamVersionID,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          obj1.CreatedAt,
+									TotalEncryptedSize: obj1.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -1389,8 +1427,10 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey:                obj.ObjectKey,
 								RequestedStreamVersionID: sv,
 								Removed: &metabase.DeleteObjectsInfo{
-									StreamVersionID: sv,
-									Status:          metabase.CommittedVersioned,
+									StreamVersionID:    sv,
+									Status:             metabase.CommittedVersioned,
+									CreatedAt:          obj.CreatedAt,
+									TotalEncryptedSize: obj.TotalEncryptedSize,
 								},
 								Status: storj.DeleteObjectsStatusOK,
 							},
@@ -1412,7 +1452,8 @@ func TestDeleteObjects(t *testing.T) {
 
 				metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-				createObject(t, obj.ObjectStream, true)
+				obj, _ = createObject(t, obj.ObjectStream, true)
+				opts.Result.Items[1].Removed.CreatedAt = obj.CreatedAt
 				opts.Opts.Items[0], opts.Opts.Items[1] = opts.Opts.Items[1], opts.Opts.Items[0]
 				opts.Check(ctx, t, db)
 
@@ -1515,8 +1556,10 @@ func TestDeleteObjects(t *testing.T) {
 								{
 									ObjectKey: lastCommittedObj.ObjectKey,
 									Removed: &metabase.DeleteObjectsInfo{
-										StreamVersionID: lastCommittedObj.StreamVersionID(),
-										Status:          metabase.CommittedUnversioned,
+										StreamVersionID:    lastCommittedObj.StreamVersionID(),
+										Status:             metabase.CommittedUnversioned,
+										CreatedAt:          lastCommittedObj.CreatedAt,
+										TotalEncryptedSize: lastCommittedObj.TotalEncryptedSize,
 									},
 									Marker: &metabase.DeleteObjectsInfo{
 										StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj.Version+1, uuid.UUID{}),
@@ -1528,8 +1571,10 @@ func TestDeleteObjects(t *testing.T) {
 									ObjectKey:                exactVersionObj.ObjectKey,
 									RequestedStreamVersionID: exactVersionStreamVersionID,
 									Removed: &metabase.DeleteObjectsInfo{
-										StreamVersionID: exactVersionStreamVersionID,
-										Status:          metabase.CommittedUnversioned,
+										StreamVersionID:    exactVersionStreamVersionID,
+										Status:             metabase.CommittedUnversioned,
+										CreatedAt:          exactVersionObj.CreatedAt,
+										TotalEncryptedSize: exactVersionObj.TotalEncryptedSize,
 									},
 									Status: storj.DeleteObjectsStatusOK,
 								},

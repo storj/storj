@@ -17,11 +17,14 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/payments"
 )
 
 // BeginDeleteObject begins object deletion process.
@@ -129,6 +132,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 				BucketName: metabase.BucketName(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			},
+			ProjectPublicID:  keyInfo.ProjectPublicID,
 			Version:          req.ObjectVersion,
 			BypassGovernance: req.BypassGovernanceRetention,
 		})
@@ -172,6 +176,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 // of an object via the (*Endpoint).DeleteCommittedObject method.
 type DeleteCommittedObject struct {
 	metabase.ObjectLocation
+	ProjectPublicID  uuid.UUID
 	Version          []byte
 	BypassGovernance bool
 }
@@ -242,6 +247,28 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if len(result.Removed) > 0 && endpoint.config.CreateRemainderChargeOnObjectDelete {
+		endpoint.recordRetentionRemainderCharges(ctx, RecordRetentionRemainderParams{
+			ProjectID:       opts.ProjectID,
+			ProjectPublicID: opts.ProjectPublicID,
+			BucketName:      opts.BucketName.String(),
+			Placement:       bucketData.Placement,
+			ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+				objectInfo := make([]metabase.DeleteObjectsInfo, len(result.Removed))
+				for i, obj := range result.Removed {
+					objectInfo[i] = metabase.DeleteObjectsInfo{
+						StreamVersionID:    obj.StreamVersionID(),
+						Status:             obj.Status,
+						CreatedAt:          obj.CreatedAt,
+						TotalEncryptedSize: obj.TotalEncryptedSize,
+					}
+				}
+				return objectInfo
+			},
+			DeletedAt: time.Now(),
+		})
 	}
 
 	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
@@ -433,10 +460,139 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 			)
 		}
 
+		if len(deleteObjectsResult.Items) > 0 && endpoint.config.CreateRemainderChargeOnObjectDelete {
+			endpoint.recordRetentionRemainderCharges(ctx, RecordRetentionRemainderParams{
+				ProjectID:       keyInfo.ProjectID,
+				ProjectPublicID: keyInfo.ProjectPublicID,
+				BucketName:      string(req.Bucket),
+				Placement:       bucket.Placement,
+				ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+					var removedObjects []metabase.DeleteObjectsInfo
+					for _, item := range deleteObjectsResult.Items {
+						if item.Removed == nil {
+							continue
+						}
+						removedObjects = append(removedObjects, *item.Removed)
+					}
+					return removedObjects
+				},
+				DeletedAt: time.Now(),
+			})
+		}
+
 		addDeleteObjectsResultToProto(resp, deleteObjectsResult, req.Quiet)
 	}
 
 	return resp, nil
+}
+
+// RecordRetentionRemainderParams contains data for processing object
+// delete events into retention remainder charges.
+type RecordRetentionRemainderParams struct {
+	ProjectID       uuid.UUID
+	ProjectPublicID uuid.UUID
+	BucketName      string
+	Placement       storj.PlacementConstraint
+	ObjectsFunc     func() []metabase.DeleteObjectsInfo
+	DeletedAt       time.Time
+}
+
+func (endpoint *Endpoint) recordRetentionRemainderCharges(ctx context.Context, data RecordRetentionRemainderParams) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	priceModel, err := endpoint.getProductForBucket(ctx, data.ProjectPublicID, data.Placement)
+	if err != nil {
+		endpoint.log.Error("failed to get product for bucket for deletion remainder",
+			zap.Stringer("project", data.ProjectID),
+			zap.String("bucket", data.BucketName),
+			zap.Error(err),
+		)
+		return
+	}
+
+	if priceModel.MinimumRetentionDuration <= 0 {
+		return
+	}
+
+	objects := data.ObjectsFunc()
+
+	var charge *accounting.RetentionRemainderCharge
+	for _, obj := range objects {
+		// Only charge for committed objects
+		if obj.Status != metabase.CommittedUnversioned && obj.Status != metabase.CommittedVersioned {
+			continue
+		}
+
+		storageTime := data.DeletedAt.Sub(obj.CreatedAt)
+		if storageTime >= priceModel.MinimumRetentionDuration {
+			continue // Object was stored for full retention period
+		}
+
+		if charge == nil {
+			charge = &accounting.RetentionRemainderCharge{
+				ProjectID:  data.ProjectID,
+				BucketName: data.BucketName,
+				DeletedAt:  data.DeletedAt,
+				ProductID:  priceModel.ProductID,
+				Billed:     false,
+			}
+		}
+
+		remainderDuration := priceModel.MinimumRetentionDuration - storageTime
+		charge.RemainderByteHours += remainderDuration.Hours() * float64(obj.TotalEncryptedSize)
+	}
+
+	if charge == nil {
+		return
+	}
+
+	err = endpoint.retentionRemainderDB.Upsert(ctx, *charge)
+	if err != nil {
+		endpoint.log.Error("failed to record deletion remainder charge",
+			zap.Stringer("project_id", data.ProjectID),
+			zap.String("bucket", data.BucketName),
+			zap.Float64("remainder_byte_hours", charge.RemainderByteHours),
+			zap.Error(err),
+		)
+	}
+}
+
+func (endpoint *Endpoint) getProductForBucket(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (*payments.ProductUsagePriceModel, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	defaultProductID := endpoint.placementProductOverrideMap[int(placement)]
+	defaultProduct := endpoint.productPrices[defaultProductID]
+
+	if !endpoint.entitlementsConfig.Enabled {
+		return &defaultProduct, nil
+	}
+
+	feats, err := endpoint.projectEntitlementCache.Get(ctx, projectPublicID.String(), func() (entitlements.ProjectFeatures, error) {
+		feats, err := endpoint.entitlementsService.Projects().GetByPublicID(ctx, projectPublicID)
+		if err != nil {
+			if entitlements.ErrNotFound.Has(err) {
+				endpoint.log.Info("no entitlements found for project, using default product",
+					zap.Stringer("public_project_id", projectPublicID),
+				)
+				// cache empty features to avoid repeated lookups
+				return entitlements.ProjectFeatures{}, nil
+			}
+			return entitlements.ProjectFeatures{}, err
+		}
+
+		return feats, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	productID := feats.PlacementProductMappings[placement]
+	if product, ok := endpoint.productPrices[productID]; ok {
+		return &product, nil
+	}
+
+	return &defaultProduct, nil
 }
 
 func addDeleteObjectsResultToProto(pbResult *pb.DeleteObjectsResponse, metabaseResult metabase.DeleteObjectsResult, quiet bool) {

@@ -183,6 +183,19 @@ type UserInfoValidationConfig struct {
 	CacheCapacity   int           `help:"user info cache capacity" default:"10000"`
 }
 
+// ProjectEntitlementConfig is a configuration struct for project entitlements.
+type ProjectEntitlementConfig struct {
+	CacheExpiration time.Duration `help:"delete objects hook cache expiration" default:"10m"`
+	CacheCapacity   int           `help:"delete objects hook cache capacity" default:"10000"`
+}
+
+// DeleteObjectsHookConfig is a configuration struct for delete objects hook.
+type DeleteObjectsHookConfig struct {
+	Enabled        bool `help:"whether delete objects hook is enabled" default:"false"`
+	MaxConcurrency int  `help:"maximum number of concurrent delete objects hook executions" default:"2"`
+	BufferSize     int  `help:"number of delete events to buffer before processing" default:"100"`
+}
+
 // APIKeyTailsConfig is a configuration struct for API key tails processing.
 type APIKeyTailsConfig struct {
 	CombinerQueueEnabled bool          `help:"whether combiner queue is enabled for processing API key tails" default:"false"`
@@ -233,6 +246,8 @@ type Config struct {
 
 	UserInfoValidation UserInfoValidationConfig `help:"Config for user info validation"`
 
+	ProjectEntitlement ProjectEntitlementConfig `help:"Config for fetching project entitlements"`
+
 	SelfServePlacementSelectEnabled bool `help:"whether self-serve placement selection feature is enabled. Provided by console config." default:"false" hidden:"true"`
 
 	SendEdgeUrlOverrides bool `help:"send edge URL overrides through the GetProjectInfo endpoint" default:"false"`
@@ -268,6 +283,8 @@ type Config struct {
 
 	// TODO we need to split this into separate config with other metabase related flags
 	MetabaseCompression string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
+
+	CreateRemainderChargeOnObjectDelete bool `help:"whether to create a remainder charge when an object is deleted before minimum retention" default:"false"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.

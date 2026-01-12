@@ -785,10 +785,11 @@ func (step DeleteObjects) Check(ctx *testcontext.Context, t testing.TB, db *meta
 	result, err := db.DeleteObjects(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	// Marker stream IDs are internally generated, so we cannot upfront figure out what their values are.
+	// Marker stream IDs and CreatedAt are internally generated, so we cannot upfront figure out what their values are.
 	for _, item := range result.Items {
 		if item.Marker != nil {
 			item.Marker.StreamVersionID.SetStreamID(uuid.UUID{})
+			item.Marker.CreatedAt = time.Time{}
 		}
 	}
 

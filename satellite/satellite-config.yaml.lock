@@ -1217,6 +1217,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the maximum number of segments that can be copied or moved in a single operation
 # metainfo.copy-move-segment-limit: 10000
 
+# whether to create a remainder charge when an object is deleted before minimum retention
+# metainfo.create-remainder-charge-on-object-delete: false
+
 # the database connection string to use
 # metainfo.database-url: postgres://
 
@@ -1288,6 +1291,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
+
+# delete objects hook cache capacity
+# metainfo.project-entitlement.cache-capacity: 10000
+
+# delete objects hook cache expiration
+# metainfo.project-entitlement.cache-expiration: 10m0s
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100

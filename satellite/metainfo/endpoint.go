@@ -41,6 +41,8 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/lrucache"
@@ -79,12 +81,15 @@ type Endpoint struct {
 	log                            *zap.Logger
 	buckets                        *buckets.Service
 	metabase                       *metabase.DB
+	retentionRemainderDB           accounting.RetentionRemainderDB
 	orders                         *orders.Service
 	overlay                        *overlay.Service
 	attributions                   attribution.DB
 	pointerVerification            *pointerverification.Service
 	projectUsage                   *accounting.Service
 	projects                       console.Projects
+	productPrices                  map[int32]payments.ProductUsagePriceModel
+	placementProductOverrideMap    payments.PlacementProductIdMap
 	projectMembers                 console.ProjectMembers
 	users                          console.Users
 	apiKeys                        APIKeys
@@ -94,7 +99,8 @@ type Endpoint struct {
 	singleObjectUploadLimitCache   *bloomrate.BloomRate
 	singleObjectDownloadLimitCache *bloomrate.BloomRate
 	userInfoCache                  *lrucache.ExpiringLRUOf[*console.UserInfo]
-	encInlineSegmentSize           int64 // max inline segment size + encryption overhead
+	projectEntitlementCache        *lrucache.ExpiringLRUOf[entitlements.ProjectFeatures] // projectPublicID -> features
+	encInlineSegmentSize           int64                                                 // max inline segment size + encryption overhead
 	revocations                    revocation.DB
 	config                         Config
 	migrationModeFlag              *MigrationModeFlagExtension
@@ -120,15 +126,16 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
-func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
+func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB, retentionRemainderDB accounting.RetentionRemainderDB,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, apiKeyTails console.APIKeyTails, projectUsage *accounting.Service, projects console.Projects,
 	projectMembers console.ProjectMembers, users console.Users, satellite signing.Signer, revocations revocation.DB,
 	successTrackers *SuccessTrackers, failureTracker SuccessTracker, trustedUplinks *trust.TrustedPeersList, config Config,
 	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
 	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventingconfig.Config,
-	bucketEventingCache *eventing.ConfigCache, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config) (
-	*Endpoint, error) {
+	bucketEventingCache *eventing.ConfigCache, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config,
+	pricingConfig stripe.PricingConfig,
+) (*Endpoint, error) {
 	trustedOrders := ordersConfig.TrustedOrders
 	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
 	// TODO do something with too many params
@@ -162,20 +169,23 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	}
 
 	e := &Endpoint{
-		log:                 log,
-		buckets:             buckets,
-		metabase:            metabaseDB,
-		orders:              orders,
-		overlay:             cache,
-		attributions:        attributions,
-		pointerVerification: pointerverification.NewService(peerIdentities, cache, trustedUplinks, trustedOrders),
-		apiKeys:             apiKeys,
-		apiKeyTails:         apiKeyTails,
-		projectUsage:        projectUsage,
-		projects:            projects,
-		projectMembers:      projectMembers,
-		users:               users,
-		satellite:           satellite,
+		log:                         log,
+		buckets:                     buckets,
+		metabase:                    metabaseDB,
+		retentionRemainderDB:        retentionRemainderDB,
+		orders:                      orders,
+		overlay:                     cache,
+		attributions:                attributions,
+		pointerVerification:         pointerverification.NewService(peerIdentities, cache, trustedUplinks, trustedOrders),
+		apiKeys:                     apiKeys,
+		apiKeyTails:                 apiKeyTails,
+		projectUsage:                projectUsage,
+		projects:                    projects,
+		productPrices:               pricingConfig.ProductPriceMap,
+		placementProductOverrideMap: pricingConfig.PlacementProductMap,
+		projectMembers:              projectMembers,
+		users:                       users,
+		satellite:                   satellite,
 		limiterCache: lrucache.NewOf[*rate.Limiter](lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
@@ -194,6 +204,10 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		userInfoCache: lrucache.NewOf[*console.UserInfo](lrucache.Options{
 			Expiration: config.UserInfoValidation.CacheExpiration,
 			Capacity:   config.UserInfoValidation.CacheCapacity,
+		}),
+		projectEntitlementCache: lrucache.NewOf[entitlements.ProjectFeatures](lrucache.Options{
+			Expiration: config.ProjectEntitlement.CacheExpiration,
+			Capacity:   config.ProjectEntitlement.CacheCapacity,
 		}),
 		encInlineSegmentSize:      encInlineSegmentSize,
 		revocations:               revocations,

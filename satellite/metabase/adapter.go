@@ -109,6 +109,7 @@ type Adapter interface {
 	TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error)
 	TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error)
 	TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error)
+	TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error)
 
 	// TestMigrateToLatest creates a database and applies all the migration for test purposes.
 	TestMigrateToLatest(ctx context.Context) error

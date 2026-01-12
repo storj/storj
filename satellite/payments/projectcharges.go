@@ -4,6 +4,8 @@
 package payments
 
 import (
+	"time"
+
 	"github.com/shopspring/decimal"
 
 	"storj.io/common/uuid"
@@ -89,6 +91,9 @@ type ProductUsagePriceModel struct {
 	// StorageRemainderBytes is the minimum size in bytes that objects should be counted as.
 	// Objects smaller than this value will be counted as this value for billing purposes.
 	StorageRemainderBytes int64 `json:"storageRemainderBytes"`
+	// MinimumRetentionDuration is the minimum retention period for objects.
+	// Objects deleted before this period will be charged for the remaining time using MinimumRetentionFeeCents.
+	MinimumRetentionDuration time.Duration `json:"-"`
 	// UseGBUnits when true, invoice line items will use GB units instead of MB units.
 	UseGBUnits bool `json:"-"`
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
