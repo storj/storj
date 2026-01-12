@@ -10,7 +10,7 @@
         </v-tooltip>
         <template v-else>
             <v-btn
-                v-if="!file.isDeleteMarker || (file.type === 'folder' && downloadPrefixEnabled)"
+                v-if="(file.type === 'file' && !file.isDeleteMarker) || (file.type === 'folder' && downloadPrefixEnabled)"
                 variant="text"
                 color="default"
                 size="small"
@@ -32,7 +32,7 @@
             </v-btn>
 
             <v-btn
-                v-if="(!isVersion && !file.isDeleteMarker) || file.isLatest"
+                v-if="configStore.isDefaultBrand && ((!props.isVersion && !props.file.isDeleteMarker) || props.file.isLatest)"
                 variant="text"
                 color="default"
                 size="small"
@@ -147,7 +147,7 @@
                             </v-list-item>
                         </template>
 
-                        <v-list-item v-if="!isVersion && !file.isDeleteMarker" density="comfortable" link @click="emit('shareClick')">
+                        <v-list-item v-if="configStore.isDefaultBrand && !isVersion && !file.isDeleteMarker" density="comfortable" link @click="emit('shareClick')">
                             <template #prepend>
                                 <component :is="Share2" :size="18" />
                             </template>
@@ -242,7 +242,7 @@ const alignClass = computed<string>(() => {
     return 'text-' + props.align;
 });
 
-const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
+const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled && configStore.isDefaultBrand);
 
 /**
  * Returns metadata of the current bucket.
@@ -290,7 +290,7 @@ async function onDownloadClick(): Promise<void> {
         try {
             await obStore.download(props.file);
             notify.success(
-                () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
+                () => ['Keep this download link private.', h('br'), configStore.isDefaultBrand ? 'If you want to share, use the Share option.' : ''],
                 'Download started',
             );
         } catch (error) {

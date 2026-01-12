@@ -124,27 +124,29 @@
                                             <template v-if="bucketLocation === placement.idName">
                                                 <div :key="placement.id">
                                                     <p class="text-subtitle-2 font-weight-bold">{{ placement.title }}</p>
-                                                    <p class="text-subtitle-2 mb-2">{{ placement.description }}</p>
+                                                    <p class="text-subtitle-2">{{ placement.description }}</p>
                                                 </div>
                                             </template>
                                         </template>
-                                        <a v-if="showNewPricingTiers" href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">
-                                            View Pricing
-                                        </a>
-                                        <template v-else>
-                                            <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
-                                                {{ formatToGBDollars(pricingForLocation.storageMBMonthCents) }}/GB-month stored
-                                                <template v-if="isGettingPricing" #prepend>
-                                                    <v-progress-circular indeterminate :size="20" />
-                                                </template>
-                                            </v-chip>
-                                            <v-chip v-if="pricingForLocation" variant="tonal">
-                                                {{ formatToGBDollars(pricingForLocation.egressMBCents) }}/GB download
-                                                <template v-if="isGettingPricing" #prepend>
-                                                    <v-progress-circular indeterminate :size="20" />
-                                                </template>
-                                            </v-chip>
-                                        </template>
+                                        <div v-if="configStore.isDefaultBrand" class="mt-2">
+                                            <a v-if="showNewPricingTiers" href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">
+                                                View Pricing
+                                            </a>
+                                            <template v-else>
+                                                <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
+                                                    {{ formatToGBDollars(pricingForLocation.storageMBMonthCents) }}/GB-month stored
+                                                    <template v-if="isGettingPricing" #prepend>
+                                                        <v-progress-circular indeterminate :size="20" />
+                                                    </template>
+                                                </v-chip>
+                                                <v-chip v-if="pricingForLocation" variant="tonal">
+                                                    {{ formatToGBDollars(pricingForLocation.egressMBCents) }}/GB download
+                                                    <template v-if="isGettingPricing" #prepend>
+                                                        <v-progress-circular indeterminate :size="20" />
+                                                    </template>
+                                                </v-chip>
+                                            </template>
+                                        </div>
 
                                         <template v-if="selectedPlacement?.pending">
                                             <v-alert color="info" variant="tonal" density="comfortable" class="my-3">

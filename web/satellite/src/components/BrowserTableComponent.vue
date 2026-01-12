@@ -163,12 +163,6 @@
         :files="filesToDelete"
         @content-removed="fileToDelete = null"
     />
-    <share-dialog
-        v-model="isShareDialogShown"
-        :bucket-name="bucketName"
-        :file="fileToShare || undefined"
-        @content-removed="fileToShare = null"
-    />
     <lock-object-dialog
         v-model="isLockDialogShown"
         :file="lockActionFile"
@@ -184,13 +178,21 @@
         :file="lockActionFile"
         @content-removed="lockActionFile = null"
     />
-    <download-prefix-dialog
-        v-if="downloadPrefixEnabled"
-        v-model="isDownloadPrefixDialogShown"
-        :prefix-type="DownloadPrefixType.Folder"
-        :bucket="bucketName"
-        :prefix="folderToDownload"
-    />
+    <template v-if="configStore.isDefaultBrand">
+        <share-dialog
+            v-model="isShareDialogShown"
+            :bucket-name="bucketName"
+            :file="fileToShare || undefined"
+            @content-removed="fileToShare = null"
+        />
+        <download-prefix-dialog
+            v-if="downloadPrefixEnabled"
+            v-model="isDownloadPrefixDialogShown"
+            :prefix-type="DownloadPrefixType.Folder"
+            :bucket="bucketName"
+            :prefix="folderToDownload"
+        />
+    </template>
 </template>
 
 <script setup lang="ts">

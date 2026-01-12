@@ -43,28 +43,30 @@
                             Delete
                         </v-tooltip>
                     </v-btn>
-                    <v-btn v-if="!showingVersions" id="Share" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Share' : undefined" @click="isShareDialogShown = true">
-                        <component :is="Share2" :size="19" />
-                        <v-tooltip
-                            activator="parent"
-                            location="bottom"
-                            theme="light"
-                            class="hidden-sm-and-down"
-                        >
-                            Share
-                        </v-tooltip>
-                    </v-btn>
-                    <v-btn v-if="!showingVersions" id="Distribution" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Geographic Distribution' : undefined" @click="isGeographicDistributionDialogShown = true">
-                        <icon-distribution size="20" />
-                        <v-tooltip
-                            activator="parent"
-                            location="bottom"
-                            theme="light"
-                            class="hidden-sm-and-down"
-                        >
-                            Geographic Distribution
-                        </v-tooltip>
-                    </v-btn>
+                    <template v-if="configStore.isDefaultBrand">
+                        <v-btn v-if="!showingVersions" id="Share" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Share' : undefined" @click="isShareDialogShown = true">
+                            <component :is="Share2" :size="19" />
+                            <v-tooltip
+                                activator="parent"
+                                location="bottom"
+                                theme="light"
+                                class="hidden-sm-and-down"
+                            >
+                                Share
+                            </v-tooltip>
+                        </v-btn>
+                        <v-btn v-if="!showingVersions" id="Distribution" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Geographic Distribution' : undefined" @click="isGeographicDistributionDialogShown = true">
+                            <icon-distribution size="20" />
+                            <v-tooltip
+                                activator="parent"
+                                location="bottom"
+                                theme="light"
+                                class="hidden-sm-and-down"
+                            >
+                                Geographic Distribution
+                            </v-tooltip>
+                        </v-btn>
+                    </template>
                     <v-btn v-if="!showingVersions" icon size="small" color="white" title="More Actions">
                         <component :is="EllipsisVertical" :size="20" />
                         <v-menu activator="parent">
@@ -145,8 +147,10 @@
         </v-card>
     </v-dialog>
 
-    <share-dialog v-if="!showingVersions" v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile ?? undefined" />
-    <geographic-distribution-dialog v-if="!showingVersions" v-model="isGeographicDistributionDialogShown" />
+    <template v-if="configStore.isDefaultBrand">
+        <share-dialog v-if="!showingVersions" v-model="isShareDialogShown" :bucket-name="bucketName" :file="currentFile ?? undefined" />
+        <geographic-distribution-dialog v-if="!showingVersions" v-model="isGeographicDistributionDialogShown" />
+    </template>
     <delete-versions-dialog
         v-if="showingVersions"
         v-model="isDeleteFileDialogShown"
@@ -346,7 +350,7 @@ async function download(): Promise<void> {
     try {
         await obStore.download(currentFile.value);
         notify.success(
-            () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
+            () => ['Keep this download link private.', h('br'), configStore.isDefaultBrand ? 'If you want to share, use the Share option.' : ''],
             'Download started',
         );
     } catch (error) {

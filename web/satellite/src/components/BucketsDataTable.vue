@@ -180,22 +180,24 @@
                             {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item link @click="() => showShareBucketDialog(item.name)">
-                        <template #prepend>
-                            <component :is="Share2" :size="18" />
-                        </template>
-                        <v-list-item-title class="ml-3">
-                            Share Bucket
-                        </v-list-item-title>
-                    </v-list-item>
-                    <v-list-item v-if="downloadPrefixEnabled" link @click="() => onDownloadBucket(item.name)">
-                        <template #prepend>
-                            <component :is="DownloadIcon" :size="18" />
-                        </template>
-                        <v-list-item-title class="ml-3">
-                            Download Bucket
-                        </v-list-item-title>
-                    </v-list-item>
+                    <template v-if="configStore.isDefaultBrand">
+                        <v-list-item link @click="() => showShareBucketDialog(item.name)">
+                            <template #prepend>
+                                <component :is="Share2" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Share Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item v-if="downloadPrefixEnabled" link @click="() => onDownloadBucket(item.name)">
+                            <template #prepend>
+                                <component :is="DownloadIcon" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Download Bucket
+                            </v-list-item-title>
+                        </v-list-item>
+                    </template>
                     <v-list-item link @click="() => showBucketDetailsModal(item.name)">
                         <template #prepend>
                             <component :is="ReceiptText" :size="18" />
@@ -220,11 +222,13 @@
     <cannot-delete-dialog v-model="isCannotDeleteDialogShown" :bucket="bucketToDelete" />
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketToDelete.name" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="passphraseDialogCallback" />
-    <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketDetailsName" />
     <set-bucket-object-lock-config-dialog v-if="objectLockUIEnabled" v-model="isSetBucketObjectLockDialogShown" :bucket-name="bucketObjectLockName" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="fetchBuckets" />
-    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
+    <template v-if="configStore.isDefaultBrand">
+        <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
+        <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
+    </template>
 </template>
 
 <script setup lang="ts">

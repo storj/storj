@@ -149,35 +149,37 @@
                                 </v-list-item-title>
                             </v-list-item>
 
-                            <v-list-item
-                                density="comfortable"
-                                link
-                                @click="isShareBucketDialogShown = true"
-                            >
-                                <template #prepend>
-                                    <component :is="Share2" :size="18" />
-                                </template>
-                                <v-list-item-title
-                                    class="ml-3 text-body-2 font-weight-medium"
+                            <template v-if="configStore.isDefaultBrand">
+                                <v-list-item
+                                    density="comfortable"
+                                    link
+                                    @click="isShareBucketDialogShown = true"
                                 >
-                                    Share Bucket
-                                </v-list-item-title>
-                            </v-list-item>
-                            <v-list-item
-                                v-if="downloadPrefixEnabled"
-                                density="comfortable"
-                                link
-                                @click="onDownloadBucket"
-                            >
-                                <template #prepend>
-                                    <component :is="DownloadIcon" :size="18" />
-                                </template>
-                                <v-list-item-title
-                                    class="ml-3 text-body-2 font-weight-medium"
+                                    <template #prepend>
+                                        <component :is="Share2" :size="18" />
+                                    </template>
+                                    <v-list-item-title
+                                        class="ml-3 text-body-2 font-weight-medium"
+                                    >
+                                        Share Bucket
+                                    </v-list-item-title>
+                                </v-list-item>
+                                <v-list-item
+                                    v-if="downloadPrefixEnabled"
+                                    density="comfortable"
+                                    link
+                                    @click="onDownloadBucket"
                                 >
-                                    Download Bucket
-                                </v-list-item-title>
-                            </v-list-item>
+                                    <template #prepend>
+                                        <component :is="DownloadIcon" :size="18" />
+                                    </template>
+                                    <v-list-item-title
+                                        class="ml-3 text-body-2 font-weight-medium"
+                                    >
+                                        Download Bucket
+                                    </v-list-item-title>
+                                </v-list-item>
+                            </template>
                             <v-list-item
                                 density="comfortable"
                                 link
@@ -286,7 +288,6 @@
 
     <browser-new-folder-dialog v-model="isNewFolderDialogOpen" />
     <enter-bucket-passphrase-dialog v-model="isBucketPassphraseDialogOpen" @passphrase-entered="initObjectStore" />
-    <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
     <bucket-details-dialog v-model="isBucketDetailsDialogShown" :bucket-name="bucketName" />
     <delete-bucket-dialog v-model="isDeleteBucketDialogShown" :bucket-name="bucketName" @deleted="onBucketDeleted" />
     <toggle-versioning-dialog v-model="bucketToToggleVersioning" @toggle="() => bucketsStore.getAllBucketsMetadata(projectId)" />
@@ -296,7 +297,10 @@
         @proceed="upload(true)"
         @cancel="clearUpload"
     />
-    <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
+    <template v-if="configStore.isDefaultBrand">
+        <share-dialog v-model="isShareBucketDialogShown" :bucket-name="bucketName" />
+        <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
+    </template>
 </template>
 
 <script setup lang="ts">
