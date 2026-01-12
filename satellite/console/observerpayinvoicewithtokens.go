@@ -40,7 +40,7 @@ func (o *InvoiceTokenPaymentObserver) Process(ctx context.Context, transaction b
 		return err
 	}
 
-	if user.IsFree() {
+	if user.IsBillingExempt() {
 		return nil
 	}
 

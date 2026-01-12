@@ -272,10 +272,46 @@ const (
 	NFRUser UserKind = 2
 	// MemberUser is a kind of user that is a member of a project.
 	MemberUser UserKind = 3
+	// TenantUser is a kind of user that belongs to a non-default tenant.
+	TenantUser UserKind = 4
 )
 
 // UserKinds holds all supported user kinds.
-var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser}
+var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser, TenantUser}
+
+// String returns a string representation of the user kind.
+func (k UserKind) String() string {
+	switch k {
+	case FreeUser:
+		return "Free Trial"
+	case PaidUser:
+		return "Pro Account"
+	case NFRUser:
+		return "Not-For-Resale"
+	case MemberUser:
+		return "Member Account"
+	case TenantUser:
+		return "Tenant Account"
+	default:
+		return ""
+	}
+}
+
+// KindInfo holds info about user kind.
+type KindInfo struct {
+	Value             UserKind `json:"value"`
+	Name              string   `json:"name"`
+	HasPaidPrivileges bool     `json:"hasPaidPrivileges"`
+}
+
+// Info returns info about the user kind.
+func (k UserKind) Info() KindInfo {
+	return KindInfo{
+		Value:             k,
+		Name:              k.String(),
+		HasPaidPrivileges: k == PaidUser || k == NFRUser || k == TenantUser,
+	}
+}
 
 // UserStatuses holds all supported user statuses.
 var UserStatuses = []UserStatus{Inactive, Active, Deleted, PendingDeletion, LegalHold, PendingBotVerification, UserRequestedDeletion}
@@ -313,38 +349,6 @@ func (s *UserStatus) Info() UserStatusInfo {
 	return UserStatusInfo{
 		Name:  s.String(),
 		Value: *s,
-	}
-}
-
-// String returns a string representation of the user kind.
-func (k UserKind) String() string {
-	switch k {
-	case FreeUser:
-		return "Free Trial"
-	case PaidUser:
-		return "Pro Account"
-	case NFRUser:
-		return "Not-For-Resale"
-	case MemberUser:
-		return "Member Account"
-	default:
-		return ""
-	}
-}
-
-// KindInfo holds info about user kind.
-type KindInfo struct {
-	Value             UserKind `json:"value"`
-	Name              string   `json:"name"`
-	HasPaidPrivileges bool     `json:"hasPaidPrivileges"`
-}
-
-// Info returns info about the user kind.
-func (k UserKind) Info() KindInfo {
-	return KindInfo{
-		Value:             k,
-		Name:              k.String(),
-		HasPaidPrivileges: k == PaidUser || k == NFRUser,
 	}
 }
 
@@ -452,7 +456,7 @@ type User struct {
 
 // HasPaidPrivileges returns whether the user has paid privileges.
 func (u *User) HasPaidPrivileges() bool {
-	return u.Kind == NFRUser || u.IsPaid()
+	return u.Kind == NFRUser || u.IsPaid() || u.Kind == TenantUser
 }
 
 // IsPaid returns whether it's a paid user.
@@ -473,6 +477,11 @@ func (u *User) IsMember() bool {
 // IsFreeOrMember returns whether it's a free or member user.
 func (u *User) IsFreeOrMember() bool {
 	return u.IsFree() || u.IsMember()
+}
+
+// IsBillingExempt returns whether the user is exempt from billing.
+func (u *User) IsBillingExempt() bool {
+	return u.IsFree() || u.IsMember() || u.Kind == NFRUser || u.Kind == TenantUser
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.

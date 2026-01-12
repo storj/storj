@@ -821,7 +821,7 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 	}
 
 	// Check if the project should be force deleted
-	if s.consoleConfig.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsFree() || user.FinalInvoiceGenerated) {
+	if s.consoleConfig.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsBillingExempt() || user.FinalInvoiceGenerated) {
 		err = s.forceDisableProject(ctx, p.ID)
 		if err != nil {
 			return apiError(http.StatusInternalServerError, err)

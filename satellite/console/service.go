@@ -1444,7 +1444,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.UserAgent = user.UserAgent
 		}
 
-		if registrationToken != nil {
+		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
+		if hasTenant {
+			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
+		} else if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
@@ -1455,10 +1458,16 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.TrialExpiration = &expiration
 		}
 
-		// TODO: move the project limits into the registration token.
-		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
-		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
-		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
+		if hasTenant {
+			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
+			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
+			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
+		} else {
+			// TODO: move the project limits into the registration token.
+			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
+		}
 
 		u, err = tx.Users().Insert(ctx,
 			newUser,
@@ -3771,7 +3780,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		EncryptPath:          pathEncryptionEnabled,
 		Passphrase:           string(passphrase),
 		IsOwnerPaidTier:      ownerKind == PaidUser,
-		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser,
+		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser || ownerKind == TenantUser,
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 		MembersCount:         membersCount,

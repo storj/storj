@@ -807,7 +807,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if server.console.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsFree() || user.FinalInvoiceGenerated) {
+	if server.console.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsBillingExempt() || user.FinalInvoiceGenerated) {
 		err = server.forceDeleteProject(ctx, project.ID)
 		if err != nil {
 			sendJSONError(w, "unable to delete project",

@@ -550,7 +550,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var invitation *console.ProjectInvitation
-	if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
+
+	if tenantID := tenancy.TenantIDFromContext(ctx); tenantID != "" {
+		requestData.Kind = console.TenantUser
+		requestData.NoTrialExpiration = true
+	} else if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
 		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)

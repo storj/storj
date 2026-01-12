@@ -8171,3 +8171,80 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 		}
 	})
 }
+
+func TestCreateUserWithTenantID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 30 * 24 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		usersDB := sat.DB.Console().Users()
+
+		tenantIDStr := "test-tenant-123"
+
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{
+			TenantID: tenantIDStr,
+		})
+
+		tenantUser, err := service.CreateUser(tenantCtx, console.CreateUser{
+			FullName:          "Tenant User",
+			Email:             "tenant@example.com",
+			Password:          "password123",
+			Kind:              console.TenantUser,
+			NoTrialExpiration: true,
+		}, console.RegistrationSecret{})
+		require.NoError(t, err)
+		require.NotNil(t, tenantUser)
+
+		dbUser, err := usersDB.Get(ctx, tenantUser.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.TenantUser, dbUser.Kind)
+		require.NotNil(t, dbUser.TenantID)
+		require.Equal(t, tenantIDStr, *dbUser.TenantID)
+
+		// Verify tenant user has paid-tier privileges.
+		require.True(t, dbUser.HasPaidPrivileges())
+
+		// Verify tenant user has paid-tier project limits.
+		require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, dbUser.ProjectLimit)
+		require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), dbUser.ProjectStorageLimit)
+		require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Paid.Int64(), dbUser.ProjectBandwidthLimit)
+		require.Equal(t, sat.Config.Console.UsageLimits.Segment.Paid, dbUser.ProjectSegmentLimit)
+
+		// Verify tenant user has no trial expiration.
+		require.Nil(t, dbUser.TrialExpiration)
+
+		// Test IsBillingExempt method.
+		require.True(t, dbUser.IsBillingExempt())
+
+		// Test that tenant user is not considered a paid user (paid requires billing).
+		require.False(t, dbUser.IsPaid())
+
+		// Compare with a regular free user.
+		freeUser, err := service.CreateUser(ctx, console.CreateUser{
+			FullName: "Free User",
+			Email:    "free@example.com",
+			Password: "password123",
+		}, console.RegistrationSecret{})
+		require.NoError(t, err)
+
+		dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
+		require.NoError(t, err)
+
+		// Verify free user has free-tier limits.
+		require.Equal(t, console.FreeUser, dbFreeUser.Kind)
+		require.False(t, dbFreeUser.HasPaidPrivileges())
+		require.Equal(t, sat.Config.Console.UsageLimits.Project.Free, dbFreeUser.ProjectLimit)
+		require.Equal(t, sat.Config.Console.UsageLimits.Storage.Free.Int64(), dbFreeUser.ProjectStorageLimit)
+		require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Free.Int64(), dbFreeUser.ProjectBandwidthLimit)
+		require.Equal(t, sat.Config.Console.UsageLimits.Segment.Free, dbFreeUser.ProjectSegmentLimit)
+
+		// Verify free user has trial expiration (since FreeTrialDuration is set).
+		require.NotNil(t, dbFreeUser.TrialExpiration)
+	})
+}

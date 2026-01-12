@@ -84,6 +84,23 @@ func TestUserRepository(t *testing.T) {
 		user, err := repository.Insert(ctx, user)
 		assert.NoError(t, err)
 		assert.Equal(t, console.PaidUser, user.Kind)
+
+		// test inserting tenant user.
+		tenantID := "test-tenant-123"
+		user = &console.User{
+			ID:           testrand.UUID(),
+			FullName:     name,
+			ShortName:    lastName,
+			Email:        "tenant@mail.test",
+			Kind:         console.TenantUser,
+			TenantID:     &tenantID,
+			PasswordHash: []byte(passValid),
+			CreatedAt:    time.Now(),
+		}
+		user, err = repository.Insert(ctx, user)
+		assert.NoError(t, err)
+		assert.Equal(t, console.TenantUser, user.Kind)
+		assert.Equal(t, &tenantID, user.TenantID)
 	})
 }
 
@@ -799,6 +816,112 @@ func TestUserStatus(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tcase.expected, status)
 			}
+		}
+	})
+}
+
+func TestUserKind(t *testing.T) {
+	t.Run("String", func(t *testing.T) {
+		testCases := []struct {
+			kind     console.UserKind
+			expected string
+		}{
+			{console.FreeUser, "Free Trial"},
+			{console.PaidUser, "Pro Account"},
+			{console.NFRUser, "Not-For-Resale"},
+			{console.MemberUser, "Member Account"},
+			{console.TenantUser, "Tenant Account"},
+		}
+
+		for _, tc := range testCases {
+			require.Equal(t, tc.expected, tc.kind.String())
+		}
+
+		// Test invalid kind.
+		invalidKind := console.UserKind(999)
+		require.Empty(t, invalidKind.String())
+	})
+
+	t.Run("Info", func(t *testing.T) {
+		testCases := []struct {
+			kind            console.UserKind
+			expectedName    string
+			expectedHasPaid bool
+		}{
+			{console.FreeUser, "Free Trial", false},
+			{console.PaidUser, "Pro Account", true},
+			{console.NFRUser, "Not-For-Resale", true},
+			{console.MemberUser, "Member Account", false},
+			{console.TenantUser, "Tenant Account", true},
+		}
+
+		for _, tc := range testCases {
+			info := tc.kind.Info()
+			require.Equal(t, tc.kind, info.Value)
+			require.Equal(t, tc.expectedName, info.Name)
+			require.Equal(t, tc.expectedHasPaid, info.HasPaidPrivileges)
+		}
+	})
+}
+
+func TestUserMethods(t *testing.T) {
+	t.Run("HasPaidPrivileges", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			user     console.User
+			expected bool
+		}{
+			{"Free user should not have paid privileges", console.User{Kind: console.FreeUser}, false},
+			{"Paid user should have paid privileges", console.User{Kind: console.PaidUser}, true},
+			{"NFR user should have paid privileges", console.User{Kind: console.NFRUser}, true},
+			{"Member user should not have paid privileges", console.User{Kind: console.MemberUser}, false},
+			{"Tenant user should have paid privileges", console.User{Kind: console.TenantUser}, true},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				require.Equal(t, tc.expected, tc.user.HasPaidPrivileges())
+			})
+		}
+	})
+
+	t.Run("IsBillingExempt", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			user     console.User
+			expected bool
+		}{
+			{"Free user should return true", console.User{Kind: console.FreeUser}, true},
+			{"Paid user should return false", console.User{Kind: console.PaidUser}, false},
+			{"NFR user should return true", console.User{Kind: console.NFRUser}, true},
+			{"Member user should return true", console.User{Kind: console.MemberUser}, true},
+			{"Tenant user should return true", console.User{Kind: console.TenantUser}, true},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				require.Equal(t, tc.expected, tc.user.IsBillingExempt())
+			})
+		}
+	})
+
+	t.Run("IsPaid", func(t *testing.T) {
+		testCases := []struct {
+			name     string
+			user     console.User
+			expected bool
+		}{
+			{"Free user should not be paid", console.User{Kind: console.FreeUser}, false},
+			{"Paid user should be paid", console.User{Kind: console.PaidUser}, true},
+			{"NFR user should not be paid", console.User{Kind: console.NFRUser}, false},
+			{"Member user should not be paid", console.User{Kind: console.MemberUser}, false},
+			{"Tenant user should not be paid", console.User{Kind: console.TenantUser}, false},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				require.Equal(t, tc.expected, tc.user.IsPaid())
+			})
 		}
 	})
 }
