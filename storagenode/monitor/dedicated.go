@@ -51,25 +51,6 @@ func (d *DedicatedDisk) PreFlightCheck(ctx context.Context) error {
 	return nil
 }
 
-// AvailableSpace implements SpaceReport interface.
-func (d *DedicatedDisk) AvailableSpace(ctx context.Context) (_ int64, err error) {
-	status, err := d.info.AvailableSpace(ctx)
-	if err != nil {
-		return 0, errs.Wrap(err)
-	}
-
-	availableBytes := status.AvailableSpace - d.reservedBytes
-	if availableBytes < 0 {
-		availableBytes = 0
-	}
-
-	mon.IntVal("allocated_space").Observe(status.TotalSpace - d.reservedBytes)
-	mon.IntVal("used_space").Observe(status.TotalSpace - status.AvailableSpace)
-	mon.IntVal("available_space").Observe(availableBytes)
-
-	return availableBytes, nil
-}
-
 // DiskSpace implements SpaceReport interface.
 func (d *DedicatedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -90,7 +71,7 @@ func (d *DedicatedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) 
 	if usedSpace < 0 {
 		usedSpace = 0
 	}
-	return DiskSpace{
+	diskSpace := DiskSpace{
 		Total:     storageStatus.TotalSpace,
 		Allocated: storageStatus.TotalSpace,
 		Free:      storageStatus.AvailableSpace,
@@ -98,5 +79,12 @@ func (d *DedicatedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) 
 		Overused:  overused,
 		Used:      usedSpace,
 		Reserved:  d.reservedBytes,
-	}, nil
+	}
+
+	mon.IntVal("allocated_space").Observe(diskSpace.Allocated)
+	mon.IntVal("used_space").Observe(diskSpace.Used)
+	mon.IntVal("available_space").Observe(diskSpace.Available)
+	mon.IntVal("reserved_space").Observe(diskSpace.Reserved)
+
+	return diskSpace, nil
 }

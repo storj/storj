@@ -215,13 +215,13 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	freeSpace, err := service.spaceReport.AvailableSpace(ctx)
+	spaceReport, err := service.spaceReport.DiskSpace(ctx)
 	if err != nil {
 		return err
 	}
 
 	service.contact.UpdateSelf(&pb.NodeCapacity{
-		FreeDisk: freeSpace,
+		FreeDisk: spaceReport.Available,
 	})
 
 	return nil
@@ -229,7 +229,11 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 
 // AvailableSpace returns available disk space for upload.
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
-	return service.spaceReport.AvailableSpace(ctx)
+	report, err := service.spaceReport.DiskSpace(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return report.Available, err
 }
 
 // DiskSpace returns consolidated disk space state info.

@@ -92,40 +92,6 @@ func (s *SharedDisk) PreFlightCheck(ctx context.Context) error {
 	return nil
 }
 
-// AvailableSpace returns available disk space for upload.
-func (s *SharedDisk) AvailableSpace(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	usedSpace, err := s.store.SpaceUsedForPiecesAndTrash(ctx)
-	if err != nil {
-		return 0, err
-	}
-	hashSpaceUsage := s.hashStore.SpaceUsage()
-
-	usedSpace += hashSpaceUsage.UsedTotal
-
-	diskStatus, err := s.store.StorageStatus(ctx)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	allocated := s.allocatedDiskSpace
-	if isLowerThanAllocated(diskStatus.DiskTotal, allocated) {
-		allocated = diskStatus.DiskTotal
-	}
-
-	freeSpaceForStorj := allocated - usedSpace
-	if diskStatus.DiskFree < freeSpaceForStorj {
-		freeSpaceForStorj = diskStatus.DiskFree
-	}
-
-	mon.IntVal("allocated_space").Observe(allocated)
-	mon.IntVal("used_space").Observe(usedSpace)
-	mon.IntVal("available_space").Observe(freeSpaceForStorj)
-
-	return freeSpaceForStorj, nil
-}
-
 // DiskSpace returns consolidated disk space state info.
 func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -161,7 +127,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		available = storageStatus.DiskFree
 	}
 
-	return DiskSpace{
+	diskSpace := DiskSpace{
 		Total:         storageStatus.DiskTotal,
 		Allocated:     allocated,
 		UsedForPieces: usedForPieces + hashSpaceUsage.UsedForPieces,
@@ -170,5 +136,12 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		Available:     available,
 		Overused:      overused,
 		Used:          usedForPieces + usedForTrash + hashSpaceUsage.UsedTotal,
-	}, nil
+	}
+
+	mon.IntVal("allocated_space").Observe(diskSpace.Allocated)
+	mon.IntVal("used_space").Observe(diskSpace.Used)
+	mon.IntVal("available_space").Observe(diskSpace.Available)
+	mon.IntVal("reserved_space").Observe(diskSpace.Reserved)
+
+	return diskSpace, nil
 }
