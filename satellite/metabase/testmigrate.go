@@ -71,6 +71,8 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 						retention_mode INT2,
 						retain_until   TIMESTAMPTZ,
 
+						checksum BYTEA,
+
 						PRIMARY KEY (project_id, bucket_name, object_key, version)
 					);
 
@@ -105,6 +107,8 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 					COMMENT ON COLUMN objects.retention_mode is 'retention_mode specifies an object version''s retention mode: NULL/0=none, and 1=compliance.';
 					COMMENT ON COLUMN objects.retain_until   is 'retain_until specifies when an object version''s retention period ends.';
 
+					COMMENT ON COLUMN objects.checksum is 'checksum is the serialized set of checksum properties (checksum algorithm, checksum type, and encrypted checksum value) for an object.';
+
 					CREATE TABLE segments (
 						stream_id  BYTEA NOT NULL,
 						position   INT8  NOT NULL,
@@ -128,6 +132,8 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 
 						placement integer,
 						encrypted_etag BYTEA default NULL,
+
+						encrypted_checksum BYTEA,
 
 						PRIMARY KEY (stream_id, position)
 					);
@@ -155,6 +161,8 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 
 					COMMENT ON COLUMN segments.placement is 'placement is the country or region restriction for the segment data. See storj.PlacementConstraint for the values.';
 					COMMENT ON COLUMN segments.encrypted_etag is 'encrypted_etag is etag that has been encrypted.';
+
+					COMMENT ON COLUMN segments.encrypted_checksum IS 'encrypted_checksum is the encrypted checksum of the object part that the segment belongs to.';
 
 					CREATE SEQUENCE node_alias_seq
 						INCREMENT BY 1

@@ -696,6 +696,18 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC)`,
 				},
 			},
+			{
+				DB:          &db,
+				Description: "add checksum column to objects table and encrypted_checksum to segments table",
+				Version:     28,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS checksum BYTEA`,
+					`ALTER TABLE segments ADD COLUMN IF NOT EXISTS encrypted_checksum BYTEA`,
+
+					`COMMENT ON COLUMN objects.checksum            IS 'checksum is the serialized set of checksum properties (checksum algorithm, checksum type, and encrypted checksum value) for an object.';`,
+					`COMMENT ON COLUMN segments.encrypted_checksum IS 'encrypted_checksum is the encrypted checksum value of the object part that the segment belongs to.';`,
+				},
+			},
 		},
 	}
 }
@@ -779,6 +791,15 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				Version:     27,
 				Action: migrate.SQL{
 					`CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC)`,
+				},
+			},
+			{
+				DB:          &db,
+				Description: "add checksum column to objects table and encrypted_checksum to segments table",
+				Version:     28,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS checksum BYTES(MAX)`,
+					`ALTER TABLE segments ADD COLUMN IF NOT EXISTS encrypted_checksum BYTES(MAX)`,
 				},
 			},
 		},
