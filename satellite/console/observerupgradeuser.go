@@ -87,13 +87,18 @@ func (o *UpgradeUserObserver) Process(ctx context.Context, transaction billing.T
 		}
 	}
 
-	now := o.nowFn()
+	var upgradeTime *time.Time
+	if user.UpgradeTime == nil {
+		now := o.nowFn()
+		upgradeTime = &now
+	}
+
 	err = o.consoleDB.Users().UpdatePaidTier(ctx, user.ID, true,
 		o.usageLimitsConfig.Bandwidth.Paid,
 		o.usageLimitsConfig.Storage.Paid,
 		o.usageLimitsConfig.Segment.Paid,
 		o.usageLimitsConfig.Project.Paid,
-		&now,
+		upgradeTime,
 	)
 	if err != nil {
 		return err

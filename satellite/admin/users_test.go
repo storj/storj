@@ -357,6 +357,7 @@ func TestUpdateUser(t *testing.T) {
 		require.Equal(t, newKind.Info(), u.Kind)
 		require.NotNil(t, u.UpgradeTime)
 		require.WithinDuration(t, timeStamp, *u.UpgradeTime, time.Second)
+		firstUpgradeTime := *u.UpgradeTime // Save the original upgrade time for later verification.
 		require.Equal(t, newStatus.Info(), u.Status)
 		// since we provided custom limits, paid kind defaults are ignored
 		require.Equal(t, projectLimit, u.ProjectLimit)
@@ -380,6 +381,9 @@ func TestUpdateUser(t *testing.T) {
 		require.Equal(t, usageLimits.Storage.Nfr.Int64(), u.StorageLimit)
 		require.Equal(t, usageLimits.Bandwidth.Nfr.Int64(), u.BandwidthLimit)
 		require.Equal(t, usageLimits.Segment.Nfr, u.SegmentLimit)
+		// Verify UpgradeTime is preserved when changing to NFR.
+		require.NotNil(t, u.UpgradeTime, "UpgradeTime should still be set when changing to NFR")
+		require.WithinDuration(t, firstUpgradeTime, *u.UpgradeTime, time.Second, "UpgradeTime should NOT change when moving to NFR")
 
 		p, err = sat.DB.Console().Projects().Get(ctx, p.ID)
 		require.NoError(t, err)
@@ -395,6 +399,9 @@ func TestUpdateUser(t *testing.T) {
 		require.Equal(t, usageLimits.Storage.Paid.Int64(), u.StorageLimit)
 		require.Equal(t, usageLimits.Bandwidth.Paid.Int64(), u.BandwidthLimit)
 		require.Equal(t, usageLimits.Segment.Paid, u.SegmentLimit)
+		// When changing back from NFR to PaidUser,the UpgradeTime should NOT be overwritten.
+		require.NotNil(t, u.UpgradeTime, "UpgradeTime should still be set when changing back to PaidUser")
+		require.WithinDuration(t, firstUpgradeTime, *u.UpgradeTime, time.Second, "UpgradeTime should NOT be overwritten when changing back to PaidUser from NFR")
 
 		// trial expiration
 		require.Nil(t, u.TrialExpiration)

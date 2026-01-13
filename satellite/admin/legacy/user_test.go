@@ -401,6 +401,8 @@ func TestUserKindUpdate(t *testing.T) {
 		checkProjectLimits(console.FreeUser)
 
 		t.Run("OK", func(t *testing.T) {
+			var firstUpgradeTime *time.Time
+
 			updateKind := func(kind console.UserKind) {
 				link := fmt.Sprintf("http://"+address.String()+"/legacy/api/users/%s/kind/%d", user.Email, kind)
 				_ = assertReq(ctx, t, link, http.MethodPut, "", http.StatusOK, "", sat.Config.Console.AuthToken)
@@ -431,6 +433,19 @@ func TestUserKindUpdate(t *testing.T) {
 				require.Equal(t, segment, updatedUser.ProjectSegmentLimit)
 				if kind == console.PaidUser {
 					require.NotNil(t, updatedUser.UpgradeTime)
+					if firstUpgradeTime == nil {
+						// Save the first upgrade time.
+						firstUpgradeTime = updatedUser.UpgradeTime
+					} else {
+						// Verify UpgradeTime is preserved when changing back to PaidUser.
+						require.WithinDuration(t, *firstUpgradeTime, *updatedUser.UpgradeTime, time.Second,
+							"UpgradeTime should NOT be overwritten when changing back to PaidUser")
+					}
+				} else if firstUpgradeTime != nil {
+					// Verify UpgradeTime is preserved when changing to other kinds.
+					require.NotNil(t, updatedUser.UpgradeTime, "UpgradeTime should still be set")
+					require.WithinDuration(t, *firstUpgradeTime, *updatedUser.UpgradeTime, time.Second,
+						"UpgradeTime should NOT change when moving to %s", kind)
 				}
 
 				checkProjectLimits(kind)

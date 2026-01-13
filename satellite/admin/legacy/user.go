@@ -472,7 +472,7 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		updateRequest.Kind = input.UserKind
-		if *input.UserKind == console.PaidUser {
+		if *input.UserKind == console.PaidUser && user.UpgradeTime == nil {
 			now := server.nowFn()
 			updateRequest.UpgradeTime = &now
 		}
@@ -605,8 +605,10 @@ func (server *Server) updateUserKind(w http.ResponseWriter, r *http.Request) {
 	bandwidthLimit := usageLimitsConfig.Bandwidth.Free
 	segmentLimit := usageLimitsConfig.Segment.Free
 	if kind == console.PaidUser {
-		now := server.nowFn()
-		updateRequest.UpgradeTime = &now
+		if user.UpgradeTime == nil {
+			now := server.nowFn()
+			updateRequest.UpgradeTime = &now
+		}
 		projectLimit = usageLimitsConfig.Project.Paid
 		storageLimit = usageLimitsConfig.Storage.Paid
 		bandwidthLimit = usageLimitsConfig.Bandwidth.Paid

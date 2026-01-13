@@ -795,10 +795,8 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 	return card, nil
 }
 
+// upgradeToPaidTier puts the user into the paid tier and converts projects to upgraded limits.
 func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err error) {
-	// put this user into the paid tier and convert projects to upgraded limits.
-	now := payment.service.nowFn()
-
 	freeze, err := payment.service.accountFreezeService.Get(ctx, user.ID, TrialExpirationFreeze)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -812,12 +810,18 @@ func (payment Payments) upgradeToPaidTier(ctx context.Context, user *User) (err 
 		}
 	}
 
+	var upgradeTime *time.Time
+	if user.UpgradeTime == nil {
+		now := payment.service.nowFn()
+		upgradeTime = &now
+	}
+
 	err = payment.service.store.Users().UpdatePaidTier(ctx, user.ID, true,
 		payment.service.config.UsageLimits.Bandwidth.Paid,
 		payment.service.config.UsageLimits.Storage.Paid,
 		payment.service.config.UsageLimits.Segment.Paid,
 		payment.service.config.UsageLimits.Project.Paid,
-		&now,
+		upgradeTime,
 	)
 	if err != nil {
 		return Error.Wrap(err)

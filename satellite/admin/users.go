@@ -419,7 +419,9 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 	if request.Kind != nil && *request.Kind != user.Kind {
 		now := s.nowFn()
 		if *request.Kind == console.PaidUser {
-			upgradeTime = &now
+			if user.UpgradeTime == nil {
+				upgradeTime = &now
+			}
 		}
 		if *request.Kind == console.FreeUser {
 			if request.TrialExpiration == nil {
