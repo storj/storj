@@ -326,7 +326,7 @@ func TestFinishCopyObject(t *testing.T) {
 					NewStreamID: newStreamID,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata, EncryptedETag, and Checksum.EncryptedValue are empty",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -348,7 +348,7 @@ func TestFinishCopyObject(t *testing.T) {
 					},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata, EncryptedETag, or Checksum.EncryptedValue are set",
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{}.Check(ctx, t, db)

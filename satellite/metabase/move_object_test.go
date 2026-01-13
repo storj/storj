@@ -281,7 +281,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataEncryptedKey: testrand.Bytes(265),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata, EncryptedETag, and Checksum.EncryptedValue are empty",
 			}.Check(ctx, t, db)
 
 			now := time.Now()
@@ -603,7 +603,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty",
+				ErrText:  "EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata, EncryptedETag, and Checksum.EncryptedValue are empty",
 			}.Check(ctx, t, db)
 
 			metabasetest.FinishMoveObject{

@@ -9,6 +9,7 @@ import (
 	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -18,22 +19,61 @@ type EncryptedUserData struct {
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
 	EncryptedETag                 []byte
+
+	Checksum Checksum
+}
+
+// Checksum contains an object's checksum properties.
+type Checksum struct {
+	Algorithm      storj.ObjectChecksumAlgorithm
+	IsComposite    bool
+	EncryptedValue []byte
+}
+
+// IsZero returns whether the checksum contains no data.
+func (checksum Checksum) IsZero() bool {
+	return checksum.Algorithm == storj.ObjectChecksumAlgorithmNone && !checksum.IsComposite && checksum.EncryptedValue == nil
 }
 
 // Verify checks whether the fields have been set correctly.
 func (opts EncryptedUserData) Verify() error {
+	if err := opts.VerifyForBegin(); err != nil {
+		return err
+	}
+	if opts.Checksum.Algorithm != storj.ObjectChecksumAlgorithmNone && opts.Checksum.EncryptedValue == nil {
+		return ErrInvalidRequest.New("Checksum.EncryptedValue must be set if Checksum.Algorithm is set")
+	}
+	return nil
+}
+
+// VerifyForBegin verifies the encrypted user data options. Unlike Verify, it does not return
+// an error if ChecksumAlgorithm is set and EncryptedChecksum is unset.
+func (opts EncryptedUserData) VerifyForBegin() error {
 	if (opts.EncryptedMetadataNonce == nil) != (opts.EncryptedMetadataEncryptedKey == nil) {
 		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must always be set together")
 	}
 
-	hasEncryptedData := opts.EncryptedMetadata != nil || opts.EncryptedETag != nil
+	hasEncryptedData := opts.EncryptedMetadata != nil || opts.EncryptedETag != nil || opts.Checksum.EncryptedValue != nil
 	hasEncryptionKey := opts.EncryptedMetadataNonce != nil && opts.EncryptedMetadataEncryptedKey != nil
 
 	switch {
 	case hasEncryptedData && !hasEncryptionKey:
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata or EncryptedETag are set")
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set when EncryptedMetadata, EncryptedETag, or Checksum.EncryptedValue are set")
 	case !hasEncryptedData && hasEncryptionKey:
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata or EncryptedETag are empty")
+		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be empty when EncryptedMetadata, EncryptedETag, and Checksum.EncryptedValue are empty")
+	}
+
+	hasChecksumAlgo := opts.Checksum.Algorithm != storj.ObjectChecksumAlgorithmNone
+	if opts.Checksum.Algorithm < storj.ObjectChecksumAlgorithmNone || opts.Checksum.Algorithm > storj.ObjectChecksumAlgorithmSHA256 {
+		return ErrInvalidRequest.New("Checksum.Algorithm is invalid")
+	}
+	if !hasChecksumAlgo {
+		if opts.Checksum.EncryptedValue != nil {
+			return ErrInvalidRequest.New("Checksum.Algorithm must be set if Checksum.EncryptedValue is set")
+		}
+		if opts.Checksum.IsComposite {
+			return ErrInvalidRequest.New("Checksum.Algorithm must be set if Checksum.IsComposite is set")
+		}
 	}
 
 	return nil

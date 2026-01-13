@@ -42,7 +42,7 @@ func (opts *BeginObjectNextVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should be metabase.NextVersion")
 	}
 
-	err := opts.EncryptedUserData.Verify()
+	err := opts.EncryptedUserData.VerifyForBegin()
 	if err != nil {
 		return err
 	}
@@ -123,19 +123,22 @@ func (p *PostgresAdapter) beginObjectNextVersion(ctx context.Context, opts Begin
 				expires_at, encryption,
 				zombie_deletion_deadline,
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				retention_mode, retain_until
 			) VALUES (
 				$1, $2, $3, `+p.generateVersion()+`,
 				$4, $5, $6,
 				$7,
 				$8, $9, $10, $11,
-				$12, $13
+				$12,
+				$13, $14
 			)
 			RETURNING version, created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, opts.Encryption,
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
+		opts.Checksum,
 		lockModeWrapper{
 			retentionMode: &opts.Retention.Mode,
 			legalHold:     &opts.LegalHold,
@@ -153,6 +156,7 @@ func (s *SpannerAdapter) beginObjectNextVersion(ctx context.Context, opts BeginO
 					created_at,expires_at, encryption,
 					zombie_deletion_deadline,
 					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
+					checksum,
 					retention_mode, retain_until
 				) VALUES (
 					@project_id, @bucket_name, @object_key,
@@ -160,6 +164,7 @@ func (s *SpannerAdapter) beginObjectNextVersion(ctx context.Context, opts BeginO
 					@stream_id, @created_at, @expires_at,
 					@encryption, @zombie_deletion_deadline,
 					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
+					@checksum,
 					@retention_mode, @retain_until
 				)
 				THEN RETURN version`,
@@ -176,6 +181,7 @@ func (s *SpannerAdapter) beginObjectNextVersion(ctx context.Context, opts BeginO
 				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
 				"encrypted_etag":                   opts.EncryptedETag,
+				"checksum":                         opts.Checksum,
 				"retention_mode": lockModeWrapper{
 					retentionMode: &opts.Retention.Mode,
 					legalHold:     &opts.LegalHold,
@@ -227,7 +233,7 @@ func (opts *BeginObjectExactVersion) Verify() error {
 		return ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
-	err := opts.EncryptedUserData.Verify()
+	err := opts.EncryptedUserData.VerifyForBegin()
 	if err != nil {
 		return err
 	}
@@ -313,19 +319,22 @@ func (p *PostgresAdapter) beginObjectExactVersion(ctx context.Context, opts Begi
 			expires_at, encryption,
 			zombie_deletion_deadline,
 			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
 			retention_mode, retain_until
 		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7,
 			$8,
 			$9, $10, $11, $12,
-			$13, $14
+			$13,
+			$14, $15
 		)
 		RETURNING created_at
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, opts.Encryption,
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey, opts.EncryptedETag,
+		opts.Checksum,
 		lockModeWrapper{
 			retentionMode: &opts.Retention.Mode,
 			legalHold:     &opts.LegalHold,
@@ -358,6 +367,7 @@ func (s *SpannerAdapter) beginObjectExactVersion(ctx context.Context, opts Begin
 			"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
 			"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
 			"encrypted_etag":                   opts.EncryptedETag,
+			"checksum":                         opts.Checksum,
 			"retention_mode": lockModeWrapper{
 				retentionMode: &opts.Retention.Mode,
 				legalHold:     &opts.LegalHold,

@@ -176,6 +176,7 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 			created_at, expires_at,
 			status, segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
 			zombie_deletion_deadline,
@@ -206,6 +207,7 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 			&obj.EncryptedMetadata,
 			&obj.EncryptedMetadataEncryptedKey,
 			&obj.EncryptedETag,
+			&obj.Checksum,
 
 			&obj.TotalPlainSize,
 			&obj.TotalEncryptedSize,
@@ -245,7 +247,7 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 		"project_id", "bucket_name", "object_key", "version", "stream_id",
 		"created_at", "expires_at",
 		"status", "segment_count",
-		"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key", "encrypted_etag",
+		"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key", "encrypted_etag", "checksum",
 		"total_plain_size", "total_encrypted_size", "fixed_segment_size",
 		"encryption", "zombie_deletion_deadline", "retention_mode", "retain_until",
 	}), func(row *spanner.Row, obj *RawObject) error {
@@ -266,6 +268,7 @@ func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObjec
 			&obj.EncryptedMetadata,
 			&obj.EncryptedMetadataEncryptedKey,
 			&obj.EncryptedETag,
+			&obj.Checksum,
 
 			&obj.TotalPlainSize,
 			&obj.TotalEncryptedSize,
