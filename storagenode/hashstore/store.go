@@ -303,7 +303,7 @@ func NewStore(
 					s.log.Warn("reconciled log with invalid records",
 						zap.Uint64("id", lf.id),
 						zap.String("path", lf.path),
-						zap.Int("invalid count", len(invalid)),
+						zap.Int("invalid_count", len(invalid)),
 					)
 					s.amnesty(ctx, invalid)
 				}
