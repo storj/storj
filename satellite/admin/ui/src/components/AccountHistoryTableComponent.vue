@@ -42,6 +42,9 @@
                     <td :colspan="columns.length">
                         <v-alert class="mx-n3" rounded="0">
                             <template #title>Changes Details</template>
+                            <p v-if="item.reason">
+                                <span class="text-high-emphasis">Reason:</span> {{ item.reason }}
+                            </p>
                             <p v-for="(change, key) in item.changes" :key="key">
                                 <span class="text-high-emphasis">{{ key }}:</span> <span class="text-decoration-line-through">{{ castChange(change)[0] }}</span> &rarr; {{ castChange(change)[1] }}
                             </p>
@@ -77,6 +80,7 @@
                     {{ dateFns.format(item.timestamp, 'fullDateTime') }}
                 </span>
             </template>
+
         </v-data-table>
     </v-card>
 </template>
