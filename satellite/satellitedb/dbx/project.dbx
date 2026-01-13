@@ -315,6 +315,15 @@ read all (
 
 read all (
 	select project_invitation
+	join project_invitation.project_id = project.id
+	join project_invitation.inviter_id = user.id
+	where project.status = ?
+	where project_invitation.email = ?
+	where user.tenant_id = ?
+)
+
+read all (
+	select project_invitation
 	where project_invitation.project_id = ?
 )
 

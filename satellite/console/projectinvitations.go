@@ -24,6 +24,8 @@ type ProjectInvitations interface {
 	GetByEmail(ctx context.Context, email string) ([]ProjectInvitation, error)
 	// GetForActiveProjectsByEmail returns all project member invitations associated with active projects for the specified email address.
 	GetForActiveProjectsByEmail(ctx context.Context, email string) ([]ProjectInvitation, error)
+	// GetForActiveProjectsByEmailAndUserTenantID returns all project member invitations associated with active projects for the specified email address and user tenant ID.
+	GetForActiveProjectsByEmailAndUserTenantID(ctx context.Context, email string, tenantID *string) ([]ProjectInvitation, error)
 	// Delete removes a project member invitation from the database.
 	Delete(ctx context.Context, projectID uuid.UUID, email string) error
 }

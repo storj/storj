@@ -20925,6 +20925,64 @@ func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitatio
 
 }
 
+func (obj *pgxImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitation_Email_And_User_TenantId(ctx context.Context,
+	project_status Project_Status_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	user_tenant_id User_TenantId_Field) (
+	rows []*ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_invitation_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_1.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 	project_invitation_project_id ProjectInvitation_ProjectId_Field) (
 	rows []*ProjectInvitation, err error) {
@@ -32152,6 +32210,64 @@ func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_Project
 		__values = append(__values, project_status.value())
 	}
 	__values = append(__values, project_invitation_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitation_Email_And_User_TenantId(ctx context.Context,
+	project_status Project_Status_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	user_tenant_id User_TenantId_Field) (
+	rows []*ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_invitation_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_1.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -43754,6 +43870,64 @@ func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvit
 
 }
 
+func (obj *spannerImpl) All_ProjectInvitation_By_Project_Status_And_ProjectInvitation_Email_And_User_TenantId(ctx context.Context,
+	project_status Project_Status_Field,
+	project_invitation_email ProjectInvitation_Email_Field,
+	user_tenant_id User_TenantId_Field) (
+	rows []*ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
+	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_invitations.project_id, project_invitations.email, project_invitations.inviter_id, project_invitations.created_at FROM project_invitations  JOIN projects ON project_invitations.project_id = projects.id  JOIN users ON project_invitations.inviter_id = users.id WHERE "), __cond_0, __sqlbundle_Literal(" AND project_invitations.email = ? AND "), __cond_1}}
+
+	var __values []any
+	if !project_status.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_status.value())
+	}
+	__values = append(__values, project_invitation_email.value())
+	if !user_tenant_id.isnull() {
+		__cond_1.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*ProjectInvitation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				project_invitation := &ProjectInvitation{}
+				err = __rows.Scan(&project_invitation.ProjectId, &project_invitation.Email, &project_invitation.InviterId, &project_invitation.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, project_invitation)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *spannerImpl) All_ProjectInvitation_By_ProjectId(ctx context.Context,
 	project_invitation_project_id ProjectInvitation_ProjectId_Field) (
 	rows []*ProjectInvitation, err error) {
@@ -49395,6 +49569,12 @@ type Methods interface {
 	All_ProjectInvitation_By_Project_Status_And_ProjectInvitation_Email(ctx context.Context,
 		project_status Project_Status_Field,
 		project_invitation_email ProjectInvitation_Email_Field) (
+		rows []*ProjectInvitation, err error)
+
+	All_ProjectInvitation_By_Project_Status_And_ProjectInvitation_Email_And_User_TenantId(ctx context.Context,
+		project_status Project_Status_Field,
+		project_invitation_email ProjectInvitation_Email_Field,
+		user_tenant_id User_TenantId_Field) (
 		rows []*ProjectInvitation, err error)
 
 	All_ProjectMember_By_MemberId(ctx context.Context,

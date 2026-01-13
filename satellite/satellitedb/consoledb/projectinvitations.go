@@ -97,6 +97,18 @@ func (invites *projectInvitations) GetForActiveProjectsByEmail(ctx context.Conte
 	return projectInvitationSliceFromDBX(dbxInvites)
 }
 
+// GetForActiveProjectsByEmailAndUserTenantID returns all project member invitations associated with active projects for the specified email address and user tenant ID.
+func (invites *projectInvitations) GetForActiveProjectsByEmailAndUserTenantID(ctx context.Context, email string, tenantID *string) (_ []console.ProjectInvitation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxInvites, err := invites.db.All_ProjectInvitation_By_Project_Status_And_ProjectInvitation_Email_And_User_TenantId(ctx, dbx.Project_Status(int(console.ProjectActive)), dbx.ProjectInvitation_Email(normalizeEmail(email)), dbx.User_TenantId_Raw(tenantID))
+	if err != nil {
+		return nil, err
+	}
+
+	return projectInvitationSliceFromDBX(dbxInvites)
+}
+
 // Delete removes a project member invitation from the database.
 func (invites *projectInvitations) Delete(ctx context.Context, projectID uuid.UUID, email string) (err error) {
 	defer mon.Task()(&ctx)(&err)

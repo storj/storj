@@ -7092,7 +7092,7 @@ func (s *Service) GetUserProjectInvitations(ctx context.Context) (_ []ProjectInv
 		return nil, Error.Wrap(err)
 	}
 
-	invites, err := s.store.ProjectInvitations().GetForActiveProjectsByEmail(ctx, user.Email)
+	invites, err := s.store.ProjectInvitations().GetForActiveProjectsByEmailAndUserTenantID(ctx, user.Email, user.TenantID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

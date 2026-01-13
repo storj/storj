@@ -136,6 +136,138 @@ func TestProjectInvitations(t *testing.T) {
 			require.ElementsMatch(t, []console.ProjectInvitation{*inviteToActiveProj}, invites)
 		})
 
+		t.Run("get invitations by email and inviter tenant ID for active projects", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			usersDB := db.Console().Users()
+
+			tenant1ProjectID := testrand.UUID()
+			invitedEmail := "invitee@mail.test"
+			tenant1ID := "tenant-1"
+			tenant2ID := "tenant-2"
+
+			// Create a project for tenant-1 invitations.
+			_, err = projectsDB.Insert(ctx, &console.Project{ID: tenant1ProjectID})
+			require.NoError(t, err)
+
+			// Create an inviter user in tenant-1.
+			tenant1Inviter, err := usersDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        "inviter1@mail.test",
+				PasswordHash: testrand.Bytes(8),
+				TenantID:     &tenant1ID,
+			})
+			require.NoError(t, err)
+
+			// Create an inviter user in tenant-2.
+			tenant2Inviter, err := usersDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        "inviter2@mail.test",
+				PasswordHash: testrand.Bytes(8),
+				TenantID:     &tenant2ID,
+			})
+			require.NoError(t, err)
+
+			// Create a project invitation sent by tenant-1 inviter.
+			tenant1Invite := &console.ProjectInvitation{
+				ProjectID: tenant1ProjectID,
+				Email:     invitedEmail,
+				InviterID: &tenant1Inviter.ID,
+			}
+			tenant1Invite, err = invitesDB.Upsert(ctx, tenant1Invite)
+			require.NoError(t, err)
+
+			// Verify that GetForActiveProjectsByEmailAndUserTenantID returns the invitation
+			// only when called with the inviter's tenant ID.
+			invites, err := invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, &tenant1ID)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			require.Equal(t, tenant1Invite.ProjectID, invites[0].ProjectID)
+			require.Equal(t, tenant1Invite.Email, invites[0].Email)
+
+			// tenant-2 should NOT see the invitation because the inviter is in tenant-1.
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, &tenant2ID)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+
+			// A non-existent tenant should return no invitations.
+			nonExistentTenant := "non-existent-tenant"
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, &nonExistentTenant)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+
+			// nil tenant ID should return no invitations since the inviter has a tenant ID.
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, nil)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+
+			// Create a project and invitation for tenant-2.
+			tenant2ProjectID := testrand.UUID()
+			_, err = projectsDB.Insert(ctx, &console.Project{ID: tenant2ProjectID})
+			require.NoError(t, err)
+
+			tenant2Invite := &console.ProjectInvitation{
+				ProjectID: tenant2ProjectID,
+				Email:     invitedEmail,
+				InviterID: &tenant2Inviter.ID,
+			}
+			tenant2Invite, err = invitesDB.Upsert(ctx, tenant2Invite)
+			require.NoError(t, err)
+
+			// Now tenant-2 should see only their invitation.
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, &tenant2ID)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			require.Equal(t, tenant2Invite.ProjectID, invites[0].ProjectID)
+
+			// tenant-1 should still only see their invitation.
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, &tenant1ID)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			require.Equal(t, tenant1Invite.ProjectID, invites[0].ProjectID)
+
+			// Create an inviter user without tenant ID.
+			noTenantInviter, err := usersDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        "notenant-inviter@mail.test",
+				PasswordHash: testrand.Bytes(8),
+				TenantID:     nil,
+			})
+			require.NoError(t, err)
+
+			noTenantProjectID := testrand.UUID()
+			_, err = projectsDB.Insert(ctx, &console.Project{ID: noTenantProjectID})
+			require.NoError(t, err)
+
+			noTenantInvite := &console.ProjectInvitation{
+				ProjectID: noTenantProjectID,
+				Email:     invitedEmail,
+				InviterID: &noTenantInviter.ID,
+			}
+			noTenantInvite, err = invitesDB.Upsert(ctx, noTenantInvite)
+			require.NoError(t, err)
+
+			// nil tenant should find the invite from inviter without tenant.
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, nil)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			require.Equal(t, noTenantInvite.ProjectID, invites[0].ProjectID)
+
+			// tenant-1 should not see the invite from no-tenant inviter.
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, &tenant1ID)
+			require.NoError(t, err)
+			require.Len(t, invites, 1)
+			require.Equal(t, tenant1Invite.ProjectID, invites[0].ProjectID)
+
+			// Verify disabled project filtering still works with tenant ID.
+			err = projectsDB.UpdateStatus(ctx, tenant1ProjectID, console.ProjectDisabled)
+			require.NoError(t, err)
+
+			invites, err = invitesDB.GetForActiveProjectsByEmailAndUserTenantID(ctx, invitedEmail, &tenant1ID)
+			require.NoError(t, err)
+			require.Empty(t, invites)
+		})
+
 		t.Run("get invitations by project ID", func(t *testing.T) {
 			ctx := testcontext.New(t)
 
