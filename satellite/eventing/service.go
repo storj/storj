@@ -91,7 +91,7 @@ func (s *Service) Run(ctx context.Context) (err error) {
 // ProcessRecord processes a single change stream record.
 func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) (err error) {
 	// Replace private project ID with public project ID in the record
-	privateID, err := s.ReplaceProjectID(ctx, record)
+	projectID, projectPublicID, err := s.ReplaceProjectID(ctx, record)
 	if err != nil {
 		s.log.Error("Failed to replace project ID in record", zap.Error(err))
 		return err
@@ -101,9 +101,9 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 	s.log.Debug("Received change record", zap.Any("record", record))
 
 	// Check if project is enabled for bucket eventing
-	if !s.enabled.Projects.Enabled(privateID) {
+	if !s.enabled.Projects.Enabled(projectID) {
 		s.log.Debug("Project not enabled for bucket eventing, skipping",
-			zap.Stringer("project_id", privateID)) // TODO: switch to public ID once we have it here
+			zap.Stringer("project_public_id", projectPublicID))
 		return nil
 	}
 
@@ -130,16 +130,15 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 		return nil
 	}
 
-	projectPublicID := event.Records[0].S3.Bucket.OwnerIdentity.PrincipalId
 	bucketName := event.Records[0].S3.Bucket.Name
 	eventName := event.Records[0].EventName
 	objectKey := []byte(event.Records[0].S3.Object.Key)
 
 	// Get bucket notification configuration
-	config := s.getConfigWithRetry(ctx, privateID, projectPublicID, bucketName)
+	config := s.getConfigWithRetry(ctx, projectID, projectPublicID, bucketName)
 	if config == nil {
 		s.log.Warn("No notification configuration exists for bucket",
-			zap.String("project_public_id", projectPublicID),
+			zap.Stringer("project_public_id", projectPublicID),
 			zap.String("bucket_name", bucketName))
 		return nil
 	}
@@ -163,19 +162,19 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 
 	// Get the publisher for the bucket
 	publisher, err := s.GetPublisher(ctx, metabase.BucketLocation{
-		ProjectID:  privateID,
+		ProjectID:  projectID,
 		BucketName: metabase.BucketName(bucketName),
 	}, config.TopicName)
 	if err != nil {
 		ek.Event("failed_to_get_publisher",
 			eventkit.String("table", record.TableName),
-			eventkit.String("project_public_id", projectPublicID),
+			eventkit.String("project_public_id", projectPublicID.String()),
 			eventkit.String("bucket", bucketName),
 			eventkit.String("mod_type", record.ModType),
 			eventkit.String("error", err.Error()))
 
 		s.log.Error("Failed to get publisher for bucket",
-			zap.String("project_public_id", projectPublicID),
+			zap.Stringer("project_public_id", projectPublicID),
 			zap.String("bucket_name", bucketName),
 			zap.Error(err))
 		return err
@@ -195,7 +194,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 	if err != nil {
 		ek.Event("publish_failed",
 			eventkit.String("transaction_tag", record.TransactionTag),
-			eventkit.String("project_public_id", projectPublicID),
+			eventkit.String("project_public_id", projectPublicID.String()),
 			eventkit.String("bucket", bucketName),
 			eventkit.String("event_name", eventName),
 			eventkit.Int64("message_size_bytes", messageSize),
@@ -203,7 +202,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			eventkit.String("error", err.Error()))
 
 		s.log.Error("Failed to publish event",
-			zap.String("project_public_id", projectPublicID),
+			zap.Stringer("project_public_id", projectPublicID),
 			zap.String("bucket_name", bucketName),
 			zap.Error(err))
 		return err
@@ -212,7 +211,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 	// Track detailed success with eventkit
 	ek.Event("publish_success",
 		eventkit.String("transaction_tag", record.TransactionTag),
-		eventkit.String("project_public_id", projectPublicID),
+		eventkit.String("project_public_id", projectPublicID.String()),
 		eventkit.String("bucket", bucketName),
 		eventkit.String("event_name", eventName),
 		eventkit.Int64("message_size_bytes", messageSize),
@@ -224,39 +223,40 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 }
 
 // ReplaceProjectID replaces the private project ID in the record with the corresponding public project ID.
-func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.DataChangeRecord) (replaced uuid.UUID, err error) {
+// Returns both the private and public project IDs.
+func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.DataChangeRecord) (privateID, publicID uuid.UUID, err error) {
 	for _, mod := range record.Mods {
 		keys, err := parseNullJSONMap(mod.Keys, "keys")
 		if err != nil {
-			return uuid.UUID{}, errs.New("failed to parse keys: %w", err)
+			return uuid.UUID{}, uuid.UUID{}, errs.New("failed to parse keys: %w", err)
 		}
 
 		if projectID, ok := keys["project_id"]; ok {
 			projectIDString, ok := projectID.(string)
 			if !ok {
-				return uuid.UUID{}, errs.New("project_id is not a string")
+				return uuid.UUID{}, uuid.UUID{}, errs.New("project_id is not a string")
 			}
 
 			projectIDBytes, err := base64.StdEncoding.DecodeString(projectIDString)
 			if err != nil {
-				return uuid.UUID{}, errs.New("invalid base64 project_id: %w", err)
+				return uuid.UUID{}, uuid.UUID{}, errs.New("invalid base64 project_id: %w", err)
 			}
 
 			// TODO: what if mods span multiple projects?
-			replaced, err = uuid.FromBytes(projectIDBytes)
+			privateID, err = uuid.FromBytes(projectIDBytes)
 			if err != nil {
-				return uuid.UUID{}, errs.New("invalid project_id uuid: %w", err)
+				return uuid.UUID{}, uuid.UUID{}, errs.New("invalid project_id uuid: %w", err)
 			}
 
-			publicID, err := s.projects.GetPublicID(ctx, replaced)
+			publicID, err = s.projects.GetPublicID(ctx, privateID)
 			if err != nil {
-				return uuid.UUID{}, errs.New("failed to get public project ID: %w", err)
+				return uuid.UUID{}, uuid.UUID{}, errs.New("failed to get public project ID: %w", err)
 			}
 
 			keys["project_id"] = base64.StdEncoding.EncodeToString(publicID.Bytes())
 		}
 	}
-	return replaced, nil
+	return privateID, publicID, nil
 }
 
 // getConfigWithRetry retrieves bucket notification configuration with
@@ -265,13 +265,13 @@ func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.Data
 // configuration is successfully retrieved (may be nil, which is valid).
 // Emits bucket_eventing_config_lookup_critical event when reaching max delay
 // to trigger PagerDuty alerting for prolonged infrastructure failures.
-func (s *Service) getConfigWithRetry(ctx context.Context, privateID uuid.UUID, projectPublicID, bucketName string) *buckets.NotificationConfig {
+func (s *Service) getConfigWithRetry(ctx context.Context, projectID, projectPublicID uuid.UUID, bucketName string) *buckets.NotificationConfig {
 	retryDelays := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second}
 	maxDelay := 8 * time.Second
 	attempt := 0
 
 	for {
-		config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), privateID)
+		config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), projectID)
 		if err == nil {
 			// Success - config retrieved (may be nil, which is valid)
 			return config
@@ -291,7 +291,7 @@ func (s *Service) getConfigWithRetry(ctx context.Context, privateID uuid.UUID, p
 			// Emit critical event when reaching max delay to trigger alerting
 			if attempt == len(retryDelays) {
 				ek.Event("bucket_eventing_config_lookup_critical",
-					eventkit.String("project_public_id", projectPublicID),
+					eventkit.String("project_public_id", projectPublicID.String()),
 					eventkit.String("bucket", bucketName),
 					eventkit.Int64("attempt", int64(attempt+1)),
 					eventkit.String("error", err.Error()))
@@ -299,7 +299,7 @@ func (s *Service) getConfigWithRetry(ctx context.Context, privateID uuid.UUID, p
 		}
 
 		s.log.Warn("Failed to get bucket notification config, retrying",
-			zap.String("project_public_id", projectPublicID),
+			zap.Stringer("project_public_id", projectPublicID),
 			zap.String("bucket_name", bucketName),
 			zap.Int("attempt", attempt+1),
 			zap.Duration("retry_after", delay),
