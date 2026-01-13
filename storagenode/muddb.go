@@ -29,6 +29,7 @@ func DBModule(ball *mud.Ball) {
 		return db.Bandwidth().(*storagenodedb.BandwidthDB)
 	})
 	mud.RegisterInterfaceImplementation[bandwidth.Writer, *storagenodedb.BandwidthDB](ball)
+	mud.Tag[bandwidth.Writer](ball, mud.Nullable{})
 	mud.RegisterInterfaceImplementation[bandwidth.DB, *storagenodedb.BandwidthDB](ball)
 	mud.View(ball, DB.Orders)
 	mud.View(ball, DB.Payout)

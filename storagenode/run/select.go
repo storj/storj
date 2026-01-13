@@ -9,6 +9,7 @@ import (
 	"storj.io/storj/shared/modular/tracing"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -26,6 +27,7 @@ func (a *Select) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	mud.ReplaceDependency[piecestore.PieceBackend, *piecestore.HashStoreBackend](ball)
 	mud.DisableImplementation[monitor.DiskVerification](ball)
 	mud.Tag[*retain.Service, mud.Optional](ball, mud.Optional{})
+	mud.Tag[bandwidth.Writer, mud.Optional](ball, mud.Optional{})
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),
 		mud.Select[*profiler.Profiler](ball),
