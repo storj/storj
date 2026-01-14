@@ -3,12 +3,15 @@
 package hashstore
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 	"time"
 
 	"github.com/zeebo/assert"
 	"github.com/zeebo/mwc"
+
+	"storj.io/storj/storagenode/hashstore/platform"
 )
 
 func TestRecordTailFromLog(t *testing.T) {
@@ -58,7 +61,7 @@ func testRecordTailFromLog(t *testing.T, cfg Config) {
 		}
 		pushed.Sort()
 
-		logTail, err := recordTailFromLog(ctx, lf, func(k Key, b []byte) bool { return true })
+		logTail, err := recordTailFromLog(ctx, lf, alwaysValid)
 		assert.NoError(t, err)
 		_, tails, err := OpenTable(ctx, s.tbl.Handle(), cfg)
 		assert.NoError(t, err)
@@ -82,6 +85,25 @@ func testRecordTailFromLog(t *testing.T, cfg Config) {
 		defer temporarily(&test_fsck_errorOnInvalidRecord, false)()
 		run(t, 2*len(RecordTail{}), alwaysAddGarbage)
 	})
+}
+
+func TestRecordTailFromLog_ZeroSize(t *testing.T) {
+	forAllMmapWrapper(t, func(t *testing.T) {
+		testRecordTailFromLog_ZeroSize(t)
+	})
+}
+func testRecordTailFromLog_ZeroSize(t *testing.T) {
+	path := filepath.Join(t.TempDir(), createLogName(0, 0))
+
+	fh, err := platform.CreateFile(path)
+	assert.NoError(t, err)
+	defer func() { assert.NoError(t, fh.Close()) }()
+
+	lf := newLogFile(path, 0, 0, fh, 0)
+
+	tail, err := recordTailFromLog(t.Context(), lf, alwaysValid)
+	assert.NoError(t, err)
+	assert.Nil(t, tail)
 }
 
 func TestReadRecordsFromLogFile(t *testing.T) {
@@ -127,7 +149,7 @@ func testReadRecordsFromLogFile(t *testing.T) {
 		run(t, 10, nil, func(t *testing.T, lf *logFile, keys []Key) {
 			var got []Key
 			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf,
-				func(k Key, b []byte) bool { return true },
+				alwaysValid,
 				func(rec Record) bool { got = append(got, rec.Key); return true }))
 			assert.Equal(t, got, keys)
 		})
@@ -138,7 +160,7 @@ func testReadRecordsFromLogFile(t *testing.T) {
 		run(t, 10, alwaysAddGarbage, func(t *testing.T, lf *logFile, keys []Key) {
 			var got []Key
 			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf,
-				func(k Key, b []byte) bool { return true },
+				alwaysValid,
 				func(rec Record) bool { got = append(got, rec.Key); return true }))
 			assert.Equal(t, got, keys)
 		})
@@ -160,7 +182,7 @@ func testReadRecordsFromLogFile(t *testing.T) {
 		defer temporarily(&test_fsck_errorOnInvalidRecord, true)()
 		run(t, 10, nil, func(t *testing.T, lf *logFile, keys []Key) {
 			assert.NoError(t, readRecordsFromLogFile(t.Context(), lf,
-				func(k Key, b []byte) bool { return false },
+				alwaysInvalid,
 				func(rec Record) bool { panic("should not be called") }))
 		})
 	})
@@ -169,7 +191,7 @@ func testReadRecordsFromLogFile(t *testing.T) {
 		defer temporarily(&test_fsck_errorOnInvalidRecord, true)()
 		run(t, 1, alwaysAddGarbage, func(t *testing.T, lf *logFile, keys []Key) {
 			assert.Error(t, readRecordsFromLogFile(t.Context(), lf,
-				func(k Key, b []byte) bool { return true },
+				alwaysValid,
 				func(rec Record) bool { panic("should not be called") }))
 		})
 	})
@@ -178,6 +200,9 @@ func testReadRecordsFromLogFile(t *testing.T) {
 //
 // shared helpers
 //
+
+func alwaysInvalid(k Key, b []byte) bool { return false }
+func alwaysValid(k Key, b []byte) bool   { return true }
 
 func alwaysAddGarbage(t *testing.T, lf *logFile, i int) {
 	buf := make([]byte, mwc.Intn(10)+1)

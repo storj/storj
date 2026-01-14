@@ -92,6 +92,11 @@ func recordTailFromLog(ctx context.Context, lf *logFile, valid func(Key, []byte)
 	}); err != nil {
 		return nil, err
 	}
+	// if there are no entries, return nil because the hashtbl implementation will not have a tail
+	// entry for logs that have no records.
+	if n == 0 {
+		return nil, nil
+	}
 	rt.Sort()
 	return rt, nil
 }
