@@ -678,6 +678,85 @@ func TestDisableUser(t *testing.T) {
 	})
 }
 
+func TestUpdateUserUpgradeTime(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		timeStamp := time.Now().Truncate(time.Second).UTC()
+		service.TestSetNowFn(func() time.Time { return timeStamp })
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "test@test.test",
+		}, 1)
+		require.NoError(t, err)
+
+		// Test user not found.
+		_, apiErr := service.UpdateUserUpgradeTime(ctx, testrand.UUID(), backoffice.UpdateUserUpgradeTimeRequest{
+			UpgradeTime: &timeStamp,
+			Reason:      "reason",
+		})
+		require.Equal(t, http.StatusNotFound, apiErr.Status)
+		require.Error(t, apiErr.Err)
+
+		// Test setting upgrade time for free user.
+		u, apiErr := service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+			UpgradeTime: &timeStamp,
+			Reason:      "setting upgrade time",
+		})
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, u.UpgradeTime)
+		require.WithinDuration(t, timeStamp, *u.UpgradeTime, time.Second)
+
+		// Verify the upgrade time was persisted.
+		updatedUser, err := sat.DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, updatedUser.UpgradeTime)
+		require.WithinDuration(t, timeStamp, *updatedUser.UpgradeTime, time.Second)
+
+		// Test clearing upgrade time for free user (should succeed).
+		u, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+			UpgradeTime: nil,
+			Reason:      "clearing upgrade time",
+		})
+		require.NoError(t, apiErr.Err)
+		require.Nil(t, u.UpgradeTime)
+
+		// Make user paid.
+		paidKind := console.PaidUser
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+		// Set upgrade time for paid user.
+		u, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+			UpgradeTime: &timeStamp,
+			Reason:      "setting upgrade time for paid user",
+		})
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, u.UpgradeTime)
+
+		// Test clearing upgrade time for paid user (should fail).
+		_, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+			UpgradeTime: nil,
+			Reason:      "trying to clear upgrade time",
+		})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Error(t, apiErr.Err)
+		require.Contains(t, apiErr.Err.Error(), "cannot clear upgrade time for paid user")
+
+		// Test updating upgrade time for paid user (should succeed).
+		newTime := timeStamp.Add(24 * time.Hour)
+		u, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+			UpgradeTime: &newTime,
+			Reason:      "updating upgrade time",
+		})
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, u.UpgradeTime)
+		require.WithinDuration(t, newTime, *u.UpgradeTime, time.Second)
+	})
+}
+
 func TestDisableMFA(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,

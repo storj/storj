@@ -120,6 +120,12 @@ func (r *UpdateUserRequest) parseDefaultPlacement() (**storj.PlacementConstraint
 	return p, nil
 }
 
+// UpdateUserUpgradeTimeRequest represents a request to update a user's upgrade time.
+type UpdateUserUpgradeTimeRequest struct {
+	UpgradeTime *time.Time `json:"upgradeTime"`
+	Reason      string     `json:"reason"` // reason for audit log
+}
+
 // DisableUserRequest represents a request to disable a user.
 type DisableUserRequest struct {
 	SetPendingDeletion bool   `json:"setPendingDeletion"`
@@ -747,6 +753,54 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 	}
 
 	return api.HTTPError{}
+}
+
+// UpdateUserUpgradeTime updates a user's upgrade time.
+func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) (*UserAccount, api.HTTPError) {
+		return nil, api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("user not found")
+		}
+		return apiError(status, err)
+	}
+
+	if user.IsPaid() && request.UpgradeTime == nil {
+		return apiError(http.StatusBadRequest, errs.New("cannot clear upgrade time for paid user"))
+	}
+
+	err = s.consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{
+		UpgradeTime: &request.UpgradeTime,
+	})
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	after := *user
+	after.UpgradeTime = request.UpgradeTime
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:    userID,
+		Action:    "update_user_upgrade_time",
+		ItemType:  changehistory.ItemTypeUser,
+		Reason:    request.Reason,
+		Before:    user,
+		After:     &after,
+		Timestamp: s.nowFn(),
+	})
+
+	return s.getUserAccount(ctx, &after)
 }
 
 func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*UserAccount, api.HTTPError) {

@@ -21,6 +21,7 @@ const (
 	PermAccountChangeName
 	PermAccountChangeKind
 	PermAccountChangeStatus
+	PermAccountChangeUpgradeTime
 	PermAccountDisableMFA
 	PermAccountChangeLimits
 	PermAccountSetDataPlacement
@@ -64,7 +65,7 @@ const (
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime,
 	)
 	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory)
 	RoleCustomerSupport = Authorization(

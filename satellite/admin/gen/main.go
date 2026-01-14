@@ -163,6 +163,21 @@ func main() {
 		},
 	})
 
+	group.Patch("/{userID}/upgrade-time", &apigen.Endpoint{
+		Name:           "Update user's upgrade time",
+		Description:    "Updates user's upgrade time by ID",
+		GoName:         "UpdateUserUpgradeTime",
+		TypeScriptName: "updateUserUpgradeTime",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request:  backoffice.UpdateUserUpgradeTimeRequest{},
+		Response: backoffice.UserAccount{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+		},
+	})
+
 	group.Put("/{userID}", &apigen.Endpoint{
 		Name: "Disable user",
 		Description: "Disables user by ID. User can only be disabled if they have no active projects" +

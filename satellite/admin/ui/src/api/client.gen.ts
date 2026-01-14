@@ -23,6 +23,7 @@ export class AccountFlags {
     updateKind: boolean;
     updateName: boolean;
     updateUserAgent: boolean;
+    updateUpgradeTime: boolean;
     view: boolean;
 }
 
@@ -284,6 +285,11 @@ export class UpdateUserRequest {
     reason: string;
 }
 
+export class UpdateUserUpgradeTimeRequest {
+    upgradeTime: Time | null;
+    reason: string;
+}
+
 export class User {
     id: UUID;
     fullName: string;
@@ -452,6 +458,16 @@ export class UserManagementHttpApiV1 {
 
     public async updateUser(request: UpdateUserRequest, userID: UUID): Promise<UserAccount> {
         const fullPath = `${this.ROOT_PATH}/${userID}`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateUserUpgradeTime(request: UpdateUserUpgradeTimeRequest, userID: UUID): Promise<UserAccount> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/upgrade-time`;
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);

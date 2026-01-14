@@ -58,6 +58,7 @@ type AccountFlags struct {
 	UpdateKind          bool `json:"updateKind"`
 	UpdateName          bool `json:"updateName"`
 	UpdateUserAgent     bool `json:"updateUserAgent"`
+	UpdateUpgradeTime   bool `json:"updateUpgradeTime"`
 	View                bool `json:"view"`
 }
 

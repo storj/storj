@@ -50,6 +50,7 @@ type UserManagementService interface {
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
+	UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError)
 	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) (*UserAccount, api.HTTPError)
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
 	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
@@ -186,6 +187,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/email/{email}", handler.handleGetUserByEmail).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
+	usersRouter.HandleFunc("/{userID}/upgrade-time", handler.handleUpdateUserUpgradeTime).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}", handler.handleDisableUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/mfa", handler.handleToggleMFA).Methods("PUT")
@@ -548,6 +550,52 @@ func (h *UserManagementHandler) handleUpdateUser(w http.ResponseWriter, r *http.
 	}
 }
 
+func (h *UserManagementHandler) handleUpdateUserUpgradeTime(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateUserUpgradeTimeRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 32) {
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateUserUpgradeTime(ctx, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateUserUpgradeTime response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
 func (h *UserManagementHandler) handleDisableUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -674,7 +722,7 @@ func (h *UserManagementHandler) handleToggleMFA(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 32) {
+	if h.auth.IsRejected(w, r, 64) {
 		return
 	}
 
@@ -720,7 +768,7 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 65536) {
+	if h.auth.IsRejected(w, r, 131072) {
 		return
 	}
 
@@ -748,7 +796,7 @@ func (h *ProjectManagementHandler) handleGetProjectStatuses(w http.ResponseWrite
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144) {
+	if h.auth.IsRejected(w, r, 524288) {
 		return
 	}
 
@@ -788,7 +836,7 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144) {
+	if h.auth.IsRejected(w, r, 524288) {
 		return
 	}
 
@@ -870,7 +918,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144, 268435456) {
+	if h.auth.IsRejected(w, r, 524288, 536870912) {
 		return
 	}
 
@@ -964,7 +1012,7 @@ func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 262144, 268435456) {
+	if h.auth.IsRejected(w, r, 524288, 536870912) {
 		return
 	}
 
@@ -1106,7 +1154,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 524288) {
+	if h.auth.IsRejected(w, r, 1048576) {
 		return
 	}
 
@@ -1158,7 +1206,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectEntitlements(w http.Respon
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 4194304) {
+	if h.auth.IsRejected(w, r, 8388608) {
 		return
 	}
 
@@ -1240,7 +1288,7 @@ func (h *ChangeHistoryHandler) handleGetChangeHistory(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 4294967296) {
+	if h.auth.IsRejected(w, r, 8589934592) {
 		return
 	}
 

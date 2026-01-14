@@ -18,6 +18,7 @@
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
+  * [Update user's upgrade time](#usermanagement-update-users-upgrade-time)
   * [Disable user](#usermanagement-disable-user)
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
   * [Toggle MFA](#usermanagement-toggle-mfa)
@@ -68,6 +69,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateKind: boolean
 				updateName: boolean
 				updateUserAgent: boolean
+				updateUpgradeTime: boolean
 				view: boolean
 			}
 
@@ -403,6 +405,79 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	bandwidthLimit: number
 	segmentLimit: number
 	defaultPlacement: string
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	fullName: string
+	email: string
+	kind: 	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	status: 	{
+		name: string
+		value: number
+	}
+
+	userAgent: string
+	defaultPlacement: number
+	projects: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			name: string
+			active: boolean
+			bandwidthLimit: number
+			userSetBandwidthLimit: number
+			bandwidthUsed: number
+			storageLimit: number
+			userSetStorageLimit: number
+			storageUsed: number
+			segmentLimit: number
+			segmentUsed: number
+		}
+
+	]
+
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	freezeStatus: unknown
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	mfaEnabled: boolean
+	tenantID: string
+}
+
+```
+
+<h3 id='usermanagement-update-users-upgrade-time'>Update user's upgrade time (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates user's upgrade time by ID
+
+`PATCH /api/v1/users/{userID}/upgrade-time`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	reason: string
 }
 
