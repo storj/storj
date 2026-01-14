@@ -38,11 +38,14 @@ const (
 
 	tbl_headerSize = 4096
 
-	tbl_minLogSlots = 14 // log_2 of number of slots for smallest hash table
-	tbl_maxLogSlots = 56 // log_2 of number of slots for largest hash table
+	// Table_MinLogSlots is the minimum number of log slots supported.
+	Table_MinLogSlots = 14
 
-	_ int64  = tbl_headerSize + 1<<tbl_maxLogSlots*RecordSize // compiler error if overflows int64
-	_ uint64 = 1<<tbl_minLogSlots*RecordSize - bigPageSize    // compiler error if negative
+	// Table_MaxLogSlots is the maximum number of log slots supported.
+	Table_MaxLogSlots = 56
+
+	_ int64  = tbl_headerSize + 1<<Table_MaxLogSlots*RecordSize // compiler error if overflows int64
+	_ uint64 = 1<<Table_MinLogSlots*RecordSize - bigPageSize    // compiler error if negative
 )
 
 // Tbl describes a hash table for a store.

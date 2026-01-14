@@ -64,9 +64,9 @@ type MemTbl struct {
 func CreateMemTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32, cfg MmapCfg) (_ *MemTblConstructor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if logSlots > tbl_maxLogSlots {
+	if logSlots > Table_MaxLogSlots {
 		return nil, Error.New("logSlots too large: logSlots=%d", logSlots)
-	} else if logSlots < tbl_minLogSlots {
+	} else if logSlots < Table_MinLogSlots {
 		return nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
@@ -113,9 +113,9 @@ func OpenMemTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *MemTbl, _ map
 		return nil, nil, Error.Wrap(err)
 	} else if header.Kind != TableKind_MemTbl {
 		return nil, nil, Error.New("invalid kind: %d", header.Kind)
-	} else if header.LogSlots > tbl_maxLogSlots {
+	} else if header.LogSlots > Table_MaxLogSlots {
 		return nil, nil, Error.New("logSlots too large: logSlots=%d", header.LogSlots)
-	} else if header.LogSlots < tbl_minLogSlots {
+	} else if header.LogSlots < Table_MinLogSlots {
 		return nil, nil, Error.New("logSlots too small: logSlots=%d", header.LogSlots)
 	}
 

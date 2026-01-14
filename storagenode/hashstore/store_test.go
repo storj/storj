@@ -1667,7 +1667,7 @@ func TestStore_ReconcileLog(t *testing.T) {
 
 	t.Run("Growth", func(t *testing.T) {
 		run(t, func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
-			for range 1 << tbl_minLogSlots {
+			for range 1 << Table_MinLogSlots {
 				addValidToLogOnly(t, s, lf, valid, invalid)
 			}
 		})

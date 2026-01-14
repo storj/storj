@@ -20,12 +20,12 @@ func TestTable_BasicOperation(t *testing.T) {
 func testTable_BasicOperation(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, Table_MinLogSlots)
 	defer tbl.Close()
 
 	var keys []Key
 	var expLength uint64
-	for range 1 << tbl_minLogSlots / 2 {
+	for range 1 << Table_MinLogSlots / 2 {
 		// insert the record.
 		r := tbl.AssertInsert()
 
@@ -47,7 +47,7 @@ func testTable_BasicOperation(t *testing.T, cfg Config) {
 
 	assert.Equal(t, tbl.Load(), 0.5)
 	stats := tbl.Stats()
-	assert.Equal(t, stats.NumSet, 1<<tbl_minLogSlots/2)
+	assert.Equal(t, stats.NumSet, 1<<Table_MinLogSlots/2)
 	assert.Equal(t, stats.LenSet, expLength)
 
 	// reopen the hash table and search again
@@ -83,7 +83,7 @@ func TestTable_OverwriteRecords(t *testing.T) {
 func testTable_OverwriteMergeRecords(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, Table_MinLogSlots)
 	defer tbl.Close()
 
 	// create a new record with a non-zero expiration.
@@ -138,7 +138,7 @@ func TestTable_RangeExitEarly(t *testing.T) {
 func testTable_RangeExitEarly(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
 	// insert some records to range over.
@@ -160,11 +160,11 @@ func TestTable_Full(t *testing.T) {
 func testTable_Full(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, Table_MinLogSlots)
 	defer tbl.Close()
 
 	// fill the table completely.
-	for range 1 << tbl_minLogSlots {
+	for range 1 << Table_MinLogSlots {
 		tbl.AssertInsert()
 	}
 	assert.Equal(t, tbl.Load(), 1.0)
@@ -187,7 +187,7 @@ func testTable_Load(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
 	// Create a new memtbl with the specified size
-	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, Table_MinLogSlots)
 	defer tbl.Close()
 
 	check := func(expectedLoad float64, deep bool) {
@@ -217,7 +217,7 @@ func testTable_Load(t *testing.T, cfg Config) {
 			break
 		}
 
-		check(float64(i+1)/float64(1<<tbl_minLogSlots), i%1000 == 0)
+		check(float64(i+1)/float64(1<<Table_MinLogSlots), i%1000 == 0)
 	}
 
 	// do a final deep check when the table is full.
@@ -228,7 +228,7 @@ func TestTable_TrashStats(t *testing.T) {
 	forAllTables(t, testTable_TrashStats)
 }
 func testTable_TrashStats(t *testing.T, cfg Config) {
-	tbl := newTestTbl(t, cfg, tbl_minLogSlots)
+	tbl := newTestTbl(t, cfg, Table_MinLogSlots)
 	defer tbl.Close()
 
 	rec := newRecord(newKey())
@@ -247,10 +247,10 @@ func TestTable_LRecBounds(t *testing.T) {
 func testTable_LRecBounds(t *testing.T, cfg Config) {
 	ctx := t.Context()
 
-	_, err := CreateTable(ctx, nil, tbl_maxLogSlots+1, 0, cfg.TableDefaultKind.Kind, cfg)
+	_, err := CreateTable(ctx, nil, Table_MaxLogSlots+1, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.Error(t, err)
 
-	_, err = CreateTable(ctx, nil, tbl_minLogSlots-1, 0, cfg.TableDefaultKind.Kind, cfg)
+	_, err = CreateTable(ctx, nil, Table_MinLogSlots-1, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.Error(t, err)
 }
 
@@ -264,7 +264,7 @@ func testTable_ConstructorAPIAfterClose(t *testing.T, cfg Config) {
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, cfg.TableDefaultKind.Kind, cfg)
+	cons, err := CreateTable(ctx, fh, Table_MinLogSlots, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.NoError(t, err)
 	defer cons.Cancel()
 
@@ -294,7 +294,7 @@ func testTable_ConstructorAPIAfterDone(t *testing.T, cfg Config) {
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
 
-	cons, err := CreateTable(ctx, fh, tbl_minLogSlots, 0, cfg.TableDefaultKind.Kind, cfg)
+	cons, err := CreateTable(ctx, fh, Table_MinLogSlots, 0, cfg.TableDefaultKind.Kind, cfg)
 	assert.NoError(t, err)
 	defer cons.Cancel()
 
@@ -342,10 +342,10 @@ func TestTable_InvalidHeaders(t *testing.T) {
 func TestTable_OpenIncorrectKind(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
-	m := newTestMemTbl(t, defaultMmap(), tbl_minLogSlots)
+	m := newTestMemTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer m.Close()
 
 	_, _, err := OpenMemTbl(ctx, h.fh, defaultMmap())

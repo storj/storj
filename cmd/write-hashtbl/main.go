@@ -85,7 +85,7 @@ func (c *cmdRoot) Execute(ctx context.Context) (err error) {
 
 		_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Record count=%d\n", count)
 
-		slots := uint64(bits.Len64(count)) + 1
+		slots := max(hashstore.Table_MinLogSlots, uint64(bits.Len64(count))+1)
 		c.slots = &slots
 	}
 
@@ -184,6 +184,11 @@ func (c *cmdRoot) iterateRecords(ctx context.Context, path string, fast bool, cb
 			headerData := c.buf[rec.Length-512 : rec.Length]
 
 			l := binary.BigEndian.Uint16(headerData[0:2])
+			if 2+uint(l) > uint(len(headerData)) {
+				_, _ = fmt.Fprintf(clingy.Stderr(ctx), "record at offset=%d in %s has invalid piece header length=%d of %d\n", i, path, l, len(headerData))
+				continue
+			}
+
 			var header pb.PieceHeader
 			if err := pb.Unmarshal(headerData[2:2+l], &header); err != nil {
 				_, _ = fmt.Fprintf(clingy.Stderr(ctx), "record at offset=%d in %s has invalid piece header with err=%v\n", i, path, err)

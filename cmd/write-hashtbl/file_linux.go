@@ -16,8 +16,9 @@ import (
 )
 
 type file struct {
-	fh *os.File
-	m  []byte
+	fh    *os.File
+	m     []byte
+	unmap bool
 }
 
 func openFile(name string) (_ *file, err error) {
@@ -34,21 +35,30 @@ func openFile(name string) (_ *file, err error) {
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+	if stat.Size() == 0 {
+		return &file{
+			fh:    fh,
+			unmap: false,
+		}, nil
+	}
 	m, err := platform.Mmap(fh, int(stat.Size()))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 	return &file{
-		fh: fh,
-		m:  m,
+		fh:    fh,
+		m:     m,
+		unmap: true,
 	}, nil
 }
 
 func (f *file) Close() error {
-	return errs.Combine(
-		platform.Munmap(f.m),
-		f.fh.Close(),
-	)
+	var eg errs.Group
+	if f.unmap {
+		eg.Add(platform.Munmap(f.m))
+	}
+	eg.Add(f.fh.Close())
+	return eg.Err()
 }
 
 func (f *file) Size() int64 {
