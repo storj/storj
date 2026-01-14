@@ -15,6 +15,7 @@ import {
     ToggleFreezeUserRequest,
     ToggleMfaRequest,
     UpdateUserRequest,
+    UpdateUserUpgradeTimeRequest,
     UserAccount,
     UserManagementHttpApiV1,
     UserStatusInfo,
@@ -98,6 +99,10 @@ export const useUsersStore = defineStore('users', () => {
         return await userApi.updateUser(request, userID);
     }
 
+    async function updateUpgradeTime(userID: string, request: UpdateUserUpgradeTimeRequest): Promise<UserAccount> {
+        return await userApi.updateUserUpgradeTime(request, userID);
+    }
+
     async function deleteUser(userID: string, markPendingDeletion: boolean, reason: string): Promise<UserAccount> {
         const request = new DisableUserRequest();
         request.reason = reason;
@@ -144,6 +149,7 @@ export const useUsersStore = defineStore('users', () => {
         getUserKinds,
         getUserStatuses,
         updateUser,
+        updateUpgradeTime,
         deleteUser,
         disableMFA,
         createRestKey,

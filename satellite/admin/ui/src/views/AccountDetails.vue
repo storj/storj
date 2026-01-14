@@ -39,6 +39,7 @@
                         deleteAccountDialogEnabled = true;
                         markPendingDeletion = true;
                     }"
+                    @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
                 />
             </v-btn>
         </div>
@@ -79,6 +80,7 @@
                                 @disable-mfa="disableMFADialogEnabled = true"
                                 @toggle-freeze="toggleFreeze"
                                 @create-rest-key="createRestKeyDialogEnabled = true"
+                                @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
                             />
                         </v-btn>
                     </template>
@@ -224,6 +226,7 @@
     <AccountDisableMFADialog v-if="userAccount" v-model="disableMFADialogEnabled" :account="userAccount" />
     <AccountCreateRestKeyDialog v-if="userAccount" v-model="createRestKeyDialogEnabled" :account="userAccount" />
     <AccountUnfreezeDialog v-if="userAccount" v-model="unfreezeDialogEnabled" :account="userAccount" />
+    <AccountUpdateUpgradeTimeDialog v-if="userAccount" v-model="updateAccountUpgradeTimeDialogEnabled" :account="userAccount" />
 </template>
 
 <script setup lang="ts">
@@ -264,6 +267,7 @@ import AccountDisableMFADialog from '@/components/AccountDisableMFADialog.vue';
 import AccountCreateRestKeyDialog from '@/components/AccountCreateRestKeyDialog.vue';
 import AccountUnfreezeDialog from '@/components/AccountUnfreezeDialog.vue';
 import AccountHistoryTableComponent from '@/components/AccountHistoryTableComponent.vue';
+import AccountUpdateUpgradeTimeDialog from '@/components/AccountUpdateUpgradeTimeDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -275,6 +279,7 @@ const date = useDate();
 const freezeDialogEnabled = ref<boolean>(false);
 const unfreezeDialogEnabled = ref<boolean>(false);
 const updateAccountDialogEnabled = ref<boolean>(false);
+const updateAccountUpgradeTimeDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
 const deleteAccountDialogEnabled = ref<boolean>(false);
 const markPendingDeletion = ref<boolean>(false);

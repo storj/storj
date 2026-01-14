@@ -144,6 +144,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountSetDataPlacement) {
 			settings.Admin.Features.Account.UpdatePlacement = true
 		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeUpgradeTime) {
+			settings.Admin.Features.Account.UpdateUpgradeTime = true
+		}
 
 		// project permission features
 		if s.authorizer.HasPermissions(g, PermProjectView) {

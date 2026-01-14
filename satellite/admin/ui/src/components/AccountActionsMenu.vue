@@ -21,6 +21,18 @@
                 </v-list-item-title>
             </v-list-item>
 
+            <v-list-item
+                v-if="featureFlags.account.updateUpgradeTime"
+                density="comfortable"
+                link
+                rounded="lg"
+                @click="emit('updateUpgradeTime', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Update Upgrade Time
+                </v-list-item-title>
+            </v-list-item>
+
             <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Set Placement
@@ -151,6 +163,7 @@ const emit = defineEmits<{
     (e: 'markPendingDeletion', user: UserAccount): void;
     (e: 'disableMfa', user: UserAccount): void;
     (e: 'createRestKey', user: UserAccount): void;
+    (e: 'updateUpgradeTime', user: UserAccount): void;
 }>();
 
 function viewAccount() {
