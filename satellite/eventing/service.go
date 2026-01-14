@@ -130,96 +130,139 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 		return nil
 	}
 
+	// Extract event detail
 	bucketName := event.Records[0].S3.Bucket.Name
 	eventName := event.Records[0].EventName
 	objectKey := []byte(event.Records[0].S3.Object.Key)
-
-	// Get bucket notification configuration
-	config := s.getConfigWithRetry(ctx, projectID, projectPublicID, bucketName)
-	if config == nil {
-		s.log.Warn("No notification configuration exists for bucket",
-			zap.Stringer("project_public_id", projectPublicID),
-			zap.String("bucket_name", bucketName))
-		return nil
-	}
-
-	// Evaluate event type matching (secondary filter)
-	if !MatchEventType(eventName, config.Events) {
-		s.log.Warn("Event type does not match configuration, skipping (cache inconsistency)",
-			zap.String("event_name", eventName),
-			zap.Strings("configured_events", config.Events))
-		return nil
-	}
-
-	// Evaluate filter rules (secondary filter)
-	if !MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
-		s.log.Warn("Object key does not match filter rules, skipping (cache inconsistency)",
-			zap.String("object_key", string(objectKey)),
-			zap.String("prefix", string(config.FilterPrefix)),
-			zap.String("suffix", string(config.FilterSuffix)))
-		return nil
-	}
-
-	// Get the publisher for the bucket
-	publisher, err := s.GetPublisher(ctx, metabase.BucketLocation{
-		ProjectID:  projectID,
-		BucketName: metabase.BucketName(bucketName),
-	}, config.TopicName)
-	if err != nil {
-		ek.Event("failed_to_get_publisher",
-			eventkit.String("table", record.TableName),
-			eventkit.String("project_public_id", projectPublicID.String()),
-			eventkit.String("bucket", bucketName),
-			eventkit.String("mod_type", record.ModType),
-			eventkit.String("error", err.Error()))
-
-		s.log.Error("Failed to get publisher for bucket",
-			zap.Stringer("project_public_id", projectPublicID),
-			zap.String("bucket_name", bucketName),
-			zap.Error(err))
-		return err
-	}
-
-	// Calculate and track processing latency
-	latency := time.Since(record.CommitTimestamp)
-	// Get message size
 	messageSize, err := event.JSONSize()
 	if err != nil {
 		s.log.Error("Failed to marshal event for size calculation", zap.Error(err))
 		// Continue with publish even if size calculation fails
 	}
 
-	// Publish the event
-	err = publisher.Publish(ctx, event)
-	if err != nil {
+	// Logic to be retried until success or context cancellation
+	retry := func() error {
+		// Get bucket notification configuration
+		config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), projectID)
+		if err != nil {
+			s.log.Error("Failed to get bucket notification config",
+				zap.Stringer("project_public_id", projectPublicID),
+				zap.String("bucket_name", bucketName),
+				zap.Error(err))
+			return err
+		}
+
+		// Check if notification configuration exists
+		if config == nil {
+			s.log.Warn("No notification configuration exists for bucket",
+				zap.Stringer("project_public_id", projectPublicID),
+				zap.String("bucket_name", bucketName))
+			return nil
+		}
+
+		// Validate event type matches configuration
+		if !MatchEventType(eventName, config.Events) {
+			s.log.Warn("Event type does not match configuration, skipping (cache inconsistency)",
+				zap.Stringer("project_public_id", projectPublicID),
+				zap.String("bucket_name", bucketName),
+				zap.String("event_name", eventName),
+				zap.Strings("configured_events", config.Events))
+			return nil
+		}
+
+		// Validate object key matches filter rules
+		if !MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
+			s.log.Warn("Object key does not match filter rules, skipping (cache inconsistency)",
+				zap.Stringer("project_public_id", projectPublicID),
+				zap.String("bucket_name", bucketName),
+				zap.String("object_key", string(objectKey)),
+				zap.String("configured_prefix", string(config.FilterPrefix)),
+				zap.String("configured_suffix", string(config.FilterSuffix)))
+			return nil
+		}
+
+		publisher, err := s.GetPublisher(ctx, projectID, projectPublicID, bucketName, config.TopicName)
+		if err != nil {
+			// Error already logged in GetPublisher
+			return err
+		}
+
+		// Attempt to publish
+		err = publisher.Publish(ctx, event)
+		if err != nil {
+			s.log.Error("Failed to publish event",
+				zap.Stringer("project_public_id", projectPublicID),
+				zap.String("bucket_name", bucketName),
+				zap.String("topic", config.TopicName),
+				zap.Error(err))
+			return err
+		}
+
+		// Success - event published
+		s.log.Debug("Published event", zap.Any("event", event))
+
+		return nil
+	}
+
+	// Retry logic with exponential backoff
+	var backoffSchedule = []time.Duration{
+		1 * time.Second,
+		2 * time.Second,
+		4 * time.Second,
+		8 * time.Second,
+	}
+	attempt := 0
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		// Attempt to execute
+		err := retry()
+		if err == nil {
+			ek.Event("publish_success",
+				eventkit.String("transaction_tag", record.TransactionTag),
+				eventkit.String("project_public_id", projectPublicID.String()),
+				eventkit.String("bucket", bucketName),
+				eventkit.String("event_name", eventName),
+				eventkit.Int64("message_size_bytes", messageSize),
+				eventkit.Duration("latency", time.Since(record.CommitTimestamp)))
+			return nil
+		}
+
 		ek.Event("publish_failed",
 			eventkit.String("transaction_tag", record.TransactionTag),
 			eventkit.String("project_public_id", projectPublicID.String()),
 			eventkit.String("bucket", bucketName),
 			eventkit.String("event_name", eventName),
-			eventkit.Int64("message_size_bytes", messageSize),
-			eventkit.Duration("latency", latency),
+			eventkit.Int64("attempt", int64(attempt+1)),
 			eventkit.String("error", err.Error()))
 
-		s.log.Error("Failed to publish event",
-			zap.Stringer("project_public_id", projectPublicID),
-			zap.String("bucket_name", bucketName),
-			zap.Error(err))
-		return err
+		// Determine sleep duration
+		var sleepTime time.Duration
+		if attempt < len(backoffSchedule) {
+			sleepTime = backoffSchedule[attempt]
+		} else {
+			sleepTime = backoffSchedule[len(backoffSchedule)-1]
+			// Emit critical event to trigger alerting
+			ek.Event("bucket_eventing_publish_critical",
+				eventkit.String("transaction_tag", record.TransactionTag),
+				eventkit.String("project_public_id", projectPublicID.String()),
+				eventkit.String("bucket", bucketName),
+				eventkit.String("event_name", eventName),
+				eventkit.Int64("attempt", int64(attempt+1)),
+				eventkit.String("error", err.Error()))
+		}
+
+		// Sleep before next attempt
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(sleepTime):
+			attempt++
+		}
 	}
-
-	// Track detailed success with eventkit
-	ek.Event("publish_success",
-		eventkit.String("transaction_tag", record.TransactionTag),
-		eventkit.String("project_public_id", projectPublicID.String()),
-		eventkit.String("bucket", bucketName),
-		eventkit.String("event_name", eventName),
-		eventkit.Int64("message_size_bytes", messageSize),
-		eventkit.Duration("latency", latency))
-
-	s.log.Debug("Published event", zap.Any("event", event))
-
-	return nil
 }
 
 // ReplaceProjectID replaces the private project ID in the record with the corresponding public project ID.
@@ -259,62 +302,16 @@ func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.Data
 	return privateID, publicID, nil
 }
 
-// getConfigWithRetry retrieves bucket notification configuration with
-// exponential backoff retry. Retries indefinitely with exponential backoff
-// (1s, 2s, 4s, 8s), then continues at 8s intervals. This blocks until
-// configuration is successfully retrieved (may be nil, which is valid).
-// Emits bucket_eventing_config_lookup_critical event when reaching max delay
-// to trigger PagerDuty alerting for prolonged infrastructure failures.
-func (s *Service) getConfigWithRetry(ctx context.Context, projectID, projectPublicID uuid.UUID, bucketName string) *buckets.NotificationConfig {
-	retryDelays := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second}
-	maxDelay := 8 * time.Second
-	attempt := 0
-
-	for {
-		config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), projectID)
-		if err == nil {
-			// Success - config retrieved (may be nil, which is valid)
-			return config
-		}
-
-		// Failed to get config - this is an infrastructure error
-		// Determine delay: exponential backoff up to maxDelay, then constant maxDelay
-		var delay time.Duration
-		if attempt < len(retryDelays) {
-			delay = retryDelays[attempt]
-		} else {
-			delay = maxDelay
-			// TODO: Improve handling of failing Pub/Sub topics. Currently, when publishing fails,
-			// we block processing of the entire change stream partition. The critical event
-			// emitted below pages the on-call person to investigate.
-			//
-			// Emit critical event when reaching max delay to trigger alerting
-			if attempt == len(retryDelays) {
-				ek.Event("bucket_eventing_config_lookup_critical",
-					eventkit.String("project_public_id", projectPublicID.String()),
-					eventkit.String("bucket", bucketName),
-					eventkit.Int64("attempt", int64(attempt+1)),
-					eventkit.String("error", err.Error()))
-			}
-		}
-
-		s.log.Warn("Failed to get bucket notification config, retrying",
-			zap.Stringer("project_public_id", projectPublicID),
-			zap.String("bucket_name", bucketName),
-			zap.Int("attempt", attempt+1),
-			zap.Duration("retry_after", delay),
-			zap.Error(err))
-
-		time.Sleep(delay)
-		attempt++
-	}
-}
-
 // GetPublisher returns a Publisher for the given bucket location, initializing it if necessary.
 // The topicName parameter specifies the Pub/Sub topic for the publisher.
 // If a cached publisher exists but has a different topic name, the old publisher is closed
 // and a new one is created with the updated topic.
-func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocation, topicName string) (Publisher, error) {
+func (s *Service) GetPublisher(ctx context.Context, projectID, projectPublicID uuid.UUID, bucketName, topicName string) (Publisher, error) {
+	bucket := metabase.BucketLocation{
+		ProjectID:  projectID,
+		BucketName: metabase.BucketName(bucketName),
+	}
+
 	s.mu.RLock()
 	if publisher, ok := s.publishers[bucket]; ok {
 		// Check if the cached publisher's topic matches the requested topic
@@ -338,14 +335,14 @@ func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocati
 
 		// Topic changed - close old publisher and remove from cache
 		s.log.Info("Topic name changed for bucket, closing old publisher",
-			zap.Stringer("project_id", bucket.ProjectID),
+			zap.Stringer("project_public_id", projectPublicID),
 			zap.Stringer("bucket_name", bucket.BucketName),
 			zap.String("old_topic", publisher.TopicName()),
 			zap.String("new_topic", topicName))
 
 		if err := publisher.Close(); err != nil {
 			s.log.Warn("Failed to close old publisher",
-				zap.Stringer("project_id", bucket.ProjectID),
+				zap.Stringer("project_public_id", projectPublicID),
 				zap.Stringer("bucket_name", bucket.BucketName),
 				zap.String("old_topic", publisher.TopicName()),
 				zap.Error(err))
@@ -358,14 +355,16 @@ func (s *Service) GetPublisher(ctx context.Context, bucket metabase.BucketLocati
 	var err error
 	if s.cfg.TestNewPublisherFn != nil {
 		publisher, err = s.cfg.TestNewPublisherFn()
-		if err != nil {
-			return nil, err
-		}
 	} else {
 		publisher, err = NewPublisher(ctx, topicName)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err != nil {
+		s.log.Error("Failed to get publisher for bucket",
+			zap.Stringer("project_public_id", projectPublicID),
+			zap.Stringer("bucket_name", bucket.BucketName),
+			zap.String("topic", topicName),
+			zap.Error(err))
+		return nil, err
 	}
 
 	s.publishers[bucket] = publisher

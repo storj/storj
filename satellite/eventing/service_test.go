@@ -258,21 +258,16 @@ func TestGetPublisher_TopicChange(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	bucket := metabase.BucketLocation{
-		ProjectID:  eventing.TestProjectID,
-		BucketName: metabase.BucketName(eventing.TestBucket),
-	}
-
 	// Get publisher with @log topic (LogPublisher always returns "@log" as topic name)
 	topic1 := "@log"
-	publisher1, err := service.GetPublisher(ctx, bucket, topic1)
+	publisher1, err := service.GetPublisher(ctx, eventing.TestProjectID, TestPublicProjectID, eventing.TestBucket, topic1)
 	require.NoError(t, err)
 	require.NotNil(t, publisher1)
 	assert.Equal(t, "@log", publisher1.TopicName())
 	assert.Equal(t, 1, publisherCallCount, "should create publisher once")
 
 	// Get publisher again with same topic - should return cached instance
-	publisher1Again, err := service.GetPublisher(ctx, bucket, topic1)
+	publisher1Again, err := service.GetPublisher(ctx, eventing.TestProjectID, TestPublicProjectID, eventing.TestBucket, topic1)
 	require.NoError(t, err)
 	assert.Same(t, publisher1, publisher1Again, "should return same cached publisher instance")
 	assert.Equal(t, 1, publisherCallCount, "should not create new publisher")
@@ -282,7 +277,7 @@ func TestGetPublisher_TopicChange(t *testing.T) {
 	// Even though TestNewPublisherFn ignores the topic parameter, the cache invalidation
 	// logic should still detect the mismatch and close/recreate the publisher
 	topic2 := "projects/test-project/topics/topic2"
-	publisher2, err := service.GetPublisher(ctx, bucket, topic2)
+	publisher2, err := service.GetPublisher(ctx, eventing.TestProjectID, TestPublicProjectID, eventing.TestBucket, topic2)
 	require.NoError(t, err)
 	require.NotNil(t, publisher2)
 	assert.NotSame(t, publisher1, publisher2, "should create new publisher instance")
