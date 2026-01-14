@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build goexperiment.synctest && go1.24
+//go:build go1.25
 
 package hashstore
 
