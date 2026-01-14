@@ -14,7 +14,7 @@ import (
 )
 
 func TestHashTbl_TrashStats(t *testing.T) {
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
 	rec := newRecord(newKey())
@@ -30,11 +30,11 @@ func TestHashTbl_TrashStats(t *testing.T) {
 func TestHashTbl_Full(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
 	// fill the table completely.
-	for range 1 << tbl_minLogSlots {
+	for range 1 << Table_MinLogSlots {
 		h.AssertInsert()
 	}
 	assert.Equal(t, h.Load(), 1.0)
@@ -53,7 +53,7 @@ func TestHashTbl_Full(t *testing.T) {
 func TestHashTbl_LostPage(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
 	// create two keys that collide at the end of the first page.
@@ -107,10 +107,10 @@ func TestHashTbl_SmallFileSizes(t *testing.T) {
 func TestHashTbl_LRecBounds(t *testing.T) {
 	ctx := t.Context()
 
-	_, err := CreateHashTbl(ctx, nil, tbl_maxLogSlots+1, 0, defaultMmap())
+	_, err := CreateHashTbl(ctx, nil, Table_MaxLogSlots+1, 0, defaultMmap())
 	assert.Error(t, err)
 
-	_, err = CreateHashTbl(ctx, nil, tbl_minLogSlots-1, 0, defaultMmap())
+	_, err = CreateHashTbl(ctx, nil, Table_MinLogSlots-1, 0, defaultMmap())
 	assert.Error(t, err)
 }
 
@@ -130,13 +130,13 @@ func TestHashTbl_GrowthRetainsOrder(t *testing.T) {
 }
 
 func TestHashTbl_Wraparound(t *testing.T) {
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
 	// insert a bunch of keys that collide into the last slot.
 	var keys []Key
 	for i := range 10 {
-		k := newKeyAt(h.HashTbl, 1<<tbl_minLogSlots/recordsPerPage-1, recordsPerPage-1, uint8(i))
+		k := newKeyAt(h.HashTbl, 1<<Table_MinLogSlots/recordsPerPage-1, recordsPerPage-1, uint8(i))
 		keys = append(keys, k)
 		h.AssertInsertRecord(newRecord(k))
 	}
@@ -150,14 +150,14 @@ func TestHashTbl_Wraparound(t *testing.T) {
 func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
 	ctx := t.Context()
 
-	h0 := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h0 := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h0.Close()
 
-	for range 1 << tbl_minLogSlots / 2 {
+	for range 1 << Table_MinLogSlots / 2 {
 		h0.AssertInsert()
 	}
 
-	h1 := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots+1)
+	h1 := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots+1)
 	defer h1.Close()
 
 	assert.NoError(t, h0.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
@@ -174,20 +174,20 @@ func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
 }
 
 func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
 	// load keys into the hash table that would be sequential with no hashing.
 	var k Key
-	for i := range 1 << tbl_minLogSlots / 8 {
-		binary.BigEndian.PutUint64(k[0:8], uint64(i)<<(64-tbl_minLogSlots))
+	for i := range 1 << Table_MinLogSlots / 8 {
+		binary.BigEndian.PutUint64(k[0:8], uint64(i)<<(64-Table_MinLogSlots))
 		h.AssertInsertRecord(newRecord(k))
 	}
 
 	// ensure no 4096 byte page is empty. the probability of any page being empty with a random distribution
 	// is less than 2^50.
 	var p [4096]byte
-	for offset := int64(tbl_headerSize); offset < int64(hashtblSize(tbl_minLogSlots)); offset += int64(len(p)) {
+	for offset := int64(tbl_headerSize); offset < int64(hashtblSize(Table_MinLogSlots)); offset += int64(len(p)) {
 		_, err := h.fh.ReadAt(p[:], offset)
 		assert.NoError(t, err)
 		if p == ([4096]byte{}) {
@@ -197,16 +197,16 @@ func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
 }
 
 func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
 	// completely fill the table.
-	for range 1 << tbl_minLogSlots {
+	for range 1 << Table_MinLogSlots {
 		h.AssertInsert()
 	}
 
 	// overwrite the first half of the table with zeros.
-	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(tbl_minLogSlots)-tbl_headerSize)/2), tbl_headerSize)
+	_, err := h.fh.WriteAt(make([]byte, (hashtblSize(Table_MinLogSlots)-tbl_headerSize)/2), tbl_headerSize)
 	assert.NoError(t, err)
 
 	// the load should be around 0.5 after recomputing the estimates. it's hard to get a good value
@@ -245,10 +245,10 @@ func TestMmapCache(t *testing.T) {
 func TestHashTbl_IncorrectLogSlots(t *testing.T) {
 	ctx := t.Context()
 
-	h := newTestHashTbl(t, defaultMmap(), tbl_minLogSlots)
+	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
-	assert.NoError(t, h.fh.Truncate(int64(hashtblSize(tbl_minLogSlots+1))))
+	assert.NoError(t, h.fh.Truncate(int64(hashtblSize(Table_MinLogSlots+1))))
 
 	_, _, err := OpenHashTbl(ctx, h.fh, defaultMmap())
 	assert.Error(t, err)

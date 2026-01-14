@@ -222,7 +222,7 @@ func NewStore(
 			}
 			defer af.Cancel()
 
-			cons, err := CreateTable(ctx, af.File, tbl_minLogSlots, s.today(), s.cfg.TableDefaultKind.Kind, s.cfg)
+			cons, err := CreateTable(ctx, af.File, Table_MinLogSlots, s.today(), s.cfg.TableDefaultKind.Kind, s.cfg)
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -951,7 +951,7 @@ func (s *Store) compactOnce(
 	})
 
 	// calculate a hash table size so that it targets just under a 0.5 load factor.
-	logSlots := max(uint64(bits.Len64(nset))+1, tbl_minLogSlots)
+	logSlots := max(uint64(bits.Len64(nset))+1, Table_MinLogSlots)
 
 	// limit the number of log files we rewrite in a single compaction to so that we write around
 	// the amount of a size of the new hashtbl times the multiple. this bounds the extra space

@@ -68,9 +68,9 @@ func (p bigPageIdxT) Offset() int64 { return tbl_headerSize + int64(p*bigPageSiz
 func CreateHashTbl(ctx context.Context, fh *os.File, logSlots uint64, created uint32, cfg MmapCfg) (_ *HashTblConstructor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if logSlots > tbl_maxLogSlots {
+	if logSlots > Table_MaxLogSlots {
 		return nil, Error.New("logSlots too large: logSlots=%d", logSlots)
-	} else if logSlots < tbl_minLogSlots {
+	} else if logSlots < Table_MinLogSlots {
 		return nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
@@ -122,9 +122,9 @@ func OpenHashTbl(ctx context.Context, fh *os.File, cfg MmapCfg) (_ *HashTbl, _ m
 	// sanity check that our logSlots is correct.
 	if int64(hashtblSize(logSlots)) != size {
 		return nil, nil, Error.New("logSlots calculation mismatch: size=%d logSlots=%d", size, logSlots)
-	} else if logSlots > tbl_maxLogSlots {
+	} else if logSlots > Table_MaxLogSlots {
 		return nil, nil, Error.New("logSlots too large: logSlots=%d", logSlots)
-	} else if logSlots < tbl_minLogSlots {
+	} else if logSlots < Table_MinLogSlots {
 		return nil, nil, Error.New("logSlots too small: logSlots=%d", logSlots)
 	}
 
