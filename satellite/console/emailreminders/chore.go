@@ -5,6 +5,7 @@ package emailreminders
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"time"
 
@@ -106,16 +107,19 @@ func (chore *Chore) sendVerificationReminders(ctx context.Context) (err error) {
 
 	for _, u := range users {
 		token, err := chore.tokens.CreateToken(ctx, u.ID, u.Email)
-
 		if err != nil {
 			return errs.New("error generating activation token: %w", err)
 		}
-		authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "", false, false, nil, "", nil)
 
-		link := authController.ActivateAccountURL + "?token=" + token
+		authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "", false, false, nil, "", nil, console.TenantWhiteLabelConfig{})
+
+		linkBase, err := url.JoinPath(authController.ExternalAddress, "activation")
+		if err != nil {
+			return errs.New("error sending verification reminder: %w", err)
+		}
 
 		err = chore.sendEmail(ctx, u.Email, &console.AccountActivationEmail{
-			ActivationLink: link,
+			ActivationLink: linkBase + "?token=" + token,
 			Origin:         authController.ExternalAddress,
 		})
 		if err != nil {

@@ -153,6 +153,7 @@ The white label config should be provided as a YAML string or a YAML file path c
 STORJ_CONSOLE_WHITE_LABEL: |
   customer1:
     host-name: "customer1.example.com"
+    external-address: "https://customer1.example.com"
     name: "Customer One"
     logo-urls:
       full-dark: "https://customer1.example.com/logo-full-dark.png"
@@ -204,6 +205,7 @@ STORJ_CONSOLE_WHITE_LABEL: /path/to/white-label-config.yaml
 Each tenant configuration supports the following fields:
 
 - `host-name` (required): The hostname that will trigger this white label configuration
+- `external-address`: The full external URL for this tenant (e.g., "https://customer1.example.com"). Used to construct links in emails (invite links, activation links, password reset links, etc.). If not specified, falls back to the global satellite external address.
 - `name`: The display name for the tenant (e.g., "Customer One"). **Required for emails.**
 - `logo-urls`: Map of logo URLs with keys:
   - `full-dark`: Full logo for dark theme

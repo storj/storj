@@ -17,6 +17,7 @@ import (
 	mathrand "math/rand"
 	"net/http"
 	"net/mail"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -260,6 +261,7 @@ type Service struct {
 
 	satelliteAddress string
 	satelliteName    string
+	whiteLabelConfig TenantWhiteLabelConfig
 
 	config            Config
 	maxProjectBuckets int
@@ -323,7 +325,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
-	satelliteName string, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
+	satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
@@ -417,6 +419,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		ssoService:                    ssoService,
 		satelliteAddress:              satelliteAddress,
 		satelliteName:                 satelliteName,
+		whiteLabelConfig:              whiteLabelConfig,
 		maxProjectBuckets:             maxProjectBuckets,
 		ssoEnabled:                    ssoEnabled,
 		config:                        config,
@@ -444,6 +447,19 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 		return req.RemoteAddr, req.Header.Get("X-Forwarded-For")
 	}
 	return "", ""
+}
+
+// getSatelliteAddress returns the external satellite address for the current tenant context.
+// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
+// to the global satellite address.
+func (s *Service) getSatelliteAddress(ctx context.Context) string {
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID != "" {
+		if wlConfig, ok := s.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
+			return wlConfig.ExternalAddress
+		}
+	}
+	return s.satelliteAddress
 }
 
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
@@ -2274,7 +2290,7 @@ func (s *Service) handleLogInLockAccount(ctx context.Context, user *User) error 
 		return err
 	}
 	if lockoutDuration > 0 {
-		address := s.satelliteAddress
+		address := s.getSatelliteAddress(ctx)
 		if !strings.HasSuffix(address, "/") {
 			address += "/"
 		}
@@ -3541,7 +3557,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sess
 		userName = user.FullName
 	}
 
-	address := s.satelliteAddress
+	address := s.getSatelliteAddress(ctx)
 	if !strings.HasSuffix(address, "/") {
 		address += "/"
 	}
@@ -7394,7 +7410,11 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, Error.Wrap(err)
 	}
 
-	baseLink := s.satelliteAddress + "/invited"
+	baseLink, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	for _, invited := range users {
 		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[invited.Email])
 
@@ -7412,23 +7432,6 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 			},
 		)
 	}
-	for _, u := range unverifiedUsers {
-		token, err := s.GenerateActivationToken(ctx, u.ID, u.Email)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		activationLink := fmt.Sprintf("%s/activation?token=%s", s.satelliteAddress, token)
-		s.mailService.SendRenderedAsync(
-			ctx,
-			[]post.Address{{Address: u.Email}},
-			&UnverifiedUserProjectInvitationEmail{
-				InviterEmail:   sender.Email,
-				Region:         s.satelliteName,
-				ActivationLink: activationLink,
-			},
-		)
-	}
-
 	for _, email := range newUserEmails {
 		inviteLink := fmt.Sprintf("%s?invite=%s", baseLink, inviteTokens[email])
 		s.mailService.SendRenderedAsync(
@@ -7438,6 +7441,28 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 				InviterEmail: sender.Email,
 				Region:       s.satelliteName,
 				SignUpLink:   inviteLink,
+			},
+		)
+	}
+
+	baseLink, err = url.JoinPath(s.getSatelliteAddress(ctx), "/activation")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, u := range unverifiedUsers {
+		token, err := s.GenerateActivationToken(ctx, u.ID, u.Email)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		activationLink := fmt.Sprintf("%s?token=%s", baseLink, token)
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: u.Email}},
+			&UnverifiedUserProjectInvitationEmail{
+				InviterEmail:   sender.Email,
+				Region:         s.satelliteName,
+				ActivationLink: activationLink,
 			},
 		)
 	}
@@ -7540,7 +7565,12 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", Error.Wrap(err)
 	}
 
-	return fmt.Sprintf("%s/invited?invite=%s", s.satelliteAddress, token), nil
+	link, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	return fmt.Sprintf("%s?invite=%s", link, token), nil
 }
 
 // CreateInviteToken creates a token for project invite links.

@@ -355,7 +355,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.WhiteLabel)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 

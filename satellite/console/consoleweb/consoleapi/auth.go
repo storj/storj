@@ -47,28 +47,26 @@ var (
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
-	log                       *zap.Logger
-	ExternalAddress           string
-	LetUsKnowURL              string
-	TermsAndConditionsURL     string
-	ContactInfoURL            string
-	GeneralRequestURL         string
-	PasswordRecoveryURL       string
-	CancelPasswordRecoveryURL string
-	ActivateAccountURL        string
-	ActivationCodeEnabled     bool
-	MemberAccountsEnabled     bool
-	SatelliteName             string
-	badPasswords              map[string]struct{}
-	badPasswordsEncoded       string
-	validAnnouncementNames    []string
-	service                   *console.Service
-	accountFreezeService      *console.AccountFreezeService
-	analytics                 *analytics.Service
-	mailService               *mailservice.Service
-	ssoService                *sso.Service
-	csrfService               *csrf.Service
-	cookieAuth                *consolewebauth.CookieAuth
+	log                    *zap.Logger
+	ExternalAddress        string
+	LetUsKnowURL           string
+	TermsAndConditionsURL  string
+	ContactInfoURL         string
+	GeneralRequestURL      string
+	ActivationCodeEnabled  bool
+	MemberAccountsEnabled  bool
+	SatelliteName          string
+	badPasswords           map[string]struct{}
+	badPasswordsEncoded    string
+	validAnnouncementNames []string
+	whiteLabelConfig       console.TenantWhiteLabelConfig
+	service                *console.Service
+	accountFreezeService   *console.AccountFreezeService
+	analytics              *analytics.Service
+	mailService            *mailservice.Service
+	ssoService             *sso.Service
+	csrfService            *csrf.Service
+	cookieAuth             *consolewebauth.CookieAuth
 }
 
 // NewAuth is a constructor for api auth controller.
@@ -77,31 +75,43 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
+	whiteLabelConfig console.TenantWhiteLabelConfig,
 ) *Auth {
 	return &Auth{
-		log:                       log,
-		ExternalAddress:           externalAddress,
-		LetUsKnowURL:              letUsKnowURL,
-		TermsAndConditionsURL:     termsAndConditionsURL,
-		ContactInfoURL:            contactInfoURL,
-		GeneralRequestURL:         generalRequestURL,
-		SatelliteName:             satelliteName,
-		PasswordRecoveryURL:       externalAddress + "password-recovery",
-		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery",
-		ActivateAccountURL:        externalAddress + "activation",
-		ActivationCodeEnabled:     activationCodeEnabled,
-		MemberAccountsEnabled:     memberAccountsEnabled,
-		service:                   service,
-		accountFreezeService:      accountFreezeService,
-		mailService:               mailService,
-		cookieAuth:                cookieAuth,
-		analytics:                 analytics,
-		badPasswords:              badPasswords,
-		badPasswordsEncoded:       badPasswordsEncoded,
-		ssoService:                ssoService,
-		csrfService:               csrfService,
-		validAnnouncementNames:    validAnnouncementNames,
+		log:                    log,
+		ExternalAddress:        externalAddress,
+		LetUsKnowURL:           letUsKnowURL,
+		TermsAndConditionsURL:  termsAndConditionsURL,
+		ContactInfoURL:         contactInfoURL,
+		GeneralRequestURL:      generalRequestURL,
+		SatelliteName:          satelliteName,
+		ActivationCodeEnabled:  activationCodeEnabled,
+		MemberAccountsEnabled:  memberAccountsEnabled,
+		whiteLabelConfig:       whiteLabelConfig,
+		service:                service,
+		accountFreezeService:   accountFreezeService,
+		mailService:            mailService,
+		cookieAuth:             cookieAuth,
+		analytics:              analytics,
+		badPasswords:           badPasswords,
+		badPasswordsEncoded:    badPasswordsEncoded,
+		ssoService:             ssoService,
+		csrfService:            csrfService,
+		validAnnouncementNames: validAnnouncementNames,
 	}
+}
+
+// getExternalAddress returns the external address for the current tenant context.
+// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
+// to the global external address.
+func (a *Auth) getExternalAddress(ctx context.Context) string {
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID != "" {
+		if wlConfig, ok := a.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
+			return wlConfig.ExternalAddress
+		}
+	}
+	return a.ExternalAddress
 }
 
 // Token authenticates user by credentials and returns auth token.
@@ -161,7 +171,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ssoFailedAddr := strings.TrimSuffix(a.ExternalAddress, "/") + "/login?sso_failed=true"
+	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + "/login?sso_failed=true"
 
 	provider := mux.Vars(r)["provider"]
 
@@ -247,7 +257,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
-	http.Redirect(w, r, a.ExternalAddress, http.StatusFound)
+	http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusFound)
 }
 
 // GetSsoUrl returns the SSO URL for the given provider.
@@ -261,7 +271,7 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	ssoUrl, err := url.JoinPath(a.ExternalAddress, "sso", provider)
+	ssoUrl, err := url.JoinPath(a.getExternalAddress(ctx), "sso", provider)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -278,7 +288,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ssoFailedAddr, err := url.JoinPath(a.ExternalAddress, "login?sso_failed=true")
+	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), "login?sso_failed=true")
 	if err != nil {
 		a.log.Error("failed to get sso failed url", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -492,7 +502,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		satelliteAddress := a.ExternalAddress
+		satelliteAddress := a.getExternalAddress(ctx)
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -673,14 +683,19 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link := a.ActivateAccountURL + "?token=" + token
+	externalAddr := a.getExternalAddress(ctx)
+	linkBase, err := url.JoinPath(externalAddr, "activation")
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
 
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
-			ActivationLink: link,
-			Origin:         a.ExternalAddress,
+			ActivationLink: linkBase + "?token=" + token,
+			Origin:         externalAddr,
 		},
 	)
 }
@@ -756,7 +771,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		satelliteAddress := a.ExternalAddress
+		satelliteAddress := a.getExternalAddress(ctx)
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -1157,11 +1172,11 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, forgotPassword.Email)
 	if err != nil || user == nil {
-		satelliteAddress := a.ExternalAddress
-
+		satelliteAddress := a.getExternalAddress(ctx)
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
+
 		resetPasswordLink := satelliteAddress + "forgot-password"
 		doubleCheckLink := satelliteAddress + "login"
 		createAccountLink := satelliteAddress + "signup"
@@ -1187,10 +1202,16 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	passwordRecoveryLink := a.PasswordRecoveryURL + "?token=" + recoveryToken
-	cancelPasswordRecoveryLink := a.CancelPasswordRecoveryURL + "?token=" + recoveryToken
+	externalAddr := a.getExternalAddress(ctx)
+	if !strings.HasSuffix(externalAddr, "/") {
+		externalAddr += "/"
+	}
+
+	passwordRecoveryLink := externalAddr + "password-recovery?token=" + recoveryToken
+	cancelPasswordRecoveryLink := externalAddr + "cancel-password-recovery?token=" + recoveryToken
+
 	userName := user.ShortName
-	if user.ShortName == "" {
+	if userName == "" {
 		userName = user.FullName
 	}
 
@@ -1202,7 +1223,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
 		&console.ForgotPasswordEmail{
-			Origin:                     a.ExternalAddress,
+			Origin:                     externalAddr,
 			ResetLink:                  passwordRecoveryLink,
 			CancelPasswordRecoveryLink: cancelPasswordRecoveryLink,
 			LetUsKnowURL:               letUsKnowURL,
@@ -1263,13 +1284,18 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			userName = verified.FullName
 		}
 
+		externalAddr := a.getExternalAddress(ctx)
+		if !strings.HasSuffix(externalAddr, "/") {
+			externalAddr += "/"
+		}
+
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: verified.Email, Name: userName}},
 			&console.ForgotPasswordEmail{
-				Origin:                     a.ExternalAddress,
-				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
-				CancelPasswordRecoveryLink: a.CancelPasswordRecoveryURL + "?token=" + recoveryToken,
+				Origin:                     externalAddr,
+				ResetLink:                  externalAddr + "password-recovery?token=" + recoveryToken,
+				CancelPasswordRecoveryLink: externalAddr + "cancel-password-recovery?token=" + recoveryToken,
 				LetUsKnowURL:               a.LetUsKnowURL,
 				ContactInfoURL:             a.ContactInfoURL,
 				TermsAndConditionsURL:      a.TermsAndConditionsURL,
@@ -1304,18 +1330,21 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	link := a.ActivateAccountURL + "?token=" + token
-	contactInfoURL := a.ContactInfoURL
-	termsAndConditionsURL := a.TermsAndConditionsURL
+	externalAddr := a.getExternalAddress(ctx)
+	linkBase, err := url.JoinPath(externalAddr, "activation")
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
 
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
-			Origin:                a.ExternalAddress,
-			ActivationLink:        link,
-			TermsAndConditionsURL: termsAndConditionsURL,
-			ContactInfoURL:        contactInfoURL,
+			Origin:                externalAddr,
+			ActivationLink:        linkBase + "?token=" + token,
+			TermsAndConditionsURL: a.TermsAndConditionsURL,
+			ContactInfoURL:        a.ContactInfoURL,
 		},
 	)
 }

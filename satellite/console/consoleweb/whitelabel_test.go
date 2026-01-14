@@ -566,3 +566,120 @@ func TestBrandingAPIPerTenant(t *testing.T) {
 		})
 	})
 }
+
+// TestTenantExternalAddressInInviteLinks verifies that invite links use tenant-specific external addresses.
+func TestTenantExternalAddressInInviteLinks(t *testing.T) {
+	const (
+		tenant1ID              = "tenant1"
+		tenant1Hostname        = "tenant1.example.com"
+		tenant1ExternalAddress = "https://tenant1.example.com"
+		ownerEmail             = "owner@example.com"
+		inviteeEmail           = "invitee@example.com"
+		password               = "password123"
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
+					tenant1ID: {
+						TenantID:        tenant1ID,
+						HostName:        tenant1Hostname,
+						ExternalAddress: tenant1ExternalAddress,
+						Name:            "Tenant One",
+					},
+				}
+				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
+					tenant1Hostname: tenant1ID,
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		usersDB := sat.DB.Console().Users()
+
+		// Create and activate owner on tenant1.
+		tenantID1 := tenancy.FromHostname(tenant1Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
+		ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID1})
+
+		owner, err := service.CreateUser(ctx1, console.CreateUser{
+			FullName: "Project Owner",
+			Email:    ownerEmail,
+			Password: password,
+		}, console.RegistrationSecret{})
+		require.NoError(t, err)
+
+		owner.Status = console.Active
+		err = usersDB.Update(ctx1, owner.ID, console.UpdateUserRequest{
+			Status: &owner.Status,
+		})
+		require.NoError(t, err)
+		err = usersDB.UpdatePaidTier(ctx1, owner.ID, true, 0, 0, 0, 10, nil)
+		require.NoError(t, err)
+
+		// Refresh user to get updated limits.
+		owner, err = usersDB.Get(ctx1, owner.ID)
+		require.NoError(t, err)
+
+		ctx1WithOwner := console.WithUser(ctx1, owner)
+		project, err := service.CreateProject(ctx1WithOwner, console.UpsertProjectInfo{
+			Name: "Test Project",
+		})
+		require.NoError(t, err)
+
+		t.Run("GetInviteLink uses tenant external address", func(t *testing.T) {
+			// Invite user to project.
+			_, err := service.InviteNewProjectMember(ctx1WithOwner, project.ID, inviteeEmail)
+			require.NoError(t, err)
+
+			// Get the invite link.
+			link, err := service.GetInviteLink(ctx1WithOwner, project.PublicID, inviteeEmail)
+			require.NoError(t, err)
+
+			// Verify the link starts with tenant's external address.
+			require.True(t, strings.HasPrefix(link, tenant1ExternalAddress), "Invite link should use tenant external address, got: %s", link)
+			require.Contains(t, link, "/invited?invite=")
+		})
+
+		t.Run("Default external address for non-tenant context", func(t *testing.T) {
+			// Create owner on default tenant.
+			defaultOwner, err := service.CreateUser(ctx, console.CreateUser{
+				FullName: "Default Owner",
+				Email:    "defaultowner@example.com",
+				Password: password,
+			}, console.RegistrationSecret{})
+			require.NoError(t, err)
+
+			defaultOwner.Status = console.Active
+			err = usersDB.Update(ctx, defaultOwner.ID, console.UpdateUserRequest{
+				Status: &defaultOwner.Status,
+			})
+			require.NoError(t, err)
+			err = usersDB.UpdatePaidTier(ctx, defaultOwner.ID, true, 0, 0, 0, 10, nil)
+			require.NoError(t, err)
+
+			// Refresh user to get updated limits.
+			defaultOwner, err = usersDB.Get(ctx, defaultOwner.ID)
+			require.NoError(t, err)
+
+			ctxWithDefaultOwner := console.WithUser(ctx, defaultOwner)
+			defaultProject, err := service.CreateProject(ctxWithDefaultOwner, console.UpsertProjectInfo{
+				Name: "Default Project",
+			})
+			require.NoError(t, err)
+
+			// Invite user to default project.
+			_, err = service.InviteNewProjectMember(ctxWithDefaultOwner, defaultProject.ID, "another@example.com")
+			require.NoError(t, err)
+
+			// Get the invite link.
+			link, err := service.GetInviteLink(ctxWithDefaultOwner, defaultProject.PublicID, "another@example.com")
+			require.NoError(t, err)
+
+			// Should NOT use tenant external address.
+			require.False(t, strings.HasPrefix(link, tenant1ExternalAddress), "Default invite link should not use tenant external address")
+		})
+	})
+}

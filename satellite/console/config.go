@@ -470,6 +470,7 @@ type TenantWhiteLabelConfig struct {
 type WhiteLabelConfig struct {
 	TenantID          string            `yaml:"-"`
 	HostName          string            `yaml:"host-name,omitempty"`
+	ExternalAddress   string            `yaml:"external-address,omitempty"`
 	Name              string            `yaml:"name,omitempty"`
 	LogoURLs          map[string]string `yaml:"logo-urls,omitempty"`
 	FaviconURLs       map[string]string `yaml:"favicon-urls,omitempty"`
