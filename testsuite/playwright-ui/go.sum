@@ -1402,8 +1402,8 @@ github.com/sourcegraph/conc v0.3.0/go.mod h1:Sdozi7LEKbFPqYX2/J+iBAM6HpqSLTASQIK
 github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62 h1:X5+jSi+pL+sc2/Sp9mtrmRqDDnKkm9YVy1ik/jJDRD0=
 github.com/spacemonkeygo/errors v0.0.0-20201030155909-2f5f890dbc62/go.mod h1:7NL9UAYQnRM5iKHUCld3tf02fKb5Dft+41+VckASUy0=
 github.com/spacemonkeygo/monkit/v3 v3.0.4/go.mod h1:JcK1pCbReQsOsMKF/POFSZCq7drXFybgGmbc27tuwes=
-github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20251022131615-eb24eb109368 h1:GyYC5Ntqk/yy9lEIGE7chdIvt4zP44taycwd9YDSGdc=
-github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20251022131615-eb24eb109368/go.mod h1:XkZYGzknZwkD0AKUnZaSXhRiVTLCkq7CWVa3IsE72gA=
+github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20260113195619-706ad4b46206 h1:N+RcE6sygGejKYfA6G8WzmZZs94a7Tz0YoexXVs5XQ4=
+github.com/spacemonkeygo/monkit/v3 v3.0.25-0.20260113195619-706ad4b46206/go.mod h1:XkZYGzknZwkD0AKUnZaSXhRiVTLCkq7CWVa3IsE72gA=
 github.com/spacemonkeygo/monotime v0.0.0-20180824235756-e3f48a95f98a/go.mod h1:ul4bvvnCOPZgq8w0nTkSmWVg/hauVpFS97Am1YM1XXo=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 h1:RC6RW7j+1+HkWaX/Yh71Ee5ZHaHYt7ZP4sQgUrm6cDU=
 github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572/go.mod h1:w0SWMsp6j9O/dk4/ZpIhL+3CkG8ofA2vuv7k+ltqUMc=
