@@ -965,7 +965,7 @@ watch(enableObjectLock, value => {
 });
 
 watch(bucketLocation, async (value) => {
-    if (showNewPricingTiers.value) {
+    if (showNewPricingTiers.value || !configStore.billingEnabled) {
         return;
     }
     pricingForLocation.value = undefined;
