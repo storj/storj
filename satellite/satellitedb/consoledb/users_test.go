@@ -463,7 +463,7 @@ func TestUpdateUser(t *testing.T) {
 		newDatePtr := &newDate
 		updateReq = console.UpdateUserRequest{
 			TrialExpiration: &newDatePtr,
-			UpgradeTime:     &newDate,
+			UpgradeTime:     &newDatePtr,
 		}
 
 		err = users.Update(ctx, id, updateReq)
@@ -545,8 +545,9 @@ func TestGetUpgradeTime(t *testing.T) {
 		require.Nil(t, upgradeTime)
 
 		now := time.Now()
+		nowPtr := &now
 
-		err = usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{UpgradeTime: &now})
+		err = usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{UpgradeTime: &nowPtr})
 		require.NoError(t, err)
 
 		upgradeTime, err = usersRepo.GetUpgradeTime(ctx, user.ID)

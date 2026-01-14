@@ -414,13 +414,14 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		userAgent = []byte(*request.UserAgent)
 	}
 
-	var upgradeTime *time.Time
+	var upgradeTime **time.Time
 	trialExpiration, _ := request.parseTrialExpiration()
 	if request.Kind != nil && *request.Kind != user.Kind {
 		now := s.nowFn()
 		if *request.Kind == console.PaidUser {
 			if user.UpgradeTime == nil {
-				upgradeTime = &now
+				nowPtr := &now
+				upgradeTime = &nowPtr
 			}
 		}
 		if *request.Kind == console.FreeUser {

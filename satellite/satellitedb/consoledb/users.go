@@ -1130,7 +1130,7 @@ func (users *users) toUpdateUser(request console.UpdateUserRequest) (*dbx.User_U
 		update.TrialNotifications = dbx.User_TrialNotifications(int(*request.TrialNotifications))
 	}
 	if request.UpgradeTime != nil {
-		update.UpgradeTime = dbx.User_UpgradeTime(*request.UpgradeTime)
+		update.UpgradeTime = dbx.User_UpgradeTime_Raw(*request.UpgradeTime)
 	}
 
 	if request.NewUnverifiedEmail != nil {

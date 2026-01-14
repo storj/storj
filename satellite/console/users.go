@@ -570,7 +570,7 @@ type UpdateUserRequest struct {
 
 	TrialExpiration    **time.Time
 	TrialNotifications *TrialNotificationStatus
-	UpgradeTime        *time.Time
+	UpgradeTime        **time.Time
 
 	NewUnverifiedEmail          **string
 	EmailChangeVerificationStep *int
