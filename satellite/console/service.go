@@ -56,6 +56,7 @@ import (
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/hubspotmails"
@@ -289,6 +290,8 @@ type Service struct {
 	loginURL   string
 	supportURL string
 	skuEnabled bool
+
+	bucketEventing eventingconfig.Config
 }
 
 func init() {
@@ -329,7 +332,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
-	skuEnabled bool, loginURL string, supportURL string) (*Service, error) {
+	skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -439,6 +442,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		nowFn:            time.Now,
 		supportURL:       supportURL,
 		loginURL:         loginURL,
+
+		bucketEventing: bucketEventing,
 	}, nil
 }
 
@@ -5110,6 +5115,16 @@ func (s *Service) ProjectSupportsAuditableAPIKeys(projectID uuid.UUID) (supports
 	return supports
 }
 
+// ProjectSupportsEventingAPIKeys checks if the project ID is enabled for bucket eventing.
+func (s *Service) ProjectSupportsEventingAPIKeys(ctx context.Context, projectID uuid.UUID) (supports bool, err error) {
+	// Get the project to retrieve its private ID.
+	project, err := s.GetProjectNoAuth(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	return s.bucketEventing.Projects.Enabled(project.ID), nil
+}
+
 // GenCreateAPIKey creates new api key for generated api.
 func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyRequest) (*CreateAPIKeyResponse, api.HTTPError) {
 	var err error
@@ -5149,6 +5164,25 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		}
 	}
 
+	// Determine API key version based on project capabilities
+	apiKeyVersion := macaroon.APIKeyVersionMin
+	if s.GetObjectLockUIEnabled() {
+		apiKeyVersion = macaroon.APIKeyVersionObjectLock
+	}
+	if s.ProjectSupportsAuditableAPIKeys(projectID) {
+		apiKeyVersion |= macaroon.APIKeyVersionAuditable
+	}
+	supports, err := s.ProjectSupportsEventingAPIKeys(ctx, projectID)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+	if supports {
+		apiKeyVersion |= macaroon.APIKeyVersionEventing
+	}
+
 	secret, err := macaroon.NewSecret()
 	if err != nil {
 		return nil, api.HTTPError{
@@ -5170,6 +5204,7 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		ProjectID: projectID,
 		Secret:    secret,
 		UserAgent: user.UserAgent,
+		Version:   apiKeyVersion,
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)

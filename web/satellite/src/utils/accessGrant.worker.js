@@ -112,6 +112,12 @@ self.onmessage = async function (event) {
             permission.AllowGetObjectLegalHold = isGetObjectLegalHold;
             permission.AllowPutBucketObjectLockConfiguration = isPutObjectLockConfiguration;
             permission.AllowGetBucketObjectLockConfiguration = isGetObjectLockConfiguration;
+            // TODO: For now we always allow bucket notification configuration
+            // access and rely on the project-level gating config to restrict
+            // access to bucket eventing. Later when we will the necessary UI
+            // and set these based on the user selection.
+            permission.AllowPutBucketNotificationConfiguration = true;
+            permission.AllowGetBucketNotificationConfiguration = true;
 
             if (notBefore) permission.NotBefore = notBefore;
             if (notAfter) permission.NotAfter = notAfter;

@@ -149,6 +149,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			false,
 			"",
 			"",
+			sat.Config.BucketEventing,
 		)
 
 		require.NoError(t, err)

@@ -2168,6 +2168,7 @@ func TestBucketNotificationConfiguration(t *testing.T) {
 						},
 					},
 				}
+				config.Metainfo.ProjectLimits.MaxBuckets = 20
 			},
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
 				config.APIKeyVersion = macaroon.APIKeyVersionEventing
@@ -2496,6 +2497,63 @@ func TestBucketNotificationConfiguration(t *testing.T) {
 			})
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			bucketName := createBucket(t)
+
+			// Test with old API key version (should be rejected)
+			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectWithoutPathEncryption.ID, "old key", macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			_, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: oldApiKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			// Also test SetBucketNotificationConfiguration with old API key
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: oldApiKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			// Test with restricted API key that disallows Get operation
+			bucketName = createBucket(t)
+
+			restrictedGetApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowGetBucketNotificationConfiguration: true,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: restrictedGetApiKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+			// Test with restricted API key that disallows Put operation
+			bucketName = createBucket(t)
+
+			restrictedPutApiKey, err := apiKey.Restrict(macaroon.Caveat{
+				DisallowPutBucketNotificationConfiguration: true,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: restrictedPutApiKey.SerializeRaw(),
+				},
+				Name: []byte(bucketName),
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 		})
 
 		t.Run("Bucket-specific API key - can only access allowed bucket", func(t *testing.T) {
