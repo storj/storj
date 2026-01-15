@@ -125,6 +125,7 @@ func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts Del
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+					checksum,
 					total_plain_size, total_encrypted_size,
 					fixed_segment_size, encryption,
 					retention_mode, retain_until
@@ -172,6 +173,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			SELECT
 				version, stream_id, created_at, expires_at, status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
@@ -224,6 +226,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 			lockModeWrapper{
@@ -567,6 +570,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 			lockModeWrapper{
@@ -587,9 +591,12 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 }
 
 const collectDeletedObjectsSpannerFields = " " +
-	`version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-	encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag, total_plain_size, total_encrypted_size,
-	fixed_segment_size, encryption, retention_mode, retain_until`
+	`version, stream_id, created_at, expires_at, status, segment_count,
+	encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+	checksum,
+	total_plain_size, total_encrypted_size, fixed_segment_size,
+	encryption,
+	retention_mode, retain_until`
 
 // collectDeletedObjectsSpanner reads in the results of an object deletion from the database.
 func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, iter *spanner.RowIterator) (objects []Object, err error) {
@@ -601,6 +608,7 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 				&object.CreatedAt, &object.ExpiresAt,
 				&object.Status, spannerutil.Int(&object.SegmentCount),
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+				&object.Checksum,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				&object.Encryption,
 				lockModeWrapper{
@@ -716,6 +724,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlain(ctx context.Context, op
 					created_at, expires_at,
 					status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+					checksum,
 					total_plain_size, total_encrypted_size, fixed_segment_size,
 					encryption,
 					retention_mode, retain_until
@@ -747,6 +756,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			SELECT
 				version, stream_id, created_at, expires_at, status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
@@ -801,6 +811,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 			lockModeWrapper{

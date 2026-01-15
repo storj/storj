@@ -379,7 +379,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserData(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, 0)
 
@@ -1195,7 +1195,7 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 			object, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserData(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, 0)
 
