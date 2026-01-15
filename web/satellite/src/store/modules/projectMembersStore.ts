@@ -59,11 +59,11 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
 
     async function deleteProjectMembers(projectID: string, customSelected?: string[]): Promise<void> {
         if (customSelected && customSelected.length) {
-            await api.delete(projectID, customSelected, csrfToken.value);
+            await api.delete(projectID, customSelected, false, csrfToken.value);
             return;
         }
 
-        await api.delete(projectID, state.selectedProjectMembersEmails, csrfToken.value);
+        await api.delete(projectID, state.selectedProjectMembersEmails, false, csrfToken.value);
 
         clearProjectMemberSelection();
     }

@@ -21,11 +21,12 @@ export class ProjectMembersHttpApi implements ProjectMembersApi {
      *
      * @param projectId
      * @param emails
+     * @param removeAccesses
      * @param csrfProtectionToken
      */
-    public async delete(projectId: string, emails: string[], csrfProtectionToken: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/${projectId}/members?emails=${encodeURIComponent(emails.toString())}`;
-        const response = await this.http.delete(path, null, { csrfProtectionToken });
+    public async delete(projectId: string, emails: string[], removeAccesses: boolean, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectId}/members`;
+        const response = await this.http.delete(path, JSON.stringify({ emails, removeAccesses }), { csrfProtectionToken });
         if (!response.ok) {
             const result = await response.json();
             throw new APIError({

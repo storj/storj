@@ -4794,10 +4794,10 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 
 // DeleteProjectMembersAndInvitations removes users and invitations by email from given project.
 // projectID here may be project.PublicID or project.ID.
-func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
+func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projectID uuid.UUID, data DeleteMembersAndInvitationsRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("project_id", projectID.String()), zap.Strings("emails", emails))
+	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("project_id", projectID.String()), zap.Strings("emails", data.Emails))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -4809,7 +4809,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 
 	if isMember.membership.Role != RoleAdmin {
 		// We still allow user to remove themselves even with Member role.
-		if len(emails) != 1 || user.Email != emails[0] {
+		if len(data.Emails) != 1 || user.Email != data.Emails[0] {
 			return ErrForbidden.New("only project Owner or Admin can remove other members")
 		}
 	}
@@ -4819,7 +4819,7 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	var userIDs []uuid.UUID
 	var invitedEmails []string
 
-	for _, email := range emails {
+	for _, email := range data.Emails {
 		invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
 		if err == nil {
 			invitedEmails = append(invitedEmails, email)
@@ -4855,6 +4855,13 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			err = tx.ProjectMembers().Delete(ctx, uID, projectID)
 			if err != nil {
 				return err
+			}
+
+			if data.RemoveAccesses {
+				err = tx.APIKeys().DeleteAllByProjectIDAndOwnerID(ctx, projectID, uID)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		for _, email := range invitedEmails {

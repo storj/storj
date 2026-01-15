@@ -690,7 +690,7 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 				require.True(t, console.ErrUnauthorized.Has(err))
 				// remove user2.
-				err = service.DeleteProjectMembersAndInvitations(userCtx1, up1Proj.ID, []string{user2.Email})
+				err = service.DeleteProjectMembersAndInvitations(userCtx1, up1Proj.ID, console.DeleteMembersAndInvitationsRequest{Emails: []string{user2.Email}})
 				require.NoError(t, err)
 
 				_, err = service.UpdateProject(userCtx1, disabledProject.ID, console.UpsertProjectInfo{Name: updatedName})
@@ -903,18 +903,18 @@ func TestService(t *testing.T) {
 				}
 
 				// You should not be able to remove someone from a project that you aren't a member of.
-				err = service.DeleteProjectMembersAndInvitations(user1Ctx, up2Proj.ID, []string{invitedUser.Email})
+				err = service.DeleteProjectMembersAndInvitations(user1Ctx, up2Proj.ID, console.DeleteMembersAndInvitationsRequest{Emails: []string{invitedUser.Email}})
 				require.Error(t, err)
 
 				// Project owners should not be able to be removed.
-				err = service.DeleteProjectMembersAndInvitations(user2Ctx, up1Proj.ID, []string{user1.Email})
+				err = service.DeleteProjectMembersAndInvitations(user2Ctx, up1Proj.ID, console.DeleteMembersAndInvitationsRequest{Emails: []string{user1.Email}})
 				require.Error(t, err)
 
 				// An invalid email should cause the operation to fail.
 				err = service.DeleteProjectMembersAndInvitations(
 					user2Ctx,
 					up2Proj.ID,
-					[]string{invitedUser.Email, "nobody@mail.test"},
+					console.DeleteMembersAndInvitationsRequest{Emails: []string{invitedUser.Email, "nobody@mail.test"}},
 				)
 				require.Error(t, err)
 
@@ -922,7 +922,7 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 
 				// Members and invitations should be removed.
-				err = service.DeleteProjectMembersAndInvitations(user2Ctx, up2Proj.ID, []string{invitedUser.Email, user1.Email})
+				err = service.DeleteProjectMembersAndInvitations(user2Ctx, up2Proj.ID, console.DeleteMembersAndInvitationsRequest{Emails: []string{invitedUser.Email, user1.Email}})
 				require.NoError(t, err)
 
 				_, err = sat.DB.Console().ProjectInvitations().Get(ctx, up2Proj.ID, invitedUser.Email)
@@ -941,11 +941,11 @@ func TestService(t *testing.T) {
 				require.Equal(t, console.RoleMember, invitedMember.Role)
 
 				// Members with console.RoleMember status can't delete other members.
-				err = service.DeleteProjectMembersAndInvitations(invitedUserCtx, up1Proj.ID, []string{invitedUser.Email, user1.Email})
+				err = service.DeleteProjectMembersAndInvitations(invitedUserCtx, up1Proj.ID, console.DeleteMembersAndInvitationsRequest{Emails: []string{invitedUser.Email, user1.Email}})
 				require.True(t, console.ErrForbidden.Has(err))
 
 				// Members with console.RoleMember status can delete themselves.
-				err = service.DeleteProjectMembersAndInvitations(invitedUserCtx, up1Proj.ID, []string{invitedUser.Email})
+				err = service.DeleteProjectMembersAndInvitations(invitedUserCtx, up1Proj.ID, console.DeleteMembersAndInvitationsRequest{Emails: []string{invitedUser.Email}})
 				require.NoError(t, err)
 
 				_, err = sat.DB.Console().ProjectMembers().GetByMemberIDAndProjectID(ctx, invitedMember.MemberID, up1Proj.ID)
@@ -954,9 +954,71 @@ func TestService(t *testing.T) {
 				err = service.DeleteProjectMembersAndInvitations(
 					userCtx1,
 					disabledProject.ID,
-					[]string{invitedUser.Email, "nobody@mail.test"},
+					console.DeleteMembersAndInvitationsRequest{Emails: []string{invitedUser.Email, "nobody@mail.test"}},
 				)
 				require.True(t, console.ErrUnauthorized.Has(err))
+			})
+
+			t.Run("DeleteProjectMembersAndInvitations_RemoveAccesses", func(t *testing.T) {
+				owner, ownerCtx := getOwnerAndCtx(ctx, up1Proj)
+
+				// Create a member to be removed.
+				member, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Member User",
+					Email:    "member-remove-access@mail.test",
+				}, 1)
+				require.NoError(t, err)
+
+				memberCtx, err := sat.UserContext(ctx, member.ID)
+				require.NoError(t, err)
+
+				// Invite and add member to project.
+				_, err = service.InviteNewProjectMember(ownerCtx, up1Proj.ID, member.Email)
+				require.NoError(t, err)
+				err = service.RespondToProjectInvitation(memberCtx, up1Proj.ID, console.ProjectInvitationAccept)
+				require.NoError(t, err)
+
+				// Member creates an API key.
+				memberKey, _, err := service.CreateAPIKey(memberCtx, up1Proj.ID, "member-key", macaroon.APIKeyVersionMin)
+				require.NoError(t, err)
+				require.Equal(t, member.ID, memberKey.CreatedBy)
+
+				// Owner creates an API key (should not be affected).
+				ownerKey, _, err := service.CreateAPIKey(ownerCtx, up1Proj.ID, "owner-key-for-remove-test", macaroon.APIKeyVersionMin)
+				require.NoError(t, err)
+				require.Equal(t, owner.ID, ownerKey.CreatedBy)
+
+				// Remove member WITHOUT removing accesses.
+				err = service.DeleteProjectMembersAndInvitations(ownerCtx, up1Proj.ID, console.DeleteMembersAndInvitationsRequest{
+					Emails:         []string{member.Email},
+					RemoveAccesses: false,
+				})
+				require.NoError(t, err)
+
+				// Member's API key should still exist.
+				_, err = sat.DB.Console().APIKeys().Get(ctx, memberKey.ID)
+				require.NoError(t, err)
+
+				// Re-add member.
+				_, err = service.InviteNewProjectMember(ownerCtx, up1Proj.ID, member.Email)
+				require.NoError(t, err)
+				err = service.RespondToProjectInvitation(memberCtx, up1Proj.ID, console.ProjectInvitationAccept)
+				require.NoError(t, err)
+
+				// Remove member WITH removing accesses.
+				err = service.DeleteProjectMembersAndInvitations(ownerCtx, up1Proj.ID, console.DeleteMembersAndInvitationsRequest{
+					Emails:         []string{member.Email},
+					RemoveAccesses: true,
+				})
+				require.NoError(t, err)
+
+				// Member's API key should be deleted.
+				_, err = sat.DB.Console().APIKeys().Get(ctx, memberKey.ID)
+				require.Error(t, err)
+
+				// Owner's API key should still exist.
+				_, err = sat.DB.Console().APIKeys().Get(ctx, ownerKey.ID)
+				require.NoError(t, err)
 			})
 
 			t.Run("CreateAPIKey", func(t *testing.T) {
@@ -7272,7 +7334,7 @@ func TestProjectInvitations(t *testing.T) {
 			require.NoError(t, err)
 
 			// remove admin from project before invitee accepts invite
-			err = service.DeleteProjectMembersAndInvitations(ownerCtx, project.ID, []string{admin.Email})
+			err = service.DeleteProjectMembersAndInvitations(ownerCtx, project.ID, console.DeleteMembersAndInvitationsRequest{Emails: []string{admin.Email}})
 			require.NoError(t, err)
 
 			// invitee cannot accept invite since inviter has been removed

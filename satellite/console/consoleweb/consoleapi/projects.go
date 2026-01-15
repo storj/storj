@@ -1001,15 +1001,14 @@ func (p *Projects) DeleteMembersAndInvitations(w http.ResponseWriter, r *http.Re
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 	}
 
-	emailsStr := r.URL.Query().Get("emails")
-	if emailsStr == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing emails parameter"))
+	var payload console.DeleteMembersAndInvitationsRequest
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
-	emails := strings.Split(emailsStr, ",")
-
-	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, emails)
+	err = p.service.DeleteProjectMembersAndInvitations(ctx, id, payload)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)

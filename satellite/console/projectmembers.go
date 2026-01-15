@@ -66,6 +66,12 @@ type ProjectMembersPage struct {
 	TotalCount     uint64
 }
 
+// DeleteMembersAndInvitationsRequest holds data for remove members and invitations request.
+type DeleteMembersAndInvitationsRequest struct {
+	Emails         []string `json:"emails"`
+	RemoveAccesses bool     `json:"removeAccesses"`
+}
+
 // ProjectMemberOrder is used for querying project members in specified order.
 type ProjectMemberOrder int8
 

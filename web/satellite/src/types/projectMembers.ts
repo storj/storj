@@ -78,11 +78,12 @@ export interface ProjectMembersApi {
      *
      * @param projectId
      * @param emails
+     * @param removeAccesses
      * @param csrfProtectionToken
      *
      * @throws Error
      */
-    delete(projectId: string, emails: string[], csrfProtectionToken: string): Promise<void>;
+    delete(projectId: string, emails: string[], removeAccesses: boolean, csrfProtectionToken: string): Promise<void>;
 
     /**
      * Fetch Project Members

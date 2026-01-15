@@ -337,29 +337,24 @@ func TestDeleteProjectMembers(t *testing.T) {
 
 		members, invitees := createTestMembers(ctx, t, sat.DB.Console(), p, &user.ID)
 
-		var emails string
-		var firstAppendDone bool
+		var emails []string
 		for _, m := range members {
-			if firstAppendDone {
-				emails += ","
-			} else {
-				firstAppendDone = true
-			}
-			emails += m.Email
+			emails = append(emails, m.Email)
 		}
 		for e := range invitees {
-			if len(members) > 0 {
-				emails += ","
-			}
-			emails += e
+			emails = append(emails, e)
 		}
 
-		endpoint := fmt.Sprintf("projects/%s/members?", p.String())
-		params := url.Values{}
-		params.Add("emails", emails)
-		endpoint += params.Encode()
+		endpoint := fmt.Sprintf("projects/%s/members", p.String())
 
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, nil)
+		payload := console.DeleteMembersAndInvitationsRequest{
+			Emails:         emails,
+			RemoveAccesses: false,
+		}
+		payloadBytes, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payloadBytes))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 		require.NotContains(t, string(body), "error")
@@ -370,12 +365,16 @@ func TestDeleteProjectMembers(t *testing.T) {
 		require.Equal(t, user.ID, page.ProjectMembers[0].MemberID)
 
 		// test error
-		endpoint = fmt.Sprintf("projects/%s/members?", p.String())
-		params = url.Values{}
-		params.Add("emails", "nonmember@storj.test")
-		endpoint += params.Encode()
+		endpoint = fmt.Sprintf("projects/%s/members", p.String())
 
-		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, nil)
+		payload = console.DeleteMembersAndInvitationsRequest{
+			Emails:         []string{"nonmember@storj.test"},
+			RemoveAccesses: false,
+		}
+		payloadBytes, err = json.Marshal(payload)
+		require.NoError(t, err)
+
+		body, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint, bytes.NewBuffer(payloadBytes))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, status)
 		require.Contains(t, string(body), "error")
