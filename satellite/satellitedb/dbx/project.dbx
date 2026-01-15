@@ -373,6 +373,11 @@ delete api_key ( where api_key.id = ? )
 
 delete api_key ( where api_key.project_id = ? )
 
+delete api_key (
+	where api_key.project_id = ?
+	where api_key.created_by = ?
+)
+
 read one (
 	select api_key project.public_id
 	join project.id = api_key.project_id

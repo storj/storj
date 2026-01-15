@@ -25899,6 +25899,43 @@ func (obj *pgxImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_created_by ApiKey_CreatedBy_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "api_keys.created_by", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, api_key_project_id.value())
+	if !api_key_created_by.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, api_key_created_by.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -37199,6 +37236,43 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, api_key_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_created_by ApiKey_CreatedBy_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "api_keys.created_by", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, api_key_project_id.value())
+	if !api_key_created_by.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, api_key_created_by.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -48571,6 +48645,43 @@ func (obj *spannerImpl) Delete_ApiKey_By_ProjectId(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
+	api_key_project_id ApiKey_ProjectId_Field,
+	api_key_created_by ApiKey_CreatedBy_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "api_keys.created_by", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE api_keys.project_id = ? AND "), __cond_0}}
+
+	var __values []any
+	__values = append(__values, api_key_project_id.value())
+	if !api_key_created_by.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, api_key_created_by.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -49943,6 +50054,11 @@ type Methods interface {
 
 	Delete_ApiKey_By_ProjectId(ctx context.Context,
 		api_key_project_id ApiKey_ProjectId_Field) (
+		count int64, err error)
+
+	Delete_ApiKey_By_ProjectId_And_CreatedBy(ctx context.Context,
+		api_key_project_id ApiKey_ProjectId_Field,
+		api_key_created_by ApiKey_CreatedBy_Field) (
 		count int64, err error)
 
 	Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,

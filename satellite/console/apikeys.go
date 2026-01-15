@@ -35,6 +35,8 @@ type APIKeys interface {
 	DeleteMultiple(ctx context.Context, ids []uuid.UUID) error
 	// DeleteAllByProjectID deletes all APIKeyInfos from store by given projectID.
 	DeleteAllByProjectID(ctx context.Context, id uuid.UUID) error
+	// DeleteAllByProjectIDAndOwnerID deletes all APIKeyInfos from store by given projectID and ownerID.
+	DeleteAllByProjectIDAndOwnerID(ctx context.Context, projectID, ownerID uuid.UUID) error
 	// DeleteExpiredByNamePrefix deletes expired APIKeyInfo from store by key name prefix.
 	DeleteExpiredByNamePrefix(ctx context.Context, lifetime time.Duration, prefix string, asOfSystemTimeInterval time.Duration, pageSize int) error
 }
