@@ -100,6 +100,7 @@ target "default" {
 
   contexts = {
     "web-storagenode" = "target:web-storagenode"
+    "web-multinode"   = "target:web-multinode"
   }
 
   args = {
@@ -123,6 +124,12 @@ target "default" {
 
 target "web-storagenode" {
   context    = "./web/storagenode"
+  dockerfile = "Dockerfile"
+  target = "export"
+}
+
+target "web-multinode" {
+  context    = "./web/multinode"
   dockerfile = "Dockerfile"
   target = "export"
 }
