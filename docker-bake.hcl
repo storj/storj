@@ -45,9 +45,9 @@ target "storagenode-ui" {
     BUILD_DATE    = "${BUILD_DATE}"
   }
 
-  dockerfile = "./web/storagenode/Dockerfile"
-  context    = "."
-  target = "ui"
+  context    = "./web/storagenode"
+  dockerfile = "Dockerfile"
+  target = "export"
   cache-from = [
     {
       type = "registry",

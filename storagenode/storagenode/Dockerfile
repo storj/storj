@@ -10,7 +10,7 @@ RUN update-ca-certificates
 FROM golang:${GO_VERSION}-bookworm AS builder
 COPY go.mod go.sum ./
 RUN go mod download
-COPY --from=webui /var/www/html ./web/storagenode/dist
+COPY --from=webui / ./web/storagenode/dist/
 COPY ./storagenode ./storagenode
 COPY ./web/storagenode/assets.go ./web/storagenode/assets.go
 COPY ./shared ./shared
@@ -24,10 +24,10 @@ ARG BUILD_COMMIT
 ARG BUILD_DATE
 RUN --mount=type=cache,target="/root/.cache/go-build" \
     go install -ldflags "-X storj.io/common/version.buildRelease=true \
-      -X storj.io/common/version.buildVersion=$BUILD_VERSION \
-      -X storj.io/common/version.buildCommitHash=$BUILD_COMMIT \
-      -X storj.io/common/version.buildTimestamp=$BUILD_DATE" \
-      ./storagenode/storagenode ./cmd/identity
+    -X storj.io/common/version.buildVersion=$BUILD_VERSION \
+    -X storj.io/common/version.buildCommitHash=$BUILD_COMMIT \
+    -X storj.io/common/version.buildTimestamp=$BUILD_DATE" \
+    ./storagenode/storagenode ./cmd/identity
 
 FROM base AS build
 RUN apt-get install -y graphviz

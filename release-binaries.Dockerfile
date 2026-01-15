@@ -71,14 +71,6 @@ RUN --mount=type=cache,target=/root/.npm npm run build
 
 COPY --from=web-satellite-wasm /out/wasm /work/web/satellite/static/wasm
 
-# Storage Node UI
-FROM npm-builder AS web-storagenode
-WORKDIR /work/web/storagenode
-COPY --parents web/storagenode/package*.json /work/
-RUN --mount=type=cache,target=/root/.npm npm ci
-COPY --parents web/storagenode/ /work/
-RUN --mount=type=cache,target=/root/.npm npm run build
-
 # Multinode UI
 FROM npm-builder AS web-multinode
 WORKDIR /work/web/multinode
@@ -116,7 +108,7 @@ WORKDIR /work
 COPY . /work/
 ## Satellite console does not embed the UI.
 # COPY --from=web-satellite   /work/web/satellite/dist   /work/web/satellite/dist
-COPY --from=web-storagenode /work/web/storagenode/dist /work/web/storagenode/dist
+COPY --from=web-storagenode / /work/web/storagenode/dist/
 COPY --from=web-multinode   /work/web/multinode/dist   /work/web/multinode/dist
 
 COPY --from=web-satellite-admin           /work/satellite/admin/ui/build         /work/satellite/admin/ui/build
