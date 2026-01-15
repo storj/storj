@@ -1095,7 +1095,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	cfg := FrontendConfig{
-		ExternalAddress:                   server.config.ExternalAddress,
+		ExternalAddress:                   server.getExternalAddress(ctx),
 		SatelliteName:                     server.config.SatelliteName,
 		SatelliteNodeURL:                  server.nodeURL.String(),
 		StripePublicKey:                   server.stripePublicKey,
@@ -1362,6 +1362,8 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
+	externalAddr := server.getExternalAddress(ctx)
+
 	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		if console.ErrTokenInvalid.Has(err) {
@@ -1378,7 +1380,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			http.Redirect(w, r, server.config.ExternalAddress+"activate?expired=true", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, externalAddr+"activate?expired=true", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -1387,7 +1389,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, externalAddr+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -1428,7 +1430,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 
 	server.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
-	http.Redirect(w, r, server.config.ExternalAddress, http.StatusTemporaryRedirect)
+	http.Redirect(w, r, externalAddr, http.StatusTemporaryRedirect)
 }
 
 func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *http.Request) {
@@ -1443,6 +1445,23 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
+// getExternalAddress returns the external address for the current tenant context.
+// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
+// to the global external address. The returned address always has a trailing slash.
+func (server *Server) getExternalAddress(ctx context.Context) string {
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID != "" {
+		if wlConfig, ok := server.config.WhiteLabel.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
+			addr := wlConfig.ExternalAddress
+			if !strings.HasSuffix(addr, "/") {
+				addr += "/"
+			}
+			return addr
+		}
+	}
+	return server.config.ExternalAddress
+}
+
 func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
@@ -1453,7 +1472,8 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	loginLink := server.config.ExternalAddress + "login"
+	externalAddr := server.getExternalAddress(ctx)
+	loginLink := externalAddr + "login"
 
 	invite, err := server.service.GetInviteByToken(ctx, token)
 	if err != nil {
@@ -1492,7 +1512,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		server.analytics.TrackInviteLinkClicked(inviter.Email, invite.Email)
 	}
 
-	http.Redirect(w, r, server.config.ExternalAddress+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
+	http.Redirect(w, r, externalAddr+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
 // serveError serves a static error page.
