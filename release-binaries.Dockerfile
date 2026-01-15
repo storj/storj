@@ -71,22 +71,6 @@ RUN --mount=type=cache,target=/root/.npm npm run build
 
 COPY --from=web-satellite-wasm /out/wasm /work/web/satellite/static/wasm
 
-# Satellite Admin UI
-FROM npm-builder AS web-satellite-admin
-WORKDIR /work/satellite/admin/ui
-COPY --parents satellite/admin/ui/package*.json /work/
-RUN --mount=type=cache,target=/root/.npm npm ci
-COPY --parents satellite/admin/ui/ /work/
-RUN --mount=type=cache,target=/root/.npm npm run build
-
-# Satellite Legacy Admin UI
-FROM npm-builder AS web-satellite-admin-legacy-ui
-WORKDIR /work/satellite/admin/legacy/ui
-COPY --parents satellite/admin/legacy/ui/package*.json /work/
-RUN --mount=type=cache,target=/root/.npm npm ci
-COPY --parents satellite/admin/legacy/ui/ /work/
-RUN --mount=type=cache,target=/root/.npm npm run build
-
 ###
 # Building Go binaries
 ###
@@ -103,8 +87,8 @@ COPY . /work/
 COPY --from=web-storagenode /  /work/web/storagenode/dist/
 COPY --from=web-multinode   /  /work/web/multinode/dist/
 
-COPY --from=web-satellite-admin           /work/satellite/admin/ui/build         /work/satellite/admin/ui/build
-COPY --from=web-satellite-admin-legacy-ui /work/satellite/admin/legacy/ui/build  /work/satellite/admin/legacy/ui/build
+COPY --from=web-satellite-admin        /  /work/satellite/admin/ui/build
+COPY --from=web-satellite-admin-legacy /  /work/satellite/admin/legacy/ui/build
 
 ARG GOOS
 ARG GOARCH
