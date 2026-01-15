@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -800,97 +801,105 @@ func TestBeginObjectExactVersion(t *testing.T) {
 	})
 }
 
+type objectEncodingTestCase struct {
+	retention metabase.Retention
+	userData  metabase.EncryptedUserData
+}
+
+func testObjectEncoding(ctx context.Context, t *testing.T, db *metabase.DB, apply func(*testing.T, objectEncodingTestCase) metabase.ObjectStream) {
+	// The purpose of this test is to ensure that we represent the zero values of certain
+	// object properties as NULL in the database.
+
+	// RetainUntil is included here to ensure that we encode it properly.
+	// Usually, optional timestamps are represented as *time.Time and encoded in the database
+	// as NULL only when they are nil. However, RetainUntil is time.Time, so we implement
+	// a custom encoder that encodes it as NULL when it is zero (time.Time{}).
+	type presentValues struct {
+		retentionMode bool
+		retainUntil   bool
+		checksum      bool
+	}
+
+	getValuePresence := func(t *testing.T, objStream metabase.ObjectStream) presentValues {
+		query := `
+			SELECT
+				retention_mode IS NOT NULL,
+				retain_until   IS NOT NULL,
+				checksum       IS NOT NULL
+			FROM objects
+			WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`
+
+		args := map[string]any{
+			"project_id":  objStream.ProjectID,
+			"bucket_name": objStream.BucketName,
+			"object_key":  objStream.ObjectKey,
+			"version":     objStream.Version,
+		}
+
+		adapter := db.ChooseAdapter(uuid.UUID{})
+
+		var isPresent presentValues
+
+		switch ad := adapter.(type) {
+		case *metabase.PostgresAdapter:
+			row := ad.UnderlyingDB().QueryRowContext(ctx, query, pgx.StrictNamedArgs(args))
+			require.NoError(t, row.Scan(
+				&isPresent.retentionMode,
+				&isPresent.retainUntil,
+				&isPresent.checksum,
+			))
+		case *metabase.CockroachAdapter:
+			row := ad.PostgresAdapter.UnderlyingDB().QueryRowContext(ctx, query, pgx.StrictNamedArgs(args))
+			require.NoError(t, row.Scan(
+				&isPresent.retentionMode,
+				&isPresent.retainUntil,
+				&isPresent.checksum,
+			))
+		case *metabase.SpannerAdapter:
+			var err error
+			isPresent, err = spannerutil.CollectRow(
+				ad.UnderlyingDB().Single().QueryWithOptions(ctx, spanner.Statement{
+					SQL:    query,
+					Params: args,
+				}, spanner.QueryOptions{}),
+				func(row *spanner.Row, item *presentValues) error {
+					return errs.Wrap(row.Columns(
+						&item.retentionMode,
+						&item.retainUntil,
+						&item.checksum,
+					))
+				},
+			)
+			require.NoError(t, err)
+		default:
+			t.Skipf("unknown adapter type %T", adapter)
+		}
+
+		return isPresent
+	}
+
+	// Note: RandEncryptedUserData returns a set of user data with unset checksum properties.
+	userData := metabasetest.RandEncryptedUserData()
+
+	objStream := apply(t, objectEncodingTestCase{
+		retention: metabase.Retention{
+			Mode:        storj.NoRetention,
+			RetainUntil: time.Time{},
+		},
+		userData: userData,
+	})
+	isPresent := getValuePresence(t, objStream)
+	require.False(t, isPresent.retentionMode)
+	require.False(t, isPresent.retainUntil)
+	require.False(t, isPresent.checksum)
+}
+
 func TestBeginObject_Encoding(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		// The purpose of this test is to ensure that we represent the zero values of certain
-		// object properties as NULL in the database.
-
-		// RetainUntil is included here to ensure that we encode it properly.
-		// Usually, optional timestamps are represented as *time.Time and encoded in the database
-		// as NULL only when they are nil. However, RetainUntil is time.Time, so we implement
-		// a custom encoder that encodes it as NULL when it is zero (time.Time{}).
-		type presentValues struct {
-			retentionMode bool
-			retainUntil   bool
-			checksum      bool
-		}
-
-		getValuePresence := func(t *testing.T, objStream metabase.ObjectStream) presentValues {
-			query := `
-				SELECT
-					retention_mode IS NOT NULL,
-					retain_until   IS NOT NULL,
-					checksum       IS NOT NULL
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`
-
-			args := map[string]any{
-				"project_id":  objStream.ProjectID,
-				"bucket_name": objStream.BucketName,
-				"object_key":  objStream.ObjectKey,
-				"version":     objStream.Version,
-			}
-
-			adapter := db.ChooseAdapter(uuid.UUID{})
-
-			var isPresent presentValues
-
-			switch ad := adapter.(type) {
-			case *metabase.PostgresAdapter:
-				row := ad.UnderlyingDB().QueryRowContext(ctx, query, pgx.StrictNamedArgs(args))
-				require.NoError(t, row.Scan(
-					&isPresent.retentionMode,
-					&isPresent.retainUntil,
-					&isPresent.checksum,
-				))
-			case *metabase.CockroachAdapter:
-				row := ad.PostgresAdapter.UnderlyingDB().QueryRowContext(ctx, query, pgx.StrictNamedArgs(args))
-				require.NoError(t, row.Scan(
-					&isPresent.retentionMode,
-					&isPresent.retainUntil,
-					&isPresent.checksum,
-				))
-			case *metabase.SpannerAdapter:
-				var err error
-				isPresent, err = spannerutil.CollectRow(
-					ad.UnderlyingDB().Single().QueryWithOptions(ctx, spanner.Statement{
-						SQL:    query,
-						Params: args,
-					}, spanner.QueryOptions{}),
-					func(row *spanner.Row, item *presentValues) error {
-						return errs.Wrap(row.Columns(
-							&item.retentionMode,
-							&item.retainUntil,
-							&item.checksum,
-						))
-					},
-				)
-				require.NoError(t, err)
-			default:
-				t.Skipf("unknown adapter type %T", adapter)
-			}
-
-			return isPresent
-		}
-
-		test := func(t *testing.T, apply func(*testing.T, metabase.Retention, metabase.EncryptedUserData) metabase.ObjectStream) {
-			// Note: RandEncryptedUserData returns a set of user data with unset checksum properties.
-			userData := metabasetest.RandEncryptedUserData()
-
-			objStream := apply(t, metabase.Retention{
-				Mode:        storj.NoRetention,
-				RetainUntil: time.Time{},
-			}, userData)
-			isPresent := getValuePresence(t, objStream)
-			require.False(t, isPresent.retentionMode)
-			require.False(t, isPresent.retainUntil)
-			require.False(t, isPresent.checksum)
-		}
-
 		t.Run("Next version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			test(t, func(t *testing.T, retention metabase.Retention, userData metabase.EncryptedUserData) metabase.ObjectStream {
+			testObjectEncoding(ctx, t, db, func(t *testing.T, testCase objectEncodingTestCase) metabase.ObjectStream {
 				objStream := metabasetest.RandObjectStream()
 				objStream.Version = metabase.NextVersion
 
@@ -898,8 +907,8 @@ func TestBeginObject_Encoding(t *testing.T) {
 					Opts: metabase.BeginObjectNextVersion{
 						ObjectStream:      objStream,
 						Encryption:        metabasetest.DefaultEncryption,
-						Retention:         retention,
-						EncryptedUserData: userData,
+						Retention:         testCase.retention,
+						EncryptedUserData: testCase.userData,
 					},
 					Version: 1,
 				}.Check(ctx, t, db)
@@ -910,13 +919,13 @@ func TestBeginObject_Encoding(t *testing.T) {
 		t.Run("Exact version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			test(t, func(t *testing.T, retention metabase.Retention, userData metabase.EncryptedUserData) metabase.ObjectStream {
+			testObjectEncoding(ctx, t, db, func(t *testing.T, testCase objectEncodingTestCase) metabase.ObjectStream {
 				object := metabasetest.BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
 						ObjectStream:      metabasetest.RandObjectStream(),
 						Encryption:        metabasetest.DefaultEncryption,
-						Retention:         retention,
-						EncryptedUserData: userData,
+						Retention:         testCase.retention,
+						EncryptedUserData: testCase.userData,
 					},
 				}.Check(ctx, t, db)
 				return object.ObjectStream

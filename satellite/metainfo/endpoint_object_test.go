@@ -2455,9 +2455,9 @@ func TestEndpoint_CopyObject(t *testing.T) {
 					}
 				},
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              objStream,
-					EncryptedUserData:         userData,
-					OverrideEncryptedMetadata: true,
+					ObjectStream:         objStream,
+					EncryptedUserData:    userData,
+					SetEncryptedMetadata: true,
 				},
 			}.Run(ctx, t, db, objStream, 1)
 

@@ -111,9 +111,9 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			}.Check(ctx, t, db)
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream:              committed,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
+					ObjectStream:         committed,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -733,10 +733,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -764,10 +764,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -798,10 +798,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -836,10 +836,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj1.ObjectKey = "1"
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         data1,
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    data1,
 				},
 			}.Run(ctx, t, db, obj1, 0)
 
@@ -850,10 +850,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj2.ObjectKey = "2"
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj2,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         data2,
+					ObjectStream:         obj2,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    data2,
 				},
 			}.Run(ctx, t, db, obj2, 0)
 
@@ -885,10 +885,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2124,9 +2124,9 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream:              committed,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
+					ObjectStream:         committed,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -2750,10 +2750,10 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2781,10 +2781,10 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 
@@ -2815,10 +2815,10 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 			obj1 := metabasetest.RandObjectStream()
 			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj1,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+					ObjectStream:         obj1,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
 				},
 			}.Run(ctx, t, db, obj1, 4)
 

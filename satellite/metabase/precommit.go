@@ -140,6 +140,7 @@ type PrecommitPendingObject struct {
 	EncryptedMetadataNonce        []byte                     `spanner:"encrypted_metadata_nonce"`
 	EncryptedMetadataEncryptedKey []byte                     `spanner:"encrypted_metadata_encrypted_key"`
 	EncryptedETag                 []byte                     `spanner:"encrypted_etag"`
+	Checksum                      Checksum                   `spanner:"checksum"`
 	Encryption                    storj.EncryptionParameters `spanner:"encryption"`
 	RetentionMode                 RetentionMode              `spanner:"retention_mode"`
 	RetainUntil                   spanner.NullTime           `spanner:"retain_until"`
@@ -202,9 +203,20 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 			values = append(values, &pending.ExpiresAt)
 		}
 		if !opts.ExcludeFromPending.EncryptedUserData {
-			additionalColumns += ", encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag"
+			additionalColumns += `,
+				encrypted_metadata,
+				encrypted_metadata_nonce,
+				encrypted_metadata_encrypted_key,
+				encrypted_etag,
+				checksum`
 
-			values = append(values, &pending.EncryptedMetadata, &pending.EncryptedMetadataNonce, &pending.EncryptedMetadataEncryptedKey, &pending.EncryptedETag)
+			values = append(values,
+				&pending.EncryptedMetadata,
+				&pending.EncryptedMetadataNonce,
+				&pending.EncryptedMetadataEncryptedKey,
+				&pending.EncryptedETag,
+				&pending.Checksum,
+			)
 		}
 
 		err := ptx.tx.QueryRowContext(ctx, `
@@ -354,7 +366,12 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 			additionalColumns += ", expires_at"
 		}
 		if !opts.ExcludeFromPending.EncryptedUserData {
-			additionalColumns += ", encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag"
+			additionalColumns += `,
+				encrypted_metadata,
+				encrypted_metadata_nonce,
+				encrypted_metadata_encrypted_key,
+				encrypted_etag,
+				checksum`
 		}
 
 		if !opts.ExcludeFromPending.Object {
@@ -533,10 +550,11 @@ type precommitUnversionedObjectFull struct {
 	Status       ObjectStatus `spanner:"status"`
 	SegmentCount int64        `spanner:"segment_count"`
 
-	EncryptedMetadata             []byte `spanner:"encrypted_metadata"`
-	EncryptedMetadataNonce        []byte `spanner:"encrypted_metadata_nonce"`
-	EncryptedMetadataEncryptedKey []byte `spanner:"encrypted_metadata_encrypted_key"`
-	EncryptedETag                 []byte `spanner:"encrypted_etag"`
+	EncryptedMetadata             []byte   `spanner:"encrypted_metadata"`
+	EncryptedMetadataNonce        []byte   `spanner:"encrypted_metadata_nonce"`
+	EncryptedMetadataEncryptedKey []byte   `spanner:"encrypted_metadata_encrypted_key"`
+	EncryptedETag                 []byte   `spanner:"encrypted_etag"`
+	Checksum                      Checksum `spanner:"checksum"`
 
 	TotalPlainSize     int64 `spanner:"total_plain_size"`
 	TotalEncryptedSize int64 `spanner:"total_encrypted_size"`
@@ -567,6 +585,7 @@ func (obj *precommitUnversionedObjectFull) toRawObject() *RawObject {
 			EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
 			EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
 			EncryptedETag:                 obj.EncryptedETag,
+			Checksum:                      obj.Checksum,
 		},
 		TotalPlainSize:         obj.TotalPlainSize,
 		TotalEncryptedSize:     obj.TotalEncryptedSize,

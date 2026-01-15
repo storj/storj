@@ -954,6 +954,7 @@ var rawObjectColumns = []string{
 	"encrypted_metadata",
 	"encrypted_metadata_encrypted_key",
 	"encrypted_etag",
+	"checksum",
 
 	"total_plain_size",
 	"total_encrypted_size",
@@ -998,6 +999,7 @@ func spannerObjectArguments(obj RawObject) []any {
 		obj.EncryptedMetadata,
 		obj.EncryptedMetadataEncryptedKey,
 		obj.EncryptedETag,
+		obj.Checksum,
 
 		obj.TotalPlainSize,
 		obj.TotalEncryptedSize,
@@ -1092,6 +1094,7 @@ func postgresObjectArguments(obj *RawObject) []any {
 		obj.EncryptedMetadata,
 		obj.EncryptedMetadataEncryptedKey,
 		obj.EncryptedETag,
+		obj.Checksum,
 
 		obj.TotalPlainSize,
 		obj.TotalEncryptedSize,
@@ -1126,6 +1129,7 @@ func postgresObjectScan(obj *RawObject) []any {
 		&obj.EncryptedMetadata,
 		&obj.EncryptedMetadataEncryptedKey,
 		&obj.EncryptedETag,
+		&obj.Checksum,
 
 		&obj.TotalPlainSize,
 		&obj.TotalEncryptedSize,

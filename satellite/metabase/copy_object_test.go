@@ -389,9 +389,9 @@ func TestFinishCopyObject(t *testing.T) {
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabasetest.RandEncryptedUserDataWithoutETag(),
+					ObjectStream:         obj,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
 				},
 			}.Run(ctx, t, db, obj, 2)
 
@@ -631,9 +631,9 @@ func TestFinishCopyObject(t *testing.T) {
 
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         originalData,
+					ObjectStream:         obj,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    originalData,
 				},
 			}.Run(ctx, t, db, obj, 0)
 
@@ -1169,9 +1169,9 @@ func TestFinishCopyObject(t *testing.T) {
 							Encryption:   metabasetest.DefaultEncryption,
 						},
 						CommitObject: &metabase.CommitObject{
-							ObjectStream:              sourceObjStream,
-							OverrideEncryptedMetadata: true,
-							EncryptedUserData:         metabasetest.RandEncryptedUserDataWithoutETag(),
+							ObjectStream:         sourceObjStream,
+							SetEncryptedMetadata: true,
+							EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
 						},
 						ExpectVersion: 0,
 					}.Run(ctx, t, db, sourceObjStream, 0)
@@ -1195,9 +1195,9 @@ func TestFinishCopyObject(t *testing.T) {
 								Encryption:   metabasetest.DefaultEncryption,
 							},
 							CommitObject: &metabase.CommitObject{
-								ObjectStream:              destinationObjStream,
-								OverrideEncryptedMetadata: true,
-								EncryptedUserData:         metabasetest.RandEncryptedUserDataWithoutETag(),
+								ObjectStream:         destinationObjStream,
+								SetEncryptedMetadata: true,
+								EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
 							},
 							ExpectVersion: 0,
 						}.Run(ctx, t, db, destinationObjStream, 0)

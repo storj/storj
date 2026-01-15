@@ -388,8 +388,8 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream: obj,
 
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
 				},
 			}.Run(ctx, t, db, obj, 0)
 

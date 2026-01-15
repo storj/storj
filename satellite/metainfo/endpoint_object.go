@@ -452,7 +452,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	// because encryption parameters are not allowed to be included in a set of metadata that
 	// lacks any encrypted data.
 	if len(req.EncryptedMetadata) != 0 || len(req.EncryptedEtag) != 0 {
-		request.OverrideEncryptedMetadata = true
+		request.SetEncryptedMetadata = true
 		request.EncryptedMetadata = req.EncryptedMetadata
 		request.EncryptedETag = req.EncryptedEtag
 		request.EncryptedMetadataNonce = nonceBytes(req.EncryptedMetadataNonce)

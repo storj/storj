@@ -176,8 +176,8 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: stream,
 					Encryption:   metabasetest.DefaultEncryption,
 
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         scenario.EncryptedUserData,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    scenario.EncryptedUserData,
 				}
 
 				metabasetest.CommitObject{
@@ -236,8 +236,8 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -286,9 +286,9 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
-					DisallowDelete:            true,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
+					DisallowDelete:       true,
 				},
 			}.Check(ctx, t, db)
 
@@ -613,7 +613,7 @@ func TestCommitObject(t *testing.T) {
 		t.Run("commit with metadata (no overwrite)", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			userData := metabasetest.RandEncryptedUserData()
+			userData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -636,7 +636,7 @@ func TestCommitObject(t *testing.T) {
 		t.Run("commit with metadata (overwrite)", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			userData := metabasetest.RandEncryptedUserData()
+			userData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -651,8 +651,8 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         userData,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
 				},
 			}.Check(ctx, t, db)
 
@@ -666,7 +666,7 @@ func TestCommitObject(t *testing.T) {
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream:      obj,
 					Encryption:        metabasetest.DefaultEncryption,
-					EncryptedUserData: metabasetest.RandEncryptedUserData(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Check(ctx, t, db)
 
@@ -675,12 +675,38 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabase.EncryptedUserData{},
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabase.EncryptedUserData{},
 				},
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
+		})
+
+		t.Run("require checksum if pending has checksum algorithm", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			userData := metabasetest.RandEncryptedUserDataWithChecksum()
+			userData.Checksum.EncryptedValue = nil
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: userData,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream:         obj,
+					SetEncryptedMetadata: false,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "An encrypted checksum must be provided if the pending object's checksum algorithm is set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(pending)}.Check(ctx, t, db)
 		})
 
 		t.Run("commit with retention configuration", func(t *testing.T) {
@@ -813,11 +839,11 @@ func TestCommitObjectWithSkipPendingObject(t *testing.T) {
 
 			object := metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream:              obj,
-					Encryption:                metabasetest.DefaultEncryption,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
-					SkipPendingObject:         true,
+					ObjectStream:         obj,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
+					SkipPendingObject:    true,
 				},
 			}.Check(ctx, t, db)
 
@@ -2607,6 +2633,62 @@ func TestCommitObjectWithSegments(t *testing.T) {
 	})
 }
 
+func TestCommitObject_Encoding(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		// CommitObject selects one of two code paths to insert object data.
+		// One of them updates the pending object at the specified location if it exists.
+		// The other inserts a new object at the location, completely overwriting any existing one.
+		// See the implementations of (TransactionAdapter).finalizeObjectCommit.
+
+		t.Run("Commit pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			testObjectEncoding(ctx, t, db, func(t *testing.T, testCase objectEncodingTestCase) metabase.ObjectStream {
+				objStream := metabasetest.RandObjectStream()
+
+				metabasetest.BeginObjectExactVersion{
+					Opts: metabase.BeginObjectExactVersion{
+						ObjectStream: objStream,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Check(ctx, t, db)
+
+				metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						Retention:            testCase.retention,
+						EncryptedUserData:    testCase.userData,
+						SetEncryptedMetadata: true,
+					},
+					ExpectVersion: objStream.Version,
+				}.Check(ctx, t, db)
+
+				return objStream
+			})
+		})
+
+		t.Run("Commit new object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			testObjectEncoding(ctx, t, db, func(t *testing.T, testCase objectEncodingTestCase) metabase.ObjectStream {
+				object := metabasetest.CommitObject{
+					Opts: metabase.CommitObject{
+						ObjectStream:         metabasetest.RandObjectStream(),
+						Encryption:           metabasetest.DefaultEncryption,
+						Retention:            testCase.retention,
+						EncryptedUserData:    testCase.userData,
+						SetEncryptedMetadata: true,
+						SkipPendingObject:    true,
+					},
+				}.Check(ctx, t, db)
+
+				return object.ObjectStream
+			})
+		})
+	})
+}
+
 func TestCommitInlineObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
@@ -2872,6 +2954,33 @@ func TestCommitInlineObject(t *testing.T) {
 			PlainSize:         512,
 			InlineData:        testrand.Bytes(100),
 		}
+
+		t.Run("Metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CommitInlineObject{
+				Opts: metabase.CommitInlineObject{
+					ObjectStream:        obj,
+					EncryptedUserData:   metabasetest.RandEncryptedUserDataWithChecksum(),
+					Encryption:          metabasetest.DefaultEncryption,
+					CommitInlineSegment: commitInlineSeg,
+				},
+				ExpectVersion: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: metabasetest.ObjectsToRaw(object),
+				Segments: []metabase.RawSegment{{
+					StreamID:          obj.StreamID,
+					CreatedAt:         object.CreatedAt,
+					EncryptedKeyNonce: commitInlineSeg.EncryptedKeyNonce,
+					EncryptedKey:      commitInlineSeg.EncryptedKey,
+					EncryptedSize:     int32(len(commitInlineSeg.InlineData)),
+					PlainSize:         commitInlineSeg.PlainSize,
+					InlineData:        commitInlineSeg.InlineData,
+				}},
+			}.Check(ctx, t, db)
+		})
 
 		t.Run("retention", func(t *testing.T) {
 			t.Run("success", func(t *testing.T) {
