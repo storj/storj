@@ -134,6 +134,7 @@ func (p Placement) MatchForUpload(node *SelectedNode) bool {
 }
 
 // GetAnnotation implements NodeFilterWithAnnotation.
+//
 // Deprecated: use Name instead.
 func (p Placement) GetAnnotation(name string) string {
 	if name == Location && p.Name != "" {
@@ -308,6 +309,7 @@ func (d PlacementDefinitions) AddPlacementRule(id storj.PlacementConstraint, fil
 type stringNotMatch string
 
 // AddPlacementFromString parses placement definition form string representations from id:definition;id:definition;...
+//
 // Deprecated: we will switch to the YAML based configuration.
 func (d PlacementDefinitions) AddPlacementFromString(definitions string) error {
 	env := map[any]any{

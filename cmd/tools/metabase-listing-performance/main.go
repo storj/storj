@@ -234,7 +234,7 @@ func Benchmark(ctx context.Context, log *zap.Logger, db *metabase.DB) (err error
 // isCanceledOrTimeout returns true, when the error is a cancellation.
 func isCanceledOrTimeout(err error) bool {
 	return errs.IsFunc(err, func(err error) bool {
-		return err == context.Canceled || err == context.DeadlineExceeded //nolint:errorlint,goerr113,err113
+		return err == context.Canceled || err == context.DeadlineExceeded //nolint:errorlint,err113
 	})
 }
 

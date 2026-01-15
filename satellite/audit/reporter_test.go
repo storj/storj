@@ -340,7 +340,7 @@ func TestReportingAuditFailureResultsInRemovalOfPiece(t *testing.T) {
 	})
 }
 
-//nolint:revive,context-as-argument
+//revive:disable:context-as-argument
 func createNode(t *testing.T, ctx context.Context, db overlay.DB, idx int) storj.NodeID {
 	id := testidentity.MustPregeneratedIdentity(idx, storj.LatestIDVersion()).ID
 	err := db.TestAddNodes(ctx, []*overlay.NodeDossier{
