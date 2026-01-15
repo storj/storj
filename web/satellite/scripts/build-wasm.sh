@@ -25,7 +25,7 @@ mv ./static/wasm/wasm_exec.js ./static/wasm/$helper_filename
 brotli -k -f ./static/wasm/$helper_filename
 
 # Build wasm module
-GOOS=js GOARCH=wasm go build -o ./static/wasm/access.wasm storj.io/storj/satellite/console/wasm
+GOOS=js GOARCH=wasm go build -o ./static/wasm/access.wasm storj.io/storj/web/satellite/wasm
 
 # Take a hash of generated wasm module
 if command -v sha256sum > /dev/null; then

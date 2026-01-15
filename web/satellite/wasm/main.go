@@ -14,7 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/base58"
-	console "storj.io/storj/satellite/console/consolewasm"
+	console "storj.io/storj/web/satellite/wasm/consolewasm"
 )
 
 func main() {

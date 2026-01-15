@@ -3,9 +3,8 @@ ARG GO_VERSION=1.25.6
 FROM storjlabs/golang:${GO_VERSION} AS wasm
 WORKDIR /work
 COPY go.mod go.sum ./
-COPY satellite/console/wasm satellite/console/wasm
+COPY web/satellite/wasm/ web/satellite/wasm/
 COPY scripts/release/satellite-wasm.sh scripts/release/satellite-wasm.sh
-COPY satellite/console/consolewasm satellite/console/consolewasm
 RUN scripts/release/satellite-wasm.sh /out/wasm
 
 
@@ -22,7 +21,7 @@ WORKDIR /work
 RUN npm ci --prefer-offline --no-audit --loglevel verbose && npm run build
 
 
-FROM scratch as ui
+FROM scratch AS ui
 COPY --from=build /work/dist /var/www/html
 COPY --from=build /work/static /var/www/static
 COPY --from=wasm /out/wasm /var/www/static/wasm

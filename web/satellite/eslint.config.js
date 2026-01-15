@@ -18,6 +18,8 @@ export default defineConfigWithVueTs([
             'tests/unit/ignore',
             'static/wasm',
             'src/utils/accessGrant.worker.js',
+            'wasm',
+            'scripts/static',
         ],
     },
     js.configs.recommended,

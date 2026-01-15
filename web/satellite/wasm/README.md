@@ -6,7 +6,7 @@ In order to use the uplink library from the browser, we can compile the uplink l
 
 To generate wasm code that can create access grants in the web browser, run the following from the storj/wasm directory:
 ```
-$ GOOS=js GOARCH=wasm go build -o access.wasm storj.io/storj/satellite/console/wasm
+$ GOOS=js GOARCH=wasm go build -o access.wasm storj.io/storj/web/satellite/wasm
 ```
 
 The `access.wasm` code can then be loaded into the browser in a script tag in an html page. Also needed is a JavaScript support file which ships with golang.

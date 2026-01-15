@@ -2,7 +2,7 @@
   "name": "testing-wasm",
   "version": "1.0.0",
   "scripts": {
-    "build": "GOOS=js GOARCH=wasm go build -o main.wasm storj.io/storj/satellite/console/wasm",
+    "build": "GOOS=js GOARCH=wasm go build -o main.wasm storj.io/storj/web/satellite/wasm",
     "pretest": "npm run build",
     "test": "jest"
   },

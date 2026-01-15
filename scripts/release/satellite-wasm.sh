@@ -38,7 +38,7 @@ mv "${WASM_DIR}/wasm_exec.js" "${WASM_DIR}/${helper_filename}"
 
 # Build wasm module
 echo "Building WASM module..."
-GOOS=js GOARCH=wasm go build -o "${WASM_DIR}/access.wasm" storj.io/storj/satellite/console/wasm
+GOOS=js GOARCH=wasm go build -o "${WASM_DIR}/access.wasm" storj.io/storj/web/satellite/wasm
 
 # Add hash as a suffix.
 module_hash=$(sha256sum "${WASM_DIR}/access.wasm" | awk '{print $1}')

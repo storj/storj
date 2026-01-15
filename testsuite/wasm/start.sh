@@ -7,7 +7,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 mkdir -p .build
 rm -rf .build/wasm || true
 
-cp -r satellite/console/wasm/tests/ .build/
+cp -r web/satellite/wasm/tests/ .build/
 cd .build/tests/
 
 # Copy wasm helper file

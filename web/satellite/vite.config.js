@@ -158,6 +158,8 @@ export default defineConfig(({ mode }) => {
             exclude: [
                 '**/node_modules/**',
                 '**/dist/**',
+                // wasm folder has independent testing
+                './wasm/**',
             ],
         },
     };

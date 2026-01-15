@@ -238,7 +238,7 @@ pipeline {
                 stage('wasm npm') {
                     steps {
                         dir(".build") {
-                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cp -r ../web/satellite/wasm/tests/ .'
                             sh 'cd tests && ./copy-wasm.sh'
                             sh 'cd tests && npm install && npm run test'
                         }

@@ -52,8 +52,8 @@ FROM --platform=$BUILDPLATFORM node:${NODE_VERSION} AS npm-builder
 FROM download-dependencies AS web-satellite-wasm
 WORKDIR /work
 # This command gives the list of folders that need to be copied for wasm build:
-#   GOOS=js GOARCH=wasm go list -deps ./satellite/console/wasm | grep storj.io/storj
-COPY --parents satellite/console/consolewasm satellite/console/wasm /work/
+#   GOOS=js GOARCH=wasm go list -deps ./web/satellite/wasm | grep storj.io/storj
+COPY --parents web/satellite/wasm /work/
 COPY --parents scripts/release/satellite-wasm.sh /work/
 RUN \
     --mount=type=cache,target=/root/.cache/go-build \

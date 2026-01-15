@@ -8,7 +8,7 @@ cleanup(){
 }
 trap cleanup EXIT
 
-cd satellite/console/wasm && pwd && GOOS=js GOARCH=wasm go build -o main.wasm .
+cd web/satellite/wasm && pwd && GOOS=js GOARCH=wasm go build -o main.wasm .
 BUILD_SIZE=$(stat -c %s main.wasm)
 CURRENT_SIZE=6100000
 if [ $BUILD_SIZE -gt $CURRENT_SIZE ]; then

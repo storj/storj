@@ -16,7 +16,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
-	console "storj.io/storj/satellite/console/consolewasm"
+	console "storj.io/storj/web/satellite/wasm/consolewasm"
 	"storj.io/uplink"
 	"storj.io/uplink/private/access"
 )
