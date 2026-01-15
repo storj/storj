@@ -1,7 +1,16 @@
-FROM node:24.11.1 AS build
-ADD web/storagenode /work
-WORKDIR /work
-RUN npm ci && npm run build
+# syntax=docker/dockerfile:1.4
 
-FROM debian:bookworm as ui
-COPY --from=build /work/dist /var/www/html
+ARG NODE_VERSION=24.11.1
+
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION} AS build
+
+WORKDIR /work
+
+COPY ./package*.json /work/
+RUN --mount=type=cache,target=/root/.npm npm ci
+
+COPY ./ /work/
+RUN --mount=type=cache,target=/root/.npm npm run build
+
+FROM scratch as export
+COPY --from=build /work/dist /
