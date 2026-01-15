@@ -395,7 +395,7 @@ func verifyExpectedEvents(t *testing.T, events []changestream.DataChangeRecord, 
 	// Look for events related to our test operations
 	var relevantEvents []changestream.DataChangeRecord
 	for _, event := range events {
-		if event.TableName == "objects" && event.CommitTimestamp.After(afterTime.Add(-1*time.Second)) {
+		if event.TableName == "objects" && event.CommitTimestamp.After(afterTime) {
 			relevantEvents = append(relevantEvents, event)
 
 			// Log the event details for debugging
@@ -420,7 +420,7 @@ func verifyExpectedEvents(t *testing.T, events []changestream.DataChangeRecord, 
 func filterRelevantEvents(events []changestream.DataChangeRecord, afterTime time.Time) []changestream.DataChangeRecord {
 	var relevantEvents []changestream.DataChangeRecord
 	for _, event := range events {
-		if event.TableName == "objects" && event.CommitTimestamp.After(afterTime.Add(-1*time.Second)) {
+		if event.TableName == "objects" && event.CommitTimestamp.After(afterTime) {
 			relevantEvents = append(relevantEvents, event)
 		}
 	}
