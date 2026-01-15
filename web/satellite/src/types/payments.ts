@@ -349,7 +349,9 @@ export class PaymentsHistoryItem {
     }
 
     public get period(): string {
-        return Time.formattedDate(this.start) + ' - ' + Time.formattedDate(this.end);
+        const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' };
+
+        return Time.formattedDate(this.start, options) + ' - ' + Time.formattedDate(this.end, options);
     }
 
     public get label(): string {
