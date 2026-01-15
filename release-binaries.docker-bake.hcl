@@ -98,6 +98,10 @@ target "default" {
   platforms = [item]
   target = "export-binaries"
 
+  contexts = {
+    "web-storagenode" = "target:web-storagenode"
+  }
+
   args = {
     "GOOS"        = PLATFORMS[item].goos
     "GOARCH"      = PLATFORMS[item].goarch
@@ -115,4 +119,10 @@ target "default" {
   dockerignore = "release-binaries.Dockerfile.dockerignore"
 
   output = ["type=local,dest=./release/${VERSION}/${replace(item, "/", "_")}"]
+}
+
+target "web-storagenode" {
+  context    = "./web/storagenode"
+  dockerfile = "Dockerfile"
+  target = "export"
 }
