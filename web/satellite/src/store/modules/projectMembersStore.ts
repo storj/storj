@@ -7,7 +7,6 @@ import { defineStore } from 'pinia';
 import {
     ProjectMember,
     ProjectMemberCursor,
-    ProjectMemberItemModel,
     ProjectMemberOrderBy,
     ProjectMembersApi,
     ProjectMembersPage,
@@ -21,7 +20,6 @@ import { useConfigStore } from '@/store/modules/configStore';
 export class ProjectMembersState {
     public cursor: ProjectMemberCursor = new ProjectMemberCursor();
     public page: ProjectMembersPage = new ProjectMembersPage();
-    public selectedProjectMembersEmails: string[] = [];
     public lastProjectID = '';
 }
 
@@ -57,15 +55,8 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         });
     }
 
-    async function deleteProjectMembers(projectID: string, customSelected?: string[]): Promise<void> {
-        if (customSelected && customSelected.length) {
-            await api.delete(projectID, customSelected, false, csrfToken.value);
-            return;
-        }
-
-        await api.delete(projectID, state.selectedProjectMembersEmails, false, csrfToken.value);
-
-        clearProjectMemberSelection();
+    async function deleteProjectMembers(projectID: string, selected: string[], removeAccess = false): Promise<void> {
+        await api.delete(projectID, selected, removeAccess, csrfToken.value);
     }
 
     async function getProjectMembers(page: number, projectID: string, limit = DEFAULT_PAGE_LIMIT): Promise<ProjectMembersPage> {
@@ -76,19 +67,8 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         const projectMembersPage: ProjectMembersPage = await api.get(projectID, state.cursor);
 
         state.page = projectMembersPage;
-        state.page.getAllItems().forEach(item => {
-            item.setSelected(state.selectedProjectMembersEmails.includes(item.getEmail()));
-        });
 
         return projectMembersPage;
-    }
-
-    function setPage(page: ProjectMembersPage) {
-        state.page = page;
-    }
-
-    function setPageNumber(page: number) {
-        state.cursor.page = page;
     }
 
     function setSearchQuery(search: string) {
@@ -103,36 +83,13 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         state.cursor.orderDirection = direction;
     }
 
-    function toggleProjectMemberSelection(projectMember: ProjectMemberItemModel) {
-        const email = projectMember.getEmail();
-
-        if (!state.selectedProjectMembersEmails.includes(email)) {
-            projectMember.setSelected(true);
-            state.selectedProjectMembersEmails.push(email);
-
-            return;
-        }
-
-        projectMember.setSelected(false);
-        state.selectedProjectMembersEmails = state.selectedProjectMembersEmails.filter(projectMemberEmail => {
-            return projectMemberEmail !== email;
-        });
-    }
-
-    function clearProjectMemberSelection() {
-        state.selectedProjectMembersEmails = [];
-        state.page.getAllItems().forEach(member => member.setSelected(false));
-    }
-
     async function refresh(): Promise<void> {
-        clearProjectMemberSelection();
         await getProjectMembers(state.cursor.page, state.lastProjectID, state.cursor.limit);
     }
 
     function clear() {
         state.cursor = new ProjectMemberCursor();
         state.page = new ProjectMembersPage();
-        state.selectedProjectMembersEmails = [];
     }
 
     return {
@@ -147,10 +104,6 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         setSearchQuery,
         setSortingBy,
         setSortingDirection,
-        setPage,
-        setPageNumber,
-        toggleProjectMemberSelection,
-        clearProjectMemberSelection,
         refresh,
         clear,
     };

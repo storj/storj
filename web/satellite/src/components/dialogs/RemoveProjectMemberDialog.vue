@@ -61,6 +61,8 @@
                         <strong>Important:</strong> Any access keys created could still provide data access to removed members. If necessary, please revoke these access keys to ensure the security of your data.
                     </template>
                 </v-alert>
+
+                <v-checkbox-btn v-if="membersLength > 0" v-model="removeAccesses" class="mt-4" label="Delete member's access keys." density="compact" />
             </v-card-item>
 
             <v-divider />
@@ -84,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VAlert,
     VDialog,
@@ -98,6 +100,7 @@ import {
     VCol,
     VBtn,
     VChip,
+    VCheckboxBtn,
 } from 'vuetify/components';
 import { UserMinus, X } from 'lucide-vue-next';
 
@@ -123,15 +126,18 @@ const pmStore = useProjectMembersStore();
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
 
+const removeAccesses = ref<boolean>(false);
+
 const firstThreeSelected = computed<{ email:string, isInvite: boolean }[]>(() => props.removables.slice(0, 3));
 
-const memberInviteText = computed<string>(() => {
-    const membersLength = props.removables.filter(e => !e.isInvite).length;
-    const invitesLength = props.removables.length - membersLength;
+const membersLength = computed<number>(() => props.removables.filter(e => !e.isInvite).length);
 
-    const memberTxt = `member${membersLength > 1 ? 's' : ''}`;
+const memberInviteText = computed<string>(() => {
+    const invitesLength = props.removables.length - membersLength.value;
+
+    const memberTxt = `member${membersLength.value > 1 ? 's' : ''}`;
     const inviteTxt = `invite${invitesLength > 1 ? 's' : ''}`;
-    if (membersLength && invitesLength) {
+    if (membersLength.value && invitesLength) {
         return `${memberTxt} and ${inviteTxt}`;
     }
     if (invitesLength) {
@@ -143,7 +149,7 @@ const memberInviteText = computed<string>(() => {
 async function onDelete(): Promise<void> {
     await withLoading(async () => {
         try {
-            await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id, props.removables.map(e => e.email));
+            await pmStore.deleteProjectMembers(projectsStore.state.selectedProject.id, props.removables.map(e => e.email), removeAccesses.value);
             notify.success('Members were successfully removed from the project');
             emit('deleted');
             model.value = false;

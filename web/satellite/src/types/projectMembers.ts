@@ -175,16 +175,6 @@ export interface ProjectMemberItemModel {
     getRole(): ProjectRole;
 
     /**
-     * Sets whether the member item has been selected.
-     */
-    setSelected(selected: boolean): void;
-
-    /**
-     * Returns whether the member item has been selected.
-     */
-    isSelected(): boolean;
-
-    /**
      * Returns whether the member has yet to accept its invitation.
      */
     isPending(): boolean;
@@ -196,7 +186,6 @@ export interface ProjectMemberItemModel {
 export class ProjectMember implements ProjectMemberItemModel {
     public user: User;
     public role: ProjectRole;
-    public _isSelected = false;
 
     public constructor(
         public fullName: string = '',
@@ -243,20 +232,6 @@ export class ProjectMember implements ProjectMemberItemModel {
      */
     public getRole(): ProjectRole {
         return this.role;
-    }
-
-    /**
-     * Sets whether the member item has been selected.
-     */
-    public setSelected(selected: boolean): void {
-        this._isSelected = selected;
-    }
-
-    /**
-     * Returns whether the member item has been selected.
-     */
-    public isSelected(): boolean {
-        return this._isSelected;
     }
 
     /**

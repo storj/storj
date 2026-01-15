@@ -342,8 +342,9 @@ async function onUpdatePage(page: number): Promise<void> {
  * Handles post delete operations.
  */
 async function onPostDelete(): Promise<void> {
-    if (selectedMembers.value.map(s => s.email).includes(usersStore.state.user.email)) {
-        router.push(ROUTES.Projects.path);
+    if (membersToDelete.value.map(s => s.email).includes(usersStore.state.user.email)) {
+        void projectsStore.getProjects();
+        await router.push(ROUTES.Projects.path);
         return;
     }
 
