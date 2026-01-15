@@ -3612,16 +3612,9 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 func (s *Service) GetProjectNoAuth(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	p, err = s.store.Projects().GetByPublicID(ctx, projectID)
+	p, err = s.store.Projects().GetByPublicOrPrivateID(ctx, projectID)
 	if err != nil {
-		if errs.Is(err, sql.ErrNoRows) {
-			p, err = s.store.Projects().Get(ctx, projectID)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-		} else {
-			return nil, Error.Wrap(err)
-		}
+		return nil, Error.Wrap(err)
 	}
 
 	return p, nil
