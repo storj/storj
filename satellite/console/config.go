@@ -44,6 +44,7 @@ type Config struct {
 	MaxLongFormFieldCharacters        int                       `help:"defines the maximum number of characters allowed for long form fields, e.g. comment type fields" default:"500"`
 	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
+	HideProjectEncryptionOptions      bool                      `help:"whether to hide encryption options in the UI if satellite managed encryption is also enabled" default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
 	AbbreviatedDeleteProjectEnabled   bool                      `help:"whether the abbreviated delete project flow is enabled" default:"false"`

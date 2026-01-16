@@ -63,6 +63,7 @@ type FrontendConfig struct {
 	MaxNameCharacters                 int                         `json:"maxNameCharacters"`
 	BillingInformationTabEnabled      bool                        `json:"billingInformationTabEnabled"`
 	SatelliteManagedEncryptionEnabled bool                        `json:"satelliteManagedEncryptionEnabled"`
+	HideProjectEncryptionOptions      bool                        `json:"hideProjectEncryptionOptions"`
 	EmailChangeFlowEnabled            bool                        `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                        `json:"selfServeAccountDeleteEnabled"`
 	DeleteProjectEnabled              bool                        `json:"deleteProjectEnabled"`

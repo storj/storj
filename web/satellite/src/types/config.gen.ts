@@ -66,6 +66,7 @@ export class FrontendConfig {
     maxNameCharacters: number;
     billingInformationTabEnabled: boolean;
     satelliteManagedEncryptionEnabled: boolean;
+    hideProjectEncryptionOptions: boolean;
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
     deleteProjectEnabled: boolean;

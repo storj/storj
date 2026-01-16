@@ -1145,6 +1145,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MaxNameCharacters:                 server.config.MaxNameCharacters,
 		BillingInformationTabEnabled:      server.config.BillingInformationTabEnabled,
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
+		HideProjectEncryptionOptions:      server.config.HideProjectEncryptionOptions && server.config.SatelliteManagedEncryptionEnabled,
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
 		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
