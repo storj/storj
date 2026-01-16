@@ -735,18 +735,11 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		})
 	case dbutil.Spanner:
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			// TODO(spanner): remove TIMESTAMP_TRUNC, when spanner emulator gets fixed
-			//
-			// We need to do TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start
-			// To ensure that MAX(interval_start) == interval_start
-			//
-			// See https://github.com/GoogleCloudPlatform/cloud-spanner-emulator/issues/73 for details.
-
 			storageQuery := `
 			WITH
 				project_usage AS (
 					SELECT
-						TIMESTAMP_TRUNC(interval_start, MICROSECOND, 'UTC') as interval_start,
+						interval_start,
 						CAST(interval_start AS DATE) AS interval_day,
 						project_id,
 						bucket_name,
@@ -1514,7 +1507,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
     `
 
 	countQuery := db.db.Rebind(`
-		SELECT COUNT(*) 
+		SELECT COUNT(*)
 		FROM bucket_metainfos bm
 		LEFT JOIN users u
 			ON u.id = bm.created_by
