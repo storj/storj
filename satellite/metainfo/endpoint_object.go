@@ -2010,9 +2010,17 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		},
 		StreamID:          id,
 		EncryptedUserData: encryptedUserData,
-		SetEncryptedETag:  req.SetEncryptedEtag,
+		Includes: metabase.EncryptedUserDataIncludes{
+			Metadata: true,
+			ETag:     req.SetEncryptedEtag,
+		},
 	})
 	if err != nil {
+		// We aren't ready to return this class of error yet. All uplinks that we know of
+		// expect an "object not found" error for format violations.
+		if metabase.ErrInsufficientMetadataIncludes.Has(err) {
+			err = metabase.ErrObjectNotFound.New("")
+		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
