@@ -129,6 +129,11 @@ func (c *Component) AddRequirement(in reflect.Type) {
 	c.requirements = append(c.requirements, in)
 }
 
+// RemoveAllRequirements removes all requirements from the component.
+func (c *Component) RemoveAllRequirements() {
+	c.requirements = []reflect.Type{}
+}
+
 // Instance returns the singleton instance of the component. Can be null, if not yet initialized.
 func (c *Component) Instance() any {
 	return c.instance
