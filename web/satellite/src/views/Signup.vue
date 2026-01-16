@@ -206,71 +206,75 @@
                     @error="onCaptchaError"
                 />
             </v-col>
-            <template v-if="partnerConfig && partnerConfig.title && partnerConfig.description">
-                <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                    <v-card class="pa-2 pa-sm-6 h-100 no-position">
-                        <v-card-item>
-                            <v-card-title class="text-wrap">
-                                {{ partnerConfig.title }}
-                            </v-card-title>
-                            <v-card-subtitle class="text-wrap">
-                                {{ partnerConfig.description }}
-                            </v-card-subtitle>
-                        </v-card-item>
-                        <v-card-text>
-                            <!-- eslint-disable-next-line vue/no-v-html -->
-                            <div v-if="partnerConfig.customHtmlDescription" v-html="partnerConfig.customHtmlDescription" />
-                            <a v-if="partnerConfig.partnerLogoBottomUrl" :href="partnerConfig.partnerUrl">
-                                <img
-                                    :src="partnerConfig.partnerLogoBottomUrl" :srcset="partnerConfig.partnerLogoBottomUrl"
-                                    :alt="partnerConfig.name + ' logo'"
-                                    height="44"
-                                    class="mt-6 rounded white-background"
-                                >
-                            </a>
-                        </v-card-text>
-                    </v-card>
-                </v-col>
+
+            <template v-if="configStore.isDefaultBrand">
+                <template v-if="partnerConfig && partnerConfig.title && partnerConfig.description">
+                    <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                        <v-card class="pa-2 pa-sm-6 h-100 no-position">
+                            <v-card-item>
+                                <v-card-title class="text-wrap">
+                                    {{ partnerConfig.title }}
+                                </v-card-title>
+                                <v-card-subtitle class="text-wrap">
+                                    {{ partnerConfig.description }}
+                                </v-card-subtitle>
+                            </v-card-item>
+                            <v-card-text>
+                                <!-- eslint-disable-next-line vue/no-v-html -->
+                                <div v-if="partnerConfig.customHtmlDescription" v-html="partnerConfig.customHtmlDescription" />
+                                <a v-if="partnerConfig.partnerLogoBottomUrl" :href="partnerConfig.partnerUrl">
+                                    <img
+                                        :src="partnerConfig.partnerLogoBottomUrl" :srcset="partnerConfig.partnerLogoBottomUrl"
+                                        :alt="partnerConfig.name + ' logo'"
+                                        height="44"
+                                        class="mt-6 rounded white-background"
+                                    >
+                                </a>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                </template>
+                <template v-else>
+                    <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                        <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
+                            <v-card-text>
+                                <h1 class="font-weight-black signup-heading">
+                                    <template v-if="partnerConfig && partnerConfig.name">Start using {{ configStore.brandName }} on {{ partnerConfig.name }} today.</template>
+                                    <template v-else>Start using {{ configStore.brandName }} today.</template>
+                                </h1>
+                                <p class="text-subtitle-1 mt-4">
+                                    Whether migrating your data or just testing out {{ configStore.brandName }}, your journey starts here.
+                                </p>
+
+                                <p class="mt-6">
+                                    <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
+                                    Upload and download 25GB free for 30 days.
+                                </p>
+
+                                <p class="mt-4">
+                                    <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
+                                    Integrate with any S3 compatible application.
+                                </p>
+
+                                <p class="mt-4">
+                                    <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
+                                    Total set up takes less than 5 min.
+                                </p>
+
+                                <p class="mt-4">
+                                    <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
+                                    No credit card required.
+                                </p>
+
+                                <p class="mt-6">
+                                    Need help figuring out if {{ configStore.brandName }} is a fit for your business? <a :href="getInTouchUrl" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Schedule a meeting</a>.
+                                </p>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                </template>
             </template>
-            <template v-else>
-                <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
-                    <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
-                        <v-card-text>
-                            <h1 class="font-weight-black signup-heading">
-                                <template v-if="partnerConfig && partnerConfig.name">Start using {{ configStore.brandName }} on {{ partnerConfig.name }} today.</template>
-                                <template v-else>Start using {{ configStore.brandName }} today.</template>
-                            </h1>
-                            <p class="text-subtitle-1 mt-4">
-                                Whether migrating your data or just testing out {{ configStore.brandName }}, your journey starts here.
-                            </p>
 
-                            <p class="mt-6">
-                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
-                                Upload and download 25GB free for 30 days.
-                            </p>
-
-                            <p class="mt-4">
-                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
-                                Integrate with any S3 compatible application.
-                            </p>
-
-                            <p class="mt-4">
-                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
-                                Total set up takes less than 5 min.
-                            </p>
-
-                            <p class="mt-4">
-                                <v-icon color="primary"><Check :stroke-width="4" /></v-icon>
-                                No credit card required.
-                            </p>
-
-                            <p class="mt-6">
-                                Need help figuring out if {{ configStore.brandName }} is a fit for your business? <a :href="getInTouchUrl" target="_blank" rel="noopener noreferrer" class="link font-weight-bold">Schedule a meeting</a>.
-                            </p>
-                        </v-card-text>
-                    </v-card>
-                </v-col>
-            </template>
             <v-row justify="center" class="v-col-12">
                 <v-col>
                     <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
