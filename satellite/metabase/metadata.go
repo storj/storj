@@ -57,6 +57,9 @@ func (obj *UpdateObjectLastCommittedMetadata) Verify() error {
 	if obj.StreamID.IsZero() {
 		return ErrInvalidRequest.New("StreamID missing")
 	}
+	if err := obj.EncryptedUserData.Verify(); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -2420,6 +2420,7 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 
 		validMetadata := testrand.Bytes(satellite.Config.Metainfo.MaxMetadataSize)
 		validKey := randomEncryptedKey
+		nonce := testrand.Nonce()
 
 		getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
 			Header:             &pb.RequestHeader{ApiKey: apiKey},
@@ -2435,6 +2436,7 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 			StreamId:                      getObjectResponse.Object.StreamId,
 			EncryptedMetadata:             validMetadata,
 			EncryptedMetadataEncryptedKey: validKey,
+			EncryptedMetadataNonce:        nonce,
 		})
 		require.NoError(t, err)
 
@@ -2446,6 +2448,7 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 
 			EncryptedMetadata:             testrand.Bytes(satellite.Config.Metainfo.MaxMetadataSize + 1),
 			EncryptedMetadataEncryptedKey: validKey,
+			EncryptedMetadataNonce:        nonce,
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
@@ -2457,6 +2460,7 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 
 			EncryptedMetadata:             validMetadata,
 			EncryptedMetadataEncryptedKey: testrand.Bytes(16),
+			EncryptedMetadataNonce:        nonce,
 		})
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
@@ -2465,6 +2469,7 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, validMetadata, objects[0].EncryptedMetadata)
 		require.Equal(t, validKey, objects[0].EncryptedMetadataEncryptedKey)
+		require.Equal(t, nonce.Bytes(), objects[0].EncryptedMetadataNonce)
 	})
 }
 

@@ -47,7 +47,27 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Metadata missing", func(t *testing.T) {
+		t.Run("Invalid metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			for i, scenario := range metabasetest.InvalidEncryptedUserDataScenarios() {
+				t.Log(i)
+
+				metabasetest.UpdateObjectLastCommittedMetadata{
+					Opts: metabase.UpdateObjectLastCommittedMetadata{
+						ObjectLocation:    obj.Location(),
+						StreamID:          obj.StreamID,
+						EncryptedUserData: scenario.EncryptedUserData,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  scenario.ErrText,
+				}.Check(ctx, t, db)
+			}
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			obj := metabasetest.RandObjectStream()
