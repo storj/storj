@@ -185,6 +185,7 @@ STORJ_CONSOLE_WHITE_LABEL: |
     privacy-policy-url: "https://customer1.example.com/privacy"
     terms-of-service-url: "https://customer1.example.com/tos"
     terms-of-use-url: "https://customer1.example.com/terms"
+    gateway-url: "https://customer1.gateway.com"
     company-name: "Customer One Inc."
     address-line1: "123 Example Street"
     address-line2: "Suite 456, City, ST 12345"
@@ -234,6 +235,7 @@ Each tenant configuration supports the following fields:
 - `privacy-policy-url`: URL to privacy policy page
 - `terms-of-service-url`: URL to terms of service page
 - `terms-of-use-url`: URL to terms of use page
+- `gateway-url`: URL to the tenant's white-labeled gateway
 - `company-name`: Legal company name. **Required for emails.**
 - `address-line1`: First line of company address. **Required for emails.**
 - `address-line2`: Second line of company address. **Required for emails.**

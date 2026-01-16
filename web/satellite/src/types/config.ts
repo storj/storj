@@ -74,6 +74,7 @@ export class BrandingConfig {
         public docsUrl: string = '',
         public homepageUrl: string = '',
         public getInTouchUrl: string = '',
+        public gatewayUrl: string = '',
     ) {}
 
     public getColor(key: ColorKey): string | undefined {

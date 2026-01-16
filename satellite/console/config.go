@@ -487,6 +487,7 @@ type WhiteLabelConfig struct {
 	PrivacyPolicyURL  string            `yaml:"privacy-policy-url,omitempty"`
 	TermsOfServiceURL string            `yaml:"terms-of-service-url,omitempty"`
 	TermsOfUseURL     string            `yaml:"terms-of-use-url,omitempty"`
+	GatewayURL        string            `yaml:"gateway-url,omitempty"`
 	CompanyName       string            `yaml:"company-name,omitempty"`
 	AddressLine1      string            `yaml:"address-line1,omitempty"`
 	AddressLine2      string            `yaml:"address-line2,omitempty"`
