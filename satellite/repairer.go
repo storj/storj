@@ -144,6 +144,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 				KeyCapacity:    config.Repairer.ConnectionPool.KeyCapacity,
 				IdleExpiration: config.Repairer.ConnectionPool.IdleExpiration,
 				MaxLifetime:    config.Repairer.ConnectionPool.MaxLifetime,
+				Name:           "repairer",
 			})
 		}
 
