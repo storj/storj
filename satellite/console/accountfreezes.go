@@ -33,6 +33,8 @@ type AccountFreezeEvents interface {
 	Upsert(ctx context.Context, event *AccountFreezeEvent) (*AccountFreezeEvent, error)
 	// Get is a method for querying account freeze event from the database by user ID and event type.
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
+	// HasEvents checks if there's a freeze event of the specified types for the given user ID.
+	HasEvents(ctx context.Context, userID uuid.UUID, eventTypes ...AccountFreezeEventType) (bool, error)
 	// GetAllEvents is a method for querying all account freeze events from the database.
 	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, optionalEventTypes []AccountFreezeEventType) (events *FreezeEventsPage, err error)
 	// GetTrialExpirationFreezesToEscalate is a method that gets free trial expiration freezes that correspond to users
@@ -213,20 +215,15 @@ func (s *AccountFreezeService) IsUserViolationFrozen(ctx context.Context, userID
 }
 
 // IsUserFrozen returns whether the user specified by the given ID has an eventType freeze.
-func (s *AccountFreezeService) IsUserFrozen(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (_ bool, err error) {
+func (s *AccountFreezeService) IsUserFrozen(ctx context.Context, userID uuid.UUID, eventType ...AccountFreezeEventType) (frozen bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.freezeEventsDB.Get(ctx, userID, eventType)
+	frozen, err = s.freezeEventsDB.HasEvents(ctx, userID, eventType...)
 	if err != nil {
-		// If the error is ErrNoRows, it means the user is not frozen.
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, nil
-		}
-
 		return false, ErrAccountFreeze.Wrap(err)
 	}
 
-	return true, nil
+	return frozen, nil
 }
 
 // billingFreezeUser is a private implementation function that freezes the user specified by the given ID due to nonpayment of invoices.

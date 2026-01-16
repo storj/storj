@@ -92,6 +92,8 @@ func TestService(t *testing.T) {
 			service := sat.API.Console.Service
 			stripeClient := sat.API.Payments.StripeClient
 
+			freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
 			up1Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
 			require.NoError(t, err)
 			up2Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[1].Projects[0].ID)
@@ -454,8 +456,6 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("Exit trial expiration freeze", func(t *testing.T) {
-				freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
-
 				user4, userCtx4 := getOwnerAndCtx(ctx, up4Proj)
 				require.Equal(t, console.FreeUser, user4.Kind)
 
@@ -499,6 +499,25 @@ func TestService(t *testing.T) {
 				})
 				require.Error(t, err)
 				require.Nil(t, createdProject)
+			})
+
+			t.Run("CreateProject while frozen", func(t *testing.T) {
+				user4, userCtx4 := getOwnerAndCtx(ctx, up4Proj)
+
+				require.NoError(t, freezeService.BillingFreezeUser(ctx, user4.ID))
+
+				_, err = service.CreateProject(userCtx4, console.UpsertProjectInfo{
+					Name: "frozen project",
+				})
+				require.Error(t, err)
+				require.True(t, console.ErrAccountFrozen.Has(err))
+
+				require.NoError(t, freezeService.BillingUnfreezeUser(ctx, user4.ID))
+
+				_, err = service.CreateProject(userCtx4, console.UpsertProjectInfo{
+					Name: "unfrozen project",
+				})
+				require.NoError(t, err)
 			})
 
 			t.Run("CreateProject when bot account", func(t *testing.T) {

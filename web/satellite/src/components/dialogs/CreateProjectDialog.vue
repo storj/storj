@@ -23,6 +23,7 @@
                         rounded="lg"
                     >
                         <component :is="Gauge" v-if="isProjectLimitReached && usersStore.state.user.isPaid && showLimitIncreaseDialog" :size="18" />
+                        <component :is="LockKeyhole" v-else-if="accountFrozen" :size="18" />
                         <component :is="Box" v-else :size="18" />
                     </v-sheet>
                 </template>
@@ -45,7 +46,14 @@
 
             <v-divider />
 
-            <v-window v-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached))" v-model="createStep" :touch="false">
+            <v-row v-if="accountFrozen" class="pa-6">
+                <v-col>
+                    Your account is currently frozen. Please contact
+                    <a :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">support</a>
+                    to resolve any issues and regain access.
+                </v-col>
+            </v-row>
+            <v-window v-else-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached))" v-model="createStep" :touch="false">
                 <v-window-item :value="CreateSteps.Info">
                     <v-form v-model="formValid" class="pa-6" @submit.prevent>
                         <v-row>
@@ -222,7 +230,20 @@
                             {{ createStep === CreateSteps.ManageMode ? 'Back' : 'Cancel' }}
                         </v-btn>
                     </v-col>
-                    <v-col v-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached)) && !hideProjectEncryptionOptions && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
+                    <v-col v-if="accountFrozen">
+                        <v-btn
+                            color="primary"
+                            variant="flat"
+                            :loading="isLoading"
+                            block
+                            :href="configStore.supportUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Contact Support
+                        </v-btn>
+                    </v-col>
+                    <v-col v-else-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached)) && !hideProjectEncryptionOptions && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
                         <v-btn
                             color="primary"
                             variant="flat"
@@ -284,7 +305,7 @@ import {
     VWindowItem,
     VSheet,
 } from 'vuetify/components';
-import { ArrowRight, Box, Gauge, X } from 'lucide-vue-next';
+import { ArrowRight, Box, Gauge, LockKeyhole, X } from 'lucide-vue-next';
 
 import { RequiredRule, ValidationRule } from '@/types/common';
 import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
@@ -347,6 +368,11 @@ const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
  * Indicates if billing features are enabled.
  */
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
+
+/**
+ * Indicates whether the account is frozen.
+ */
+const accountFrozen = computed<boolean>(() => usersStore.state.user.freezeStatus.frozen || usersStore.state.user.freezeStatus.trialExpiredFrozen);
 
 /**
  * Indicates if satellite managed encryption passphrase is enabled.
@@ -466,6 +492,7 @@ const buttonTitle = computed((): string => {
 });
 
 const cardTitle = computed((): string => {
+    if (accountFrozen.value) return 'Account Frozen';
     if (isMemberAccount.value && billingEnabled.value) {
         return 'Create Your Own Project';
     }

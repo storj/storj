@@ -65,6 +65,20 @@ func TestAccountFreezeEvents(t *testing.T) {
 			require.Equal(t, event, dbEvent)
 		})
 
+		t.Run("Has Event", func(t *testing.T) {
+			has, err := eventsDB.HasEvents(ctx, event.UserID, event.Type)
+			require.NoError(t, err)
+			require.True(t, has)
+
+			has, err = eventsDB.HasEvents(ctx, event.UserID, console.BotFreeze)
+			require.NoError(t, err)
+			require.False(t, has)
+
+			has, err = eventsDB.HasEvents(ctx, event.UserID, event.Type, console.TrialExpirationFreeze)
+			require.NoError(t, err)
+			require.True(t, has)
+		})
+
 		t.Run("Update event limits", func(t *testing.T) {
 			event.Limits = &console.AccountFreezeEventLimits{
 				User: randUsageLimits(),

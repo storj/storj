@@ -82,6 +82,42 @@ func (events *accountFreezeEvents) Get(ctx context.Context, userID uuid.UUID, ev
 	return fromDBXAccountFreezeEvent(dbxEvent)
 }
 
+// HasEvents checks if there's a freeze event of the specified types for the given user ID.
+func (events *accountFreezeEvents) HasEvents(ctx context.Context, userID uuid.UUID, eventTypes ...console.AccountFreezeEventType) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(eventTypes) == 0 {
+		return false, Error.New("eventTypes cannot be empty")
+	}
+
+	var rows tagsql.Rows
+	if len(eventTypes) == 1 {
+		rows, err = events.db.QueryContext(ctx, events.db.Rebind(`
+		SELECT 1
+		FROM account_freeze_events
+			WHERE user_id = ? AND event = ?
+			LIMIT 1
+		`), userID, int(eventTypes[0]))
+	} else {
+		types := make([]string, 0, len(eventTypes))
+		for _, t := range eventTypes {
+			types = append(types, strconv.Itoa(int(t)))
+		}
+		rows, err = events.db.QueryContext(ctx, events.db.Rebind(`
+		SELECT 1
+		FROM account_freeze_events
+			WHERE user_id = ? AND event IN (`+strings.Join(types, ",")+`)
+			LIMIT 1
+		`), userID)
+	}
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	return rows.Next(), rows.Err()
+}
+
 // GetAllEvents is a method for querying all account freeze events or events of particular types from the database.
 func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor console.FreezeEventsCursor, optionalEventTypes []console.AccountFreezeEventType) (freezeEvents *console.FreezeEventsPage, err error) {
 	defer mon.Task()(&ctx)(&err)

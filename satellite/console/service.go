@@ -224,6 +224,9 @@ var (
 	// ErrPlacementNotFound occurs when a placement is not found.
 	ErrPlacementNotFound = errs.Class("placement not found")
 
+	// ErrAccountFrozen occurs when an action cannot be performed because the account is frozen.
+	ErrAccountFrozen = errs.Class("Account frozen")
+
 	// ErrInvalidKey is an error type that occurs when a user submits an API key
 	// that does not match anything in the database.
 	ErrInvalidKey = errs.Class("invalid key")
@@ -4077,8 +4080,15 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, Error.Wrap(err)
 	}
 
-	if user.Status == PendingBotVerification {
+	if user.Status == PendingBotVerification || user.Status == LegalHold || user.Status == PendingDeletion {
 		return nil, ErrBotUser.New(contactSupportErrMsg)
+	}
+
+	freezeEvents := []AccountFreezeEventType{BillingFreeze, TrialExpirationFreeze, LegalFreeze, BotFreeze, ViolationFreeze}
+	if frozen, err := s.accountFreezeService.IsUserFrozen(ctx, user.ID, freezeEvents...); err == nil && frozen {
+		return nil, ErrAccountFrozen.New("")
+	} else if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
