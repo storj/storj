@@ -220,13 +220,25 @@ function applyBrandingTheme(): void {
     const branding = configStore.state.branding;
     const primaryLightColor = branding.getColor(ColorKey.PrimaryLight);
     const primaryDarkColor = branding.getColor(ColorKey.PrimaryDark);
+    const onPrimaryLightColor = branding.getColor(ColorKey.OnPrimaryLight);
+    const onPrimaryDarkColor = branding.getColor(ColorKey.OnPrimaryDark);
     const secondaryLightColor = branding.getColor(ColorKey.SecondaryLight);
     const secondaryDarkColor = branding.getColor(ColorKey.SecondaryDark);
+    const onSecondaryLightColor = branding.getColor(ColorKey.OnSecondaryLight);
+    const onSecondaryDarkColor = branding.getColor(ColorKey.OnSecondaryDark);
+    const backgroundLightColor = branding.getColor(ColorKey.BackgroundLight);
+    const backgroundDarkColor = branding.getColor(ColorKey.BackgroundDark);
 
     if (primaryLightColor) theme.themes.value.light.colors.primary = primaryLightColor;
     if (primaryDarkColor) theme.themes.value.dark.colors.primary = primaryDarkColor;
+    if (onPrimaryLightColor) theme.themes.value.light.colors['on-primary'] = onPrimaryLightColor;
+    if (onPrimaryDarkColor) theme.themes.value.dark.colors['on-primary'] = onPrimaryDarkColor;
     if (secondaryLightColor) theme.themes.value.light.colors.secondary = secondaryLightColor;
     if (secondaryDarkColor) theme.themes.value.dark.colors.secondary = secondaryDarkColor;
+    if (onSecondaryLightColor) theme.themes.value.light.colors['on-secondary'] = onSecondaryLightColor;
+    if (onSecondaryDarkColor) theme.themes.value.dark.colors['on-secondary'] = onSecondaryDarkColor;
+    if (backgroundLightColor) theme.themes.value.light.colors.background = backgroundLightColor;
+    if (backgroundDarkColor) theme.themes.value.dark.colors.background = backgroundDarkColor;
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent): void {

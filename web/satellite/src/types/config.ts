@@ -52,8 +52,14 @@ export function createDefaultBranding(): BrandingConfig {
         new Map([
             [ColorKey.PrimaryLight, '#0052FF'],
             [ColorKey.PrimaryDark, '#0052FF'],
+            [ColorKey.OnPrimaryLight, '#FFFFFF'],
+            [ColorKey.OnPrimaryDark, '#FFFFFF'],
             [ColorKey.SecondaryLight, '#091C45'],
             [ColorKey.SecondaryDark, '#537CFF'],
+            [ColorKey.OnSecondaryLight, '#FFFFFF'],
+            [ColorKey.OnSecondaryDark, '#FFFFFF'],
+            [ColorKey.BackgroundLight, '#fcfcfd'],
+            [ColorKey.BackgroundDark, '#000a20'],
         ]),
     );
 }
@@ -99,6 +105,12 @@ export enum FaviconKey {
 export enum ColorKey {
     PrimaryLight = 'primary-light',
     PrimaryDark = 'primary-dark',
+    OnPrimaryLight = 'on-primary-light',
+    OnPrimaryDark = 'on-primary-dark',
     SecondaryLight = 'secondary-light',
     SecondaryDark = 'secondary-dark',
+    OnSecondaryLight = 'on-secondary-light',
+    OnSecondaryDark = 'on-secondary-dark',
+    BackgroundLight = 'background-light',
+    BackgroundDark = 'background-dark',
 }

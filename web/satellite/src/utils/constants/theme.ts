@@ -12,7 +12,9 @@ export const THEME_OPTIONS: ThemeOptions = {
             dark: false,
             colors: {
                 primary: '#0052FF',
+                'on-primary': '#FFFFFF',
                 secondary: '#091C45',
+                'on-secondary': '#FFFFFF',
                 background: '#fcfcfd',
                 surface: '#FFF',
                 info: '#0059D0',
@@ -38,7 +40,9 @@ export const THEME_OPTIONS: ThemeOptions = {
             dark: true,
             colors: {
                 primary: '#0052FF',
+                'on-primary': '#FFFFFF',
                 secondary: '#537CFF',
+                'on-secondary': '#FFFFFF',
                 background: '#000a20',
                 surface: '#000b21',
                 success: '#00E366',
