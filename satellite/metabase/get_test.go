@@ -164,7 +164,13 @@ func TestGetObjectExactVersion(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			unversionedLocation := obj
-			unversioned := metabasetest.CreateObject(ctx, t, db, unversionedLocation, 0)
+			unversioned, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:         unversionedLocation,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
+				},
+			}.Run(ctx, t, db, unversionedLocation, 0)
 
 			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
@@ -176,7 +182,14 @@ func TestGetObjectExactVersion(t *testing.T) {
 
 			versionedLocation := obj
 			versionedLocation.Version++
-			versioned := metabasetest.CreateObjectVersioned(ctx, t, db, versionedLocation, 0)
+			versioned, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:         versionedLocation,
+					Versioned:            true,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
+				},
+			}.Run(ctx, t, db, versionedLocation, 0)
 
 			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
@@ -373,7 +386,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 
 			now := time.Now()
 
-			userData := metabasetest.RandEncryptedUserData()
+			userData := metabasetest.RandEncryptedUserDataWithChecksum()
 			retention := metabase.Retention{
 				Mode:        storj.ComplianceMode,
 				RetainUntil: now.Add(time.Hour),
