@@ -119,6 +119,7 @@ type BrandingConfig struct {
 	DocsURL       string            `json:"docsUrl"`
 	HomepageURL   string            `json:"homepageUrl"`
 	GetInTouchURL string            `json:"getInTouchUrl"`
+	GatewayURL    string            `json:"gatewayUrl"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
