@@ -259,8 +259,8 @@ function toggleCustomExpiration(hasCustom: boolean = false): void {
 
 watch(customDate, (newDate) => {
     if (!newDate) return;
-    const dur = newDate.getTime() - new Date().getTime();
-    expiration.value = new Duration(dur);
+    const durMs = newDate.getTime() - new Date().getTime();
+    expiration.value = new Duration(durMs * 1e6); // Convert ms to ns
 });
 
 watch(innerContent, comp => {
