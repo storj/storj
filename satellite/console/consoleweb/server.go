@@ -1252,6 +1252,7 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 				DocsURL:       wlConfig.DocsURL,
 				HomepageURL:   wlConfig.HomepageURL,
 				GetInTouchURL: wlConfig.GetInTouchURL,
+				GatewayURL:    wlConfig.GatewayURL,
 			}
 		} else {
 			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenant_id", tenantCtx.TenantID))

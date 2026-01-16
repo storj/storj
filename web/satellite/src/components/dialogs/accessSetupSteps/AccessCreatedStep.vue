@@ -62,7 +62,7 @@
                     <text-output-area
                         label="Endpoint"
                         :is-blurred="false"
-                        :value="credentials.endpoint"
+                        :value="configStore.gatewayUrl || credentials.endpoint"
                         show-copy
                     />
                 </v-col>
@@ -129,7 +129,7 @@ const saveItems = computed<SaveButtonsItem[]>(() => {
     return [
         { name: 'Access Key', value: props.credentials.accessKeyId },
         { name: 'Secret Key', value: props.credentials.secretKey },
-        { name: 'Endpoint', value: props.credentials.endpoint },
+        { name: 'Endpoint', value: configStore.gatewayUrl || props.credentials.endpoint },
     ];
 });
 </script>

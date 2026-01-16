@@ -419,6 +419,7 @@ func TestBrandingEndpoint(t *testing.T) {
 		supportURL     = "https://support.customer1.example.com"
 		docsURL        = "https://docs.customer1.example.com"
 		homepageURL    = "https://customer1.example.com"
+		gatewayURL     = "https://gateway.customer1.example.com"
 		primaryColor   = "#FF0000"
 		secondaryColor = "#00FF00"
 		colors         = map[string]string{"primary": primaryColor, "secondary": secondaryColor}
@@ -439,6 +440,7 @@ func TestBrandingEndpoint(t *testing.T) {
 						SupportURL:   supportURL,
 						DocsURL:      docsURL,
 						HomepageURL:  homepageURL,
+						GatewayURL:   gatewayURL,
 						CompanyName:  defaultName,
 						AddressLine1: "1234 Customer St.",
 						AddressLine2: "Suite 100, Customer City, CA 90210",
@@ -501,6 +503,7 @@ func TestBrandingEndpoint(t *testing.T) {
 			require.Equal(t, supportURL, branding["supportUrl"])
 			require.Equal(t, docsURL, branding["docsUrl"])
 			require.Equal(t, homepageURL, branding["homepageUrl"])
+			require.Equal(t, gatewayURL, branding["gatewayUrl"])
 
 			gotLogoURLs, ok := branding["logoUrls"].(map[string]any)
 			require.True(t, ok)

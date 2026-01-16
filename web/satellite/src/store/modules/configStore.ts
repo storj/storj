@@ -44,6 +44,7 @@ export const useConfigStore = defineStore('config', () => {
     const supportUrl = computed<string>(() => state.branding.supportUrl);
     const docsUrl = computed<string>(() => state.branding.docsUrl);
     const homepageUrl = computed<string>(() => state.branding.homepageUrl);
+    const gatewayUrl = computed<string>(() => state.branding.gatewayUrl);
     const isDefaultBrand = computed<boolean>(() => brandName.value === defaultBrandingName);
     const logo = computed<string>(() => state.branding.getLogo(LogoKey.FullLight) ?? '');
     const darkLogo = computed<string>(() => state.branding.getLogo(LogoKey.FullDark) ?? '');
@@ -161,6 +162,7 @@ export const useConfigStore = defineStore('config', () => {
         supportUrl,
         docsUrl,
         homepageUrl,
+        gatewayUrl,
         isDefaultBrand,
         logo,
         darkLogo,
