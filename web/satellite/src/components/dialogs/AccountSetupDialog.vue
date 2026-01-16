@@ -91,7 +91,7 @@
                         </v-window-item>
                     </template>
 
-                    <v-window-item v-if="satelliteManagedEncryptionEnabled" :value="OnboardingStep.ManagedPassphraseOptIn">
+                    <v-window-item v-if="allowManagedPassphraseStep" :value="OnboardingStep.ManagedPassphraseOptIn">
                         <managed-passphrase-opt-in-step
                             :ref="stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref"
                             v-model:manage-mode="passphraseManageMode"
@@ -201,7 +201,8 @@ const shouldShowSetupDialog = computed<boolean>(() => {
 });
 const userSettings = computed<UserSettings>(() => userStore.state.settings as UserSettings);
 const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
-const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncryptionEnabled.value && projectsStore.state.projects.length === 0);
+const hideProjectEncryptionOptions = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
+const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncryptionEnabled.value && !hideProjectEncryptionOptions.value && projectsStore.state.projects.length === 0);
 const defaultNextStep = computed<OnboardingStep>(() => {
     return allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
 });
@@ -335,9 +336,12 @@ function toPrevStep(): void {
  * Figure out the initial setup step.
  */
 onBeforeMount(() => {
-    if (!satelliteManagedEncryptionEnabled.value) {
+    if (hideProjectEncryptionOptions.value && satelliteManagedEncryptionEnabled.value)
+        passphraseManageMode.value = 'auto';
+    if (!satelliteManagedEncryptionEnabled.value)
         passphraseManageMode.value = 'manual';
-    }
+    else
+        passphraseManageMode.value = 'auto';
 
     const currentStep = userSettings.value.onboardingStep;
 

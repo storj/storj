@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
 import { CircleCheckBig, ChevronRight } from 'lucide-vue-next';
-import { nextTick } from 'vue';
+import { computed, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -57,10 +57,14 @@ const emit = defineEmits<{
     finish: [];
 }>();
 
+const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
+const hideProjectEncryptionOptions = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
+
 async function finishSetup() {
     const projects = projectsStore.state.projects;
     if (!projects.length) {
-        await projectsStore.createDefaultProject(userStore.state.user.id);
+        const satelliteManaged = satelliteManagedEncryptionEnabled.value && hideProjectEncryptionOptions.value;
+        await projectsStore.createDefaultProject(userStore.state.user.id, satelliteManaged);
     }
     projectsStore.selectProject(projects[0].id);
 

@@ -8,7 +8,7 @@
         :model-value="model && !isUpgradeDialogShown"
         width="410px"
         transition="fade-transition"
-        :persistent="isLoading || satelliteManagedEncryptionEnabled"
+        :persistent="isLoading || (!hideProjectEncryptionOptions && satelliteManagedEncryptionEnabled)"
         :scrim="false"
         scrollable
         @update:model-value="v => model = v"
@@ -222,7 +222,7 @@
                             {{ createStep === CreateSteps.ManageMode ? 'Back' : 'Cancel' }}
                         </v-btn>
                     </v-col>
-                    <v-col v-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached)) && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
+                    <v-col v-if="!(billingEnabled && (isMemberAccount || isProjectLimitReached)) && !hideProjectEncryptionOptions && satelliteManagedEncryptionEnabled && createStep === CreateSteps.Info">
                         <v-btn
                             color="primary"
                             variant="flat"
@@ -352,6 +352,7 @@ const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(use
  * Indicates if satellite managed encryption passphrase is enabled.
  */
 const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
+const hideProjectEncryptionOptions = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
 
 /**
  * Indicates if limit increase requests can be sent directly from the UI.
@@ -485,13 +486,16 @@ watch(model, val => {
         name.value = '';
         description.value = '';
         inputText.value = String(usersStore.state.user.projectLimit + 1);
-
-        if (!satelliteManagedEncryptionEnabled.value) {
-            passphraseManageMode.value = 'manual';
-        }
     } else {
         createStep.value = CreateSteps.Info;
-        passphraseManageMode.value = 'auto';
+
+        if (hideProjectEncryptionOptions.value && satelliteManagedEncryptionEnabled.value)
+            passphraseManageMode.value = 'auto';
+        if (!satelliteManagedEncryptionEnabled.value)
+            passphraseManageMode.value = 'manual';
+        else
+            passphraseManageMode.value = 'auto';
+
         showLimitIncreaseDialog.value = false;
     }
 });
