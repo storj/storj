@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
-	evKit "storj.io/storj/shared/modular/eventkit"
+	"storj.io/storj/shared/modular/eventkit/eventkitspy"
 )
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
@@ -484,8 +484,7 @@ func TestOrderSettlementEventkitIntegration(t *testing.T) {
 		sat.Orders.Chore.Loop.Pause()
 
 		// Create mock destination to capture events
-		mockDest := &evKit.MockEventkitDestination{}
-		eventkit.DefaultRegistry.AddDestination(mockDest)
+		eventkitspy.Clear()
 
 		// Upload data to generate orders
 		err := uplink.Upload(ctx, sat, "eventkit-bucket", "eventkit-object", testrand.Bytes(10*memory.KiB))
@@ -498,7 +497,7 @@ func TestOrderSettlementEventkitIntegration(t *testing.T) {
 		node.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
 
 		// Verify event structure - filter for order_settlement events only
-		events := mockDest.GetEvents()
+		events := eventkitspy.GetEvents()
 		var settlementEvents []*eventkit.Event
 		for _, event := range events {
 			if event.Name == "order_settlement" {

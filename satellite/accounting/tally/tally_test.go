@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/metabase"
-	evKit "storj.io/storj/shared/modular/eventkit"
+	"storj.io/storj/shared/modular/eventkit/eventkitspy"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -843,6 +843,7 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 func TestEventkitIntegration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
@@ -854,8 +855,7 @@ func TestEventkitIntegration(t *testing.T) {
 		err = uplink.Upload(ctx, sat, "another-bucket", "another-object", testrand.Bytes(10*memory.KiB))
 		require.NoError(t, err)
 
-		mockDest := &evKit.MockEventkitDestination{}
-		eventkit.DefaultRegistry.AddDestination(mockDest)
+		eventkitspy.Clear()
 
 		config := sat.Config.Tally
 		config.EventkitTrackingEnabled = true
@@ -880,7 +880,7 @@ func TestEventkitIntegration(t *testing.T) {
 		require.NotEmpty(t, tallies)
 
 		var events []*eventkit.Event
-		for _, event := range mockDest.GetEvents() {
+		for _, event := range eventkitspy.GetEvents() {
 			if event.Name == "storage_tally" {
 				events = append(events, event)
 			}
