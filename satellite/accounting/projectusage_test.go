@@ -471,12 +471,6 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 func TestUsageRollups(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 3,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-				config.Metainfo.ObjectLockEnabled = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const (
 			numBuckets     = 5
@@ -749,7 +743,6 @@ func TestUsageRollups(t *testing.T) {
 
 			for _, usage := range totals.BucketUsages {
 				require.Equal(t, satbuckets.VersioningEnabled, usage.Versioning)
-				require.False(t, usage.ObjectLockEnabled)
 			}
 
 			for _, bucket := range buckets {
@@ -813,7 +806,6 @@ func TestUsageRollups(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, totals)
 			require.Len(t, totals.BucketUsages, 1)
-			require.True(t, totals.BucketUsages[0].ObjectLockEnabled)
 			require.Equal(t, storj.ComplianceMode, totals.BucketUsages[0].DefaultRetentionMode)
 			require.Nil(t, totals.BucketUsages[0].DefaultRetentionYears)
 			require.NotNil(t, totals.BucketUsages[0].DefaultRetentionDays)

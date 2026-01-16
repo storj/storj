@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -499,13 +498,7 @@ func TestGetProjectTotalTallies_monthly_storage(t *testing.T) {
 }
 
 func TestGetSingleBucketTotal(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-				config.Metainfo.ObjectLockEnabled = true
-			},
-		}},
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			pauseAccountingChores(planet)
 

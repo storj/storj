@@ -231,9 +231,6 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !endpoint.config.UseBucketLevelObjectVersioning {
-		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "versioning not allowed")
-	}
 	if req.Versioning {
 		err = endpoint.buckets.EnableBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
 	} else {
@@ -299,10 +296,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.NotFound, "no such project")
 	}
 
-	if req.ObjectLockEnabled && !(endpoint.config.UseBucketLevelObjectVersioning && endpoint.config.ObjectLockEnabled) {
-		return nil, rpcstatus.Error(rpcstatus.ObjectLockDisabledForProject, projectNoLockErrMsg)
-	}
-
 	bucketReq, err := convertProtoToBucket(req, keyInfo)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -345,22 +338,20 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, fmt.Sprintf("number of allocated buckets (%d) exceeded", endpoint.config.ProjectLimits.MaxBuckets))
 	}
 
-	if endpoint.config.UseBucketLevelObjectVersioning {
-		if bucketReq.ObjectLock.Enabled {
+	if bucketReq.ObjectLock.Enabled {
+		bucketReq.Versioning = buckets.VersioningEnabled
+	} else {
+		defaultVersioning, err := endpoint.projects.GetDefaultVersioning(ctx, keyInfo.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		switch defaultVersioning {
+		case console.VersioningUnsupported, console.Unversioned:
+			// since bucket level versioning is enabled, projects with
+			// unsupported versioning are also allowed to have versioning.
+			bucketReq.Versioning = buckets.Unversioned
+		case console.VersioningEnabled:
 			bucketReq.Versioning = buckets.VersioningEnabled
-		} else {
-			defaultVersioning, err := endpoint.projects.GetDefaultVersioning(ctx, keyInfo.ProjectID)
-			if err != nil {
-				return nil, err
-			}
-			switch defaultVersioning {
-			case console.VersioningUnsupported, console.Unversioned:
-				// since bucket level versioning is enabled, projects with
-				// unsupported versioning are also allowed to have versioning.
-				bucketReq.Versioning = buckets.Unversioned
-			case console.VersioningEnabled:
-				bucketReq.Versioning = buckets.VersioningEnabled
-			}
 		}
 	}
 
@@ -698,10 +689,6 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
-	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
-	}
-
 	settings, err := endpoint.buckets.GetBucketObjectLockSettings(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
@@ -751,10 +738,6 @@ func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, 
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
-
-	if !endpoint.config.ObjectLockEnabled {
-		return nil, rpcstatus.Error(rpcstatus.ObjectLockEndpointsDisabled, objectLockDisabledErrMsg)
-	}
 
 	bucket, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {

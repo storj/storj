@@ -180,10 +180,6 @@ func TestDeleteBucket(t *testing.T) {
 			Satellite: testplanet.Combine(
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 				testplanet.MaxSegmentSize(13*memory.KiB),
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Metainfo.ObjectLockEnabled = true
-					config.Metainfo.UseBucketLevelObjectVersioning = true
-				},
 			),
 			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
 				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
@@ -1385,11 +1381,6 @@ func TestGetBucketTagging(t *testing.T) {
 func TestEnableSuspendBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		bucketName := "testbucket"
 		projectID := planet.Uplinks[0].Projects[0].ID
@@ -1523,11 +1514,6 @@ func TestEnableSuspendBucketVersioning(t *testing.T) {
 func TestDefaultBucketVersioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		bucketName := "testbucket"
 		satellite := planet.Satellites[0]
@@ -1611,12 +1597,6 @@ func TestDefaultBucketVersioning(t *testing.T) {
 func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ObjectLockEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
@@ -1661,22 +1641,6 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			require.False(t, enabled)
 		})
 
-		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			endpoint.TestSetObjectLockEnabled(false)
-			defer endpoint.TestSetObjectLockEnabled(true)
-
-			bucketName := []byte(testrand.BucketName())
-			req := &pb.CreateBucketRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				Name:              bucketName,
-				ObjectLockEnabled: true,
-			}
-			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-		})
-
 		t.Run("Unauthorized API key", func(t *testing.T) {
 			_, oldApiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "old key", macaroon.APIKeyVersionMin)
 			require.NoError(t, err)
@@ -1703,35 +1667,12 @@ func TestCreateBucketWithObjectLockEnabled(t *testing.T) {
 			})
 			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
 		})
-
-		t.Run("Object versioning disabled", func(t *testing.T) {
-			endpoint.TestSetUseBucketLevelVersioning(false)
-			defer endpoint.TestSetUseBucketLevelVersioning(true)
-
-			bucketName := []byte(testrand.BucketName())
-			req := &pb.CreateBucketRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				Name:              bucketName,
-				ObjectLockEnabled: true,
-			}
-
-			_, err = endpoint.CreateBucket(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockDisabledForProject)
-		})
 	})
 }
 
 func TestGetBucketObjectLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ObjectLockEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
@@ -1801,23 +1742,6 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockBucketRetentionConfigurationMissing)
 		})
 
-		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			bucketName := []byte(testrand.BucketName())
-			createBucket(t, bucketName, true)
-
-			endpoint.TestSetObjectLockEnabled(false)
-			defer endpoint.TestSetObjectLockEnabled(true)
-
-			req := &pb.GetBucketObjectLockConfigurationRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				Name: bucketName,
-			}
-			_, err := endpoint.GetBucketObjectLockConfiguration(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
-		})
-
 		t.Run("Nonexistent bucket", func(t *testing.T) {
 			_, err = endpoint.GetBucketObjectLockConfiguration(ctx, &pb.GetBucketObjectLockConfigurationRequest{
 				Header: &pb.RequestHeader{
@@ -1866,12 +1790,6 @@ func TestGetBucketObjectLockConfiguration(t *testing.T) {
 func TestSetBucketObjectLockConfiguration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ObjectLockEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		project := planet.Uplinks[0].Projects[0]
@@ -1957,26 +1875,6 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 				},
 			})
 			rpctest.RequireCode(t, err, rpcstatus.ObjectLockInvalidBucketRetentionConfiguration)
-		})
-
-		t.Run("Object Lock not globally supported", func(t *testing.T) {
-			bucketName := []byte(testrand.BucketName())
-			createBucket(t, bucketName, false)
-
-			endpoint.TestSetObjectLockEnabled(false)
-			defer endpoint.TestSetObjectLockEnabled(true)
-
-			req := &pb.SetBucketObjectLockConfigurationRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
-				},
-				Name: bucketName,
-				Configuration: &pb.ObjectLockConfiguration{
-					Enabled: true,
-				},
-			}
-			_, err := endpoint.SetBucketObjectLockConfiguration(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.ObjectLockEndpointsDisabled)
 		})
 
 		t.Run("Nonexistent bucket", func(t *testing.T) {

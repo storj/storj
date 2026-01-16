@@ -276,8 +276,6 @@ type Service struct {
 
 	paymentSourceChainIDs map[int64]string
 
-	objectLockAndVersioningConfig ObjectLockAndVersioningConfig
-
 	entitlementsService *entitlements.Service
 	entitlementsConfig  entitlements.Config
 
@@ -332,7 +330,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	objectLockAndVersioningConfig ObjectLockAndVersioningConfig, valdiService *valdi.Service, minimumChargeAmount int64,
+	valdiService *valdi.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
 	skuEnabled bool, loginURL string, supportURL string, bucketEventing eventingconfig.Config) (*Service, error) {
@@ -396,42 +394,41 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	}
 
 	return &Service{
-		log:                           log,
-		auditLogger:                   log.Named("auditlog"),
-		store:                         store,
-		restKeys:                      restKeys,
-		oauthRestKeys:                 oauthRestKeys,
-		projectAccounting:             projectAccounting,
-		projectUsage:                  projectUsage,
-		buckets:                       buckets,
-		attributions:                  attributions,
-		placements:                    placements,
-		placementNameLookup:           placementNameLookup,
-		placementProductMap:           placementProductMap,
-		productConfigs:                productConfigs,
-		accounts:                      accounts,
-		depositWallets:                depositWallets,
-		billing:                       billingDb,
-		registrationCaptchaHandler:    registrationCaptchaHandler,
-		loginCaptchaHandler:           loginCaptchaHandler,
-		analytics:                     analytics,
-		tokens:                        tokens,
-		mailService:                   mailService,
-		hubspotMailService:            hubspotMailService,
-		accountFreezeService:          accountFreezeService,
-		emission:                      emission,
-		kmsService:                    kmsService,
-		valdiService:                  valdiService,
-		ssoService:                    ssoService,
-		satelliteAddress:              satelliteAddress,
-		satelliteName:                 satelliteName,
-		whiteLabelConfig:              whiteLabelConfig,
-		maxProjectBuckets:             maxProjectBuckets,
-		ssoEnabled:                    ssoEnabled,
-		config:                        config,
-		varPartners:                   partners,
-		objectLockAndVersioningConfig: objectLockAndVersioningConfig,
-		paymentSourceChainIDs:         paymentSourceChainIDs,
+		log:                        log,
+		auditLogger:                log.Named("auditlog"),
+		store:                      store,
+		restKeys:                   restKeys,
+		oauthRestKeys:              oauthRestKeys,
+		projectAccounting:          projectAccounting,
+		projectUsage:               projectUsage,
+		buckets:                    buckets,
+		attributions:               attributions,
+		placements:                 placements,
+		placementNameLookup:        placementNameLookup,
+		placementProductMap:        placementProductMap,
+		productConfigs:             productConfigs,
+		accounts:                   accounts,
+		depositWallets:             depositWallets,
+		billing:                    billingDb,
+		registrationCaptchaHandler: registrationCaptchaHandler,
+		loginCaptchaHandler:        loginCaptchaHandler,
+		analytics:                  analytics,
+		tokens:                     tokens,
+		mailService:                mailService,
+		hubspotMailService:         hubspotMailService,
+		accountFreezeService:       accountFreezeService,
+		emission:                   emission,
+		kmsService:                 kmsService,
+		valdiService:               valdiService,
+		ssoService:                 ssoService,
+		satelliteAddress:           satelliteAddress,
+		satelliteName:              satelliteName,
+		whiteLabelConfig:           whiteLabelConfig,
+		maxProjectBuckets:          maxProjectBuckets,
+		ssoEnabled:                 ssoEnabled,
+		config:                     config,
+		varPartners:                partners,
+		paymentSourceChainIDs:      paymentSourceChainIDs,
 
 		minimumChargeAmount: minimumChargeAmount,
 		minimumChargeDate:   minimumChargeDate,
@@ -3813,7 +3810,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 // GetObjectLockUIEnabled returns whether object lock is enabled.
 func (s *Service) GetObjectLockUIEnabled() bool {
-	return s.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning && s.objectLockAndVersioningConfig.ObjectLockEnabled
+	return true
 }
 
 // GetUsersProjects is a method for querying all projects.

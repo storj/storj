@@ -278,18 +278,6 @@ func (endpoint *Endpoint) Close() error {
 	return nil
 }
 
-// TestSetObjectLockEnabled sets whether bucket-level Object Lock functionality should be globally enabled.
-// Used for testing.
-func (endpoint *Endpoint) TestSetObjectLockEnabled(enabled bool) {
-	endpoint.config.ObjectLockEnabled = enabled
-}
-
-// TestSetUseBucketLevelVersioning sets whether bucket-level Object Versioning functionality should be globally enabled.
-// Used for testing.
-func (endpoint *Endpoint) TestSetUseBucketLevelVersioning(enabled bool) {
-	endpoint.config.UseBucketLevelObjectVersioning = enabled
-}
-
 // TestSelfServePlacementEnabled sets whether self-serve placement should be enabled.
 func (endpoint *Endpoint) TestSelfServePlacementEnabled(enabled bool) {
 	endpoint.config.SelfServePlacementSelectEnabled = enabled

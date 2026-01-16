@@ -199,8 +199,6 @@ type Server struct {
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
 
-	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig
-
 	AnalyticsConfig analytics.Config
 
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig
@@ -223,7 +221,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, analytics *analytics.Service, abTesting *abtesting.Service,
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
-	objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, analyticsConfig analytics.Config,
+	analyticsConfig analytics.Config,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
 	entitlementsEnabled bool, ssoEnabled bool) *Server {
 	initAdditionalMimeTypes()
@@ -248,7 +246,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		AnalyticsConfig:                 analyticsConfig,
 		minimumChargeConfig:             minimumChargeConfig,
 		usagePrices:                     usagePrices,
-		objectLockAndVersioningConfig:   objectLockAndVersioningConfig,
 		ghostSessionEmailSent:           make(map[uuid.UUID]time.Time),
 		entitlementsEnabled:             entitlementsEnabled,
 		ssoEnabled:                      ssoEnabled,
@@ -1157,8 +1154,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
-		VersioningUIEnabled:               server.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning,
-		ObjectLockUIEnabled:               server.objectLockAndVersioningConfig.UseBucketLevelObjectVersioning && server.objectLockAndVersioningConfig.ObjectLockEnabled && server.config.ObjectLockUIEnabled,
+		VersioningUIEnabled:               true,
+		ObjectLockUIEnabled:               server.config.ObjectLockUIEnabled,
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 		SsoEnabled:                        server.ssoEnabled,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,

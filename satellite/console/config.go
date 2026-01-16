@@ -136,12 +136,6 @@ type SessionConfig struct {
 	Duration                     time.Duration `help:"duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)" default:"168h"`
 }
 
-// ObjectLockAndVersioningConfig contains configurations for object versioning.
-type ObjectLockAndVersioningConfig struct {
-	ObjectLockEnabled              bool
-	UseBucketLevelObjectVersioning bool
-}
-
 // EdgeURLOverrides contains edge service URL overrides.
 type EdgeURLOverrides struct {
 	AuthService         string `json:"authService,omitempty"`

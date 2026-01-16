@@ -80,7 +80,6 @@ func TestService(t *testing.T) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: plcStr}
 				config.Console.VarPartners = []string{"partner1"}
 				config.Console.DeleteProjectEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
 				config.Entitlements.Enabled = true
 				config.Console.ComputeUiEnabled = true
 				config.Console.LegacyPlacements = []string{"0", "1"}

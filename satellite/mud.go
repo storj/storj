@@ -156,12 +156,6 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*console.Service](ball, CreateService)
 	console.Module(ball)
 	// TODO: need to define here due to circular dependencies
-	mud.Provide[console.ObjectLockAndVersioningConfig](ball, func(cfg metainfo.Config) console.ObjectLockAndVersioningConfig {
-		return console.ObjectLockAndVersioningConfig{
-			ObjectLockEnabled:              cfg.ObjectLockEnabled,
-			UseBucketLevelObjectVersioning: cfg.UseBucketLevelObjectVersioning,
-		}
-	})
 	mud.Provide[restapikeys.Service](ball, func(log *zap.Logger, db restapikeys.DB, tokens oidc.OAuthTokens, config console.Config) restapikeys.Service {
 		return console.NewRestKeysService(log, db, restkeys.NewService(tokens, config.RestAPIKeys.DefaultExpiration), time.Now, config)
 	})
@@ -338,7 +332,6 @@ func CreateServer(logger *zap.Logger,
 
 	cwconfig *consoleweb.Config,
 	analyticsConfig analytics.Config,
-	olavc console.ObjectLockAndVersioningConfig,
 	ecfg entitlements.Config,
 	ssoCfg sso.Config,
 	stripeCfg stripe.Config,
@@ -368,7 +361,7 @@ func CreateServer(logger *zap.Logger,
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		olavc, analyticsConfig, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled), nil
+		analyticsConfig, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled), nil
 }
 
 // CreateService creates console service.
@@ -377,7 +370,7 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *console.AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service,
-	placements nodeselection.PlacementDefinitions, objectLockAndVersioningConfig console.ObjectLockAndVersioningConfig, valdiService *valdi.Service,
+	placements nodeselection.PlacementDefinitions, valdiService *valdi.Service,
 	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config, bucketEventing eventingconfig.Config) (*console.Service, error) {
 
 	productModels, err := pc.Products.ToModels()
@@ -396,7 +389,7 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	}
 	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
-		cw.ExternalAddress, cw.SatelliteName, cfg.WhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements, objectLockAndVersioningConfig,
+		cw.ExternalAddress, cw.SatelliteName, cfg.WhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
 		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
 		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing)
 }

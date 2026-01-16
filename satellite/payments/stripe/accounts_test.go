@@ -136,7 +136,6 @@ func TestSignupCouponCodes(t *testing.T) {
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			false,
 			nodeselection.NewPlacementDefinitions(),
-			console.ObjectLockAndVersioningConfig{},
 			nil,
 			pc.MinimumCharge.Amount,
 			minimumChargeDate,

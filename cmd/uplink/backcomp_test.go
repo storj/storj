@@ -11,14 +11,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/uplink"
 	"storj.io/uplink/private/piecestore"
 )
@@ -30,11 +28,6 @@ func TestOldUplink(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
 		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// TODO add different kinds of files: inline, multi segment, multipart
 

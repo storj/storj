@@ -352,12 +352,6 @@ func TestEndpoint_ParallelDeletesSameAncestor(t *testing.T) {
 func TestEndpoint_DeleteLockedObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ObjectLockEnabled = true
-				config.Metainfo.UseBucketLevelObjectVersioning = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const unauthorizedErrMsg = "Unauthorized API credentials"
 

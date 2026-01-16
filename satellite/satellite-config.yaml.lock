@@ -1286,9 +1286,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # node alias cache does a full refresh when a value is missing
 # metainfo.node-alias-cache-full-refresh: false
 
-# enable the use of bucket-level Object Lock
-# metainfo.object-lock-enabled: true
-
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -1366,9 +1363,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # two to this power is the amount of rate limits to store in ram. higher has less collisions.
 # metainfo.upload-limiter.size-exponent: 21
-
-# enable the use of bucket level object versioning
-# metainfo.use-bucket-level-object-versioning: true
 
 # switch to new ListObjects implementation
 # metainfo.use-list-objects-for-listing: false
