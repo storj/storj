@@ -2702,138 +2702,104 @@ func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
 
 func TestListObjects_Includes(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := metabasetest.RandObjectStream()
+		for _, tt := range objectIncludesScenarios {
+			t.Run(tt.name, func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-		data1 := metabasetest.RandEncryptedUserData()
-		data2 := metabasetest.RandEncryptedUserData()
-		data2.EncryptedETag = nil
-		data3 := metabasetest.RandEncryptedUserData()
-		data3.EncryptedMetadata = nil
+				objStream := metabasetest.RandObjectStream()
+				object, _ := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						SetEncryptedMetadata: true,
+						EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
+					},
+				}.Run(ctx, t, db, objStream, 4)
 
-		var objects []metabase.RawObject
-		for i, data := range []metabase.EncryptedUserData{data1, data2, data3} {
-			objects = append(objects, metabase.RawObject{
-				ObjectStream: metabase.ObjectStream{
-					ProjectID:  obj.ProjectID,
-					BucketName: metabase.BucketName("bucket"),
-					ObjectKey:  metabase.ObjectKey(fmt.Sprint(i)),
-					Version:    1,
-					StreamID:   uuid.UUID{byte(i + 1)},
-				},
-				EncryptedUserData: data,
-				Status:            metabase.CommittedVersioned,
+				metabasetest.ListObjects{
+					Opts: metabase.ListObjects{
+						ProjectID:             object.ProjectID,
+						BucketName:            object.BucketName,
+						Recursive:             true,
+						Pending:               false,
+						IncludeCustomMetadata: tt.includes.customMetadata,
+						IncludeSystemMetadata: tt.includes.systemMetadata,
+						IncludeETag:           tt.includes.eTag,
+						IncludeChecksum:       tt.includes.checksum,
+					},
+					Result: metabase.ListObjectsResult{
+						Objects: []metabase.ObjectEntry{tt.getExpectedEntry(object)},
+						More:    false,
+					},
+				}.Check(ctx, t, db)
 			})
 		}
-		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
 
-		obj1 := objectEntryFromRaw(objects[0])
-		obj1.IsLatest = true
-		obj2 := objectEntryFromRaw(objects[1])
-		obj2.IsLatest = true
-		obj3 := objectEntryFromRaw(objects[2])
-		obj3.IsLatest = true
+		t.Run("Include ETag or custom metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-		withZeroETag := func(entry metabase.ObjectEntry) metabase.ObjectEntry {
-			entry.EncryptedETag = nil
-			return entry
-		}
-		withZeroMetadata := func(entry metabase.ObjectEntry) metabase.ObjectEntry {
-			entry.EncryptedMetadata = nil
-			return entry
-		}
+			projectID := testrand.UUID()
+			bucketName := metabase.BucketName(testrand.BucketName())
 
-		metabasetest.ListObjects{
-			Opts: metabase.ListObjects{
-				ProjectID:  obj.ProjectID,
-				BucketName: "bucket",
-				Limit:      100,
+			var objects []metabase.RawObject
 
-				IncludeETag:           true,
-				IncludeCustomMetadata: true,
-			},
-			Result: metabase.ListObjectsResult{
-				Objects: []metabase.ObjectEntry{
-					obj1,
-					obj2,
-					obj3,
+			for i, includes := range []struct{ eTag, customMetadata bool }{
+				{true, false}, {false, true}, {true, true},
+			} {
+				userData := metabasetest.RandEncryptedUserData()
+				if !includes.customMetadata {
+					userData.EncryptedMetadata = nil
+				}
+				if !includes.eTag {
+					userData.EncryptedETag = nil
+				}
+
+				objStream := metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					ObjectKey:  metabase.ObjectKey(strconv.Itoa(i)),
+					Version:    randVersion(),
+					StreamID:   testrand.UUID(),
+				}
+
+				object, _ := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						SetEncryptedMetadata: true,
+						EncryptedUserData:    userData,
+					},
+				}.Run(ctx, t, db, objStream, 4)
+
+				objects = append(objects, metabase.RawObject(object))
+			}
+
+			var expectedEntries []metabase.ObjectEntry
+			for _, obj := range objects {
+				expectedEntries = append(expectedEntries, objectEntryFromRawLatest(obj))
+			}
+
+			// This object has both EncryptedMetadata and EncryptedETag set.
+			// Expect only EncryptedETag to be returned.
+			expectedEntries[2].EncryptedMetadata = nil
+
+			metabasetest.ListObjects{
+				Opts: metabase.ListObjects{
+					ProjectID:                   projectID,
+					BucketName:                  bucketName,
+					Recursive:                   true,
+					Pending:                     false,
+					IncludeSystemMetadata:       true,
+					IncludeCustomMetadata:       false,
+					IncludeETag:                 false,
+					IncludeETagOrCustomMetadata: true,
 				},
-				More: false,
-			},
-		}.Check(ctx, t, db)
-
-		metabasetest.ListObjects{
-			Opts: metabase.ListObjects{
-				ProjectID:  obj.ProjectID,
-				BucketName: "bucket",
-				Limit:      100,
-
-				IncludeETag:                 true,
-				IncludeCustomMetadata:       true,
-				IncludeETagOrCustomMetadata: true,
-			},
-			Result: metabase.ListObjectsResult{
-				Objects: []metabase.ObjectEntry{
-					obj1,
-					obj2,
-					obj3,
+				Result: metabase.ListObjectsResult{
+					Objects: expectedEntries,
+					More:    false,
 				},
-				More: false,
-			},
-		}.Check(ctx, t, db)
-
-		metabasetest.ListObjects{
-			Opts: metabase.ListObjects{
-				ProjectID:  obj.ProjectID,
-				BucketName: "bucket",
-				Limit:      100,
-
-				IncludeETag: true,
-			},
-			Result: metabase.ListObjectsResult{
-				Objects: []metabase.ObjectEntry{
-					withZeroMetadata(obj1),
-					withZeroMetadata(obj2),
-					withZeroMetadata(obj3),
-				},
-				More: false,
-			},
-		}.Check(ctx, t, db)
-
-		metabasetest.ListObjects{
-			Opts: metabase.ListObjects{
-				ProjectID:  obj.ProjectID,
-				BucketName: "bucket",
-				Limit:      100,
-
-				IncludeCustomMetadata: true,
-			},
-			Result: metabase.ListObjectsResult{
-				Objects: []metabase.ObjectEntry{
-					withZeroETag(obj1),
-					withZeroETag(obj2),
-					withZeroETag(obj3),
-				},
-				More: false,
-			},
-		}.Check(ctx, t, db)
-
-		metabasetest.ListObjects{
-			Opts: metabase.ListObjects{
-				ProjectID:  obj.ProjectID,
-				BucketName: "bucket",
-				Limit:      100,
-
-				IncludeETagOrCustomMetadata: true,
-			},
-			Result: metabase.ListObjectsResult{
-				Objects: []metabase.ObjectEntry{
-					withZeroMetadata(obj1),
-					obj2,
-					obj3,
-				},
-				More: false,
-			},
-		}.Check(ctx, t, db)
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -2983,4 +2949,103 @@ func testListObjectsDelimiter(t *testing.T, fn func(ctx *testcontext.Context, t 
 			}, result)
 		})
 	})
+}
+
+type objectIncludes struct {
+	customMetadata bool
+	systemMetadata bool
+	eTag           bool
+	checksum       bool
+}
+
+var objectIncludesScenarios = []struct {
+	name             string
+	includes         objectIncludes
+	getExpectedEntry func(metabase.Object) metabase.ObjectEntry
+}{
+	{
+		name: "Include all metadata",
+		includes: objectIncludes{
+			systemMetadata: true,
+			customMetadata: true,
+			eTag:           true,
+			checksum:       true,
+		},
+		getExpectedEntry: func(obj metabase.Object) metabase.ObjectEntry {
+			return objectEntryFromRawLatest(metabase.RawObject(obj))
+		},
+	},
+	{
+		name: "Include only system metadata",
+		includes: objectIncludes{
+			systemMetadata: true,
+			customMetadata: false,
+			eTag:           false,
+			checksum:       false,
+		},
+		getExpectedEntry: func(obj metabase.Object) metabase.ObjectEntry {
+			entry := minimalObjectEntryFromRawLatest(metabase.RawObject(obj))
+			entry.CreatedAt = obj.CreatedAt
+			entry.ExpiresAt = obj.ExpiresAt
+			entry.SegmentCount = obj.SegmentCount
+			entry.TotalPlainSize = obj.TotalPlainSize
+			entry.TotalEncryptedSize = obj.TotalEncryptedSize
+			entry.FixedSegmentSize = obj.FixedSegmentSize
+			return entry
+		},
+	},
+	{
+		name: "Include only custom metadata",
+		includes: objectIncludes{
+			systemMetadata: false,
+			customMetadata: true,
+			eTag:           false,
+			checksum:       false,
+		},
+		getExpectedEntry: func(obj metabase.Object) metabase.ObjectEntry {
+			entry := minimalObjectEntryFromRawLatest(metabase.RawObject(obj))
+			entry.EncryptedUserData = metabase.EncryptedUserData{
+				EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+				EncryptedMetadata:             obj.EncryptedMetadata,
+			}
+			return entry
+		},
+	},
+	{
+		name: "Include only ETag",
+		includes: objectIncludes{
+			systemMetadata: false,
+			customMetadata: false,
+			eTag:           true,
+			checksum:       false,
+		},
+		getExpectedEntry: func(obj metabase.Object) metabase.ObjectEntry {
+			entry := minimalObjectEntryFromRawLatest(metabase.RawObject(obj))
+			entry.EncryptedUserData = metabase.EncryptedUserData{
+				EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+				EncryptedETag:                 obj.EncryptedETag,
+			}
+			return entry
+		},
+	},
+	{
+		name: "Include only checksum",
+		includes: objectIncludes{
+			systemMetadata: false,
+			customMetadata: false,
+			eTag:           false,
+			checksum:       true,
+		},
+		getExpectedEntry: func(obj metabase.Object) metabase.ObjectEntry {
+			entry := minimalObjectEntryFromRawLatest(metabase.RawObject(obj))
+			entry.EncryptedUserData = metabase.EncryptedUserData{
+				EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
+				Checksum:                      obj.Checksum,
+			}
+			return entry
+		},
+	},
 }

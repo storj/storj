@@ -4316,6 +4316,17 @@ func objectEntryFromRawLatest(m metabase.RawObject) metabase.ObjectEntry {
 	return obj
 }
 
+func minimalObjectEntryFromRawLatest(obj metabase.RawObject) metabase.ObjectEntry {
+	return metabase.ObjectEntry{
+		IsLatest:   true,
+		ObjectKey:  obj.ObjectKey,
+		StreamID:   obj.StreamID,
+		Version:    obj.Version,
+		Status:     obj.Status,
+		Encryption: obj.Encryption,
+	}
+}
+
 func BenchmarkNonRecursiveListing(b *testing.B) {
 	metabasetest.Bench(b, func(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
 		baseObj := metabasetest.RandObjectStream()

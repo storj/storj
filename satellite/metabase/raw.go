@@ -420,6 +420,7 @@ func (ctr *copyFromRawObjects) Columns() []string {
 		"encrypted_metadata",
 		"encrypted_metadata_encrypted_key",
 		"encrypted_etag",
+		"checksum",
 
 		"total_plain_size",
 		"total_encrypted_size",
@@ -449,6 +450,7 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 		obj.EncryptedMetadata,
 		obj.EncryptedMetadataEncryptedKey,
 		obj.EncryptedETag,
+		obj.Checksum,
 
 		obj.TotalPlainSize,
 		obj.TotalEncryptedSize,

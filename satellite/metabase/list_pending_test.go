@@ -111,6 +111,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 					Limit:                 limit,
 				},
 				Result: metabase.ListObjectsResult{
@@ -140,6 +141,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -171,6 +173,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -203,6 +206,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -1749,7 +1753,7 @@ func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.D
 		obj := metabasetest.RandObjectStream()
 		obj.ProjectID = projectID
 		obj.BucketName = bucketName
-		userData := metabasetest.RandEncryptedUserData()
+		userData := metabasetest.RandEncryptedUserDataWithChecksum()
 		now := time.Now()
 
 		object := metabasetest.BeginObjectExactVersion{
