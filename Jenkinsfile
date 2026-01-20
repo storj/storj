@@ -74,14 +74,14 @@ node('node') {
 
     stage('Build Images') {
       lastStage = env.STAGE_NAME
-      sh 'make images'
+      sh 'make images/build'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Push Images') {
       lastStage = env.STAGE_NAME
-      sh 'make push-images'
+      sh 'make images/push'
 
       echo "Current build result: ${currentBuild.result}"
     }
@@ -155,7 +155,7 @@ node('node') {
   }
   finally {
     stage('Cleanup') {
-      sh 'make clean-images'
+      sh 'make images/clean'
       deleteDir()
     }
   }

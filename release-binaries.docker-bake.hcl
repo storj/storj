@@ -39,7 +39,7 @@ variable "PLATFORMS" {
       ldflags = "-linkmode external -extldflags \"-static\""
       cc      = "zig cc  -target aarch64-linux-musl"
       cpp     = "zig c++ -target aarch64-linux-musl"
-      components = "./cmd/uplink ./cmd/identity ./cmd/multinode ./cmd/storagenode ./cmd/storagenode-updater"
+      components = "./cmd/uplink ./cmd/identity ./cmd/multinode ./cmd/storagenode ./cmd/storagenode-updater ./cmd/satellite ./cmd/versioncontrol"
     }
     "linux/arm" = {
       goos    = "linux"
@@ -149,4 +149,11 @@ target "web-satellite-admin-legacy" {
   context    = "./satellite/admin/legacy/ui"
   dockerfile = "Dockerfile"
   target = "export"
+}
+
+target "web-satellite" {
+  context    = "."
+  dockerfile = "release-binaries.Dockerfile"
+  target = "web-satellite-export"
+  output = []
 }
