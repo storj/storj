@@ -99,6 +99,7 @@ type IterateObjectsWithStatus struct {
 	IncludeSystemMetadata       bool
 	IncludeETag                 bool
 	IncludeETagOrCustomMetadata bool
+	IncludeChecksum             bool
 }
 
 // IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.

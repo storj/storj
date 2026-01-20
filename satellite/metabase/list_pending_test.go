@@ -2131,6 +2131,28 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
+
+		t.Run("Metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: obj.Location(),
+					BatchSize:      1,
+				},
+				Result: []metabase.ObjectEntry{objectEntryFromRaw(metabase.RawObject(object))},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{metabase.RawObject(object)}}.Check(ctx, t, db)
+		})
 	})
 }
 

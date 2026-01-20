@@ -101,7 +101,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			userData := metabasetest.RandEncryptedUserData()
+			userData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -126,6 +126,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:         committed.ObjectKey,
@@ -147,6 +148,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:  pending.ObjectKey,
@@ -178,6 +180,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -203,6 +206,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -231,6 +235,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -261,6 +266,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -295,6 +301,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -318,6 +325,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
@@ -342,6 +350,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -366,6 +375,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 				},
@@ -385,6 +395,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -405,6 +416,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
@@ -424,6 +436,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -456,6 +469,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -474,6 +488,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version - 1},
 				},
@@ -493,6 +508,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: metabase.MaxVersion},
 				},
@@ -512,6 +528,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 				},
@@ -530,6 +547,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -549,6 +567,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: metabase.MaxVersion},
@@ -567,6 +586,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -582,6 +602,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "c/",
 					Cursor: metabase.IterateCursor{Key: "c/", Version: metabase.MaxVersion},
@@ -725,207 +746,97 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			require.NoError(t, err)
 		})
 
-		t.Run("include metadata", func(t *testing.T) {
+		for _, tt := range objectIncludesScenarios {
+			t.Run(tt.name, func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				objStream := metabasetest.RandObjectStream()
+				object, _ := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						SetEncryptedMetadata: true,
+						EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
+					},
+				}.Run(ctx, t, db, objStream, 4)
+
+				metabasetest.IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:             object.ProjectID,
+						BucketName:            object.BucketName,
+						Recursive:             true,
+						Pending:               false,
+						IncludeCustomMetadata: tt.includes.customMetadata,
+						IncludeSystemMetadata: tt.includes.systemMetadata,
+						IncludeETag:           tt.includes.eTag,
+						IncludeChecksum:       tt.includes.checksum,
+					},
+					Result: []metabase.ObjectEntry{tt.getExpectedEntry(object)},
+				}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Include ETag or custom metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			obj1 := metabasetest.RandObjectStream()
-			userData := metabasetest.RandEncryptedUserData()
+			projectID := testrand.UUID()
+			bucketName := metabase.BucketName(testrand.BucketName())
 
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    userData,
-				},
-			}.Run(ctx, t, db, obj1, 4)
+			var objects []metabase.RawObject
 
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:             obj1.ProjectID,
-				BucketName:            obj1.BucketName,
-				Recursive:             true,
-				Pending:               false,
-				IncludeCustomMetadata: true,
-				IncludeSystemMetadata: true,
-				IncludeETag:           true,
-			}, collector.Add)
+			for i, inc := range []struct{ eTag, customMetadata bool }{
+				{true, false}, {false, true}, {true, true},
+			} {
+				userData := metabasetest.RandEncryptedUserData()
+				if !inc.customMetadata {
+					userData.EncryptedMetadata = nil
+				}
+				if !inc.eTag {
+					userData.EncryptedETag = nil
+				}
 
-			require.NoError(t, err)
+				objStream := metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					ObjectKey:  metabase.ObjectKey(strconv.Itoa(i)),
+					Version:    1,
+					StreamID:   uuid.UUID{byte(i + 1)},
+				}
 
-			for _, entry := range collector {
-				require.Equal(t, userData, entry.EncryptedUserData)
+				object, _ := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						SetEncryptedMetadata: true,
+						EncryptedUserData:    userData,
+					},
+				}.Run(ctx, t, db, objStream, 4)
+
+				objects = append(objects, metabase.RawObject(object))
 			}
-		})
 
-		t.Run("exclude custom metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			obj1 := metabasetest.RandObjectStream()
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
-				},
-			}.Run(ctx, t, db, obj1, 4)
-
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:             obj1.ProjectID,
-				BucketName:            obj1.BucketName,
-				Recursive:             true,
-				Pending:               false,
-				IncludeCustomMetadata: false,
-				IncludeSystemMetadata: true,
-				IncludeETag:           false,
-			}, collector.Add)
-
-			require.NoError(t, err)
-
-			for _, entry := range collector {
-				require.Nil(t, entry.EncryptedMetadataNonce)
-				require.Nil(t, entry.EncryptedMetadata)
-				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
-				require.Nil(t, entry.EncryptedETag)
+			var expectedEntries []metabase.ObjectEntry
+			for _, obj := range objects {
+				expectedEntries = append(expectedEntries, objectEntryFromRaw(obj))
 			}
-		})
 
-		t.Run("include etag", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			// This object has both EncryptedMetadata and EncryptedETag set.
+			// Expect only EncryptedETag to be returned.
+			expectedEntries[2].EncryptedMetadata = nil
 
-			obj1 := metabasetest.RandObjectStream()
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
+			metabasetest.IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:                   projectID,
+					BucketName:                  bucketName,
+					Recursive:                   true,
+					Pending:                     false,
+					IncludeSystemMetadata:       true,
+					IncludeCustomMetadata:       false,
+					IncludeETag:                 false,
+					IncludeETagOrCustomMetadata: true,
 				},
-			}.Run(ctx, t, db, obj1, 4)
-
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:             obj1.ProjectID,
-				BucketName:            obj1.BucketName,
-				Recursive:             true,
-				Pending:               false,
-				IncludeCustomMetadata: false,
-				IncludeSystemMetadata: false,
-				IncludeETag:           true,
-			}, collector.Add)
-
-			require.NoError(t, err)
-
-			for _, entry := range collector {
-				require.NotNil(t, entry.EncryptedMetadataNonce)
-				require.Nil(t, entry.EncryptedMetadata)
-				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
-				require.NotNil(t, entry.EncryptedETag)
-			}
-		})
-
-		t.Run("include etag or metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			data1 := metabasetest.RandEncryptedUserData()
-			data1.EncryptedETag = nil
-
-			obj1 := metabasetest.RandObjectStream()
-			obj1.ObjectKey = "1"
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    data1,
-				},
-			}.Run(ctx, t, db, obj1, 0)
-
-			data2 := metabasetest.RandEncryptedUserData()
-
-			obj2 := metabasetest.RandObjectStream()
-			obj2.ProjectID, obj2.BucketName = obj1.ProjectID, obj1.BucketName
-			obj2.ObjectKey = "2"
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj2,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    data2,
-				},
-			}.Run(ctx, t, db, obj2, 0)
-
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:  obj1.ProjectID,
-				BucketName: obj1.BucketName,
-				Recursive:  true,
-				Pending:    false,
-
-				IncludeETagOrCustomMetadata: true,
-			}, collector.Add)
-			require.NoError(t, err)
-
-			require.NotNil(t, collector[0].EncryptedMetadataEncryptedKey)
-			require.NotNil(t, collector[0].EncryptedMetadataNonce)
-			require.NotNil(t, collector[1].EncryptedMetadataEncryptedKey)
-			require.NotNil(t, collector[1].EncryptedMetadataNonce)
-
-			require.NotNil(t, collector[0].EncryptedMetadata)
-			require.Nil(t, collector[0].EncryptedETag)
-			require.Nil(t, collector[1].EncryptedMetadata)
-			require.NotNil(t, collector[1].EncryptedETag)
-		})
-
-		t.Run("exclude system metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			obj1 := metabasetest.RandObjectStream()
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
-				},
-			}.Run(ctx, t, db, obj1, 4)
-
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:             obj1.ProjectID,
-				BucketName:            obj1.BucketName,
-				Recursive:             true,
-				Pending:               false,
-				IncludeCustomMetadata: true,
-				IncludeSystemMetadata: false,
-				IncludeETag:           true,
-			}, collector.Add)
-
-			require.NoError(t, err)
-
-			for _, entry := range collector {
-				// fields that should always be set
-				require.NotEmpty(t, entry.ObjectKey)
-				require.NotEmpty(t, entry.StreamID)
-				require.NotZero(t, entry.Version)
-				require.Equal(t, metabase.CommittedUnversioned, entry.Status)
-				require.False(t, entry.Encryption.IsZero())
-
-				require.True(t, entry.CreatedAt.IsZero())
-				require.Nil(t, entry.ExpiresAt)
-
-				require.Zero(t, entry.SegmentCount)
-				require.Zero(t, entry.TotalPlainSize)
-				require.Zero(t, entry.TotalEncryptedSize)
-				require.Zero(t, entry.FixedSegmentSize)
-
-				require.NotNil(t, entry.EncryptedMetadataNonce)
-				require.NotNil(t, entry.EncryptedMetadata)
-				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
-				require.NotNil(t, entry.EncryptedETag)
-			}
+				Result: expectedEntries,
+			}.Check(ctx, t, db)
 		})
 
 		t.Run("verify-cursor-continuation", func(t *testing.T) {
@@ -2139,6 +2050,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:         committed.ObjectKey,
@@ -2160,6 +2072,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{{
 					ObjectKey:  pending.ObjectKey,
@@ -2191,6 +2104,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2216,6 +2130,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2244,6 +2159,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2274,6 +2190,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -2308,6 +2225,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -2331,6 +2249,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
@@ -2355,6 +2274,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -2379,6 +2299,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 				},
@@ -2398,6 +2319,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -2418,6 +2340,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
@@ -2437,6 +2360,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -2469,6 +2393,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: []metabase.ObjectEntry{
 					objects["a"],
@@ -2487,6 +2412,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "a", Version: objects["a"].Version + 1},
 				},
@@ -2506,6 +2432,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
 				},
@@ -2525,6 +2452,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 				},
@@ -2543,6 +2471,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
@@ -2562,6 +2491,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
@@ -2580,6 +2510,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -2595,6 +2526,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "c/",
 					Cursor: metabase.IterateCursor{Key: "c/"},
@@ -2614,6 +2546,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 
 					Prefix: "c//",
 				},
@@ -2675,6 +2608,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 						Pending:               false,
 						IncludeCustomMetadata: true,
 						IncludeETag:           true,
+						IncludeChecksum:       true,
 					}, collector.Add)
 					require.NoError(t, err)
 
@@ -2691,6 +2625,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 						Pending:               false,
 						IncludeCustomMetadata: true,
 						IncludeETag:           true,
+						IncludeChecksum:       true,
 					}, collector.Add)
 					require.NoError(t, err)
 				}
@@ -2715,6 +2650,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				IncludeCustomMetadata: true,
 				IncludeSystemMetadata: true,
 				IncludeETag:           true,
+				IncludeChecksum:       true,
 			}, collector.Add)
 			require.NoError(t, err)
 		})
@@ -2738,124 +2674,102 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				Pending:               false,
 				IncludeCustomMetadata: true,
 				IncludeETag:           true,
+				IncludeChecksum:       true,
 			}, collector.Add)
 			require.NoError(t, err)
 		})
 
-		t.Run("include metadata", func(t *testing.T) {
+		for _, tt := range objectIncludesScenarios {
+			t.Run(tt.name, func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				objStream := metabasetest.RandObjectStream()
+				object, _ := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						SetEncryptedMetadata: true,
+						EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
+					},
+				}.Run(ctx, t, db, objStream, 4)
+
+				metabasetest.IterateObjectsWithStatusAscending{
+					Opts: metabase.IterateObjectsWithStatus{
+						ProjectID:             object.ProjectID,
+						BucketName:            object.BucketName,
+						Recursive:             true,
+						Pending:               false,
+						IncludeCustomMetadata: tt.includes.customMetadata,
+						IncludeSystemMetadata: tt.includes.systemMetadata,
+						IncludeETag:           tt.includes.eTag,
+						IncludeChecksum:       tt.includes.checksum,
+					},
+					Result: []metabase.ObjectEntry{tt.getExpectedEntry(object)},
+				}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Include ETag or custom metadata", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			obj1 := metabasetest.RandObjectStream()
-			userData := metabasetest.RandEncryptedUserData()
+			projectID := testrand.UUID()
+			bucketName := metabase.BucketName(testrand.BucketName())
 
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    userData,
-				},
-			}.Run(ctx, t, db, obj1, 4)
+			var objects []metabase.RawObject
 
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:             obj1.ProjectID,
-				BucketName:            obj1.BucketName,
-				Recursive:             true,
-				Pending:               false,
-				IncludeCustomMetadata: true,
-				IncludeSystemMetadata: true,
-				IncludeETag:           true,
-			}, collector.Add)
+			for i, inc := range []struct{ eTag, customMetadata bool }{
+				{true, false}, {false, true}, {true, true},
+			} {
+				userData := metabasetest.RandEncryptedUserData()
+				if !inc.customMetadata {
+					userData.EncryptedMetadata = nil
+				}
+				if !inc.eTag {
+					userData.EncryptedETag = nil
+				}
 
-			require.NoError(t, err)
+				objStream := metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					ObjectKey:  metabase.ObjectKey(strconv.Itoa(i)),
+					Version:    1,
+					StreamID:   uuid.UUID{byte(i + 1)},
+				}
 
-			for _, entry := range collector {
-				require.Equal(t, userData, entry.EncryptedUserData)
+				object, _ := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						SetEncryptedMetadata: true,
+						EncryptedUserData:    userData,
+					},
+				}.Run(ctx, t, db, objStream, 4)
+
+				objects = append(objects, metabase.RawObject(object))
 			}
-		})
 
-		t.Run("exclude custom metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			obj1 := metabasetest.RandObjectStream()
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
-				},
-			}.Run(ctx, t, db, obj1, 4)
-
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:             obj1.ProjectID,
-				BucketName:            obj1.BucketName,
-				Recursive:             true,
-				Pending:               false,
-				IncludeCustomMetadata: false,
-				IncludeSystemMetadata: true,
-				IncludeETag:           false,
-			}, collector.Add)
-
-			require.NoError(t, err)
-
-			for _, entry := range collector {
-				require.Nil(t, entry.EncryptedMetadataNonce)
-				require.Nil(t, entry.EncryptedMetadata)
-				require.Nil(t, entry.EncryptedMetadataEncryptedKey)
-				require.Nil(t, entry.EncryptedETag)
+			var expectedEntries []metabase.ObjectEntry
+			for _, obj := range objects {
+				expectedEntries = append(expectedEntries, objectEntryFromRaw(obj))
 			}
-		})
 
-		t.Run("exclude system metadata", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			// This object has both EncryptedMetadata and EncryptedETag set.
+			// Expect only EncryptedETag to be returned.
+			expectedEntries[2].EncryptedMetadata = nil
 
-			obj1 := metabasetest.RandObjectStream()
-			metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:         obj1,
-					Encryption:           metabasetest.DefaultEncryption,
-					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
+			metabasetest.IterateObjectsWithStatusAscending{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:                   projectID,
+					BucketName:                  bucketName,
+					Recursive:                   true,
+					Pending:                     false,
+					IncludeSystemMetadata:       true,
+					IncludeCustomMetadata:       false,
+					IncludeETag:                 false,
+					IncludeETagOrCustomMetadata: true,
 				},
-			}.Run(ctx, t, db, obj1, 4)
-
-			var collector metabasetest.IterateCollector
-			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
-				ProjectID:             obj1.ProjectID,
-				BucketName:            obj1.BucketName,
-				Recursive:             true,
-				Pending:               false,
-				IncludeCustomMetadata: true,
-				IncludeSystemMetadata: false,
-				IncludeETag:           true,
-			}, collector.Add)
-
-			require.NoError(t, err)
-
-			for _, entry := range collector {
-				// fields that should always be set
-				require.NotEmpty(t, entry.ObjectKey)
-				require.NotEmpty(t, entry.StreamID)
-				require.NotZero(t, entry.Version)
-				require.Equal(t, metabase.CommittedUnversioned, entry.Status)
-				require.False(t, entry.Encryption.IsZero())
-
-				require.True(t, entry.CreatedAt.IsZero())
-				require.Nil(t, entry.ExpiresAt)
-
-				require.Zero(t, entry.SegmentCount)
-				require.Zero(t, entry.TotalPlainSize)
-				require.Zero(t, entry.TotalEncryptedSize)
-				require.Zero(t, entry.FixedSegmentSize)
-
-				require.NotNil(t, entry.EncryptedMetadataNonce)
-				require.NotNil(t, entry.EncryptedMetadata)
-				require.NotNil(t, entry.EncryptedMetadataEncryptedKey)
-				require.NotNil(t, entry.EncryptedETag)
-			}
+				Result: expectedEntries,
+			}.Check(ctx, t, db)
 		})
 
 		t.Run("verify-cursor-continuation", func(t *testing.T) {
