@@ -56,6 +56,8 @@ export class BucketInfo {
     egress: number;
     segmentCount: number;
     createdAt: Time;
+    objectLockEnabled: boolean;
+    versioning: number;
 }
 
 export class BucketInfoPage {

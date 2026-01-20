@@ -26,13 +26,15 @@ import (
 
 // BucketInfo contains information about a bucket.
 type BucketInfo struct {
-	Name         string    `json:"name"`
-	UserAgent    string    `json:"userAgent"`
-	Placement    string    `json:"placement"`
-	Storage      float64   `json:"storage"`
-	Egress       float64   `json:"egress"`
-	SegmentCount int64     `json:"segmentCount"`
-	CreatedAt    time.Time `json:"createdAt"`
+	Name              string             `json:"name"`
+	UserAgent         string             `json:"userAgent"`
+	Placement         string             `json:"placement"`
+	Storage           float64            `json:"storage"`
+	Egress            float64            `json:"egress"`
+	SegmentCount      int64              `json:"segmentCount"`
+	CreatedAt         time.Time          `json:"createdAt"`
+	ObjectLockEnabled bool               `json:"objectLockEnabled"`
+	Versioning        buckets.Versioning `json:"versioning"`
 }
 
 // BucketInfoPage contains a paginated list of buckets.
@@ -142,13 +144,15 @@ func (s *Service) GetProjectBuckets(ctx context.Context, publicID uuid.UUID, sea
 
 	for i, bucket := range bucketPage.BucketUsages {
 		infoPage.Items[i] = BucketInfo{
-			Name:         bucket.BucketName,
-			UserAgent:    string(bucket.UserAgent),
-			Placement:    getPlacementName(bucket.DefaultPlacement),
-			Storage:      bucket.Storage,
-			Egress:       bucket.Egress,
-			SegmentCount: bucket.SegmentCount,
-			CreatedAt:    bucket.CreatedAt,
+			Name:              bucket.BucketName,
+			UserAgent:         string(bucket.UserAgent),
+			Placement:         getPlacementName(bucket.DefaultPlacement),
+			Storage:           bucket.Storage,
+			Egress:            bucket.Egress,
+			SegmentCount:      bucket.SegmentCount,
+			CreatedAt:         bucket.CreatedAt,
+			ObjectLockEnabled: bucket.ObjectLockEnabled,
+			Versioning:        bucket.Versioning,
 		}
 	}
 

@@ -794,6 +794,8 @@ Gets a project's buckets
 			egress: number
 			segmentCount: number
 			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+			objectLockEnabled: boolean
+			versioning: number
 		}
 
 	]

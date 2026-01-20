@@ -59,6 +59,16 @@
                     {{ item.placement }}
                 </v-chip>
             </template>
+            <template #item.versioning="{ item }">
+                <v-chip variant="tonal" :color="getVersioningChipColor(item.versioning)" size="small" class="font-weight-semibold">
+                    {{ getVersioningFormattedStatus(item.versioning) }}
+                </v-chip>
+            </template>
+            <template #item.objectLockEnabled="{ item }">
+                <v-chip variant="tonal" :color="item.objectLockEnabled ? 'success' : 'default'" size="small" class="font-weight-semibold">
+                    {{ item.objectLockEnabled ? 'On' : 'Off' }}
+                </v-chip>
+            </template>
         </v-data-table-server>
     </v-card>
 
@@ -117,6 +127,8 @@ const headers: DataTableHeader[] = [
     { title: 'Segments', key: 'segmentCount' },
     { title: 'Placement', key: 'placement' },
     { title: 'User Agent', key: 'userAgent', maxWidth: '300' },
+    { title: 'Versioning', key: 'versioning' },
+    { title: 'Lock', key: 'objectLockEnabled' },
     {
         title: 'Created', key: 'createdAt',
         value: item => date.format(date.date((item as { createdAt: string }).createdAt), 'fullDate'),
@@ -158,6 +170,32 @@ function fetchBuckets(page = 1, limit = 10): void {
             notify.error(`Failed to fetch buckets: ${error.message}`);
         }
     });
+}
+
+function getVersioningChipColor(status: number): string {
+    switch (status) {
+    case 2:
+        return 'success';
+    case 3:
+        return 'warning';
+    default:
+        return 'default';
+    }
+}
+
+function getVersioningFormattedStatus(status: number): string {
+    switch (status) {
+    case 0:
+        return 'Unsupported';
+    case 1:
+        return 'Off';
+    case 2:
+        return 'On';
+    case 3:
+        return 'Suspended';
+    default:
+        return 'Unknown';
+    }
 }
 
 /**
