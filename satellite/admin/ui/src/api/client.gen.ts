@@ -150,6 +150,7 @@ export class Project {
     owner: User;
     createdAt: Time;
     defaultPlacement: number;
+    hasManagedPassphrase: boolean;
     rateLimit: number | null;
     burstLimit: number | null;
     rateLimitHead: number | null;
@@ -321,6 +322,7 @@ export class UserProject {
     id: UUID;
     name: string;
     active: boolean;
+    hasManagedPassphrase: boolean;
     bandwidthLimit: number;
     userSetBandwidthLimit: number | null;
     bandwidthUsed: number;

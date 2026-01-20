@@ -199,6 +199,88 @@ func TestGetUser(t *testing.T) {
 	})
 }
 
+func TestUserProjectHasManagedPassphrase(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.LiveAccounting.AsOfSystemInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		consoleUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName:  "Test User",
+			Email:     "test@example.test",
+			UserAgent: []byte("agent"),
+		}, 1)
+		require.NoError(t, err)
+
+		// Create project without managed passphrase (PassphraseEnc = nil).
+		projWithoutPassphrase := &console.Project{
+			ID:            testrand.UUID(),
+			Name:          "Project Without Passphrase",
+			OwnerID:       consoleUser.ID,
+			PassphraseEnc: nil, // User-managed passphrase
+		}
+
+		projWithoutPassphrase, err = consoleDB.Projects().Insert(ctx, projWithoutPassphrase)
+		require.NoError(t, err)
+
+		_, err = consoleDB.ProjectMembers().Insert(ctx, consoleUser.ID, projWithoutPassphrase.ID, console.RoleAdmin)
+		require.NoError(t, err)
+
+		// Create project with managed passphrase (PassphraseEnc set).
+		projWithPassphrase := &console.Project{
+			ID:            testrand.UUID(),
+			Name:          "Project With Passphrase",
+			OwnerID:       consoleUser.ID,
+			PassphraseEnc: []byte("encrypted-passphrase-data"), // Satellite-managed passphrase
+		}
+
+		projWithPassphrase, err = consoleDB.Projects().Insert(ctx, projWithPassphrase)
+		require.NoError(t, err)
+
+		_, err = consoleDB.ProjectMembers().Insert(ctx, consoleUser.ID, projWithPassphrase.ID, console.RoleAdmin)
+		require.NoError(t, err)
+
+		user, apiErr := service.GetUserByEmail(ctx, consoleUser.Email)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, user)
+		require.Len(t, user.Projects, 2)
+
+		// Check HasManagedPassphrase for each project.
+		for _, proj := range user.Projects {
+			if proj.Name == "Project Without Passphrase" {
+				require.False(t, proj.HasManagedPassphrase,
+					"HasManagedPassphrase should be false for project without satellite-managed passphrase")
+			} else if proj.Name == "Project With Passphrase" {
+				require.True(t, proj.HasManagedPassphrase,
+					"HasManagedPassphrase should be true for project with satellite-managed passphrase")
+			}
+		}
+
+		user, apiErr = service.GetUser(ctx, consoleUser.ID)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, user)
+		require.Len(t, user.Projects, 2)
+
+		// Check HasManagedPassphrase for each project
+		for _, proj := range user.Projects {
+			if proj.Name == "Project Without Passphrase" {
+				require.False(t, proj.HasManagedPassphrase,
+					"HasManagedPassphrase should be false for project without satellite-managed passphrase")
+			} else if proj.Name == "Project With Passphrase" {
+				require.True(t, proj.HasManagedPassphrase,
+					"HasManagedPassphrase should be true for project with satellite-managed passphrase")
+			}
+		}
+	})
+}
+
 func TestSearchUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,

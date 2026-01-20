@@ -50,6 +50,17 @@
                 </div>
             </template>
 
+            <template #item.hasManagedPassphrase="{ item }: ProjectTableSlotProps">
+                <v-chip
+                    variant="tonal"
+                    color="default"
+                    size="small"
+                    class="font-weight-bold"
+                >
+                    {{ item.hasManagedPassphrase ? 'Satellite' : 'User' }}
+                </v-chip>
+            </template>
+
             <template #item.storage.percent="{ item }: ProjectTableSlotProps">
                 <v-chip
                     v-if="item.storage.percent !== null"
@@ -207,6 +218,7 @@ type ProjectTableItem = {
     segment: UsageStats;
     active: boolean;
     owner: User;
+    hasManagedPassphrase: boolean;
 };
 
 type ProjectTableSlotProps = { item: ProjectTableItem  };
@@ -232,6 +244,7 @@ const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 const headers: DataTableHeader[] = [
     { title: 'Name', key: 'name' },
     { title: 'Active?', key: 'active' },
+    { title: 'Passphrase Managed By', key: 'hasManagedPassphrase' },
     { title: 'Storage Used', key: 'storage.percent' },
     { title: 'Storage Used', key: 'storage.used' },
     { title: 'Storage Limit', key: 'storage.limit' },
@@ -290,6 +303,7 @@ const projects = computed<ProjectTableItem[]>(() => {
         segment: makeUsageStats(project.segmentUsed, project.segmentLimit),
         owner: props.account,
         active: project.active,
+        hasManagedPassphrase: project.hasManagedPassphrase,
     }));
 });
 

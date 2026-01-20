@@ -30,6 +30,9 @@
                             :style="{ maxWidth: smAndDown ? '100px' : '' }"
                         >{{ project.id }} </span>
                     </v-chip>
+                    <v-chip color="default">
+                        <span class="font-weight-medium">Passphrase Managed By: {{ project.hasManagedPassphrase ? 'Satellite' : 'User' }} </span>
+                    </v-chip>
                 </div>
             </div>
 

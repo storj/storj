@@ -146,10 +146,11 @@ type ToggleMfaRequest struct {
 
 // UserProject is project owned by a user with  basic information, usage, and limits.
 type UserProject struct {
-	ID       uuid.UUID `json:"-"`
-	PublicID uuid.UUID `json:"id"`
-	Name     string    `json:"name"`
-	Active   bool      `json:"active"`
+	ID                   uuid.UUID `json:"-"`
+	PublicID             uuid.UUID `json:"id"`
+	Name                 string    `json:"name"`
+	Active               bool      `json:"active"`
+	HasManagedPassphrase bool      `json:"hasManagedPassphrase"`
 	ProjectUsageLimits[int64]
 }
 
@@ -337,10 +338,11 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 		}
 
 		usageLimits = append(usageLimits, UserProject{
-			ID:       p.ID,
-			PublicID: p.PublicID,
-			Name:     p.Name,
-			Active:   p.Status != nil && *p.Status == console.ProjectActive,
+			ID:                   p.ID,
+			PublicID:             p.PublicID,
+			Name:                 p.Name,
+			Active:               p.Status != nil && *p.Status == console.ProjectActive,
+			HasManagedPassphrase: p.PassphraseEnc != nil,
 			ProjectUsageLimits: ProjectUsageLimits[int64]{
 				BandwidthLimit: bandwidthl,
 				BandwidthUsed:  bandwidthu,

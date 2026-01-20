@@ -804,6 +804,63 @@ func TestEntitlements(t *testing.T) {
 	})
 }
 
+func TestProjectHasManagedPassphrase(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.LiveAccounting.AsOfSystemInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		consoleUser := &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Test User",
+			Email:        "test@example.test",
+			PasswordHash: testrand.Bytes(8),
+		}
+
+		_, err := consoleDB.Users().Insert(ctx, consoleUser)
+		require.NoError(t, err)
+
+		t.Run("project without managed passphrase", func(t *testing.T) {
+			proj := &console.Project{
+				ID:            testrand.UUID(),
+				Name:          "project-without-passphrase",
+				OwnerID:       consoleUser.ID,
+				PassphraseEnc: nil, // User-managed passphrase
+			}
+
+			proj, err := consoleDB.Projects().Insert(ctx, proj)
+			require.NoError(t, err)
+
+			adminProject, apiErr := service.GetProject(ctx, proj.PublicID)
+			require.NoError(t, apiErr.Err)
+			assert.False(t, adminProject.HasManagedPassphrase, "HasManagedPassphrase should be false when PassphraseEnc is nil")
+		})
+
+		t.Run("project with managed passphrase", func(t *testing.T) {
+			proj := &console.Project{
+				ID:            testrand.UUID(),
+				Name:          "project-with-passphrase",
+				OwnerID:       consoleUser.ID,
+				PassphraseEnc: []byte("encrypted-passphrase-data"),
+			}
+
+			proj, err := consoleDB.Projects().Insert(ctx, proj)
+			require.NoError(t, err)
+
+			adminProject, apiErr := service.GetProject(ctx, proj.PublicID)
+			require.NoError(t, apiErr.Err)
+			assert.True(t, adminProject.HasManagedPassphrase, "HasManagedPassphrase should be true when PassphraseEnc is set")
+		})
+	})
+}
+
 func TestDisableProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,

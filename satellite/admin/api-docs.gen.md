@@ -291,6 +291,7 @@ Gets user by email address
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
 			active: boolean
+			hasManagedPassphrase: boolean
 			bandwidthLimit: number
 			userSetBandwidthLimit: number
 			bandwidthUsed: number
@@ -354,6 +355,7 @@ Gets user by ID
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
 			active: boolean
+			hasManagedPassphrase: boolean
 			bandwidthLimit: number
 			userSetBandwidthLimit: number
 			bandwidthUsed: number
@@ -437,6 +439,7 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
 			active: boolean
+			hasManagedPassphrase: boolean
 			bandwidthLimit: number
 			userSetBandwidthLimit: number
 			bandwidthUsed: number
@@ -510,6 +513,7 @@ Updates user's upgrade time by ID
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
 			active: boolean
+			hasManagedPassphrase: boolean
 			bandwidthLimit: number
 			userSetBandwidthLimit: number
 			bandwidthUsed: number
@@ -583,6 +587,7 @@ Disables user by ID. User can only be disabled if they have no active projects a
 			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 			name: string
 			active: boolean
+			hasManagedPassphrase: boolean
 			bandwidthLimit: number
 			userSetBandwidthLimit: number
 			bandwidthUsed: number
@@ -726,6 +731,7 @@ Gets project by ID
 
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	defaultPlacement: number
+	hasManagedPassphrase: boolean
 	rateLimit: number
 	burstLimit: number
 	rateLimitHead: number
@@ -889,6 +895,7 @@ Updates project name, user agent and default placement by ID
 
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	defaultPlacement: number
+	hasManagedPassphrase: boolean
 	rateLimit: number
 	burstLimit: number
 	rateLimitHead: number
@@ -993,6 +1000,7 @@ Updates project limits by ID
 
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	defaultPlacement: number
+	hasManagedPassphrase: boolean
 	rateLimit: number
 	burstLimit: number
 	rateLimitHead: number

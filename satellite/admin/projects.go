@@ -34,14 +34,15 @@ const NullableLimitValue = -1
 
 // Project contains the information and configurations of a project.
 type Project struct {
-	ID               uuid.UUID                 `json:"-"`
-	PublicID         uuid.UUID                 `json:"id"`
-	Name             string                    `json:"name"`
-	Description      string                    `json:"description"`
-	UserAgent        string                    `json:"userAgent"`
-	Owner            User                      `json:"owner"`
-	CreatedAt        time.Time                 `json:"createdAt"`
-	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
+	ID                   uuid.UUID                 `json:"-"`
+	PublicID             uuid.UUID                 `json:"id"`
+	Name                 string                    `json:"name"`
+	Description          string                    `json:"description"`
+	UserAgent            string                    `json:"userAgent"`
+	Owner                User                      `json:"owner"`
+	CreatedAt            time.Time                 `json:"createdAt"`
+	DefaultPlacement     storj.PlacementConstraint `json:"defaultPlacement"`
+	HasManagedPassphrase bool                      `json:"hasManagedPassphrase"`
 
 	// RateLimit is `nil` when satellite applies the configured default rate limit.
 	RateLimit *int `json:"rateLimit"`
@@ -239,21 +240,22 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 			FullName: u.FullName,
 			Email:    u.Email,
 		},
-		CreatedAt:        p.CreatedAt,
-		DefaultPlacement: p.DefaultPlacement,
-		RateLimit:        p.RateLimit,
-		BurstLimit:       p.BurstLimit,
-		RateLimitList:    p.RateLimitList,
-		BurstLimitList:   p.BurstLimitList,
-		RateLimitHead:    p.RateLimitHead,
-		BurstLimitHead:   p.BurstLimitHead,
-		RateLimitGet:     p.RateLimitGet,
-		BurstLimitGet:    p.BurstLimitGet,
-		RateLimitPut:     p.RateLimitPut,
-		BurstLimitPut:    p.BurstLimitPut,
-		RateLimitDelete:  p.RateLimitDelete,
-		BurstLimitDelete: p.BurstLimitDelete,
-		MaxBuckets:       p.MaxBuckets,
+		CreatedAt:            p.CreatedAt,
+		DefaultPlacement:     p.DefaultPlacement,
+		HasManagedPassphrase: p.PassphraseEnc != nil,
+		RateLimit:            p.RateLimit,
+		BurstLimit:           p.BurstLimit,
+		RateLimitList:        p.RateLimitList,
+		BurstLimitList:       p.BurstLimitList,
+		RateLimitHead:        p.RateLimitHead,
+		BurstLimitHead:       p.BurstLimitHead,
+		RateLimitGet:         p.RateLimitGet,
+		BurstLimitGet:        p.BurstLimitGet,
+		RateLimitPut:         p.RateLimitPut,
+		BurstLimitPut:        p.BurstLimitPut,
+		RateLimitDelete:      p.RateLimitDelete,
+		BurstLimitDelete:     p.BurstLimitDelete,
+		MaxBuckets:           p.MaxBuckets,
 		ProjectUsageLimits: ProjectUsageLimits[*int64]{
 			BandwidthLimit:        bandwidthl,
 			UserSetBandwidthLimit: userBandwidthl,
