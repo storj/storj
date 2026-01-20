@@ -251,6 +251,25 @@ export class ProjectLimitsUpdateRequest {
     reason: string;
 }
 
+export class ProjectMember {
+    userID: UUID;
+    email: string;
+    role: number;
+    createdAt: Time;
+}
+
+export class ProjectMembersPage {
+    projectMembers: ProjectMember[] | null;
+    search: string;
+    limit: number;
+    order: number;
+    orderDirection: number;
+    offset: number;
+    pageCount: number;
+    currentPage: number;
+    totalCount: number;
+}
+
 export class ProjectStatusInfo {
     name: string;
     value: number;
@@ -645,6 +664,22 @@ export class ProjectManagementHttpApiV1 {
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as ProjectEntitlements);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getProjectMembers(publicID: UUID, search: string, page: string, limit: string, order: string, direction: string): Promise<ProjectMembersPage> {
+        const u = new URL(`${this.ROOT_PATH}/${publicID}/members`, window.location.href);
+        u.searchParams.set('search', search);
+        u.searchParams.set('page', page);
+        u.searchParams.set('limit', limit);
+        u.searchParams.set('order', order);
+        u.searchParams.set('direction', direction);
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as ProjectMembersPage);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
