@@ -20,7 +20,6 @@ RUN case ${BUILDPLATFORM} in \
     "linux/amd64")  ZIG_ARCH=x86_64  ; ZIG_SHA256=02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239 ;; \
     "linux/arm64")  ZIG_ARCH=aarch64 ; ZIG_SHA256=958ed7d1e00d0ea76590d27666efbf7a932281b3d7ba0c6b01b0ff26498f667f ;; \
     "linux/arm/v7") ZIG_ARCH=arm     ; ZIG_SHA256=7d8401495065dae45d6249c68d5faf10508f8203c86362ccb698aeaafc66b7cd ;; \
-    "linux/arm/v6") ZIG_ARCH=arm     ; ZIG_SHA256=7d8401495065dae45d6249c68d5faf10508f8203c86362ccb698aeaafc66b7cd ;; \
     "linux/386")    ZIG_ARCH=x86     ; ZIG_SHA256=4c6e23f39daa305e274197bfdff0d56ffd1750fc1de226ae10505c0eff52d7a5 ;; \
     esac && \
     wget https://ziglang.org/download/$ZIG_VERSION/zig-$ZIG_ARCH-linux-$ZIG_VERSION.tar.xz && \
@@ -68,8 +67,11 @@ COPY --parents web/satellite/package*.json /work/
 RUN --mount=type=cache,target=/root/.npm npm ci
 COPY --parents web/satellite/ /work/
 RUN --mount=type=cache,target=/root/.npm npm run build
-
 COPY --from=web-satellite-wasm /out/wasm /work/web/satellite/static/wasm
+
+FROM scratch AS web-satellite-export
+COPY --from=web-satellite /work/web/satellite/dist   /dist
+COPY --from=web-satellite /work/web/satellite/static /static
 
 ###
 # Building Go binaries
@@ -126,3 +128,8 @@ RUN \
 
 FROM scratch AS export-binaries
 COPY --from=build-binaries /out/* /
+
+FROM scratch AS combine-platforms
+COPY --from=linux_amd64 /* /linux_amd64/
+COPY --from=linux_arm64 /* /linux_arm64/
+COPY --from=linux_arm   /* /linux_arm/

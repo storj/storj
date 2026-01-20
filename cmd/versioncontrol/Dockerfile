@@ -1,10 +1,12 @@
-ARG DOCKER_ARCH
-FROM ${DOCKER_ARCH:-amd64}/debian:buster-slim
-ARG TAG
-ARG GOARCH
-ENV GOARCH ${GOARCH}
+FROM debian:trixie-slim
+
+ARG TARGETOS
+ARG TARGETARCH
 EXPOSE 8080
+
 WORKDIR /app
-COPY release/${TAG}/versioncontrol_linux_${GOARCH:-amd64} /app/versioncontrol
-COPY cmd/versioncontrol/entrypoint /entrypoint
-ENTRYPOINT ["/entrypoint"]
+
+COPY --from=binaries /${TARGETOS}_${TARGETARCH}/versioncontrol /app/versioncontrol
+COPY cmd/versioncontrol/entrypoint /app/entrypoint
+
+ENTRYPOINT ["/app/entrypoint"]
