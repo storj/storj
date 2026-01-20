@@ -2,14 +2,16 @@
 set -ueo pipefail
 set +x
 
+TMPDIR=$(mktemp -d)
 cleanup(){
-    rm main.wasm
+    rm -rf "$TMPDIR"
     echo "cleaned up test successfully"
 }
 trap cleanup EXIT
 
-cd web/satellite/wasm && pwd && GOOS=js GOARCH=wasm go build -o main.wasm .
-BUILD_SIZE=$(stat -c %s main.wasm)
+cd "$(dirname "${BASH_SOURCE[0]}")"
+GOOS=js GOARCH=wasm go build -o "$TMPDIR/main.wasm" .
+BUILD_SIZE=$(stat -c %s "$TMPDIR/main.wasm")
 CURRENT_SIZE=6100000
 if [ $BUILD_SIZE -gt $CURRENT_SIZE ]; then
     echo "Wasm size is too big, was $CURRENT_SIZE but now it is $BUILD_SIZE"

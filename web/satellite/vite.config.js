@@ -160,6 +160,7 @@ export default defineConfig(({ mode }) => {
                 '**/dist/**',
                 // wasm folder has independent testing
                 './wasm/**',
+                './tests/wasm/**',
             ],
         },
     };

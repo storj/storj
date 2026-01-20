@@ -54,11 +54,6 @@ pipeline {
                         sh './web/satellite/build-if-changed.sh'
                     }
                 }
-                stage('wasm') {
-                    steps {
-                        sh './web/satellite/wasm/run-tests.sh'
-                    }
-                }
                 stage('web/storagenode') {
                     steps {
                         sh './web/storagenode/build-if-changed.sh'
