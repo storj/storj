@@ -109,6 +109,7 @@ export class FrontendConfig {
     collectBillingInfoOnOnboarding: boolean;
     requireBillingAddress: boolean;
     scheduleMeetingURL: string;
+    hideUplinkBehavior: boolean;
 }
 
 export class MinimumChargeConfig {

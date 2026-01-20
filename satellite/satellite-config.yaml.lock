@@ -511,6 +511,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to hide encryption options in the UI if satellite managed encryption is also enabled
 # console.hide-project-encryption-options: false
 
+# whether to hide uplink behavior in the UI
+# console.hide-uplink-behavior: false
+
 # url link to storj.io homepage
 # console.homepage-url: https://www.storj.io
 

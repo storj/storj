@@ -106,6 +106,7 @@ type FrontendConfig struct {
 	CollectBillingInfoOnOnboarding    bool                        `json:"collectBillingInfoOnOnboarding"`
 	RequireBillingAddress             bool                        `json:"requireBillingAddress"`
 	ScheduleMeetingURL                string                      `json:"scheduleMeetingURL"`
+	HideUplinkBehavior                bool                        `json:"hideUplinkBehavior"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

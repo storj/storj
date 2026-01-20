@@ -62,6 +62,7 @@ type Config struct {
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
 	CollectBillingInfoOnOnboarding    bool                      `help:"whether to collect billing information during onboarding" default:"false"`
 	RequireBillingAddress             bool                      `help:"whether to require billing address during account upgrades and package purchases" default:"false"`
+	HideUplinkBehavior                bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
 
 	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
