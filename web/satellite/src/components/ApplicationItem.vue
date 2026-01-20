@@ -67,6 +67,7 @@ import { AccessType, SetupStep } from '@/types/setupAccess';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import AccessSetupDialog from '@/components/dialogs/AccessSetupDialog.vue';
 
@@ -75,15 +76,20 @@ const props = defineProps<{
 }>();
 
 const analyticsStore  = useAnalyticsStore();
+const configStore = useConfigStore();
 
 const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const dialog = ref<boolean>(false);
 
+const hideUplinkBehavior = computed<boolean>(() => configStore.state.config.hideUplinkBehavior);
+
 /**
  * Returns access type needed for current app.
  */
 const neededAccessType = computed<AccessType>(() => {
+    if (hideUplinkBehavior.value) return AccessType.S3;
+
     return props.app?.name === UplinkApp.name ? AccessType.AccessGrant : AccessType.S3;
 });
 

@@ -7,7 +7,7 @@
 
         <PageTitleComponent title="Access Keys" />
         <PageSubtitleComponent
-            subtitle="Create Access Grants, S3 Credentials, and API Keys."
+            :subtitle="subtitle"
             :link="configStore.isDefaultBrand ? 'https://docs.storj.io/dcs/access' : undefined"
         />
 
@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VContainer,
     VCol,
@@ -53,6 +53,13 @@ const configStore = useConfigStore();
 const dialog = ref<boolean>(false);
 
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
+
+const subtitle = computed<string>(() => {
+    if (configStore.state.config.hideUplinkBehavior)
+        return 'Create S3 Credentials.';
+
+    return 'Create Access Grants, S3 Credentials, and API Keys.';
+});
 
 /**
  * Starts create access grant flow if user's free trial is not expired.

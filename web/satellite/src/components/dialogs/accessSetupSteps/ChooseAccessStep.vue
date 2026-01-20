@@ -36,24 +36,26 @@
                         S3 Credentials
                     </v-chip>
 
-                    <v-chip
-                        :key="AccessType.AccessGrant"
-                        :value="AccessType.AccessGrant"
-                        variant="outlined"
-                        filter
-                    >
-                        Access Grant
-                    </v-chip>
+                    <template v-if="!hideUplinkBehavior">
+                        <v-chip
+                            :key="AccessType.AccessGrant"
+                            :value="AccessType.AccessGrant"
+                            variant="outlined"
+                            filter
+                        >
+                            Access Grant
+                        </v-chip>
 
-                    <v-chip
-                        v-if="!hasManagedPassphrase"
-                        :key="AccessType.APIKey"
-                        :value="AccessType.APIKey"
-                        variant="outlined"
-                        filter
-                    >
-                        API Key
-                    </v-chip>
+                        <v-chip
+                            v-if="!hasManagedPassphrase"
+                            :key="AccessType.APIKey"
+                            :value="AccessType.APIKey"
+                            variant="outlined"
+                            filter
+                        >
+                            API Key
+                        </v-chip>
+                    </template>
                 </v-chip-group>
 
                 <template v-if="accessType === AccessType.S3">
@@ -121,6 +123,7 @@ const emit = defineEmits<{
 }>();
 
 const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
+const hideUplinkBehavior = computed<boolean>(() => configStore.state.config.hideUplinkBehavior);
 
 const form = ref<VForm | null>(null);
 const name = ref<string>('');

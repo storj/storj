@@ -40,8 +40,11 @@
             <div class="pa-6">
                 <p class="mb-3">
                     The following access key{{ accesses.length > 1 ? 's' : '' }}
-                    will be deleted. Any publicly shared links using
-                    {{ accesses.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
+                    will be deleted.
+                    <span v-if="configStore.isDefaultBrand">
+                        Any publicly shared links using
+                        {{ accesses.length > 1 ? 'these access keys' : 'this access key' }} will no longer work.
+                    </span>
                 </p>
                 <p v-for="item of accesses" :key="item.id" class="mt-2">
                     <v-chip :title="item.name" class="font-weight-bold text-wrap h-100 py-2">
@@ -91,8 +94,10 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant } from '@/types/accessGrants';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const agStore = useAccessGrantsStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();

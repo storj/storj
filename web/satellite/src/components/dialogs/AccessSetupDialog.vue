@@ -344,6 +344,7 @@ const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
 const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
+const hideUplinkBehavior = computed<boolean>(() => configStore.state.config.hideUplinkBehavior);
 
 const stepName = computed<string>(() => {
     switch (step.value) {
@@ -386,9 +387,13 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         'Next ->',
         'Cancel',
         undefined,
-        () => (accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption && !hasManagedPassphrase.value)
-            ? SetupStep.EncryptionInfo
-            : SetupStep.ChooseFlowStep,
+        () => {
+            if (hideUplinkBehavior.value) return SetupStep.ChooseFlowStep;
+
+            return (accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption && !hasManagedPassphrase.value)
+                ? SetupStep.EncryptionInfo
+                : SetupStep.ChooseFlowStep;
+        },
     ),
     [SetupStep.EncryptionInfo]: new StepInfo(
         'Next ->',
@@ -400,6 +405,7 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         'Next ->',
         () => props.defaultAccessType ? 'Cancel' : 'Back',
         () => {
+            if (hideUplinkBehavior.value) return SetupStep.ChooseAccessStep;
             if (props.defaultAccessType) return undefined;
 
             return accessType.value === AccessType.S3 && !userStore.noticeDismissal.serverSideEncryption  && !hasManagedPassphrase.value
