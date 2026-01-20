@@ -8,7 +8,9 @@ set -euxo pipefail
 npm install --prefer-offline --no-audit --logleve verbose
 echo "module stub" > ./node_modules/go.mod # prevent Go from scanning this dir
 npm run build
+npm run wasm-dev
 
 npm run lint-ci
 npm audit || true
 npm run test
+npm run test-wasm

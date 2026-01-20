@@ -9,9 +9,10 @@
     "build": "vite build -c vite.config.js",
     "lint": "eslint . --fix && stylelint . --max-warnings 0 --fix",
     "lint-ci": "eslint . --no-fix && stylelint . --max-warnings 0 --no-fix",
-    "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",
-    "wasm-dev": "chmod +x ./scripts/build-wasm-dev.sh && ./scripts/build-wasm-dev.sh",
-    "test": "vitest run"
+    "wasm": "./wasm/build-wasm.sh static/wasm --compress",
+    "wasm-dev": "./wasm/build-wasm.sh static/wasm",
+    "test": "vitest run",
+    "test-wasm": "vitest run --config vitest.config.wasm.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.726.1",

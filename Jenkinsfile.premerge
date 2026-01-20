@@ -229,18 +229,13 @@ pipeline {
 
         stage('Test Web') {
             parallel {
-                stage('wasm') {
-                    steps {
-                        sh './web/satellite/wasm/run-tests.sh'
-                    }
-                }
-
                 stage('web/satellite') {
                     steps {
                         dir("web/satellite") {
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
+                            sh 'npm run test-wasm'
                         }
                     }
                 }

@@ -46,12 +46,6 @@ pipeline {
                     }
                 }
 
-                stage('wasm') {
-                    steps {
-                        sh './web/satellite/wasm/run-tests.sh'
-                    }
-                }
-
                 stage('web/storagenode') {
                     steps {
                         sh './web/storagenode/build.sh'
@@ -170,6 +164,11 @@ pipeline {
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
                 sh 'make test-satellite-ui'
+
+                dir('web/satellite/wasm') {
+                    sh 'go vet ./...'
+                    sh 'go test ./...'
+                }
             }
 
             post {

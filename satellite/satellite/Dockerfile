@@ -39,6 +39,6 @@ ENV STORJ_MAIL_TEMPLATE_PATH=/app/static/emails
 RUN apt-get install -y graphviz
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /go/bin/satellite /app/satellite
-COPY --from=webui /var/www/html /app/dist
-COPY --from=webui /var/www/static /app/static
+COPY --from=webui /dist /app/dist
+COPY --from=webui /static /app/static
 WORKDIR /app

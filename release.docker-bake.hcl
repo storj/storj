@@ -179,9 +179,9 @@ target "web-satellite-admin-legacy" {
 }
 
 target "web-satellite" {
-  context    = "."
-  dockerfile = "release.Dockerfile"
-  target = "web-satellite-export"
+  context    = "./web/satellite"
+  dockerfile = "Dockerfile"
+  target = "ui"
   output = []
 }
 

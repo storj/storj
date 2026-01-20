@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1.7-labs
 
 ARG GO_VERSION="1.25.6"
-ARG NODE_VERSION="24.11.1"
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build-tools
 
@@ -40,37 +39,6 @@ RUN \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     go mod download
-
-###
-# Building UI components
-###
-
-# Just an alias for the node builder image, so we don't have to repeat.
-FROM --platform=$BUILDPLATFORM node:${NODE_VERSION} AS npm-builder
-
-# Compile wasm module for satellite ui.
-FROM download-dependencies AS web-satellite-wasm
-WORKDIR /work
-# This command gives the list of folders that need to be copied for wasm build:
-#   GOOS=js GOARCH=wasm go list -deps ./web/satellite/wasm | grep storj.io/storj
-COPY --parents web/satellite/wasm /work/
-RUN \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    ./web/satellite/wasm/release-wasm.sh /out/wasm
-
-# Satellite UI
-FROM npm-builder AS web-satellite
-WORKDIR /work/web/satellite
-COPY --parents web/satellite/package*.json /work/
-RUN --mount=type=cache,target=/root/.npm npm ci
-COPY --parents web/satellite/ /work/
-RUN --mount=type=cache,target=/root/.npm npm run build
-COPY --from=web-satellite-wasm /out/wasm /work/web/satellite/static/wasm
-
-FROM scratch AS web-satellite-export
-COPY --from=web-satellite /work/web/satellite/dist   /dist
-COPY --from=web-satellite /work/web/satellite/static /static
 
 ###
 # Building Go binaries
