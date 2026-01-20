@@ -386,6 +386,27 @@ func main() {
 		},
 	})
 
+	group.Get("/{publicID}/members", &apigen.Endpoint{
+		Name:           "Get project members",
+		Description:    "Gets paged project members by project ID",
+		GoName:         "GetProjectMembers",
+		TypeScriptName: "getProjectMembers",
+		PathParams: []apigen.Param{
+			apigen.NewParam("publicID", uuid.UUID{}),
+		},
+		QueryParams: []apigen.Param{
+			apigen.NewParam("search", ""),
+			apigen.NewParam("page", ""),
+			apigen.NewParam("limit", ""),
+			apigen.NewParam("order", ""),
+			apigen.NewParam("direction", ""),
+		},
+		Response: backoffice.ProjectMembersPage{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermProjectMembersView},
+		},
+	})
+
 	// generic api group that handles searching for users and projects together
 	group = api.Group("Search", "search")
 	group.Middleware = append(group.Middleware, authMiddleware{})

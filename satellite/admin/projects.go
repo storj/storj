@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -145,6 +146,28 @@ type ProjectEntitlements struct {
 type DisableProjectRequest struct {
 	SetPendingDeletion bool   `json:"setPendingDeletion"`
 	Reason             string `json:"reason"` // Reason for the deletion, for audit logging
+}
+
+// ProjectMember represents a member of a project.
+type ProjectMember struct {
+	UserID    uuid.UUID                 `json:"userID"`
+	Email     string                    `json:"email"`
+	Role      console.ProjectMemberRole `json:"role"`
+	CreatedAt time.Time                 `json:"createdAt"`
+}
+
+// ProjectMembersPage represents a page of project members.
+type ProjectMembersPage struct {
+	ProjectMembers []ProjectMember `json:"projectMembers"`
+
+	Search         string                     `json:"search"`
+	Limit          uint                       `json:"limit"`
+	Order          console.ProjectMemberOrder `json:"order"`
+	OrderDirection console.OrderDirection     `json:"orderDirection"`
+	Offset         uint64                     `json:"offset"`
+	PageCount      uint                       `json:"pageCount"`
+	CurrentPage    uint                       `json:"currentPage"`
+	TotalCount     uint64                     `json:"totalCount"`
 }
 
 // GetProject gets the project info by either private or public ID.
@@ -1147,6 +1170,112 @@ func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*Pr
 		ComputeAccessToken:       computeAccessToken,
 		PlacementProductMappings: mappedProducts,
 	}, api.HTTPError{}
+}
+
+// GetProjectMembers returns the members of a project by its public ID.
+func (s *Service) GetProjectMembers(ctx context.Context, publicID uuid.UUID, search, pageStr, limitStr, orderStr, orderDirectionStr string) (*ProjectMembersPage, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := s.consoleDB.Projects().GetByPublicID(ctx, publicID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("project not found")
+		}
+		return nil, api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	limit, err := strconv.ParseUint(limitStr, 10, 32)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("invalid limit"),
+		}
+	}
+	if limit == 0 || limit > 100 {
+		limit = 100
+	}
+
+	page, err := strconv.ParseUint(pageStr, 10, 32)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("invalid page"),
+		}
+	}
+	if page == 0 {
+		page = 1
+	}
+
+	if search == "-" {
+		search = ""
+	}
+
+	order, err := strconv.Atoi(orderStr)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("invalid order parameter"),
+		}
+	}
+
+	orderDir, err := strconv.Atoi(orderDirectionStr)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("invalid order direction parameter"),
+		}
+	}
+
+	cursor := console.ProjectMembersCursor{
+		Search:         search,
+		Limit:          uint(limit),
+		Page:           uint(page),
+		Order:          console.ProjectMemberOrder(order),
+		OrderDirection: console.OrderDirection(orderDir),
+	}
+
+	queried, err := s.consoleDB.ProjectMembers().GetPagedWithInvitationsByProjectID(ctx, project.ID, cursor)
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	pmp := &ProjectMembersPage{
+		Search:         queried.Search,
+		Limit:          queried.Limit,
+		Order:          queried.Order,
+		OrderDirection: queried.OrderDirection,
+		Offset:         queried.Offset,
+		PageCount:      queried.PageCount,
+		CurrentPage:    queried.CurrentPage,
+		TotalCount:     queried.TotalCount,
+		ProjectMembers: make([]ProjectMember, 0, len(queried.ProjectMembers)),
+	}
+	for _, pm := range queried.ProjectMembers {
+		user, err := s.consoleDB.Users().Get(ctx, pm.MemberID)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.Wrap(err),
+			}
+		}
+		pmp.ProjectMembers = append(pmp.ProjectMembers, ProjectMember{
+			UserID:    user.ID,
+			Email:     user.Email,
+			Role:      pm.Role,
+			CreatedAt: pm.CreatedAt,
+		})
+	}
+
+	return pmp, api.HTTPError{}
 }
 
 // TestToggleSelfServeAccountDelete is a test helper to toggle self-serve account deletion.

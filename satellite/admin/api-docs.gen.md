@@ -33,6 +33,7 @@
   * [Disable project](#projectmanagement-disable-project)
   * [Update project limits](#projectmanagement-update-project-limits)
   * [Update project entitlements](#projectmanagement-update-project-entitlements)
+  * [Get project members](#projectmanagement-get-project-members)
 * Search
   * [Search users or projects](#search-search-users-or-projects)
 * ChangeHistory
@@ -1069,6 +1070,54 @@ string
 
 	computeAccessToken: string
 	placementProductMappings: unknown
+}
+
+```
+
+<h3 id='projectmanagement-get-project-members'>Get project members (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets paged project members by project ID
+
+`GET /api/v1/projects/{publicID}/members`
+
+**Query Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `search` | `string` |  |
+| `page` | `string` |  |
+| `limit` | `string` |  |
+| `order` | `string` |  |
+| `direction` | `string` |  |
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `publicID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	projectMembers: 	[
+		{
+			userID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			email: string
+			role: number
+			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		}
+
+	]
+
+	search: string
+	limit: number
+	order: number
+	orderDirection: number
+	offset: number
+	pageCount: number
+	currentPage: number
+	totalCount: number
 }
 
 ```
