@@ -4,8 +4,7 @@ FROM storjlabs/golang:${GO_VERSION} AS wasm
 WORKDIR /work
 COPY go.mod go.sum ./
 COPY web/satellite/wasm/ web/satellite/wasm/
-COPY scripts/release/satellite-wasm.sh scripts/release/satellite-wasm.sh
-RUN scripts/release/satellite-wasm.sh /out/wasm
+RUN web/satellite/wasm/release-wasm.sh /out/wasm
 
 
 FROM debian:bookworm AS build

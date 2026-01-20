@@ -117,4 +117,4 @@ test-satellite-ui: ## Run playwright ui tests
 .PHONY: test-wasm-size
 test-wasm-size: ## Test that the built .wasm code has not increased in size
 	@echo "Running ${@}"
-	@./testsuite/wasm/check-size.sh
+	@./web/satellite/wasm/check-size.sh

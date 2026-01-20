@@ -54,11 +54,10 @@ WORKDIR /work
 # This command gives the list of folders that need to be copied for wasm build:
 #   GOOS=js GOARCH=wasm go list -deps ./web/satellite/wasm | grep storj.io/storj
 COPY --parents web/satellite/wasm /work/
-COPY --parents scripts/release/satellite-wasm.sh /work/
 RUN \
     --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    ./scripts/release/satellite-wasm.sh /out/wasm
+    ./web/satellite/wasm/release-wasm.sh /out/wasm
 
 # Satellite UI
 FROM npm-builder AS web-satellite

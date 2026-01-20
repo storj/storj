@@ -2,12 +2,15 @@
 # Copyright (C) 2022 Storj Labs, Inc.
 # See LICENSE for copying information.
 set -x
-cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
 mkdir -p .build
 rm -rf .build/wasm || true
 
-cp -r web/satellite/wasm/tests/ .build/
+echo "Running wasm tests at: $(pwd)"
+cp -r web/satellite/wasm/tests/ .build/tests/
 cd .build/tests/
 
 # Copy wasm helper file
