@@ -12,6 +12,16 @@ func CreateFile(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
 }
 
+// OpenFileReadWrite opens a file in read/write mode.
+func OpenFileReadWrite(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDWR, 0)
+}
+
+// OpenFileReadOnly opens a file in read-only mode.
+func OpenFileReadOnly(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDONLY, 0)
+}
+
 // Rename atomically renames a file, replacing the destination if it exists.
 func Rename(oldpath, newpath string) error {
 	return os.Rename(oldpath, newpath)

@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -386,6 +387,14 @@ func TestMultiLRUCache_SingleCapacity(t *testing.T) {
 //
 // test helpers
 //
+
+func collect[T any](t *testing.T, it iter.Seq2[T, error]) (xs []T) {
+	for x, err := range it {
+		assert.NoError(t, err)
+		xs = append(xs, x)
+	}
+	return xs
+}
 
 func touch(t testing.TB, name ...string) {
 	path := filepath.Join(name...)

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/zeebo/assert"
@@ -1695,6 +1696,38 @@ func testStore_ReconstructFromLogOnStartup(t *testing.T, cfg Config) {
 	for _, key := range keys {
 		s.AssertRead(key)
 	}
+}
+
+func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		start := time.Now()
+
+		s := newTestStore(t, defaultConfig())
+		defer s.Close()
+
+		numLogs := func() int { return len(collect(t, parseFiles(parseLog, s.logsPath))) }
+
+		key := s.AssertCreate(WithTTL(time.Now().AddDate(-1, 0, 0))) // expired key
+
+		r, err := s.Read(t.Context(), key)
+		assert.NoError(t, err)
+		defer r.Release()
+
+		assert.Equal(t, numLogs(), 1)
+		s.AssertCompact(nil, time.Time{})
+
+		for numLogs() != 0 {
+			time.Sleep(time.Second)
+
+			// start releasing some time in the future. release is idempotent.
+			if time.Since(start) > 10*time.Second {
+				r.Release()
+			}
+
+			// ensure that we eventually collect the log.
+			assert.That(t, time.Since(start) < time.Minute)
+		}
+	})
 }
 
 //

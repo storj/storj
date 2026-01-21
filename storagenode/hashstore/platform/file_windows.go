@@ -24,16 +24,30 @@ func tryFixLongPath(path string) string {
 
 // CreateFile creates a file in read/write mode that errors if it already exists.
 func CreateFile(path string) (*os.File, error) {
+	return createFileFlags(path, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.CREATE_NEW)
+}
+
+// OpenFileReadWrite opens a file in read/write mode.
+func OpenFileReadWrite(path string) (*os.File, error) {
+	return createFileFlags(path, windows.GENERIC_READ|windows.GENERIC_WRITE, windows.OPEN_EXISTING)
+}
+
+// OpenFileReadOnly opens a file in read-only mode.
+func OpenFileReadOnly(path string) (*os.File, error) {
+	return createFileFlags(path, windows.GENERIC_READ, windows.OPEN_EXISTING)
+}
+
+func createFileFlags(path string, access, createMode uint32) (*os.File, error) {
 	pathPtr, err := windows.UTF16PtrFromString(tryFixLongPath(path))
 	if err != nil {
 		return nil, err
 	}
 	handle, err := windows.CreateFile(
 		pathPtr,
-		windows.GENERIC_READ|windows.GENERIC_WRITE,
+		access,
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
 		nil,
-		windows.CREATE_NEW,
+		createMode,
 		windows.FILE_ATTRIBUTE_NORMAL,
 		0,
 	)
