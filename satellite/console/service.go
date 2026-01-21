@@ -751,13 +751,18 @@ func (payment Payments) UpdateCreditCard(ctx context.Context, params payments.Ca
 func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *payments.AddCardParams, force bool) (card payments.CreditCard, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	user, err := payment.service.getUserAndAuditLog(ctx, "add card by payment method ID")
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
 	// Unlikely to happen, but just in case.
 	if params == nil {
 		return payments.CreditCard{}, Error.New("card params are empty")
 	}
 
 	// Validate billing address if required by config.
-	if payment.service.config.RequireBillingAddress {
+	if payment.service.config.RequireBillingAddress && !user.IsPaid() {
 		if params.Address == nil {
 			return payments.CreditCard{}, Error.New("billing address is required")
 		}
@@ -766,11 +771,6 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 			params.Address.City == "" || params.Address.Country == "" {
 			return payments.CreditCard{}, Error.New("billing address is incomplete: name, line1, city, and country are required")
 		}
-	}
-
-	user, err := payment.service.getUserAndAuditLog(ctx, "add card by payment method ID")
-	if err != nil {
-		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
 	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
