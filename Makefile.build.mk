@@ -2,26 +2,19 @@ GO_VERSION ?= 1.24.7
 NODE_VERSION ?= 24.11.1
 
 GOPATH ?= $(shell go env GOPATH)
-COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 GIT_TAG := $(shell git rev-parse --short HEAD)
 ifeq (${BRANCH_NAME},main)
-TAG    := ${GIT_TAG}
-TRACKED_BRANCH := true
+TAG := ${GIT_TAG}
 LATEST_TAG := latest
 else
-TAG    := ${GIT_TAG}-${BRANCH_NAME}
+TAG := ${GIT_TAG}-${BRANCH_NAME}
 ifneq (,$(findstring release-,$(BRANCH_NAME)))
-TRACKED_BRANCH := true
 LATEST_TAG := ${BRANCH_NAME}-latest
 endif
 endif
 CUSTOMTAG ?=
 
-DOCKER_BUILD := docker build \
-	--build-arg TAG=${TAG}
-
-DOCKER_BUILDX := docker buildx build
 
 ##@ Dependencies
 
@@ -103,7 +96,7 @@ images/build: ## Build images for important components
 
 .PHONY: images/push
 images/push: ## Push Docker images to Docker Hub (jenkins)
-	docker bake -f release-binaries.docker-bake.hcl -f images.docker-bake.hcl push-images
+	docker bake -f release-binaries.docker-bake.hcl -f images.docker-bake.hcl images --push
 
 .PHONY: images/clean
 images/clean: ## Remove all images
