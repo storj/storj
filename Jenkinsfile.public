@@ -128,7 +128,7 @@ pipeline {
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'info'
                 STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
-                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
                 STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
                 GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
@@ -148,13 +148,11 @@ pipeline {
                     script {
                         if(fileExists(".build/coverprofile")){
                             sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                            cobertura coberturaReportFile: '.build/cobertura.xml',
-                                lineCoverageTargets: '70, 60, 50',
-                                autoUpdateHealth: false,
-                                autoUpdateStability: false,
-                                failUnhealthy: true
+                            archiveArtifacts artifacts: '.build/clean.coverprofile'
+                            recordCoverage(
+                                tools: [[parser: 'GO_COV', pattern: '.build/clean.coverprofile']],
+                                sourceCodeRetention: 'NEVER',
+                            )
                         }
                     }
                 }
