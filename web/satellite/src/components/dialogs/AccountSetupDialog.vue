@@ -336,8 +336,6 @@ function toPrevStep(): void {
  * Figure out the initial setup step.
  */
 onBeforeMount(() => {
-    if (hideProjectEncryptionOptions.value && satelliteManagedEncryptionEnabled.value)
-        passphraseManageMode.value = 'auto';
     if (!satelliteManagedEncryptionEnabled.value)
         passphraseManageMode.value = 'manual';
     else

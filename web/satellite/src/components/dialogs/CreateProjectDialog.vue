@@ -489,8 +489,6 @@ watch(model, val => {
     } else {
         createStep.value = CreateSteps.Info;
 
-        if (hideProjectEncryptionOptions.value && satelliteManagedEncryptionEnabled.value)
-            passphraseManageMode.value = 'auto';
         if (!satelliteManagedEncryptionEnabled.value)
             passphraseManageMode.value = 'manual';
         else
