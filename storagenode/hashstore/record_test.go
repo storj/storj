@@ -65,3 +65,10 @@ func TestPage_BasicOperation(t *testing.T) {
 	run(new(page), recordsPerPage)
 	run(new(bigPage), recordsPerBigPage)
 }
+
+func TestRecordTailsEqualish_NilZero(t *testing.T) {
+	assert.True(t, RecordTailsEqualish(nil, nil))
+	assert.True(t, RecordTailsEqualish(new(RecordTail), nil))
+	assert.True(t, RecordTailsEqualish(nil, new(RecordTail)))
+	assert.True(t, RecordTailsEqualish(new(RecordTail), new(RecordTail)))
+}
