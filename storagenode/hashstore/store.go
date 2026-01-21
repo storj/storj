@@ -192,7 +192,7 @@ func NewStore(
 	maxTablePath := filepath.Join(s.tablePath, maxTableName)
 
 	// try to open the hashtbl file and create it if it doesn't exist.
-	fh, err := os.OpenFile(maxTablePath, os.O_RDWR, 0)
+	fh, err := platform.OpenFileReadWrite(maxTablePath)
 	if os.IsNotExist(err) {
 		// file did not exist, so try to create it with an initial hashtbl but only if we have no
 		// log files which is a good indicator that the store is actually empty. but, if we do have
@@ -239,7 +239,7 @@ func NewStore(
 		}
 
 		// now try to reopen the file handle after it should be created.
-		fh, err = os.OpenFile(maxTablePath, os.O_RDWR, 0)
+		fh, err = platform.OpenFileReadWrite(maxTablePath)
 	}
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -259,7 +259,7 @@ func NewStore(
 			return nil, err
 		}
 
-		fh, err := os.OpenFile(parsed.path, os.O_RDWR, 0)
+		fh, err := platform.OpenFileReadWrite(parsed.path)
 		if err != nil {
 			return nil, Error.New("unable to open log file: %w", err)
 		}
@@ -612,7 +612,7 @@ func (s *Store) readerForRecord(ctx context.Context, rec Record) (_ *Reader, err
 		return nil, Error.New("record points to unknown log file rec=%v", rec)
 	}
 
-	fh, err := s.lru.Get(lf.path, os.Open)
+	fh, err := s.lru.Get(lf.path, platform.OpenFileReadOnly)
 	if err != nil {
 		return nil, Error.New("unable to open log file=%q: %w", lf.path, err)
 	}
@@ -1417,7 +1417,7 @@ func (h *hintExcluder) Excluded(id uint64) bool {
 // parseHintFile parses the hint file at the given path and returns a hintExcluder. the default
 // behavior if the file cannot be opened or parsed is to return an excluder that excludes nothing.
 func parseHintFile(path string) *hintExcluder {
-	fh, err := os.Open(path)
+	fh, err := platform.OpenFileReadOnly(path)
 	if err != nil {
 		return nil
 	}
