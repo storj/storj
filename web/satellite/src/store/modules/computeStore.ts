@@ -67,9 +67,34 @@ export const useComputeStore = defineStore('compute', () => {
     async function getInstances(): Promise<Instance[]> {
         const instances = await api.getInstances(computeGatewayURL.value, computeAuthToken.value);
 
-        state.instances = instances;
+        // Preserve running and deleting fields from existing instances
+        // since the list endpoint doesn't populate these fields.
+        const existingInstancesMap = new Map(
+            state.instances.map(i => [i.id, { running: i.running, deleting: i.deleting }]),
+        );
 
-        return instances;
+        state.instances = instances.map(instance => {
+            const existing = existingInstancesMap.get(instance.id);
+            if (existing && (existing.running !== undefined || existing.deleting !== undefined)) {
+                // Preserve the running and deleting fields if they were previously fetched.
+                return new Instance(
+                    instance.id,
+                    instance.name,
+                    instance.status,
+                    instance.hostname,
+                    instance.ipv4Address,
+                    instance.created,
+                    instance.updated,
+                    instance.remote,
+                    instance.password,
+                    existing.deleting,
+                    existing.running,
+                );
+            }
+            return instance;
+        });
+
+        return state.instances;
     }
 
     async function getInstance(id: string): Promise<Instance> {

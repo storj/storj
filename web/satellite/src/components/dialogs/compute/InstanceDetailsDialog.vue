@@ -61,7 +61,7 @@
 
                             <v-list-item class="px-0 pb-4" :prepend-icon="Loader">
                                 <v-list-item-title class="text-body-2 text-medium-emphasis">Status</v-list-item-title>
-                                <v-list-item-subtitle class="mt-1">
+                                <v-list-item-subtitle class="mt-1 text-capitalize">
                                     {{ displayed.status }}
                                 </v-list-item-subtitle>
                             </v-list-item>

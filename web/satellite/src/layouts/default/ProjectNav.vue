@@ -196,7 +196,7 @@
 
                     <navigation-item :title="ROUTES.ComputeInstances.name" :to="computeInstancesURL" @click="closeDrawer">
                         <template #prepend>
-                            <component :is="Microchip" :size="18" />
+                            <component :is="MonitorCloud" :size="18" />
                         </template>
                     </navigation-item>
 
@@ -347,6 +347,7 @@ import {
     Computer,
     FileKey,
     ChartNoAxesColumn,
+    MonitorCloud,
 } from 'lucide-vue-next';
 
 import { Project, ProjectConfig } from '@/types/projects';

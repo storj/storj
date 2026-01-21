@@ -2,56 +2,53 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card variant="outlined" border rounded="xlg">
-        <v-text-field
-            v-model="search"
-            label="Search"
-            :prepend-inner-icon="Search"
-            single-line
-            variant="solo-filled"
-            flat
-            hide-details
-            clearable
-            density="comfortable"
-            rounded="lg"
-            class="mx-2 mt-2"
-        />
+    <v-text-field
+        v-model="search"
+        label="Search"
+        :prepend-inner-icon="Search"
+        single-line
+        variant="solo-filled"
+        flat
+        hide-details
+        clearable
+        density="comfortable"
+        class="mb-5"
+    />
 
-        <v-data-table
-            :headers="headers"
-            :items="keys"
-            :search="search"
-            :loading="isLoading"
-            no-data-text="No results found"
-            hover
-        >
-            <template #item.name="{ item }">
-                <v-list-item class="font-weight-bold pl-0">
-                    {{ item.name }}
-                </v-list-item>
-            </template>
-            <template #item.publicKey="{ item }">
-                <v-chip variant="tonal" size="small" rounded="xl" :title="item.publicKey" class="font-weight-bold ellipsis">
-                    {{ item.publicKey }}
-                </v-chip>
-            </template>
-            <template #item.created="{ item }">
-                <span class="text-no-wrap">
-                    {{ Time.formattedDate(item.created) }}
-                </span>
-            </template>
-            <template #item.actions="{ item }">
-                <v-btn
-                    size="small"
-                    variant="outlined"
-                    color="default"
-                    @click="onDelete(item)"
-                >
-                    Remove
-                </v-btn>
-            </template>
-        </v-data-table>
-    </v-card>
+    <v-data-table
+        :headers="headers"
+        :items="keys"
+        :search="search"
+        :loading="isLoading"
+        no-data-text="No results found"
+        hover
+    >
+        <template #item.name="{ item }">
+            <v-list-item class="font-weight-bold pl-0">
+                {{ item.name }}
+            </v-list-item>
+        </template>
+        <template #item.publicKey="{ item }">
+            <v-chip variant="tonal" size="small" rounded="xl" :title="item.publicKey" class="font-weight-bold ellipsis">
+                {{ item.publicKey }}
+            </v-chip>
+        </template>
+        <template #item.created="{ item }">
+            <span class="text-no-wrap">
+                {{ Time.formattedDate(item.created) }}
+            </span>
+        </template>
+        <template #item.actions="{ item }">
+            <v-btn
+                size="small"
+                variant="outlined"
+                color="default"
+                @click="onDelete(item)"
+            >
+                Remove
+            </v-btn>
+        </template>
+    </v-data-table>
 
     <delete-ssh-key-dialog v-model="isDeleteDialog" :ssh-key="keyToDelete" />
 </template>
@@ -59,7 +56,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import {
-    VCard,
     VTextField,
     VDataTable,
     VListItem,

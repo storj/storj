@@ -121,8 +121,9 @@ function stopInstance(): void {
     withLoading(async () => {
         try {
             await computeStore.stopInstance(props.instance.id);
+            notify.success('Instance stop initiated');
+            await computeStore.getInstance(props.instance.id);
 
-            notify.success('Instance stopped successfully');
             model.value = false;
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.STOP_OR_RESTART_COMPUTE_INSTANCE_DIALOG);
@@ -177,7 +178,9 @@ function restartInstance(): void {
             });
 
             await computeStore.startInstance(instanceId);
-            notify.success('Instance restarted successfully');
+            notify.success('Instance restart succeeded');
+            await computeStore.getInstance(props.instance.id);
+
             model.value = false;
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.STOP_OR_RESTART_COMPUTE_INSTANCE_DIALOG);

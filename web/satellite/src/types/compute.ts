@@ -74,8 +74,8 @@ export class Instance {
             port: 0,
         },
         public password: string = '',
-        public deleting: boolean = false,
-        public running: boolean = false,
+        public deleting: boolean | undefined = undefined,
+        public running: boolean | undefined = undefined,
     ) { }
 }
 
