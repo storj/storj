@@ -53,7 +53,7 @@ llint: ## Run all linting tools using local tools
 .PHONY: lint
 lint: ## Run all linting tools with our CI image
 	docker run --rm -it \
-		-v ${GOPATH}/pkg:/go/pkg \
+		-v $(shell go env GOPATH)/pkg:/go/pkg \
 		-v ${PWD}:/storj \
 		-w /storj \
 		storjlabs/ci:slim \
