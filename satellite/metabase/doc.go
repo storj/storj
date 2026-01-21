@@ -11,22 +11,22 @@
 // allowing the same business logic to work across different database implementations.
 //
 // Key Components:
-//   - DB: Main database handle with connection management (db.go:64)
-//   - Adapter: Interface abstracting database operations (adapter.go:31)
-//   - NodeAliasCache: Maps NodeIDs to compact aliases (aliascache.go:22)
+//   - DB: Main database handle with connection management (db.go)
+//   - Adapter: Interface abstracting database operations (adapter.go)
+//   - NodeAliasCache: Maps NodeIDs to compact aliases (aliascache.go)
 //
 // # Core Data Model
 //
 // The metabase stores two primary entity types:
 //
-// Objects (RawObject in raw.go:30):
+// Objects (RawObject in raw.go):
 //   - Represents a complete file in the network
 //   - Key fields: ProjectID, BucketName, ObjectKey, Version
 //   - Status: Pending, CommittedUnversioned, CommittedVersioned, DeleteMarkerVersioned, DeleteMarkerUnversioned
 //   - Contains metadata: size, encryption, expiration, retention
 //   - ZombieDeletionDeadline prevents abandoned uploads from bloating database
 //
-// Segments (RawSegment in raw.go:59):
+// Segments (RawSegment in raw.go):
 //   - Represents (usually up to a 64MB but not always) piece of an object
 //   - Contains piece locations (which storage nodes hold erasure-coded data)
 //   - Position encoded as uint64: upper 32 bits = Part, lower 32 bits = Index
@@ -50,24 +50,24 @@
 //   - node_aliases: Maps NodeID (32 bytes) to NodeAlias (4 bytes) for space efficiency
 //
 // Migrations are managed per backend:
-//   - PostgreSQL/CockroachDB: PostgresMigration() (db.go:331)
-//   - Spanner: SpannerMigration() (db.go:692)
+//   - PostgreSQL/CockroachDB: PostgresMigration() (db.go)
+//   - Spanner: SpannerMigration() (db.go)
 //
 // # Supported Operations
 //
 // Object Lifecycle:
-//   - BeginObjectNextVersion: Start new upload with auto-assigned version (commit.go:60)
+//   - BeginObjectNextVersion: Start new upload with auto-assigned version (commit.go)
 //   - BeginObjectExactVersion: Start upload with specific version
 //   - CommitObject: Finalize upload, transition from Pending to Committed
-//   - GetObjectExactVersion: Fetch specific version (get.go:23)
-//   - GetObjectLastCommitted: Fetch latest non-pending version (get.go:160)
-//   - DeleteObjectExactVersion: Delete specific version with Object Lock support (delete.go:49)
+//   - GetObjectExactVersion: Fetch specific version (get.go)
+//   - GetObjectLastCommitted: Fetch latest non-pending version (get.go)
+//   - DeleteObjectExactVersion: Delete specific version with Object Lock support (delete.go)
 //   - ListObjects: Iterate objects with optional prefix/delimiter (iterator.go)
 //
 // Segment Operations:
 //   - BeginSegment: Reserve segment position
 //   - CommitSegment: Write segment metadata with piece locations
-//   - IterateLoopSegments: Efficiently scan all segments for background jobs (loop.go:81)
+//   - IterateLoopSegments: Efficiently scan all segments for background jobs (loop.go)
 //
 // # Database Backends
 //
@@ -90,7 +90,7 @@
 // # Multi-Adapter Support
 //
 // The DB can manage multiple adapters for different projects:
-//   - ChooseAdapter(projectID) selects the appropriate backend (db.go:183)
+//   - ChooseAdapter(projectID) selects the appropriate backend (db.go)
 //   - Useful for gradual migrations between database types
 //   - Node alias coordination across adapters (first adapter is source of truth)
 //
@@ -98,9 +98,9 @@
 //
 // To reduce storage requirements, metabase uses 4-byte NodeAlias instead of 32-byte NodeID
 // in the segments table:
-//   - NodeAlias: int32 type (alias.go:21)
-//   - NodeAliasCache: Write-through cache (aliascache.go:22)
-//   - EnsureNodeAliases: Create aliases if they don't exist (alias.go:30)
+//   - NodeAlias: int32 type (alias.go)
+//   - NodeAliasCache: Write-through cache (aliascache.go)
+//   - EnsureNodeAliases: Create aliases if they don't exist (alias.go)
 //   - AliasPieces: Compressed piece representation (aliaspiece.go)
 //
 // This optimization significantly reduces segments table size in production.
@@ -123,7 +123,7 @@
 //   - Legal Hold: Indefinite protection flag
 //   - Governance mode can be bypassed with special permission
 //   - Compliance mode cannot be bypassed
-//   - Validated in BeginObjectNextVersion (commit.go:77) and DeleteObjectExactVersion (delete.go:54)
+//   - Validated in BeginObjectNextVersion (commit.go) and DeleteObjectExactVersion (delete.go)
 //
 // # Zombie Objects
 //
@@ -162,8 +162,8 @@
 // Use metabasetest package for testing:
 //   - Declarative test steps with Check() methods
 //   - Helper functions: RandObjectStream(), CreateObject(), etc.
-//   - TestingGetState() verifies complete database state (raw.go:114)
-//   - TestingBatchInsertObjects/Segments for bulk test data (raw.go:296, raw.go:569)
+//   - TestingGetState() verifies complete database state (raw.go)
+//   - TestingBatchInsertObjects/Segments for bulk test data (raw.go)
 //
 // # Making Changes
 //
