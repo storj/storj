@@ -198,15 +198,19 @@ func (r *tailSorter) Less(i, j int) bool {
 }
 
 // RecordTailsEqualish returns true if the two record tails are equalish. RecordTails are equalish
-// if their records are equalish.
+// if their records are equalish. A nil RecordTail is considered equalish to a zero RecordTail.
 func RecordTailsEqualish(a, b *RecordTail) bool {
-	if a == nil || b == nil {
-		return (a == nil) == (b == nil)
-	}
-	for i := 0; i < len(a) && i < len(b); i++ {
-		if !RecordsEqualish(a[i], b[i]) {
+	for i := range uint(len(a)) {
+		if !RecordsEqualish(a.safeIndex(i), b.safeIndex(i)) {
 			return false
 		}
 	}
 	return true
+}
+
+func (r *RecordTail) safeIndex(n uint) (o Record) {
+	if r != nil && n < uint(len(r)) {
+		o = r[n]
+	}
+	return
 }
