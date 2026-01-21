@@ -23,7 +23,7 @@
     "@stripe/stripe-js": "7.3.0",
     "bip39-english": "2.5.0",
     "chart.js": "4.4.9",
-    "lucide-vue-next": "0.511.0",
+    "lucide-vue-next": "0.562.0",
     "papaparse": "5.5.3",
     "pinia": "3.0.2",
     "qrcode": "1.5.4",
