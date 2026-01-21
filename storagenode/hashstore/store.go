@@ -308,7 +308,7 @@ func NewStore(
 					s.amnesty(ctx, invalid)
 				}
 			} else {
-				s.log.Info("matched log tail",
+				s.log.Debug("matched log tail",
 					zap.Uint64("id", lf.id),
 					zap.String("path", lf.path),
 				)
