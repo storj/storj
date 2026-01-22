@@ -157,3 +157,19 @@ target "web-satellite" {
   target = "web-satellite-export"
   output = []
 }
+
+/* Some additional binaries for images. */
+
+target "storj-up" {
+  context    = "."
+  dockerfile = "release-binaries.Dockerfile"
+  target     = "storj-up-binaries"
+  output     = []
+}
+
+target "delve" {
+  context    = "."
+  dockerfile = "release-binaries.Dockerfile"
+  target     = "delve-binaries"
+  output     = []
+}
