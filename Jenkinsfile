@@ -60,6 +60,20 @@ node('node') {
         }
     }
 
+    def imageBuildType = ''
+    if (env.BRANCH_NAME == 'main') {
+        imageBuildType = ' -f docker-bake-main.hcl '
+    }
+
+    stage('Setup Buildx') {
+      lastStage = env.STAGE_NAME
+      env.DOCKER_BUILDKIT = '1'
+      env.BUILDX_BUILDER = 'multiplatform-builder'
+      sh 'docker buildx create --name $BUILDX_BUILDER --driver docker-container --bootstrap --use || docker buildx use $BUILDX_BUILDER'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
     stage('Build Binaries') {
       lastStage = env.STAGE_NAME
       sh 'make release/binaries/build'
@@ -82,20 +96,6 @@ node('node') {
     stage('Push Images') {
       lastStage = env.STAGE_NAME
       sh 'make images/push'
-
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    def imageBuildType = ''
-    if (env.BRANCH_NAME == 'main') {
-        imageBuildType = ' -f docker-bake-main.hcl '
-    }
-
-    stage('Setup Buildx') {
-      lastStage = env.STAGE_NAME
-      env.DOCKER_BUILDKIT = '1'
-      env.BUILDX_BUILDER = 'multiplatform-builder'
-      sh 'docker buildx create --name $BUILDX_BUILDER --driver docker-container --bootstrap --use || docker buildx use $BUILDX_BUILDER'
 
       echo "Current build result: ${currentBuild.result}"
     }
