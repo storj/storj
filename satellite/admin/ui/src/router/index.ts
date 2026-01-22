@@ -16,6 +16,7 @@ export abstract class ROUTES {
 
     public static BucketDetail = new NavigationLink('/bucket-details', 'Bucket Details');
     public static AdminSettings = new NavigationLink('/admin-settings', 'Admin Settings');
+    public static NodeDetail = new NavigationLink('/nodes/:nodeID', 'Node Detail');
 }
 
 const routes = [
@@ -87,6 +88,11 @@ const routes = [
                 path: ROUTES.AdminSettings.path,
                 name: ROUTES.AdminSettings.name,
                 component: () => import(/* webpackChunkName: "AdminSettings" */ '@/views/AdminSettings.vue'),
+            },
+            {
+                path: ROUTES.NodeDetail.path,
+                name: ROUTES.NodeDetail.name,
+                component: () => import(/* webpackChunkName: "NodeDetail" */ '@/views/NodeDetail.vue'),
             },
         ],
     },

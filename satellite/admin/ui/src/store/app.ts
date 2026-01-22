@@ -79,7 +79,7 @@ export const useAppStore = defineStore('app', () => {
     }
 
     async function search(query: string): Promise<SearchResult> {
-        return await searchApi.searchUsersOrProjects(query);
+        return await searchApi.searchUsersProjectsOrNodes(query);
     }
 
     return {

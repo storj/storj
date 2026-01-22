@@ -5,7 +5,7 @@
     <v-dialog v-model="model" :width="dialogWidth" transition="fade-transition">
         <v-card
             title="Find accounts or projects"
-            subtitle="Search by ID, email, name or Stripe customer ID"
+            subtitle="Search by ID, email, name, Stripe customer ID, or node operator email"
             rounded="xlg"
         >
             <template #append>
@@ -17,11 +17,10 @@
 
             <div class="mx-2">
                 <v-data-table
-                    v-if="!projects.length"
                     :loading="isLoading"
-                    :headers="headers"
-                    :items="accounts"
-                    :height="accounts.length > 10 ? 520 : 'auto'"
+                    :headers="combinedHeaders"
+                    :items="combinedResults"
+                    :height="combinedResults.length > 10 ? 520 : 'auto'"
                     class="border-0"
                     hide-default-header
                 >
@@ -31,7 +30,7 @@
                     <template #loading>
                         Searching...
                     </template>
-                    <template v-if="accounts.length <= 10" #bottom>
+                    <template v-if="combinedResults.length <= 10" #bottom>
                         <v-container class="v-data-table-footer" />
                     </template>
                     <template #top>
@@ -41,99 +40,45 @@
                             @update:model-value="onSearchChange"
                         />
                     </template>
-                    <template #item.email="{ item }">
+
+                    <template #item.identifier="{ item }">
                         <v-btn
-                            v-tooltip="item.email"
+                            v-tooltip="item.identifier"
                             variant="outlined"
                             color="default"
                             density="compact"
-                            @click="goToUser(item)"
+                            @click="goToResult(item)"
                         >
                             <template #prepend>
-                                <v-icon :icon="User" />
+                                <v-icon :icon="item.type === 'account' ? User : item.type === 'project' ? Box : Server" />
                             </template>
                             <template #default>
-                                <span class="text-truncate" style="max-width: 150px;">{{ item.email }}</span>
+                                <span class="text-truncate" style="max-width: 200px;">{{ item.identifier }}</span>
                             </template>
                         </v-btn>
                     </template>
 
-                    <template #item.fullName="{ item }">
-                        <v-chip v-if="item.fullName" variant="tonal" color="default" size="small">
-                            <span class="text-truncate" style="max-width: 150px;">{{ item.fullName }}</span>
+                    <template #item.name="{ item }">
+                        <v-chip v-if="item.name" variant="tonal" color="default" size="small">
+                            <span class="text-truncate" style="max-width: 150px;">{{ item.name }}</span>
                         </v-chip>
                     </template>
 
-                    <template #item.kind="{ item }">
+                    <template #item.type="{ item }">
                         <v-chip
-                            :color="userIsPaid(item) ? 'success' : userIsNFR(item) ? 'warning' : 'info'"
+                            :color="item.type === 'account' ? 'info' : item.type === 'project' ? 'success' : 'purple'"
                             variant="tonal" size="small" class="font-weight-medium"
                         >
-                            {{ item.kind.name }}
+                            {{ item.type === 'account' ? 'Account' : item.type === 'project' ? 'Project' : 'Node' }}
                         </v-chip>
                     </template>
 
                     <template #item.status="{ item }">
                         <v-chip
-                            :color="statusColor(item.status)"
+                            :color="getStatusColor(item)"
                             variant="tonal" size="small" class="font-weight-medium"
                         >
-                            {{ item.status.name }}
-                        </v-chip>
-                    </template>
-
-                    <template #item.createdAt="{ item }">
-                        <span class="text-no-wrap">
-                            Created on {{ formatDate(item.createdAt) }}
-                        </span>
-                    </template>
-                </v-data-table>
-                <v-data-table
-                    v-else
-                    :loading="isLoading"
-                    :headers="headers"
-                    :items="projects"
-                    :height="projects.length > 10 ? 520 : 'auto'"
-                    class="border-0"
-                    hide-default-header
-                >
-                    <template #no-data>
-                        {{ searchTerm?.length >= 3 ? 'No results found' : 'Enter a search term of at least 3 characters' }}
-                    </template>
-                    <template #loading>
-                        Searching...
-                    </template>
-                    <template v-if="projects.length <= 10" #bottom>
-                        <v-container class="v-data-table-footer" />
-                    </template>
-                    <template #top>
-                        <v-text-field
-                            v-model="searchTerm" label="Search" :prepend-inner-icon="Search" single-line variant="solo-filled" flat
-                            hide-details clearable density="compact" rounded="lg" class="mx-4 mb-2"
-                            @update:model-value="onSearchChange"
-                        />
-                    </template>
-
-                    <template #item.name="{ item }">
-                        <v-btn
-                            v-tooltip="item.name"
-                            variant="outlined"
-                            color="default"
-                            density="compact"
-                            @click="goToProject(item)"
-                        >
-                            <template #prepend>
-                                <v-icon :icon="Box" />
-                            </template>
-                            <template #default>
-                                <span class="text-truncate" style="max-width: 200px;">{{ item.name }}</span>
-                            </template>
-                        </v-btn>
-                    </template>
-
-                    <template #item.ownerEmail="{ item }">
-                        <v-chip variant="tonal" color="default" size="small" class="font-weight-medium">
-                            <span class="text-truncate" style="max-width: 200px;">{{ item.owner.email }}</span>
+                            {{ getStatusText(item) }}
                         </v-chip>
                     </template>
 
@@ -152,15 +97,31 @@
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VBtn, VCard, VChip, VContainer, VDataTable, VDialog, VIcon, VTextField } from 'vuetify/components';
-import { Box, Search, User, X } from 'lucide-vue-next';
+import { Box, Search, Server, User, X } from 'lucide-vue-next';
 import { useDate, useDisplay } from 'vuetify';
 
-import { AccountMin, Project, SearchResult, UserStatusInfo } from '@/api/client.gen';
+import { AccountMin, NodeMinInfo, Project, SearchResult } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
 import { ROUTES } from '@/router';
-import { userIsNFR, userIsPaid } from '@/types/user';
 import { useLoading } from '@/composables/useLoading';
+
+interface CombinedResult {
+    type: 'account' | 'node' | 'project';
+    identifier: string;
+    name: string;
+    createdAt: string;
+    original: AccountMin | NodeMinInfo | Project;
+    status?: string;
+    // Account-specific fields
+    kind?: { name: string };
+    // Node-specific fields
+    online?: boolean;
+    disqualified?: boolean;
+    // Project-specific fields
+    ownerEmail?: string;
+    ownerId?: string;
+}
 
 const appStore = useAppStore();
 const notify = useNotificationsStore();
@@ -176,25 +137,56 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 const searchTerm = ref<string>('');
 const searchResult = ref<SearchResult | null>(null);
 
-const accounts = computed<AccountMin[]>(() => searchResult.value?.accounts ?? []);
-const projects = computed<Project[]>(() => searchResult.value?.project ? [searchResult.value?.project] : []);
+const combinedResults = computed<CombinedResult[]>(() => {
+    const results: CombinedResult[] = [];
 
-const headers = computed(() => {
-    if (!searchResult.value?.project) {
-        return [
-            { title: 'Email', key: 'email' },
-            { title: 'Name', key: 'fullName' },
-            { title: 'Kind', key: 'kind' },
-            { title: 'Status', key: 'status' },
-            { title: 'Date Created', key: 'createdAt' },
-        ];
+    const project = searchResult.value?.project;
+    if (project) {
+        results.push({
+            type: 'project',
+            identifier: project.id,
+            name: project.name,
+            createdAt: project.createdAt,
+            original: project,
+            status: project.status?.name,
+            ownerId: project.owner.id,
+        });
     }
-    return [
-        { title: 'Project Name', key: 'name' },
-        { title: 'Owner Email', key: 'ownerEmail' },
-        { title: 'Date Created', key: 'createdAt' },
-    ];
+
+    for (const account of searchResult.value?.accounts ?? []) {
+        results.push({
+            type: 'account',
+            identifier: account.email,
+            name: account.fullName,
+            createdAt: account.createdAt,
+            original: account,
+            kind: account.kind,
+            status: account.status.name,
+        });
+    }
+
+    for (const node of searchResult.value?.nodes ?? []) {
+        results.push({
+            type: 'node',
+            identifier: node.id,
+            name: '',
+            createdAt: node.createdAt,
+            original: node,
+            online: node.online,
+            disqualified: node.disqualified,
+        });
+    }
+
+    return results;
 });
+
+const combinedHeaders = [
+    { title: 'Identifier', key: 'identifier' },
+    { title: 'Name', key: 'name' },
+    { title: 'Type', key: 'type' },
+    { title: 'Status', key: 'status' },
+    { title: 'Date Created', key: 'createdAt' },
+];
 
 const dialogWidth = computed(() => {
     if (xlAndUp.value) return 1100;
@@ -203,16 +195,32 @@ const dialogWidth = computed(() => {
     return '';
 });
 
-function statusColor(info: UserStatusInfo) {
-    const status = info.name.toLowerCase();
-    if (status.includes('deletion') || status.includes('deleted')) {
-        return 'error';
+function getStatusColor(item: CombinedResult): string {
+    if (item.type === 'node') {
+        if (item.disqualified) return 'error';
+        return item.online ? 'success' : 'warning';
     }
-    if (status.includes('active')) {
-        return 'success';
+    if (item.status) {
+        const status = item.status.toLowerCase();
+        if (status.includes('deletion') || status.includes('deleted')) {
+            return 'error';
+        }
+        if (status.includes('active')) {
+            return 'success';
+        }
+        return 'warning';
     }
 
-    return 'warning';
+    return 'default';
+}
+
+function getStatusText(item: CombinedResult): string {
+    if (item.type === 'node') {
+        if (item.disqualified) return 'Disqualified';
+        return item.online ? 'Online' : 'Offline';
+    }
+
+    return item.status ?? '_';
 }
 
 function formatDate(dateString: string) {
@@ -230,20 +238,24 @@ function onSearchChange(search: string) {
         try {
             searchResult.value = await appStore.search(search);
         } catch (error) {
-            notify.notifyError(`Error searching users. ${error.message}`);
+            notify.notifyError(`Error searching. ${error.message}`);
         } finally {
             isLoading.value = false;
         }
     }, 500);
 }
 
-function goToUser(user: AccountMin):void {
-    router.push({ name: ROUTES.Account.name, params: { userID: user.id } });
-    model.value = false;
-}
-
-function goToProject(project: Project):void {
-    router.push({ name: ROUTES.AccountProject.name, params: { projectID: project.id, userID: project.owner.id } });
+function goToResult(item: CombinedResult): void {
+    if (item.type === 'account') {
+        const user = item.original as AccountMin;
+        router.push({ name: ROUTES.Account.name, params: { userID: user.id } });
+    } else if (item.type === 'project') {
+        const project = item.original as Project;
+        router.push({ name: ROUTES.AccountProject.name, params: { projectID: project.id, userID: project.owner.id } });
+    } else {
+        const node = item.original as NodeMinInfo;
+        router.push({ name: ROUTES.NodeDetail.name, params: { nodeID: node.id } });
+    }
     model.value = false;
 }
 </script>
