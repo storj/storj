@@ -50,6 +50,7 @@ const (
 	PermBucketRemoveDataPlacement
 	PermBucketSetUserAgent
 	PermViewChangeHistory
+	PermNodesView
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -65,7 +66,7 @@ const (
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView,
 	)
 	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory)
 	RoleCustomerSupport = Authorization(

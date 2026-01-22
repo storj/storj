@@ -29,6 +29,7 @@ var ErrUsersAPI = errs.Class("admin users api")
 var ErrProjectsAPI = errs.Class("admin projects api")
 var ErrSearchAPI = errs.Class("admin search api")
 var ErrChangehistoryAPI = errs.Class("admin changehistory api")
+var ErrNodesAPI = errs.Class("admin nodes api")
 
 type SettingsService interface {
 	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
@@ -70,11 +71,15 @@ type ProjectManagementService interface {
 }
 
 type SearchService interface {
-	SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo, term string) (*SearchResult, api.HTTPError)
+	SearchUsersProjectsOrNodes(ctx context.Context, authInfo *AuthInfo, term string) (*SearchResult, api.HTTPError)
 }
 
 type ChangeHistoryService interface {
 	GetChangeHistory(ctx context.Context, exact, itemType, id string) ([]changehistory.ChangeLog, api.HTTPError)
+}
+
+type NodeManagementService interface {
+	GetNodeInfo(ctx context.Context, nodeID string) (*NodeFullInfo, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -128,6 +133,14 @@ type ChangeHistoryHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service ChangeHistoryService
+	auth    *Authorizer
+}
+
+// NodeManagementHandler is an api handler that implements all NodeManagement API endpoints functionality.
+type NodeManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service NodeManagementService
 	auth    *Authorizer
 }
 
@@ -227,7 +240,7 @@ func NewSearch(log *zap.Logger, mon *monkit.Scope, service SearchService, router
 	}
 
 	searchRouter := router.PathPrefix("/api/v1/search").Subrouter()
-	searchRouter.HandleFunc("/", handler.handleSearchUsersOrProjects).Methods("GET")
+	searchRouter.HandleFunc("/", handler.handleSearchUsersProjectsOrNodes).Methods("GET")
 
 	return handler
 }
@@ -242,6 +255,20 @@ func NewChangeHistory(log *zap.Logger, mon *monkit.Scope, service ChangeHistoryS
 
 	changehistoryRouter := router.PathPrefix("/api/v1/changehistory").Subrouter()
 	changehistoryRouter.HandleFunc("/", handler.handleGetChangeHistory).Methods("GET")
+
+	return handler
+}
+
+func NewNodeManagement(log *zap.Logger, mon *monkit.Scope, service NodeManagementService, router *mux.Router, auth *Authorizer) *NodeManagementHandler {
+	handler := &NodeManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	nodesRouter := router.PathPrefix("/api/v1/nodes").Subrouter()
+	nodesRouter.HandleFunc("/{nodeID}", handler.handleGetNodeInfo).Methods("GET")
 
 	return handler
 }
@@ -1222,7 +1249,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectEntitlements(w http.Respon
 	}
 }
 
-func (h *SearchHandler) handleSearchUsersOrProjects(w http.ResponseWriter, r *http.Request) {
+func (h *SearchHandler) handleSearchUsersProjectsOrNodes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer h.mon.Task()(&ctx)(&err)
@@ -1246,7 +1273,7 @@ func (h *SearchHandler) handleSearchUsersOrProjects(w http.ResponseWriter, r *ht
 		return
 	}
 
-	retVal, httpErr := h.service.SearchUsersOrProjects(ctx, authInfo, term)
+	retVal, httpErr := h.service.SearchUsersProjectsOrNodes(ctx, authInfo, term)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -1254,7 +1281,7 @@ func (h *SearchHandler) handleSearchUsersOrProjects(w http.ResponseWriter, r *ht
 
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
-		h.log.Debug("failed to write json SearchUsersOrProjects response", zap.Error(ErrSearchAPI.Wrap(err)))
+		h.log.Debug("failed to write json SearchUsersProjectsOrNodes response", zap.Error(ErrSearchAPI.Wrap(err)))
 	}
 }
 
@@ -1301,5 +1328,39 @@ func (h *ChangeHistoryHandler) handleGetChangeHistory(w http.ResponseWriter, r *
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetChangeHistory response", zap.Error(ErrChangehistoryAPI.Wrap(err)))
+	}
+}
+
+func (h *NodeManagementHandler) handleGetNodeInfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	nodeID, ok := mux.Vars(r)["nodeID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing nodeID route param"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 17179869184) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetNodeInfo(ctx, nodeID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetNodeInfo response", zap.Error(ErrNodesAPI.Wrap(err)))
 	}
 }

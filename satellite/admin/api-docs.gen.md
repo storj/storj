@@ -37,6 +37,8 @@
   * [Search users or projects](#search-search-users-or-projects)
 * ChangeHistory
   * [Get change history](#changehistory-get-change-history)
+* NodeManagement
+  * [Get node info](#nodemanagement-get-node-info)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -1073,7 +1075,7 @@ string
 
 <h3 id='search-search-users-or-projects'>Search users or projects (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Searches for users by email or name and projects by ID. Results are limited to 100 users.
+Search by ID, email, name, Stripe customer ID, or node operator email. Results include at most one project and up to 100 users and 100 nodes.
 
 `GET /api/v1/search/`
 
@@ -1106,6 +1108,16 @@ Searches for users by email or name and projects by ID. Results are limited to 1
 
 			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 			tenantID: string
+		}
+
+	]
+
+	nodes: 	[
+		{
+			id: string
+			online: boolean
+			disqualified: boolean
+			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		}
 
 	]
@@ -1146,6 +1158,47 @@ Retrieves change history for users, projects and buckets. If the exact parameter
 	}
 
 ]
+
+```
+
+<h3 id='nodemanagement-get-node-info'>Get node info (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets detailed information about a storage node by its ID.
+
+`GET /api/v1/nodes/{nodeID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Response body:**
+
+```typescript
+{
+	id: string
+	address: string
+	email: string
+	wallet: string
+	walletFeatures: 	[
+string
+	]
+
+	lastContactSuccess: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	lastContactFailure: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	vettedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	disqualified: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	disqualificationReason: string
+	freeDisk: number
+	pieceCount: number
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	version: string
+	countryCode: string
+	exitInitiatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	exitFinishedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	exitSuccess: boolean
+}
 
 ```
 

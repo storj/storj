@@ -392,16 +392,16 @@ func main() {
 
 	group.Get("/", &apigen.Endpoint{
 		Name:           "Search users or projects",
-		Description:    "Searches for users by email or name and projects by ID. Results are limited to 100 users.",
-		GoName:         "SearchUsersOrProjects",
-		TypeScriptName: "searchUsersOrProjects",
+		Description:    "Search by ID, email, name, Stripe customer ID, or node operator email. Results include at most one project and up to 100 users and 100 nodes.",
+		GoName:         "SearchUsersProjectsOrNodes",
+		TypeScriptName: "searchUsersProjectsOrNodes",
 		QueryParams: []apigen.Param{
 			apigen.NewParam("term", ""),
 		},
 		Response: backoffice.SearchResult{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{
-				/* permissions are validated dynamically in SearchUsersOrProjects */
+				/* permissions are validated dynamically in SearchUsersProjectsOrNodes */
 			},
 			passAuthParamKey: true,
 		},
@@ -425,6 +425,24 @@ func main() {
 		Response: []changehistory.ChangeLog{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermViewChangeHistory},
+		},
+	})
+
+	// api group that handles retrieving node information
+	group = api.Group("NodeManagement", "nodes")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Get("/{nodeID}", &apigen.Endpoint{
+		Name:           "Get node info",
+		Description:    "Gets detailed information about a storage node by its ID.",
+		GoName:         "GetNodeInfo",
+		TypeScriptName: "getNodeInfo",
+		PathParams: []apigen.Param{
+			apigen.NewParam("nodeID", ""),
+		},
+		Response: backoffice.NodeFullInfo{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermNodesView},
 		},
 	})
 

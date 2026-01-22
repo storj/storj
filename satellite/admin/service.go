@@ -6,11 +6,13 @@ package admin
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/accounting"
@@ -24,6 +26,7 @@ import (
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -45,6 +48,7 @@ type Service struct {
 	consoleDB     console.DB
 	history       changehistory.DB
 	metabase      *metabase.DB
+	overlayDB     overlay.DB
 
 	accountFreeze *console.AccountFreezeService
 	accounting    *accounting.Service
@@ -78,6 +82,7 @@ func NewService(
 	buckets *buckets.Service,
 	entitlements *entitlements.Service,
 	metabaseDB *metabase.DB,
+	overlayDB overlay.DB,
 	logger *auditlogger.Logger,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
@@ -104,6 +109,7 @@ func NewService(
 		buckets:       buckets,
 		entitlements:  entitlements,
 		metabase:      metabaseDB,
+		overlayDB:     overlayDB,
 		payments:      payments,
 		placement:     placement,
 		products:      products,
@@ -126,12 +132,13 @@ type StatusInfo struct {
 // SearchResult contains the result of a search for users or projects.
 type SearchResult struct {
 	// projects are only "searched" by their ID, so only one project is returned.
-	Project  *Project     `json:"project"`
-	Accounts []AccountMin `json:"accounts"`
+	Project  *Project      `json:"project"`
+	Accounts []AccountMin  `json:"accounts"`
+	Nodes    []NodeMinInfo `json:"nodes"`
 }
 
-// SearchUsersOrProjects searches for users and projects matching the given term.
-func (s *Service) SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo, term string) (*SearchResult, api.HTTPError) {
+// SearchUsersProjectsOrNodes searches for users and projects matching the given term.
+func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *AuthInfo, term string) (*SearchResult, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -155,7 +162,7 @@ func (s *Service) SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo,
 		return false
 	}
 
-	if !hasPerm(PermAccountView) && !hasPerm(PermProjectView) {
+	if !hasPerm(PermAccountView) && !hasPerm(PermProjectView) && !hasPerm(PermNodesView) {
 		return nil, apiError(http.StatusForbidden, errs.New("not authorized"))
 	}
 
@@ -170,7 +177,26 @@ func (s *Service) SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo,
 			}
 		}
 	}
-	emptyResult := SearchResult{Accounts: []AccountMin{}}
+
+	if hasPerm(PermNodesView) {
+		if id, err := storj.NodeIDFromString(term); err == nil {
+			n, apiErr := s.getNodeByID(ctx, id)
+			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
+				return nil, apiErr
+			}
+			if n != nil {
+				info := NodeMinInfo{
+					ID:           n.ID,
+					Online:       time.Since(n.LastContactSuccess) < 4*time.Hour,
+					Disqualified: n.Disqualified != nil,
+					CreatedAt:    n.CreatedAt,
+				}
+				return &SearchResult{Nodes: []NodeMinInfo{info}}, api.HTTPError{}
+			}
+		}
+	}
+
+	emptyResult := SearchResult{Accounts: []AccountMin{}, Nodes: []NodeMinInfo{}}
 
 	if !hasPerm(PermAccountView) {
 		return &emptyResult, api.HTTPError{}
@@ -180,11 +206,24 @@ func (s *Service) SearchUsersOrProjects(ctx context.Context, authInfo *AuthInfo,
 	if apiErr.Err != nil {
 		return nil, apiErr
 	}
-	if len(users) == 0 {
+
+	nodes := make([]NodeMinInfo, 0)
+	if !hasPerm(PermNodesView) {
+		return &SearchResult{Accounts: users, Nodes: nodes}, api.HTTPError{}
+	}
+
+	if strings.Contains(term, "@") {
+		nodes, err = s.getNodesByEmail(ctx, term)
+		if err != nil {
+			return nil, apiError(http.StatusInternalServerError, err)
+		}
+	}
+
+	if len(users) == 0 && len(nodes) == 0 {
 		return &emptyResult, api.HTTPError{}
 	}
 
-	return &SearchResult{Accounts: users}, api.HTTPError{}
+	return &SearchResult{Accounts: users, Nodes: nodes}, api.HTTPError{}
 }
 
 // GetChangeHistory retrieves the change history for a specific user, project, and bucket.

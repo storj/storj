@@ -42,11 +42,11 @@ func TestSearchUsersOrProjects(t *testing.T) {
 		require.NotNil(t, project.Status)
 
 		for _, unauthorizedInfo := range []*backoffice.AuthInfo{nil, {}} {
-			_, apiErr := service.SearchUsersOrProjects(ctx, unauthorizedInfo, "")
+			_, apiErr := service.SearchUsersProjectsOrNodes(ctx, unauthorizedInfo, "")
 			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
 		}
 
-		_, apiErr := service.SearchUsersOrProjects(ctx, &backoffice.AuthInfo{Groups: []string{"somerole"}}, "")
+		_, apiErr := service.SearchUsersProjectsOrNodes(ctx, &backoffice.AuthInfo{Groups: []string{"somerole"}}, "")
 		require.Equal(t, http.StatusForbidden, apiErr.Status)
 
 		service.TestSetRoleViewer("viewer")
@@ -62,7 +62,7 @@ func TestSearchUsersOrProjects(t *testing.T) {
 			require.Equal(t, consoleUser.Kind.Info(), user.Kind)
 		}
 
-		result, apiErr := service.SearchUsersOrProjects(ctx, authInfo, "nothing")
+		result, apiErr := service.SearchUsersProjectsOrNodes(ctx, authInfo, "nothing")
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, result)
 		require.Nil(t, result.Project)
@@ -73,14 +73,14 @@ func TestSearchUsersOrProjects(t *testing.T) {
 		require.NotEmpty(t, customerID)
 
 		for _, term := range []string{consoleUser.Email, "test@", "User", consoleUser.ID.String(), customerID} {
-			result, apiErr = service.SearchUsersOrProjects(ctx, authInfo, term)
+			result, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, term)
 			require.NoError(t, apiErr.Err)
 			require.Len(t, result.Accounts, 1)
 			confirmUser(result)
 		}
 
 		for _, id := range []uuid.UUID{project.ID, project.PublicID} {
-			result, apiErr = service.SearchUsersOrProjects(ctx, authInfo, id.String())
+			result, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, id.String())
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, result)
 			p := result.Project
@@ -92,20 +92,20 @@ func TestSearchUsersOrProjects(t *testing.T) {
 		}
 
 		// searching by invalid ID should return no results
-		result, apiErr = service.SearchUsersOrProjects(ctx, authInfo, uuid.UUID{}.String())
+		result, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, uuid.UUID{}.String())
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, result)
 		require.Nil(t, result.Project)
 		require.Empty(t, result.Accounts)
 
 		// unknown customer ID returns no results
-		result, apiErr = service.SearchUsersOrProjects(ctx, authInfo, customerID+"who")
+		result, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, customerID+"who")
 		require.NoError(t, apiErr.Err)
 		require.NotNil(t, result)
 		require.Nil(t, result.Project)
 		require.Empty(t, result.Accounts)
 
-		_, apiErr = service.SearchUsersOrProjects(ctx, authInfo, "")
+		_, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, "")
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		require.Error(t, apiErr.Err)
 	})

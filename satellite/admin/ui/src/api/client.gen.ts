@@ -130,6 +130,34 @@ export class MiniProductInfo {
     egressDiscountRatio: string;
 }
 
+export class NodeFullInfo {
+    id: string;
+    address: string;
+    email: string;
+    wallet: string;
+    walletFeatures: string[] | null;
+    lastContactSuccess: Time;
+    lastContactFailure: Time;
+    vettedAt: Time | null;
+    disqualified: Time | null;
+    disqualificationReason: string | null;
+    freeDisk: number;
+    pieceCount: number;
+    createdAt: Time;
+    version: string;
+    countryCode: string;
+    exitInitiatedAt: Time | null;
+    exitFinishedAt: Time | null;
+    exitSuccess: boolean;
+}
+
+export class NodeMinInfo {
+    id: string;
+    online: boolean;
+    disqualified: boolean;
+    createdAt: Time;
+}
+
 export class PlacementInfo {
     id: number;
     location: string;
@@ -231,6 +259,7 @@ export class ProjectStatusInfo {
 export class SearchResult {
     project: Project | null;
     accounts: AccountMin[] | null;
+    nodes: NodeMinInfo[] | null;
 }
 
 export class Settings {
@@ -626,7 +655,7 @@ export class SearchHttpApiV1 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v1/search';
 
-    public async searchUsersOrProjects(term: string): Promise<SearchResult> {
+    public async searchUsersProjectsOrNodes(term: string): Promise<SearchResult> {
         const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
         u.searchParams.set('term', term);
         const fullPath = u.toString();
@@ -652,6 +681,21 @@ export class ChangeHistoryHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as ChangeLog[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class NodeManagementHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v1/nodes';
+
+    public async getNodeInfo(nodeID: string): Promise<NodeFullInfo> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as NodeFullInfo);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
