@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/location"
 )
 
@@ -150,6 +151,19 @@ type DB interface {
 
 	// GetLastIPPortByNodeTagNames gets last IP and port from nodes where node exists in node tags with a particular name.
 	GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagName []string) (lastIPPorts map[storj.NodeID]*string, err error)
+
+	// GetNodesByEmail returns all nodes with the specified operator email address.
+	GetNodesByEmail(ctx context.Context, options GetNodesByEmailOptions) ([]*NodeDossier, *NodesByEmailCursor, error)
+}
+
+// NodesByEmailCursor is the cursor type for GetNodesByEmail pagination.
+type NodesByEmailCursor = dbx.Paged_Node_By_Email_Continuation
+
+// GetNodesByEmailOptions contains options for GetNodesByEmail.
+type GetNodesByEmailOptions struct {
+	Email string
+	Limit int
+	Next  *NodesByEmailCursor
 }
 
 // DisqualificationReason is disqualification reason enum type.

@@ -2253,6 +2253,32 @@ func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(c
 	}
 }
 
+// GetNodesByEmail returns all nodes with the specified operator email address.
+func (cache *overlaycache) GetNodesByEmail(ctx context.Context, options overlay.GetNodesByEmailOptions) (_ []*overlay.NodeDossier, _ *overlay.NodesByEmailCursor, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes := make([]*overlay.NodeDossier, 0)
+
+	if options.Email == "" {
+		return nodes, nil, nil
+	}
+
+	dbxNodes, next, err := cache.db.Paged_Node_By_Email(ctx, dbx.Node_Email(options.Email), options.Limit, options.Next)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	for _, dbxNode := range dbxNodes {
+		dossier, err := convertDBNode(ctx, dbxNode)
+		if err != nil {
+			return nil, nil, Error.Wrap(err)
+		}
+		nodes = append(nodes, dossier)
+	}
+
+	return nodes, next, nil
+}
+
 func (cache *overlaycache) TestUpdateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
 	return cache.updateCheckInDirectUpdate(ctx, node, timestamp, semVer, walletFeatures)
 }

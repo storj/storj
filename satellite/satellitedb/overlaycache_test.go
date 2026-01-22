@@ -875,3 +875,130 @@ func TestOverlayCache_ActiveNodesPieceCounts(t *testing.T) {
 		require.True(t, found)
 	})
 }
+
+func TestGetNodesByEmail(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		selectionCfg := overlay.NodeSelectionConfig{
+			OnlineWindow: 4 * time.Hour,
+		}
+
+		testEmail := "operator@storj.test"
+		otherEmail := "other@storj.test"
+
+		node1ID := testrand.NodeID()
+		node2ID := testrand.NodeID()
+		disqualifiedID := testrand.NodeID()
+		exitedID := testrand.NodeID()
+		otherEmailID := testrand.NodeID()
+
+		checkInInfo := overlay.NodeCheckInInfo{
+			IsUp: true,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
+			Version: &pb.NodeVersion{
+				Version: "v0.0.0",
+			},
+			Operator: &pb.NodeOperator{
+				Email: testEmail,
+			},
+		}
+
+		now := time.Now()
+
+		// add first node with test email
+		checkInInfo.NodeID = node1ID
+		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now, selectionCfg))
+
+		// add second node with test email
+		checkInInfo.NodeID = node2ID
+		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now, selectionCfg))
+
+		// add disqualified node with test email - should be excluded
+		checkInInfo.NodeID = disqualifiedID
+		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now, selectionCfg))
+		_, err := cache.DisqualifyNode(ctx, disqualifiedID, now, overlay.DisqualificationReasonUnknown)
+		require.NoError(t, err)
+
+		// add exited node with test email - should be excluded
+		checkInInfo.NodeID = exitedID
+		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now, selectionCfg))
+		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:              exitedID,
+			ExitInitiatedAt:     now,
+			ExitLoopCompletedAt: now,
+			ExitFinishedAt:      now,
+			ExitSuccess:         true,
+		})
+		require.NoError(t, err)
+
+		// add node with different email - should not be returned
+		checkInInfo.NodeID = otherEmailID
+		checkInInfo.Operator.Email = otherEmail
+		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now, selectionCfg))
+
+		options := overlay.GetNodesByEmailOptions{
+			Email: testEmail,
+			Limit: 10,
+		}
+		// test GetNodesByEmail returns all nodes with matching email (including disqualified and exited)
+		nodes, _, err := cache.GetNodesByEmail(ctx, options)
+		require.NoError(t, err)
+		require.Len(t, nodes, 4)
+
+		foundIDs := make(map[storj.NodeID]bool)
+		for _, node := range nodes {
+			foundIDs[node.Id] = true
+			require.Equal(t, testEmail, node.Operator.Email)
+		}
+		require.True(t, foundIDs[node1ID], "node1 should be found")
+		require.True(t, foundIDs[node2ID], "node2 should be found")
+		require.True(t, foundIDs[disqualifiedID], "disqualified node should be found")
+		require.True(t, foundIDs[exitedID], "exited node should be found")
+		require.False(t, foundIDs[otherEmailID], "node with different email should not be found")
+
+		options.Email = otherEmail
+		// test GetNodesByEmail with different email
+		nodes, _, err = cache.GetNodesByEmail(ctx, options)
+		require.NoError(t, err)
+		require.Len(t, nodes, 1)
+		require.Equal(t, otherEmailID, nodes[0].Id)
+
+		options.Email = "nonexistent@storj.test"
+		// test GetNodesByEmail with non-existent email
+		nodes, _, err = cache.GetNodesByEmail(ctx, options)
+		require.NoError(t, err)
+		require.Len(t, nodes, 0)
+
+		options.Email = ""
+		// test GetNodesByEmail with empty email returns nil
+		nodes, _, err = cache.GetNodesByEmail(ctx, options)
+		require.NoError(t, err)
+		require.Empty(t, nodes)
+
+		// test pagination
+		options.Email = testEmail
+		options.Limit = 2
+		firstPage, continuation, err := cache.GetNodesByEmail(ctx, options)
+		require.NoError(t, err)
+		require.Len(t, firstPage, 2)
+		require.NotNil(t, continuation)
+
+		options.Next = continuation
+		secondPage, _, err := cache.GetNodesByEmail(ctx, options)
+		require.NoError(t, err)
+		require.Len(t, secondPage, 2)
+
+		// verify all 4 nodes returned across pages
+		allIDs := make(map[storj.NodeID]bool)
+		for _, n := range firstPage {
+			allIDs[n.Id] = true
+		}
+		for _, n := range secondPage {
+			allIDs[n.Id] = true
+		}
+		require.Len(t, allIDs, 4)
+	})
+}

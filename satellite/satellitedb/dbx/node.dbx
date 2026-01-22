@@ -132,6 +132,11 @@ read paged (
 	select node
 )
 
+read paged (
+	select node
+	where node.email = ?
+)
+
 read all (
 	select node.id node.piece_count
 	where node.disqualified = null

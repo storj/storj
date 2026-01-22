@@ -15379,6 +15379,11 @@ type Paged_BucketMetainfo_ProjectId_BucketMetainfo_Name_Continuation struct {
 	_set              bool
 }
 
+type Paged_Node_By_Email_Continuation struct {
+	_value_id []byte
+	_set      bool
+}
+
 type Paged_Node_Continuation struct {
 	_value_id []byte
 	_set      bool
@@ -19387,6 +19392,66 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 			defer closeRows(__rows, &err)
 
 			var __continuation Paged_Node_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				node := &Node{}
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, node)
+				next = &__continuation
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxImpl) Paged_Node_By_Email(ctx context.Context,
+	node_email Node_Email_Field,
+	limit int, start *Paged_Node_By_Email_Continuation) (
+	rows []*Node, next *Paged_Node_By_Email_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE nodes.email = ? AND (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE nodes.email = ? ORDER BY nodes.id LIMIT ?")
+
+	var __values []any
+	__values = append(__values, node_email.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_id, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*Node, next *Paged_Node_By_Email_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			var __continuation Paged_Node_By_Email_Continuation
 			__continuation._set = true
 
 			for __rows.Next() {
@@ -30742,6 +30807,66 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 			defer closeRows(__rows, &err)
 
 			var __continuation Paged_Node_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				node := &Node{}
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, node)
+				next = &__continuation
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Paged_Node_By_Email(ctx context.Context,
+	node_email Node_Email_Field,
+	limit int, start *Paged_Node_By_Email_Continuation) (
+	rows []*Node, next *Paged_Node_By_Email_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE nodes.email = ? AND (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE nodes.email = ? ORDER BY nodes.id LIMIT ?")
+
+	var __values []any
+	__values = append(__values, node_email.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_id, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*Node, next *Paged_Node_By_Email_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			var __continuation Paged_Node_By_Email_Continuation
 			__continuation._set = true
 
 			for __rows.Next() {
@@ -42431,6 +42556,69 @@ func (obj *spannerImpl) Paged_Node(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Paged_Node_By_Email(ctx context.Context,
+	node_email Node_Email_Field,
+	limit int, start *Paged_Node_By_Email_Continuation) (
+	rows []*Node, next *Paged_Node_By_Email_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE nodes.email = ? AND nodes.id > ? ORDER BY nodes.id LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.commit_hash, nodes.release_timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.debounce_limit, nodes.features, nodes.id FROM nodes WHERE nodes.email = ? ORDER BY nodes.id LIMIT ?")
+
+	var __values []any
+	__values = append(__values, node_email.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values,
+			start._value_id,
+			limit,
+		)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*Node, next *Paged_Node_By_Email_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			var __continuation Paged_Node_By_Email_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				node := &Node{}
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.CommitHash, &node.ReleaseTimestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &node.DebounceLimit, &node.Features, &__continuation._value_id)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, node)
+				next = &__continuation
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
 func (obj *spannerImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null_And_ExitInitiatedAt_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context) (
 	rows []*Id_PieceCount_Row, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -50569,6 +50757,11 @@ type Methods interface {
 	Paged_Node(ctx context.Context,
 		limit int, start *Paged_Node_Continuation) (
 		rows []*Node, next *Paged_Node_Continuation, err error)
+
+	Paged_Node_By_Email(ctx context.Context,
+		node_email Node_Email_Field,
+		limit int, start *Paged_Node_By_Email_Continuation) (
+		rows []*Node, next *Paged_Node_By_Email_Continuation, err error)
 
 	Paged_RetentionRemainderChargesInDeletedAtRangeByProjectID(ctx context.Context,
 		retention_remainder_charge_project_id RetentionRemainderCharge_ProjectId_Field,

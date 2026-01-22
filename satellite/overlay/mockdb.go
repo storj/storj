@@ -244,3 +244,8 @@ func (m *Mockdb) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.Node
 func (m *Mockdb) AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]NodeAccountingInfo, err error) {
 	panic("implement me")
 }
+
+// GetNodesByEmail returns all nodes with the specified operator email address.
+func (m *Mockdb) GetNodesByEmail(ctx context.Context, options GetNodesByEmailOptions) ([]*NodeDossier, *NodesByEmailCursor, error) {
+	panic("implement me")
+}
