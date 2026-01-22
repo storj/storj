@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"syscall"
 
 	"github.com/zeebo/clingy"
 
@@ -21,7 +22,9 @@ import (
 // Includes common subcommands like `exec` and any other component which is registered with RegisterSubcommand.
 func Run(module func(ball *mud.Ball)) {
 	ctx, cancel := context.WithCancel(context.Background())
-	ctx, _ = signal.NotifyContext(ctx, os.Interrupt)
+	var stop context.CancelFunc
+	ctx, stop = signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	ball := mud.NewBall()
 	{
@@ -62,6 +65,8 @@ func Run(module func(ball *mud.Ball)) {
 		_, _ = fmt.Fprintf(os.Stderr, "%+v\n", err)
 	}
 	if !ok || err != nil {
+		stop()
+		//nolint:gocritic // stop() is called explicitly
 		os.Exit(1)
 	}
 }
