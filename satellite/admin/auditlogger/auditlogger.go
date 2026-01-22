@@ -5,6 +5,7 @@ package auditlogger
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
@@ -44,11 +45,13 @@ type Logger struct {
 	changeEvents  chan Event
 	worker        sync2.Limiter
 
+	externalAddress string
+
 	config Config
 }
 
 // New creates a new Logger.
-func New(log *zap.Logger, analytics *analytics.Service, changeHistory changehistory.DB, config Config) *Logger {
+func New(log *zap.Logger, analytics *analytics.Service, changeHistory changehistory.DB, externalAddress string, config Config) *Logger {
 	return &Logger{
 		log:       log,
 		analytics: analytics,
@@ -56,6 +59,8 @@ func New(log *zap.Logger, analytics *analytics.Service, changeHistory changehist
 		changeHistory: changeHistory,
 		changeEvents:  make(chan Event, 100),
 		worker:        *sync2.NewLimiter(2),
+
+		externalAddress: externalAddress,
 
 		config: config,
 	}
@@ -88,6 +93,12 @@ func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
 
 	changes := BuildChangeSet(event.Before, event.After, s.config.Caps)
 
+	changeURL, err := s.buildChangeSourceURL(event)
+	if err != nil {
+		s.log.Error("failed to build change source URL", zap.Error(err))
+		changeURL = ""
+	}
+
 	s.analytics.TrackAdminAuditEvent(event.UserID, map[string]any{
 		"action":      event.Action,
 		"admin_email": event.AdminEmail,
@@ -96,6 +107,7 @@ func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
 		"reason":      event.Reason,
 		"changes":     changes,
 		"timestamp":   event.Timestamp,
+		"change_url":  changeURL,
 	})
 
 	s.log.Info("audit event logged",
@@ -120,6 +132,18 @@ func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
 	if _, err := s.changeHistory.LogChange(ctx, changeHistoryParams); err != nil {
 		s.log.Error("failed to log change history in database", zap.Error(err))
 	}
+}
+
+func (s *Logger) buildChangeSourceURL(event Event) (string, error) {
+	segments := []string{
+		"/accounts",
+		event.UserID.String(),
+	}
+	if event.ProjectID != nil {
+		segments = append(segments, "projects", event.ProjectID.String())
+	}
+
+	return url.JoinPath(s.externalAddress, segments...)
 }
 
 // Run starts the audit logger processing loop.

@@ -46,7 +46,8 @@ var (
 
 // Config defines configuration for the satellite administration server.
 type Config struct {
-	Address string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
+	Address         string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
+	ExternalAddress string `help:"external endpoint of the satellite admin" default:""`
 
 	StaticDir string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets"`
 

@@ -46,6 +46,9 @@
 # enable audit logging for admin operations
 # admin.audit-logger.enabled: false
 
+# external endpoint of the satellite admin
+# admin.external-address: ""
+
 # the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
 # admin.legacy.groups.limit-update: ""
 
