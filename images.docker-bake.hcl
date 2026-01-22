@@ -81,6 +81,8 @@ target "satellite-image" {
   contexts = {
     binaries = "target:binaries-linux"
     ui       = "target:web-satellite"
+    storj-up = "target:storj-up"
+    delve    = "target:delve"
   }
   dockerfile = "cmd/satellite/Dockerfile"
   platforms  = ["linux/amd64", "linux/arm64"]
@@ -106,6 +108,8 @@ target "storagenode-dev-image" {
   contexts = {
     binaries = "target:binaries-linux"
     ui       = "target:web-storagenode"
+    storj-up = "target:storj-up"
+    delve    = "target:delve"
   }
   dockerfile = "cmd/storagenode/Dockerfile.dev"
   platforms  = ["linux/amd64", "linux/arm64"]

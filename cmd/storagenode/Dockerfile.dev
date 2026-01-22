@@ -9,18 +9,6 @@ FROM --platform=$BUILDPLATFORM debian:trixie-slim AS ca-cert
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
-# Install storj-up for local/dev runs
-FROM --platform=$TARGETPLATFORM golang:$GO_VERSION AS storjup
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod  \
-    CGO_ENABLED=0 go install storj.io/storj-up@latest
-
-# Install dlv for debugging
-FROM --platform=$TARGETPLATFORM golang:$GO_VERSION AS dlv
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod  \
-    go install github.com/go-delve/delve/cmd/dlv@latest
-
 FROM debian:trixie-slim
 
 ARG TARGETOS
@@ -30,8 +18,8 @@ WORKDIR /app
 
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-COPY --from=storjup /go/bin/storj-up /usr/local/bin/storj-up
-COPY --from=dlv     /go/bin/dlv      /usr/local/bin/dlv
+COPY --from=storj-up /${TARGETOS}_${TARGETARCH}/storj-up /usr/local/bin/storj-up
+COPY --from=delve    /${TARGETOS}_${TARGETARCH}/dlv      /usr/local/bin/dlv
 
 COPY --from=binaries /${TARGETOS}_${TARGETARCH}/storagenode /app/storagenode
 COPY --from=binaries /${TARGETOS}_${TARGETARCH}/identity /app/identity
