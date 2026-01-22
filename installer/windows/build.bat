@@ -10,8 +10,8 @@ if not "%argC%"=="3" (
 )
 
 rem copy the storagenode binaries to the installer project
-copy %1 installer\windows\storagenode.exe
-copy %2 installer\windows\storagenode-updater.exe
+copy "%~1" installer\windows\storagenode.exe
+copy "%~2" installer\windows\storagenode-updater.exe
 
 rem install NuGet packages
 nuget install installer\windows\StorjTests\packages.config -o installer\windows\packages
@@ -24,4 +24,4 @@ del installer\windows\storagenode.exe
 del installer\windows\storagenode-updater.exe
 
 rem copy the MSI to the release dir
-copy installer\windows\bin\Release\storagenode.msi %3
+copy installer\windows\bin\Release\storagenode.msi "%~3"
