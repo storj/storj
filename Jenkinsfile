@@ -136,6 +136,14 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Compress binaries') {
+      lastStage = env.STAGE_NAME
+
+      sh 'make release/binaries/compress'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
     stage('Upload Binaries To Google Storage') {
       lastStage = env.STAGE_NAME
 
@@ -164,8 +172,8 @@ node('node') {
   }
   finally {
     stage('Cleanup') {
-      sh '[ -n "$BUILDX_BUILDER" ] && docker buildx rm --keep-state $BUILDX_BUILDER || true'
       sh 'make images/clean'
+      sh '[ -n "$BUILDX_BUILDER" ] && docker buildx rm --keep-state $BUILDX_BUILDER || true'
       deleteDir()
     }
   }
