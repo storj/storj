@@ -3,7 +3,7 @@
 # Any change in the version will trigger new build for docker layer, therefore we don't need new version
 # if nothing has been changed.
 # You can defined the subset of directories with MODULE=storagenode ./bake.sh ....
-SATELLITE_DIRS="./satellite ./shared ./private ./go.mod ./go.sum"
+SATELLITE_DIRS="./satellite ./shared ./private ./go.mod ./go.sum ./web/satellite"
 STORAGENODE_DIRS="./storagenode ./shared ./private ./go.mod ./go.sum ./web/storagenode"
 
 # Set DIRS based on MODULE
