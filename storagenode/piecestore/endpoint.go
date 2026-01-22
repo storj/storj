@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/shared/bloomfilter"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
@@ -325,6 +326,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				rpcstatus.Code(err) == rpcstatus.Canceled || rpcstatus.Code(err) == rpcstatus.Aborted {
 				// This is common in normal operation, and shouldn't throw a full error.
 				log.Debug("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
+
+			} else if errors.Is(err, hashstore.ErrCollision) {
+				// Collisions can happen during repair when a piece already exists.
+				log.Warn("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
 
 			} else {
 				log.Error("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
