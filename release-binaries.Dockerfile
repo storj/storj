@@ -133,3 +133,55 @@ FROM scratch AS combine-platforms
 COPY --from=linux_amd64 /* /linux_amd64/
 COPY --from=linux_arm64 /* /linux_arm64/
 COPY --from=linux_arm   /* /linux_arm/
+
+# Some binaries that are necessary for image building.
+
+FROM build-tools AS storj-up-build
+
+WORKDIR /app
+RUN git clone --depth 1 https://github.com/storj/storj-up.git /app
+
+RUN mkdir -p /out/linux_amd64 /out/linux_arm64
+
+RUN \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    GOOS=linux GOARCH=amd64 \
+    CGO_ENABLED=0 \
+    go build -o /out/linux_amd64/storj-up .
+
+RUN \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    GOOS=linux GOARCH=arm64 \
+    CGO_ENABLED=0 \
+    go build -o /out/linux_arm64/storj-up .
+
+FROM scratch AS storj-up-binaries
+COPY --from=storj-up-build /out/linux_amd64 /linux_amd64
+COPY --from=storj-up-build /out/linux_arm64 /linux_arm64
+
+FROM build-tools AS delve-build
+
+WORKDIR /app
+RUN git clone --depth 1 https://github.com/go-delve/delve.git /app
+
+RUN mkdir -p /out/linux_amd64 /out/linux_arm64
+
+RUN \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    GOOS=linux GOARCH=amd64 \
+    CGO_ENABLED=0 \
+    go build -o /out/linux_amd64/dlv ./cmd/dlv
+
+RUN \
+    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    GOOS=linux GOARCH=arm64 \
+    CGO_ENABLED=0 \
+    go build -o /out/linux_arm64/dlv ./cmd/dlv
+
+FROM scratch AS delve-binaries
+COPY --from=delve-build /out/linux_amd64 /linux_amd64
+COPY --from=delve-build /out/linux_arm64 /linux_arm64
