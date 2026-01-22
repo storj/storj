@@ -287,7 +287,13 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 
 	hsb.dbs[satellite] = db
 
-	log.Info("hashstore opened successfully", zap.Duration("open_time", time.Since(start)))
+	stats, _, _ := db.Stats()
+	log.Info("hashstore opened successfully",
+		zap.Duration("open_time", time.Since(start)),
+		zap.Int("logs_skipped", stats.LogsSkipped),
+		zap.Int("logs_matched", stats.LogsMatched),
+		zap.Int("logs_mismatched", stats.LogsMismatched),
+	)
 	return db, nil
 }
 

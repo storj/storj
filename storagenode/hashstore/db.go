@@ -183,6 +183,10 @@ type DBStats struct {
 	TrashPercent float64 // percent of bytes that are trash in the log files.
 	TTLPercent   float64 // percent of bytes that have expiration but not trash in the log files.
 
+	LogsSkipped    int // number of log files skipped due to hint exclusion
+	LogsMatched    int // number of log files checked and matched
+	LogsMismatched int // number of log files checked and mismatched
+
 	Compacting      bool        // if true, a background compaction is in progress.
 	Compactions     uint64      // total number of compactions that finished on either store.
 	Active          int         // which store is currently active
@@ -232,6 +236,10 @@ func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 		SetPercent:   safeDivide(float64(s0st.Table.LenSet+s1st.Table.LenSet), float64(s0st.LenLogs+s1st.LenLogs)),
 		TrashPercent: safeDivide(float64(s0st.Table.LenTrash+s1st.Table.LenTrash), float64(s0st.LenLogs+s1st.LenLogs)),
 		TTLPercent:   safeDivide(float64(s0st.Table.LenTTL+s1st.Table.LenTTL), float64(s0st.LenLogs+s1st.LenLogs)),
+
+		LogsSkipped:    s0st.LogsSkipped + s1st.LogsSkipped,
+		LogsMatched:    s0st.LogsMatched + s1st.LogsMatched,
+		LogsMismatched: s0st.LogsMismatched + s1st.LogsMismatched,
 
 		Compacting:      compacting,
 		Compactions:     s0st.Compactions + s1st.Compactions,

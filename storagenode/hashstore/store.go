@@ -78,6 +78,11 @@ type Store struct {
 		writeTime        atomic.Value               // time of the start of writing the new hash table
 		totalRecords     atomic.Uint64              // total number of records to be processed in current compaction
 		processedRecords atomic.Uint64              // total number of records processed in current compaction
+
+		// open-time stats set during NewStore
+		logsSkipped    int // number of log files skipped due to hint exclusion
+		logsMatched    int // number of log files checked and matched
+		logsMismatched int // number of log files checked and mismatched
 	}
 
 	rmu sync.RWMutex                // protects consistency of lfs and tbl
@@ -280,6 +285,7 @@ func NewStore(
 		// try to reconcile the log tail from the hashtbl and the log file.
 		if err := func() error {
 			if excluder.Excluded(lf.id) {
+				s.stats.logsSkipped++
 				return nil
 			}
 
@@ -289,6 +295,7 @@ func NewStore(
 			}
 
 			if tableTail := tails[lf.id]; !RecordTailsEqualish(tableTail, logTail) {
+				s.stats.logsMismatched++
 				s.log.Warn("mismatched log tail",
 					zap.Uint64("id", lf.id),
 					zap.String("path", lf.path),
@@ -308,6 +315,7 @@ func NewStore(
 					s.amnesty(ctx, invalid)
 				}
 			} else {
+				s.stats.logsMatched++
 				s.log.Debug("matched log tail",
 					zap.Uint64("id", lf.id),
 					zap.String("path", lf.path),
@@ -372,6 +380,10 @@ type StoreStats struct {
 	DataReclaimed   memory.Size // number of bytes reclaimed in the log files.
 	DataReclaimable memory.Size // number of bytes potentially reclaimable in the log files.
 	Table           TblStats    // stats about the hash table.
+
+	LogsSkipped    int // number of log files skipped due to hint exclusion
+	LogsMatched    int // number of log files checked and matched
+	LogsMismatched int // number of log files checked and mismatched
 
 	Compaction struct { // stats about the current compaction
 		Elapsed          float64 // number of seconds elapsed in the compaction
@@ -449,6 +461,10 @@ func (s *Store) Stats() StoreStats {
 		DataReclaimed:   memory.Size(s.stats.dataReclaimed.Load()),
 		DataReclaimable: memory.Size(lenLogs) - stats.LenSet,
 		Table:           stats,
+
+		LogsSkipped:    s.stats.logsSkipped,
+		LogsMatched:    s.stats.logsMatched,
+		LogsMismatched: s.stats.logsMismatched,
 	}
 }
 
