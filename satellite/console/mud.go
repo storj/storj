@@ -22,4 +22,6 @@ func Module(ball *mud.Ball) {
 		return c.AccountFreeze
 	})
 
+	mud.Provide[*InvoiceTokenPaymentObserver](ball, NewInvoiceTokenPaymentObserver)
+
 }

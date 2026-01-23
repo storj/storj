@@ -56,7 +56,7 @@ func TestNodeEventsChore(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				config.NodeEvents.SelectionWaitPeriod = 5 * time.Minute
 			},
 			StorageNode: func(index int, config *storagenode.Config) {
@@ -122,7 +122,7 @@ func TestNodeEventsChoreFailedNotify(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				config.NodeEvents.SelectionWaitPeriod = 5 * time.Minute
 			},
 		},
@@ -161,7 +161,7 @@ func TestNodeEventsChoreInvalidEmails(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				config.NodeEvents.SelectionWaitPeriod = 5 * time.Minute
 			},
 		},

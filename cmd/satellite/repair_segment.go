@@ -17,6 +17,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/repaircsv"
@@ -75,7 +76,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, nodeevents.Config{})
 	if err != nil {
 		return err
 	}

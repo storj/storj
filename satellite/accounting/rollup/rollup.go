@@ -14,6 +14,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/orders"
 )
 
 // Config contains configurable values for rollup.
@@ -38,14 +39,15 @@ type Service struct {
 }
 
 // New creates a new rollup service.
-func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, config Config, orderExpiration time.Duration) *Service {
+func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, config Config, oc orders.Config) *Service {
 	return &Service{
-		logger:                  logger,
-		Loop:                    sync2.NewCycle(config.Interval),
-		sdb:                     sdb,
-		deleteTallies:           config.DeleteTallies,
-		deleteTalliesBatchSize:  config.DeleteTalliesBatchSize,
-		OrderExpiration:         orderExpiration,
+		logger:                 logger,
+		Loop:                   sync2.NewCycle(config.Interval),
+		sdb:                    sdb,
+		deleteTallies:          config.DeleteTallies,
+		deleteTalliesBatchSize: config.DeleteTalliesBatchSize,
+		// Lets add 1 more day so we catch any off by one errors when deleting tallies
+		OrderExpiration:         oc.Expiration + config.Interval,
 		eventkitTrackingEnabled: config.EventkitTrackingEnabled,
 	}
 }

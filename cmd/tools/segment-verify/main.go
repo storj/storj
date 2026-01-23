@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb"
@@ -211,7 +212,7 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 	}
 
 	// setup dependencies for verification
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placements, "", "", satelliteCfg.Overlay)
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placements, "", "", satelliteCfg.Overlay, nodeevents.Config{})
 	if err != nil {
 		return Error.Wrap(err)
 	}

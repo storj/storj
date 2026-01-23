@@ -298,7 +298,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	{ // setup overlay
 
 		peer.Overlay.DB = peer.DB.OverlayCache()
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -315,8 +315,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
 		})
 
-		if config.Overlay.SendNodeEmails {
-			peer.Overlay.OfflineNodeEmails = offlinenodes.NewChore(log.Named("overlay:offline-node-emails"), peer.Mail.Service, peer.Overlay.Service, config.OfflineNodes)
+		if config.NodeEvents.SendNodeEmails {
+			peer.Overlay.OfflineNodeEmails = offlinenodes.NewChore(log.Named("overlay:offline-node-emails"), peer.Mail.Service, peer.Overlay.Service, config.OfflineNodes, config.NodeEvents)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "overlay:offline-node-emails",
 				Run:   peer.Overlay.OfflineNodeEmails.Run,
@@ -339,7 +339,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	}
 
 	{ // setup node events
-		if config.Overlay.SendNodeEmails {
+		if config.NodeEvents.SendNodeEmails {
 			var notifier nodeevents.Notifier
 			switch config.NodeEvents.Notifier {
 			case "customer.io":
@@ -398,7 +398,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
 			peer.Audit.ReverifyQueue,
 			peer.Overlay.DB,
-			config.ContainmentSyncChoreInterval,
+			config,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "audit:containment-sync-chore",
@@ -499,9 +499,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
 
-		// Lets add 1 more day so we catch any off by one errors when deleting tallies
-		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup, orderExpirationPlusDay)
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup, config.Orders)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:rollup",
 			Run:   peer.Accounting.Rollup.Run,
@@ -633,9 +631,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.Log.Named("payments.storjscan:chore"),
 			peer.Payments.StorjscanClient,
 			peer.DB.StorjscanPayments(),
-			config.Payments.Storjscan.Confirmations,
-			config.Payments.Storjscan.Interval,
-			config.Payments.Storjscan.DisableLoop,
+			config.Payments.Storjscan,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "payments.storjscan:chore",
@@ -766,7 +762,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.RepairQueueStat.Queue = repairQueue
 
 		if config.RepairQueueCheck.Interval.Seconds() > 0 {
-			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement.SupportedPlacements(), repairQueue, config.RepairQueueCheck.Interval)
+			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement, repairQueue, config.RepairQueueCheck)
 
 			peer.Services.Add(lifecycle.Item{
 				Name: "queue-stat",

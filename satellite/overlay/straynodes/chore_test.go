@@ -24,7 +24,7 @@ func TestDQStrayNodes(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.StrayNodes.MaxDurationWithoutContact = 24 * time.Hour
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

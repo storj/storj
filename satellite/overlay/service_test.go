@@ -73,7 +73,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nodeselection.TestPlacementDefinitions(), "", "", serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nodeselection.TestPlacementDefinitions(), "", "", serviceConfig, nodeevents.Config{})
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.UploadSelectionCache.Run(serviceCtx) })
 	ctx.Go(func() error { return service.DownloadSelectionCache.Run(serviceCtx) })
@@ -675,7 +675,7 @@ func TestUpdateReputationNodeEvents(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -746,7 +746,7 @@ func TestDisqualifyNodeEmails(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				config.Overlay.Node.OnlineWindow = 4 * time.Hour
 			},
 		},
@@ -768,7 +768,7 @@ func TestUpdateCheckInNodeEventOnline(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				config.Overlay.Node.OnlineWindow = 4 * time.Hour
 				config.StrayNodes.EnableDQ = false
 			},
@@ -872,7 +872,7 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				// testplanet storagenode default version is "v0.0.1".
 				// set this as minimum version so storagenode doesn't start below it.
 				config.Overlay.Node.MinimumVersion = "v0.0.1"
@@ -949,7 +949,7 @@ func TestInsertOfflineNodeEvents(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				// testplanet storagenode default version is "v0.0.1".
 				// set this as minimum version so storagenode doesn't start below it.
 				config.Overlay.Node.MinimumVersion = "v0.0.1"
@@ -1112,7 +1112,7 @@ func TestUpdateCheckIn_TrustedNodeBypassesDifficulty(t *testing.T) {
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: time.Hour,
 		},
-	})
+	}, nodeevents.Config{})
 	require.NoError(t, err)
 
 	// Create a low-difficulty node ID.

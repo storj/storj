@@ -29,7 +29,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: 2 * time.Nanosecond,
 		},
-	})
+	}, nodeevents.Config{})
 	require.NoError(t, err)
 	cacheCtx, cacheCancel := context.WithCancel(ctx)
 	defer cacheCancel()

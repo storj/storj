@@ -28,5 +28,6 @@ func Module(ball *mud.Ball) {
 	})
 	config.RegisterConfig[Config](ball, "repairer")
 	mud.Provide[*Service](ball, NewService)
-
+	mud.Provide[*QueueStat](ball, NewQueueStat)
+	config.RegisterConfig[QueueStatConfig](ball, "repair-queue-check")
 }

@@ -68,6 +68,10 @@ func Module(ball *mud.Ball) {
 		return &RangedLoopOnce{}
 	})
 	cli.RegisterSubcommand[*RangedLoopOnce](ball, "ranged-loop-once", "run ranged loop once with configurable observers and stop (use --components to enable)")
+	mud.Provide[*Core](ball, func() *Core {
+		return &Core{}
+	})
+	cli.RegisterSubcommand[*Core](ball, "core", "run Core services")
 	mud.Provide[*Migrate](ball, NewMigrate)
 	cli.RegisterSubcommand[*Migrate](ball, "migrate", "run the satellite database migration")
 }
