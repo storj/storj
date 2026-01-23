@@ -1247,24 +1247,38 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 			"warning-light":      "#FF7F00",
 			"warning-dark":       "#FF8A00",
 		},
-		SupportURL:    server.config.GeneralRequestURL,
-		DocsURL:       server.config.DocumentationURL,
-		HomepageURL:   server.config.HomepageURL,
-		GetInTouchURL: server.config.ScheduleMeetingURL,
+		SupportURL:        server.config.GeneralRequestURL,
+		DocsURL:           server.config.DocumentationURL,
+		HomepageURL:       server.config.HomepageURL,
+		GetInTouchURL:     server.config.ScheduleMeetingURL,
+		PrivacyPolicyURL:  server.config.HomepageURL + "/privacy-policy/",
+		TermsOfServiceURL: server.config.TermsAndConditionsURL,
 	}
 
 	if tenantCtx.TenantID != "" {
 		if wlConfig, ok := server.config.WhiteLabel.Value[tenantCtx.TenantID]; ok {
+			// Use white-label specific URLs if configured, otherwise fall back to global defaults.
+			privacyPolicyURL := wlConfig.PrivacyPolicyURL
+			if privacyPolicyURL == "" {
+				privacyPolicyURL = server.config.HomepageURL + "/privacy-policy/"
+			}
+			termsOfServiceURL := wlConfig.TermsOfServiceURL
+			if termsOfServiceURL == "" {
+				termsOfServiceURL = server.config.TermsAndConditionsURL
+			}
+
 			branding = BrandingConfig{
-				Name:          wlConfig.Name,
-				LogoURLs:      wlConfig.LogoURLs,
-				FaviconURLs:   wlConfig.FaviconURLs,
-				Colors:        wlConfig.Colors,
-				SupportURL:    wlConfig.SupportURL,
-				DocsURL:       wlConfig.DocsURL,
-				HomepageURL:   wlConfig.HomepageURL,
-				GetInTouchURL: wlConfig.GetInTouchURL,
-				GatewayURL:    wlConfig.GatewayURL,
+				Name:              wlConfig.Name,
+				LogoURLs:          wlConfig.LogoURLs,
+				FaviconURLs:       wlConfig.FaviconURLs,
+				Colors:            wlConfig.Colors,
+				SupportURL:        wlConfig.SupportURL,
+				DocsURL:           wlConfig.DocsURL,
+				HomepageURL:       wlConfig.HomepageURL,
+				GetInTouchURL:     wlConfig.GetInTouchURL,
+				GatewayURL:        wlConfig.GatewayURL,
+				PrivacyPolicyURL:  privacyPolicyURL,
+				TermsOfServiceURL: termsOfServiceURL,
 			}
 		} else {
 			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenant_id", tenantCtx.TenantID))

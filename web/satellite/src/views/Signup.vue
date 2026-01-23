@@ -386,8 +386,8 @@ const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.li
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 
 const title = computed<string>(() => `Create your ${configStore.brandName} account.`);
-const termsLink = computed<string>(() => `${configStore.homepageUrl}/terms-of-service/`);
-const privacyLink = computed<string>(() => `${configStore.homepageUrl}/privacy-policy/`);
+const termsLink = computed<string>(() => configStore.state.branding.termsOfServiceUrl);
+const privacyLink = computed<string>(() => configStore.state.branding.privacyPolicyUrl);
 const getInTouchUrl = computed<string>(() => configStore.state.branding.getInTouchUrl);
 
 const passwordRules = computed(() => {

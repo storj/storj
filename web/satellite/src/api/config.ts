@@ -49,6 +49,8 @@ export class FrontendConfigHttpApi implements FrontendConfigApi {
                 result.homepageUrl,
                 result.getInTouchUrl,
                 result.gatewayUrl,
+                result.privacyPolicyUrl,
+                result.termsOfServiceUrl,
             );
         }
 

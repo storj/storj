@@ -111,15 +111,17 @@ type FrontendConfig struct {
 
 // BrandingConfig holds branding configuration for the frontend.
 type BrandingConfig struct {
-	Name          string            `json:"name"`
-	LogoURLs      map[string]string `json:"logoUrls"`
-	FaviconURLs   map[string]string `json:"faviconUrls"`
-	Colors        map[string]string `json:"colors"`
-	SupportURL    string            `json:"supportUrl"`
-	DocsURL       string            `json:"docsUrl"`
-	HomepageURL   string            `json:"homepageUrl"`
-	GetInTouchURL string            `json:"getInTouchUrl"`
-	GatewayURL    string            `json:"gatewayUrl"`
+	Name              string            `json:"name"`
+	LogoURLs          map[string]string `json:"logoUrls"`
+	FaviconURLs       map[string]string `json:"faviconUrls"`
+	Colors            map[string]string `json:"colors"`
+	SupportURL        string            `json:"supportUrl"`
+	DocsURL           string            `json:"docsUrl"`
+	HomepageURL       string            `json:"homepageUrl"`
+	GetInTouchURL     string            `json:"getInTouchUrl"`
+	GatewayURL        string            `json:"gatewayUrl"`
+	PrivacyPolicyURL  string            `json:"privacyPolicyUrl"`
+	TermsOfServiceURL string            `json:"termsOfServiceUrl"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
