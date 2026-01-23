@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.24.7
+ARG GO_VERSION=1.25.6
 
 FROM storjlabs/golang:${GO_VERSION} AS wasm
 WORKDIR /work

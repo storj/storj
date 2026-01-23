@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7-labs
 
-ARG GO_VERSION="1.25.3"
+ARG GO_VERSION="1.25.6"
 ARG NODE_VERSION="24.11.1"
 
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build-tools

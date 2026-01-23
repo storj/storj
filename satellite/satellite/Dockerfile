@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.24.7
+ARG GO_VERSION=1.25.6
 
 FROM debian:bookworm-slim AS base
 RUN apt-get update
@@ -42,5 +42,3 @@ COPY --from=builder /go/bin/satellite /app/satellite
 COPY --from=webui /var/www/html /app/dist
 COPY --from=webui /var/www/static /app/static
 WORKDIR /app
-
-

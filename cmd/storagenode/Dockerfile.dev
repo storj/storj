@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4-labs
-ARG GO_VERSION="1.25.3"
+ARG GO_VERSION="1.25.6"
 
 # ca-cert downloads certificates in a separate stage to
 # avoid needing to download it for different target platforms.
