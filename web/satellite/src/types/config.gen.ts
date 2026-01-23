@@ -59,6 +59,7 @@ export class FrontendConfig {
     allowedUsageReportDateRange: number;
     enableRegionTag: boolean;
     emissionImpactViewEnabled: boolean;
+    segmentsUIEnabled: boolean;
     daysBeforeTrialEndNotification: number;
     analyticsEnabled: boolean;
     objectBrowserKeyNamePrefix: string;

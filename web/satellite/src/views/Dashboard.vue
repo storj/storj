@@ -55,7 +55,7 @@
                     extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
                 />
             </v-col>
-            <v-col v-if="!emissionImpactViewEnabled && !newPricingEnabled" cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col v-if="!emissionImpactViewEnabled && !newPricingEnabled && segmentsUIEnabled" cols="6" md="4" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Segments" color="info" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
             <v-col cols="6" md="4" :lg="statsRowLgColSize">
@@ -127,7 +127,7 @@
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>
-            <v-col v-if="!newPricingEnabled" cols="12" md="6" :xl="usageRowXlColSize">
+            <v-col v-if="!newPricingEnabled && segmentsUIEnabled" cols="12" md="6" :xl="usageRowXlColSize">
                 <UsageProgressComponent
                     icon="segments"
                     title="Segments"
@@ -345,7 +345,7 @@ const newPricingEnabled = computed<boolean>(() => {
  */
 const usageRowXlColSize = computed(() => {
     let cards = 4;
-    if (newPricingEnabled.value) cards--;
+    if (newPricingEnabled.value || !segmentsUIEnabled.value) cards--;
     if (!isCouponCard.value && newPricingEnabled.value) cards--;
     return Math.floor(12 / cards);
 });
@@ -355,7 +355,7 @@ const usageRowXlColSize = computed(() => {
  */
 const statsRowLgColSize = computed(() => {
     let cards = 4;
-    if (!emissionImpactViewEnabled.value && !newPricingEnabled.value) cards++;
+    if (!emissionImpactViewEnabled.value && !newPricingEnabled.value && segmentsUIEnabled.value) cards++;
     if (emissionImpactViewEnabled.value) cards += 2;
     if (billingEnabled.value && !emissionImpactViewEnabled.value) cards++;
     return Math.floor(12 / cards);
@@ -626,6 +626,13 @@ const bucketsCount = computed((): number => {
  */
 const emissionImpactViewEnabled = computed<boolean>(() => {
     return configStore.state.config.emissionImpactViewEnabled;
+});
+
+/**
+ * Indicates if segments UI should be shown.
+ */
+const segmentsUIEnabled = computed<boolean>(() => {
+    return configStore.state.config.segmentsUIEnabled;
 });
 
 /**

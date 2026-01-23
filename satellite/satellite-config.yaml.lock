@@ -673,6 +673,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to schedule a meeting with a storj representative
 # console.schedule-meeting-url: https://www.storj.io/landing/get-in-touch
 
+# whether segments UI should be shown in project dashboard
+# console.segments-ui-enabled: true
+
 # whether self-serve account delete flow is enabled
 # console.self-serve-account-delete-enabled: false
 
