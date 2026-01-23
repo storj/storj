@@ -69,6 +69,11 @@ func (o OAuthClient) GetUserID() string {
 	return o.UserID.String()
 }
 
+// IsPublic returns whether the client is a public client (no secret).
+func (o OAuthClient) IsPublic() bool {
+	return len(o.Secret) == 0
+}
+
 // OAuthCodes defines a set of operations allowed to be performed against oauth codes.
 type OAuthCodes interface {
 	// Get retrieves the OAuthCode for the specified code. Implementations should only return unexpired, unclaimed

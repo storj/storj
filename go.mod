@@ -20,9 +20,9 @@ require (
 	github.com/dgraph-io/badger/v4 v4.5.0
 	github.com/dsnet/try v0.0.3
 	github.com/fatih/color v1.15.0
-	github.com/go-oauth2/oauth2/v4 v4.4.2
+	github.com/go-oauth2/oauth2/v4 v4.5.4
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang-jwt/jwt v3.2.1+incompatible
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/googleapis/go-sql-spanner v1.11.1-0.20250214171559-1bccea5dfec5
 	github.com/gorilla/mux v1.8.0
