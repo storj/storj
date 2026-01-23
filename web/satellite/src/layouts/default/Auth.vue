@@ -4,7 +4,7 @@
 <template>
     <v-app>
         <auth-bar />
-        <default-view class="signup-background" />
+        <default-view :class="{ 'signup-background': configStore.isDefaultBrand }" />
     </v-app>
 </template>
 
@@ -18,8 +18,10 @@ import DefaultView from './View.vue';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
 
 const router = useRouter();
 

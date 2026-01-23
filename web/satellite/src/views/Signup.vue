@@ -189,7 +189,7 @@
                                 size="large"
                                 block
                             >
-                                Start your free trial
+                                {{ configStore.isDefaultBrand ? 'Start your free trial' : 'Sign up' }}
                             </v-btn>
                         </v-form>
                     </v-card-text>
