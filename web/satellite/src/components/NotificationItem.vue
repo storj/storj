@@ -17,7 +17,7 @@
             <p ref="messageArea">
                 <component :is="item.messageNode" />
             </p>
-            <a v-if="isSupportLinkMentioned" class="d-inline-block mt-2 white-link" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">
+            <a v-if="isSupportLinkMentioned" class="d-inline-block mt-2" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">
                 Contact Support
             </a>
         </template>

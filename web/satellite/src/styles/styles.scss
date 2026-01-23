@@ -30,17 +30,11 @@ body {
   --v-theme-overlay-multiplier: 0.75 !important;
   --v-theme-on-background: var(--v-theme-secondary) !important;
   --v-theme-on-surface: var(--v-theme-secondary) !important;
-  --v-theme-surface-variant: var(--v-theme-secondary) !important;
-  --v-border-color: 50,53,55 !important;
-  --v-border-opacity: 0.1 !important;
 }
 
 // Dark Theme
 .v-theme--dark {
   --v-theme-overlay-multiplier: 0.75 !important;
-  --v-border-opacity: 0.14 !important;
-  --v-theme-surface-light: 10,18,38 !important;
-  --v-theme-on-surface-variant: 70,70,70 !important;
 }
 .v-theme--dark .text-primary {
   color: rgb(var(--v-theme-secondary)) !important;
@@ -99,12 +93,6 @@ h1,h2,h3,h4,h5,h6 {
 .v-btn.bg-secondary:hover {
   background-color: rgb(var(--v-theme-primary)) !important;
 }
-
-// Success Button Text
-.v-btn.v-theme--light.bg-success {
-  color: #fff;
-}
-
 // Button Shadow
 .v-btn--elevated,
 .v-btn--variant-flat {
@@ -185,7 +173,7 @@ h1,h2,h3,h4,h5,h6 {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
 }
 .v-toolbar.v-theme--dark {
-  box-shadow: 0px 2px 4px rgba(0,0,0,0.19) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.19) !important;
 }
 
 // Navigation Drawer
@@ -194,7 +182,7 @@ h1,h2,h3,h4,h5,h6 {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
 }
 .v-navigation-drawer.v-theme--dark {
-  box-shadow: 0px 2px 4px rgba(0,0,0,0.19) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.19) !important;
 }
 .v-navigation-drawer::after {
   content: "";
@@ -275,14 +263,12 @@ h1,h2,h3,h4,h5,h6 {
 .v-card.v-theme--light {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-  background: #fff;
 }
 
 // Card Dark Theme
 .v-card.v-theme--dark {
-  background: --v-theme-surface;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
-  box-shadow: 0px 2px 4px rgba(0,0,0,0.19);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.19);
 }
 
 .v-card--variant-flat {
@@ -340,7 +326,7 @@ a.v-card:hover {
 
 // Account Setup Dialog
 .account-setup-dialog {
-  border-radius: 0px !important;
+  border-radius: 0 !important;
 }
 
 // Align the checkboxes in the tables
@@ -499,7 +485,7 @@ table {
 .v-data-table .v-table__wrapper>table>thead>tr th.v-data-table-column--no-padding,
 .v-data-table .v-table__wrapper>table tbody>tr>td.v-data-table-column--no-padding,
 .v-data-table .v-table__wrapper>table tbody>tr th.v-data-table-column--no-padding {
-  padding: 0px 4px 0 8px !important;
+  padding: 0 4px 0 8px !important;
 }
 
 // Table Footer
@@ -759,14 +745,6 @@ table {
   font-weight: 600 !important;
 }
 
-.white-link {
-  color: #fff;
-
-  &:visited {
-    color: #fff;
-  }
-}
-
 .loader {
   background: rgb(var(--v-theme-background));
 }
@@ -797,7 +775,7 @@ table {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
 }
 .elevation-1.v-theme--dark {
-  box-shadow: 0px 2px 4px rgba(0,0,0,0.19) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.19) !important;
 }
 
 // No shadow helper class

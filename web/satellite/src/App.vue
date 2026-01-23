@@ -228,6 +228,16 @@ function applyBrandingTheme(): void {
     const onSecondaryDarkColor = branding.getColor(ColorKey.OnSecondaryDark);
     const backgroundLightColor = branding.getColor(ColorKey.BackgroundLight);
     const backgroundDarkColor = branding.getColor(ColorKey.BackgroundDark);
+    const surfaceLightColor = branding.getColor(ColorKey.SurfaceLight);
+    const surfaceDarkColor = branding.getColor(ColorKey.SurfaceDark);
+    const onSurfaceLightColor = branding.getColor(ColorKey.OnSurfaceLight);
+    const onSurfaceDarkColor = branding.getColor(ColorKey.OnSurfaceDark);
+    const successLightColor = branding.getColor(ColorKey.SuccessLight);
+    const successDarkColor = branding.getColor(ColorKey.SuccessDark);
+    const infoLightColor = branding.getColor(ColorKey.InfoLight);
+    const infoDarkColor = branding.getColor(ColorKey.InfoDark);
+    const warningLightColor = branding.getColor(ColorKey.WarningLight);
+    const warningDarkColor = branding.getColor(ColorKey.WarningDark);
 
     if (primaryLightColor) theme.themes.value.light.colors.primary = primaryLightColor;
     if (primaryDarkColor) theme.themes.value.dark.colors.primary = primaryDarkColor;
@@ -239,6 +249,16 @@ function applyBrandingTheme(): void {
     if (onSecondaryDarkColor) theme.themes.value.dark.colors['on-secondary'] = onSecondaryDarkColor;
     if (backgroundLightColor) theme.themes.value.light.colors.background = backgroundLightColor;
     if (backgroundDarkColor) theme.themes.value.dark.colors.background = backgroundDarkColor;
+    if (surfaceLightColor) theme.themes.value.light.colors.surface = surfaceLightColor;
+    if (surfaceDarkColor) theme.themes.value.dark.colors.surface = surfaceDarkColor;
+    if (onSurfaceLightColor) theme.themes.value.light.colors['on-surface'] = onSurfaceLightColor;
+    if (onSurfaceDarkColor) theme.themes.value.dark.colors['on-surface'] = onSurfaceDarkColor;
+    if (successLightColor) theme.themes.value.light.colors.success = successLightColor;
+    if (successDarkColor) theme.themes.value.dark.colors.success = successDarkColor;
+    if (infoLightColor) theme.themes.value.light.colors.info = infoLightColor;
+    if (infoDarkColor) theme.themes.value.dark.colors.info = infoDarkColor;
+    if (warningLightColor) theme.themes.value.light.colors.warning = warningLightColor;
+    if (warningDarkColor) theme.themes.value.dark.colors.warning = warningDarkColor;
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent): void {
