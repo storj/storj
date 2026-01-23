@@ -100,16 +100,16 @@ ARG CC
 ARG CXX
 ARG CGO_ENABLED
 
+ARG BUILD_VERSION # BUILD_VERSION is needed for windows-resources
 ARG BUILD_RELEASE=true
 
 ARG COMPONENTS=./...
-ARG VERSION # VERSION is needed for windows-resources
 
 # "set -f" is used to disable globbing to prevent unexpected behavior with glob expansion
 
 RUN if [ "$GOOS" = "windows" ] && [ "$GOARCH" = "amd64" ]; then \
     set -f; \
-    VERSION="${VERSION}" ./scripts/release/windows-resources.sh ${COMPONENTS} || exit 1; \
+    BUILD_VERSION="${BUILD_VERSION}" ./scripts/release/windows-resources.sh ${COMPONENTS} || exit 1; \
     fi
 
 RUN \

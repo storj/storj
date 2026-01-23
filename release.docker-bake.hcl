@@ -16,9 +16,9 @@ For each platform release.Dockerfile builds with the following steps:
 
 */
 
-// VERSION is the semantic version used for binary embedding and release paths.
+// BUILD_VERSION is the semantic version used for binary embedding and release paths.
 // Example: "v1.120.8" for releases, "v0.2601.30974-dev+e90c239c1" for dev builds.
-variable "VERSION" {
+variable "BUILD_VERSION" {
   default = "v0.0.0+dev"
 }
 
@@ -142,14 +142,14 @@ target "binaries" {
     "GO_LDFLAGS"  = PLATFORMS[item].ldflags
     "COMPONENTS"  = PLATFORMS[item].components
 
-    "VERSION"       = VERSION
+    "BUILD_VERSION" = BUILD_VERSION
     "BUILD_RELEASE" = BUILD_RELEASE
   }
 
   dockerfile = "release.Dockerfile"
   dockerignore = "release.Dockerfile.dockerignore"
 
-  output = ["type=local,dest=./release/${VERSION}/${replace(item, "/", "_")}"]
+  output = ["type=local,dest=./release/${BUILD_VERSION}/${replace(item, "/", "_")}"]
 }
 
 /* UI Artifacts */
