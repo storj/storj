@@ -11,14 +11,14 @@
 
 set -euo pipefail
 
-# Validate VERSION is set
-if [ -z "${VERSION:-}" ]; then
-    echo "Error: VERSION environment variable is not set" >&2
+# Validate BUILD_VERSION is set
+if [ -z "${BUILD_VERSION:-}" ]; then
+    echo "Error: BUILD_VERSION environment variable is not set" >&2
     exit 1
 fi
 
 # Version without the v prefix and without prerelease and metadata information
-CORE=$(printf '%s' "${VERSION}" | cut -d'v' -f2- | cut -d'-' -f1 | cut -d'+' -f1)
+CORE=$(printf '%s' "${BUILD_VERSION}" | cut -d'v' -f2- | cut -d'-' -f1 | cut -d'+' -f1)
 # Separate the version fields for Windows resource files.
 MAJOR="$(printf '%s' "${CORE}" | cut -d'.' -f1)"
 MINOR="$(printf '%s' "${CORE}" | cut -d'.' -f2)"
@@ -26,20 +26,20 @@ PATCH="$(printf '%s' "${CORE}" | cut -d'.' -f3)"
 
 # Validate version components are numeric
 if ! [[ "$MAJOR" =~ ^[0-9]+$ ]]; then
-    echo "Error: Invalid version format - MAJOR must be numeric (got: '$MAJOR' from VERSION='$VERSION')" >&2
+    echo "Error: Invalid version format - MAJOR must be numeric (got: '$MAJOR' from BUILD_VERSION='$BUILD_VERSION')" >&2
     exit 1
 fi
 if ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then
-    echo "Error: Invalid version format - MINOR must be numeric (got: '$MINOR' from VERSION='$VERSION')" >&2
+    echo "Error: Invalid version format - MINOR must be numeric (got: '$MINOR' from BUILD_VERSION='$BUILD_VERSION')" >&2
     exit 1
 fi
 if ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then
-    echo "Error: Invalid version format - PATCH must be numeric (got: '$PATCH' from VERSION='$VERSION')" >&2
+    echo "Error: Invalid version format - PATCH must be numeric (got: '$PATCH' from BUILD_VERSION='$BUILD_VERSION')" >&2
     exit 1
 fi
 
-PRERELEASE="$(printf '%s' "${VERSION}" | cut -d'-' -s -f2- | cut -d'+' -f1-)"
-METADATA="$(printf '%s' "${VERSION}" | cut -d'+' -s -f2-)"
+PRERELEASE="$(printf '%s' "${BUILD_VERSION}" | cut -d'-' -s -f2- | cut -d'+' -f1-)"
+METADATA="$(printf '%s' "${BUILD_VERSION}" | cut -d'+' -s -f2-)"
 
 for component in "$@"; do
 	echo "Generating Windows resources for ${component}"
