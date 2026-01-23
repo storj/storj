@@ -76,8 +76,9 @@ node('node') {
 
     stage('Build Binaries') {
       lastStage = env.STAGE_NAME
-      sh 'make release/binaries/build'
 
+      sh 'make release/info'
+      sh 'make release/binaries/build'
       // Check that we created release binaries.
       sh 'make release/binaries/check-release'
 

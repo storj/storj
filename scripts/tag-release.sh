@@ -13,9 +13,9 @@
 set -eu
 set -o pipefail
 
-VERSION="${1-}"
+BUILD_VERSION="${1-}"
 
-if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc+(-.*)?)?$ ]]; then
+if ! [[ "$BUILD_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc+(-.*)?)?$ ]]; then
   echo "usage: $0 vMAJOR.MINOR.PATCH[-rc[-*]]"
   exit 1
 fi
@@ -26,6 +26,6 @@ if [[ "$(git diff --stat)" != '' ]] || [[ -n "$(git status -s)" ]]; then
   echo "git working tree unclean"
   exit 1
 fi
-if git tag $VERSION; then
-  echo successfully created tag $VERSION
+if git tag $BUILD_VERSION; then
+  echo successfully created tag $BUILD_VERSION
 fi
