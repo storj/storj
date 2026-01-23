@@ -42,7 +42,7 @@
                     </v-card-text>
                 </v-card>
             </v-col>
-            <v-col v-if="satelliteManagedEncryptionEnabled || hasManagedPassphrase" cols="12" lg="4">
+            <v-col v-if="!hideEncryptionDetails" cols="12" lg="4">
                 <v-card title="Project Encryption" class="pa-2">
                     <v-card-text>
                         <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold" :prepend-icon="Check">
@@ -337,10 +337,7 @@ const objectLockUIEnabled = computed(() => configStore.state.config.objectLockUI
  */
 const hasManagedPassphrase = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
-/**
- * Indicates if satellite managed encryption passphrase is enabled.
- */
-const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
+const hideEncryptionDetails = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
 
 /**
  * Returns whether this project is owned by a paid tier user.

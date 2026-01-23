@@ -137,7 +137,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" sm="6" lg="4">
+            <v-col v-if="!hidePassphrasePreference" cols="12" sm="6" lg="4">
                 <v-card title="Passphrase Preference" class="pa-2">
                     <v-card-subtitle>
                         {{ userSettings.passphrasePrompt ? 'Ask for passphrase when opening a project.' : 'Only ask for passphrase when necessary.' }}
@@ -279,6 +279,11 @@ const isChangeEmailDialogShown = ref<boolean>(false);
 const isAccountDeleteDialogShown = ref<boolean>(false);
 
 const supportLink = computed<string>(() => `${configStore.supportUrl}?ticket_form_id=360000379291#`);
+
+const hidePassphrasePreference = computed<boolean>(() =>
+    configStore.state.config.satelliteManagedEncryptionEnabled &&
+    configStore.state.config.hideProjectEncryptionOptions,
+);
 
 /**
  * Returns user entity from store.
