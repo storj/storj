@@ -238,8 +238,6 @@ type Config struct {
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
 
-	NodeAliasCacheFullRefresh bool `help:"node alias cache does a full refresh when a value is missing" default:"false"`
-
 	UseListObjectsForListing bool `help:"switch to new ListObjects implementation" default:"false" devDefault:"true" testDefault:"true"`
 
 	ListObjects ListObjectsFlags `help:"tuning parameters for list objects"`
@@ -268,7 +266,6 @@ type Config struct {
 	TestingSpannerProjects          UUIDsFlag `default:"" help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
 	TestingMigrationMode            bool      `default:"false" help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
 	TestingTimestampVersioning      bool      `default:"false" help:"use timestamps for assigning version numbers" hidden:"true"`
-	TestingTwoRoundtripCommit       bool      `default:"false" help:"Use a new two roundtrip commit object." testDefault:"true" hidden:"true"`
 
 	TestingProjectsWithCommitDelay   UUIDsFlag     `default:"" help:"list of project IDs for which commit delay is enabled" hidden:"true"`
 	TestingMaxCommitDelay            time.Duration `default:"20ms" help:"max commit delay that will be used when commit delay is enabled for project" hidden:"true"`
@@ -294,10 +291,8 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		MinPartSize:                c.MinPartSize,
 		MaxNumberOfParts:           c.MaxNumberOfParts,
 		ServerSideCopy:             c.ServerSideCopy,
-		NodeAliasCacheFullRefresh:  c.NodeAliasCacheFullRefresh,
 		TestingSpannerProjects:     c.TestingSpannerProjects,
 		TestingTimestampVersioning: c.TestingTimestampVersioning,
-		TestingTwoRoundtripCommit:  c.TestingTwoRoundtripCommit,
 		Compression:                c.MetabaseCompression,
 	}
 }

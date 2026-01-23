@@ -46,14 +46,11 @@ type Config struct {
 	ServerSideCopy         bool
 	ServerSideCopyDisabled bool
 
-	NodeAliasCacheFullRefresh bool
-
 	TestingUniqueUnversioned bool
 	TestingSpannerProjects   map[uuid.UUID]struct{}
 	TestingWrapAdapter       func(Adapter) Adapter
 	// TestingTimestampVersioning uses timestamps for assigning version numbers.
 	TestingTimestampVersioning bool
-	TestingTwoRoundtripCommit  bool
 	// TestingSpannerMinOpenedSessions allows to override the minimum number of sessions that client tries to keep open.
 	TestingSpannerMinOpenedSessions *int
 
@@ -84,7 +81,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		testCleanup: func() error { return nil },
 		config:      config,
 	}
-	db.aliasCache = NewNodeAliasCache(db, config.NodeAliasCacheFullRefresh)
+	db.aliasCache = NewNodeAliasCache(db, false)
 
 	connStrs := strings.Split(connstr, ";")
 	if len(connStrs) == 0 {
