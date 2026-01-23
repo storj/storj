@@ -30,11 +30,15 @@ BUILD_MINOR_VERSION := $(BUILD_YEAR_SHORT)$(BUILD_MONTH)
 #   - Otherwise, generates a dev version like "v0.2512.1231-dev+a1b2c3d".
 export BUILD_VERSION ?= $(or $(GIT_TAG),v0.$(BUILD_MINOR_VERSION).$(BUILD_MINUTES_IN_MONTH)-dev+$(GIT_COMMIT_HASH))
 
-# Docker image tag configuration based on branch name:
-#   main branch:      TAG="a1b2c3d"                 LATEST_TAG="latest"
-#   release-* branch: TAG="a1b2c3d-release-1.2"     LATEST_TAG="release-1.2-latest"
-#   other branches:   TAG="a1b2c3d-feature-foo"     LATEST_TAG=""
-ifeq (${GIT_BRANCH_NAME},main)
+# Docker image tag configuration:
+#   exact version tag: TAG="v1.9.0"                 LATEST_TAG=""
+#   main branch:       TAG="a1b2c3d"                LATEST_TAG="latest"
+#   release-* branch:  TAG="a1b2c3d-release-1.2"    LATEST_TAG="release-1.2-latest"
+#   other branches:    TAG="a1b2c3d-feature-foo"    LATEST_TAG=""
+ifneq (${GIT_TAG},)
+  export TAG := ${GIT_TAG}
+  export LATEST_TAG :=
+else ifeq (${GIT_BRANCH_NAME},main)
   export TAG := ${GIT_COMMIT_HASH}
   export LATEST_TAG := latest
 else
