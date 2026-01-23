@@ -33,6 +33,20 @@ export BUILD_VERSION ?= $(shell git describe --tags --exact-match --match "v[0-9
 # VERSION will be used for the building process.
 export VERSION ?= $(BUILD_VERSION)
 
+# Older image tag name logic.
+BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+GIT_TAG := $(shell git rev-parse --short HEAD)
+ifeq (${BRANCH_NAME},main)
+TAG := ${GIT_TAG}
+LATEST_TAG := latest
+else
+TAG := ${GIT_TAG}-${BRANCH_NAME}
+ifneq (,$(findstring release-,$(BRANCH_NAME)))
+LATEST_TAG := ${BRANCH_NAME}-latest
+endif
+endif
+CUSTOMTAG ?=
+
 .PHONY: release/binaries/version
 release/binaries/version: ## Script for showing the version.
 	@echo "$(VERSION)"
@@ -40,7 +54,7 @@ release/binaries/version: ## Script for showing the version.
 .PHONY: release/binaries/build
 release/binaries/build: ## Cross-compile everything into release folder.
 	@echo "Building release binaries"
-	docker bake -f release-binaries.docker-bake.hcl
+	docker bake -f release.docker-bake.hcl binaries
 
 .PHONY: release/binaries/check-release
 release/binaries/check-release: ## Check that the built binaries are releases.
@@ -85,3 +99,25 @@ release/binaries/publish-to-github: ## Publish the release to github.
 release/binaries/clean: ## Clean the release folder
 	@echo "Cleaning the release folder"
 	rm -rf release
+
+.PHONY: release/images/build
+release/images/build: ## Build images for important components
+	docker bake -f release.docker-bake.hcl images
+
+.PHONY: release/images/push
+release/images/push: ## Push Docker images to Docker Hub (jenkins)
+	docker bake -f release.docker-bake.hcl images --push
+
+.PHONY: release/images/clean
+release/images/clean: ## Remove all images
+	-docker rmi storjlabs/segment-verify:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/jobq:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}
+
+##@ Clean
+
+.PHONY: clean
+clean: release/binaries/clean release/images/clean ## Clean docker test environment, local release binaries, and local Docker images
