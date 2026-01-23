@@ -1,9 +1,12 @@
 /*
 
-This bake script builds all binaries for all platforms, and build the UI artifacts.
-The result will be copied into `release/$VERSION`.
+This bake script defines targets for:
 
-For each platform Dockerfile.release builds with the following steps:
+1. cross compiling binaries
+2. building UI artifacts
+3. building release images
+
+For each platform release.Dockerfile builds with the following steps:
 
   1. Downloading dependencies
   2. Building WASM artifacts
@@ -13,14 +16,37 @@ For each platform Dockerfile.release builds with the following steps:
 
 */
 
+// VERSION is the semantic version used for binary embedding and release paths.
+// Example: "v1.120.8" for releases, "v0.2601.30974-dev+e90c239c1" for dev builds.
 variable "VERSION" {
   default = "v0.0.0+dev"
 }
 
+// BUILD_RELEASE controls whether binaries are marked as release builds.
+// When "true", enables release-specific behavior in the built binaries.
 variable "BUILD_RELEASE" {
   default = "true"
 }
 
+// TAG is the Docker image tag suffix used for published images.
+// Example: "v1.120.8" for releases, "dev" for development builds.
+variable "TAG" {
+  default = "dev"
+}
+
+// CUSTOMTAG is an optional additional tag suffix appended to image tags.
+// Useful for distinguishing variant builds (e.g., "-debug", "-test").
+variable "CUSTOMTAG" {
+  default = ""
+}
+
+// LATEST_TAG controls whether to also tag images as "latest".
+// Set to "-latest" to add the latest tag, or "" to skip it.
+variable "LATEST_TAG" {
+  default = ""
+}
+
+// PLATFORMS is a map of supported platforms and what components are built for each platform.
 variable "PLATFORMS" {
   default = {
     "linux/amd64" = {
@@ -89,7 +115,8 @@ variable "PLATFORMS" {
   }
 }
 
-target "default" {
+// binaries target does a cross-compilation of all binaries.
+target "binaries" {
   matrix = {
     item = keys(PLATFORMS)
   }
@@ -119,8 +146,8 @@ target "default" {
     "BUILD_RELEASE" = BUILD_RELEASE
   }
 
-  dockerfile = "release-binaries.Dockerfile"
-  dockerignore = "release-binaries.Dockerfile.dockerignore"
+  dockerfile = "release.Dockerfile"
+  dockerignore = "release.Dockerfile.dockerignore"
 
   output = ["type=local,dest=./release/${VERSION}/${replace(item, "/", "_")}"]
 }
@@ -153,23 +180,131 @@ target "web-satellite-admin-legacy" {
 
 target "web-satellite" {
   context    = "."
-  dockerfile = "release-binaries.Dockerfile"
+  dockerfile = "release.Dockerfile"
   target = "web-satellite-export"
   output = []
 }
 
-/* Some additional binaries for images. */
+/* Images building */
+
+group "images" {
+  targets = [
+    "segment-verify-image",
+    "jobq-image",
+    "multinode-image",
+    "uplink-image",
+    "satellite-image",
+    "versioncontrol-image",
+    "storagenode-dev-image",
+  ]
+}
+
+/* Development binaries for images. */
 
 target "storj-up" {
   context    = "."
-  dockerfile = "release-binaries.Dockerfile"
+  dockerfile = "release.Dockerfile"
   target     = "storj-up-binaries"
   output     = []
 }
 
 target "delve" {
   context    = "."
-  dockerfile = "release-binaries.Dockerfile"
+  dockerfile = "release.Dockerfile"
   target     = "delve-binaries"
   output     = []
+}
+
+// virtual target for images so that a single binaries image
+// can be used for multiple target platforms.
+target "binaries-linux" {
+  contexts = {
+    linux_amd64 = "target:binaries-linux-amd64",
+    linux_arm64 = "target:binaries-linux-arm64",
+    linux_arm   = "target:binaries-linux-arm",
+  }
+  target     = "combine-platforms"
+  dockerfile = "release.Dockerfile"
+
+  output = []
+}
+
+// image_tags is a function that returns a list of image tags for a given image name.
+// It automatically adds "latest" tag when LATEST_TAG is not empty.
+function "image_tags" {
+  params = [name]
+  result = LATEST_TAG != "" ? [
+    "storjlabs/${name}:${TAG}${CUSTOMTAG}",
+    "storjlabs/${name}:${LATEST_TAG}"
+    ] : [
+    "storjlabs/${name}:${TAG}${CUSTOMTAG}"
+  ]
+}
+
+target "_base" {
+  context   = "."
+  platforms = ["linux/amd64", "linux/arm64", "linux/arm"]
+  contexts  = { binaries = "target:binaries-linux" }
+  pull      = true
+}
+
+target "jobq-image" {
+  inherits   = ["_base"]
+  dockerfile = "cmd/jobq/Dockerfile"
+  platforms  = ["linux/amd64"]
+  tags       = image_tags("jobq")
+}
+
+target "segment-verify-image" {
+  inherits   = ["_base"]
+  dockerfile = "cmd/tools/segment-verify/Dockerfile"
+  platforms  = ["linux/amd64"]
+  tags       = image_tags("segment-verify")
+}
+
+target "uplink-image" {
+  inherits   = ["_base"]
+  dockerfile = "cmd/uplink/Dockerfile"
+  tags       = image_tags("uplink")
+}
+
+
+target "satellite-image" {
+  inherits = ["_base"]
+  contexts = {
+    binaries = "target:binaries-linux"
+    ui       = "target:web-satellite"
+    storj-up = "target:storj-up"
+    delve    = "target:delve"
+  }
+  dockerfile = "cmd/satellite/Dockerfile"
+  platforms  = ["linux/amd64", "linux/arm64"]
+  tags       = image_tags("satellite")
+}
+
+target "versioncontrol-image" {
+  inherits   = ["_base"]
+  dockerfile = "cmd/versioncontrol/Dockerfile"
+  platforms  = ["linux/amd64", "linux/arm64"]
+  tags       = image_tags("versioncontrol")
+}
+
+target "multinode-image" {
+  inherits   = ["_base"]
+  dockerfile = "cmd/multinode/Dockerfile"
+  tags       = image_tags("multinode")
+}
+
+// THIS IS NOT THE PRODUCTION STORAGENODE!!! Only for testing.
+target "storagenode-dev-image" {
+  inherits = ["_base"]
+  contexts = {
+    binaries = "target:binaries-linux"
+    ui       = "target:web-storagenode"
+    storj-up = "target:storj-up"
+    delve    = "target:delve"
+  }
+  dockerfile = "cmd/storagenode/Dockerfile.dev"
+  platforms  = ["linux/amd64", "linux/arm64"]
+  tags       = ["img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}"]
 }

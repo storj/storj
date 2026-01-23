@@ -88,14 +88,14 @@ node('node') {
 
     stage('Build Images') {
       lastStage = env.STAGE_NAME
-      sh 'make images/build'
+      sh 'make release/images/build'
 
       echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Push Images') {
       lastStage = env.STAGE_NAME
-      sh 'make images/push'
+      sh 'make release/images/push'
 
       echo "Current build result: ${currentBuild.result}"
     }
@@ -172,7 +172,7 @@ node('node') {
   }
   finally {
     stage('Cleanup') {
-      sh 'make images/clean'
+      sh 'make release/images/clean'
       sh '[ -n "$BUILDX_BUILDER" ] && docker buildx rm --keep-state $BUILDX_BUILDER || true'
       deleteDir()
     }

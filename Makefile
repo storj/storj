@@ -13,7 +13,7 @@ help:
 	} ' $(MAKEFILE_LIST)
 
 include Makefile.build.mk
-include Makefile.release-binaries.mk
+include Makefile.release.mk
 include Makefile.dev.mk
 include Makefile.test.mk
 include Makefile.tools.mk
