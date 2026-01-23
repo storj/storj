@@ -112,8 +112,6 @@ func (log *spannerEmulatorHostListener) Write(p []byte) (n int, err error) {
 		}
 	}
 
-	log.tb.Log(string(p))
-
 	return len(p), nil
 }
 
@@ -138,6 +136,5 @@ func (log *logWriter) Write(p []byte) (n int, err error) {
 		return 0, io.ErrClosedPipe
 	}
 
-	log.tb.Log(string(p))
 	return len(p), nil
 }
