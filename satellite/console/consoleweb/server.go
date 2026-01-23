@@ -1215,8 +1215,10 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	branding := BrandingConfig{
 		Name: "Storj",
 		LogoURLs: map[string]string{
-			"full-light": "/static/static/images/logo.svg",
-			"full-dark":  "/static/static/images/logo-dark.svg",
+			"full-light":  "/static/static/images/logo.svg",
+			"full-dark":   "/static/static/images/logo-dark.svg",
+			"small-light": "/static/static/images/logo-small.svg",
+			"small-dark":  "/static/static/images/logo-small.svg",
 		},
 		FaviconURLs: map[string]string{
 			"16x16":       "/static/static/images/favicons/favicon-16x16.png",
