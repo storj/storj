@@ -473,12 +473,11 @@ table {
   padding: 0 12px;
   position: sticky !important;
   right: 0 !important;
-  background: rgba(var(--v-theme-background), 0.8) !important;
-  backdrop-filter: blur(5px) !important;
-  -webkit-backdrop-filter: blur(5px) !important;
+  background: rgba(var(--v-theme-surface), .85) !important;
+  backdrop-filter: blur(2px) !important;
+  -webkit-backdrop-filter: blur(2px) !important;
   z-index: 1 !important;
-
-
+  border-top-right-radius: 6px !important;
 }
 
 .v-data-table .v-table__wrapper>table>thead>tr>td.v-data-table-column--no-padding,
@@ -493,7 +492,6 @@ table {
   font-size: 14px;
   justify-content: space-between !important;
   padding: 8px 16px !important;
-  background-color: rgb(var(--v-theme-background));
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
 }

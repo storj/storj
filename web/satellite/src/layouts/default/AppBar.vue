@@ -89,7 +89,7 @@
                     </v-list-item>
                 </v-list>
             </v-menu>
-            <v-menu offset-y width="200" class="rounded-xl">
+            <v-menu offset-y max-width="220" class="rounded-xl">
                 <template #activator="{ props: activatorProps }">
                     <!-- My Account Dropdown Button -->
                     <v-btn
@@ -111,7 +111,7 @@
                         <v-list-item-title class="text-body-2">
                             Account
                         </v-list-item-title>
-                        <v-list-item-subtitle>
+                        <v-list-item-subtitle class="text-truncate" style="max-width: 180px;">
                             {{ user.email }}
                             <v-tooltip activator="parent" location="top">
                                 {{ user.email }}
