@@ -52,7 +52,7 @@
                     </v-col>
                 </v-row>
 
-                <v-row justify="center">
+                <v-row v-if="configStore.isDefaultBrand" justify="center">
                     <v-col cols="12" sm="5" md="4" lg="3">
                         <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
                             <template #label>
@@ -146,6 +146,8 @@ function validate(): boolean {
 }
 
 watch(storageNeeds, val => {
+    if (!configStore.isDefaultBrand) return;
+
     haveSalesContact.value = val === AccountSetupStorageNeeds.OVER_1PB;
 });
 
