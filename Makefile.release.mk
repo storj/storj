@@ -4,8 +4,8 @@
 export GIT_BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
 # Short commit hash (e.g., "a1b2c3d").
 export GIT_COMMIT_HASH ?= $(shell git rev-parse --short HEAD)
-# Git tag if the current commit is an exact version tag (e.g., "v1.9.0"), empty otherwise.
-export GIT_TAG ?= $(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" 2>/dev/null)
+# Git tag if the current commit is an exact version tag (e.g., "v1.9.0" or "v1.9.0-rc1"), empty otherwise.
+export GIT_TAG ?= $(shell git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*" --match "v[0-9]*.[0-9]*.[0-9]*-rc*" 2>/dev/null)
 # "-dirty" suffix if working directory has uncommitted changes, empty otherwise.
 export GIT_DIRTY ?= $(shell test -n "`git status --porcelain`" && echo "-dirty")
 
