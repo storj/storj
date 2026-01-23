@@ -295,7 +295,7 @@ function unSetLimit(): void {
  */
 async function onSaveClick(): Promise<void> {
     if (shouldContactSupport.value) {
-        window.open(configStore.state.config.projectLimitsIncreaseRequestURL, '_blank', 'noreferrer');
+        window.open(configStore.projectLimitsIncreaseRequestURL, '_blank', 'noreferrer');
         return;
     }
     if (!formValid.value) return;

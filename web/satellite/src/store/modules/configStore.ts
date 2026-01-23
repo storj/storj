@@ -50,6 +50,10 @@ export const useConfigStore = defineStore('config', () => {
     const darkLogo = computed<string>(() => state.branding.getLogo(LogoKey.FullDark) ?? '');
     const smallLogo = computed<string>(() => state.branding.getLogo(LogoKey.SmallLight) ?? '');
     const smallDarkLogo = computed<string>(() => state.branding.getLogo(LogoKey.SmallDark) ?? '');
+    const projectLimitsIncreaseRequestURL = computed<string>(() => {
+        if (isDefaultBrand.value) return state.config.projectLimitsIncreaseRequestURL;
+        return state.branding.supportUrl;
+    });
 
     const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled && isDefaultBrand.value);
 
@@ -165,6 +169,7 @@ export const useConfigStore = defineStore('config', () => {
         docsUrl,
         homepageUrl,
         gatewayUrl,
+        projectLimitsIncreaseRequestURL,
         isDefaultBrand,
         logo,
         darkLogo,

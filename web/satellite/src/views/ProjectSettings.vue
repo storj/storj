@@ -399,7 +399,7 @@ const paidBandwidthLimitFormatted = computed<string>(() => {
  * Returns project limits increase request URL from config.
  */
 const projectLimitsIncreaseRequestURL = computed((): string => {
-    return configStore.state.config.projectLimitsIncreaseRequestURL;
+    return configStore.projectLimitsIncreaseRequestURL;
 });
 
 function toggleUpgradeFlow(): void {

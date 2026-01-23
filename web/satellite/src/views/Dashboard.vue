@@ -764,7 +764,7 @@ function onBucketsCTAClicked(): void {
         return;
     }
 
-    window.open(configStore.state.config.projectLimitsIncreaseRequestURL, '_blank', 'noreferrer');
+    window.open(configStore.projectLimitsIncreaseRequestURL, '_blank', 'noreferrer');
 }
 
 /**
