@@ -339,6 +339,42 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	return info, nil
 }
 
+// LicenseInfo returns license information for a user.
+func (endpoint *Endpoint) LicenseInfo(ctx context.Context, req *pb.LicenseInfoRequest) (response *pb.LicenseInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now()
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:   macaroon.ActionProjectInfo,
+		Time: now,
+	}, console.RateLimitHead)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	// TODO does API Key creator give us correct user?
+	licenses, err := endpoint.entitlementsService.Licenses().GetActive(ctx, keyInfo.CreatedBy, entitlements.GetActiveOptions{
+		LicenseType: req.Type,
+		PublicID:    keyInfo.ProjectPublicID,
+		BucketName:  req.BucketName,
+		Now:         &now,
+	})
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
+	}
+
+	response = &pb.LicenseInfoResponse{}
+	for _, license := range licenses {
+		response.Licenses = append(response.Licenses, &pb.LicenseInfo{
+			Type:      license.Type,
+			ExpiresAt: license.ExpiresAt.String(),
+		})
+	}
+
+	return response, nil
+}
+
 // RevokeAPIKey handles requests to revoke an api key.
 func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyRequest) (resp *pb.RevokeAPIKeyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
