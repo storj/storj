@@ -370,7 +370,7 @@ func TestPlacementFromString(t *testing.T) {
 		p.AddLegacyStaticRules()
 
 		t.Run("nr", func(t *testing.T) {
-			nr := p[storj.NR]
+			nr := p[storj.NR] //lint:ignore SA1019 testing legacy placement
 			require.True(t, nr.Match(&SelectedNode{
 				CountryCode: location.UnitedKingdom,
 			}))
@@ -382,7 +382,7 @@ func TestPlacementFromString(t *testing.T) {
 			}))
 		})
 		t.Run("us", func(t *testing.T) {
-			us := p[storj.US]
+			us := p[storj.US] //lint:ignore SA1019 testing legacy placement
 			require.True(t, us.Match(&SelectedNode{
 				CountryCode: location.UnitedStates,
 			}))
@@ -431,7 +431,8 @@ func TestPlacementFromString(t *testing.T) {
 		testCountries = append(testCountries, EuCountries...)
 
 		// check if old geofencing rules are working as before (and string based config is the same as the code base)
-		for _, placement := range []storj.PlacementConstraint{storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
+		// Using numeric values for legacy placements: EU=1, EEA=2, DE=4, US=3, NR=6
+		for _, placement := range []storj.PlacementConstraint{1, 2, 4, 3, 6} {
 			filter1, _ := rules1.CreateFilters(placement)
 			filter2, _ := rules2.CreateFilters(placement)
 			for _, country := range testCountries {
@@ -445,8 +446,8 @@ func TestPlacementFromString(t *testing.T) {
 			}
 		}
 
-		filter1, _ := rules1.CreateFilters(storj.NR)
-		filter2, _ := rules2.CreateFilters(storj.NR)
+		filter1, _ := rules1.CreateFilters(storj.NR) //lint:ignore SA1019 testing legacy placement
+		filter2, _ := rules2.CreateFilters(storj.NR) //lint:ignore SA1019 testing legacy placement
 		// make sure that new rules exclude location.None from NR
 		assert.False(t, filter1.Match(&SelectedNode{}))
 		assert.False(t, filter2.Match(&SelectedNode{}))
@@ -463,7 +464,8 @@ func TestPlacementFromString(t *testing.T) {
 			},
 		}
 
-		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
+		// Using numeric values for legacy placements: EveryCountry=0, EU=1, EEA=2, DE=4, US=3, NR=6
+		for _, placement := range []storj.PlacementConstraint{0, 1, 2, 4, 3, 6} {
 			filter, _ := rules1.CreateFilters(placement)
 			assert.False(t, filter.Match(node))
 		}
@@ -504,7 +506,8 @@ func TestPlacementFromString(t *testing.T) {
 				},
 			},
 		}
-		for _, placement := range []storj.PlacementConstraint{storj.EveryCountry, storj.EU, storj.EEA, storj.DE, storj.US, storj.NR} {
+		// Using numeric values for legacy placements: EveryCountry=0, EU=1, EEA=2, DE=4, US=3, NR=6
+		for _, placement := range []storj.PlacementConstraint{0, 1, 2, 4, 3, 6} {
 			filter, _ := rules1.CreateFilters(placement)
 			value := filter.Match(datacenterNode)
 			assert.False(t, value)

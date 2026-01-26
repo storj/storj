@@ -1420,14 +1420,15 @@ func TestService(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				storedBucket.Placement = storj.EU
+				euPlacement := storj.PlacementConstraint(1)
+				storedBucket.Placement = euPlacement
 
 				_, err = sat.DB.Buckets().UpdateBucket(ctx, storedBucket)
 				require.NoError(t, err)
 
 				bt, err := service.GetSingleBucketTotals(userCtx2, up2Proj.ID, storedBucket.Name, time.Now())
 				require.NoError(t, err)
-				require.Equal(t, storj.EU, bt.DefaultPlacement)
+				require.Equal(t, euPlacement, bt.DefaultPlacement)
 				require.Equal(t, buckets.VersioningEnabled, bt.Versioning)
 
 				_, err = service.GetSingleBucketTotals(userCtx1, disabledProject.ID, storedBucket.Name, time.Now())
@@ -7958,9 +7959,9 @@ func TestMigrateProjectPricing(t *testing.T) {
 		legacyPlacement12 = storj.PlacementConstraint(12)
 		legacyPlacements  = []storj.PlacementConstraint{legacyPlacement0, legacyPlacement12}
 
-		newPlacement10 = storj.PlacementConstraint(10)
-		newPlacement20 = storj.PlacementConstraint(20)
-		newPlacement30 = storj.PlacementConstraint(30)
+		newPlacement10 = storj.PlacementConstraint(1)
+		newPlacement20 = storj.PlacementConstraint(2)
+		newPlacement30 = storj.PlacementConstraint(3)
 		newPlacements  = []storj.PlacementConstraint{newPlacement10, newPlacement20, newPlacement30}
 
 		// Legacy products (old billing before migration).

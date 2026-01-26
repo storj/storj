@@ -519,12 +519,12 @@ func TestUpdateDefaultPlacement(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, storj.PlacementConstraint(12), user.DefaultPlacement)
 
-		err = usersRepo.UpdateDefaultPlacement(ctx, user.ID, storj.EveryCountry)
+		err = usersRepo.UpdateDefaultPlacement(ctx, user.ID, storj.DefaultPlacement)
 		require.NoError(t, err)
 
 		user, err = usersRepo.Get(ctx, user.ID)
 		require.NoError(t, err)
-		require.Equal(t, storj.EveryCountry, user.DefaultPlacement)
+		require.Equal(t, storj.DefaultPlacement, user.DefaultPlacement)
 	})
 }
 
