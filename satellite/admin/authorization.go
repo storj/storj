@@ -52,6 +52,7 @@ const (
 	PermProjectMembersView
 	PermViewChangeHistory
 	PermNodesView
+	PermAccountChangeLicenses
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -67,7 +68,8 @@ const (
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView |
+			PermAccountChangeLicenses,
 	)
 	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView)
 	RoleCustomerSupport = Authorization(
@@ -77,7 +79,7 @@ const (
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectSetEntitlements |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses,
 	)
 	RoleFinanceManager = Authorization(
 		PermAccountView | PermAccountSuspendTemporary | PermAccountReActivateTemporary |

@@ -243,6 +243,65 @@ func main() {
 		},
 	})
 
+	group.Get("/{userID}/licenses", &apigen.Endpoint{
+		Name:           "Get user licenses",
+		Description:    "Gets all licenses for a user",
+		GoName:         "GetUserLicenses",
+		TypeScriptName: "getUserLicenses",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Response: backoffice.UserLicensesResponse{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
+	group.Post("/{userID}/licenses", &apigen.Endpoint{
+		Name:           "Grant user license",
+		Description:    "Grants a new license to a user",
+		GoName:         "GrantUserLicense",
+		TypeScriptName: "grantUserLicense",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.GrantLicenseRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeLicenses},
+			passAuthParamKey: true,
+		},
+	})
+
+	group.Delete("/{userID}/licenses", &apigen.Endpoint{
+		Name:           "Revoke user license",
+		Description:    "Revokes a license for a user",
+		GoName:         "RevokeUserLicense",
+		TypeScriptName: "revokeUserLicense",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.RevokeLicenseRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeLicenses},
+			passAuthParamKey: true,
+		},
+	})
+
+	group.Post("/{userID}/licenses/delete", &apigen.Endpoint{
+		Name:           "Delete user license",
+		Description:    "Permanently deletes a license for a user",
+		GoName:         "DeleteUserLicense",
+		TypeScriptName: "deleteUserLicense",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.DeleteLicenseRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeLicenses},
+			passAuthParamKey: true,
+		},
+	})
+
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 
