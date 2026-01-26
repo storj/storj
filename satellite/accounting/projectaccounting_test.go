@@ -573,7 +573,8 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			require.Zero(t, storedBucket.ObjectLock.DefaultRetentionDays)
 			require.Equal(t, 1, storedBucket.ObjectLock.DefaultRetentionYears)
 
-			storedBucket.Placement = storj.EU
+			euPlacement := storj.PlacementConstraint(1)
+			storedBucket.Placement = euPlacement
 			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
 			require.NoError(t, err)
 
@@ -602,20 +603,20 @@ func TestGetSingleBucketTotal(t *testing.T) {
 			require.Equal(t, tallies[2].ObjectCount, usage.ObjectCount)
 			require.Equal(t, memory.Size(expectedEgress).GB(), usage.Egress)
 			require.Equal(t, buckets.VersioningEnabled, usage.Versioning)
-			require.Equal(t, storj.EU, usage.DefaultPlacement)
+			require.Equal(t, euPlacement, usage.DefaultPlacement) //nolint:staticcheck // using legacy placement for test
 			require.True(t, usage.ObjectLockEnabled)
 			require.Equal(t, storj.GovernanceMode, usage.DefaultRetentionMode)
 			require.Nil(t, usage.DefaultRetentionDays)
 			require.NotNil(t, usage.DefaultRetentionYears)
 			require.Equal(t, 1, *usage.DefaultRetentionYears)
 
-			storedBucket.Placement = storj.EveryCountry
+			storedBucket.Placement = storj.DefaultPlacement
 			_, err = db.Buckets().UpdateBucket(ctx, storedBucket)
 			require.NoError(t, err)
 
 			usage, err = db.ProjectAccounting().GetSingleBucketTotals(ctx, project.ID, bucketName, before)
 			require.NoError(t, err)
-			require.Equal(t, storj.EveryCountry, usage.DefaultPlacement)
+			require.Equal(t, storj.DefaultPlacement, usage.DefaultPlacement) //nolint:staticcheck // using legacy placement for test
 
 			bucketName1 := testrand.BucketName()
 

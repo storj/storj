@@ -687,7 +687,7 @@ func BenchmarkGetNodes(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 			RequestedCount: required,
-			Placement:      storj.US,
+			Placement:      storj.PlacementConstraint(1),
 		})
 		require.NoError(b, err)
 	}

@@ -27,7 +27,7 @@ func newTestBucket(name string, projectID uuid.UUID) buckets.Bucket {
 		ID:        testrand.UUID(),
 		Name:      name,
 		ProjectID: projectID,
-		Placement: storj.EU,
+		Placement: storj.PlacementConstraint(1),
 		ObjectLock: buckets.ObjectLockSettings{
 			Enabled: true,
 		},

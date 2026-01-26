@@ -1310,7 +1310,8 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(project.Close)
 
-		require.NoError(t, planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, planet.Uplinks[0].Projects[0].ID, storj.EU))
+		euPlacement := storj.PlacementConstraint(1)
+		require.NoError(t, planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, planet.Uplinks[0].Projects[0].ID, euPlacement))
 
 		bucketName := "testbucket"
 		deleteBucket := func(bucketName string) func() error {
@@ -1357,7 +1358,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			bucket := buckets.Bucket{
 				Name:      bucketName,
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
-				Placement: storj.EU,
+				Placement: euPlacement,
 			}
 
 			_, err := bucketsService.CreateBucket(ctx, bucket)
@@ -1378,7 +1379,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			streamID := internalpb.StreamID{}
 			err = pb.Unmarshal(beginObjectResponse.StreamID.Bytes(), &streamID)
 			require.NoError(t, err)
-			require.Equal(t, int32(storj.EU), streamID.Placement)
+			require.Equal(t, int32(euPlacement), streamID.Placement)
 
 			response, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
 				StreamID: beginObjectResponse.StreamID,
@@ -1500,7 +1501,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			_, err = planet.Satellites[0].DB.Buckets().UpdateBucket(ctx, buckets.Bucket{
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Name:      bucketName,
-				Placement: storj.EU,
+				Placement: euPlacement,
 			})
 			require.NoError(t, err)
 
@@ -1750,6 +1751,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			bucketName := "initial-bucket"
 			objectName := "file1"
+			placementTest := storj.PlacementConstraint(1)
 
 			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 			t.Log(apiKey)
@@ -1758,7 +1760,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			bucket := buckets.Bucket{
 				Name:      bucketName,
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
-				Placement: storj.EU,
+				Placement: placementTest,
 			}
 			_, err := bucketsService.CreateBucket(ctx, bucket)
 			require.NoError(t, err)
@@ -1771,7 +1773,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(segments))
-			require.Equal(t, storj.EU, segments[0].Placement)
+			require.Equal(t, placementTest, segments[0].Placement)
 		})
 
 		t.Run("multiple versions", func(t *testing.T) {
@@ -2060,12 +2062,16 @@ func TestMoveObject_Geofencing(t *testing.T) {
 			uplink := planet.Uplinks[0]
 			projectID := uplink.Projects[0].ID
 
+			globalPlacement := storj.DefaultPlacement
+			usPlacement := storj.PlacementConstraint(3)
+			euPlacement := storj.PlacementConstraint(1)
+
 			// create buckets with different placement
-			createGeofencedBucket(t, ctx, buckets, projectID, "global1", storj.EveryCountry)
-			createGeofencedBucket(t, ctx, buckets, projectID, "global2", storj.EveryCountry)
-			createGeofencedBucket(t, ctx, buckets, projectID, "us1", storj.US)
-			createGeofencedBucket(t, ctx, buckets, projectID, "us2", storj.US)
-			createGeofencedBucket(t, ctx, buckets, projectID, "eu1", storj.EU)
+			createGeofencedBucket(t, ctx, buckets, projectID, "global1", globalPlacement)
+			createGeofencedBucket(t, ctx, buckets, projectID, "global2", globalPlacement)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us1", usPlacement)
+			createGeofencedBucket(t, ctx, buckets, projectID, "us2", usPlacement)
+			createGeofencedBucket(t, ctx, buckets, projectID, "eu1", euPlacement)
 
 			// upload an object to one of the global buckets
 			err := uplink.Upload(ctx, satellite, "global1", "testobject", []byte{})

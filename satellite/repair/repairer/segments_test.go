@@ -62,7 +62,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.EU,
+			Placement: storj.PlacementConstraint(1),
 		})
 		require.NoError(t, err)
 
@@ -384,7 +384,7 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.EU,
+			Placement: storj.PlacementConstraint(1),
 		})
 		require.NoError(t, err)
 
@@ -475,7 +475,7 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 		_, err := planet.Satellites[0].API.Buckets.Service.UpdateBucket(ctx, buckets.Bucket{
 			ProjectID: planet.Uplinks[0].Projects[0].ID,
 			Name:      "testbucket",
-			Placement: storj.EU,
+			Placement: storj.PlacementConstraint(1),
 		})
 		require.NoError(t, err)
 
