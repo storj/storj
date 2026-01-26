@@ -54,12 +54,6 @@ pipeline {
                     }
                 }
 
-                stage('wasm') {
-                    steps {
-                        sh './web/satellite/wasm/run-tests.sh'
-                    }
-                }
-
                 stage('web/storagenode') {
                     steps {
                         sh './web/storagenode/build.sh'
@@ -235,13 +229,9 @@ pipeline {
 
         stage('Test Web') {
             parallel {
-                stage('wasm npm') {
+                stage('wasm') {
                     steps {
-                        dir(".build") {
-                            sh 'cp -r ../web/satellite/wasm/tests/ .'
-                            sh 'cd tests && ./copy-wasm.sh'
-                            sh 'cd tests && npm install && npm run test'
-                        }
+                        sh './web/satellite/wasm/run-tests.sh'
                     }
                 }
 
