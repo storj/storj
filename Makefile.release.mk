@@ -106,7 +106,7 @@ release/binaries/upload-to-google-storage: ## Upload binaries to Google Storage 
 .PHONY: release/binaries/publish-to-github
 release/binaries/publish-to-github: ## Publish the release to github.
 	@echo "Publishing release to Github"
-	scripts/release/publish-to-github.sh "$(GIT_BRANCH_NAME)" "release/$(BUILD_VERSION)"
+	scripts/release/publish-to-github.sh "$(GIT_TAG)" "release/$(BUILD_VERSION)"
 
 .PHONY: release/binaries/clean
 release/binaries/clean: ## Clean the release folder
