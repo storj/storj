@@ -1,6 +1,7 @@
 def lastStage = ''
 node('node') {
   properties([disableConcurrentBuilds()])
+  timeout(time: 60, unit: 'MINUTES') {
   try {
     currentBuild.result = "SUCCESS"
 
@@ -177,5 +178,6 @@ node('node') {
       sh '[ -n "$BUILDX_BUILDER" ] && docker buildx rm --keep-state $BUILDX_BUILDER || true'
       deleteDir()
     }
+  }
   }
 }
