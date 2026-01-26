@@ -119,7 +119,7 @@ func TestInt2Array(t *testing.T) {
 
 func TestPlacementConstraintArray(t *testing.T) {
 	withUniqueDB(t, "pgutil-types", func(ctx *testcontext.Context, t *testing.T, db *dbutil.TempDatabase) {
-		array := []storj.PlacementConstraint{storj.EveryCountry, storj.DE, storj.EU, storj.US, math.MaxUint16}
+		array := []storj.PlacementConstraint{storj.PlacementConstraint(0), storj.PlacementConstraint(4), storj.PlacementConstraint(1), storj.PlacementConstraint(3), math.MaxUint16}
 
 		// PostgreSQL (and SQL) don't have unsigned int types, but values above math.MaxInt16 should
 		// translate ok in a round trip.

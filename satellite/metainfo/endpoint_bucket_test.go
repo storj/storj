@@ -521,9 +521,11 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
 
+		euPlacement := storj.PlacementConstraint(1)
+
 		// change the default_placement of the project
 		project, err := planet.Satellites[0].API.DB.Console().Projects().Get(ctx, projectID)
-		project.DefaultPlacement = storj.EU
+		project.DefaultPlacement = euPlacement
 		require.NoError(t, err)
 		err = planet.Satellites[0].API.DB.Console().Projects().Update(ctx, project)
 		require.NoError(t, err)
@@ -538,7 +540,7 @@ func TestBucketCreationWithDefaultPlacement(t *testing.T) {
 		// check if placement is set
 		placement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte("eu1"), projectID)
 		require.NoError(t, err)
-		require.Equal(t, storj.EU, placement)
+		require.Equal(t, euPlacement, placement)
 
 	})
 }
@@ -575,8 +577,10 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		bucket1 := "bucket1"
 
+		euPlacement := storj.PlacementConstraint(1)
+
 		// change the default_placement of the project
-		err := planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, storj.EU)
+		err := planet.Satellites[0].API.DB.Console().Projects().UpdateDefaultPlacement(ctx, projectID, euPlacement)
 		require.NoError(t, err)
 
 		_, err = sat.API.Metainfo.Endpoint.CreateBucket(ctx, &pb.CreateBucketRequest{
@@ -599,9 +603,9 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if placement is set to project default
-		placement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucket1), projectID)
+		bucketPlacement, err := planet.Satellites[0].API.DB.Buckets().GetBucketPlacement(ctx, []byte(bucket1), projectID)
 		require.NoError(t, err)
-		require.Equal(t, storj.EU, placement)
+		require.Equal(t, euPlacement, bucketPlacement)
 
 		// delete the bucket
 		err = planet.Satellites[0].API.DB.Buckets().DeleteBucket(ctx, []byte(bucket1), projectID)

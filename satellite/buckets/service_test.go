@@ -38,27 +38,29 @@ func TestBucketPlacement_EmptyBucket(t *testing.T) {
 			assert.Empty(t, bucket.Placement)
 
 			// set bucket placement
-			bucket.Placement = storj.EU
+			euPlacement := storj.PlacementConstraint(1)
+			bucket.Placement = euPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
 			// check that the placement is now set
 			bucket, err = buckets.GetBucket(ctx, []byte(TestBucket), projectID)
 			require.NoError(t, err)
-			assert.Equal(t, storj.EU, bucket.Placement)
+			assert.Equal(t, euPlacement, bucket.Placement)
 
 			// change bucket placement to new location
-			bucket.Placement = storj.US
+			usPlacement := storj.PlacementConstraint(3)
+			bucket.Placement = usPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
 			// check that the placement is now at the new location
 			bucket, err = buckets.GetBucket(ctx, []byte(TestBucket), projectID)
 			require.NoError(t, err)
-			assert.Equal(t, storj.US, bucket.Placement)
+			assert.Equal(t, usPlacement, bucket.Placement)
 
 			// remove bucket placement constraints
-			bucket.Placement = storj.EveryCountry
+			bucket.Placement = storj.DefaultPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
@@ -94,8 +96,10 @@ func TestBucketPlacement_SetOnNonEmptyBucket(t *testing.T) {
 			err = uplink.Upload(ctx, satellite, TestBucket, TestObject, []byte{})
 			require.NoError(t, err)
 
+			euPlacement := storj.PlacementConstraint(1)
+
 			// set bucket placement - it should fail
-			bucket.Placement = storj.EU
+			bucket.Placement = euPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.Error(t, err)
 
@@ -109,14 +113,14 @@ func TestBucketPlacement_SetOnNonEmptyBucket(t *testing.T) {
 			require.NoError(t, err)
 
 			// set bucket placement
-			bucket.Placement = storj.EU
+			bucket.Placement = euPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
 			// check that the placement is now set
 			bucket, err = buckets.GetBucket(ctx, []byte(TestBucket), projectID)
 			require.NoError(t, err)
-			assert.Equal(t, storj.EU, bucket.Placement)
+			assert.Equal(t, euPlacement, bucket.Placement)
 		},
 	)
 }
@@ -132,6 +136,10 @@ func TestBucketPlacement_ChangeOnNonEmptyBucket(t *testing.T) {
 			uplink := planet.Uplinks[0]
 			projectID := uplink.Projects[0].ID
 
+			euPlacement := storj.PlacementConstraint(1)
+			usPlacement := storj.PlacementConstraint(3)
+			everyCountryPlacement := storj.DefaultPlacement
+
 			// create new bucket
 			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)
 			require.NoError(t, err)
@@ -142,45 +150,45 @@ func TestBucketPlacement_ChangeOnNonEmptyBucket(t *testing.T) {
 			assert.Empty(t, bucket.Placement)
 
 			// set bucket placement
-			bucket.Placement = storj.EU
+			bucket.Placement = euPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
 			// check that the placement is now set
 			bucket, err = buckets.GetBucket(ctx, []byte(TestBucket), projectID)
 			require.NoError(t, err)
-			assert.Equal(t, storj.EU, bucket.Placement)
+			assert.Equal(t, euPlacement, bucket.Placement)
 
 			// upload an empty object - just to have the bucket non-empty
 			err = uplink.Upload(ctx, satellite, TestBucket, TestObject, []byte{})
 			require.NoError(t, err)
 
 			// change bucket placement to new location - it should fail
-			bucket.Placement = storj.US
+			bucket.Placement = usPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.Error(t, err)
 
 			// check that the placement has not changed
 			bucket, err = buckets.GetBucket(ctx, []byte(TestBucket), projectID)
 			require.NoError(t, err)
-			assert.Equal(t, storj.EU, bucket.Placement)
+			assert.Equal(t, euPlacement, bucket.Placement)
 
 			// remove bucket placement constraints - it should fail
-			bucket.Placement = storj.EveryCountry
+			bucket.Placement = everyCountryPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.Error(t, err)
 
 			// check that the placement has not changed
 			bucket, err = buckets.GetBucket(ctx, []byte(TestBucket), projectID)
 			require.NoError(t, err)
-			assert.Equal(t, storj.EU, bucket.Placement)
+			assert.Equal(t, euPlacement, bucket.Placement)
 
 			// delete the file
 			err = uplink.DeleteObject(ctx, satellite, TestBucket, TestObject)
 			require.NoError(t, err)
 
 			// remove bucket placement constraints
-			bucket.Placement = storj.EveryCountry
+			bucket.Placement = everyCountryPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
@@ -203,6 +211,8 @@ func TestBucketPlacement_PendingObject(t *testing.T) {
 			uplink := planet.Uplinks[0]
 			projectID := uplink.Projects[0].ID
 
+			euPlacement := storj.PlacementConstraint(1)
+
 			// create new bucket
 			err := uplink.TestingCreateBucket(ctx, satellite, TestBucket)
 			require.NoError(t, err)
@@ -221,7 +231,7 @@ func TestBucketPlacement_PendingObject(t *testing.T) {
 			require.NoError(t, err)
 
 			// set bucket placement - it should fail
-			bucket.Placement = storj.EU
+			bucket.Placement = euPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.Error(t, err)
 
@@ -236,14 +246,14 @@ func TestBucketPlacement_PendingObject(t *testing.T) {
 			require.NoError(t, err)
 
 			// set bucket placement
-			bucket.Placement = storj.EU
+			bucket.Placement = euPlacement
 			_, err = buckets.UpdateBucket(ctx, bucket)
 			require.NoError(t, err)
 
 			// check that the placement is now set
 			bucket, err = buckets.GetBucket(ctx, []byte(TestBucket), projectID)
 			require.NoError(t, err)
-			assert.Equal(t, storj.EU, bucket.Placement)
+			assert.Equal(t, euPlacement, bucket.Placement)
 		},
 	)
 }

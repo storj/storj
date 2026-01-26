@@ -265,23 +265,23 @@ func NewPlacementDefinitions(placements ...Placement) PlacementDefinitions {
 
 // AddLegacyStaticRules initializes all the placement rules defined earlier in static golang code.
 func (d PlacementDefinitions) AddLegacyStaticRules() {
-	d[storj.EEA] = Placement{
+	d[storj.EEA] = Placement{ //lint:ignore SA1019 intentionally using legacy placement constant
 		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(EeaCountriesWithoutEu...).With(EuCountries...))},
 		DownloadSelector: DefaultDownloadSelector,
 	}
-	d[storj.EU] = Placement{
+	d[storj.EU] = Placement{ //lint:ignore SA1019 intentionally using legacy placement constant
 		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(EuCountries...))},
 		DownloadSelector: DefaultDownloadSelector,
 	}
-	d[storj.US] = Placement{
+	d[storj.US] = Placement{ //lint:ignore SA1019 intentionally using legacy placement constant
 		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(location.UnitedStates))},
 		DownloadSelector: DefaultDownloadSelector,
 	}
-	d[storj.DE] = Placement{
+	d[storj.DE] = Placement{ //lint:ignore SA1019 intentionally using legacy placement constant
 		NodeFilter:       NodeFilters{NewCountryFilter(location.NewSet(location.Germany))},
 		DownloadSelector: DefaultDownloadSelector,
 	}
-	d[storj.NR] = Placement{
+	d[storj.NR] = Placement{ //lint:ignore SA1019 intentionally using legacy placement constant
 		NodeFilter:       NodeFilters{NewCountryFilter(location.NewFullSet().Without(location.Russia, location.Belarus, location.None))},
 		DownloadSelector: DefaultDownloadSelector,
 	}

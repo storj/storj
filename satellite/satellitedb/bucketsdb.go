@@ -168,11 +168,11 @@ func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return storj.EveryCountry, buckets.ErrBucketNotFound.New("%s", bucketName)
+			return storj.DefaultPlacement, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return storj.EveryCountry, buckets.ErrBucket.Wrap(err)
+		return storj.DefaultPlacement, buckets.ErrBucket.Wrap(err)
 	}
-	placement = storj.EveryCountry
+	placement = storj.DefaultPlacement
 	if dbxPlacement.Placement != nil {
 		placement = storj.PlacementConstraint(*dbxPlacement.Placement)
 	}
