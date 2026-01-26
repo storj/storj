@@ -1335,7 +1335,17 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 		// if we couldn't write the data, we should abort the write operation and attempt to reclaim
 		// space by truncating to the saved offset.
 		_ = into.fh.Truncate(offset)
-		return rec, Error.New("writing into compacted log: %w", err)
+
+		statSize := int64(-1)
+		if fi, statErr := r.fh.Stat(); statErr == nil {
+			statSize = fi.Size()
+		}
+		return rec, Error.New("writing into compacted log (rec=%v) (from=%v) (size=%d): %w",
+			rec,
+			r.fh.Name(),
+			statSize,
+			err,
+		)
 	}
 
 	// update the record location.

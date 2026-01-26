@@ -5,6 +5,7 @@ package hashstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -1728,6 +1729,26 @@ func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
 			assert.That(t, time.Since(start) < time.Minute)
 		}
 	})
+}
+
+func TestStore_RewriteRecordWithTruncatedLogErrors(t *testing.T) {
+	ctx := t.Context()
+
+	s := newTestStore(t, defaultConfig())
+	defer s.Close()
+
+	key := s.AssertCreate(WithDataSize(1024))
+	rec, ok, err := s.tbl.Lookup(ctx, key)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	lf, ok := s.lfs.Lookup(s.LogFile(key))
+	assert.True(t, ok)
+
+	assert.NoError(t, lf.fh.Truncate(int64(lf.size.Load())-RecordSize-1))
+
+	_, err = s.rewriteRecord(ctx, rec, nil)
+	assert.That(t, errors.Is(err, io.EOF))
 }
 
 //
