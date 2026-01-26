@@ -457,12 +457,13 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         let iteration = 1;
         let keyCount = 0;
+        let foundPlaceholder = false;
 
         for await (const response of paginator) {
             if (iteration === 1) {
                 const { Contents, CommonPrefixes } = response;
 
-                processFetchedObjects(path, Contents, CommonPrefixes);
+                foundPlaceholder = processFetchedObjects(path, Contents, CommonPrefixes);
 
                 state.activeObjectsRange = { start: 1, end: MAX_KEY_COUNT };
             }
@@ -478,7 +479,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         // We decrement key count if we're inside a folder to exclude .file_placeholder object
         // which was auto created for this folder because it's not visible by the user
         // and it shouldn't be included in pagination process.
-        if (path) {
+        if (path && foundPlaceholder) {
             keyCount -= 1;
         }
 
@@ -530,7 +531,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.cursor.page = page;
     }
 
-    function processFetchedObjects(path: string, Contents: _Object[] | undefined, CommonPrefixes: CommonPrefix[] | undefined): void {
+    function processFetchedObjects(path: string, Contents: _Object[] | undefined, CommonPrefixes: CommonPrefix[] | undefined): boolean {
         if (Contents === undefined) {
             Contents = [];
         }
@@ -559,6 +560,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         ];
 
         updateFiles(path, files);
+
+        // Return a boolean flag indicating if there is any file placeholder in the fetched contents.
+        return Contents.some(f => f.Key?.includes('.file_placeholder'));
     }
 
     async function restoreObject(obj: BrowserObject): Promise<void> {

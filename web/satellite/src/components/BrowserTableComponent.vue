@@ -196,7 +196,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, WritableComputedRef } from 'vue';
+import { computed, onBeforeMount, ref, watch, WritableComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
@@ -683,7 +683,12 @@ watch(filePath, () => {
     obStore.clearTokens();
     fetchFiles();
 }, { immediate: true });
+
 watch(() => props.forceEmpty, v => !v && fetchFiles());
+
+onBeforeMount(() => {
+    obStore.setCursor({ page: 1, limit: pageSizes[0] });
+});
 
 defineExpose({
     refresh: async () => {
