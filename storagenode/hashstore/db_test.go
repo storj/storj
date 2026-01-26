@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -491,6 +492,24 @@ func testDB_BackgroundCompaction(t *testing.T, cfg Config) {
 	})
 	t.Run("Passive", func(t *testing.T) {
 		run(t, func(db *testDB) *Store { return db.passive })
+	})
+}
+
+func TestDB_BackgroundCompactionLoop(t *testing.T) {
+	forAllTables(t, testDB_BackgroundCompactionLoop)
+}
+
+func testDB_BackgroundCompactionLoop(t *testing.T, cfg Config) {
+	synctest.Test(t, func(t *testing.T) {
+		db := newTestDB(t, cfg)
+		defer db.Close()
+
+		for func() bool {
+			db, s0, s1 := db.Stats()
+			return db.Compactions < 10 || s0.Compactions < 5 || s1.Compactions < 5
+		}() {
+			time.Sleep(time.Hour)
+		}
 	})
 }
 
