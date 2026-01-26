@@ -115,7 +115,7 @@
                                             :value="placement.idName"
                                             color="primary"
                                         >
-                                            {{ placement.name }}
+                                            {{ placement.shortName || placement.name }}
                                         </v-chip>
                                     </v-chip-group>
 
