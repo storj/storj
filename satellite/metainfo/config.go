@@ -245,6 +245,8 @@ type Config struct {
 
 	BucketTaggingEnabled bool `help:"enable the use of the bucket tagging endpoints" default:"false"`
 
+	BucketEventingServiceAccount string `help:"service account email to impersonate for sending bucket eventing test event" default:""`
+
 	APIKeyTailsConfig APIKeyTailsConfig `help:"Config for API key tails processing"`
 
 	CopyMoveSegmentLimit int64 `help:"the maximum number of segments that can be copied or moved in a single operation" default:"10000"`
