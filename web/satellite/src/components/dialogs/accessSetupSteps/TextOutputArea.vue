@@ -9,7 +9,6 @@
             'text-output-area--unblur': !isBlurred,
         }"
         variant="solo-filled"
-        :label="label"
         :model-value="value"
         rounded="xlg"
         rows="1"
@@ -38,6 +37,22 @@
             </v-fade-transition>
         </template>
 
+        <template #label>
+            <p class="d-flex align-center">
+                {{ label }}
+                <v-tooltip v-if="extraInfo" width="250" location="top">
+                    <template #activator="{ props: activatorProps }">
+                        <span class="tooltip-activator ml-1" v-bind="activatorProps">
+                            <v-icon size="14">
+                                <Info :size="14" />
+                            </v-icon>
+                        </span>
+                    </template>
+                    {{ extraInfo }}
+                </v-tooltip>
+            </p>
+        </template>
+
         <template v-if="showCopy" #append-inner>
             <input-copy-button :value="value" :tooltip-disabled="tooltipDisabled" />
         </template>
@@ -45,8 +60,8 @@
 </template>
 
 <script setup lang="ts">
-import { VTextarea, VFadeTransition, VBtn } from 'vuetify/components';
-import { LockKeyhole } from 'lucide-vue-next';
+import { VTextarea, VFadeTransition, VBtn, VIcon, VTooltip } from 'vuetify/components';
+import { Info, LockKeyhole } from 'lucide-vue-next';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
@@ -56,6 +71,7 @@ defineProps<{
     centerText?: boolean;
     tooltipDisabled?: boolean;
     showCopy?: boolean;
+    extraInfo?: string;
 }>();
 
 const isBlurred = defineModel<boolean>('isBlurred', { default: true });
@@ -100,5 +116,10 @@ const isBlurred = defineModel<boolean>('isBlurred', { default: true });
     &--center-text :deep(textarea) {
         text-align: center;
     }
+}
+
+:deep(.tooltip-activator) {
+    pointer-events: auto;
+    cursor: pointer;
 }
 </style>

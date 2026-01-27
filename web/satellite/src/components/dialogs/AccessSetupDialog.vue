@@ -402,7 +402,11 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         SetupStep.ChooseFlowStep,
     ),
     [SetupStep.ChooseFlowStep]: new StepInfo(
-        'Next ->',
+        () => {
+            if (flowType.value === FlowType.Advanced) return 'Next ->';
+            if (accessType.value === AccessType.APIKey) return 'Create Access';
+            return promptForPassphrase.value ? 'Next ->' : 'Create Access';
+        },
         () => props.defaultAccessType ? 'Cancel' : 'Back',
         () => {
             if (hideUplinkBehavior.value) return SetupStep.ChooseAccessStep;
@@ -414,47 +418,77 @@ const stepInfos: Record<SetupStep, StepInfo> = {
         },
         () => {
             if (accessType.value === AccessType.APIKey) {
-                return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
+                return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
             }
 
             if (promptForPassphrase.value) return SetupStep.AccessEncryption;
 
-            return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
         },
-        () => {
-            if (flowType.value === FlowType.FullAccess) setFullAccess();
+        async () => {
+            if (flowType.value === FlowType.FullAccess) {
+                setFullAccess();
+
+                if (accessType.value === AccessType.APIKey || !promptForPassphrase.value) {
+                    await generate();
+                }
+            }
         },
     ),
     [SetupStep.AccessEncryption]: new StepInfo(
-        'Next ->',
+        () => {
+            if (
+                passphraseOption.value === PassphraseOption.EnterNewPassphrase ||
+                passphraseOption.value === PassphraseOption.GenerateNewPassphrase
+            ) {
+                return 'Next ->';
+            }
+
+            return flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->';
+        },
         'Back',
         SetupStep.ChooseFlowStep,
         () => {
             if (passphraseOption.value === PassphraseOption.EnterNewPassphrase) return SetupStep.EnterNewPassphrase;
             if (passphraseOption.value === PassphraseOption.GenerateNewPassphrase) return SetupStep.PassphraseGenerated;
 
-            return flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep;
+            return flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep;
         },
-        () => {
-            if (flowType.value === FlowType.FullAccess) setFullAccess();
+        async () => {
+            if (flowType.value === FlowType.FullAccess) {
+                setFullAccess();
+
+                if (
+                    passphraseOption.value !== PassphraseOption.EnterNewPassphrase &&
+                    passphraseOption.value !== PassphraseOption.GenerateNewPassphrase
+                ) {
+                    await generate();
+                }
+            }
         },
     ),
     [SetupStep.PassphraseGenerated]: new StepInfo(
-        'Next ->',
+        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->',
         'Back',
         SetupStep.AccessEncryption,
-        () => flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep,
-        () => {
-            if (flowType.value === FlowType.FullAccess) setFullAccess();
+        () => flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
+        async () => {
+            if (flowType.value === FlowType.FullAccess) {
+                setFullAccess();
+                await generate();
+            }
         },
     ),
     [SetupStep.EnterNewPassphrase]: new StepInfo(
-        'Next ->',
+        () => flowType.value === FlowType.FullAccess ? 'Create Access' : 'Next ->',
         'Back',
         SetupStep.AccessEncryption,
-        () => flowType.value === FlowType.FullAccess ? SetupStep.ConfirmDetailsStep : SetupStep.ChoosePermissionsStep,
-        () => {
-            if (flowType.value === FlowType.FullAccess) setFullAccess();
+        () => flowType.value === FlowType.FullAccess ? SetupStep.AccessCreatedStep : SetupStep.ChoosePermissionsStep,
+        async () => {
+            if (flowType.value === FlowType.FullAccess) {
+                setFullAccess();
+                await generate();
+            }
         },
     ),
     [SetupStep.ChoosePermissionsStep]: new StepInfo(
