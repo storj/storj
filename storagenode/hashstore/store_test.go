@@ -1679,6 +1679,7 @@ func TestStore_ReconstructFromLogOnStartup(t *testing.T) {
 }
 func testStore_ReconstructFromLogOnStartup(t *testing.T, cfg Config) {
 	cfg.Store.ReconstructTable = true
+	cfg.Store.SkipLogCheck = true // ensure we reconstruct even if this is set
 	cfg.Compaction.MaxLogSize = 10 * 1024
 
 	s := newTestStore(t, cfg)
@@ -1697,6 +1698,46 @@ func testStore_ReconstructFromLogOnStartup(t *testing.T, cfg Config) {
 	for _, key := range keys {
 		s.AssertRead(key)
 	}
+}
+
+func TestStore_SkipLogCheckOnStartup(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Store.SkipLogCheck = true
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// create something in the log file and the table and grab the log file it
+	// went into. we ensure all future creates go into the same log file.
+	key := s.AssertCreate()
+	lf, ok := s.lfs.Lookup(s.LogFile(key))
+	assert.True(t, ok)
+
+	// now add a key only to the log file
+	logOnly := newKey()
+	{
+		var buf [RecordSize]byte
+		(&Record{
+			Key:     logOnly,
+			Offset:  lf.size.Load(),
+			Log:     lf.id,
+			Length:  uint32(len(logOnly)),
+			Created: s.Store.today(),
+		}).WriteTo(&buf)
+
+		_, err := lf.fh.Write(logOnly[:])
+		assert.NoError(t, err)
+		_, err = lf.fh.Write(buf[:])
+		assert.NoError(t, err)
+
+		lf.size.Add(uint64(len(logOnly)) + RecordSize)
+	}
+
+	// restarting should succeed and the log-only key should be ignored.
+	s.AssertReopen(WithoutHintFile(true))
+
+	s.AssertRead(key)
+	s.AssertNotExist(logOnly)
 }
 
 func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
