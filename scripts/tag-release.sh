@@ -15,8 +15,8 @@ set -o pipefail
 
 BUILD_VERSION="${1-}"
 
-if ! [[ "$BUILD_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc+(-.*)?)?$ ]]; then
-  echo "usage: $0 vMAJOR.MINOR.PATCH[-rc[-*]]"
+if ! [[ "$BUILD_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]*(-.*)?)?$ ]]; then
+  echo "usage: $0 vMAJOR.MINOR.PATCH[-rc[0-9]*[-.*]]"
   exit 1
 fi
 
