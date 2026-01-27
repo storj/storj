@@ -42,7 +42,7 @@
                 @click="openBucket(item.name)"
             >
                 <template #default>
-                    <img class="mr-3" src="@/assets/icon-bucket-tonal.svg" alt="Bucket">
+                    <IconBucketTonal class="mr-3" />
                     <div class="max-width">
                         <p class="font-weight-bold text-lowercase text-truncate">{{ item.name }}</p>
                     </div>
@@ -232,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, FunctionalComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, FunctionalComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
@@ -299,6 +299,9 @@ import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.
 import SetBucketObjectLockConfigDialog from '@/components/dialogs/SetBucketObjectLockConfigDialog.vue';
 import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 import CannotDeleteDialog from '@/components/dialogs/CannotDeleteDialog.vue';
+
+// Async import to avoid circular chunk dependencies
+const IconBucketTonal = defineAsyncComponent(() => import('@/components/icons/IconBucketTonal.vue'));
 
 const userStore = useUsersStore();
 const bucketsStore = useBucketsStore();

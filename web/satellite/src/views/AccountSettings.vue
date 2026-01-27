@@ -97,7 +97,7 @@
 
         <v-row>
             <v-col v-if="!user.externalID" cols="12" sm="6" lg="4">
-                <v-card title="Password" variant="outlined" class="pa-2">
+                <v-card title="Password" class="pa-2">
                     <v-card-subtitle>
                         ••••••••••
                     </v-card-subtitle>
