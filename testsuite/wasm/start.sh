@@ -2,13 +2,16 @@
 # Copyright (C) 2022 Storj Labs, Inc.
 # See LICENSE for copying information.
 set -x
-cd "$(dirname "${BASH_SOURCE[0]}")/../.."
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
 mkdir -p .build
-rm -rf .build/wasm || true
+rm -rf .build/wasmtest || true
 
-cp -r satellite/console/wasm/tests/ .build/
-cd .build/tests/
+echo "Running wasm tests at: $(pwd)"
+cp -r web/satellite/wasm/tests/ .build/wasmtest/
+cd .build/wasmtest/
 
 # Copy wasm helper file
 LOCALGOROOT=$(GOTOOLCHAIN=local go env GOROOT)
