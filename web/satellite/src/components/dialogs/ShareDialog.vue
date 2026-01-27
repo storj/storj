@@ -21,7 +21,7 @@
                     </v-sheet>
                 </template>
                 <v-card-title class="font-weight-bold">
-                    Share {{ shareText }}
+                    Share {{ shareOptions[type].title }}
                 </v-card-title>
                 <template #append>
                     <v-btn
@@ -43,21 +43,20 @@
                     <v-form v-model="formValid" class="pa-6" @submit.prevent>
                         <v-row>
                             <v-col cols="12">
-                                <p class="text-subtitle-2 mb-6">Every shared {{ shareText.toLowerCase() }} requires an explicit Access Key.</p>
-                                <v-text-field
-                                    v-model="accessName"
-                                    variant="outlined"
-                                    :rules="accessNameRules"
-                                    label="Access Key name"
-                                    placeholder="Enter access key name"
-                                    :hide-details="false"
-                                    :maxlength="maxAccessNameLength"
-                                    :disabled="isLoading"
-                                    required
-                                />
+                                <p class="d-flex align-center mb-6">
+                                    <img :src="shareOptions[type].icon" alt="share option icon" class="mr-2" width="36" height="36">
+                                    {{ sharedObjectName }}
+                                </p>
+                                <p class="font-weight-bold mb-2">
+                                    Share Expiration
+                                    <v-tooltip width="300" location="top">
+                                        <template #activator="{ props: activatorProps }">
+                                            <v-icon v-bind="activatorProps" class="cursor-pointer ml-1" size="14" :icon="Info" />
+                                        </template>
+                                        Choose when this share link should expire for better security control.
+                                    </v-tooltip>
+                                </p>
                                 <template v-if="isPaidProjectOwner">
-                                    <p class="text-subtitle-2 mb-6">Set an optional expiration date for this link.</p>
-
                                     <v-chip-group
                                         v-model="expirationOption"
                                         selected-class="font-weight-bold"
@@ -78,6 +77,43 @@
                                         :min="minDate"
                                     />
                                 </template>
+                                <div v-else class="d-inline">
+                                    <v-chip disabled>Custom</v-chip>
+                                    <v-tooltip activator="parent" text="Only available for paid projects." />
+                                </div>
+
+                                <v-expansion-panels class="mt-4">
+                                    <v-expansion-panel :disabled="!accessName" static eager class="rounded-lg">
+                                        <v-expansion-panel-title>
+                                            Advanced
+                                        </v-expansion-panel-title>
+                                        <v-expansion-panel-text>
+                                            <p class="font-weight-bold mb-6">
+                                                Access Key Name
+                                                <v-tooltip width="300" location="top">
+                                                    <template #activator="{ props: activatorProps }">
+                                                        <v-icon v-bind="activatorProps" class="cursor-pointer ml-1" size="14" :icon="Info" />
+                                                    </template>
+                                                    Give this share a memorable name for your reference.
+                                                    This helps you identify and manage your shares later.
+                                                    Only visible in the access key section.
+                                                </v-tooltip>
+                                            </p>
+                                            <v-text-field
+                                                v-model="accessName"
+                                                variant="outlined"
+                                                :rules="accessNameRules"
+                                                label="Access Key name"
+                                                placeholder="Enter access key name"
+                                                :hide-details="false"
+                                                :maxlength="maxAccessNameLength"
+                                                :disabled="isLoading"
+                                                required
+                                            />
+                                        </v-expansion-panel-text>
+                                    </v-expansion-panel>
+                                </v-expansion-panels>
+                                <p class="mt-6 text-subtitle-2">Click "Next" to generate your share link.</p>
                             </v-col>
                         </v-row>
                     </v-form>
@@ -87,7 +123,7 @@
                         <v-row>
                             <v-col cols="12">
                                 <v-alert type="info" variant="tonal">
-                                    Public link sharing. Anyone with the link can view your shared {{ shareText.toLowerCase() }}. No sign-in required.
+                                    Public link sharing. Anyone with the link can view your shared {{ shareOptions[type].title.toLowerCase() }}. No sign-in required.
                                 </v-alert>
                             </v-col>
                             <v-col v-if="shareInfo?.freeTrialExpiration" cols="12" class="pt-0">
@@ -118,7 +154,7 @@
                                                 Default
                                             </v-chip>
                                         </p>
-                                        <p class="text-caption text-medium-emphasis mb-2">View the {{ shareText.toLowerCase() }} in a browser before downloading</p>
+                                        <p class="text-caption text-medium-emphasis mb-2">View the {{ shareOptions[type].title.toLowerCase() }} in a browser before downloading</p>
                                         <v-text-field
                                             :model-value="link"
                                             variant="solo-filled"
@@ -263,8 +299,14 @@ import {
     VTextField,
     VWindow,
     VWindowItem,
+    VTooltip,
+    VIcon,
+    VExpansionPanel,
+    VExpansionPanels,
+    VExpansionPanelTitle,
+    VExpansionPanelText,
 } from 'vuetify/components';
-import { Check, Code2, Copy, Download, Eye, Link, Share2, X } from 'lucide-vue-next';
+import { Check, Code2, Copy, Download, Eye, Info, Link, Share2, X } from 'lucide-vue-next';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -282,6 +324,10 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 
+import folderIcon from '@/assets/icon-folder-tonal.svg';
+import fileIcon from '@/assets/icon-file-tonal.svg';
+import bucketIcon from '@/assets/icon-bucket-tonal.svg';
+
 // Define tab values as string literals for better type support
 type ShareTabType = 'links' | 'social' | 'embed';
 
@@ -294,6 +340,17 @@ enum ExpirationOptions {
     NoExpiration = 'No Expiration',
     Custom = 'Custom',
 }
+
+interface ShareOptionConfig {
+    title: string;
+    icon: string;
+}
+
+const shareOptions: Record<ShareType, ShareOptionConfig> = {
+    [ShareType.Bucket]: { title: 'Bucket', icon: bucketIcon },
+    [ShareType.Folder]: { title: 'Folder', icon: folderIcon },
+    [ShareType.Object]: { title: 'File', icon: fileIcon },
+};
 
 const props = defineProps<{
     bucketName: string,
@@ -344,18 +401,9 @@ const maxAccessNameLength = computed<number>(() => configStore.state.config.maxN
 const selectedProjectID = computed<string>(() => projectStore.state.selectedProject.id);
 
 const isPaidProjectOwner = computed<boolean>(() => projectStore.state.selectedProjectConfig.hasPaidPrivileges);
-
-const shareText = computed<string>(() => {
-    switch (type.value) {
-    case ShareType.Bucket:
-        return 'Bucket';
-    case ShareType.Folder:
-        return 'Folder';
-    case ShareType.Object:
-        return 'File';
-    default:
-        return '';
-    }
+const sharedObjectName = computed<string>(() => {
+    if (!props.file) return props.bucketName;
+    return props.file.Key;
 });
 
 const minDate = computed<string>(() => {
