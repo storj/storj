@@ -181,6 +181,12 @@ func NewStore(
 
 	// parse the hint file to get an excluder that tells us which log files are ok to skip.
 	excluder := parseHintFile(maxHintPath)
+	s.log.Info("loaded hint file",
+		zap.String("path", maxHintPath),
+		zap.Uint64s("writable", maps.Keys(excluder.writable)),
+		zap.Uint64("largest", excluder.largest),
+		zap.Bool("skip", s.cfg.Store.SkipLogCheck),
+	)
 
 	// get the name and path of the largest hashtbl file.
 	maxTableName := createHashtblName(0)
@@ -258,6 +264,8 @@ func NewStore(
 	}
 	s.tbl = tbl
 
+	var unclean sync.Once
+
 	// open all of the log files
 	for parsed, err := range parseFiles(parseLog, s.logsPath) {
 		if err != nil {
@@ -289,6 +297,11 @@ func NewStore(
 			if excluder.Excluded(lf.id) || (excluder != nil && s.cfg.Store.SkipLogCheck) {
 				s.stats.logsSkipped++
 				return nil
+			}
+
+			// if we have an excluder, log that we had an unclean shutdown.
+			if excluder != nil {
+				unclean.Do(func() { s.log.Info("unclean shutdown detected: reconciling logs") })
 			}
 
 			logTail, err := recordTailFromLog(ctx, lf, s.valid)
