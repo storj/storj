@@ -7,11 +7,11 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
 mkdir -p .build
-rm -rf .build/wasm || true
+rm -rf .build/wasmtest || true
 
 echo "Running wasm tests at: $(pwd)"
-cp -r web/satellite/wasm/tests/ .build/tests/
-cd .build/tests/
+cp -r web/satellite/wasm/tests/ .build/wasmtest/
+cd .build/wasmtest/
 
 # Copy wasm helper file
 LOCALGOROOT=$(GOTOOLCHAIN=local go env GOROOT)
