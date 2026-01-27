@@ -12,6 +12,7 @@ import (
 	"cloud.google.com/go/pubsub/v2"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/api/option"
 )
 
 // Publisher defines an interface for publishing events.
@@ -22,7 +23,7 @@ type Publisher interface {
 }
 
 // NewPublisher creates a new EventPublisher based on the provided topic name.
-func NewPublisher(ctx context.Context, topicName string) (Publisher, error) {
+func NewPublisher(ctx context.Context, topicName string, opts ...option.ClientOption) (Publisher, error) {
 	if topicName == "@log" {
 		return NewLogPublisher(zap.L()), nil
 	}
@@ -35,7 +36,7 @@ func NewPublisher(ctx context.Context, topicName string) (Publisher, error) {
 	return NewPubSubPublisher(ctx, PubSubConfig{
 		ProjectID: projectID,
 		TopicID:   topicID,
-	})
+	}, opts...)
 }
 
 // PubSubConfig holds configuration for Pub/Sub publisher.
@@ -51,8 +52,8 @@ type PubSubPublisher struct {
 }
 
 // NewPubSubPublisher initializes a Pub/Sub client and publisher.
-func NewPubSubPublisher(ctx context.Context, cfg PubSubConfig) (*PubSubPublisher, error) {
-	client, err := pubsub.NewClient(ctx, cfg.ProjectID)
+func NewPubSubPublisher(ctx context.Context, cfg PubSubConfig, opts ...option.ClientOption) (*PubSubPublisher, error) {
+	client, err := pubsub.NewClient(ctx, cfg.ProjectID, opts...)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

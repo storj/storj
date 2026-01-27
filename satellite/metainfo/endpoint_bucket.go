@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"cloud.google.com/go/pubsub/v2"
 	"go.uber.org/zap"
+	"google.golang.org/api/impersonate"
+	"google.golang.org/api/option"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -931,11 +934,24 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
+	var publisherOpts []option.ClientOption
+	if endpoint.config.BucketEventingServiceAccount != "" {
+		// Impersonate with the bucket eventing service account for sending the test event
+		tokenSource, err := impersonate.CredentialsTokenSource(ctx, impersonate.CredentialsConfig{
+			TargetPrincipal: endpoint.config.BucketEventingServiceAccount,
+			Scopes:          []string{pubsub.ScopePubSub},
+		})
+		if err != nil {
+			return nil, endpoint.ConvertKnownErrWithMessage(err, "impersonation failed")
+		}
+		publisherOpts = append(publisherOpts, option.WithTokenSource(tokenSource))
+	}
+
 	// Send test event to Pub/Sub topic (synchronous validation with 10s timeout)
 	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	publisher, err := eventing.NewPublisher(testCtx, req.Configuration.TopicName)
+	publisher, err := eventing.NewPublisher(testCtx, req.Configuration.TopicName, publisherOpts...)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "failed to create event publisher for topic")
 	}
