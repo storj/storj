@@ -1618,6 +1618,15 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
+	eventingSelect := ", false AS eventing_enabled"
+	var eventingJoin string
+	if cursor.EventingEnabled {
+		eventingSelect = ", bec.config_id IS NOT NULL AS eventing_enabled"
+		eventingJoin = `LEFT JOIN bucket_eventing_configs bec
+			ON bec.project_id = bm.project_id
+			AND bec.bucket_name = bm.name`
+	}
+
 	bucketsQuery := db.db.Rebind(`
 		SELECT
 			bm.name,
@@ -1630,12 +1639,14 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			bm.default_retention_years,
 			bm.created_at,
 			` + emailExpr + ` AS creator_email
+			` + eventingSelect + `
 		FROM bucket_metainfos bm
 		LEFT JOIN users u
 			ON u.id = bm.created_by
 		LEFT JOIN project_members pm
 			ON pm.project_id = bm.project_id
 			AND pm.member_id = bm.created_by
+		` + eventingJoin + `
     	` + whereClause + `
   		ORDER BY bm.name ASC
 		LIMIT ? OFFSET ?
@@ -1666,6 +1677,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			defaultRetentionYears *int
 			createdAt             time.Time
 			creatorEmail          string
+			eventingEnabled       bool
 		)
 		err = rows.Scan(
 			&bucket,
@@ -1678,6 +1690,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			&defaultRetentionYears,
 			&createdAt,
 			&creatorEmail,
+			&eventingEnabled,
 		)
 		if err != nil {
 			return nil, err
@@ -1696,6 +1709,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			Before:                before,
 			CreatedAt:             createdAt,
 			CreatorEmail:          creatorEmail,
+			EventingEnabled:       eventingEnabled,
 		}
 		if defaultRetentionMode != nil {
 			usage.DefaultRetentionMode = *defaultRetentionMode

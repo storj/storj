@@ -170,6 +170,7 @@ export class ProjectsHttpApi implements ProjectsApi {
                     detail.lucideIcon,
                 )) || [],
                 result.computeAuthToken,
+                result.eventingEnabled,
             );
         }
 

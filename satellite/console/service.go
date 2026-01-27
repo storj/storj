@@ -3807,6 +3807,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		MembersCount:         membersCount,
 		AvailablePlacements:  placementDetails,
 		ComputeAuthToken:     computeAuthToken,
+		EventingEnabled:      s.bucketEventing.Projects.Enabled(isMember.project.ID),
 	}, nil
 }
 
@@ -5549,6 +5550,8 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
+
+	cursor.EventingEnabled = s.bucketEventing.Projects.Enabled(isMember.project.ID)
 
 	usage, err := s.projectAccounting.GetBucketTotals(ctx, isMember.project.ID, cursor, since, before)
 	if err != nil {

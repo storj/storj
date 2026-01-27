@@ -113,6 +113,18 @@
                 </v-chip>
             </div>
         </template>
+        <template #item.eventingEnabled="{ item }">
+            <div class="text-no-wrap">
+                <v-tooltip location="top" :text="getEventingInfo(item.eventingEnabled)">
+                    <template #activator="{ props }">
+                        <v-icon v-bind="props" size="28" :icon="item.eventingEnabled ? Bell : BellOff" class="mr-1 pa-1 rounded-lg border" />
+                    </template>
+                </v-tooltip>
+                <v-chip variant="tonal" :color="item.eventingEnabled ? 'success' : 'default'" size="small" class="font-weight-semibold">
+                    {{ item.eventingEnabled ? 'On' : 'Off' }}
+                </v-chip>
+            </div>
+        </template>
         <template #item.actions="{ item }">
             <v-tooltip v-if="bucketsBeingDeleted.has(item.name)" location="top" text="Deleting bucket">
                 <template #activator="{ props }">
@@ -249,7 +261,10 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import {
+    Archive,
     ArrowRight,
+    Bell,
+    BellOff,
     CircleCheck,
     CircleHelp,
     CircleMinus,
@@ -263,12 +278,11 @@ import {
     Lock,
     LockKeyhole,
     LockKeyholeOpen,
+    MapPin,
     ReceiptText,
     Search,
     Share2,
     Trash2,
-    MapPin,
-    Archive,
 } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
@@ -378,6 +392,11 @@ const versioningUIEnabled = computed(() => configStore.state.config.versioningUI
  */
 const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
+/**
+ * Whether eventing is enabled for current project.
+ */
+const eventingUIEnabled = computed<boolean>(() => projectsStore.selectedProjectConfig.eventingEnabled);
+
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
@@ -424,6 +443,10 @@ const headers = computed<DataTableHeader[]>(() => {
 
     if (objectLockUIEnabled.value) {
         hdrs.push({ title: 'Lock', key: 'objectLockEnabled', sortable: isTableSortable.value });
+    }
+
+    if (eventingUIEnabled.value) {
+        hdrs.push({ title: 'Eventing', key: 'eventingEnabled', sortable: isTableSortable.value });
     }
 
     hdrs.push({ title: 'Date Created', key: 'since', sortable: isTableSortable.value });
@@ -542,11 +565,16 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
     case 'versioning':
         items.sort((a, b) => option.order === 'asc' ? a.versioning.localeCompare(b.versioning) : b.versioning.localeCompare(a.versioning));
         break;
+    case 'eventingEnabled':
+        items.sort((a, b) => option.order === 'asc'
+            ? Number(a.eventingEnabled) - Number(b.eventingEnabled)
+            : Number(b.eventingEnabled) - Number(a.eventingEnabled));
+        break;
     case 'since':
         items.sort((a, b) => option.order === 'asc' ? a.since.getTime() - b.since.getTime() : b.since.getTime() - a.since.getTime());
         break;
     case 'creatorEmail':
-        items.sort((a, b) => option.order === 'asc' ? a.location.localeCompare(b.creatorEmail) : b.location.localeCompare(a.creatorEmail));
+        items.sort((a, b) => option.order === 'asc' ? a.creatorEmail.localeCompare(b.creatorEmail) : b.creatorEmail.localeCompare(a.creatorEmail));
         break;
     default:
         items.sort((a, b) => option.order === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
@@ -560,6 +588,15 @@ async function onToggleVersioning(bucket: Bucket) {
     withTrialCheck(() => { withManagedPassphraseCheck(() => {
         bucketToToggleVersioning.value = new BucketMetadata(bucket.name, bucket.versioning);
     });});
+}
+
+/**
+ * Returns helper info based on eventing status.
+ */
+function getEventingInfo(enabled: boolean): string {
+    return enabled
+        ? 'Event notifications are configured for this bucket.'
+        : 'No event notifications configured.';
 }
 
 /**

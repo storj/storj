@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	satbuckets "storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -1104,6 +1105,35 @@ func TestGetBucketTotals(t *testing.T) {
 				}
 			}
 			require.True(t, found)
+		})
+
+		t.Run("Bucket eventing status", func(t *testing.T) {
+			bucketName := "bucket-2"
+			cursor := accounting.BucketUsageCursor{
+				Limit:           10,
+				Page:            1,
+				Search:          bucketName,
+				EventingEnabled: true,
+			}
+			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			require.NoError(t, err)
+			require.Len(t, totals.BucketUsages, 1)
+			require.Equal(t, bucketName, totals.BucketUsages[0].BucketName)
+			require.False(t, totals.BucketUsages[0].EventingEnabled)
+
+			// insert eventing config for the bucket
+			err = db.Buckets().UpdateBucketNotificationConfig(ctx, []byte(bucketName), projectID, satbuckets.NotificationConfig{
+				ConfigID:  "config-1",
+				TopicName: "@log",
+				Events:    []string{eventing.EventTypeObjectCreatedAll},
+			})
+			require.NoError(t, err)
+
+			totals, err = usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
+			require.NoError(t, err)
+			require.Len(t, totals.BucketUsages, 1)
+			require.Equal(t, bucketName, totals.BucketUsages[0].BucketName)
+			require.True(t, totals.BucketUsages[0].EventingEnabled)
 		})
 	})
 }

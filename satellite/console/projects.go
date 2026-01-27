@@ -324,6 +324,7 @@ type ProjectConfig struct {
 	MembersCount         uint64            `json:"membersCount"`
 	AvailablePlacements  []PlacementDetail `json:"availablePlacements"`
 	ComputeAuthToken     string            `json:"computeAuthToken,omitempty"`
+	EventingEnabled      bool              `json:"eventingEnabled"`
 }
 
 // DeleteProjectInfo holds data for project deletion UI flow.
