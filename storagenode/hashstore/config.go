@@ -72,6 +72,7 @@ type StoreCfg struct {
 	SyncWrites       bool `help:"if set, writes to the log file and table are fsync'd to disk" default:"false"`
 	OpenFileCache    int  `help:"number of open file handles to cache for reads" default:"10"`
 	ReconstructTable bool `help:"if set, reconstructs the table from the log files on startup if table is missing and logs are present" default:"false" hidden:"true"`
+	SkipLogCheck     bool `help:"if set, skips checking log file integrity on startup" default:"false" hidden:"true"`
 }
 
 // MmapCfg is the configuration for mmap usage.
@@ -111,6 +112,7 @@ func CreateDefaultConfig(kind TableKind, mmap bool) Config {
 			SyncWrites:       false,
 			OpenFileCache:    10,
 			ReconstructTable: false,
+			SkipLogCheck:     false,
 		},
 		Compaction: CompactionCfg{
 			MaxLogSize:             1073741824,

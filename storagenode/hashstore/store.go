@@ -284,7 +284,9 @@ func NewStore(
 
 		// try to reconcile the log tail from the hashtbl and the log file.
 		if err := func() error {
-			if excluder.Excluded(lf.id) {
+			// if the log is excluded, or if we have an excluder (meaning we aren't doing full table
+			// reconstruction) and we're skipping log checks, then skip the check.
+			if excluder.Excluded(lf.id) || (excluder != nil && s.cfg.Store.SkipLogCheck) {
 				s.stats.logsSkipped++
 				return nil
 			}
@@ -1443,15 +1445,15 @@ func (h *hintExcluder) Excluded(id uint64) bool {
 // parseHintFile parses the hint file at the given path and returns a hintExcluder. the default
 // behavior if the file cannot be opened or parsed is to return an excluder that excludes nothing.
 func parseHintFile(path string) *hintExcluder {
-	fh, err := platform.OpenFileReadOnly(path)
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = fh.Close() }()
-
 	h := &hintExcluder{
 		writable: make(map[uint64]bool),
 	}
+
+	fh, err := platform.OpenFileReadOnly(path)
+	if err != nil {
+		return h
+	}
+	defer func() { _ = fh.Close() }()
 
 	for scanner := bufio.NewScanner(fh); scanner.Scan(); {
 		switch line := strings.TrimSpace(scanner.Text()); {
