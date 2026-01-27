@@ -18,7 +18,7 @@ fi
 FOLDER="${2-}"
 
 FLAGS=""
-if [[ "$GIT_TAG" =~ -rc[0-9]+ ]]; then
+if [[ "$GIT_TAG" =~ -rc[0-9]* ]]; then
   FLAGS="--pre-release"
 fi
 
