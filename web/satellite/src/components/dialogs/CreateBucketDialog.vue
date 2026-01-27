@@ -6,11 +6,12 @@
         v-model="model"
         width="auto"
         max-width="450px"
+        min-width="450px"
         transition="fade-transition"
         persistent
         scrollable
     >
-        <v-card ref="innerContent">
+        <v-card>
             <v-sheet>
                 <v-card-item class="pa-6">
                     <template #prepend>
@@ -58,10 +59,7 @@
                         <v-form v-model="formValid" class="pa-6 pb-3" @submit.prevent>
                             <v-row>
                                 <v-col>
-                                    <p>
-                                        Buckets are used to store and organize your objects. Enter a bucket name using lowercase
-                                        characters.
-                                    </p>
+                                    <p class="font-weight-bold mb-4">Enter Bucket Name</p>
                                     <v-text-field
                                         id="Bucket Name"
                                         v-model="bucketName"
@@ -73,123 +71,127 @@
                                         :hide-details="false"
                                         required
                                         autofocus
-                                        class="mt-7 mb-3"
+                                        class="mb-3"
                                         minlength="3"
                                         maxlength="63"
                                     />
                                     <v-alert v-if="dotsInName" variant="tonal" type="warning" rounded="lg">
                                         Using dots (.) in the bucket name can cause incompatibility.
                                     </v-alert>
-                                </v-col>
-                            </v-row>
-                        </v-form>
-                    </v-window-item>
 
-                    <v-window-item v-if="selfPlacementEnabled" :value="CreateStep.Location">
-                        <v-form v-model="formValid" class="pa-6" @submit.prevent>
-                            <v-row>
-                                <v-col cols="12">
-                                    <p class="font-weight-bold mb-2">
-                                        Choose {{ showNewPricingTiers ? 'Storage Tier' : 'Data Location' }}
-                                    </p>
-                                    <p v-if="showNewPricingTiers">
-                                        Choose the storage type that matches your needs.
-                                    </p>
-                                    <p v-else>
-                                        Allows you to select the whole world, or specific regions to store the data you upload in this
-                                        bucket.
-                                    </p>
-                                    <v-chip-group
-                                        v-model="bucketLocation"
-                                        filter
-                                        selected-class="font-weight-bold"
-                                        class="mt-2 mb-2"
-                                        mandatory
-                                        column
-                                    >
-                                        <v-chip
-                                            v-for="placement in placementDetails"
-                                            :key="placement.id"
-                                            variant="outlined"
+                                    <template v-if="selfPlacementEnabled">
+                                        <p class="font-weight-bold mt-3 mb-2">
+                                            Choose {{ showNewPricingTiers ? 'Storage Tier' : 'Data Location' }}
+                                        </p>
+                                        <v-chip-group
+                                            v-model="bucketLocation"
                                             filter
-                                            :value="placement.idName"
-                                            color="primary"
+                                            selected-class="font-weight-bold"
+                                            class="mt-2 mb-2"
+                                            mandatory
+                                            column
                                         >
-                                            {{ placement.shortName || placement.name }}
-                                        </v-chip>
-                                    </v-chip-group>
-
-                                    <v-alert v-if="bucketLocation" variant="tonal" color="secondary" width="auto">
-                                        <template v-for="placement in placementDetails">
-                                            <template v-if="bucketLocation === placement.idName">
-                                                <div :key="placement.id">
-                                                    <p class="text-subtitle-2 font-weight-bold">{{ placement.title }}</p>
-                                                    <p class="text-subtitle-2">{{ placement.description }}</p>
-                                                </div>
-                                            </template>
-                                        </template>
-                                        <div v-if="configStore.isDefaultBrand" class="mt-2">
-                                            <a v-if="showNewPricingTiers" href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">
-                                                View Pricing
-                                            </a>
-                                            <template v-else>
-                                                <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
-                                                    {{ formatToGBDollars(pricingForLocation.storageMBMonthCents) }}/GB-month stored
-                                                    <template v-if="isGettingPricing" #prepend>
-                                                        <v-progress-circular indeterminate :size="20" />
-                                                    </template>
-                                                </v-chip>
-                                                <v-chip v-if="pricingForLocation" variant="tonal">
-                                                    {{ formatToGBDollars(pricingForLocation.egressMBCents) }}/GB download
-                                                    <template v-if="isGettingPricing" #prepend>
-                                                        <v-progress-circular indeterminate :size="20" />
-                                                    </template>
-                                                </v-chip>
-                                            </template>
-                                        </div>
-
-                                        <template v-if="selectedPlacement?.pending">
-                                            <v-alert color="info" variant="tonal" density="comfortable" class="my-3">
-                                                <p class="text-body-2 font-weight-medium">
-                                                    {{ bucketLocationName }} is coming soon! Share your storage needs and we'll notify you when it becomes available for your account.
-                                                </p>
-                                            </v-alert>
-
-                                            <v-select
-                                                v-model="selectStorageNeeds"
-                                                :items="selectStorageOptions"
-                                                label="Expected Data Stored"
+                                            <v-chip
+                                                v-for="placement in placementDetails"
+                                                :key="placement.id"
                                                 variant="outlined"
-                                                density="comfortable"
-                                                hide-details
-                                                class="mt-5"
-                                            />
-
-                                            <v-expand-transition>
-                                                <v-alert
-                                                    v-if="isWaitlistJoined(selectedPlacement.id)"
-                                                    color="success"
-                                                    variant="tonal"
-                                                    class="mt-3"
-                                                >
-                                                    Thanks for your interest! We'll notify you when {{ configStore.brandName }} Select becomes available for your account.
-                                                </v-alert>
-                                            </v-expand-transition>
-
-                                            <v-btn
-                                                v-if="!isWaitlistJoined(selectedPlacement.id)"
-                                                block
+                                                filter
+                                                :value="placement.idName"
                                                 color="primary"
-                                                variant="flat"
-                                                class="mt-4"
-                                                :loading="selectSubmitting"
-                                                :disabled="!selectStorageNeeds"
-                                                @click="joinPlacementWaitlist"
                                             >
-                                                Notify Me When Available
-                                            </v-btn>
-                                        </template>
-                                    </v-alert>
+                                                {{ placement.shortName || placement.name }}
+                                            </v-chip>
+                                        </v-chip-group>
+
+                                        <v-alert v-if="bucketLocation" variant="tonal" color="secondary" width="auto">
+                                            <template v-for="placement in placementDetails">
+                                                <template v-if="bucketLocation === placement.idName">
+                                                    <div :key="placement.id">
+                                                        <p class="text-subtitle-2 font-weight-bold">{{ placement.title }}</p>
+                                                        <p class="text-subtitle-2">{{ placement.description }}</p>
+                                                    </div>
+                                                </template>
+                                            </template>
+                                            <div v-if="configStore.isDefaultBrand" class="mt-2">
+                                                <a v-if="showNewPricingTiers" href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">
+                                                    View Pricing
+                                                </a>
+                                                <template v-else>
+                                                    <v-chip v-if="pricingForLocation" variant="tonal" class="mr-1">
+                                                        {{ formatToGBDollars(pricingForLocation.storageMBMonthCents) }}/GB-month stored
+                                                        <template v-if="isGettingPricing" #prepend>
+                                                            <v-progress-circular indeterminate :size="20" />
+                                                        </template>
+                                                    </v-chip>
+                                                    <v-chip v-if="pricingForLocation" variant="tonal">
+                                                        {{ formatToGBDollars(pricingForLocation.egressMBCents) }}/GB download
+                                                        <template v-if="isGettingPricing" #prepend>
+                                                            <v-progress-circular indeterminate :size="20" />
+                                                        </template>
+                                                    </v-chip>
+                                                </template>
+                                            </div>
+
+                                            <template v-if="selectedPlacement?.pending">
+                                                <v-alert color="info" variant="tonal" density="comfortable" class="my-3">
+                                                    <p class="text-body-2 font-weight-medium">
+                                                        {{ bucketLocationName }} is coming soon! Share your storage needs and we'll notify you when it becomes available for your account.
+                                                    </p>
+                                                </v-alert>
+
+                                                <v-select
+                                                    v-model="selectStorageNeeds"
+                                                    :items="selectStorageOptions"
+                                                    label="Expected Data Stored"
+                                                    variant="outlined"
+                                                    density="comfortable"
+                                                    hide-details
+                                                    class="mt-5"
+                                                />
+
+                                                <v-expand-transition>
+                                                    <v-alert
+                                                        v-if="isWaitlistJoined(selectedPlacement.id)"
+                                                        color="success"
+                                                        variant="tonal"
+                                                        class="mt-3"
+                                                    >
+                                                        Thanks for your interest! We'll notify you when {{ configStore.brandName }} Select becomes available for your account.
+                                                    </v-alert>
+                                                </v-expand-transition>
+
+                                                <v-btn
+                                                    v-if="!isWaitlistJoined(selectedPlacement.id)"
+                                                    block
+                                                    color="primary"
+                                                    variant="flat"
+                                                    class="mt-4"
+                                                    :loading="selectSubmitting"
+                                                    :disabled="!selectStorageNeeds"
+                                                    @click="joinPlacementWaitlist"
+                                                >
+                                                    Notify Me When Available
+                                                </v-btn>
+                                            </template>
+                                        </v-alert>
+                                    </template>
+
+                                    <v-row v-if="objectLockUIEnabled || allowVersioningStep" class="mt-2 mr-0 justify-space-between">
+                                        <v-col>
+                                            <p class="font-weight-bold">Advanced Settings</p>
+                                            <p>
+                                                Configure object {{ allowVersioningStep ? 'versioning' : '' }}
+                                                {{ objectLockUIEnabled ? `${allowVersioningStep ? 'and ' : ''}lock` : '' }}
+                                            </p>
+                                        </v-col>
+                                        <v-switch
+                                            id="advanced-settings-switch"
+                                            v-model="advancedSettings"
+                                            hide-details
+                                            inset
+                                            color="primary"
+                                        />
+                                    </v-row>
                                 </v-col>
                             </v-row>
                         </v-form>
@@ -336,22 +338,24 @@
                                         >
                                             {{ enableObjectLock ? 'Enabled' : 'Disabled' }}
                                         </v-chip>
-                                        <p>Default Retention Mode:</p>
-                                        <v-chip
-                                            variant="tonal"
-                                            color="default"
-                                            class="mt-1 mb-4 font-weight-bold text-capitalize"
-                                        >
-                                            {{ defaultRetentionMode?.toLowerCase() ?? NO_MODE_SET }}
-                                        </v-chip>
-                                        <p>Default Retention Period:</p>
-                                        <v-chip
-                                            variant="tonal"
-                                            color="default"
-                                            class="mt-1 mb-4 font-weight-bold"
-                                        >
-                                            {{ defaultRetPeriodResult }}
-                                        </v-chip>
+                                        <template v-if="enableObjectLock">
+                                            <p>Default Retention Mode:</p>
+                                            <v-chip
+                                                variant="tonal"
+                                                color="default"
+                                                class="mt-1 mb-4 font-weight-bold text-capitalize"
+                                            >
+                                                {{ defaultRetentionMode?.toLowerCase() ?? NO_MODE_SET }}
+                                            </v-chip>
+                                            <p>Default Retention Period:</p>
+                                            <v-chip
+                                                variant="tonal"
+                                                color="default"
+                                                class="mt-1 mb-4 font-weight-bold"
+                                            >
+                                                {{ defaultRetPeriodResult }}
+                                            </v-chip>
+                                        </template>
                                     </template>
 
                                     <template v-if="versioningUIEnabled">
@@ -374,19 +378,33 @@
                         <v-card-text class="pa-6">
                             <v-row>
                                 <v-col>
-                                    <p>
+                                    <p class="mb-6">
                                         <strong>
                                             <v-icon :icon="Check" size="small" />
-                                            Bucket successfully created.</strong>
+                                            Bucket successfully created.
+                                        </strong>
                                     </p>
+                                    <p>Name:</p>
                                     <v-chip
                                         variant="tonal"
                                         value="Disabled"
-                                        color="primary"
-                                        class="my-4 font-weight-bold"
+                                        color="default"
+                                        class="mt-1 mb-4 font-weight-bold"
                                     >
                                         {{ bucketName }}
                                     </v-chip>
+                                    <template v-if="selfPlacementEnabled">
+                                        <p v-if="showNewPricingTiers">Storage Tier:</p>
+                                        <p v-else>Location:</p>
+                                        <v-chip
+                                            variant="tonal"
+                                            value="Disabled"
+                                            color="default"
+                                            class="mt-1 mb-4 font-weight-bold"
+                                        >
+                                            {{ bucketLocationName }}
+                                        </v-chip>
+                                    </template>
                                     <p>
                                         You can open the bucket to start uploading objects, or close this dialog to return to all buckets.
                                     </p>
@@ -426,7 +444,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch, watchEffect } from 'vue';
+import { computed, ref, watch, watchEffect } from 'vue';
 import {
     VAlert,
     VBtn,
@@ -451,6 +469,7 @@ import {
     VTextField,
     VWindow,
     VWindowItem,
+    VSwitch,
 } from 'vuetify/components';
 import { ArrowRight, Check, X } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
@@ -480,7 +499,6 @@ import SetDefaultObjectLockConfig from '@/components/dialogs/defaultBucketLockCo
 
 enum CreateStep {
     Name = 1,
-    Location,
     ObjectLock,
     Versioning,
     Confirmation,
@@ -504,42 +522,30 @@ const stepInfos = {
     [CreateStep.Name]: new StepInfo<CreateStep>({
         prev: undefined,
         next: () => {
-            if (selfPlacementEnabled.value) return CreateStep.Location;
+            if (!advancedSettings.value) return CreateStep.Success;
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
             if (allowVersioningStep.value) return CreateStep.Versioning;
             return CreateStep.Success;
         },
         beforeNext: async () => {
-            if (selfPlacementEnabled.value || objectLockUIEnabled.value || allowVersioningStep.value) return;
+            if (!advancedSettings.value) {
+                await onCreate();
+                return;
+            }
+            if (objectLockUIEnabled.value || allowVersioningStep.value) return;
             await onCreate();
         },
         validate: (): boolean => {
             return formValid.value;
         },
-        nextText: () => objectLockUIEnabled.value || allowVersioningStep.value ? 'Next' : 'Create Bucket',
-        noRef: true,
-    }),
-    [CreateStep.Location]: new StepInfo<CreateStep>({
-        prev: () => CreateStep.Name,
-        next: () => {
-            if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
-            if (allowVersioningStep.value) return CreateStep.Versioning;
-            return CreateStep.Success;
-        },
-        beforeNext: async () => {
-            if (objectLockUIEnabled.value || allowVersioningStep.value) return;
-            await onCreate();
-        },
-        validate: (): boolean => {
-            return !!bucketLocation.value;
+        nextText: () => {
+            if (!advancedSettings.value) return 'Create Bucket';
+            return objectLockUIEnabled.value || allowVersioningStep.value ? 'Next' : 'Create Bucket';
         },
         noRef: true,
     }),
     [CreateStep.ObjectLock]: new StepInfo<CreateStep>({
-        prev: () => {
-            if (selfPlacementEnabled.value) return CreateStep.Location;
-            return CreateStep.Name;
-        },
+        prev: () => CreateStep.Name,
         next: () => {
             if (allowVersioningStep.value) return CreateStep.Versioning;
             return CreateStep.Confirmation;
@@ -556,7 +562,6 @@ const stepInfos = {
     [CreateStep.Versioning]: new StepInfo<CreateStep>({
         prev: () => {
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
-            if (selfPlacementEnabled.value) return CreateStep.Location;
             return CreateStep.Name;
         },
 
@@ -567,7 +572,6 @@ const stepInfos = {
         prev: () => {
             if (allowVersioningStep.value) return CreateStep.Versioning;
             if (objectLockUIEnabled.value) return CreateStep.ObjectLock;
-            if (selfPlacementEnabled.value) return CreateStep.Location;
             return CreateStep.Name;
         },
         beforeNext: onCreate,
@@ -576,7 +580,7 @@ const stepInfos = {
         noRef: true,
     }),
     [CreateStep.Success]: new StepInfo<CreateStep>({
-        prevText: 'Close',
+        prevText: 'View Buckets',
         nextText: 'Open Bucket',
         noRef: true,
     }),
@@ -593,7 +597,6 @@ const emit = defineEmits<{
 
 const step = ref<CreateStep>(CreateStep.Name);
 const stepNumber = ref<number>(1);
-const innerContent = ref<Component | null>(null);
 const formValid = ref<boolean>(false);
 const enableVersioning = ref<boolean>(false);
 const enableObjectLock = ref<boolean>(false);
@@ -604,6 +607,7 @@ const defaultRetentionPeriodUnit = ref<DefaultObjectLockPeriodUnit>(DefaultObjec
 const bucketLocation = ref<string>();
 const isGettingPricing = ref<boolean>(false);
 const pricingForLocation = ref<UsagePriceModel>();
+const advancedSettings = ref<boolean>(false);
 
 const selectSubmitting = ref(false);
 const selectStorageNeeds = ref<string>();
@@ -647,7 +651,7 @@ const bucketLocationName = computed<string>(() => {
     return details.shortName || details.name;
 });
 
-const formInvalid = computed(() => !formValid.value || (selfPlacementEnabled.value && step.value === CreateStep.Location && !bucketLocation.value));
+const formInvalid = computed(() => !formValid.value || (selfPlacementEnabled.value && step.value === CreateStep.Name && !bucketLocation.value));
 
 /**
  * Whether versioning has been enabled for current project.
@@ -690,9 +694,13 @@ const bucketNameRules = computed((): ValidationRule<string>[] => {
 const stepName = computed<string>(() => {
     switch (step.value) {
     case CreateStep.Name:
-        return 'Name';
-    case CreateStep.Location:
-        return showNewPricingTiers.value ? 'Storage Tier' : 'Data Location';
+    {
+        let stepName = 'Name';
+        if (selfPlacementEnabled.value) {
+            stepName += showNewPricingTiers.value ? ' & Storage Tier' : ' & Data Location';
+        }
+        return stepName;
+    }
     case CreateStep.ObjectLock:
         return 'Object Lock';
     case CreateStep.Versioning:
@@ -982,8 +990,18 @@ watch(bucketLocation, async (value) => {
     isGettingPricing.value = false;
 }, { immediate: true });
 
-watch(innerContent, newContent => {
-    if (newContent) {
+watch(advancedSettings, val => {
+    if (val) return;
+
+    enableObjectLock.value = false;
+    enableVersioning.value = false;
+    defaultRetentionMode.value = NO_MODE_SET;
+    defaultRetentionPeriod.value = 0;
+    defaultRetentionPeriodUnit.value = DefaultObjectLockPeriodUnit.DAYS;
+});
+
+watch(model, val => {
+    if (val) {
         withLoading(async () => {
             try {
                 await bucketsStore.getAllBucketsNames(project.value.id);
@@ -998,11 +1016,13 @@ watch(innerContent, newContent => {
         bucketLocation.value = placementDetails.value[defaultIndex].idName;
         return;
     }
-    // dialog has been closed
+
+    // dialog has been closed.
     bucketName.value = '';
     bucketLocation.value = '';
     pricingForLocation.value = undefined;
     step.value = CreateStep.Name;
+    advancedSettings.value = false;
     stepNumber.value = 1;
     enableVersioning.value = false;
     enableObjectLock.value = false;

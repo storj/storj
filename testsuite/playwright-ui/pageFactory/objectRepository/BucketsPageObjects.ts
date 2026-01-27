@@ -4,7 +4,7 @@
 export class BucketsPageObjects {
     static NEW_BUCKET_BUTTON_XPATH = `//button[span[text()=' New Bucket ']]`;
     static BUCKET_NAME_INPUT_FIELD_XPATH = `//input[@id='Bucket Name']`;
-    static CLOSE_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//button[span[text()='Close']]`;
+    static CLOSE_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//button[span[text()='View Buckets']]`;
     static NEXT_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//button[span[text()='Next']]`;
     static CONFIRM_BUTTON_CREATE_BUCKET_FLOW_XPATH = `//button[span[text()='Create Bucket']]`;
     static OBJECT_LOCK_TITLE_CREATE_BUCKET_FLOW_XPATH = `//p[text()='Do you need object lock?']`;
@@ -25,4 +25,5 @@ export class BucketsPageObjects {
     static NEW_BUCKET_SELECT_PLACEMENT_BUTTON_XPATH = `//span[div[text()='Storj Select']]`;
     static CANNOT_DELETE_BUCKET_DIALOG_TITLE_XPATH = `//div[text()=' Cannot Delete Bucket']`;
     static CANCEL_BUTTON_XPATH = `//button[span[text()='Cancel']]`;
+    static NEW_BUCKET_ADVANCED_SETTINGS_SWITCH_XPATH = `//input[@id='advanced-settings-switch']`;
 }
