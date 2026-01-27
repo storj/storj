@@ -1208,6 +1208,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # size of API key tails combiner queue
 # metainfo.api-key-tails-config.queue-size: 100
 
+# service account email to impersonate for sending bucket eventing test event
+# metainfo.bucket-eventing-service-account: ""
+
 # enable the use of the bucket tagging endpoints
 # metainfo.bucket-tagging-enabled: false
 

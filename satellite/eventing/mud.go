@@ -18,12 +18,4 @@ func Module(ball *mud.Ball) {
 
 	mud.Provide[*ConfigCache](ball, NewConfigCache)
 	mud.RegisterInterfaceImplementation[BucketNotificationConfigGetter, *ConfigCache](ball)
-
-	config.RegisterConfig[PubSubConfig](ball, "change-stream.pubsub")
-	mud.Provide[*PubSubPublisher](ball, NewPubSubPublisher)
-	mud.Provide[*LogPublisher](ball, NewLogPublisher)
-	mud.RegisterInterfaceImplementation[Publisher, *PubSubPublisher](ball)
-
-	config.RegisterConfig[PubSubClientConfig](ball, "")
-	mud.Provide[*PubSubClient](ball, NewPubSubClient)
 }
