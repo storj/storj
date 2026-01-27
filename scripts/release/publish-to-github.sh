@@ -10,7 +10,7 @@ apps="identity uplink storagenode multinode"
 
 GIT_TAG="${1-}"
 
-if ! [[ "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+(-.*)?)?$ ]]; then
+if ! [[ "$GIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]*(-.*)?)?$ ]]; then
   echo "No tag detected, skipping release creation"
   exit 0
 fi
