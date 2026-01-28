@@ -83,7 +83,6 @@ node('node') {
           // fetch the remote main branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
           sh '''docker run \
-            -u $(id -u):$(id -g) \
             --rm -i \
             -v $PWD:$PWD \
             -w $PWD \
