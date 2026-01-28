@@ -2421,6 +2421,11 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		EncryptedMetadataNonce:        nonce,
 		EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
 		EncryptedEtag:                 object.EncryptedETag,
+
+		ChecksumAlgorithm:   pb.ObjectChecksumAlgorithm(object.Checksum.Algorithm),
+		IsChecksumComposite: object.Checksum.IsComposite,
+		EncryptedChecksum:   object.Checksum.EncryptedValue,
+
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
