@@ -1994,19 +1994,7 @@ func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		// kill nodes kept alive to ensure repair worked
-		for _, node := range planet.StorageNodes {
-			if nodesToKeepAlive[node.ID()] {
-				err := planet.StopNodeAndUpdate(ctx, node)
-				require.NoError(t, err)
-			}
-		}
-
-		// we should be able to download data without any of the original nodes
-		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
-		require.NoError(t, err)
-		require.Equal(t, newData, testData)
-
+		// get the segment after repair to see which pieces remain
 		segments, err = satellite.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
@@ -2016,6 +2004,21 @@ func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 			require.False(t, nodesToDisqualify[piece.StorageNode])
 			require.False(t, nodesToSuspend[piece.StorageNode])
 		}
+
+		// kill nodes kept alive that are still in the segment to ensure repair worked.
+		// we only kill nodes that are still referenced by the segment to avoid
+		// connection errors from nodes that were already removed from the segment.
+		for _, piece := range remotePieces {
+			if nodesToKeepAlive[piece.StorageNode] {
+				err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+				require.NoError(t, err)
+			}
+		}
+
+		// we should be able to download data without any of the original nodes
+		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
 	})
 }
 
@@ -2412,18 +2415,6 @@ func TestRepairGracefullyExited(t *testing.T) {
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		require.NoError(t, satellite.Repair.Repairer.WaitForPendingRepairs(ctx))
 
-		// kill nodes kept alive to ensure repair worked
-		for _, node := range planet.StorageNodes {
-			if nodesToKeepAlive[node.ID()] {
-				require.NoError(t, planet.StopNodeAndUpdate(ctx, node))
-			}
-		}
-
-		// we should be able to download data without any of the original nodes
-		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
-		require.NoError(t, err)
-		require.Equal(t, newData, testData)
-
 		// updated pointer should not contain any of the gracefully exited nodes
 		segmentAfter := getRemoteSegment(ctx, t, satellite)
 
@@ -2431,6 +2422,20 @@ func TestRepairGracefullyExited(t *testing.T) {
 		for _, piece := range remotePieces {
 			require.False(t, nodesToExit[piece.StorageNode])
 		}
+
+		// kill nodes kept alive that are still in the segment to ensure repair worked.
+		// we only kill nodes that are still referenced by the segment to avoid
+		// connection errors from nodes that were already removed from the segment.
+		for _, piece := range remotePieces {
+			if nodesToKeepAlive[piece.StorageNode] {
+				require.NoError(t, planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode)))
+			}
+		}
+
+		// we should be able to download data without any of the original nodes
+		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
 	})
 }
 
