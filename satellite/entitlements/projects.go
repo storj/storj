@@ -6,7 +6,6 @@ package entitlements
 import (
 	"context"
 	"encoding/json"
-	"time"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -54,7 +53,7 @@ func (p *Projects) SetNewBucketPlacementsByPublicID(ctx context.Context, publicI
 	scope := ConvertPublicIDToProjectScope(publicID)
 
 	// Load current record (may not exist yet).
-	ent, err := p.getEntitlementBeforeSet(ctx, scope)
+	ent, err := getEntitlementBeforeSet(ctx, p.service.db, scope)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -67,7 +66,7 @@ func (p *Projects) SetNewBucketPlacementsByPublicID(ctx context.Context, publicI
 	}
 	features.NewBucketPlacements = newBucketPlacements
 
-	return Error.Wrap(p.upsertNewEntitlement(ctx, ent, features))
+	return Error.Wrap(upsertNewEntitlement(ctx, p.service.db, ent, features))
 }
 
 // SetPlacementProductMappingsByPublicID sets the placement product mappings for a project by its public ID.
@@ -81,7 +80,7 @@ func (p *Projects) SetPlacementProductMappingsByPublicID(ctx context.Context, pu
 	scope := ConvertPublicIDToProjectScope(publicID)
 
 	// Load current record (may not exist yet).
-	ent, err := p.getEntitlementBeforeSet(ctx, scope)
+	ent, err := getEntitlementBeforeSet(ctx, p.service.db, scope)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -94,7 +93,7 @@ func (p *Projects) SetPlacementProductMappingsByPublicID(ctx context.Context, pu
 	}
 	features.PlacementProductMappings = newMappings
 
-	return Error.Wrap(p.upsertNewEntitlement(ctx, ent, features))
+	return Error.Wrap(upsertNewEntitlement(ctx, p.service.db, ent, features))
 }
 
 // SetComputeAccessTokenByPublicID sets the compute access token for a project by its public ID.
@@ -104,7 +103,7 @@ func (p *Projects) SetComputeAccessTokenByPublicID(ctx context.Context, publicPr
 	scope := ConvertPublicIDToProjectScope(publicProjectID)
 
 	// Load current record (may not exist yet).
-	ent, err := p.getEntitlementBeforeSet(ctx, scope)
+	ent, err := getEntitlementBeforeSet(ctx, p.service.db, scope)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -117,7 +116,7 @@ func (p *Projects) SetComputeAccessTokenByPublicID(ctx context.Context, publicPr
 	}
 	features.ComputeAccessToken = token
 
-	return Error.Wrap(p.upsertNewEntitlement(ctx, ent, features))
+	return Error.Wrap(upsertNewEntitlement(ctx, p.service.db, ent, features))
 }
 
 // DeleteByPublicID removes the project entitlements by its public ID.
@@ -125,30 +124,6 @@ func (p *Projects) DeleteByPublicID(ctx context.Context, publicID uuid.UUID) (er
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(p.service.db.DeleteByScope(ctx, ConvertPublicIDToProjectScope(publicID)))
-}
-
-func (p *Projects) getEntitlementBeforeSet(ctx context.Context, scope []byte) (ent *Entitlement, err error) {
-	ent, err = p.service.db.GetByScope(ctx, scope)
-	if err != nil {
-		if !ErrNotFound.Has(err) {
-			return nil, err
-		}
-		ent = &Entitlement{Scope: scope}
-	}
-
-	return ent, nil
-}
-
-func (p *Projects) upsertNewEntitlement(ctx context.Context, ent *Entitlement, feats ProjectFeatures) error {
-	featsBytes, err := json.Marshal(feats)
-	if err != nil {
-		return err
-	}
-	ent.Features = featsBytes
-	ent.UpdatedAt = time.Now()
-
-	_, err = p.service.db.UpsertByScope(ctx, ent)
-	return err
 }
 
 // ConvertPublicIDToProjectScope converts a public project ID to a database project scope.
