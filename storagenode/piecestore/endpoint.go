@@ -13,6 +13,7 @@ import (
 	"net"
 	"reflect"
 	"runtime/trace"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -51,6 +52,27 @@ import (
 var (
 	mon = monkit.Package()
 )
+
+// isClientDisconnectError returns true if the error indicates the client
+// disconnected unexpectedly (broken pipe, connection reset, etc.).
+// These are common network conditions and not serious issues.
+func isClientDisconnectError(err error) bool {
+	if errors.Is(err, syscall.EPIPE) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	// Some errors (e.g., from drpc manager) wrap network errors in a way that
+	// errors.Is doesn't unwrap. Check the error message as a fallback.
+	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "connection reset by peer") ||
+			strings.Contains(msg, "broken pipe") {
+			return true
+		}
+	}
+	return false
+}
 
 // OldConfig contains everything necessary for a server.
 type OldConfig struct {
@@ -243,8 +265,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		if errs2.IsCanceled(err) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
 			return rpcstatus.NamedWrap("canceled-or-eof", rpcstatus.Canceled, err)
 		}
-		if errors.Is(err, net.ErrClosed) {
-			return rpcstatus.NamedWrap("closed", rpcstatus.Aborted, err)
+		if isClientDisconnectError(err) {
+			endpoint.log.Warn("upload internal error", zap.Error(err))
+			return rpcstatus.NamedWrap("client-disconnect", rpcstatus.Aborted, err)
 		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
 		return rpcstatus.NamedWrap("socket-read-failure", rpcstatus.Internal, err)
@@ -329,6 +352,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 			} else if errors.Is(err, hashstore.ErrCollision) {
 				// Collisions can happen during repair when a piece already exists.
+				log.Warn("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
+
+			} else if isClientDisconnectError(err) {
+				// Network errors like broken pipe or connection reset happen when the client
+				// disconnects unexpectedly. This is common and not a serious issue.
 				log.Warn("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
 
 			} else {
@@ -478,8 +506,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			if errs2.IsCanceled(closeErr) {
 				return true, rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, closeErr)
 			}
-			if errors.Is(closeErr, net.ErrClosed) {
-				return true, rpcstatus.NamedWrap("closed", rpcstatus.Aborted, closeErr)
+			if isClientDisconnectError(closeErr) {
+				endpoint.log.Warn("upload internal error", zap.Error(closeErr))
+				return true, rpcstatus.NamedWrap("client-disconnect", rpcstatus.Aborted, closeErr)
 			}
 			endpoint.log.Error("upload internal error", zap.Error(closeErr))
 			return true, rpcstatus.NamedWrap("send-and-close-fail", rpcstatus.Internal, closeErr)
@@ -512,6 +541,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		} else if err != nil {
 			if errs2.IsCanceled(err) {
 				return rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
+			}
+			if isClientDisconnectError(err) {
+				endpoint.log.Warn("upload internal error", zap.Error(err))
+				return rpcstatus.NamedWrap("client-disconnect", rpcstatus.Aborted, err)
 			}
 			endpoint.log.Error("upload internal error", zap.Error(err))
 			return rpcstatus.NamedWrap("data-read-failure", rpcstatus.Internal, err)
