@@ -401,6 +401,8 @@ const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
 
+const segmentsUIEnabled = computed<boolean>(() => configStore.state.config.segmentsUIEnabled);
+
 /**
  * Whether this project has new pricing.
  */
@@ -423,7 +425,7 @@ const headers = computed<DataTableHeader[]>(() => {
         { title: 'Objects', key: 'objectCount', sortable: isTableSortable.value },
     );
 
-    if (!newPricingEnabled.value)
+    if (!newPricingEnabled.value && segmentsUIEnabled.value)
         hdrs.push(
             { title: 'Segments', key: 'segmentCount', sortable: isTableSortable.value },
         );

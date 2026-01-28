@@ -108,6 +108,7 @@ type FrontendConfig struct {
 	RequireBillingAddress             bool                        `json:"requireBillingAddress"`
 	ScheduleMeetingURL                string                      `json:"scheduleMeetingURL"`
 	HideUplinkBehavior                bool                        `json:"hideUplinkBehavior"`
+	BucketLimitsUIEnabled             bool                        `json:"bucketLimitsUIEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

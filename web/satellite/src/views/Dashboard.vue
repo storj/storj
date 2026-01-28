@@ -45,7 +45,7 @@
         <team-passphrase-banner v-if="isTeamPassphraseBanner" />
 
         <v-row align="center" justify="center" class="mt-2">
-            <v-col cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col cols="6" md="6" :lg="statsRowLgColSize">
                 <CardStatsComponent
                     title="Objects"
                     subtitle="Project total"
@@ -55,20 +55,20 @@
                     extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
                 />
             </v-col>
-            <v-col v-if="!emissionImpactViewEnabled && !newPricingEnabled && segmentsUIEnabled" cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col v-if="!emissionImpactViewEnabled && !newPricingEnabled && segmentsUIEnabled" cols="6" md="6" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Segments" color="info" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
-            <v-col cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col cols="6" md="6" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Buckets" color="info" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
             </v-col>
-            <v-col cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col cols="6" md="6" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Access Keys" color="info" subtitle="Total keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
             </v-col>
-            <v-col cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col cols="6" md="6" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Team" color="info" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
             </v-col>
             <template v-if="emissionImpactViewEnabled">
-                <v-col cols="12" sm="6" md="4" :lg="statsRowLgColSize">
+                <v-col cols="12" sm="6" md="6" :lg="statsRowLgColSize">
                     <emissions-dialog />
                     <v-tooltip
                         activator="parent"
@@ -80,7 +80,7 @@
                     </v-tooltip>
                     <CardStatsComponent title="CO₂ Estimated" subtitle="For this project" color="info" :data="co2Estimated" link />
                 </v-col>
-                <v-col cols="12" sm="6" md="4" :lg="statsRowLgColSize">
+                <v-col cols="12" sm="6" md="6" :lg="statsRowLgColSize">
                     <emissions-dialog />
                     <v-tooltip
                         activator="parent"
@@ -93,7 +93,7 @@
                     <CardStatsComponent title="CO₂ Avoided" :subtitle="avoidedSubtitle" :data="co2Saved" color="success" link />
                 </v-col>
             </template>
-            <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="4" :lg="statsRowLgColSize">
+            <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="6" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
             </v-col>
         </v-row>
@@ -155,7 +155,7 @@
                     </template>
                 </UsageProgressComponent>
             </v-col>
-            <v-col v-if="isCouponCard || !newPricingEnabled" cols="12" md="6" :xl="usageRowXlColSize">
+            <v-col v-if="isCouponCard || (!newPricingEnabled && bucketLimitsUIEnabled)" cols="12" md="6" :xl="usageRowXlColSize">
                 <UsageProgressComponent
                     v-if="isCouponCard"
                     icon="coupon"
@@ -169,7 +169,7 @@
                     @cta-click="onCouponCTAClicked"
                 />
                 <UsageProgressComponent
-                    v-else-if="!newPricingEnabled"
+                    v-else-if="!newPricingEnabled && bucketLimitsUIEnabled"
                     icon="bucket"
                     title="Buckets"
                     :progress="bucketsUsedPercent"
@@ -633,6 +633,10 @@ const emissionImpactViewEnabled = computed<boolean>(() => {
  */
 const segmentsUIEnabled = computed<boolean>(() => {
     return configStore.state.config.segmentsUIEnabled;
+});
+
+const bucketLimitsUIEnabled = computed<boolean>(() => {
+    return configStore.state.config.bucketLimitsUIEnabled;
 });
 
 /**

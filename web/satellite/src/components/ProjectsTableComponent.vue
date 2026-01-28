@@ -36,7 +36,7 @@
                 block
                 @click="openProject(item)"
             >
-                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                <IconProjectTonal class="mr-3" />
                 {{ item.name }}
                 <v-chip v-if="item.isClassic" variant="tonal" color="warning" size="small" class="font-weight-bold ml-2">
                     Classic
@@ -47,7 +47,7 @@
                 </v-chip>
             </v-btn>
             <div v-else class="pl-1 pr-4 ml-n1 d-flex align-center justify-start font-weight-bold">
-                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-3">
+                <IconProjectTonal class="mr-3" />
                 <span class="text-no-wrap">{{ item.name }}</span>
             </div>
         </template>
@@ -247,6 +247,7 @@ import { Dimensions, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import MigrateProjectPricingDialog from '@/components/dialogs/MigrateProjectPricingDialog.vue';
+import IconProjectTonal from '@/components/icons/IconProjectTonal.vue';
 
 defineProps<{
     items: ProjectItemModel[],

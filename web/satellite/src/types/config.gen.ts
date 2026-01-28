@@ -111,6 +111,7 @@ export class FrontendConfig {
     requireBillingAddress: boolean;
     scheduleMeetingURL: string;
     hideUplinkBehavior: boolean;
+    bucketLimitsUIEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

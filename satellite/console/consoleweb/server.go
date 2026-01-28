@@ -119,6 +119,7 @@ type Config struct {
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
 	EmissionImpactViewEnabled       bool          `help:"whether emission impact view should be shown" default:"true"`
 	SegmentsUIEnabled               bool          `help:"whether segments UI should be shown in project dashboard" default:"true"`
+	BucketLimitsUIEnabled           bool          `help:"whether bucket limits UI should be shown in project dashboard" default:"true"`
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
@@ -1187,6 +1188,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		RequireBillingAddress:             server.config.RequireBillingAddress,
 		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
 		HideUplinkBehavior:                server.config.HideUplinkBehavior,
+		BucketLimitsUIEnabled:             server.config.BucketLimitsUIEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

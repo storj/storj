@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
 import { CircleCheckBig, ChevronRight } from 'lucide-vue-next';
-import { computed, nextTick } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -60,23 +60,30 @@ const emit = defineEmits<{
 const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
 const hideProjectEncryptionOptions = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
 
-async function finishSetup() {
-    const projects = projectsStore.state.projects;
-    if (!projects.length) {
-        const satelliteManaged = satelliteManagedEncryptionEnabled.value && hideProjectEncryptionOptions.value;
-        await projectsStore.createDefaultProject(userStore.state.user.id, satelliteManaged);
+async function finishSetup(): Promise<void> {
+    // We don't create a default project here if there are invitations.
+    const hasInvitations = projectsStore.state.invitations.length > 0;
+    if (!hasInvitations) {
+        const projects = projectsStore.state.projects;
+        if (!projects.length) {
+            const satelliteManaged = satelliteManagedEncryptionEnabled.value && hideProjectEncryptionOptions.value;
+            await projectsStore.createDefaultProject(userStore.state.user.id, satelliteManaged);
+        }
+        projectsStore.selectProject(projects[0].id);
     }
-    projectsStore.selectProject(projects[0].id);
 
-    analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    await userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] });
-    await userStore.getUser();
+    await Promise.all([
+        userStore.updateSettings({ onboardingStep: ONBOARDING_STEPPER_STEPS[0] }),
+        userStore.getUser(),
+    ]);
 
-    await nextTick();
-    await router.push({
-        name: ROUTES.Dashboard.name,
-        params: { id: projectsStore.state.selectedProject.urlId },
-    });
+    if (!hasInvitations) {
+        await router.push({
+            name: ROUTES.Dashboard.name,
+            params: { id: projectsStore.state.selectedProject.urlId },
+        });
+        analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    }
 
     emit('finish');
 }

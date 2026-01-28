@@ -9,7 +9,7 @@
                     <v-row justify="space-between" align="center">
                         <v-col cols="auto" class="pr-2">
                             <div class="d-flex align-center">
-                                <img src="@/assets/icon-project-tonal.svg" alt="Project" class="mr-2" style="min-width: 24px;">
+                                <IconProjectTonal class="mr-2" style="min-width: 24px;" />
                                 <span class="font-weight-bold text-body-2 text-truncate">{{ projectName }}</span>
                             </div>
                         </v-col>
@@ -189,6 +189,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import DetailedUsageReportDialog from '@/components/dialogs/DetailedUsageReportDialog.vue';
+import IconProjectTonal from '@/components/icons/IconProjectTonal.vue';
 
 /**
  * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
