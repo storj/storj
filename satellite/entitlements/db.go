@@ -5,6 +5,7 @@ package entitlements
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -33,4 +34,29 @@ type Entitlement struct {
 	Features  []byte
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+func getEntitlementBeforeSet(ctx context.Context, db DB, scope []byte) (ent *Entitlement, err error) {
+	ent, err = db.GetByScope(ctx, scope)
+	if err != nil {
+		if !ErrNotFound.Has(err) {
+			return nil, err
+		}
+		ent = &Entitlement{Scope: scope}
+	}
+
+	return ent, nil
+}
+
+// upsertNewEntitlement marshals the given value to JSON and upserts it as an entitlement.
+func upsertNewEntitlement(ctx context.Context, db DB, ent *Entitlement, v any) error {
+	bytes, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	ent.Features = bytes
+	ent.UpdatedAt = time.Now()
+
+	_, err = db.UpsertByScope(ctx, ent)
+	return err
 }

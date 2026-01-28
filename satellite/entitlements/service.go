@@ -29,3 +29,8 @@ func NewService(log *zap.Logger, db DB) *Service {
 func (s *Service) Projects() *Projects {
 	return &Projects{service: s}
 }
+
+// Licenses returns all licenses related functionality.
+func (s *Service) Licenses() *Licenses {
+	return &Licenses{service: s}
+}
