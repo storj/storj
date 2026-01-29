@@ -809,6 +809,31 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
+	done := false
+	checkOptions(opts, func(t WithLogFileOnly) {
+		done = true
+		lf := (*logFile)(t)
+
+		var buf [RecordSize]byte
+		(&Record{
+			Key:     key,
+			Offset:  lf.size.Load(),
+			Log:     lf.id,
+			Length:  uint32(len(data)),
+			Created: ts.Store.today(),
+		}).WriteTo(&buf)
+
+		_, err := lf.fh.Write(data)
+		assert.NoError(ts.t, err)
+		_, err = lf.fh.Write(buf[:])
+		assert.NoError(ts.t, err)
+
+		lf.size.Add(uint64(len(data)) + RecordSize)
+	})
+	if done {
+		return key
+	}
+
 	wr, err := ts.Create(ts.t.Context(), key, expires)
 	assert.NoError(ts.t, err)
 	assert.Equal(ts.t, wr.Size(), 0)
@@ -982,6 +1007,7 @@ type (
 	WithConstructor func(TblConstructor)
 	WithoutHintFile bool
 	WithoutHashtbl  bool
+	WithLogFileOnly *logFile
 	WithShouldTrash func(context.Context, Key, time.Time) bool
 	WithLastRestore func(context.Context) time.Time
 	WithValid       func(Key, []byte) bool
