@@ -285,53 +285,92 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		}
 	}
 
-	// Extract tenant configurations from console config
+	var defaultBranding mailservice.WhiteLabelConfig
 	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
-	for tenantID, config := range consoleConfig.WhiteLabel.Value {
-		tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
-			Branding: mailservice.WhiteLabelConfig{
-				BrandName:         config.Name,
-				LogoURL:           config.LogoURLs["mail"],
-				HomepageURL:       config.HomepageURL,
-				SupportURL:        config.SupportURL,
-				DocsURL:           config.DocsURL,
-				SourceCodeURL:     config.SourceCodeURL,
-				SocialURL:         config.SocialURL,
-				PrivacyPolicyURL:  config.PrivacyPolicyURL,
-				TermsOfServiceURL: config.TermsOfServiceURL,
-				TermsOfUseURL:     config.TermsOfUseURL,
-				BlogURL:           config.BlogURL,
-				CompanyName:       config.CompanyName,
-				AddressLine1:      config.AddressLine1,
-				AddressLine2:      config.AddressLine2,
-				PrimaryColor:      config.Colors["primary"],
-			},
-			SMTP: mailservice.Config{
-				From:              config.SMTP.From,
-				SMTPServerAddress: config.SMTP.ServerAddress,
-				AuthType:          config.SMTP.AuthType,
-				Login:             config.SMTP.Login,
-				Password:          config.SMTP.Password,
-			},
-		}
-	}
 
-	defaultBranding := mailservice.WhiteLabelConfig{
-		BrandName:         "Storj",
-		LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
-		HomepageURL:       consoleConfig.HomepageURL,
-		SupportURL:        consoleConfig.GeneralRequestURL,
-		DocsURL:           consoleConfig.DocumentationURL,
-		PrivacyPolicyURL:  "https://www.storj.io/legal/privacy-policy",
-		TermsOfServiceURL: consoleConfig.TermsAndConditionsURL,
-		TermsOfUseURL:     "https://www.storj.io/legal/terms-of-use",
-		SourceCodeURL:     "https://github.com/storj",
-		SocialURL:         "https://twitter.com/storj",
-		BlogURL:           "https://storj.io/blog",
-		PrimaryColor:      "#0052FF",
-		CompanyName:       "Storj Labs",
-		AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
-		AddressLine2:      "Atlanta, GA 30339-2171, United States",
+	// Check if single white label mode is enabled (for dedicated deployments).
+	if consoleConfig.SingleWhiteLabel.Enabled() {
+		cfg := consoleConfig.SingleWhiteLabel
+		defaultBranding = mailservice.WhiteLabelConfig{
+			BrandName:         cfg.Name,
+			LogoURL:           cfg.LogoURLs["mail"],
+			HomepageURL:       cfg.HomepageURL,
+			SupportURL:        cfg.SupportURL,
+			DocsURL:           cfg.DocsURL,
+			SourceCodeURL:     cfg.SourceCodeURL,
+			SocialURL:         cfg.SocialURL,
+			PrivacyPolicyURL:  cfg.PrivacyPolicyURL,
+			TermsOfServiceURL: cfg.TermsOfServiceURL,
+			TermsOfUseURL:     cfg.TermsOfUseURL,
+			BlogURL:           cfg.BlogURL,
+			CompanyName:       cfg.CompanyName,
+			AddressLine1:      cfg.AddressLine1,
+			AddressLine2:      cfg.AddressLine2,
+			PrimaryColor:      cfg.Colors["primary"],
+		}
+
+		// If single-brand mode has SMTP config, use that as well.
+		if cfg.SMTP.AuthType != "" && cfg.TenantID != "" {
+			tenantConfigs[cfg.TenantID] = mailservice.TenantSMTPConfig{
+				Branding: defaultBranding,
+				SMTP: mailservice.Config{
+					From:              cfg.SMTP.From,
+					SMTPServerAddress: cfg.SMTP.ServerAddress,
+					AuthType:          cfg.SMTP.AuthType,
+					Login:             cfg.SMTP.Login,
+					Password:          cfg.SMTP.Password,
+				},
+			}
+		}
+	} else {
+		// Extract tenant configurations from multi-tenant console config.
+		for tenantID, config := range consoleConfig.WhiteLabel.Value {
+			tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
+				Branding: mailservice.WhiteLabelConfig{
+					BrandName:         config.Name,
+					LogoURL:           config.LogoURLs["mail"],
+					HomepageURL:       config.HomepageURL,
+					SupportURL:        config.SupportURL,
+					DocsURL:           config.DocsURL,
+					SourceCodeURL:     config.SourceCodeURL,
+					SocialURL:         config.SocialURL,
+					PrivacyPolicyURL:  config.PrivacyPolicyURL,
+					TermsOfServiceURL: config.TermsOfServiceURL,
+					TermsOfUseURL:     config.TermsOfUseURL,
+					BlogURL:           config.BlogURL,
+					CompanyName:       config.CompanyName,
+					AddressLine1:      config.AddressLine1,
+					AddressLine2:      config.AddressLine2,
+					PrimaryColor:      config.Colors["primary"],
+				},
+				SMTP: mailservice.Config{
+					From:              config.SMTP.From,
+					SMTPServerAddress: config.SMTP.ServerAddress,
+					AuthType:          config.SMTP.AuthType,
+					Login:             config.SMTP.Login,
+					Password:          config.SMTP.Password,
+				},
+			}
+		}
+
+		// Default Storj branding.
+		defaultBranding = mailservice.WhiteLabelConfig{
+			BrandName:         "Storj",
+			LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+			HomepageURL:       consoleConfig.HomepageURL,
+			SupportURL:        consoleConfig.GeneralRequestURL,
+			DocsURL:           consoleConfig.DocumentationURL,
+			PrivacyPolicyURL:  "https://www.storj.io/legal/privacy-policy",
+			TermsOfServiceURL: consoleConfig.TermsAndConditionsURL,
+			TermsOfUseURL:     "https://www.storj.io/legal/terms-of-use",
+			SourceCodeURL:     "https://github.com/storj",
+			SocialURL:         "https://twitter.com/storj",
+			BlogURL:           "https://storj.io/blog",
+			PrimaryColor:      "#0052FF",
+			CompanyName:       "Storj Labs",
+			AddressLine1:      "1870 The Exchange SE Ste 220, PMB 75268",
+			AddressLine2:      "Atlanta, GA 30339-2171, United States",
+		}
 	}
 
 	return mailservice.SetupWithTenants(log, mailservice.SetupConfig{

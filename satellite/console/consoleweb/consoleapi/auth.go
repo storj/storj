@@ -60,6 +60,7 @@ type Auth struct {
 	badPasswordsEncoded    string
 	validAnnouncementNames []string
 	whiteLabelConfig       console.TenantWhiteLabelConfig
+	singleWhiteLabel       console.SingleWhiteLabelConfig
 	service                *console.Service
 	accountFreezeService   *console.AccountFreezeService
 	analytics              *analytics.Service
@@ -76,6 +77,7 @@ func NewAuth(
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
 	whiteLabelConfig console.TenantWhiteLabelConfig,
+	singleWhiteLabel console.SingleWhiteLabelConfig,
 ) *Auth {
 	return &Auth{
 		log:                    log,
@@ -88,6 +90,7 @@ func NewAuth(
 		ActivationCodeEnabled:  activationCodeEnabled,
 		MemberAccountsEnabled:  memberAccountsEnabled,
 		whiteLabelConfig:       whiteLabelConfig,
+		singleWhiteLabel:       singleWhiteLabel,
 		service:                service,
 		accountFreezeService:   accountFreezeService,
 		mailService:            mailService,
@@ -105,6 +108,12 @@ func NewAuth(
 // If a tenant-specific external address is configured, it returns that; otherwise, it falls back
 // to the global external address.
 func (a *Auth) getExternalAddress(ctx context.Context) string {
+	// Check single-brand mode first
+	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
+		return a.singleWhiteLabel.ExternalAddress
+	}
+
+	// Multi-tenant lookup
 	tenantID := tenancy.TenantIDFromContext(ctx)
 	if tenantID != "" {
 		if wlConfig, ok := a.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {

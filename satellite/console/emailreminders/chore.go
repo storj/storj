@@ -111,7 +111,7 @@ func (chore *Chore) sendVerificationReminders(ctx context.Context) (err error) {
 			return errs.New("error generating activation token: %w", err)
 		}
 
-		authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "", false, false, nil, "", nil, console.TenantWhiteLabelConfig{})
+		authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "", false, false, nil, "", nil, console.TenantWhiteLabelConfig{}, console.SingleWhiteLabelConfig{})
 
 		linkBase, err := url.JoinPath(authController.ExternalAddress, "activation")
 		if err != nil {

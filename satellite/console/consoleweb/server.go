@@ -354,7 +354,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.WhiteLabel)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.WhiteLabel, config.SingleWhiteLabel)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -1256,31 +1256,14 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 		TermsOfServiceURL: server.config.TermsAndConditionsURL,
 	}
 
-	if tenantCtx.TenantID != "" {
+	// Check single-brand white label first (takes precedence for dedicated deployments).
+	if server.config.SingleWhiteLabel.Enabled() {
+		wlConfig := server.config.SingleWhiteLabel.ToWhiteLabelConfig()
+		branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
+	} else if tenantCtx.TenantID != "" {
+		// Fall back to multi-tenant white label lookup.
 		if wlConfig, ok := server.config.WhiteLabel.Value[tenantCtx.TenantID]; ok {
-			// Use white-label specific URLs if configured, otherwise fall back to global defaults.
-			privacyPolicyURL := wlConfig.PrivacyPolicyURL
-			if privacyPolicyURL == "" {
-				privacyPolicyURL = server.config.HomepageURL + "/privacy-policy/"
-			}
-			termsOfServiceURL := wlConfig.TermsOfServiceURL
-			if termsOfServiceURL == "" {
-				termsOfServiceURL = server.config.TermsAndConditionsURL
-			}
-
-			branding = BrandingConfig{
-				Name:              wlConfig.Name,
-				LogoURLs:          wlConfig.LogoURLs,
-				FaviconURLs:       wlConfig.FaviconURLs,
-				Colors:            wlConfig.Colors,
-				SupportURL:        wlConfig.SupportURL,
-				DocsURL:           wlConfig.DocsURL,
-				HomepageURL:       wlConfig.HomepageURL,
-				GetInTouchURL:     wlConfig.GetInTouchURL,
-				GatewayURL:        wlConfig.GatewayURL,
-				PrivacyPolicyURL:  privacyPolicyURL,
-				TermsOfServiceURL: termsOfServiceURL,
-			}
+			branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
 		} else {
 			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenant_id", tenantCtx.TenantID))
 		}
@@ -1292,6 +1275,32 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(&branding); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write branding config", zap.Error(err))
+	}
+}
+
+// brandingFromWhiteLabelConfig converts a WhiteLabelConfig to BrandingConfig.
+func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHomepageURL, defaultTermsURL string) BrandingConfig {
+	privacyPolicyURL := wlConfig.PrivacyPolicyURL
+	if privacyPolicyURL == "" {
+		privacyPolicyURL = defaultHomepageURL + "/privacy-policy/"
+	}
+	termsOfServiceURL := wlConfig.TermsOfServiceURL
+	if termsOfServiceURL == "" {
+		termsOfServiceURL = defaultTermsURL
+	}
+
+	return BrandingConfig{
+		Name:              wlConfig.Name,
+		LogoURLs:          wlConfig.LogoURLs,
+		FaviconURLs:       wlConfig.FaviconURLs,
+		Colors:            wlConfig.Colors,
+		SupportURL:        wlConfig.SupportURL,
+		DocsURL:           wlConfig.DocsURL,
+		HomepageURL:       wlConfig.HomepageURL,
+		GetInTouchURL:     wlConfig.GetInTouchURL,
+		GatewayURL:        wlConfig.GatewayURL,
+		PrivacyPolicyURL:  privacyPolicyURL,
+		TermsOfServiceURL: termsOfServiceURL,
 	}
 }
 
@@ -1485,6 +1494,16 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 // If a tenant-specific external address is configured, it returns that; otherwise, it falls back
 // to the global external address. The returned address always has a trailing slash.
 func (server *Server) getExternalAddress(ctx context.Context) string {
+	// Check single-brand mode first
+	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.ExternalAddress != "" {
+		addr := server.config.SingleWhiteLabel.ExternalAddress
+		if !strings.HasSuffix(addr, "/") {
+			addr += "/"
+		}
+		return addr
+	}
+
+	// Multi-tenant lookup
 	tenantID := tenancy.TenantIDFromContext(ctx)
 	if tenantID != "" {
 		if wlConfig, ok := server.config.WhiteLabel.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {

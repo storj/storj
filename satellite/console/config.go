@@ -67,8 +67,9 @@ type Config struct {
 	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
 
-	PartnerUI  PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
-	WhiteLabel TenantWhiteLabelConfig `help:"tenant-specific white label configuration in YAML format or file path"`
+	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
+	WhiteLabel       TenantWhiteLabelConfig `help:"tenant-specific white label configuration in YAML format or file path"`
+	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
 	RestAPIKeys       RestAPIKeysConfig
@@ -464,7 +465,7 @@ type TenantWhiteLabelConfig struct {
 
 // WhiteLabelConfig contains white-label configuration for a tenant.
 type WhiteLabelConfig struct {
-	TenantID          string            `yaml:"-"`
+	TenantID          string            `yaml:"tenant-id,omitempty"`
 	HostName          string            `yaml:"host-name,omitempty"`
 	ExternalAddress   string            `yaml:"external-address,omitempty"`
 	Name              string            `yaml:"name,omitempty"`
@@ -495,6 +496,33 @@ type SMTPConfig struct {
 	AuthType      string `yaml:"auth-type,omitempty"`
 	Login         string `yaml:"login,omitempty"`
 	Password      string `yaml:"password,omitempty"`
+}
+
+// SingleWhiteLabelConfig provides simplified white-label configuration for dedicated
+// single-brand deployments. When enabled (Name is set), this configuration takes precedence
+// over the multi-tenant TenantWhiteLabelConfig.
+//
+// This is configured directly in YAML without CLI flag support.
+// Example YAML:
+//
+//	console.single-white-label:
+//	  name: "MyBrand"
+//	  logo-urls:
+//	    full-light: "https://..."
+//	    full-dark: "https://..."
+//	  colors:
+//	    primary-light: "#FF0000"
+//	  support-url: "https://support.mybrand.com"
+type SingleWhiteLabelConfig WhiteLabelConfig
+
+// Enabled returns true if single white label mode is enabled.
+func (s *SingleWhiteLabelConfig) Enabled() bool {
+	return s.Name != ""
+}
+
+// ToWhiteLabelConfig returns the config as WhiteLabelConfig.
+func (s *SingleWhiteLabelConfig) ToWhiteLabelConfig() WhiteLabelConfig {
+	return WhiteLabelConfig(*s)
 }
 
 var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)
