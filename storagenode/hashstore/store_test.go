@@ -134,20 +134,18 @@ func testStore_FileLocking(t *testing.T, cfg Config) {
 	assert.Error(t, err)
 }
 
-func TestStore_CreateSameKeyErrors(t *testing.T) {
-	forAllTables(t, testStore_CreateSameKeyErrors)
+func TestStore_CreateSameKeySucceeds(t *testing.T) {
+	forAllTables(t, testStore_CreateSameKeySucceeds)
 }
-func testStore_CreateSameKeyErrors(t *testing.T, cfg Config) {
+func testStore_CreateSameKeySucceeds(t *testing.T, cfg Config) {
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
 	// add an entry to the store that does not expire.
 	key := s.AssertCreate()
 
-	// attempting to make the same entry fails on the Close call.
-	wr, err := s.Create(t.Context(), key, time.Time{})
-	assert.NoError(t, err)
-	assert.Error(t, wr.Close())
+	// making the same entry succeeds.
+	s.AssertCreate(WithKey(key))
 }
 
 func TestStore_ReadFromCompactedFile(t *testing.T) {
@@ -1007,41 +1005,6 @@ func testStore_RaceConcurrentWriteAndStats(t *testing.T, cfg Config) {
 	<-done
 }
 
-func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
-	forAllTables(t, testStore_FailedUpdateDoesntIncreaseLogLength)
-}
-func testStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T, cfg Config) {
-	ctx := t.Context()
-
-	s := newTestStore(t, cfg)
-	defer s.Close()
-
-	getSize := func() (size uint64) {
-		assert.NoError(t, s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
-			size = lf.size.Load()
-			return false, nil
-		}))
-		return size
-	}
-	// add a key to the store
-	key := s.AssertCreate()
-
-	// get the size of the log file
-	size := getSize()
-	assert.NotEqual(t, size, 0)
-
-	// try to update the key. it should fail because the hashtbl does not allow updates.
-	w, err := s.Create(ctx, key, time.Time{})
-	assert.NoError(t, err)
-	_, err = w.Write(make([]byte, 500))
-	assert.NoError(t, err)
-	assert.Error(t, w.Close())
-
-	// the size of the log file should not have changed
-	newSize := getSize()
-	assert.Equal(t, size, newSize)
-}
-
 func TestStore_CompactionMakesForwardProgress(t *testing.T) {
 	forAllTables(t, testStore_CompactionMakesForwardProgress)
 }
@@ -1772,10 +1735,10 @@ func TestStore_CollisionDuringCheck(t *testing.T) {
 	// insert the first record again into the 2nd log file to create a collision during log check.
 	s.AssertCreate(WithKey(key), WithLogFileOnly(lf))
 
-	// restarting should succeed and the correct key should be present and unmoved.
+	// restarting should succeed and the correct key should be present and moved.
 	s.AssertReopen(WithoutHintFile(true))
 	s.AssertRead(key)
-	assert.Equal(t, existing, s.LogFile(key))
+	assert.NotEqual(t, existing, s.LogFile(key))
 }
 
 func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {

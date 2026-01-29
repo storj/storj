@@ -374,19 +374,6 @@ func (h *HashTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err err
 			return false, err
 		}
 
-		// note that in lookup, we protect against lost pages by reading at least 2 pages worth of
-		// records before bailing due to an invalid record. we don't do that here so it's possible
-		// in the presence of lost pages to have the same key present twice and the latter one be
-		// effectively unreadable and take up a slot. this isn't that big of a deal because reads
-		// will find the newer entry first, and the hash table should be compacted eventually and
-		// the earlier value removed. unfortunately, the later value will be iterated over first
-		// (most of the time. in rare cases the later value may probe past the end of the hash table
-		// into the earlier pages), and we don't want compaction to cause values to go backwards by
-		// overwriting the later value with the earlier value. fortunately, the only time records
-		// should ever be mutated is if they are revived after being flagged trash during a previous
-		// compaction and so we can error if the fields don't match except for the expiration field
-		// which we can take to be the longer lasting value.
-
 		if h.buffer != nil {
 			valid, err = h.buffer.ReadRecord(slot, &tmp)
 		} else if cache != nil {
@@ -405,12 +392,7 @@ func (h *HashTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err err
 				continue
 			}
 
-			// otherwise, it is our key, and as noted above we need to merge the records, erroring
-			// if fields are mutated, and picking the "larger" expiration time.
-			if !RecordsEqualish(rec, tmp) {
-				return false, Error.New("put:%v != exist:%v: %w", rec, tmp, ErrCollision)
-			}
-
+			// since it is our key, we will take the updated value but with the larger expiration.
 			rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
 			insert = false
 		}
