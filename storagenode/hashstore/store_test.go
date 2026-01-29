@@ -1785,7 +1785,32 @@ func TestStore_RewriteRecordWithTruncatedLogErrors(t *testing.T) {
 	assert.That(t, errors.Is(err, io.EOF))
 }
 
-//
+func TestStore_AmnestyForUnlinkedLogFile(t *testing.T) {
+	var amnestied []Key
+	s := newTestStore(t, defaultConfig(), WithAmnesty(func(ctx context.Context, keys []Key) {
+		amnestied = append(amnestied, keys...)
+	}))
+	defer s.Close()
+
+	var created []Key
+	for range 100 {
+		key := s.AssertCreate()
+		assert.Equal(t, s.LogFile(key), 1)
+		created = append(created, key)
+	}
+
+	lf, ok := s.lfs.Lookup(1)
+	assert.True(t, ok)
+
+	s.Close()
+	assert.NoError(t, os.Remove(lf.path))
+	s.AssertReopen()
+
+	sort.Slice(amnestied, func(i, j int) bool { return string(amnestied[i][:]) < string(amnestied[j][:]) })
+	sort.Slice(created, func(i, j int) bool { return string(created[i][:]) < string(created[j][:]) })
+	assert.DeepEqual(t, amnestied, created)
+}
+
 // benchmarks
 //
 
