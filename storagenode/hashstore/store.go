@@ -293,6 +293,8 @@ func NewStore(
 
 		// try to reconcile the log tail from the hashtbl and the log file.
 		if err := func() error {
+			defer delete(tails, lf.id) // remove the tail so we know we've processed it
+
 			// if the log is excluded, or if we have an excluder (meaning we aren't doing full table
 			// reconstruction) and we're skipping log checks, then skip the check.
 			if excluder.Excluded(lf.id) || (excluder != nil && s.cfg.Store.SkipLogCheck) {
@@ -319,7 +321,7 @@ func NewStore(
 					zap.Any("log", logTail),
 				)
 
-				invalid, err := s.reconcileLog(ctx, lf)
+				invalid, err := s.reconcileLog(ctx, lf.id, lf)
 				if err != nil {
 					return Error.Wrap(err)
 				} else if len(invalid) > 0 {
@@ -352,6 +354,28 @@ func NewStore(
 
 		// include the log file in the writeable collection.
 		s.lfc.Include(lf)
+	}
+
+	// now reconcile any tails we didn't see log files for.
+	for id, tail := range tails {
+		s.stats.logsMismatched++
+		s.log.Warn("mismatched log tail",
+			zap.Uint64("id", id),
+			zap.String("path", "<missing>"),
+			zap.Any("table", tail),
+		)
+
+		invalid, err := s.reconcileLog(ctx, id, nil)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		} else if len(invalid) > 0 {
+			s.log.Warn("reconciled log with invalid records",
+				zap.Uint64("id", id),
+				zap.String("path", "<missing>"),
+				zap.Int("invalid_count", len(invalid)),
+			)
+			s.amnesty(ctx, invalid)
+		}
 	}
 
 	// write out a hint file after we have everything loaded and checked so that future startups
@@ -1489,19 +1513,21 @@ func parseHintFile(path string) *hintExcluder {
 // before rewriting the table to remove any invalid records the table thinks are present. it returns
 // the Keys for those Records so that they can be handled. it can only be called before any other
 // operations are performed on the Store, so during the initial constructor.
-func (s *Store) reconcileLog(ctx context.Context, lf *logFile) (_ []Key, err error) {
+func (s *Store) reconcileLog(ctx context.Context, id uint64, lf *logFile) (_ []Key, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// collect the set of valid records from the log file, keeping the largest offset. the records
 	// are returned in largest offset order, so only insert into the map if it doesn't exist.
 	logRecordsByKey := make(map[Key]Record)
-	if err := readRecordsFromLogFile(ctx, lf, s.valid, func(rec Record) bool {
-		if _, ok := logRecordsByKey[rec.Key]; !ok {
-			logRecordsByKey[rec.Key] = rec
+	if lf != nil {
+		if err := readRecordsFromLogFile(ctx, lf, s.valid, func(rec Record) bool {
+			if _, ok := logRecordsByKey[rec.Key]; !ok {
+				logRecordsByKey[rec.Key] = rec
+			}
+			return true
+		}); err != nil {
+			return nil, err
 		}
-		return true
-	}); err != nil {
-		return nil, err
 	}
 
 	// compare against the current table removing any records from our valid set that the table
@@ -1509,7 +1535,7 @@ func (s *Store) reconcileLog(ctx context.Context, lf *logFile) (_ []Key, err err
 	// differ from what the log has.
 	invalidByKey := make(map[Key]struct{})
 	if err := s.tbl.Range(ctx, func(ctx context.Context, rec Record) (bool, error) {
-		if rec.Log != lf.id {
+		if rec.Log != id {
 			return true, nil
 		}
 
