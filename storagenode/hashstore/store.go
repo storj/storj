@@ -6,6 +6,7 @@ package hashstore
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -1524,16 +1525,19 @@ func (s *Store) reconcileLog(ctx context.Context, lf *logFile) (_ []Key, err err
 	}
 
 	// any records still remaining in logRecordsByKey are missing from the table, so insert them.
-	// since they aren't in the table, the only way it errors is an i/o error and the only way it's
-	// not ok is if the table is full. either is a problem because we try to grow the table as
-	// needed.
+	// they may still exist in the table pointing to other log files, so we have to ignore that, but
+	// the only other way it errors is an i/o error and the only way it's not ok is if the table is
+	// full. either is a problem because we try to grow the table as needed.
 	for _, rec := range logRecordsByKey {
 		if s.tbl.Load() >= db_CompactLoad {
 			if err := s.doubleTableSize(ctx); err != nil {
 				return nil, Error.Wrap(err)
 			}
 		}
-		if ok, err := s.tbl.Insert(ctx, rec); err != nil {
+		if ok, err := s.tbl.Insert(ctx, rec); errors.Is(err, ErrCollision) {
+			// if we have a collision, it means we have an existing record for that key that points
+			// into a different log file. let's just prefer that one.
+		} else if err != nil {
 			return nil, Error.Wrap(err)
 		} else if !ok {
 			return nil, Error.New("unable to insert record during log reconciliation")

@@ -1579,40 +1579,19 @@ func TestStore_ReconcileLog(t *testing.T) {
 	// helper function to add a valid record to both the log and table.
 	addValid := func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
 		key := s.AssertCreate()
-
 		assert.Equal(t, s.LogFile(key), lf.id)
-
 		*valid = append(*valid, key)
 	}
 
 	// helper function to add a valid record to only the log.
 	addValidToLogOnly := func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
-		key := newKey()
-
-		var buf [RecordSize]byte
-		(&Record{
-			Key:     key,
-			Offset:  lf.size.Load(),
-			Log:     lf.id,
-			Length:  uint32(len(key)),
-			Created: s.Store.today(),
-		}).WriteTo(&buf)
-
-		_, err := lf.fh.Write(key[:])
-		assert.NoError(t, err)
-		_, err = lf.fh.Write(buf[:])
-		assert.NoError(t, err)
-
-		lf.size.Add(uint64(len(key)) + RecordSize)
-
-		*valid = append(*valid, key)
+		*valid = append(*valid, s.AssertCreate(WithLogFileOnly(lf)))
 	}
 
 	// helper function to add invalid data to the log.
 	addInvalidToLog := func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key) {
 		n, err := lf.fh.Write(make([]byte, mwc.Intn(128)+1))
 		assert.NoError(t, err)
-
 		lf.size.Add(uint64(n))
 	}
 
@@ -1714,30 +1693,44 @@ func TestStore_SkipLogCheckOnStartup(t *testing.T) {
 	assert.True(t, ok)
 
 	// now add a key only to the log file
-	logOnly := newKey()
-	{
-		var buf [RecordSize]byte
-		(&Record{
-			Key:     logOnly,
-			Offset:  lf.size.Load(),
-			Log:     lf.id,
-			Length:  uint32(len(logOnly)),
-			Created: s.Store.today(),
-		}).WriteTo(&buf)
-
-		_, err := lf.fh.Write(logOnly[:])
-		assert.NoError(t, err)
-		_, err = lf.fh.Write(buf[:])
-		assert.NoError(t, err)
-
-		lf.size.Add(uint64(len(logOnly)) + RecordSize)
-	}
+	logOnly := s.AssertCreate(WithLogFileOnly(lf))
 
 	// restarting should succeed and the log-only key should be ignored.
 	s.AssertReopen(WithoutHintFile(true))
 
 	s.AssertRead(key)
 	s.AssertNotExist(logOnly)
+}
+
+func TestStore_CollisionDuringCheck(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Compaction.MaxLogSize = 10 * 1024
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// create a record in a log file.
+	key := s.AssertCreate()
+	existing := s.LogFile(key)
+
+	// insert records until we end up with a new log file.
+	lf := func() *logFile {
+		for {
+			lf, ok := s.lfs.Lookup(s.LogFile(s.AssertCreate()))
+			assert.True(t, ok)
+			if lf.id != existing {
+				return lf
+			}
+		}
+	}()
+
+	// insert the first record again into the 2nd log file to create a collision during log check.
+	s.AssertCreate(WithKey(key), WithLogFileOnly(lf))
+
+	// restarting should succeed and the correct key should be present and unmoved.
+	s.AssertReopen(WithoutHintFile(true))
+	s.AssertRead(key)
+	assert.Equal(t, existing, s.LogFile(key))
 }
 
 func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
