@@ -334,7 +334,7 @@ func TestGetNodes(t *testing.T) {
 		require.NoError(t, err)
 		// set last contact success to 1 hour ago to make node appear offline
 		checkInInfo := getNodeInfo(offlineNode.ID())
-		err = service.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-time.Hour))
+		_, err = service.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-time.Hour))
 		require.NoError(t, err)
 		// Check that storage node #1 is offline
 		node, err := service.Get(ctx, offlineNode.ID())
@@ -773,12 +773,91 @@ func TestUpdateCheckInNodeEventOnline(t *testing.T) {
 		node.Contact.Chore.Pause(ctx)
 
 		checkInInfo := getNodeInfo(node.ID())
-		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour)))
-		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+		_, err := service.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour))
+		require.NoError(t, err)
+		_, err = service.UpdateCheckIn(ctx, checkInInfo, time.Now())
+		require.NoError(t, err)
 
 		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, checkInInfo.Operator.Email, nodeevents.Online)
 		require.NoError(t, err)
 		require.Equal(t, node.ID(), ne.NodeID)
+	})
+}
+
+func TestUpdateCheckInDowntimeTracking(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.OnlineWindow = 4 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		checkInInfo := getNodeInfo(node.ID())
+
+		// First check-in establishes baseline - should not report CameBackOnline
+		now := time.Now()
+		result, err := service.UpdateCheckIn(ctx, checkInInfo, now)
+		require.NoError(t, err)
+		require.False(t, result.CameBackOnline, "First check-in should not report CameBackOnline")
+		require.Zero(t, result.Downtime)
+
+		// Check-in within online window - should not report CameBackOnline
+		result, err = service.UpdateCheckIn(ctx, checkInInfo, now.Add(2*time.Hour))
+		require.NoError(t, err)
+		require.False(t, result.CameBackOnline, "Check-in within online window should not report CameBackOnline")
+		require.Zero(t, result.Downtime)
+
+		// Check-in after online window (>4h since last check-in) - should report CameBackOnline with correct downtime
+		// Last check-in was at now+2h, so we need to check in at least 4h after that
+		// Using 5h30m after the second check-in = now + 2h + 5h30m = now + 7h30m
+		secondCheckInTime := now.Add(2 * time.Hour)
+		downtimeSinceSecondCheckIn := 5*time.Hour + 30*time.Minute
+		thirdCheckInTime := secondCheckInTime.Add(downtimeSinceSecondCheckIn)
+		result, err = service.UpdateCheckIn(ctx, checkInInfo, thirdCheckInTime)
+		require.NoError(t, err)
+		require.True(t, result.CameBackOnline, "Check-in after online window should report CameBackOnline")
+		// Downtime should be calculated from last contact success (which was at secondCheckInTime)
+		require.InDelta(t, downtimeSinceSecondCheckIn.Hours(), result.Downtime.Hours(), 0.1, "Downtime should match expected duration")
+
+		// After coming back online, subsequent check-in should not report CameBackOnline
+		result, err = service.UpdateCheckIn(ctx, checkInInfo, thirdCheckInTime.Add(time.Hour))
+		require.NoError(t, err)
+		require.False(t, result.CameBackOnline, "Subsequent check-in after coming back online should not report CameBackOnline")
+	})
+}
+
+func TestUpdateCheckInDowntimeNotReportedWhenNodeIsDown(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.OnlineWindow = 4 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		checkInInfo := getNodeInfo(node.ID())
+
+		// First check-in establishes baseline
+		now := time.Now()
+		result, err := service.UpdateCheckIn(ctx, checkInInfo, now)
+		require.NoError(t, err)
+		require.False(t, result.CameBackOnline)
+
+		// Node checks in after online window but is down (IsUp = false)
+		// CameBackOnline should be false even though enough time has passed
+		checkInInfo.IsUp = false
+		result, err = service.UpdateCheckIn(ctx, checkInInfo, now.Add(5*time.Hour))
+		require.NoError(t, err)
+		require.False(t, result.CameBackOnline, "CameBackOnline should be false when node is not reachable (IsUp=false)")
 	})
 }
 
@@ -818,7 +897,8 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 		checkInInfo.Operator.Email = email
 
 		checkInInfo.Version = &pb.NodeVersion{Version: "v0.0.0"}
-		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, now))
+		_, err = service.UpdateCheckIn(ctx, checkInInfo, now)
+		require.NoError(t, err)
 
 		nd, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
@@ -832,7 +912,8 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 
 		// check in again and check that another email wasn't sent
 		now = now.Add(24 * time.Hour)
-		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, now))
+		_, err = service.UpdateCheckIn(ctx, checkInInfo, now)
+		require.NoError(t, err)
 
 		nd, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
@@ -843,7 +924,8 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 		require.Equal(t, ne1.CreatedAt, ne0.CreatedAt)
 
 		// check in again after cooldown period has passed and check that email was sent
-		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, now.Add(planet.Satellites[0].Config.Overlay.NodeSoftwareUpdateEmailCooldown)))
+		_, err = service.UpdateCheckIn(ctx, checkInInfo, now.Add(planet.Satellites[0].Config.Overlay.NodeSoftwareUpdateEmailCooldown))
+		require.NoError(t, err)
 
 		nd, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)

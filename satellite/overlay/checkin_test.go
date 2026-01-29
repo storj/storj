@@ -61,7 +61,8 @@ func TestCheckIn(t *testing.T) {
 		// infoCheck sends a node check-in and gets the node's info.
 		// The last contact timestamp is compared to the expected timestamp.
 		infoCheck := func(testName string, checkTime time.Time, expectedLastSuccess time.Time, expectedLastFailure time.Time) {
-			require.NoErrorf(t, sat.Overlay.Service.UpdateCheckIn(ctx, nodeInfo, checkTime), testName)
+			_, err := sat.Overlay.Service.UpdateCheckIn(ctx, nodeInfo, checkTime)
+			require.NoErrorf(t, err, testName)
 
 			oldInfo, err := sat.Overlay.Service.Get(ctx, nodeID)
 			require.NoErrorf(t, err, testName)

@@ -44,6 +44,15 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // ErrLowDifficulty is when the node id's difficulty is too low.
 var ErrLowDifficulty = errs.Class("node id difficulty too low")
 
+// CheckInResult contains information about a node check-in operation.
+type CheckInResult struct {
+	// CameBackOnline is true if the node was previously offline (beyond OnlineWindow)
+	// and is now successfully reachable.
+	CameBackOnline bool
+	// Downtime is the duration since LastContactSuccess. Only meaningful when CameBackOnline is true.
+	Downtime time.Duration
+}
+
 // DB implements the database for overlay.Service.
 //
 // architecture: Database
@@ -650,29 +659,29 @@ Note that there can be a race between acquiring the previous entry and
 performing the update, so if two updates happen at about the same time it is
 not defined which one will end up in the database.
 */
-func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
+func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (result CheckInResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 	failureMeter := mon.Meter("geofencing_lookup_failed")
 
 	oldInfo, err := service.Get(ctx, node.NodeID)
 	if err != nil && !ErrNodeNotFound.Has(err) {
-		return Error.New("failed to get node info from DB: %w", err)
+		return CheckInResult{}, Error.New("failed to get node info from DB: %w", err)
 	}
 
 	if oldInfo == nil {
 		if !node.IsUp {
 			// this is a previously unknown node, and we couldn't pingback to verify that it even
 			// exists. Don't bother putting it in the db.
-			return nil
+			return CheckInResult{}, nil
 		}
 
 		difficulty, err := node.NodeID.Difficulty()
 		if err != nil {
 			// this should never happen
-			return err
+			return CheckInResult{}, err
 		}
 		if int(difficulty) < service.config.MinimumNewNodeIDDifficulty {
-			return ErrLowDifficulty.New("node id difficulty is %d when %d is the minimum",
+			return CheckInResult{}, ErrLowDifficulty.New("node id difficulty is %d when %d is the minimum",
 				difficulty, service.config.MinimumNewNodeIDDifficulty)
 		}
 
@@ -685,7 +694,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 				zap.Error(err))
 		}
 
-		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+		return CheckInResult{}, service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 	}
 
 	lastUp, lastDown := oldInfo.Reputation.LastContactSuccess, oldInfo.Reputation.LastContactFailure
@@ -720,11 +729,11 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	if service.config.SendNodeEmails && service.config.Node.MinimumVersion != "" {
 		min, err := version.NewSemVer(service.config.Node.MinimumVersion)
 		if err != nil {
-			return err
+			return CheckInResult{}, err
 		}
 		v, err := version.NewSemVer(node.Version.GetVersion())
 		if err != nil {
-			return err
+			return CheckInResult{}, err
 		}
 
 		if v.Compare(min) == -1 {
@@ -746,14 +755,23 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		oldInfo.CountryCode != node.CountryCode || node.SoftwareUpdateEmailSent {
 		err = service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 		if err != nil {
-			return Error.Wrap(err)
+			return CheckInResult{}, Error.Wrap(err)
 		}
 
-		if service.config.SendNodeEmails && node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
-			_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, nil, node.NodeID, nodeevents.Online)
-			return Error.Wrap(err)
+		// Detect if node came back online after being down
+		var result CheckInResult
+		if node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
+			result = CheckInResult{
+				CameBackOnline: true,
+				Downtime:       timestamp.Sub(oldInfo.Reputation.LastContactSuccess),
+			}
 		}
-		return nil
+
+		if service.config.SendNodeEmails && result.CameBackOnline {
+			_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, nil, node.NodeID, nodeevents.Online)
+			return result, Error.Wrap(err)
+		}
+		return result, nil
 	}
 
 	service.log.Debug("ignoring unnecessary check-in",
@@ -761,7 +779,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		zap.Stringer("node_id", node.NodeID))
 	mon.Event("unnecessary_node_check_in")
 
-	return nil
+	return CheckInResult{}, nil
 }
 
 // DQNodesLastSeenBefore disqualifies nodes who have not been contacted since the cutoff time.

@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"math"
 	"net"
 	"time"
 
@@ -136,14 +137,14 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		Version:    req.Version,
 	}
 
-	emitEventkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo)
-
-	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
+	checkInResult, err := endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
 		endpoint.log.Info("failed to update check in", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 		endpoint.service.idLimiter.BackOut(ctx, nodeIDBytesAsString)
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
+
+	emitEventkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo, checkInResult)
 
 	hashstoreSettings, err := endpoint.service.getHashstoreSettings(ctx, nodeID)
 	if err != nil {
@@ -160,7 +161,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	}, nil
 }
 
-func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo) {
+func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo, checkInResult overlay.CheckInResult) {
 	var sourceAddr string
 	transport, found := drpcctx.Transport(ctx)
 	if found {
@@ -189,6 +190,12 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 	if nodeInfo.Version != nil {
 		tags = append(tags, eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp))
 		tags = append(tags, eventkit.String("version", nodeInfo.Version.Version))
+	}
+
+	// Add downtime tag only when node came back online (rounded up to nearest hour)
+	if checkInResult.CameBackOnline {
+		downtimeHours := int64(math.Ceil(checkInResult.Downtime.Hours()))
+		tags = append(tags, eventkit.Int64("downtime-hours", downtimeHours))
 	}
 
 	ek.Event("checkin", tags...)
