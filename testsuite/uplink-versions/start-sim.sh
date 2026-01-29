@@ -41,7 +41,11 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the all versions from stage 1 plus main
 IMPORTANT_VERSIONS=('v1.0.0 v1.15.4 v1.19.9 v1.27.6 v1.28.2 v1.29.5 v1.30.4')     # first stable version, next 2 versions representative for pre metainfo refactoring, other represent current rclone, duplicati etc.
 
-git fetch --tags
+# Note: tags should be fetched before running this script (e.g., in run-postgres.sh or Jenkinsfile)
+# to avoid needing network/SSH access from within the container.
+# Disable remote access by removing the remote URL - all required refs should already be local.
+git remote set-url origin /dev/null 2>/dev/null || true
+git fetch --tags 2>/dev/null || true
 major_release_tags=$(
     git tag -l --sort -version:refname |                             # get the tag list
     grep -v rc |                                                     # remove release candidates

@@ -1,0 +1,19 @@
+# ignore dot files
+**/.vscode
+**/.idea
+
+# except git files
+!.git*
+
+# ignore temporary files
+**/*~
+/*.swp
+
+# ignore built releases
+release/
+
+# ignore node specific folders
+**/node_modules
+web/*/{build,dist,coverage}/
+satellite/admin/ui/{build,dist,coverage}/
+satellite/admin/legacy/ui/{build,dist,coverage}/

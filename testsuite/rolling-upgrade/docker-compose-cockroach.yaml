@@ -1,0 +1,41 @@
+services:
+  cockroach:
+    image: cockroachdb/cockroach:v23.2.2
+    command: start-single-node --insecure
+    healthcheck:
+      test: ["CMD", "cockroach", "sql", "--insecure", "-e", "select 1"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:latest
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: testsuite/rolling-upgrade/Dockerfile
+    environment:
+      - BRANCH_NAME
+      - STORJ_SIM_POSTGRES=cockroach://root@cockroach:26257/master?sslmode=disable
+      - STORJ_SIM_REDIS=redis:6379
+      - STORJ_MIGRATION_DB=cockroach://root@cockroach:26257/master?sslmode=disable
+      - STORJ_SKIP_FIX_LAST_NETS=true
+      - STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED=false
+      - GOCACHE=/go-cache/build
+      - GOMODCACHE=/go-cache/mod
+    volumes:
+      - go-cache:/go-cache
+    depends_on:
+      cockroach:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  go-cache:

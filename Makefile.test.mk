@@ -118,3 +118,17 @@ test-satellite-ui: ## Run playwright ui tests
 test-wasm-size: ## Test that the built .wasm code has not increased in size
 	@echo "Running ${@}"
 	@./web/satellite/wasm/check-size.sh
+
+##@ Integration Test
+
+.PHONY: test/rolling-upgrade/cockroach
+test/rolling-upgrade/cockroach: # Run rolling upgrade test with CockroachDB
+	./testsuite/rolling-upgrade/run-cockroach.sh
+
+.PHONY: test/rolling-upgrade/postgres
+test/rolling-upgrade/postgres: # Run rolling upgrade test with PostgreSQL
+	./testsuite/rolling-upgrade/run-postgres.sh
+
+.PHONY: test/uplink-versions/postgres
+test/uplink-versions/postgres: # Run uplink versions test with PostgreSQL
+	./testsuite/uplink-versions/run-postgres.sh

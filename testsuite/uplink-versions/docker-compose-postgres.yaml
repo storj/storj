@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_HOST_AUTH_METHOD=trust
+      - POSTGRES_DB=teststorj
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d teststorj"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:latest
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: testsuite/uplink-versions/Dockerfile
+    environment:
+      - STORJ_SIM_POSTGRES=postgres://postgres@postgres:5432/teststorj?sslmode=disable
+      - STORJ_SIM_REDIS=redis:6379
+      - GOCACHE=/go-cache/build
+      - GOMODCACHE=/go-cache/mod
+    volumes:
+      - go-cache:/go-cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  go-cache:

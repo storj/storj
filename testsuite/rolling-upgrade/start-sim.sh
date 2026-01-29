@@ -52,7 +52,11 @@ SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # in stage 1: satellite, uplink, and storagenode use latest release version
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the latest release version plus main
 BRANCH_NAME=${BRANCH_NAME:-""}
-git fetch --tags
+# Note: tags should be fetched before running this script (e.g., in run.sh or Jenkinsfile)
+# to avoid needing network/SSH access from within the container.
+# Disable remote access by removing the remote URL - all required refs should already be local.
+git remote set-url origin /dev/null 2>/dev/null || true
+git fetch --tags 2>/dev/null || true
 # if it's running on a release branch, we will set the stage 1 version to be the latest previous major release
 # if it's running on main, we will set the stage 1 version to be the current release version
 current_commit=$(git rev-parse HEAD)
