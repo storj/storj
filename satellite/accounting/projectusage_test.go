@@ -1130,6 +1130,243 @@ func TestGetBucketTotals(t *testing.T) {
 	})
 }
 
+func TestUsageFromCreateToDelete(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			tallyIntervals = 10
+			tallyInterval  = time.Hour
+		)
+
+		nowReally := time.Now()
+		now := time.Now().Add(-10 * time.Hour)
+		then := now.Add(-2 * time.Hour)
+		start := now.Add(tallyInterval * -tallyIntervals)
+		startFurther := nowReally.Add(tallyInterval * -tallyIntervals)
+
+		db := planet.Satellites[0].DB
+
+		usageRollups := db.ProjectAccounting()
+
+		mainProject := planet.Uplinks[0].Projects[0].ID
+
+		p1base := binary.BigEndian.Uint64(mainProject[:8]) >> 48
+
+		getValue := func(i, j int, base uint64) int64 {
+			a := uint64((i+1)*(j+1)) ^ base
+			a &^= (1 << 63)
+			return int64(a)
+		}
+
+		actions := []pb.PieceAction{
+			pb.PieceAction_GET,
+			pb.PieceAction_GET_AUDIT,
+			pb.PieceAction_GET_REPAIR,
+		}
+
+		var rollups []orders.BucketBandwidthRollup
+		name := "bucket1"
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], name)
+		require.NoError(t, err)
+
+		for _, action := range actions {
+			value := getValue(0, 1, p1base)
+
+			err := db.Orders().UpdateBucketBandwidthAllocation(ctx, mainProject, []byte(name), action, value*6, then)
+			require.NoError(t, err)
+
+			err = db.Orders().UpdateBucketBandwidthSettle(ctx, mainProject, []byte(name), action, value*3, 0, then)
+			require.NoError(t, err)
+
+			err = db.Orders().UpdateBucketBandwidthInline(ctx, mainProject, []byte(name), action, value, then)
+			require.NoError(t, err)
+		}
+
+		err = db.Orders().UpdateBandwidthBatch(ctx, rollups)
+		require.NoError(t, err)
+
+		for i := 0; i < tallyIntervals; i++ {
+			interval := start.Add(tallyInterval * time.Duration(i))
+
+			bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
+			{
+				bucketLoc1 := metabase.BucketLocation{
+					ProjectID:  mainProject,
+					BucketName: name,
+				}
+
+				value1 := getValue(i, 1, p1base) * 10
+
+				tally1 := &accounting.BucketTally{
+					BucketLocation: bucketLoc1,
+					ObjectCount:    value1,
+					TotalSegments:  value1 + value1,
+					TotalBytes:     value1 + value1,
+					MetadataSize:   value1,
+				}
+				bucketTallies[bucketLoc1] = tally1
+			}
+
+			err := usageRollups.SaveTallies(ctx, interval, bucketTallies)
+			require.NoError(t, err)
+		}
+
+		t.Run("test project total difference, should be more project total after deletion&creation", func(t *testing.T) {
+
+			projTotalBeforeDeletion, err := usageRollups.GetProjectTotal(ctx, mainProject, start, then)
+			require.NoError(t, err)
+			require.NotNil(t, projTotalBeforeDeletion)
+
+			err = planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], name)
+			require.NoError(t, err)
+
+			//
+			err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], name)
+			require.NoError(t, err)
+
+			for _, action := range actions {
+				value := getValue(0, 1, p1base)
+
+				err := db.Orders().UpdateBucketBandwidthAllocation(ctx, mainProject, []byte(name), action, value*6, then)
+				require.NoError(t, err)
+
+				err = db.Orders().UpdateBucketBandwidthSettle(ctx, mainProject, []byte(name), action, value*3, 0, then)
+				require.NoError(t, err)
+
+				err = db.Orders().UpdateBucketBandwidthInline(ctx, mainProject, []byte(name), action, value, then)
+				require.NoError(t, err)
+			}
+
+			err = db.Orders().UpdateBandwidthBatch(ctx, rollups)
+			require.NoError(t, err)
+
+			for i := 0; i < tallyIntervals; i++ {
+				interval := startFurther.Add(tallyInterval * time.Duration(i))
+
+				bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
+				{
+					bucketLoc := metabase.BucketLocation{
+						ProjectID:  mainProject,
+						BucketName: name,
+					}
+
+					value2 := getValue(i, 1, p1base) * 10
+
+					tally2 := &accounting.BucketTally{
+						BucketLocation: bucketLoc,
+						ObjectCount:    value2,
+						TotalSegments:  value2 + value2,
+						TotalBytes:     value2 + value2,
+						MetadataSize:   value2,
+					}
+					bucketTallies[bucketLoc] = tally2
+				}
+
+				err := usageRollups.SaveTallies(ctx, interval, bucketTallies)
+				require.NoError(t, err)
+			}
+
+			projTotalAfterDeletion, err := usageRollups.GetProjectTotal(ctx, mainProject, startFurther, nowReally)
+			require.NoError(t, err)
+			require.NotNil(t, projTotalAfterDeletion)
+			require.Less(t, projTotalBeforeDeletion.Storage, projTotalAfterDeletion.Storage)
+
+		})
+
+		t.Run("test bucket totals after deletion & creation", func(t *testing.T) {
+			cursor := accounting.BucketUsageCursor{
+				Limit: 3,
+				Page:  1,
+			}
+
+			totalsBeforeDeletionAndCreation, err := usageRollups.GetBucketTotals(ctx, mainProject, cursor, then)
+			require.NoError(t, err)
+			require.NotNil(t, totalsBeforeDeletionAndCreation)
+
+			totalsAfterDeletionAndCreation, err := usageRollups.GetBucketTotals(ctx, mainProject, cursor, now.Add(1*time.Hour))
+			require.NoError(t, err)
+			require.NotNil(t, totalsAfterDeletionAndCreation)
+		})
+
+		t.Run("test bucket usage rollups check if stored data after deletion is lower", func(t *testing.T) {
+			rollupsBeforeDelete, err := usageRollups.GetSingleBucketUsageRollup(ctx, mainProject, name, start, now)
+			require.NoError(t, err)
+			require.NotNil(t, rollupsBeforeDelete)
+
+			rollupsBeforeDeleteAfterDeleteAndCreation, err := usageRollups.GetSingleBucketUsageRollup(ctx, mainProject, name, startFurther, nowReally)
+			require.NoError(t, err)
+			require.NotNil(t, rollupsBeforeDeleteAfterDeleteAndCreation)
+
+			require.Less(t, rollupsBeforeDeleteAfterDeleteAndCreation.TotalStoredData, rollupsBeforeDelete.TotalStoredData)
+		})
+
+		t.Run("delete bucket and check if retrievable with getbuckettotals", func(t *testing.T) {
+			earlyNow := now.Add(-50 * time.Hour)
+			laterNow := now.Add(-30 * time.Hour)
+			earlyStart := laterNow.Add(tallyInterval * -tallyIntervals)
+
+			bucket, err := db.Buckets().CreateBucket(ctx, storj.Bucket{
+				Name:                "firstbucket",
+				ProjectID:           mainProject,
+				Created:             earlyNow,
+				DefaultSegmentsSize: int64(6.5e7),
+			})
+			require.NoError(t, err)
+
+			for i := 0; i < tallyIntervals; i++ {
+				interval := earlyStart.Add(tallyInterval * time.Duration(i))
+
+				bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
+				{
+					bucketLoc := metabase.BucketLocation{
+						ProjectID:  mainProject,
+						BucketName: bucket.Name,
+					}
+
+					objects := int64(100)
+					gB := int64(1.024e9)
+					segmentCount := gB / (6.5e7)
+					metadataSize := gB / 500
+
+					tally2 := &accounting.BucketTally{
+						BucketLocation: bucketLoc,
+						ObjectCount:    objects,
+						TotalSegments:  segmentCount,
+						TotalBytes:     gB,
+						MetadataSize:   metadataSize,
+					}
+					bucketTallies[bucketLoc] = tally2
+				}
+
+				err := usageRollups.SaveTallies(ctx, interval, bucketTallies)
+				require.NoError(t, err)
+
+				cursor := accounting.BucketUsageCursor{
+					Limit: 3,
+					Page:  1,
+				}
+
+				rollupsBeforeDelete, err := usageRollups.GetBucketTotals(ctx, mainProject, cursor, laterNow)
+				require.NoError(t, err)
+				require.NotNil(t, rollupsBeforeDelete)
+
+				require.Contains(t, rollupsBeforeDelete.BucketUsages[1].BucketName, "firstbucket")
+
+				err = planet.Uplinks[0].DeleteBucket(ctx, planet.Satellites[0], "firstbucket")
+				require.NoError(t, err)
+
+				err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "firstbucket")
+				require.NoError(t, err)
+
+				require.Equalf(t, "firstbucket", rollupsBeforeDelete.BucketUsages[1].BucketName, "if pass bucket exist")
+			}
+		})
+
+	})
+}
+
 func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
