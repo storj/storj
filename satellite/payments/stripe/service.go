@@ -773,6 +773,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		}
 		if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
 			storageItem.AddMetadata("SKU", info.StorageSKU)
+			storageItem.AddMetadata("ItemCode", info.StorageSKU)
 			if service.stripeConfig.InvItemSKUInDescription {
 				storageDesc += " - " + info.StorageSKU
 			}
@@ -841,6 +842,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				includedEgressDesc := prefix + fmt.Sprintf(" - %s Included Egress (%s)", discountRatioStr, egressUnitDesc)
 				if info.IncludedEgressSKU != "" && service.stripeConfig.SkuEnabled {
 					includedEgressItem.AddMetadata("SKU", info.IncludedEgressSKU)
+					includedEgressItem.AddMetadata("ItemCode", info.IncludedEgressSKU)
 					if service.stripeConfig.InvItemSKUInDescription {
 						includedEgressDesc += " - " + info.IncludedEgressSKU
 					}
@@ -861,6 +863,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 				if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
 					overageEgressItem.AddMetadata("SKU", info.EgressSKU)
+					overageEgressItem.AddMetadata("ItemCode", info.EgressSKU)
 					if service.stripeConfig.InvItemSKUInDescription {
 						overageEgressDesc += " - " + info.EgressSKU
 					}
@@ -892,6 +895,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			}
 			if info.EgressSKU != "" && service.stripeConfig.SkuEnabled {
 				egressItem.AddMetadata("SKU", info.EgressSKU)
+				egressItem.AddMetadata("ItemCode", info.EgressSKU)
 				if service.stripeConfig.InvItemSKUInDescription {
 					egressDesc += " - " + info.EgressSKU
 				}
@@ -937,6 +941,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			segmentDesc := prefix + segmentInvoiceItemDesc
 			if info.SegmentSKU != "" && service.stripeConfig.SkuEnabled {
 				segmentItem.AddMetadata("SKU", info.SegmentSKU)
+				segmentItem.AddMetadata("ItemCode", info.SegmentSKU)
 				if service.stripeConfig.InvItemSKUInDescription {
 					segmentDesc += " - " + info.SegmentSKU
 				}
@@ -988,6 +993,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				}
 				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
 					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+					smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
 					if service.stripeConfig.InvItemSKUInDescription {
 						smallObjectFeeDesc += " - " + info.SmallObjectFeeSKU
 					}
@@ -1012,6 +1018,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				}
 				if info.SmallObjectFeeSKU != "" && service.stripeConfig.SkuEnabled {
 					smallObjectFeeItem.AddMetadata("SKU", info.SmallObjectFeeSKU)
+					smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
 				}
 			}
 			if service.stripeConfig.UseIdempotency {
@@ -1041,6 +1048,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			}
 			if info.MinimumRetentionFeeSKU != "" && service.stripeConfig.SkuEnabled {
 				minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
+				minimumRetentionFeeItem.AddMetadata("ItemCode", info.MinimumRetentionFeeSKU)
 			}
 			if service.stripeConfig.UseIdempotency {
 				minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
