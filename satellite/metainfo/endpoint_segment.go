@@ -689,19 +689,20 @@ func convertStreamListResults(result metabase.ListStreamPositionsResult) (*pb.Se
 				PartNumber: int32(item.Position.Part),
 				Index:      int32(item.Position.Index),
 			},
-			PlainSize:   int64(item.PlainSize),
-			PlainOffset: item.PlainOffset,
+			PlainSize:         int64(item.PlainSize),
+			PlainOffset:       item.PlainOffset,
+			EncryptedKey:      item.EncryptedKey,
+			EncryptedETag:     item.EncryptedETag,
+			EncryptedChecksum: item.EncryptedChecksum,
 		}
 		if item.CreatedAt != nil {
 			items[i].CreatedAt = *item.CreatedAt
 		}
-		items[i].EncryptedETag = item.EncryptedETag
 		var err error
 		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
 		if err != nil {
 			return nil, err
 		}
-		items[i].EncryptedKey = item.EncryptedKey
 	}
 	return &pb.SegmentListResponse{
 		Items: items,
