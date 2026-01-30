@@ -170,8 +170,18 @@ const filteredApps = computed<Application[]>(() => {
     }
 
     result.sort((a, b) => {
-        const aValue = (a[sortKey.value] || '').toLowerCase();
-        const bValue = (b[sortKey.value] || '').toLowerCase();
+        let aValue, bValue;
+        
+        if (sortKey.value === 'category') {
+            // Sort by the first category
+            aValue = (a.categories[0] || '').toLowerCase();
+            bValue = (b.categories[0] || '').toLowerCase();
+        } else {
+            // Default to name sorting
+            aValue = (a.name || '').toLowerCase();
+            bValue = (b.name || '').toLowerCase();
+        }
+
         if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1;
         return 0;
