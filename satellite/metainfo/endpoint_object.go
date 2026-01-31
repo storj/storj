@@ -141,11 +141,20 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
 	}
 
+	if err := endpoint.validateChecksumOptions(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum); err != nil {
+		return nil, err
+	}
+
 	encryptedUserData := metabase.EncryptedUserData{
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 		EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
 		EncryptedETag:                 req.EncryptedEtag,
+		Checksum: metabase.Checksum{
+			Algorithm:      storj.ObjectChecksumAlgorithm(req.ChecksumAlgorithm),
+			IsComposite:    req.IsChecksumComposite,
+			EncryptedValue: req.EncryptedChecksum,
+		},
 	}
 	if err := endpoint.checkEncryptedMetadataSize(encryptedUserData); err != nil {
 		return nil, err

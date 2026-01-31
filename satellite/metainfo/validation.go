@@ -946,7 +946,7 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 // checkEncryptedMetadata checks encrypted metadata and it's encrypted key sizes. Metadata encrypted key nonce
 // is serialized to storj.Nonce automatically.
 func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.EncryptedUserData) error {
-	metadataSize := memory.Size(len(userData.EncryptedMetadata) + len(userData.EncryptedETag))
+	metadataSize := memory.Size(len(userData.EncryptedMetadata) + len(userData.EncryptedETag) + len(userData.Checksum.EncryptedValue))
 	if metadataSize > endpoint.config.MaxMetadataSize {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
 	}
@@ -954,6 +954,32 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.Encrypted
 	if userData.EncryptedMetadataEncryptedKey != nil && len(userData.EncryptedMetadataEncryptedKey) != encryptedKeySize {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(userData.EncryptedMetadataEncryptedKey), encryptedKeySize)
 	}
+	return nil
+}
+
+func (endpoint *Endpoint) validateChecksumOptions(checksumAlgorithm pb.ObjectChecksumAlgorithm, isChecksumComposite bool, encryptedChecksum []byte) error {
+	hasChecksumOpt := checksumAlgorithm != pb.ObjectChecksumAlgorithm_NONE || isChecksumComposite || encryptedChecksum != nil
+	if hasChecksumOpt {
+		if !endpoint.config.ChecksumsEnabled {
+			return rpcstatus.Error(rpcstatus.ChecksumsUnsupported, "Checksum options may not be provided at this time")
+		}
+	} else {
+		return nil
+	}
+
+	if checksumAlgorithm < pb.ObjectChecksumAlgorithm_NONE || checksumAlgorithm > pb.ObjectChecksumAlgorithm_SHA256 {
+		return rpcstatus.Error(rpcstatus.ChecksumAlgorithmInvalid, "The checksum algorithm is invalid")
+	}
+
+	if checksumAlgorithm == pb.ObjectChecksumAlgorithm_NONE {
+		if isChecksumComposite {
+			return rpcstatus.Error(rpcstatus.ChecksumTypeUnexpected, "A checksum type must not be provided if a checksum algorithm is not provided")
+		}
+		if encryptedChecksum != nil {
+			return rpcstatus.Error(rpcstatus.ChecksumUnexpected, "A checksum must not be provided if a checksum algorithm is not provided")
+		}
+	}
+
 	return nil
 }
 

@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -72,6 +73,334 @@ func assertRPCStatusCode(t *testing.T, actualError error, expectedStatusCode rpc
 	statusCode := rpcstatus.Code(actualError)
 	require.NotEqual(t, rpcstatus.Unknown, statusCode, "expected rpcstatus error, got \"%v\"", actualError)
 	require.Equal(t, expectedStatusCode, statusCode, "wrong %T, got %v", statusCode, actualError)
+}
+
+func TestBeginObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MaxEncryptedObjectKeyLength = 1024
+				config.Metainfo.ChecksumsEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		up := planet.Uplinks[0]
+		endpoint := sat.Metainfo.Endpoint
+		apiKey := up.APIKey[sat.ID()]
+
+		encParams := metabasetest.DefaultEncryption
+
+		getPendingObjects := func(ctx context.Context, bucketName, objectKey string) ([]metabase.ObjectEntry, error) {
+			var collector metabasetest.IterateCollector
+			err := sat.Metabase.DB.IteratePendingObjectsByKey(ctx, metabase.IteratePendingObjectsByKey{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  up.Projects[0].ID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+			}, collector.Add)
+			if err != nil {
+				return nil, err
+			}
+			return []metabase.ObjectEntry(collector), nil
+		}
+
+		requireNoPendingObjects := func(ctx context.Context, t *testing.T, bucketName, objectKey string) {
+			objects, err := getPendingObjects(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+			require.Empty(t, objects)
+		}
+
+		t.Run("Basic", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+			expiresAt := time.Now().Add(time.Hour).Round(time.Microsecond).UTC()
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
+			require.NoError(t, err)
+
+			req := &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				ExpiresAt:          expiresAt,
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			}
+
+			resp, err := endpoint.BeginObject(ctx, req)
+			require.NoError(t, err)
+
+			require.EqualValues(t, bucketName, resp.Bucket)
+			require.EqualValues(t, objectKey, resp.EncryptedObjectKey)
+
+			objects, err := getPendingObjects(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+			object := objects[0]
+
+			require.WithinDuration(t, time.Now(), object.CreatedAt, time.Minute)
+
+			// object.ExpiresAt is in the local timezone when using Postgres.
+			actualExpiresAt := object.ExpiresAt.UTC()
+
+			require.Equal(t, metabase.ObjectEntry{
+				ObjectKey: metabase.ObjectKey(objectKey),
+				ExpiresAt: &actualExpiresAt,
+				Status:    metabase.Pending,
+				EncryptedUserData: metabase.EncryptedUserData{
+					EncryptedMetadata:             req.EncryptedMetadata,
+					EncryptedMetadataNonce:        req.EncryptedMetadataNonce.Bytes(),
+					EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+					EncryptedETag:                 req.EncryptedEtag,
+					Checksum: metabase.Checksum{
+						Algorithm:      storj.ObjectChecksumAlgorithm(req.ChecksumAlgorithm),
+						IsComposite:    req.IsChecksumComposite,
+						EncryptedValue: req.EncryptedChecksum,
+					},
+				},
+				Encryption: storj.EncryptionParameters{
+					CipherSuite: storj.CipherSuite(req.EncryptionParameters.CipherSuite),
+					BlockSize:   int32(req.EncryptionParameters.BlockSize),
+				},
+
+				// These fields are borrowed from the object we're checking against, effectively excluding them from verification
+				CreatedAt: object.CreatedAt, // The expected value of this field cannot be determined exactly, but it was checked before
+				Version:   object.Version,   // The expected value of this field cannot be determined because it's random
+				StreamID:  object.StreamID,  // The expected value of this field cannot be determined because it's random
+			}, object)
+		})
+
+		t.Run("Validate metadata size", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			req := &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("encrypted-path"),
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+			}
+
+			// Ensure that 5KiB metadata causes a failure because it's too large.
+			metadata, err := pb.Marshal(&pb.StreamMeta{
+				EncryptedStreamInfo: testrand.Bytes(5 * memory.KiB),
+			})
+			require.NoError(t, err)
+
+			req.EncryptedMetadata = metadata
+			req.EncryptedMetadataNonce = testrand.Nonce()
+			req.EncryptedMetadataEncryptedKey = randomEncryptedKey
+
+			_, err = endpoint.BeginObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			// Ensure that the ETag counts against the metadata size limit.
+			metadata, err = pb.Marshal(&pb.StreamMeta{
+				EncryptedStreamInfo: testrand.Bytes(1 * memory.KiB),
+			})
+			require.NoError(t, err)
+
+			req.EncryptedMetadata = metadata
+			req.EncryptedEtag = testrand.Bytes(5 * memory.KiB)
+
+			_, err = endpoint.BeginObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			// Ensure that the checksum counts against the metadata size limit.
+			req.EncryptedEtag = nil
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_CRC32
+			req.EncryptedChecksum = testrand.Bytes(5 * memory.KiB)
+
+			_, err = endpoint.BeginObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+
+			// Ensure that 1KiB metadata does not cause a failure.
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			req.EncryptedChecksum = nil
+
+			_, err = endpoint.BeginObject(ctx, req)
+			require.NoError(t, err)
+		})
+
+		// Ensure that BeginObject returns an error when the encrypted key provided by the user is too large.
+		t.Run("Validate encrypted object key length", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			req := &pb.BeginObjectRequest{
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket: []byte(bucketName),
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+			}
+
+			req.EncryptedObjectKey = testrand.Bytes(500)
+			_, err := endpoint.BeginObject(ctx, req)
+			require.NoError(t, err)
+
+			req.EncryptedObjectKey = testrand.Bytes(1024)
+			_, err = endpoint.BeginObject(ctx, req)
+			require.NoError(t, err)
+
+			req.EncryptedObjectKey = testrand.Bytes(2048)
+			_, err = endpoint.BeginObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+		})
+
+		t.Run("Expired object", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			_, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+				ExpiresAt: time.Now().Add(-24 * time.Hour),
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.InvalidArgument, "invalid expiration time, cannot be in the past")
+
+			requireNoPendingObjects(ctx, t, bucketName, objectKey)
+		})
+
+		t.Run("Invalid checksum options", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
+			require.NoError(t, err)
+			userData.Checksum.IsComposite = true
+
+			validReq := pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			}
+
+			req := validReq
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_SHA256 + 1
+			_, err = endpoint.BeginObject(ctx, &req)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumAlgorithmInvalid, "The checksum algorithm is invalid")
+			requireNoPendingObjects(ctx, t, bucketName, objectKey)
+
+			req = validReq
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			_, err = endpoint.BeginObject(ctx, &req)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumTypeUnexpected, "A checksum type must not be provided if a checksum algorithm is not provided")
+			requireNoPendingObjects(ctx, t, bucketName, objectKey)
+
+			req = validReq
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			req.IsChecksumComposite = false
+			_, err = endpoint.BeginObject(ctx, &req)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumUnexpected, "A checksum must not be provided if a checksum algorithm is not provided")
+			requireNoPendingObjects(ctx, t, bucketName, objectKey)
+		})
+
+		// Ensure that requests are allowed to contain checksum options that omit the encrypted checksum.
+		t.Run("Incomplete checksum options", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
+			require.NoError(t, err)
+			userData.Checksum.EncryptedValue = nil
+
+			_, err = endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			})
+			require.NoError(t, err)
+
+			objects, err := getPendingObjects(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			require.Equal(t, metabase.EncryptedUserData{
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataNonce:        userData.EncryptedMetadataNonce,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				Checksum:                      userData.Checksum,
+			}, objects[0].EncryptedUserData)
+		})
+
+		t.Run("Checksums disabled", func(t *testing.T) {
+			endpoint.TestingSetChecksumsEnabled(false)
+			defer endpoint.TestingSetChecksumsEnabled(true)
+
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			_, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+				EncryptedMetadataNonce:        testrand.Nonce(),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(48),
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm_CRC32,
+				IsChecksumComposite:           true,
+				EncryptedChecksum:             testrand.Bytes(4),
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumsUnsupported, "Checksum options may not be provided at this time")
+
+			requireNoPendingObjects(ctx, t, bucketName, objectKey)
+		})
+	})
 }
 
 func TestCommitObject(t *testing.T) {
@@ -567,58 +896,6 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 		})
 
-		t.Run("validate metadata size for BeginObject", func(t *testing.T) {
-			defer ctx.Check(deleteBucket)
-
-			err = up.TestingCreateBucket(ctx, satellite, bucketName)
-			require.NoError(t, err)
-
-			params := metaclient.BeginObjectParams{
-				Bucket:             []byte(bucketName),
-				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
-					ShareSize:      256,
-					RequiredShares: 1,
-					RepairShares:   1,
-					OptimalShares:  3,
-					TotalShares:    4,
-				},
-				EncryptionParameters: storj.EncryptionParameters{
-					BlockSize:   256,
-					CipherSuite: storj.EncNull,
-				},
-				ExpiresAt: time.Now().Add(24 * time.Hour),
-			}
-
-			// Ensure that 5KiB metadata causes a failure because it's too large.
-			metadata, err := pb.Marshal(&pb.StreamMeta{
-				EncryptedStreamInfo: testrand.Bytes(5 * memory.KiB),
-			})
-			require.NoError(t, err)
-
-			params.EncryptedUserData = metaclient.EncryptedUserData{
-				EncryptedMetadata:             metadata,
-				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: randomEncryptedKey,
-			}
-
-			_, err = metainfoClient.BeginObject(ctx, params)
-			require.Error(t, err)
-			assertInvalidArgument(t, err, true)
-
-			// Ensure that 1KiB metadata does not cause a failure.
-			metadata, err = pb.Marshal(&pb.StreamMeta{
-				EncryptedStreamInfo: testrand.Bytes(1 * memory.KiB),
-			})
-			require.NoError(t, err)
-
-			params.EncryptedUserData.EncryptedMetadata = metadata
-
-			_, err = metainfoClient.BeginObject(ctx, params)
-			require.NoError(t, err)
-		})
-
 		t.Run("update metadata", func(t *testing.T) {
 			defer ctx.Check(deleteBucket)
 
@@ -827,35 +1104,6 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			assert.Equal(t, listResp[0].StreamID, listResp4.Items[0].StreamID)
 		})
 
-		// ensures that BeginObject returns an error when the encrypted key provided by the user is too large.
-		t.Run("validate encrypted object key length", func(t *testing.T) {
-			defer ctx.Check(deleteBucket)
-
-			err := up.TestingCreateBucket(ctx, satellite, bucketName)
-			require.NoError(t, err)
-
-			params := metaclient.BeginObjectParams{
-				Bucket: []byte(bucketName),
-				EncryptionParameters: storj.EncryptionParameters{
-					BlockSize:   256,
-					CipherSuite: storj.EncNull,
-				},
-			}
-
-			params.EncryptedObjectKey = testrand.Bytes(500)
-			_, err = metainfoClient.BeginObject(ctx, params)
-			require.NoError(t, err)
-
-			params.EncryptedObjectKey = testrand.Bytes(1024)
-			_, err = metainfoClient.BeginObject(ctx, params)
-			require.NoError(t, err)
-
-			params.EncryptedObjectKey = testrand.Bytes(2048)
-			_, err = metainfoClient.BeginObject(ctx, params)
-			require.Error(t, err)
-			require.True(t, rpcstatus.Code(err) == rpcstatus.InvalidArgument)
-		})
-
 		t.Run("delete not existing object", func(t *testing.T) {
 			expectedBucketName := bucketName
 
@@ -980,27 +1228,6 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
 			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
-		})
-
-		t.Run("begin expired object", func(t *testing.T) {
-			defer ctx.Check(deleteBucket)
-
-			err := up.TestingCreateBucket(ctx, satellite, bucketName)
-			require.NoError(t, err)
-
-			params := metaclient.BeginObjectParams{
-				Bucket: []byte(bucketName),
-				EncryptionParameters: storj.EncryptionParameters{
-					BlockSize:   256,
-					CipherSuite: storj.EncNull,
-				},
-				ExpiresAt: time.Now().Add(-24 * time.Hour),
-			}
-
-			_, err = metainfoClient.BeginObject(ctx, params)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "invalid expiration time")
-			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 		})
 
 		t.Run("UploadID check", func(t *testing.T) {

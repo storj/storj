@@ -445,3 +445,8 @@ func (m *MigrationModeFlagExtension) Handler(w http.ResponseWriter, r *http.Requ
 func (m *MigrationModeFlagExtension) Enabled() bool {
 	return m.migrationMode.Load()
 }
+
+// TestingSetChecksumsEnabled sets whether object and segment checksums are allowed to be set in requests.
+func (endpoint *Endpoint) TestingSetChecksumsEnabled(enabled bool) {
+	endpoint.config.ChecksumsEnabled = enabled
+}
