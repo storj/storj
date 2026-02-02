@@ -84,10 +84,10 @@ func New(
 	if cbs.LastRestore == nil {
 		cbs.LastRestore = func(ctx context.Context) time.Time { return time.Time{} }
 	}
-
 	if tablePath == "" {
 		tablePath = logsPath
 	}
+
 	// partially initialize the database so that we can close it if there's an error.
 	d := &DB{
 		logsPath:  logsPath,
@@ -147,6 +147,32 @@ func New(
 	go d.backgroundCompactions()
 
 	return d, nil
+}
+
+// SetupDB initializes a new database in the given directories.
+func SetupDB(
+	logsPath string,
+	tablePath string,
+) error {
+	if tablePath == "" {
+		tablePath = logsPath
+	}
+
+	if err := SetupStore(
+		filepath.Join(logsPath, "s0"),
+		filepath.Join(tablePath, "s0", "meta"),
+	); err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err := SetupStore(
+		filepath.Join(logsPath, "s1"),
+		filepath.Join(tablePath, "s1", "meta"),
+	); err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 func (d *DB) swapStoresLocked() { d.active, d.passive = d.passive, d.active }

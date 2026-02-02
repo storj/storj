@@ -6,6 +6,7 @@ package hashstore
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"math"
@@ -153,6 +154,24 @@ func NewStore(
 			_ = s.Close()
 		}
 	}()
+
+	// if we require setup, check that the store has been setup before use and before we do any
+	// filesystem operations.
+	tableSetupPath := filepath.Join(s.tablePath, "setup")
+	logSetupPath := filepath.Join(s.logsPath, "setup")
+	if s.cfg.Store.RequireSetup || fileExists(tableSetupPath) || fileExists(logSetupPath) {
+		tblContents, err := os.ReadFile(tableSetupPath)
+		if err != nil {
+			return nil, Error.New("store requires setup before use: table setup file missling: %w", err)
+		}
+		logContents, err := os.ReadFile(logSetupPath)
+		if err != nil {
+			return nil, Error.New("store requires setup before use: log setup file missing: %w", err)
+		}
+		if string(tblContents) != string(logContents) {
+			return nil, Error.New("setup requires setup before use: setup files mismatch: tbl=%q != log=%q", tblContents, logContents)
+		}
+	}
 
 	// attempt to make the given directories which ensures all parent directories exist.
 	if err := os.MkdirAll(s.tablePath, 0755); err != nil {
@@ -412,6 +431,40 @@ func NewStore(
 	}
 
 	return s, nil
+}
+
+// SetupStore initializes a new store in the given directories.
+func SetupStore(
+	logsPath string,
+	tablePath string,
+) error {
+	if tablePath == "" {
+		tablePath = filepath.Join(logsPath, "meta")
+	}
+
+	// check if setup already happened and refuse.
+	if fileExists(filepath.Join(tablePath, "setup")) || fileExists(filepath.Join(logsPath, "setup")) {
+		return Error.New("store already setup")
+	}
+
+	// attempt to make the given directories which ensures all parent directories exist.
+	if err := os.MkdirAll(tablePath, 0755); err != nil {
+		return Error.New("unable to create directory=%q: %w", tablePath, err)
+	}
+	if err := os.MkdirAll(logsPath, 0755); err != nil {
+		return Error.New("unable to create directory=%q: %w", logsPath, err)
+	}
+
+	// create the setup files containing a random text.
+	data := []byte(rand.Text())
+	if err := os.WriteFile(filepath.Join(tablePath, "setup"), data, 0644); err != nil {
+		return Error.New("unable to write table setup file: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(logsPath, "setup"), data, 0644); err != nil {
+		return Error.New("unable to write log setup file: %w", err)
+	}
+
+	return nil
 }
 
 // StoreStats is a collection of statistics about a store.

@@ -6,8 +6,11 @@ package hashstore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync/atomic"
 	"testing"
@@ -571,6 +574,80 @@ func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T, cfg Config) {
 	}()
 
 	assert.NoError(t, db.Compact(t.Context()))
+}
+
+func TestDB_SetupDB_FailsToOpen(t *testing.T) {
+	cases := []struct {
+		LogContents   string
+		TableContents string
+		RequireSetup  bool
+	}{
+		{"", "", true},                    // no setup files
+		{"contents1", "", true},           // setup file only in log dir
+		{"", "contents1", true},           // setup file only in table dir
+		{"contents1", "contents2", true},  // mismatched setup files
+		{"contents1", "", false},          // setup file only in log dir, no requirement
+		{"", "contents1", false},          // setup file only in table dir, no requirement
+		{"contents1", "contents2", false}, // mismatched setup files, no requirement
+	}
+
+	for _, tc := range cases {
+		for _, store := range []string{"s0", "s1"} {
+			strContents := func(s string) string {
+				if s == "" {
+					return "missing"
+				}
+				return s
+			}
+			name := fmt.Sprintf("Log:%v_Table:%v_Store:%v_Require:%v",
+				strContents(tc.LogContents),
+				strContents(tc.TableContents),
+				store,
+				tc.RequireSetup,
+			)
+
+			t.Run(name, func(t *testing.T) {
+				cfg := defaultConfig()
+				cfg.Store.RequireSetup = tc.RequireSetup
+
+				dir := t.TempDir()
+				assert.NoError(t, os.MkdirAll(filepath.Join(dir, store, "meta"), 0755))
+
+				if tc.LogContents != "" {
+					assert.NoError(t, os.WriteFile(filepath.Join(dir, store, "setup"), []byte(tc.LogContents), 0644))
+				}
+				if tc.TableContents != "" {
+					assert.NoError(t, os.WriteFile(filepath.Join(dir, store, "meta", "setup"), []byte(tc.TableContents), 0644))
+				}
+
+				_, err := New(t.Context(), cfg, dir, "", nil, Callbacks{})
+				assert.Error(t, err)
+
+				// our manual setup should cause SetupStore to fail
+				if tc.LogContents != "" || tc.TableContents != "" {
+					assert.Error(t, SetupDB(dir, ""))
+				}
+			})
+		}
+	}
+}
+
+func TestDB_SetupDB_OpensWithSetup(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Store.RequireSetup = true
+
+	dir := t.TempDir()
+	assert.NoError(t, SetupDB(dir, ""))
+
+	s, err := New(t.Context(), cfg, dir, "", nil, Callbacks{})
+	assert.NoError(t, err)
+	assert.NoError(t, s.Close())
+}
+
+func TestDB_SetupDB_FailsIfAlreadySetup(t *testing.T) {
+	dir := t.TempDir()
+	assert.NoError(t, SetupDB(dir, ""))
+	assert.Error(t, SetupDB(dir, ""))
 }
 
 //
