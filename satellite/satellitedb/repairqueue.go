@@ -411,7 +411,9 @@ func (r *repairQueue) Release(ctx context.Context, seg queue.InjuredSegment, rep
 
 func (r *repairQueue) Delete(ctx context.Context, seg queue.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = r.db.ExecContext(ctx, r.db.Rebind(`DELETE FROM repair_queue WHERE stream_id = ? AND position = ?`), seg.StreamID, seg.Position.Encode())
+	_, err = r.db.Delete_RepairQueue_By_StreamId_And_Position(ctx,
+		dbx.RepairQueue_StreamId(seg.StreamID[:]),
+		dbx.RepairQueue_Position(seg.Position.Encode()))
 	return Error.Wrap(err)
 }
 

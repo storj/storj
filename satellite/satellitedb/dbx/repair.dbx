@@ -39,3 +39,10 @@ model repair_queue (
 )
 
 delete repair_queue ( where repair_queue.updated_at < ? )
+
+delete repair_queue ( where repair_queue.stream_id = ? )
+
+delete repair_queue (
+	where repair_queue.stream_id = ?
+	where repair_queue.position = ?
+)
