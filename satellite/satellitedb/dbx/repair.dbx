@@ -46,3 +46,7 @@ delete repair_queue (
 	where repair_queue.stream_id = ?
 	where repair_queue.position = ?
 )
+
+read count (
+	select repair_queue
+)

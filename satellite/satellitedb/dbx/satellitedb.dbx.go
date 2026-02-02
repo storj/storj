@@ -22374,6 +22374,29 @@ func (obj *pgxImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(ctx c
 
 }
 
+func (obj *pgxImpl) Count_RepairQueue(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM repair_queue")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -33968,6 +33991,29 @@ func (obj *pgxcockroachImpl) Limited_BucketMigration_By_State_OrderBy_Asc_Create
 		}
 		return rows, nil
 	}
+
+}
+
+func (obj *pgxcockroachImpl) Count_RepairQueue(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM repair_queue")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -45896,6 +45942,29 @@ func (obj *spannerImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(c
 
 }
 
+func (obj *spannerImpl) Count_RepairQueue(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM repair_queue")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -50990,6 +51059,9 @@ type Methods interface {
 
 	Count_BucketMetainfo_Name_By_ProjectId_And_ObjectLockEnabled_Equal_True(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+		count int64, err error)
+
+	Count_RepairQueue(ctx context.Context) (
 		count int64, err error)
 
 	Count_User_By_Status(ctx context.Context,
