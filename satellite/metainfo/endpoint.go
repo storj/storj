@@ -339,8 +339,8 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	return info, nil
 }
 
-// LicenseInfo returns license information for a user.
-func (endpoint *Endpoint) LicenseInfo(ctx context.Context, req *pb.LicenseInfoRequest) (response *pb.LicenseInfoResponse, err error) {
+// AccountLicenses returns active licenses for the account associated with the provided API key.
+func (endpoint *Endpoint) AccountLicenses(ctx context.Context, req *pb.AccountLicensesRequest) (response *pb.AccountLicensesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now()
@@ -364,9 +364,9 @@ func (endpoint *Endpoint) LicenseInfo(ctx context.Context, req *pb.LicenseInfoRe
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
-	response = &pb.LicenseInfoResponse{}
+	response = &pb.AccountLicensesResponse{}
 	for _, license := range licenses {
-		response.Licenses = append(response.Licenses, &pb.LicenseInfo{
+		response.Licenses = append(response.Licenses, &pb.AccountLicense{
 			Type:      license.Type,
 			ExpiresAt: license.ExpiresAt,
 			Key:       license.Key,
