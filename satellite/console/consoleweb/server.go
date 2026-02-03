@@ -287,7 +287,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	// the earliest in the HTTP chain.
 	router.Use(newTraceRequestMiddleware(logger, router))
 
-	// Use SingleWhiteLabel tenant ID as default when enabled, otherwise fall back to hostname lookup.
+	// Use SingleWhiteLabel tenant ID as default when enabled.
 	defaultTenantID := ""
 	if config.SingleWhiteLabel.Enabled() {
 		if config.SingleWhiteLabel.TenantID == "" {
@@ -295,7 +295,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		}
 		defaultTenantID = config.SingleWhiteLabel.TenantID
 	}
-	router.Use(tenancy.Middleware(config.WhiteLabel.HostNameIDLookup, defaultTenantID))
+	router.Use(tenancy.Middleware(nil, defaultTenantID))
 	router.Use(requestid.AddToContext)
 	// by default, set Cache-Control=no-store for all requests
 	// if requests should be cached (e.g. static assets), the cache control header can be overridden
@@ -366,7 +366,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.WhiteLabel, config.SingleWhiteLabel)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.SingleWhiteLabel)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -1238,12 +1238,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// getBranding returns branding configuration based on tenant context.
+// getBranding returns branding configuration.
 func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
-
-	tenantCtx := tenancy.GetContext(ctx)
 
 	// Default Storj branding.
 	branding := BrandingConfig{
@@ -1289,17 +1287,10 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 		TermsOfServiceURL: server.config.TermsAndConditionsURL,
 	}
 
-	// Check single-brand white label first (takes precedence for dedicated deployments).
+	// Use single white label branding if enabled.
 	if server.config.SingleWhiteLabel.Enabled() {
 		wlConfig := server.config.SingleWhiteLabel.ToWhiteLabelConfig()
 		branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
-	} else if tenantCtx.TenantID != "" {
-		// Fall back to multi-tenant white label lookup.
-		if wlConfig, ok := server.config.WhiteLabel.Value[tenantCtx.TenantID]; ok {
-			branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
-		} else {
-			server.log.Warn("tenant white label config not found, falling back to default branding", zap.String("tenant_id", tenantCtx.TenantID))
-		}
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=3600")
@@ -1523,29 +1514,17 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
 
-// getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address. The returned address always has a trailing slash.
+// getExternalAddress returns the external address.
+// If single white label mode is enabled with an external address, it returns that;
+// otherwise, it falls back to the global external address.
+// The returned address always has a trailing slash.
 func (server *Server) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
 	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.ExternalAddress != "" {
 		addr := server.config.SingleWhiteLabel.ExternalAddress
 		if !strings.HasSuffix(addr, "/") {
 			addr += "/"
 		}
 		return addr
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := server.config.WhiteLabel.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			addr := wlConfig.ExternalAddress
-			if !strings.HasSuffix(addr, "/") {
-				addr += "/"
-			}
-			return addr
-		}
 	}
 	return server.config.ExternalAddress
 }
