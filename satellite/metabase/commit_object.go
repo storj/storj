@@ -40,6 +40,8 @@ var (
 	ErrFailedPrecondition = errs.Class("metabase: failed precondition")
 	// ErrConflict is used to indicate conflict with the request.
 	ErrConflict = errs.Class("metabase: conflict")
+	// ErrChecksumMissing is used to indicate that an operation failed due to an unset checksum.
+	ErrChecksumMissing = errs.Class("checksum missing")
 )
 
 type commitObjectTransactionAdapter interface {
@@ -281,7 +283,7 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 					// a checksum beforehand. However, the final committed object must have this
 					// value set.
 					if object.Checksum.Algorithm != storj.ObjectChecksumAlgorithmNone && object.Checksum.EncryptedValue == nil {
-						return ErrInvalidRequest.New("An encrypted checksum must be provided if the pending object's checksum algorithm is set")
+						return ErrChecksumMissing.New("An encrypted checksum must be provided if the pending object's checksum algorithm is set")
 					}
 				}
 			}

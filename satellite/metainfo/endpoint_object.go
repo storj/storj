@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -142,7 +143,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
 	}
 
-	if err := endpoint.validateChecksumOptions(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum); err != nil {
+	if err := endpoint.validateChecksumOptionsForBegin(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum); err != nil {
 		return nil, err
 	}
 
@@ -430,6 +431,18 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		Encryption: encryption,
 		ExpiresAt:  expiresAt,
 
+		EncryptedUserData: metabase.EncryptedUserData{
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedETag:                 req.EncryptedEtag,
+			Checksum: metabase.Checksum{
+				Algorithm:      storj.ObjectChecksumAlgorithm(req.ChecksumAlgorithm),
+				IsComposite:    req.IsChecksumComposite,
+				EncryptedValue: req.EncryptedChecksum,
+			},
+		},
+
 		Retention: protobufRetentionToMetabase(streamID.Retention),
 		LegalHold: streamID.LegalHold,
 
@@ -444,15 +457,32 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, s3event.ObjectCreatedPut.S3Name()),
 	}
 
-	// Old uplinks may send an empty EncryptedMetadata with a non-empty EncryptedMetadataNonce
-	// and EncryptedMetadataEncryptedKey. To remain compatible with them, we should treat this
-	// case as if no nonce and key were provided. Otherwise, metabase will return an error
-	// because encryption parameters are not allowed to be included in a set of metadata that
-	// lacks any encrypted data.
+	// Old uplinks may send an empty EncryptedMetadata with non-empty metadata encryption
+	// parameters (EncryptedMetadataNonce and EncryptedMetadataEncryptedKey). To remain
+	// compatible with them, we should not request that the object be committed with the
+	// provided metadata if only metadata encryption parameters were provided. Otherwise,
+	// metabase will return an error because encryption parameters are not allowed to be
+	// included in a set of metadata that lacks any encrypted data.
+	userDataWithoutEncParams := request.EncryptedUserData
+	userDataWithoutEncParams.EncryptedMetadataNonce = nil
+	userDataWithoutEncParams.EncryptedMetadataEncryptedKey = nil
+	if !reflect.ValueOf(userDataWithoutEncParams).IsZero() {
+		err = endpoint.validateChecksumOptions(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum)
+		if err != nil {
+			return nil, err
+		}
+		request.SetEncryptedMetadata = true
+	}
+
 	if len(req.EncryptedMetadata) != 0 || len(req.EncryptedEtag) != 0 {
 		request.SetEncryptedMetadata = true
 		request.EncryptedMetadata = req.EncryptedMetadata
 		request.EncryptedETag = req.EncryptedEtag
+		request.Checksum = metabase.Checksum{
+			Algorithm:      storj.ObjectChecksumAlgorithm(req.ChecksumAlgorithm),
+			IsComposite:    req.IsChecksumComposite,
+			EncryptedValue: req.EncryptedChecksum,
+		}
 		request.EncryptedMetadataNonce = nonceBytes(req.EncryptedMetadataNonce)
 		request.EncryptedMetadataEncryptedKey = req.EncryptedMetadataEncryptedKey
 

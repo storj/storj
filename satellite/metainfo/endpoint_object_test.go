@@ -406,6 +406,11 @@ func TestBeginObject(t *testing.T) {
 func TestCommitObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ChecksumsEnabled = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		up := planet.Uplinks[0]
@@ -443,7 +448,7 @@ func TestCommitObject(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			userData, err := randEncryptedUserData(encParams, 0)
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
 			require.NoError(t, err)
 
 			commitReq := &pb.CommitObjectRequest{
@@ -453,6 +458,9 @@ func TestCommitObject(t *testing.T) {
 				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
 				EncryptedMetadata:             userData.EncryptedMetadata,
 				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
 			}
 
 			commitResp, err := endpoint.CommitObject(ctx, commitReq)
@@ -492,6 +500,9 @@ func TestCommitObject(t *testing.T) {
 				EncryptedMetadataNonce:        pb.Nonce(object.EncryptedMetadataNonce),
 				EncryptedMetadata:             object.EncryptedMetadata,
 				EncryptedEtag:                 object.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(object.Checksum.Algorithm),
+				IsChecksumComposite:           object.Checksum.IsComposite,
+				EncryptedChecksum:             object.Checksum.EncryptedValue,
 				EncryptionParameters: &pb.EncryptionParameters{
 					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
 					BlockSize:   int64(encParams.BlockSize),
@@ -512,7 +523,7 @@ func TestCommitObject(t *testing.T) {
 
 			objectKey := testrand.Path()
 
-			userData, err := randEncryptedUserData(encParams, 0)
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
 			require.NoError(t, err)
 
 			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
@@ -527,6 +538,9 @@ func TestCommitObject(t *testing.T) {
 				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
 				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
 				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
 			})
 			require.NoError(t, err)
 
@@ -555,7 +569,7 @@ func TestCommitObject(t *testing.T) {
 
 			objectKey := testrand.Path()
 
-			userData, err := randEncryptedUserData(encParams, 0)
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
 			require.NoError(t, err)
 
 			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
@@ -570,10 +584,13 @@ func TestCommitObject(t *testing.T) {
 				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
 				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
 				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
 			})
 			require.NoError(t, err)
 
-			userData, err = randEncryptedUserData(encParams, 0)
+			userData, err = randEncryptedUserDataWithChecksum(encParams, 0)
 			require.NoError(t, err)
 
 			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
@@ -583,6 +600,9 @@ func TestCommitObject(t *testing.T) {
 				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
 				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
 				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
 			})
 			require.NoError(t, err)
 
@@ -620,8 +640,7 @@ func TestCommitObject(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			userData, err := randEncryptedUserData(encParams, 0)
-			require.NoError(t, err)
+			userData := metabasetest.RandEncryptedUserData()
 			userData.EncryptedMetadata = nil
 
 			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
@@ -696,10 +715,136 @@ func TestCommitObject(t *testing.T) {
 			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
 			requireNoCommittedObjects(t, bucketName)
 
-			// Ensure that 1KiB metadata does not cause a failure.
+			// Ensure that the checksum counts against the metadata size limit.
 			req.EncryptedEtag = nil
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_CRC32
+			req.EncryptedChecksum = testrand.Bytes(5 * memory.KiB)
+
+			_, err = endpoint.CommitObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			requireNoCommittedObjects(t, bucketName)
+
+			// Ensure that 1KiB metadata does not cause a failure.
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			req.EncryptedChecksum = nil
+
 			_, err = endpoint.CommitObject(ctx, req)
 			require.NoError(t, err)
+		})
+
+		t.Run("Invalid checksum options", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
+			require.NoError(t, err)
+			userData.Checksum.IsComposite = true
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					BlockSize:   int64(encParams.BlockSize),
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+				},
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             nil,
+			})
+			require.NoError(t, err)
+
+			validReq := pb.CommitObjectRequest{
+				Header:                        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId:                      beginResp.StreamId,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			}
+
+			req := validReq
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_SHA256 + 1
+			_, err = endpoint.CommitObject(ctx, &req)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumAlgorithmInvalid, "The checksum algorithm is invalid")
+			requireNoCommittedObjects(t, bucketName)
+
+			req = validReq
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			_, err = endpoint.CommitObject(ctx, &req)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumTypeUnexpected, "A checksum type must not be provided if a checksum algorithm is not provided")
+			requireNoCommittedObjects(t, bucketName)
+
+			req = validReq
+			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			req.IsChecksumComposite = false
+			_, err = endpoint.CommitObject(ctx, &req)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumUnexpected, "A checksum must not be provided if a checksum algorithm is not provided")
+			requireNoCommittedObjects(t, bucketName)
+
+			req = validReq
+			req.EncryptedChecksum = nil
+			_, err = endpoint.CommitObject(ctx, &req)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumMissing, "A checksum must be provided if a checksum algorithm is provided")
+			requireNoCommittedObjects(t, bucketName)
+
+			// Ensure that omitting metadata, thereby indicating that the pending object's metadata should be committed,
+			// results in an error because the pending object's metadata has incomplete checksum information.
+			// A pending object's metadata may only be committed when the checksum information includes both a checksum
+			// algorithm and an encrypted checksum or neither. In this case, the pending object was created with only
+			// a checksum algorithm.
+			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginResp.StreamId,
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ObjectMetadataMissing,
+				"checksum missing: An encrypted checksum must be provided if the pending object's checksum algorithm is set")
+			requireNoCommittedObjects(t, bucketName)
+		})
+
+		t.Run("Checksums disabled", func(t *testing.T) {
+			endpoint.TestingSetChecksumsEnabled(false)
+			defer endpoint.TestingSetChecksumsEnabled(true)
+
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			})
+			require.NoError(t, err)
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
+			require.NoError(t, err)
+
+			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:                        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId:                      beginResp.StreamId,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumsUnsupported, "Checksum options may not be provided at this time")
+
+			requireNoCommittedObjects(t, bucketName)
 		})
 	})
 }

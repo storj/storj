@@ -978,6 +978,16 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.Encrypted
 }
 
 func (endpoint *Endpoint) validateChecksumOptions(checksumAlgorithm pb.ObjectChecksumAlgorithm, isChecksumComposite bool, encryptedChecksum []byte) error {
+	if err := endpoint.validateChecksumOptionsForBegin(checksumAlgorithm, isChecksumComposite, encryptedChecksum); err != nil {
+		return err
+	}
+	if checksumAlgorithm != pb.ObjectChecksumAlgorithm_NONE && encryptedChecksum == nil {
+		return rpcstatus.Error(rpcstatus.ChecksumMissing, "A checksum must be provided if a checksum algorithm is provided")
+	}
+	return nil
+}
+
+func (endpoint *Endpoint) validateChecksumOptionsForBegin(checksumAlgorithm pb.ObjectChecksumAlgorithm, isChecksumComposite bool, encryptedChecksum []byte) error {
 	hasChecksumOpt := checksumAlgorithm != pb.ObjectChecksumAlgorithm_NONE || isChecksumComposite || encryptedChecksum != nil
 	if hasChecksumOpt {
 		if !endpoint.config.ChecksumsEnabled {

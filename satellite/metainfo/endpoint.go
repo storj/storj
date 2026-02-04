@@ -581,6 +581,8 @@ func (endpoint *Endpoint) ConvertKnownErrWithMessage(err error, message string) 
 		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
 	case metabase.ErrObjectLock.Has(err):
 		return rpcstatus.Error(rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
+	case metabase.ErrChecksumMissing.Has(err):
+		return rpcstatus.Error(rpcstatus.ObjectMetadataMissing, err.Error())
 	case metabase.ErrObjectExpiration.Has(err):
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrInvalidRequest.Has(err):

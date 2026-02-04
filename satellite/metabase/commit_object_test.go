@@ -702,7 +702,7 @@ func TestCommitObject(t *testing.T) {
 					ObjectStream:         obj,
 					SetEncryptedMetadata: false,
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
+				ErrClass: &metabase.ErrChecksumMissing,
 				ErrText:  "An encrypted checksum must be provided if the pending object's checksum algorithm is set",
 			}.Check(ctx, t, db)
 
