@@ -90,12 +90,12 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20260130132429-0e905b8ee485
+	storj.io/common v0.0.0-20260203162304-8cd2cb45fbaf
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad
-	storj.io/uplink v1.13.2-0.20251205102608-fcbae6793ee8
+	storj.io/uplink v1.13.2-0.20260204161751-a31c5f3468fc
 )
 
 require (
