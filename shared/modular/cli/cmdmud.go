@@ -87,12 +87,17 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 	if m.runSelector == nil {
 		m.runSelector = m.selector
 	}
-	err := mud.ForEachDependency(m.ball, m.runSelector, func(component *mud.Component) error {
+
+	// Phase 1: Init RunEarly components AND their dependencies
+	// Find RunEarly components that are in the dependency tree of the selected components
+	runEarlyInDeps := mud.And(mud.DependencyOf(m.ball, m.runSelector), mud.Tagged[modular.RunEarly]())
+	err := mud.ForEachDependency(m.ball, runEarlyInDeps, func(component *mud.Component) error {
 		return component.Init(ctx)
 	}, mud.All)
 	if err != nil {
 		return errs.Wrap(err)
 	}
+
 	defer func() {
 		shutdownTimeout := 15 * time.Second
 		if timeoutStr := os.Getenv("STORJ_SHUTDOWN_TIMEOUT"); timeoutStr != "" {
@@ -139,6 +144,27 @@ func (m *MudCommand) Execute(ctx context.Context) error {
 	}()
 
 	eg, childCtx := errgroup.WithContext(ctx)
+
+	// Phase 2: Run RunEarly components AND their dependencies
+	// Note: background goroutines are dispatched but may not be fully running yet when Phase 3 starts.
+	// This is acceptable because the goal is to start services like the debug server early,
+	// not to guarantee they are fully running before other components initialize.
+	err = mud.ForEachDependency(m.ball, runEarlyInDeps, func(component *mud.Component) error {
+		return component.Run(pprof.WithLabels(childCtx, pprof.Labels("component", component.Name())), eg)
+	}, mud.All)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// Phase 3: Init all remaining components (already initialized components are skipped by component.Init)
+	err = mud.ForEachDependency(m.ball, m.runSelector, func(component *mud.Component) error {
+		return component.Init(ctx)
+	}, mud.All)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	// Phase 4: Run all remaining components (already running components are skipped by component.Run)
 	err = mud.ForEachDependency(m.ball, m.runSelector, func(component *mud.Component) error {
 		return component.Run(pprof.WithLabels(childCtx, pprof.Labels("component", component.Name())), eg)
 	}, mud.All)
