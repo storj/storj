@@ -12,6 +12,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
@@ -59,6 +60,7 @@ func TestEndpoint_AccountLicenses(t *testing.T) {
 					PublicID:   publicID.String(),
 					BucketName: "test-bucket",
 					ExpiresAt:  now.Add(60 * 24 * time.Hour),
+					Key:        testrand.Bytes(32),
 				},
 				{
 					// should match all buckets in project
@@ -274,7 +276,7 @@ func TestEndpoint_LicenseInfo_ExpiresAtFormat(t *testing.T) {
 		userID := apiKeyInfo.CreatedBy
 
 		entSvc := sat.API.Entitlements.Service
-		now := time.Now().Truncate(time.Second)
+		now := time.Now().UTC().Truncate(time.Second)
 		expiresAt := now.Add(30 * 24 * time.Hour)
 
 		licenses := entitlements.AccountLicenses{
@@ -297,8 +299,7 @@ func TestEndpoint_LicenseInfo_ExpiresAtFormat(t *testing.T) {
 		require.NotNil(t, response)
 		require.Len(t, response.Licenses, 1)
 
-		// Verify ExpiresAt is returned as a string.
-		require.Equal(t, expiresAt.String(), response.Licenses[0].ExpiresAt)
+		require.Equal(t, expiresAt, response.Licenses[0].ExpiresAt)
 		require.Equal(t, "test-license", response.Licenses[0].Type)
 	})
 }

@@ -21,6 +21,7 @@ type AccountLicense struct {
 	BucketName string    `json:"bucket_name,omitempty"`
 	ExpiresAt  time.Time `json:"expires_at,omitempty"`
 	RevokedAt  time.Time `json:"revoked_at,omitempty"`
+	Key        []byte    `json:"key,omitempty"`
 }
 
 // AccountLicenses represents a collection of licenses assigned to a user.
