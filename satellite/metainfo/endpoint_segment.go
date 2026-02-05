@@ -357,6 +357,10 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	// cheap basic verification
+	if req.EncryptedChecksum != nil && !endpoint.config.ChecksumsEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
+	}
+
 	rsParam := segmentID.RedundancyScheme
 	if rsParam == nil {
 		rsParam = endpoint.getRSProto(storj.PlacementConstraint(streamID.Placement))
@@ -458,7 +462,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		EncryptedSize: int32(req.SizeEncryptedData), // TODO incompatible types int32 vs int64
 		PlainSize:     int32(req.PlainSize),         // TODO incompatible types int32 vs int64
 
-		EncryptedETag: req.EncryptedETag,
+		EncryptedETag:     req.EncryptedETag,
+		EncryptedChecksum: req.EncryptedChecksum,
 
 		Position: metabase.SegmentPosition{
 			Part:  uint32(segmentID.PartNumber),
@@ -558,6 +563,10 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	if req.EncryptedChecksum != nil && !endpoint.config.ChecksumsEnabled {
+		return nil, rpcstatus.Error(rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
+	}
+
 	if req.Position.Index < 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
@@ -598,8 +607,9 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 			Index: uint32(req.Position.Index),
 		},
 
-		PlainSize:     int32(req.PlainSize), // TODO incompatible types int32 vs int64
-		EncryptedETag: req.EncryptedETag,
+		PlainSize:         int32(req.PlainSize), // TODO incompatible types int32 vs int64
+		EncryptedETag:     req.EncryptedETag,
+		EncryptedChecksum: req.EncryptedChecksum,
 
 		InlineData: req.EncryptedInlineData,
 

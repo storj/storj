@@ -6,17 +6,21 @@ package metainfo_test
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/rpc/rpctest"
 	"storj.io/common/signing"
@@ -24,6 +28,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
@@ -396,6 +401,207 @@ func TestObjectSegmentExpiresAt(t *testing.T) {
 	})
 }
 
+func TestCommitSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(1, 1, 1, 1),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.ChecksumsEnabled = true
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		storageNode := planet.StorageNodes[0]
+		up := planet.Uplinks[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+		apiKey := up.APIKey[sat.ID()]
+
+		peerCtx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: up.Identity.Chain(),
+			}})
+
+		getPendingObjects := func(ctx context.Context, bucketName, objectKey string) ([]metabase.ObjectEntry, error) {
+			var collector metabasetest.IterateCollector
+			err := sat.Metabase.DB.IteratePendingObjectsByKey(ctx, metabase.IteratePendingObjectsByKey{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  up.Projects[0].ID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+			}, collector.Add)
+			if err != nil {
+				return nil, err
+			}
+			return []metabase.ObjectEntry(collector), nil
+		}
+
+		beginObjectAndSegment := func(ctx context.Context, bucketName, objectKey string, segmentPos metabase.SegmentPosition) (*pb.SegmentBeginResponse, error) {
+			beginObjectResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+					BlockSize:   256,
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			beginSegmentResp, err := endpoint.BeginSegment(peerCtx, &pb.BeginSegmentRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginObjectResp.StreamId,
+				Position: &pb.SegmentPosition{
+					PartNumber: int32(segmentPos.Part),
+					Index:      int32(segmentPos.Index),
+				},
+				MaxOrderLimit: memory.KiB.Int64(),
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			return beginSegmentResp, nil
+		}
+
+		t.Run("Basic", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			segmentPos := metabase.SegmentPosition{
+				Part:  1,
+				Index: 2,
+			}
+
+			beginResp, err := beginObjectAndSegment(peerCtx, bucketName, objectKey, segmentPos)
+			require.NoError(t, err)
+
+			limit := beginResp.AddressedLimits[0].Limit
+			signer := signing.SignerFromFullIdentity(storageNode.Identity)
+			pieceHash, err := signing.SignPieceHash(ctx, signer, &pb.PieceHash{
+				PieceId:   limit.PieceId,
+				PieceSize: 256,
+				Timestamp: time.Now(),
+			})
+			require.NoError(t, err)
+
+			key := testrand.Bytes(48)
+			nonce := testrand.Nonce()
+			eTag := testrand.Bytes(16)
+			checksum := testrand.Bytes(32)
+			encryptedSize := int64(128)
+			plainSize := int64(64)
+
+			_, err = endpoint.CommitSegment(peerCtx, &pb.CommitSegmentRequest{
+				Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				SegmentId: beginResp.SegmentId,
+				UploadResult: []*pb.SegmentPieceUploadResult{{
+					PieceNum: 0,
+					NodeId:   limit.StorageNodeId,
+					Hash:     pieceHash,
+				}},
+				EncryptedKey:      key,
+				EncryptedKeyNonce: nonce,
+				EncryptedETag:     eTag,
+				EncryptedChecksum: checksum,
+				SizeEncryptedData: encryptedSize,
+				PlainSize:         plainSize,
+			})
+			require.NoError(t, err)
+
+			objects, err := getPendingObjects(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: objects[0].StreamID,
+				Position: segmentPos,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, metabase.Segment{
+				StreamID:          objects[0].StreamID,
+				Position:          segmentPos,
+				CreatedAt:         segment.CreatedAt,
+				EncryptedKey:      key,
+				EncryptedKeyNonce: nonce.Bytes(),
+				EncryptedSize:     int32(encryptedSize),
+				PlainSize:         int32(plainSize),
+				RootPieceID:       segment.RootPieceID, // This value is random
+				EncryptedETag:     eTag,
+				EncryptedChecksum: checksum,
+				Redundancy: storj.RedundancyScheme{
+					Algorithm:      storj.ReedSolomon,
+					ShareSize:      256,
+					RequiredShares: 1,
+					RepairShares:   1,
+					OptimalShares:  1,
+					TotalShares:    1,
+				},
+				Pieces: metabase.Pieces{{
+					Number:      0,
+					StorageNode: storageNode.ID(),
+				}},
+			}, segment)
+		})
+
+		t.Run("Checksums disabled", func(t *testing.T) {
+			endpoint.TestingSetChecksumsEnabled(false)
+			defer endpoint.TestingSetChecksumsEnabled(true)
+
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+			segmentPos := metabase.SegmentPosition{}
+
+			beginResp, err := beginObjectAndSegment(peerCtx, bucketName, objectKey, segmentPos)
+			require.NoError(t, err)
+
+			limit := beginResp.AddressedLimits[0].Limit
+			signer := signing.SignerFromFullIdentity(storageNode.Identity)
+			pieceHash, err := signing.SignPieceHash(ctx, signer, &pb.PieceHash{
+				PieceId:   limit.PieceId,
+				PieceSize: 256,
+				Timestamp: time.Now(),
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.CommitSegment(peerCtx, &pb.CommitSegmentRequest{
+				Header:    &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				SegmentId: beginResp.SegmentId,
+				UploadResult: []*pb.SegmentPieceUploadResult{{
+					PieceNum: 0,
+					NodeId:   limit.StorageNodeId,
+					Hash:     pieceHash,
+				}},
+				EncryptedKey:      testrand.Bytes(48),
+				EncryptedKeyNonce: testrand.Nonce(),
+				EncryptedChecksum: testrand.Bytes(32),
+				SizeEncryptedData: 128,
+				PlainSize:         64,
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumsUnsupported, "Checksum options may not be provided at this time")
+
+			objects, err := getPendingObjects(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+
+			_, err = db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: objects[0].StreamID,
+				Position: segmentPos,
+			})
+			require.ErrorIs(t, err, metabase.ErrSegmentNotFound.Instance())
+		})
+	})
+}
+
 func TestCommitSegment_Validation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -570,6 +776,152 @@ func TestCommitSegment_Validation(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+	})
+}
+
+func TestMakeInlineSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ChecksumsEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		up := planet.Uplinks[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+		apiKey := up.APIKey[sat.ID()]
+
+		getPendingObjects := func(ctx context.Context, bucketName, objectKey string) ([]metabase.ObjectEntry, error) {
+			var collector metabasetest.IterateCollector
+			err := sat.Metabase.DB.IteratePendingObjectsByKey(ctx, metabase.IteratePendingObjectsByKey{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  up.Projects[0].ID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+			}, collector.Add)
+			if err != nil {
+				return nil, err
+			}
+			return []metabase.ObjectEntry(collector), nil
+		}
+
+		beginObject := func(ctx context.Context, bucketName, objectKey string) (streamID []byte, _ error) {
+			resp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+					BlockSize:   256,
+				},
+			})
+			if err != nil {
+				return nil, errs.Wrap(err)
+			}
+			return resp.StreamId, nil
+		}
+
+		t.Run("Basic", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			segmentPos := metabase.SegmentPosition{
+				Part:  1,
+				Index: 2,
+			}
+
+			streamID, err := beginObject(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+
+			key := testrand.Bytes(48)
+			nonce := testrand.Nonce()
+			eTag := testrand.Bytes(16)
+			checksum := testrand.Bytes(32)
+			inlineData := testrand.Bytes(128)
+			plainSize := int64(64)
+
+			_, err = endpoint.MakeInlineSegment(ctx, &pb.MakeInlineSegmentRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: streamID,
+				Position: &pb.SegmentPosition{
+					PartNumber: int32(segmentPos.Part),
+					Index:      int32(segmentPos.Index),
+				},
+				EncryptedKey:        key,
+				EncryptedKeyNonce:   nonce,
+				EncryptedETag:       eTag,
+				EncryptedChecksum:   checksum,
+				EncryptedInlineData: inlineData,
+				PlainSize:           plainSize,
+			})
+			require.NoError(t, err)
+
+			objects, err := getPendingObjects(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: objects[0].StreamID,
+				Position: segmentPos,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, metabase.Segment{
+				StreamID:          objects[0].StreamID,
+				Position:          segmentPos,
+				CreatedAt:         segment.CreatedAt,
+				EncryptedKey:      key,
+				EncryptedKeyNonce: nonce.Bytes(),
+				EncryptedSize:     int32(len(inlineData)),
+				PlainSize:         int32(plainSize),
+				EncryptedETag:     eTag,
+				EncryptedChecksum: checksum,
+				InlineData:        inlineData,
+			}, segment)
+		})
+
+		t.Run("Checksums disabled", func(t *testing.T) {
+			endpoint.TestingSetChecksumsEnabled(false)
+			defer endpoint.TestingSetChecksumsEnabled(true)
+
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+			segmentPos := metabase.SegmentPosition{}
+
+			streamID, err := beginObject(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+
+			_, err = endpoint.MakeInlineSegment(ctx, &pb.MakeInlineSegmentRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: streamID,
+				Position: &pb.SegmentPosition{
+					PartNumber: int32(segmentPos.Part),
+					Index:      int32(segmentPos.Index),
+				},
+				EncryptedKey:        testrand.Bytes(48),
+				EncryptedKeyNonce:   testrand.Nonce(),
+				EncryptedChecksum:   testrand.Bytes(32),
+				EncryptedInlineData: testrand.Bytes(128),
+				PlainSize:           64,
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumsUnsupported, "Checksum options may not be provided at this time")
+
+			objects, err := getPendingObjects(ctx, bucketName, objectKey)
+			require.NoError(t, err)
+
+			_, err = db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: objects[0].StreamID,
+				Position: segmentPos,
+			})
+			require.ErrorIs(t, err, metabase.ErrSegmentNotFound.Instance())
+		})
 	})
 }
 

@@ -53,6 +53,8 @@ const (
 
 	unauthorizedErrMsg = "Unauthorized API credentials"
 	bucketNameErrMsg   = "The specified bucket name must be at least %d and no more than %d characters long"
+
+	checksumsDisabledErrMsg = "Checksum options may not be provided at this time"
 )
 
 var (
@@ -991,7 +993,7 @@ func (endpoint *Endpoint) validateChecksumOptionsForBegin(checksumAlgorithm pb.O
 	hasChecksumOpt := checksumAlgorithm != pb.ObjectChecksumAlgorithm_NONE || isChecksumComposite || encryptedChecksum != nil
 	if hasChecksumOpt {
 		if !endpoint.config.ChecksumsEnabled {
-			return rpcstatus.Error(rpcstatus.ChecksumsUnsupported, "Checksum options may not be provided at this time")
+			return rpcstatus.Error(rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
 		}
 	} else {
 		return nil
