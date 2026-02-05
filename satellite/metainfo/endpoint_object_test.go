@@ -849,6 +849,276 @@ func TestCommitObject(t *testing.T) {
 	})
 }
 
+func TestCommitInlineObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ChecksumsEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		up := planet.Uplinks[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+		apiKey := up.APIKey[sat.ID()]
+		projectID := up.Projects[0].ID
+
+		encParams := metabasetest.DefaultEncryption
+
+		requireNoCommittedObjects := func(t *testing.T, bucketName string) {
+			list, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  projectID,
+				BucketName: metabase.BucketName(bucketName),
+			})
+			require.NoError(t, err)
+			require.Empty(t, list.Objects)
+			require.False(t, list.More)
+		}
+
+		header := &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()}
+
+		t.Run("Basic", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+			expiresAt := time.Now().Add(time.Hour).Round(time.Microsecond).UTC()
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 1)
+			require.NoError(t, err)
+
+			segmentPos := metabase.SegmentPosition{
+				Part:  1,
+				Index: 2,
+			}
+			segmentEncKey := testrand.Bytes(48)
+			segmentEncKeyNonce := testrand.Nonce()
+			segmentPlainSize := int64(16)
+			inlineData := testrand.Bytes(32)
+
+			_, _, commitResp, err := endpoint.CommitInlineObject(ctx, &pb.BeginObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				ExpiresAt:          expiresAt,
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			}, &pb.MakeInlineSegmentRequest{
+				Header: header,
+				Position: &pb.SegmentPosition{
+					PartNumber: int32(segmentPos.Part),
+					Index:      int32(segmentPos.Index),
+				},
+				EncryptedKey:        segmentEncKey,
+				EncryptedKeyNonce:   segmentEncKeyNonce,
+				PlainSize:           segmentPlainSize,
+				EncryptedInlineData: inlineData,
+			}, &pb.CommitObjectRequest{
+				Header:                        header,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			})
+			require.NoError(t, err)
+
+			object, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+				Version: 1,
+			})
+			require.NoError(t, err)
+
+			require.WithinDuration(t, time.Now(), object.CreatedAt, time.Minute)
+
+			require.Equal(t, metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+					Version:    1,
+					StreamID:   object.StreamID,
+				},
+				CreatedAt:          object.CreatedAt,
+				ExpiresAt:          &expiresAt,
+				Status:             metabase.CommittedUnversioned,
+				EncryptedUserData:  userData,
+				Encryption:         encParams,
+				SegmentCount:       1,
+				TotalPlainSize:     segmentPlainSize,
+				TotalEncryptedSize: int64(len(inlineData)),
+			}, object)
+
+			expectedRespObj := pb.Object{
+				Bucket:                        []byte(bucketName),
+				EncryptedObjectKey:            []byte(objectKey),
+				ObjectVersion:                 object.StreamVersionID().Bytes(),
+				Status:                        pb.Object_Status(object.Status),
+				CreatedAt:                     object.CreatedAt,
+				ExpiresAt:                     *object.ExpiresAt,
+				EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(object.EncryptedMetadataNonce),
+				EncryptedMetadata:             object.EncryptedMetadata,
+				EncryptedEtag:                 object.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(object.Checksum.Algorithm),
+				IsChecksumComposite:           object.Checksum.IsComposite,
+				EncryptedChecksum:             object.Checksum.EncryptedValue,
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+				TotalSize: object.TotalEncryptedSize,
+				PlainSize: object.TotalPlainSize,
+			}
+
+			actualRespObj := *commitResp.Object
+
+			require.NotEmpty(t, actualRespObj.StreamId)
+			expectedRespObj.StreamId = actualRespObj.StreamId
+
+			require.Equal(t, expectedRespObj, actualRespObj)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: object.StreamID,
+				Position: segmentPos,
+			})
+			require.NoError(t, err)
+
+			require.WithinDuration(t, time.Now(), segment.CreatedAt, time.Minute)
+
+			require.Equal(t, metabase.Segment{
+				StreamID:          object.StreamID,
+				Position:          segmentPos,
+				CreatedAt:         segment.CreatedAt,
+				ExpiresAt:         object.ExpiresAt,
+				EncryptedKey:      segmentEncKey,
+				EncryptedKeyNonce: segmentEncKeyNonce.Bytes(),
+				PlainSize:         int32(segmentPlainSize),
+				EncryptedSize:     int32(len(inlineData)),
+				InlineData:        inlineData,
+			}, segment)
+		})
+
+		t.Run("Invalid checksum options", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
+			require.NoError(t, err)
+			userData.Checksum.IsComposite = true
+
+			beginReq := &pb.BeginObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			}
+
+			makeSegmentReq := &pb.MakeInlineSegmentRequest{
+				Header:              header,
+				Position:            &pb.SegmentPosition{},
+				EncryptedKey:        testrand.Bytes(48),
+				EncryptedKeyNonce:   testrand.Nonce(),
+				PlainSize:           16,
+				EncryptedInlineData: testrand.Bytes(32),
+			}
+
+			validCommitReq := pb.CommitObjectRequest{
+				Header:                        header,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			}
+
+			commitReq := validCommitReq
+			commitReq.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_SHA256 + 1
+			_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, makeSegmentReq, &commitReq)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumAlgorithmInvalid, "The checksum algorithm is invalid")
+			requireNoCommittedObjects(t, bucketName)
+
+			commitReq = validCommitReq
+			commitReq.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, makeSegmentReq, &commitReq)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumTypeUnexpected, "A checksum type must not be provided if a checksum algorithm is not provided")
+			requireNoCommittedObjects(t, bucketName)
+
+			commitReq = validCommitReq
+			commitReq.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
+			commitReq.IsChecksumComposite = false
+			_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, makeSegmentReq, &commitReq)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumUnexpected, "A checksum must not be provided if a checksum algorithm is not provided")
+			requireNoCommittedObjects(t, bucketName)
+
+			commitReq = validCommitReq
+			commitReq.EncryptedChecksum = nil
+			_, _, _, err = endpoint.CommitInlineObject(ctx, beginReq, makeSegmentReq, &commitReq)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumMissing, "A checksum must be provided if a checksum algorithm is provided")
+			requireNoCommittedObjects(t, bucketName)
+		})
+
+		t.Run("Checksums disabled", func(t *testing.T) {
+			endpoint.TestingSetChecksumsEnabled(false)
+			defer endpoint.TestingSetChecksumsEnabled(true)
+
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			userData, err := randEncryptedUserDataWithChecksum(encParams, 0)
+			require.NoError(t, err)
+
+			_, _, _, err = endpoint.CommitInlineObject(ctx, &pb.BeginObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			}, &pb.MakeInlineSegmentRequest{
+				Header:              header,
+				Position:            &pb.SegmentPosition{},
+				EncryptedKey:        testrand.Bytes(48),
+				EncryptedKeyNonce:   testrand.Nonce(),
+				PlainSize:           16,
+				EncryptedInlineData: testrand.Bytes(32),
+			}, &pb.CommitObjectRequest{
+				Header:                        header,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumsUnsupported, "Checksum options may not be provided at this time")
+
+			requireNoCommittedObjects(t, bucketName)
+		})
+	})
+}
+
 func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,

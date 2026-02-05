@@ -671,6 +671,11 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		return nil, nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength)
 	}
 
+	err = endpoint.validateChecksumOptions(commitObjectReq.ChecksumAlgorithm, commitObjectReq.IsChecksumComposite, commitObjectReq.EncryptedChecksum)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	err = endpoint.checkUploadLimits(ctx, keyInfo)
 	if err != nil {
 		return nil, nil, nil, err
@@ -761,7 +766,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 			PlainSize:  int32(makeInlineSegReq.PlainSize), // TODO incompatible types int32 vs int64
 			InlineData: makeInlineSegReq.EncryptedInlineData,
 
-			// don't set EncryptedETag as this method won't be used with multipart upload
+			// don't set EncryptedETag or EncryptedChecksum as this method won't be used with multipart upload
 		},
 
 		ExpiresAt:  expiresAt,
@@ -772,6 +777,11 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 			EncryptedMetadataEncryptedKey: commitObjectReq.EncryptedMetadataEncryptedKey,
 			EncryptedMetadataNonce:        nonceBytes(commitObjectReq.EncryptedMetadataNonce),
 			EncryptedETag:                 commitObjectReq.EncryptedEtag,
+			Checksum: metabase.Checksum{
+				Algorithm:      storj.ObjectChecksumAlgorithm(commitObjectReq.ChecksumAlgorithm),
+				IsComposite:    commitObjectReq.IsChecksumComposite,
+				EncryptedValue: commitObjectReq.EncryptedChecksum,
+			},
 		},
 
 		Retention: retention,

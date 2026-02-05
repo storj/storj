@@ -940,7 +940,9 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 			}
 		}
 
-		now := time.Now() // TODO: should we get this information from the database?
+		// The timestamp is rounded and set to UTC to match the value that we would've received
+		// from the database had we relied on it to produce the timestamp.
+		now := time.Now().Round(time.Microsecond).UTC() // TODO: should we get this information from the database?
 
 		{
 			object.StreamID = opts.StreamID
