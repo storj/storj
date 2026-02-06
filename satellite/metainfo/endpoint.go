@@ -368,7 +368,8 @@ func (endpoint *Endpoint) LicenseInfo(ctx context.Context, req *pb.LicenseInfoRe
 	for _, license := range licenses {
 		response.Licenses = append(response.Licenses, &pb.LicenseInfo{
 			Type:      license.Type,
-			ExpiresAt: license.ExpiresAt.String(),
+			ExpiresAt: license.ExpiresAt,
+			Key:       license.Key,
 		})
 	}
 

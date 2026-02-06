@@ -40,13 +40,17 @@ func TestLicenseEntitlements(t *testing.T) {
 
 		now := time.Now().UTC().Truncate(time.Second)
 		expectedPublicID := testrand.UUID().String()
+		expectedKey := testrand.Bytes(32)
+		expectedExpiresAt := now.Add(30 * 24 * time.Hour)
+
 		licensesToSet := entitlements.AccountLicenses{
 			Licenses: []entitlements.AccountLicense{
 				{
 					Type:       "pro",
 					PublicID:   expectedPublicID,
 					BucketName: "my-bucket",
-					ExpiresAt:  now.Add(30 * 24 * time.Hour),
+					ExpiresAt:  expectedExpiresAt,
+					Key:        expectedKey,
 				},
 			},
 		}
@@ -58,9 +62,13 @@ func TestLicenseEntitlements(t *testing.T) {
 		got, err = licenses.Get(ctx, userID)
 		require.NoError(t, err)
 		require.Len(t, got.Licenses, 1)
-		require.Equal(t, "pro", got.Licenses[0].Type)
-		require.Equal(t, expectedPublicID, got.Licenses[0].PublicID)
-		require.Equal(t, "my-bucket", got.Licenses[0].BucketName)
+		require.Equal(t, entitlements.AccountLicense{
+			Type:       "pro",
+			PublicID:   expectedPublicID,
+			BucketName: "my-bucket",
+			ExpiresAt:  expectedExpiresAt,
+			Key:        expectedKey,
+		}, got.Licenses[0])
 
 		// Update licenses with additional entries.
 		licensesToSet.Licenses = append(licensesToSet.Licenses, entitlements.AccountLicense{
@@ -126,6 +134,7 @@ func TestLicenses_GetActive(t *testing.T) {
 				PublicID:   publicID.String(),
 				BucketName: "specific-bucket",
 				ExpiresAt:  now.Add(90 * 24 * time.Hour),
+				Key:        testrand.Bytes(32),
 			},
 			{
 				Type:      "expired",
