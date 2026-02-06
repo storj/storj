@@ -579,6 +579,8 @@ func (endpoint *Endpoint) ConvertKnownErrWithMessage(err error, message string) 
 		message = strings.TrimPrefix(message, ": ")
 		// uplink expects a message that starts with the specified prefix
 		return rpcstatus.Error(rpcstatus.NotFound, "segment not found: "+message)
+	case metabase.ErrInsufficientMetadataIncludes.Has(err):
+		return rpcstatus.Error(rpcstatus.InsufficientObjectMetadataIncludes, err.Error())
 	case metabase.ErrObjectLock.Has(err):
 		return rpcstatus.Error(rpcstatus.ObjectLockObjectProtected, objectLockedErrMsg)
 	case metabase.ErrChecksumMissing.Has(err):

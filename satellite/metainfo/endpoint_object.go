@@ -2082,11 +2082,37 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	if err = endpoint.validateChecksumOptions(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum); err != nil {
+		return nil, err
+	}
+
+	var includes metabase.EncryptedUserDataIncludes
+	if req.Includes != nil {
+		includes = metabase.EncryptedUserDataIncludes{
+			Metadata: req.Includes.Custom,
+			ETag:     req.Includes.Etag,
+			Checksum: req.Includes.Checksum,
+		}
+		if includes == (metabase.EncryptedUserDataIncludes{}) {
+			return nil, rpcstatus.Error(rpcstatus.ObjectMetadataIncludesInvalid, "Includes must not be empty")
+		}
+	} else {
+		includes = metabase.EncryptedUserDataIncludes{
+			Metadata: true,
+			ETag:     req.SetEncryptedEtag,
+		}
+	}
+
 	encryptedUserData := metabase.EncryptedUserData{
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataNonce:        nonceBytes(req.EncryptedMetadataNonce),
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 		EncryptedETag:                 req.EncryptedEtag,
+		Checksum: metabase.Checksum{
+			Algorithm:      storj.ObjectChecksumAlgorithm(req.ChecksumAlgorithm),
+			IsComposite:    req.IsChecksumComposite,
+			EncryptedValue: req.EncryptedChecksum,
+		},
 	}
 
 	if err := endpoint.checkEncryptedMetadataSize(encryptedUserData); err != nil {
@@ -2111,15 +2137,12 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		},
 		StreamID:          id,
 		EncryptedUserData: encryptedUserData,
-		Includes: metabase.EncryptedUserDataIncludes{
-			Metadata: true,
-			ETag:     req.SetEncryptedEtag,
-		},
+		Includes:          includes,
 	})
 	if err != nil {
-		// We aren't ready to return this class of error yet. All uplinks that we know of
-		// expect an "object not found" error for format violations.
-		if metabase.ErrInsufficientMetadataIncludes.Has(err) {
+		// Old uplinks neither set req.Includes nor know how to translate the RPC status code
+		// for metabase.ErrInsufficientMetadataIncludes.
+		if req.Includes == nil && metabase.ErrInsufficientMetadataIncludes.Has(err) {
 			err = metabase.ErrObjectNotFound.New("")
 		}
 		return nil, endpoint.ConvertMetabaseErr(err)
