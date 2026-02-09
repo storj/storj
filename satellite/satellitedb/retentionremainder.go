@@ -147,7 +147,7 @@ func fromDBXRetentionRemainderCharge(row *dbx.RetentionRemainderCharge) (account
 		ProjectID:          projectID,
 		BucketName:         string(row.BucketName),
 		DeletedAt:          row.DeletedAt,
-		RemainderByteHours: float64(row.RemainderByteHours),
+		RemainderByteHours: row.RemainderByteHours,
 		ProductID:          productID,
 		Billed:             row.Billed,
 	}, nil
