@@ -49,7 +49,7 @@ export interface FormField {
 
     // Messages and validation
     messages?: ((value: unknown) => string[]);
-    errorMessages?: ((value: unknown) => string | undefined);
+    errorMessages?: ((value: unknown, formData?: unknown) => string | undefined);
 
     // Custom transform functions
     transform?: {

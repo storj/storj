@@ -112,7 +112,7 @@
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { VContainer, VDataTable, VChip, VRow, VCol, VIcon, VBtn, VCard, VTextField } from 'vuetify/components';
-import { CheckCircleIcon, PlusCircle, Search, User, XCircleIcon } from 'lucide-vue-next';
+import { PlusCircle, Search, User } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
 import { AccountMin, FeatureFlags, UserStatusInfo } from '@/api/client.gen';
