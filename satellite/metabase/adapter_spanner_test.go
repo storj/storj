@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/shared/dbutil/dbtest"
@@ -21,25 +20,21 @@ import (
 func TestBeginObjectSpanner(t *testing.T) {
 	spannerConnStr := dbtest.PickOrStartSpanner(t)
 
-	mudtest.Run[*metabase.SpannerAdapter](t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
+	mudtest.Run(t, mudtest.WithTestLogger(t, func(ball *mud.Ball) {
 		metabase.SpannerTestModule(ball, spannerConnStr)
 	}),
 		func(ctx context.Context, t *testing.T, adapter *metabase.SpannerAdapter) {
-			uuid := testrand.UUID()
-			o := &metabase.Object{}
-			err := adapter.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
-				ObjectStream: metabase.ObjectStream{
-					ProjectID: uuid,
-				},
-			}, o)
+			stream := metabasetest.RandObjectStream()
+			stream.Version = metabase.NextVersion
+			o, err := adapter.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: stream,
+			})
 			require.NoError(t, err)
 			require.Equal(t, metabase.Version(1), o.Version)
 
-			err = adapter.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
-				ObjectStream: metabase.ObjectStream{
-					ProjectID: uuid,
-				},
-			}, o)
+			o, err = adapter.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: stream,
+			})
 			require.NoError(t, err)
 			require.Equal(t, metabase.Version(2), o.Version)
 

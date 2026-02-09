@@ -29,6 +29,9 @@ type TransactionOptions struct {
 // Shard represents methods that are specific to a particular database implementation.
 // Right now it contains only method that were fully moved under specific DB implementation Postgres/CRDB or Spanner.
 type Shard interface {
+	BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (object Object, err error)
+	BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error)
+
 	CommitObject(ctx context.Context, opts CommitObject) (object Object, err error)
 	CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error)
 
@@ -54,13 +57,10 @@ type Adapter interface {
 	CheckVersion(ctx context.Context) error
 	Implementation() dbutil.Implementation
 
-	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
-
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
 	PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error)
 	CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) error
 	CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error
-	BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
 	SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) error
 	SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) error

@@ -65,6 +65,10 @@ func (opts *BeginObjectNextVersion) Verify() error {
 
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
 func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
+	return db.ChooseAdapter(opts.ProjectID).BeginObjectNextVersion(ctx, opts)
+}
+
+func beginObjectNextVersion(ctx context.Context, adapterFunc func(context.Context, BeginObjectNextVersion, *Object) error, opts BeginObjectNextVersion) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -92,8 +96,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		LegalHold:              opts.LegalHold,
 	}
 
-	err = db.ChooseAdapter(opts.ProjectID).BeginObjectNextVersion(ctx, opts, &object)
-	if err != nil {
+	if err := adapterFunc(ctx, opts, &object); err != nil {
 		return Object{}, Error.New("unable to insert object: %w", err)
 	}
 
@@ -102,8 +105,18 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 	return object, nil
 }
 
+// BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
+func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
+	return beginObjectNextVersion(ctx, p.beginObjectNextVersion, opts)
+}
+
+// BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
+func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
+	return beginObjectNextVersion(ctx, s.beginObjectNextVersion, opts)
+}
+
 // BeginObjectNextVersion implements Adapter.
-func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
+func (p *PostgresAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
 	return p.db.QueryRowContext(ctx, `
 			INSERT INTO objects (
 				project_id, bucket_name, object_key, version, stream_id,
@@ -131,7 +144,7 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 }
 
 // BeginObjectNextVersion implements Adapter.
-func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
+func (s *SpannerAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
 	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		return Error.Wrap(txn.Query(ctx, spanner.Statement{
 			SQL: `INSERT objects (
@@ -235,6 +248,10 @@ func (opts *BeginObjectExactVersion) Verify() error {
 
 // BeginObjectExactVersion adds a pending object to the database, with specific version.
 func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
+	return db.ChooseAdapter(opts.ProjectID).BeginObjectExactVersion(ctx, opts)
+}
+
+func beginObjectExactVersion(ctx context.Context, adapterFunc func(ctx context.Context, opts BeginObjectExactVersion, object *Object) error, opts BeginObjectExactVersion) (committed Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !opts.TestingBypassVerify {
@@ -265,8 +282,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		LegalHold:              opts.LegalHold,
 	}
 
-	err = db.ChooseAdapter(opts.ProjectID).BeginObjectExactVersion(ctx, opts, &object)
-	if err != nil {
+	if err := adapterFunc(ctx, opts, &object); err != nil {
 		if ErrObjectAlreadyExists.Has(err) {
 			return Object{}, err
 		}
@@ -278,8 +294,17 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 	return object, nil
 }
 
-// BeginObjectExactVersion implements Adapter.
-func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
+// BeginObjectExactVersion adds a pending object to the database, with specific version.
+func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (_ Object, err error) {
+	return beginObjectExactVersion(ctx, p.beginObjectExactVersion, opts)
+}
+
+// BeginObjectExactVersion adds a pending object to the database, with specific version.
+func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (_ Object, err error) {
+	return beginObjectExactVersion(ctx, s.beginObjectExactVersion, opts)
+}
+
+func (p *PostgresAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
 	err := p.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
@@ -314,8 +339,7 @@ func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts Begi
 	return err
 }
 
-// BeginObjectExactVersion implements Adapter.
-func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
+func (s *SpannerAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
 	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		err := txn.Query(ctx, spanner.Statement{
 			SQL: `INSERT INTO objects (
@@ -331,7 +355,7 @@ func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts Begin
 				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 				@retention_mode, @retain_until
 			) THEN RETURN created_at`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":                       opts.ProjectID,
 				"bucket_name":                      opts.BucketName,
 				"object_key":                       opts.ObjectKey,
