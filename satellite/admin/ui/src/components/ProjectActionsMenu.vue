@@ -92,7 +92,7 @@ import { VMenu, VList, VListItem, VListItemTitle } from 'vuetify/components';
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 
-import { FeatureFlags, User } from '@/api/client.gen';
+import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 
@@ -113,7 +113,7 @@ const hasUpdateProjectPerm = computed(() => {
 const props = defineProps<{
     projectId: string;
     active: boolean;
-    owner: User;
+    ownerId: string;
 }>();
 
 const emit = defineEmits<{
@@ -132,7 +132,7 @@ function viewProject() {
     if (router.currentRoute.value.name === ROUTES.Account.name) {
         router.push({
             name: ROUTES.AccountProject.name,
-            params: { userID: props.owner.id, projectID: props.projectId },
+            params: { userID: props.ownerId, projectID: props.projectId },
         });
     }
 }

@@ -704,21 +704,33 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 					roundedRemainderByteHours, _ := roundedRemainderGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
 					discountedUsage.RemainderStorage = roundedRemainderByteHours
 				}
+
+				// Round up retention remainder when PopulateMinRetentionInvoiceLineItem is enabled.
+				if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem && discountedUsage.RetentionRemainder > 0 {
+					retentionRemainderGBMonth := decimal.NewFromFloat(discountedUsage.RetentionRemainder).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
+					roundedRetentionRemainderGBMonth := retentionRemainderGBMonth.Ceil()
+					if roundedRetentionRemainderGBMonth.IsZero() {
+						roundedRetentionRemainderGBMonth = decimal.NewFromInt(1)
+					}
+
+					roundedRetentionRemainderByteHours, _ := roundedRetentionRemainderGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
+					discountedUsage.RetentionRemainder = roundedRetentionRemainderByteHours
+				}
 			}
 
 			price := accounts.service.calculateProjectUsagePrice(discountedUsage, info.ProjectUsagePriceModel)
 
 			// Calculate remainder storage fee if PopulateMinObjectSizeInvoiceLineItem is enabled.
 			var smallObjectFeePrice decimal.Decimal
-			var minimumRetentionFeePrice decimal.Decimal
 			if accounts.service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
 				if !info.SmallObjectFeeCents.IsZero() && discountedUsage.RemainderStorage > 0 {
 					smallObjectFeePrice = info.SmallObjectFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RemainderStorage)).Round(0)
 				}
-				if !info.MinimumRetentionFeeCents.IsZero() {
-					// Minimum retention fee is not currently calculated based on actual usage,
-					// but we keep this placeholder for future implementation.
-					minimumRetentionFeePrice = decimal.Zero
+			}
+			var minimumRetentionFeePrice decimal.Decimal
+			if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
+				if !info.MinimumRetentionFeeCents.IsZero() && discountedUsage.RetentionRemainder > 0 {
+					minimumRetentionFeePrice = info.MinimumRetentionFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RetentionRemainder)).Round(0)
 				}
 			}
 

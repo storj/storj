@@ -43,7 +43,7 @@
                         color="default"
                         class="mr-2"
                         :prepend-icon="Edit"
-                        @click="isEditing = true"
+                        @click="onEdit"
                     >
                         Edit
                     </v-btn>
@@ -73,23 +73,26 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VRow, VNumberInput } from 'vuetify/components';
-import { X, Edit, Star } from 'lucide-vue-next';
+import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VNumberInput, VRow } from 'vuetify/components';
+import { Edit, Star, X } from 'lucide-vue-next';
 
 import { CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/composables/useNotify';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import RemoveCreditCardDialog from '@/components/dialogs/RemoveCreditCardDialog.vue';
 import EditDefaultCreditCardDialog from '@/components/dialogs/EditDefaultCreditCardDialog.vue';
 import AddCardDialog from '@/components/dialogs/AddCardDialog.vue';
 
 const billingStore = useBillingStore();
-const notify = useNotify();
 const usersStore = useUsersStore();
+const analyticsStore = useAnalyticsStore();
+
+const notify = useNotify();
 const { withLoading, isLoading } = useLoading();
 
 const props = defineProps<{
@@ -144,6 +147,11 @@ async function attemptPayments() {
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
     }
+}
+
+function onEdit(): void {
+    isEditing.value = true;
+    analyticsStore.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
 }
 </script>
 

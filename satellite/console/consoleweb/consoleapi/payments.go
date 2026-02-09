@@ -191,13 +191,9 @@ func (p *Payments) TriggerAttemptPayment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if freezes.BillingFreeze == nil && freezes.BillingWarning == nil && freezes.TrialExpirationFreeze == nil {
-		return
-	}
-
 	err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
 	if err != nil {
-		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, rootError(err).Error())
+		web.ServeCustomJSONError(ctx, p.log, w, http.StatusInternalServerError, err, "Failed to attempt payment of overdue invoices")
 		return
 	}
 
@@ -476,6 +472,36 @@ func (p *Payments) InvoiceHistory(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(history)
 	if err != nil {
 		p.log.Error("failed to write json history response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// GetFailedInvoice returns a list of failed invoices for the user.
+func (p *Payments) GetFailedInvoice(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	invoice, err := p.service.Payments().GetFailedInvoice(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrNotFound.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, errs.New("No failed invoice"))
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(invoice)
+	if err != nil {
+		p.log.Error("failed to write json failed invoice response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

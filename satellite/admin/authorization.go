@@ -49,6 +49,7 @@ const (
 	PermBucketSetDataPlacement
 	PermBucketRemoveDataPlacement
 	PermBucketSetUserAgent
+	PermProjectMembersView
 	PermViewChangeHistory
 	PermNodesView
 )
@@ -66,9 +67,9 @@ const (
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView,
 	)
-	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory)
+	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView)
 	RoleCustomerSupport = Authorization(
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
@@ -76,12 +77,12 @@ const (
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectSetEntitlements |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView,
 	)
 	RoleFinanceManager = Authorization(
 		PermAccountView | PermAccountSuspendTemporary | PermAccountReActivateTemporary |
 			PermAccountSuspendPermanently | PermAccountReActivatePermanently | PermAccountDeleteNoData |
-			PermAccountDeleteWithData | PermProjectView | PermBucketView,
+			PermAccountDeleteWithData | PermProjectView | PermBucketView | PermProjectMembersView,
 	)
 )
 

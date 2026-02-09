@@ -120,22 +120,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, h, watch } from 'vue';
-import { FolderArchive, Check, Download, X } from 'lucide-vue-next';
+import { computed, h, ref, watch } from 'vue';
+import { Check, Download, FolderArchive, X } from 'lucide-vue-next';
 import {
-    VDialog,
+    VBtn,
     VCard,
-    VCardItem,
     VCardActions,
+    VCardItem,
+    VCardSubtitle,
     VCardText,
     VCardTitle,
-    VCardSubtitle,
-    VCol,
-    VRow,
-    VBtn,
-    VDivider,
-    VSheet,
     VChip,
+    VCol,
+    VDialog,
+    VDivider,
+    VRow,
+    VSheet,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 
@@ -144,11 +144,12 @@ import { usePreCheck } from '@/composables/usePreCheck';
 import { useNotify } from '@/composables/useNotify';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { DownloadPrefixFormat, DownloadPrefixType } from '@/types/browser';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 const props = withDefaults(defineProps<{
     prefixType: DownloadPrefixType
@@ -167,6 +168,7 @@ const { platform } = useDisplay();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
+const analyticsStore = useAnalyticsStore();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -196,6 +198,11 @@ async function onDownload(): Promise<void> {
 
             try {
                 await downloadPrefix(props.bucket, props.prefix, downloadFormat.value);
+
+                analyticsStore.eventTriggered(AnalyticsEvent.DOWNLOAD_PREFIX_INITIATED, {
+                    prefix_type: props.prefixType.toLowerCase(),
+                    format: downloadFormat.value,
+                });
                 model.value = false;
                 notify.success(
                     () => ['Keep this download link private.', h('br'), 'If you want to share, use the Share option.'],
@@ -210,12 +217,12 @@ async function onDownload(): Promise<void> {
 }
 
 watch(model, async newVal => {
-    if (newVal) {
-        if (platform.value.linux || platform.value.mac) {
-            downloadFormat.value = DownloadPrefixFormat.TAR_GZ;
-        } else {
-            downloadFormat.value = DownloadPrefixFormat.ZIP;
-        }
+    if (!newVal) return;
+
+    if (platform.value.linux || platform.value.mac) {
+        downloadFormat.value = DownloadPrefixFormat.TAR_GZ;
+    } else {
+        downloadFormat.value = DownloadPrefixFormat.ZIP;
     }
 });
 </script>

@@ -25,7 +25,9 @@ func CreateSelector(ball *mud.Ball) mud.ComponentSelector {
 // * !component to disable interface (inject nil instead of any implementation).
 func CreateSelectorFromString(ball *mud.Ball, selection string) mud.ComponentSelector {
 	if selection == "" {
-		return mud.Tagged[Service]()
+		return func(c *mud.Component) bool {
+			return false
+		}
 	}
 	var selector mud.ComponentSelector = func(c *mud.Component) bool {
 		return false
@@ -33,8 +35,6 @@ func CreateSelectorFromString(ball *mud.Ball, selection string) mud.ComponentSel
 
 	for _, s := range strings.Split(selection, ",") {
 		switch {
-		case s == "service":
-			selector = mud.Or(selector, mud.Tagged[Service]())
 		case strings.HasPrefix(s, "-"):
 			selector = mud.And(selector, excludeType(s[1:]))
 		case strings.HasPrefix(s, "~"):

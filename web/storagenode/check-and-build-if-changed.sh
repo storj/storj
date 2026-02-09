@@ -5,7 +5,7 @@
 cd "$(dirname "${BASH_SOURCE[0]}")"
 set -xuo pipefail
 
-CHECK=web/satellite
+CHECK=web/storagenode
 
 CHANGED=false
 
@@ -24,6 +24,5 @@ if [ $? -eq 0 ]; then
 fi
 
 if [ $CHANGED == "true" ]; then
-    ./build.sh
+    ./check-and-build.sh
 fi
-

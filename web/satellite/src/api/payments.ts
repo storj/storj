@@ -397,6 +397,8 @@ export class PaymentsHttpApi implements PaymentsApi {
                     new Date(item.end),
                     item.type,
                     item.remaining,
+                    item.payLink,
+                    item.failed,
                 ),
             );
         }
@@ -405,6 +407,45 @@ export class PaymentsHttpApi implements PaymentsApi {
             items,
             pageJson.next,
             pageJson.previous,
+        );
+    }
+
+    /**
+     * Returns a single failed invoice.
+     *
+     * @returns the failed invoice
+     * @throws Error
+     */
+    public async getFailedInvoice(): Promise<PaymentsHistoryItem | null> {
+        const path = `${this.ROOT_PATH}/failed-invoice`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                return null;
+            }
+            throw new APIError({
+                status: response.status,
+                message: 'Can not list failed invoices',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const json = await response.json();
+
+        return new PaymentsHistoryItem(
+            json.id,
+            json.description,
+            json.amount,
+            json.received,
+            json.status,
+            json.link,
+            new Date(json.start),
+            new Date(json.end),
+            json.type,
+            json.remaining,
+            json.payLink,
+            json.failed,
         );
     }
 

@@ -286,6 +286,10 @@ func (table *Table) Sort() {
 	sort.Slice(table.Unique, func(i, k int) bool {
 		return lessStrings(table.Unique[i], table.Unique[k])
 	})
+
+	sort.Slice(table.ForeignKeys, func(i, k int) bool {
+		return table.ForeignKeys[i].Name < table.ForeignKeys[k].Name
+	})
 }
 
 func lessStrings(a, b []string) bool {

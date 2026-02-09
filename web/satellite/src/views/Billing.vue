@@ -172,7 +172,7 @@
                                     variant="outlined"
                                     color="default"
                                     :prepend-icon="Plus"
-                                    @click="isAddCouponDialogShown = true"
+                                    @click="applyCouponClicked"
                                 >
                                     Add Coupon
                                 </v-btn>
@@ -197,7 +197,7 @@
                                     variant="outlined"
                                     color="default"
                                     :prepend-icon="Plus"
-                                    @click="isAddCouponDialogShown = true"
+                                    @click="applyCouponClicked"
                                 >
                                     Apply New Coupon
                                 </v-btn>
@@ -212,7 +212,7 @@
                                     All Projects
                                 </v-chip>
                                 <v-divider class="my-4 border-0" />
-                                <v-btn variant="outlined" color="default" rounded="md" :prepend-icon="Calendar">
+                                <v-btn variant="outlined" color="default" rounded="md" :prepend-icon="Calendar" @click="detailedUsageClicked">
                                     <detailed-usage-report-dialog />
                                     Detailed Usage Report
                                 </v-btn>
@@ -266,32 +266,32 @@
 <script setup lang="ts">
 import { computed, onBeforeMount, onMounted, ref } from 'vue';
 import {
-    VContainer,
+    VBtn,
     VCard,
-    VTabs,
-    VTab,
-    VWindow,
-    VWindowItem,
-    VRow,
-    VCol,
     VCardText,
     VChip,
+    VCol,
+    VContainer,
     VDivider,
-    VBtn,
+    VIcon,
     VProgressCircular,
     VProgressLinear,
+    VRow,
+    VTab,
+    VTabs,
     VTooltip,
-    VIcon,
+    VWindow,
+    VWindowItem,
 } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
-import { Calendar, Info, Plus, ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, Calendar, Info, Plus } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AccountBalance, Coupon, CouponDuration, CreditCard } from '@/types/payments';
 import { centsToDollars } from '@/utils/strings';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { MinimumCharge, useConfigStore } from '@/store/modules/configStore';
@@ -299,6 +299,7 @@ import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import CreditCardComponent from '@/components/CreditCardComponent.vue';
@@ -330,6 +331,7 @@ const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
 const appStore = useAppStore();
+const analyticsStore = useAnalyticsStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -488,6 +490,15 @@ function onAddTokensClicked(): void {
 
     tab.value = TABS['payment-methods'];
     tokenCardComponent.value?.onAddTokens();
+}
+
+function detailedUsageClicked(): void {
+    analyticsStore.eventTriggered(AnalyticsEvent.USAGE_DETAILED_INFO_CLICKED);
+}
+
+function applyCouponClicked(): void {
+    isAddCouponDialogShown.value = true;
+    analyticsStore.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
 }
 
 onBeforeMount(() => {

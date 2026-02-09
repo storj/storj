@@ -1475,9 +1475,7 @@ func TestStore_CompactionMakesProgressEvenIfSmallRewriteMultiple(t *testing.T) {
 }
 
 func TestStore_OpenFailsWithLogFilesButNoTable(t *testing.T) {
-	forAllTables(t, testStore_OpenFailsWithLogFilesButNoTable)
-}
-func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T, cfg Config) {
+	cfg := defaultConfig()
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
@@ -1488,6 +1486,22 @@ func testStore_OpenFailsWithLogFilesButNoTable(t *testing.T, cfg Config) {
 
 	_, err := NewStore(t.Context(), cfg, s.logsPath, s.tablePath, s.log, s.valid, s.amnesty)
 	assert.Error(t, err)
+	assert.That(t, strings.Contains(err.Error(), "misconfiguration"))
+}
+
+func TestStore_OpenFailsWithTableButNoLogFiles(t *testing.T) {
+	cfg := defaultConfig()
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	s.AssertCreate()
+	s.Close()
+
+	assert.NoError(t, os.Remove(filepath.Join(s.logsPath, "01", createLogName(1, 0))))
+
+	_, err := NewStore(t.Context(), cfg, s.logsPath, s.tablePath, s.log, s.valid, s.amnesty)
+	assert.Error(t, err)
+	assert.That(t, strings.Contains(err.Error(), "misconfiguration"))
 }
 
 func TestStore_HintFileCreation(t *testing.T) {
@@ -1786,16 +1800,21 @@ func TestStore_RewriteRecordWithTruncatedLogErrors(t *testing.T) {
 }
 
 func TestStore_AmnestyForUnlinkedLogFile(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Compaction.MaxLogSize = 4096
+
 	var amnestied []Key
-	s := newTestStore(t, defaultConfig(), WithAmnesty(func(ctx context.Context, keys []Key) {
+	s := newTestStore(t, cfg, WithAmnesty(func(ctx context.Context, keys []Key) {
 		amnestied = append(amnestied, keys...)
 	}))
 	defer s.Close()
 
 	var created []Key
-	for range 100 {
+	for {
 		key := s.AssertCreate()
-		assert.Equal(t, s.LogFile(key), 1)
+		if s.LogFile(key) != 1 {
+			break
+		}
 		created = append(created, key)
 	}
 
@@ -1811,6 +1830,7 @@ func TestStore_AmnestyForUnlinkedLogFile(t *testing.T) {
 	assert.DeepEqual(t, amnestied, created)
 }
 
+//
 // benchmarks
 //
 

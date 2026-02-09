@@ -211,7 +211,7 @@ function onBack(): void {
 /**
  * Applies the selected pricing plan to the user.
  */
-async function onActivateClick() {
+async function onActivateClick(): Promise<void> {
     if (loading.value || !props.plan) return;
 
     if (isFree.value) {
@@ -310,7 +310,7 @@ async function onCardAdded(request: PurchaseRequest): Promise<void> {
     }
 }
 
-function onSuccess() {
+function onSuccess(): void {
     analyticsStore.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
     loading.value = false;
     notify.success('Card successfully added and account upgraded');

@@ -6,7 +6,7 @@ import { computed } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { JoinCunoFSBetaForm, ObjectMountConsultationForm, UserFeedbackForm } from '@/types/analytics';
+import { UserFeedbackForm } from '@/types/analytics';
 import { useConfigStore } from '@/store/modules/configStore';
 
 export const useAnalyticsStore = defineStore('analytics', () => {
@@ -19,20 +19,12 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         await analytics.ensureEventTriggered(eventName, csrfToken.value, props);
     }
 
-    async function joinCunoFSBeta(data: JoinCunoFSBetaForm): Promise<void> {
-        await analytics.joinCunoFSBeta(data, csrfToken.value);
-    }
-
     async function joinPlacementWaitlist(storageNeeds: string, placementID: number): Promise<void> {
         await analytics.joinPlacementWaitlist(storageNeeds, placementID, csrfToken.value);
     }
 
     async function sendUserFeedback(data: UserFeedbackForm): Promise<void> {
         await analytics.sendUserFeedback(data, csrfToken.value);
-    }
-
-    async function requestObjectMountConsultation(data: ObjectMountConsultationForm): Promise<void> {
-        await analytics.requestObjectMountConsultation(data, csrfToken.value);
     }
 
     function eventTriggered(eventName: AnalyticsEvent, props?: { [p: string]: string }): void {
@@ -79,9 +71,7 @@ export const useAnalyticsStore = defineStore('analytics', () => {
         errorEventTriggered,
         linkEventTriggered,
         pageVisit,
-        joinCunoFSBeta,
         joinPlacementWaitlist,
-        requestObjectMountConsultation,
         sendUserFeedback,
     };
 });

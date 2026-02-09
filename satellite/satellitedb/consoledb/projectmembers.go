@@ -184,9 +184,9 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 	switch pm.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		membersQuery := `
-		SELECT member_id, project_id, role, created_at, email, inviter_id FROM (
+		SELECT member_id, project_id, role, created_at, email, full_name, short_name, inviter_id FROM (
 			(
-				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, NULL as inviter_id
+				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, u.short_name, NULL as inviter_id
 				FROM project_members pm
 				INNER JOIN users u ON pm.member_id = u.id
 				WHERE pm.project_id = $1
@@ -196,7 +196,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 					u.short_name ILIKE $2
 				)
 			) UNION ALL (
-				SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT_PART(email, '@', 1)) as full_name, inviter_id
+				SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT_PART(email, '@', 1)) as full_name, '' as short_name, inviter_id
 				FROM project_invitations pi
 				WHERE project_id = $1
 				AND email ILIKE $2
@@ -213,9 +213,9 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			page.Offset,
 		)
 	case dbutil.Spanner:
-		membersQuery := `SELECT member_id, project_id, role, created_at, email, inviter_id FROM (
+		membersQuery := `SELECT member_id, project_id, role, created_at, email, full_name, short_name, inviter_id FROM (
                         (
-                                SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, NULL as inviter_id
+                                SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, u.short_name, NULL as inviter_id
                                 FROM project_members pm
                                 INNER JOIN users u ON pm.member_id = u.id
                                 WHERE pm.project_id = @project_id
@@ -225,7 +225,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
                                         LOWER(u.short_name) LIKE LOWER(@search)
                                 )
                         ) UNION ALL (
-                                SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT(email, '@')[OFFSET(0)]) as full_name, inviter_id
+                                SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT(email, '@')[OFFSET(0)]) as full_name, '' as short_name, inviter_id
                                 FROM project_invitations pi
                                 WHERE project_id = @project_id
                                 AND LOWER(email) LIKE LOWER(@search)
@@ -258,6 +258,8 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			role      console.ProjectMemberRole
 			createdAt time.Time
 			email     string
+			fullName  string
+			shortName string
 			inviterID uuid.NullUUID
 		)
 
@@ -267,6 +269,8 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			&role,
 			&createdAt,
 			&email,
+			&fullName,
+			&shortName,
 			&inviterID,
 		)
 		if err != nil {
@@ -279,6 +283,9 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 				ProjectID: projectID,
 				Role:      role,
 				CreatedAt: createdAt,
+				Email:     email,
+				FullName:  fullName,
+				ShortName: shortName,
 			})
 		} else {
 			invite := console.ProjectInvitation{

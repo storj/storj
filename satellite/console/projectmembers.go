@@ -40,6 +40,12 @@ type ProjectMember struct {
 	Role ProjectMemberRole
 
 	CreatedAt time.Time
+
+	// The following fields are populated when the member is retrieved with user information.
+	// These are optional and only set when explicitly requested (e.g., in GetPagedWithInvitationsByProjectID).
+	Email     string
+	FullName  string
+	ShortName string
 }
 
 // ProjectMembersCursor holds info for project members cursor pagination.

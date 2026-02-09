@@ -93,7 +93,7 @@ type ProductUsagePriceModel struct {
 	StorageRemainderBytes int64 `json:"storageRemainderBytes"`
 	// MinimumRetentionDuration is the minimum retention period for objects.
 	// Objects deleted before this period will be charged for the remaining time using MinimumRetentionFeeCents.
-	MinimumRetentionDuration time.Duration `json:"-"`
+	MinimumRetentionDuration time.Duration `json:"minimumRetentionDuration"`
 	// UseGBUnits when true, invoice line items will use GB units instead of MB units.
 	UseGBUnits bool `json:"-"`
 	// PriceSummary will be displayed on the Pro Account info card in the UI.

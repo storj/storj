@@ -151,6 +151,7 @@ type UserProject struct {
 	Name                 string    `json:"name"`
 	Active               bool      `json:"active"`
 	HasManagedPassphrase bool      `json:"hasManagedPassphrase"`
+	OwnerID              uuid.UUID `json:"ownerID"`
 	ProjectUsageLimits[int64]
 }
 
@@ -305,7 +306,7 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	projects, err := s.consoleDB.Projects().GetOwn(ctx, userID)
+	projects, err := s.consoleDB.Projects().GetByUserID(ctx, userID)
 	if err != nil {
 		return nil, nil, api.HTTPError{
 			Status: http.StatusInternalServerError,
@@ -343,6 +344,7 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 			Name:                 p.Name,
 			Active:               p.Status != nil && *p.Status == console.ProjectActive,
 			HasManagedPassphrase: p.PassphraseEnc != nil,
+			OwnerID:              p.OwnerID,
 			ProjectUsageLimits: ProjectUsageLimits[int64]{
 				BandwidthLimit: bandwidthl,
 				BandwidthUsed:  bandwidthu,

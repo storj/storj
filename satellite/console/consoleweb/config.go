@@ -71,15 +71,16 @@ type FrontendConfig struct {
 	NoLimitsUiEnabled                 bool                        `json:"noLimitsUiEnabled"`
 	AltObjBrowserPagingEnabled        bool                        `json:"altObjBrowserPagingEnabled"`
 	AltObjBrowserPagingThreshold      int                         `json:"altObjBrowserPagingThreshold"`
+	SimplifiedObjBrowserPagingEnabled bool                        `json:"simplifiedObjBrowserPagingEnabled"`
 	DomainsPageEnabled                bool                        `json:"domainsPageEnabled"`
 	ActiveSessionsViewEnabled         bool                        `json:"activeSessionsViewEnabled"`
 	VersioningUIEnabled               bool                        `json:"versioningUIEnabled"`
 	ObjectLockUIEnabled               bool                        `json:"objectLockUIEnabled"`
 	ValdiSignUpURL                    string                      `json:"valdiSignUpURL"`
 	SsoEnabled                        bool                        `json:"ssoEnabled"`
+	GeneralSsoEnabled                 bool                        `json:"generalSsoEnabled"`
+	GeneralSsoProviders               []string                    `json:"generalSsoProviders"`
 	SelfServePlacementSelectEnabled   bool                        `json:"selfServePlacementSelectEnabled"`
-	CunoFSBetaEnabled                 bool                        `json:"cunoFSBetaEnabled"`
-	ObjectMountConsultationEnabled    bool                        `json:"objectMountConsultationEnabled"`
 	CSRFToken                         string                      `json:"csrfToken"`
 	BillingStripeCheckoutEnabled      bool                        `json:"billingStripeCheckoutEnabled"`
 	MaxAddFundsAmount                 int                         `json:"maxAddFundsAmount"`

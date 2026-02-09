@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
-	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/mud"
 )
 
@@ -71,5 +70,4 @@ func Module(ball *mud.Ball) {
 	})
 	mud.Implementation[[]debug.Extension, *ModuleGraph](ball)
 	mud.RemoveTag[*ModuleGraph, mud.Optional](ball)
-	mud.Tag[Wrapper, modular.Service](ball, modular.Service{})
 }

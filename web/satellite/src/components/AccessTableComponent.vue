@@ -3,6 +3,7 @@
 
 <template>
     <v-text-field
+        v-if="!constantSearch"
         v-model="search"
         label="Search"
         :prepend-inner-icon="Search"
@@ -118,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed, onBeforeUnmount } from 'vue';
+import { ref, watch, onMounted, computed, onBeforeUnmount, onBeforeMount } from 'vue';
 import {
     VBtn,
     VCol,
@@ -151,7 +152,14 @@ import CannotDeleteDialog from '@/components/dialogs/CannotDeleteDialog.vue';
 const userStore = useUsersStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
+
 const notify = useNotify();
+
+const props = withDefaults(defineProps<{
+    constantSearch?: string
+}>(), {
+    constantSearch: '',
+});
 
 const FIRST_PAGE = 1;
 const areGrantsFetching = ref<boolean>(true);
@@ -291,6 +299,10 @@ watch(() => search.value, () => {
 
 watch([isDeleteAccessDialogShown, isCannotDeleteDialogShown], ([value0, value1]) => {
     if (!value0 && !value1) accessToDelete.value = undefined;
+});
+
+onBeforeMount(() => {
+    if (props.constantSearch) agStore.setSearchQuery(props.constantSearch);
 });
 
 onMounted(() => {

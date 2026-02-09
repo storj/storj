@@ -218,7 +218,7 @@ func NewStore(
 				excluder = nil
 				break
 			}
-			return nil, Error.New("missing hashtbl %q when log files exist in %q", maxTablePath, s.logsPath)
+			return nil, Error.New("potential misconfiguration: missing hashtbl %q when log files exist in %q", maxTablePath, s.logsPath)
 		}
 
 		// atomically create an empty hashtbl.
@@ -354,6 +354,12 @@ func NewStore(
 
 		// include the log file in the writeable collection.
 		s.lfc.Include(lf)
+	}
+
+	// if we have any tails (so we have a table) and we have no log files, then we probably have
+	// a misconfiguration. so instead of just sending every piece up for amnesty, error out.
+	if len(tails) > 0 && s.lfs.Empty() {
+		return nil, Error.New("potential misconfiguration: missing log files when hashtbl exists")
 	}
 
 	// now reconcile any tails we didn't see log files for.
@@ -1606,6 +1612,7 @@ func (s *Store) reconcileLog(ctx context.Context, id uint64, lf *logFile) (_ []K
 		// because the table is no longer in use, and removing the file is best effort.
 		_ = s.tbl.Close()
 		_ = os.Remove(strings.TrimSuffix(s.tbl.Handle().Name(), ".tmp"))
+		syncDirectory(s.tablePath)
 
 		s.tbl = ntbl
 	}
@@ -1648,6 +1655,7 @@ func (s *Store) doubleTableSize(ctx context.Context) (err error) {
 	// because the table is no longer in use, and removing the file is best effort.
 	_ = s.tbl.Close()
 	_ = os.Remove(strings.TrimSuffix(s.tbl.Handle().Name(), ".tmp"))
+	syncDirectory(s.tablePath)
 
 	s.tbl = ntbl
 

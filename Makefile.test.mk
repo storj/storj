@@ -100,8 +100,8 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 	@echo "Running ${@}"
 	@./testsuite/backward-compatibility/start-sim.sh
 
-.PHONY: test-satellite-ui
-test-satellite-ui: ## Run playwright ui tests
+.PHONY: test/integration/ui
+test/integration/ui: ## Run playwright ui tests
 	@echo "Running ${@}"
 	cd web/satellite;\
 		npm install;\

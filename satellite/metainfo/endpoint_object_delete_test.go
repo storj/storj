@@ -2019,8 +2019,10 @@ func TestEndpoint_DeleteObject_MinimumRetentionCharges(t *testing.T) {
 			require.Equal(t, bucketName, charge.BucketName)
 			require.False(t, charge.Billed)
 
-			// check that remaining byte-hours is 240 hours (720 - 480) * 10 KiB
-			require.InDelta(t, float64(240*obj.TotalEncryptedSize), charge.RemainderByteHours, 1.0, "expected remaining byte-hours to be approximately 240 hours * 10 KiB")
+			// check that remaining byte-hours is 240 hours (720 - 480) * 10 KiB.
+			// Time drift between setting CreatedAt and deletion causes ~8 byte-hours
+			// of error per second (TotalEncryptedSize / 3600).
+			require.InDelta(t, float64(240*obj.TotalEncryptedSize), charge.RemainderByteHours, 10, "expected remaining byte-hours to be approximately 240 hours * 10 KiB")
 
 			// upload another object
 			err = planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object-2", testrand.Bytes(10*memory.KiB))
@@ -2056,8 +2058,10 @@ func TestEndpoint_DeleteObject_MinimumRetentionCharges(t *testing.T) {
 
 			charge = charges[0]
 
-			// check that updated includes previous remainder byte-hours + new object's remainder byte-hours
-			require.InDelta(t, oldCharge.RemainderByteHours+float64(240*obj.TotalEncryptedSize), charge.RemainderByteHours, 1.0, "expected remaining byte-hours to be approximately 240 hours * 10 KiB")
+			// check that updated includes previous remainder byte-hours + new object's remainder byte-hours.
+			// Time drift between setting CreatedAt and deletion causes ~8 byte-hours
+			// of error per second (TotalEncryptedSize / 3600).
+			require.InDelta(t, oldCharge.RemainderByteHours+float64(240*obj.TotalEncryptedSize), charge.RemainderByteHours, 10, "expected remaining byte-hours to be approximately 240 hours * 10 KiB")
 		})
 
 		t.Run("no charge after retention period", func(t *testing.T) {
@@ -2143,9 +2147,10 @@ func TestEndpoint_DeleteObject_MinimumRetentionCharges(t *testing.T) {
 			}
 			require.False(t, charge.Billed)
 
-			// check that remaining retention duration is 480 hours (720 - 240) * total size of all objects
-			// Use higher delta (10) for bulk operations to accommodate floating point precision differences in Spanner
-			require.InDelta(t, expectedRemainderByteHours, charge.RemainderByteHours, 10, "expected remaining retention hours to be approximately 480 hours")
+			// check that remaining retention duration is 480 hours (720 - 240) * total size of all objects.
+			// Time drift between setting CreatedAt and deletion causes ~8 byte-hours
+			// of error per second per object (TotalEncryptedSize / 3600).
+			require.InDelta(t, expectedRemainderByteHours, charge.RemainderByteHours, 30, "expected remaining retention hours to be approximately 480 hours")
 		})
 
 		t.Run("no charge for versioned deletes", func(t *testing.T) {

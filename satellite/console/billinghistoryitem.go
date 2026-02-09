@@ -16,9 +16,11 @@ type BillingHistoryItem struct {
 	Received    int64                  `json:"received"`
 	Status      string                 `json:"status"`
 	Link        string                 `json:"link"`
+	PayLink     string                 `json:"payLink"`
 	Start       time.Time              `json:"start"`
 	End         time.Time              `json:"end"`
 	Type        BillingHistoryItemType `json:"type"`
+	Failed      bool                   `json:"failed"`
 }
 
 // BillingHistoryCursor holds info for billing history

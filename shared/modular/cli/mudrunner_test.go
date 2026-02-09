@@ -10,7 +10,6 @@ import (
 	"github.com/zeebo/clingy"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
@@ -50,25 +49,6 @@ func (c *CustomSubcommand) Run() error {
 
 func TestRun(t *testing.T) {
 	ctx := testcontext.New(t)
-
-	t.Run("default run of Service annotated components", func(t *testing.T) {
-		ball := mud.NewBall()
-		mud.Provide[*Task](ball, NewTask)
-		mud.Tag[*Task, modular.Service](ball, modular.Service{})
-		mud.Provide[*ConfigList](ball, NewConfigList)
-
-		cfg := &ConfigSupport{}
-		ok, err := clingy.Environment{
-			Dynamic: cfg.GetValue,
-			Args:    []string{"exec"},
-		}.Run(ctx, clingyRunner(cfg, ball))
-		require.True(t, ok)
-		require.NoError(t, err)
-		c := mud.Find(ball, mud.Select[*Task](ball))
-		require.Len(t, c, 1)
-		require.NotNil(t, c[0].Instance())
-		require.Equal(t, c[0].Instance().(*Task).done, true, "Task should be marked as done after execution")
-	})
 
 	t.Run("run configured components", func(t *testing.T) {
 		ball := mud.NewBall()

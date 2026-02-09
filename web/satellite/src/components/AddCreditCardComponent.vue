@@ -102,6 +102,8 @@ const isUpgradeSuccessShown = ref(false);
  * Triggers enter card info inputs to be shown.
  */
 function onShowCardInput(): void {
+    analyticsStore.eventTriggered(AnalyticsEvent.ADD_NEW_PM_CLICKED);
+
     if (usersStore.state.user.isFree) {
         appStore.toggleUpgradeFlow(true);
         return;

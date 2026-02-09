@@ -116,7 +116,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 			req.Operator.WalletFeatures = nil
 		}
 	}
-	err = endpoint.service.processNodeTags(ctx, nodeID, signing.SigneeFromPeerIdentity(peerID), req.SignedTags)
+	isTrusted, err := endpoint.service.processNodeTags(ctx, nodeID, signing.SigneeFromPeerIdentity(peerID), req.SignedTags)
 	if err != nil {
 		endpoint.log.Info("failed to update node tags", zap.String("node_address", req.Address), zap.Stringer("node_id", nodeID), zap.Error(err))
 	}
@@ -132,6 +132,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		LastNet:    resolvedNetwork,
 		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
 		IsUp:       pingNodeSuccess,
+		IsTrusted:  isTrusted,
 		Capacity:   req.Capacity,
 		Operator:   req.Operator,
 		Version:    req.Version,

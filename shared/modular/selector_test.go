@@ -17,10 +17,8 @@ func TestCreateSelector(t *testing.T) {
 	createModule := func() *mud.Ball {
 		ball := mud.NewBall()
 		mud.Provide[DiggingService](ball, NewDiggingService)
-		mud.Tag[DiggingService, modular.Service](ball, modular.Service{})
 		mud.Provide[Whetstone](ball, NewWhetstone)
 		mud.Provide[ScythingService](ball, NewScythingService)
-		mud.Tag[ScythingService, modular.Service](ball, modular.Service{})
 		mud.Provide[RebellionService](ball, NewRevolutionService)
 		mud.Provide[Scythe](ball, NewScythe)
 		mud.Provide[Hoe](ball, NewHoe)
@@ -40,29 +38,16 @@ func TestCreateSelector(t *testing.T) {
 		require.Len(t, components, 1)
 	})
 
-	t.Run("tagged selection", func(t *testing.T) {
-		var components []*mud.Component
-		ball := createModule()
-
-		err := mud.ForEachDependency(ball, modular.CreateSelectorFromString(ball, "service"), func(c *mud.Component) error {
-			components = append(components, c)
-			return nil
-		}, mud.All)
-		require.NoError(t, err)
-		// digging + scything + the whetstone dependency
-		require.Len(t, components, 3)
-	})
-
 	t.Run("exclusion", func(t *testing.T) {
 		var components []*mud.Component
 		ball := createModule()
 
-		err := mud.ForEachDependency(ball, modular.CreateSelectorFromString(ball, "service,-modular_test.ScythingService"), func(c *mud.Component) error {
+		err := mud.ForEachDependency(ball, modular.CreateSelectorFromString(ball, "modular_test.DiggingService,modular_test.ScythingService,-modular_test.ScythingService"), func(c *mud.Component) error {
 			components = append(components, c)
 			return nil
 		}, mud.All)
 		require.NoError(t, err)
-		// only digging
+		// only digging (scything excluded)
 		require.Len(t, components, 1)
 		require.Equal(t, "modular_test.DiggingService", components[0].GetTarget().String())
 	})

@@ -66,6 +66,7 @@ func TestGetSettings(t *testing.T) {
 						SetEntitlements:        true,
 						Delete:                 true,
 						MarkPendingDeletion:    true,
+						MemberList:             true,
 						History:                true,
 					},
 					Bucket: backoffice.BucketFlags{
@@ -113,8 +114,9 @@ func TestGetSettings(t *testing.T) {
 								History:  true,
 							},
 							Project: backoffice.ProjectFlags{
-								View:    true,
-								History: true,
+								View:       true,
+								History:    true,
+								MemberList: true,
 							},
 							Bucket: backoffice.BucketFlags{
 								List:    true,

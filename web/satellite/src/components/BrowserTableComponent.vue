@@ -3,7 +3,7 @@
 
 <template>
     <v-text-field
-        v-if="!isAltPagination"
+        v-if="!useServerSidePagination"
         v-model="search"
         label="Search"
         :prepend-inner-icon="Search"
@@ -14,7 +14,6 @@
         clearable
         density="comfortable"
         class="mb-5"
-        @update:model-value="analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS)"
     />
 
     <v-data-table-server
@@ -22,18 +21,18 @@
         v-model:options="options"
         :sort-by="sortBy"
         :headers="headers"
-        :items="isAltPagination ? allFiles : tableFiles"
+        :items="useServerSidePagination ? allFiles : tableFiles"
         :search="search"
         :item-value="(item: BrowserObjectWrapper) => item.browserObject.path + item.browserObject.Key"
         :page="cursor.page"
         hover
-        :must-sort="!isAltPagination"
-        :disable-sort="isAltPagination"
+        :must-sort="!useServerSidePagination"
+        :disable-sort="useServerSidePagination"
         select-strategy="page"
         show-select
         :loading="isFetching || loading"
-        :items-length="isAltPagination ? cursor.limit : totalObjectCount"
-        :items-per-page-options="isAltPagination ? [] : tableSizeOptions(totalObjectCount, true)"
+        :items-length="useServerSidePagination ? cursor.limit : totalObjectCount"
+        :items-per-page-options="useServerSidePagination ? [] : tableSizeOptions(totalObjectCount, true)"
         elevation="1"
         @update:page="onPageChange"
         @update:items-per-page="onLimitChange"
@@ -89,7 +88,7 @@
             </v-data-table-row>
         </template>
 
-        <template v-if="isAltPagination" #bottom>
+        <template v-if="useServerSidePagination" #bottom>
             <div class="v-data-table-footer">
                 <v-row justify="end" align="center" class="pa-2">
                     <v-col cols="auto">
@@ -104,6 +103,9 @@
                             hide-details
                             @update:model-value="onLimitChange"
                         />
+                    </v-col>
+                    <v-col v-if="obStore.isSimplifiedPagination" cols="auto">
+                        <span class="text-body-2">{{ pageDisplayText }}</span>
                     </v-col>
                     <v-col cols="auto">
                         <v-btn-group density="compact">
@@ -196,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref, watch, WritableComputedRef } from 'vue';
+import { computed, ref, watch, WritableComputedRef } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
@@ -300,27 +302,28 @@ const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const routePageCache = new Map<string, number>();
 const isDownloadPrefixDialogShown = ref<boolean>(false);
 const folderToDownload = ref<string>('');
+const searchTimer = ref<NodeJS.Timeout>();
 
-const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
+const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100, 500];
 const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 const collator = new Intl.Collator('en', { sensitivity: 'case' });
 
 const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
 /**
- * Indicates if alternative pagination should be used.
+ * Indicates if either alt or simplified pagination should be used (both disable search/sort).
  */
-const isAltPagination = computed(() => obStore.isAltPagination);
+const useServerSidePagination = computed(() => obStore.isAltPagination || obStore.isSimplifiedPagination);
 
 /**
  * Returns table headers.
  */
 const headers = computed<DataTableHeader[]>(() => {
     return [
-        { title: 'Name', align: 'start', key: 'name', sortable: !isAltPagination.value },
-        { title: 'Type', key: 'type', sortable: !isAltPagination.value },
-        { title: 'Size', key: 'size', sortable: !isAltPagination.value },
-        { title: 'Date', key: 'date', sortable: !isAltPagination.value },
+        { title: 'Name', align: 'start', key: 'name', sortable: !useServerSidePagination.value },
+        { title: 'Type', key: 'type', sortable: !useServerSidePagination.value },
+        { title: 'Size', key: 'size', sortable: !useServerSidePagination.value },
+        { title: 'Date', key: 'date', sortable: !useServerSidePagination.value },
         { title: '', key: 'actions', sortable: false, width: 0 },
     ];
 });
@@ -354,9 +357,27 @@ const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
  * Indicates if alternative pagination has next page.
  */
 const hasNextPage = computed<boolean>(() => {
+    if (obStore.isSimplifiedPagination) {
+        // For simplified pagination, check if we have a token for the next page
+        return obStore.state.pageTokens[cursor.value.page] !== undefined;
+    }
+
     const nextToken = obStore.state.continuationTokens.get(cursor.value.page + 1);
 
     return nextToken !== undefined;
+});
+
+/**
+ * Returns the page display text for simplified pagination (e.g., "Page 2 of 2+").
+ */
+const pageDisplayText = computed<string>(() => {
+    if (!obStore.isSimplifiedPagination) return '';
+
+    const currentPage = cursor.value.page;
+    const knownPages = obStore.state.pageTokens.length;
+    const hasMore = hasNextPage.value;
+
+    return `Page ${currentPage} of ${knownPages}${hasMore ? '+' : ''}`;
 });
 
 /**
@@ -372,7 +393,7 @@ const isBucketVersioned = computed<boolean>(() => {
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
     if (props.forceEmpty) return [];
 
-    const objects = isAltPagination.value ? obStore.sortedFiles : obStore.displayedObjects;
+    const objects = useServerSidePagination.value ? obStore.sortedFiles : obStore.displayedObjects;
 
     return objects.map<BrowserObjectWrapper>(file => {
         const { name, ext, typeInfo } = getFileInfo(file);
@@ -389,7 +410,7 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
  * Returns every file under the current path that matches the search query.
  */
 const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
-    if (isAltPagination.value) return [];
+    if (useServerSidePagination.value) return [];
     if (!search.value) return allFiles.value;
     const searchLower = search.value.toLowerCase();
     return allFiles.value.filter(file => file.lowerName.includes(searchLower));
@@ -400,7 +421,7 @@ const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
  */
 const tableFiles = computed<BrowserObjectWrapper[]>(() => {
     const opts = options.value;
-    if (!opts || isAltPagination.value) return [];
+    if (!opts || useServerSidePagination.value) return [];
 
     const files = [...filteredFiles.value];
 
@@ -488,7 +509,7 @@ function onNextPageClick(): void {
  * Handles page change event.
  */
 function onPageChange(page: number): void {
-    if (isAltPagination.value) return;
+    if (useServerSidePagination.value) return;
 
     obStore.updateSelectedFiles([]);
     const path = filePath.value ? filePath.value + '/' : '';
@@ -517,7 +538,11 @@ function onPageChange(page: number): void {
  * Handles items per page change event.
  */
 function onLimitChange(newLimit: number): void {
-    if (isAltPagination.value) {
+    if (obStore.isSimplifiedPagination) {
+        obStore.setCursor({ page: 1, limit: newLimit });
+        obStore.clearPageTokens();
+        fetchFiles();
+    } else if (obStore.isAltPagination) {
         obStore.setCursor({ page: 1, limit: newLimit });
         obStore.clearTokens();
         fetchFiles();
@@ -583,6 +608,8 @@ function onFileClick(file: BrowserObject): void {
             obStore.setObjectPathForModal((file.path ?? '') + file.Key);
             fileToPreview.value = file;
             previewDialog.value = true;
+
+            analyticsStore.eventTriggered(AnalyticsEvent.GALLERY_VIEW_CLICKED);
         });
     });
 }
@@ -600,7 +627,10 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
     try {
         const path = filePath.value ? filePath.value + '/' : '';
 
-        if (isAltPagination.value) {
+        if (obStore.isSimplifiedPagination) {
+            await obStore.listSimplified(path, page, saveNextToken);
+            selectedFiles.value = [];
+        } else if (obStore.isAltPagination) {
             await obStore.listCustom(path, page, saveNextToken);
             selectedFiles.value = [];
         } else {
@@ -681,13 +711,20 @@ obStore.$onAction(({ name, after }) => {
 
 watch(filePath, () => {
     obStore.clearTokens();
+    if (obStore.isSimplifiedPagination) {
+        obStore.clearPageTokens();
+    }
     fetchFiles();
 }, { immediate: true });
 
 watch(() => props.forceEmpty, v => !v && fetchFiles());
 
-onBeforeMount(() => {
-    obStore.setCursor({ page: 1, limit: pageSizes[0] });
+watch(() => search.value, () => {
+    clearTimeout(searchTimer.value);
+
+    searchTimer.value = setTimeout(() => {
+        analyticsStore.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
+    }, 500); // 500ms delay for every new call.
 });
 
 defineExpose({
@@ -696,13 +733,3 @@ defineExpose({
     },
 });
 </script>
-
-<style scoped lang="scss">
-.browser-table {
-
-    &__loader-overlay :deep(.v-overlay__scrim) {
-        opacity: 1;
-        bottom: 0.8px;
-    }
-}
-</style>

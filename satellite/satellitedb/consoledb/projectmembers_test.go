@@ -29,6 +29,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 
 		memberUser, err := db.Console().Users().Insert(ctx, &console.User{
 			FullName:     "Alice",
+			ShortName:    "A",
 			Email:        "alice@mail.test",
 			ID:           testrand.UUID(),
 			PasswordHash: testrand.Bytes(8),
@@ -64,6 +65,32 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 
 			_, err = membersDB.GetPagedWithInvitationsByProjectID(ctx, projectID, console.ProjectMembersCursor{Limit: 1, Page: 3})
 			require.Error(t, err)
+		})
+
+		t.Run("user fields populated", func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			cursor := console.ProjectMembersCursor{Limit: 10, Page: 1}
+			page, err := membersDB.GetPagedWithInvitationsByProjectID(ctx, projectID, cursor)
+			require.NoError(t, err)
+			require.NotEmpty(t, page.ProjectMembers, "should have at least one member")
+
+			// Find Alice in the members list.
+			var aliceMember *console.ProjectMember
+			for i := range page.ProjectMembers {
+				if page.ProjectMembers[i].MemberID == memberUser.ID {
+					aliceMember = &page.ProjectMembers[i]
+					break
+				}
+			}
+			require.NotNil(t, aliceMember, "Alice should be in the members list")
+
+			// Verify user fields are populated from the SQL query.
+			require.Equal(t, "alice@mail.test", aliceMember.Email, "Email should be populated")
+			require.Equal(t, "Alice", aliceMember.FullName, "FullName should be populated")
+			require.Equal(t, "A", aliceMember.ShortName, "ShortName should be populated")
+			require.Equal(t, console.RoleAdmin, aliceMember.Role)
+			require.Equal(t, projectID, aliceMember.ProjectID)
 		})
 
 		t.Run("search", func(t *testing.T) {
@@ -113,6 +140,7 @@ func TestGetPagedWithInvitationsByProjectID(t *testing.T) {
 
 				user := console.User{
 					FullName:     strconv.Itoa(i),
+					ShortName:    fmt.Sprintf("U%d", i),
 					Email:        fmt.Sprintf("%d@mail.test", (i+2)%3),
 					ID:           id,
 					PasswordHash: testrand.Bytes(8),

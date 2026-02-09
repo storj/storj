@@ -2,6 +2,19 @@ module storj.io/storj
 
 go 1.25
 
+// Ignore directories and files that are not relevant to Go.
+ignore (
+	.build
+	.claude
+	.github
+	.idea
+	.vscode
+	build
+	dist
+	node_modules
+	release
+)
+
 require (
 	cloud.google.com/go v0.121.1
 	cloud.google.com/go/profiler v0.4.0

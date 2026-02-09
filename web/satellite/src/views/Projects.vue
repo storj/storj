@@ -11,6 +11,8 @@
 
         <card-expire-banner />
 
+        <failed-payment-banner />
+
         <low-token-balance-banner
             v-if="!isLoading && isLowBalance && billingEnabled"
             cta-label="Go to billing"
@@ -148,6 +150,7 @@ import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
 import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
+import FailedPaymentBanner from '@/components/FailedPaymentBanner.vue';
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import MinimumChargeBanner from '@/components/MinimumChargeBanner.vue';
@@ -285,7 +288,10 @@ watch([isEditProjectDialogShown, isUpdateLimitsDialogShown], ([edit, update]) =>
 
 onMounted(async () => {
     if (billingEnabled.value) {
-        const promises: Promise<CreditCard[] | AccountBalance | void>[] = [billingStore.getCreditCards()];
+        const promises: Promise<CreditCard[] | AccountBalance | void>[] = [
+            billingStore.getCreditCards(),
+            billingStore.getFailedInvoice(),
+        ];
 
         if (configStore.state.config.nativeTokenPaymentsEnabled) {
             promises.push(billingStore.getBalance(), billingStore.getNativePaymentsHistory());

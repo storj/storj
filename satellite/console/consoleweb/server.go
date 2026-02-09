@@ -124,12 +124,11 @@ type Config struct {
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
 	AltObjBrowserPagingEnabled      bool          `help:"whether simplified native s3 pagination should be enabled for the huge buckets in the object browser" default:"false"`
+	SimpleObjBrowserPagingEnabled   bool          `help:"whether simplified native s3 pagination should be enabled in the object browser" default:"false"`
 	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
-	CunoFSBetaEnabled               bool          `help:"whether prompt to join cunoFS beta is visible" default:"false"`
-	ObjectMountConsultationEnabled  bool          `help:"whether object mount consultation request form is visible" default:"false"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
 	BillingStripeCheckoutEnabled    bool          `help:"whether billing stripe checkout feature is enabled" default:"false"`
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
@@ -213,6 +212,7 @@ type Server struct {
 
 	entitlementsEnabled   bool
 	ssoEnabled            bool
+	ssoService            *sso.Service
 	productPriceSummaries []string
 }
 
@@ -249,6 +249,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		ghostSessionEmailSent:           make(map[uuid.UUID]time.Time),
 		entitlementsEnabled:             entitlementsEnabled,
 		ssoEnabled:                      ssoEnabled,
+		ssoService:                      ssoService,
 		productPriceSummaries:           pps,
 	}
 
@@ -262,6 +263,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		Path: "/",
 	}, consolewebauth.CookieSettings{
 		Name: "sso_email_token",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_link_token",
 		Path: "/",
 	}, server.config.AuthCookieDomain)
 
@@ -444,6 +448,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		paymentsRouter.HandleFunc("/wallet/payments-with-confirmations", paymentController.WalletPaymentsWithConfirmations).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/invoice-history", paymentController.InvoiceHistory).Methods(http.MethodGet, http.MethodOptions)
+		paymentsRouter.HandleFunc("/failed-invoice", paymentController.GetFailedInvoice).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.Handle("/coupon/apply", server.withCSRFProtection(server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode)))).Methods(http.MethodPatch, http.MethodOptions)
 		paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet, http.MethodOptions)
 		paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet, http.MethodOptions)
@@ -513,8 +518,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	analyticsRouter.Use(server.withAuth)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost, http.MethodOptions)
-	analyticsRouter.HandleFunc("/join-cunofs-beta", analyticsController.JoinCunoFSBeta).Methods(http.MethodPost, http.MethodOptions)
-	analyticsRouter.HandleFunc("/object-mount-consultation", analyticsController.RequestObjectMountConsultation).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.HandleFunc("/join-placement-waitlist", analyticsController.JoinPlacementWaitlist).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.Handle("/send-feedback", server.userIDRateLimiter.Limit(http.HandlerFunc(analyticsController.SendFeedback))).Methods(http.MethodPost, http.MethodOptions)
 
@@ -535,6 +538,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		ssoRouter.Handle("/url", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetSsoUrl)))
 		ssoRouter.Handle("/{provider}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
 		ssoRouter.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
+		ssoRouter.Handle("/link/verify", server.ipRateLimiter.Limit(http.HandlerFunc(authController.VerifySsoLink))).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	if server.config.GeneratedAPIEnabled {
@@ -1101,6 +1105,19 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		newPricingStartDate = &date
 	}
 
+	var generalSsoProviders []string
+	generalSsoEnabled := false
+	if server.ssoEnabled && server.ssoService != nil {
+		for _, p := range server.ssoService.GeneralProviders() {
+			if server.ssoService.IsProviderConfigured(p) {
+				generalSsoProviders = append(generalSsoProviders, p)
+			}
+		}
+		if len(generalSsoProviders) > 0 {
+			generalSsoEnabled = true
+		}
+	}
+
 	cfg := FrontendConfig{
 		ExternalAddress:                   server.getExternalAddress(ctx),
 		SatelliteName:                     server.config.SatelliteName,
@@ -1166,9 +1183,9 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectLockUIEnabled:               server.config.ObjectLockUIEnabled,
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 		SsoEnabled:                        server.ssoEnabled,
+		GeneralSsoEnabled:                 generalSsoEnabled,
+		GeneralSsoProviders:               generalSsoProviders,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
-		CunoFSBetaEnabled:                 server.config.CunoFSBetaEnabled,
-		ObjectMountConsultationEnabled:    server.config.ObjectMountConsultationEnabled,
 		CSRFToken:                         csrfToken,
 		BillingStripeCheckoutEnabled:      server.config.BillingStripeCheckoutEnabled,
 		MaxAddFundsAmount:                 server.config.MaxAddFundsAmount,
@@ -1194,6 +1211,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
 		HideUplinkBehavior:                server.config.HideUplinkBehavior,
 		BucketLimitsUIEnabled:             server.config.BucketLimitsUIEnabled,
+		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

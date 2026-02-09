@@ -60,6 +60,8 @@ type Users interface {
 	DeleteUnverifiedBefore(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, pageSize int) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
+	// UpdateExternalIDWithActivationCode updates external ID and clears activation code atomically.
+	UpdateExternalIDWithActivationCode(ctx context.Context, userID uuid.UUID, activationCode, externalID string) (rowsAffected int64, err error)
 	// UpdatePaidTier sets whether the user is in the paid tier.
 	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int, upgradeTime *time.Time) error
 	// UpdateUserAgent is a method to update the user's user agent.
@@ -601,15 +603,13 @@ type UpsertUserSettingsRequest struct {
 
 // NoticeDismissal contains whether notices should be shown to a user.
 type NoticeDismissal struct {
-	FileGuide                        bool                        `json:"fileGuide"`
-	ServerSideEncryption             bool                        `json:"serverSideEncryption"`
-	PartnerUpgradeBanner             bool                        `json:"partnerUpgradeBanner"`
-	ProjectMembersPassphrase         bool                        `json:"projectMembersPassphrase"`
-	UploadOverwriteWarning           bool                        `json:"uploadOverwriteWarning"`
-	CunoFSBetaJoined                 bool                        `json:"cunoFSBetaJoined"`
-	ObjectMountConsultationRequested bool                        `json:"objectMountConsultationRequested"`
-	PlacementWaitlistsJoined         []storj.PlacementConstraint `json:"placementWaitlistsJoined"`
-	Announcements                    map[string]bool             `json:"announcements"`
+	FileGuide                bool                        `json:"fileGuide"`
+	ServerSideEncryption     bool                        `json:"serverSideEncryption"`
+	PartnerUpgradeBanner     bool                        `json:"partnerUpgradeBanner"`
+	ProjectMembersPassphrase bool                        `json:"projectMembersPassphrase"`
+	UploadOverwriteWarning   bool                        `json:"uploadOverwriteWarning"`
+	PlacementWaitlistsJoined []storj.PlacementConstraint `json:"placementWaitlistsJoined"`
+	Announcements            map[string]bool             `json:"announcements"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

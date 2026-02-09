@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.25.6
+ARG GO_VERSION=1.25.7
 
 FROM debian:bookworm-slim AS base
 RUN apt-get update
@@ -26,9 +26,9 @@ ARG BUILD_DATE
 ARG BUILD_COMMIT
 RUN --mount=type=cache,target="/root/.cache/go-build" \
     go install -ldflags "-X storj.io/common/version.buildRelease=true \
-      -X storj.io/common/version.buildVersion=$BUILD_VERSION \
-      -X storj.io/common/version.buildCommitHash=$BUILD_COMMIT \
-      -X storj.io/common/version.buildTimestamp=$BUILD_DATE" ./satellite/satellite
+    -X storj.io/common/version.buildVersion=$BUILD_VERSION \
+    -X storj.io/common/version.buildCommitHash=$BUILD_COMMIT \
+    -X storj.io/common/version.buildTimestamp=$BUILD_DATE" ./satellite/satellite
 
 FROM base AS build
 ENV STORJ_CONSOLE_BAD_PASSWORDS_FILE=/etc/seclist/bad-passwords.txt
@@ -39,6 +39,6 @@ ENV STORJ_MAIL_TEMPLATE_PATH=/app/static/emails
 RUN apt-get install -y graphviz
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /go/bin/satellite /app/satellite
-COPY --from=webui /var/www/html /app/dist
-COPY --from=webui /var/www/static /app/static
+COPY --from=webui /dist /app/dist
+COPY --from=webui /static /app/static
 WORKDIR /app

@@ -115,6 +115,8 @@ export class FilesState {
     files: BrowserObject[] = [];
     cursor: ObjectBrowserCursor = { limit: DEFAULT_PAGE_LIMIT, page: 1 };
     continuationTokens: Map<number, string> = new Map<number, string>();
+    // For simplified pagination: array of tokens where index 0 = page 1 (undefined), index 1 = page 2, etc.
+    pageTokens: (string | undefined)[] = [undefined];
     totalObjectCount = 0;
     activeObjectsRange: ObjectRange = { start: 1, end: 500 };
     uploadChain: Promise<void> = Promise.resolve();
@@ -173,6 +175,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const isAltPagination = computed<boolean>(() => {
         return configStore.state.config.altObjBrowserPagingEnabled &&
             state.objectCountOfSelectedBucket > configStore.state.config.altObjBrowserPagingThreshold;
+    });
+
+    const isSimplifiedPagination = computed<boolean>(() => {
+        return configStore.state.config.simplifiedObjBrowserPagingEnabled;
     });
 
     const sortedFiles = computed(() => {
@@ -531,6 +537,46 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.cursor.page = page;
     }
 
+    async function listSimplified(path = state.path, page: number, saveNextToken = false): Promise<void> {
+        assertIsInitialized(state);
+
+        // If returning to page 1, clear all cached tokens to start fresh.
+        if (page === 1 && saveNextToken) {
+            state.pageTokens = [undefined];
+        }
+
+        // Get the token for this page. Page 1 has no token (undefined), page 2+ uses stored tokens.
+        const continuationToken = state.pageTokens[page - 1];
+
+        const input: ListObjectsV2CommandInput = {
+            Bucket: state.bucket,
+            Delimiter: '/',
+            Prefix: path,
+            ContinuationToken: continuationToken,
+            MaxKeys: state.cursor.limit,
+        };
+
+        const response: ListObjectsV2CommandOutput = await state.s3.send(new ListObjectsV2Command(input));
+
+        const { Contents, CommonPrefixes } = response;
+
+        processFetchedObjects(path, Contents, CommonPrefixes);
+
+        // Store the token for the NEXT page (only when moving forward).
+        if (saveNextToken) {
+            if (response.NextContinuationToken) {
+                state.pageTokens[page] = response.NextContinuationToken;
+            } else {
+                // No more pages - we've reached the end. Remove any stale tokens after current page.
+                state.pageTokens = state.pageTokens.slice(0, page);
+            }
+        }
+        // When saveNextToken is false (going back), don't modify tokens - they're already cached.
+
+        state.cursor.page = page;
+        state.path = path;
+    }
+
     function processFetchedObjects(path: string, Contents: _Object[] | undefined, CommonPrefixes: CommonPrefix[] | undefined): boolean {
         if (Contents === undefined) {
             Contents = [];
@@ -785,6 +831,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             if (state.showObjectVersions.value) {
                 clearTokens();
                 await listAllVersions(state.path, 1, true);
+            } else if (isSimplifiedPagination.value) {
+                clearPageTokens();
+                await listSimplified(state.path, 1, true);
             } else if (isAltPagination.value) {
                 clearTokens();
                 await listCustom(state.path, 1, true);
@@ -834,6 +883,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         if (state.showObjectVersions.value) {
             clearTokens();
             await listAllVersions(state.path, 1, true);
+        } else if (isSimplifiedPagination.value) {
+            clearPageTokens();
+            await listSimplified(state.path, 1, true);
         } else if (isAltPagination.value) {
             clearTokens();
             listCustom(state.path, 1, true);
@@ -1270,6 +1322,10 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.continuationTokens = new Map<number, string>();
     }
 
+    function clearPageTokens(): void {
+        state.pageTokens = [undefined];
+    }
+
     function toggleShowObjectVersions(toggle?: boolean, userModified = true): void {
         clearTokens();
         updateVersionsExpandedKeys([]);
@@ -1295,6 +1351,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.files = [];
         state.cursor = { limit: DEFAULT_PAGE_LIMIT, page: 1 };
         state.continuationTokens = new Map<number, string>();
+        state.pageTokens = [undefined];
         state.totalObjectCount = 0;
         state.activeObjectsRange = { start: 1, end: 500 };
         state.uploadChain = Promise.resolve();
@@ -1321,6 +1378,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         isInitialized,
         uploadingLength,
         isAltPagination,
+        isSimplifiedPagination,
         init,
         reinit,
         initList,
@@ -1328,6 +1386,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         countVersions,
         listAllVersions,
         listCustom,
+        listSimplified,
         setCursor,
         updateVersionsExpandedKeys,
         sort,
@@ -1361,5 +1420,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         setObjectCountOfSelectedBucket,
         clear,
         clearTokens,
+        clearPageTokens,
     };
 });

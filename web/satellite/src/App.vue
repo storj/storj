@@ -93,7 +93,7 @@ const user = computed<User>(() => usersStore.state.user);
 /**
  * Determine whether the current user is eligible for pricing plans.
  */
-async function getPricingPlansAvailable() {
+async function getPricingPlansAvailable(): Promise<void> {
     if (!configStore.getBillingEnabled(usersStore.state.user)
         || !configStore.state.config.pricingPackagesEnabled) {
         return;
@@ -124,7 +124,7 @@ async function getPricingPlansAvailable() {
 /**
  * Sets up the app by fetching all necessary data.
  */
-async function setup() {
+async function setup(): Promise<void> {
     isLoading.value = true;
     const source = new URLSearchParams(window.location.search).get('source');
     try {
@@ -136,10 +136,7 @@ async function setup() {
             abTestingStore.fetchValues(),
         ];
         if (configStore.billingEnabled) {
-            promises.push(billingStore.setupAccount().catch((e) => {
-                notify.notifyError(e, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-            }));
-            promises.push(getPricingPlansAvailable());
+            promises.push(billingStore.setupAccount(), getPricingPlansAvailable());
         }
         await Promise.all(promises);
 
@@ -147,7 +144,7 @@ async function setup() {
         const projects = projectsStore.state.projects;
 
         if (source) {
-            analyticsStore.eventTriggered(AnalyticsEvent.ARRIVED_FROM_SOURCE, { source: source });
+            analyticsStore.eventTriggered(AnalyticsEvent.ARRIVED_FROM_SOURCE, { source });
         }
 
         if (appStore.state.hasJustLoggedIn && !invites.length && projects.length === 1) {

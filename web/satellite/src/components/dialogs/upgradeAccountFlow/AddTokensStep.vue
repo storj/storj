@@ -201,7 +201,8 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/composables/useNotify';
 import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import AddTokensStepBanner from '@/components/dialogs/upgradeAccountFlow/AddTokensStepBanner.vue';
 
@@ -214,6 +215,8 @@ enum ViewState {
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
+const analyticsStore = useAnalyticsStore();
+
 const notify = useNotify();
 
 const canvas = ref<HTMLCanvasElement>();
@@ -278,6 +281,7 @@ function setViewState(): void {
         break;
     case pendingPayments.value.some(p => p.status === PaymentStatus.Confirmed):
         viewState.value = ViewState.Success;
+        analyticsStore.eventTriggered(AnalyticsEvent.MODAL_ADD_TOKENS);
         break;
     default:
         viewState.value = ViewState.Default;

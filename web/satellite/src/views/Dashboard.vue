@@ -11,6 +11,8 @@
 
         <card-expire-banner />
 
+        <failed-payment-banner />
+
         <next-steps-container />
 
         <low-token-balance-banner
@@ -269,6 +271,7 @@ import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
 import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
+import FailedPaymentBanner from '@/components/FailedPaymentBanner.vue';
 import MinimumChargeBanner from '@/components/MinimumChargeBanner.vue';
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
 
@@ -800,6 +803,7 @@ onMounted(async (): Promise<void> => {
             billingStore.getCreditCards(),
             billingStore.getCoupon(),
             billingStore.getProductUsageAndChargesCurrentRollup(),
+            billingStore.getFailedInvoice(),
         );
 
         if (configStore.state.config.nativeTokenPaymentsEnabled) {

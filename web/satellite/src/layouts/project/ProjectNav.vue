@@ -158,6 +158,12 @@
                     </template>
                 </navigation-item>
 
+                <navigation-item v-if="configStore.isDefaultBrand" :title="ROUTES.ObjectMount.name" :to="objectMountURL" @click="closeDrawer">
+                    <template #prepend>
+                        <component :is="HardDrive" :size="18" />
+                    </template>
+                </navigation-item>
+
                 <navigation-item v-if="domainsPageEnabled && configStore.isDefaultBrand" :title="ROUTES.Domains.name" :to="domainsURL" @click="closeDrawer">
                     <template #prepend>
                         <component :is="Globe" :size="18" />
@@ -213,18 +219,6 @@
             <navigation-item v-if="valdiSignUpURL && configStore.isDefaultBrand" title="Cloud GPUs" @click="onCloudGPUClicked">
                 <template #prepend>
                     <component :is="Microchip" :size="18" />
-                </template>
-                <template #append>
-                    <v-chip color="success" size="small">New</v-chip>
-                </template>
-            </navigation-item>
-
-            <navigation-item v-if="showMountFeature && configStore.isDefaultBrand" :title="mountFeatureTitle" :to="mountFeatureURL" @click="closeDrawer">
-                <template #prepend>
-                    <component :is="HardDrive" :size="18" />
-                </template>
-                <template #append>
-                    <v-chip color="success" size="small">New</v-chip>
                 </template>
             </navigation-item>
 
@@ -415,8 +409,6 @@ const dashboardURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Da
 
 const domainsURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Domains.path}`);
 
-const cunoFSURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.CunoFSBeta.path}`);
-
 const objectMountURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.ObjectMount.path}`);
 
 const teamURL = computed<string>(() => `${projectURLBase.value}/${ROUTES.Team.path}`);
@@ -450,20 +442,6 @@ const sharedProjects = computed((): Project[] => {
 const selectedProjectConfig = computed<ProjectConfig>(() => projectsStore.state.selectedProjectConfig);
 
 const valdiSignUpURL = computed<string>(() => configStore.state.config.valdiSignUpURL);
-
-// Decide which mount feature to show based on config
-const showObjectMount = computed<boolean>(() => configStore.state.config.objectMountConsultationEnabled);
-const showCunoFS = computed<boolean>(() => configStore.state.config.cunoFSBetaEnabled);
-const showMountFeature = computed<boolean>(() => showObjectMount.value || showCunoFS.value);
-
-// Dynamically determine which title and URL to use
-const mountFeatureTitle = computed<string>(() => {
-    return showObjectMount.value ? ROUTES.ObjectMount.name : ROUTES.CunoFSBeta.name;
-});
-
-const mountFeatureURL = computed<string>(() => {
-    return showObjectMount.value ? objectMountURL.value : cunoFSURL.value;
-});
 
 /**
  * Conditionally closes the navigation drawer.

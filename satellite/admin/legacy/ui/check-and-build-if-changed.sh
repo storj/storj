@@ -5,7 +5,7 @@
 cd "$(dirname "${BASH_SOURCE[0]}")"
 set -xuo pipefail
 
-CHECK=web/multinode
+CHECK=satellite/admin/legacy/ui
 
 CHANGED=false
 
@@ -13,13 +13,16 @@ CHANGED=false
 git diff HEAD HEAD~1 --name-only | grep $CHECK
 
 if [ $? -eq 0 ]; then
-    ./build.sh
+    CHANGED=true
 fi
 
 #working directory
 git diff --name-only | grep $CHECK
 
 if [ $? -eq 0 ]; then
-    ./build.sh
+    CHANGED=true
 fi
 
+if [ $CHANGED == "true" ]; then
+    ./check-and-build.sh
+fi

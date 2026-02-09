@@ -102,6 +102,10 @@ export class Duration {
         return this.parsed.hours;
     }
 
+    get fullHours(): number {
+        return Math.floor((this.fullSeconds / 60) / 60);
+    }
+
     get minutes(): number {
         return this.parsed.minutes;
     }

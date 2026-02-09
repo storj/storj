@@ -198,6 +198,7 @@ type NodeCheckInInfo struct {
 	LastNet                 string
 	LastIPPort              string
 	IsUp                    bool
+	IsTrusted               bool
 	Operator                *pb.NodeOperator
 	Capacity                *pb.NodeCapacity
 	Version                 *pb.NodeVersion
@@ -675,14 +676,20 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 			return CheckInResult{}, nil
 		}
 
-		difficulty, err := node.NodeID.Difficulty()
-		if err != nil {
-			// this should never happen
-			return CheckInResult{}, err
-		}
-		if int(difficulty) < service.config.MinimumNewNodeIDDifficulty {
-			return CheckInResult{}, ErrLowDifficulty.New("node id difficulty is %d when %d is the minimum",
-				difficulty, service.config.MinimumNewNodeIDDifficulty)
+		if node.IsTrusted {
+			service.log.Info("trusted node bypassing difficulty check",
+				zap.Stringer("node_id", node.NodeID))
+		} else {
+			difficulty, err := node.NodeID.Difficulty()
+			if err != nil {
+				// this should never happen
+				return CheckInResult{}, err
+			}
+			if int(difficulty) < service.config.MinimumNewNodeIDDifficulty {
+				return CheckInResult{}, ErrLowDifficulty.New("node id difficulty is %d when %d is the minimum",
+					difficulty, service.config.MinimumNewNodeIDDifficulty)
+
+			}
 		}
 
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)

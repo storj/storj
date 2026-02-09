@@ -25,6 +25,7 @@ func TestOfflineNodes(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.SendNodeEmails = true
+				config.StrayNodes.EnableDQ = false
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

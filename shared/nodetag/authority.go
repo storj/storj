@@ -14,6 +14,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
+	"storj.io/common/storj"
 )
 
 var (
@@ -60,4 +61,14 @@ func LoadAuthorities(peerIdentity *identity.PeerIdentity, authorityLocations str
 		authority = append(authority, signing.SigneeFromPeerIdentity(pi))
 	}
 	return authority, nil
+}
+
+// Include checks if id is configured authority
+func (a Authority) Include(id storj.NodeID) bool {
+	for _, signee := range a {
+		if signee.ID() == id {
+			return true
+		}
+	}
+	return false
 }

@@ -42,31 +42,25 @@ pipeline {
             parallel {
                 stage('web/satellite') {
                     steps {
-                        sh './web/satellite/build.sh'
-                    }
-                }
-
-                stage('wasm') {
-                    steps {
-                        sh './web/satellite/wasm/run-tests.sh'
+                        sh './web/satellite/check-and-build.sh'
                     }
                 }
 
                 stage('web/storagenode') {
                     steps {
-                        sh './web/storagenode/build.sh'
+                        sh './web/storagenode/check-and-build.sh'
                     }
                 }
 
                 stage('web/multinode') {
                     steps {
-                        sh './web/multinode/build.sh'
+                        sh './web/multinode/check-and-build.sh'
                     }
                 }
 
                 stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/legacy/ui/build.sh'
+                        sh './satellite/admin/legacy/ui/check-and-build.sh'
                     }
                 }
             }
@@ -169,7 +163,12 @@ pipeline {
 
             steps {
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
-                sh 'make test-satellite-ui'
+                sh 'make test/integration/ui'
+
+                dir('web/satellite/wasm') {
+                    sh 'go vet ./...'
+                    sh 'go test ./...'
+                }
             }
 
             post {

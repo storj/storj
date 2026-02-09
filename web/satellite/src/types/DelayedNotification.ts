@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { VNode, createTextVNode, h } from 'vue';
+import { VNode, createTextVNode } from 'vue';
 
 export enum NotificationType {
     Success = 'Success',

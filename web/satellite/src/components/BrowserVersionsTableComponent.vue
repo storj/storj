@@ -189,6 +189,9 @@
                             @update:model-value="onLimitChange"
                         />
                     </v-col>
+                    <v-col v-if="obStore.isSimplifiedPagination" cols="auto">
+                        <span class="text-body-2">{{ pageDisplayText }}</span>
+                    </v-col>
                     <v-col cols="auto">
                         <v-btn-group density="compact">
                             <v-btn :disabled="cursor.page <= 1" :icon="ChevronLeft" @click="onPreviousPageClick" />
@@ -304,7 +307,7 @@ import {
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/composables/useNotify';
 import { Size } from '@/utils/bytesSize';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import {
     BrowserObjectTypeInfo,
@@ -321,6 +324,7 @@ import { DataTableHeader } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import BrowserRowActions from '@/components/BrowserRowActions.vue';
 import FilePreviewDialog from '@/components/dialogs/FilePreviewDialog.vue';
@@ -348,6 +352,7 @@ const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
+const analyticsStore = useAnalyticsStore();
 
 const notify = useNotify();
 const router = useRouter();
@@ -372,7 +377,7 @@ const isLockedObjectDeleteDialogShown = ref<boolean>(false);
 const isDownloadPrefixDialogShown = ref<boolean>(false);
 const folderToDownload = ref<string>('');
 
-const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100];
+const pageSizes = [DEFAULT_PAGE_LIMIT, 25, 50, 100, 500];
 
 /**
  * Returns table headers.
@@ -478,6 +483,18 @@ const continuationTokens = computed(() => obStore.state.continuationTokens);
 const hasNextPage = computed(() => !!continuationTokens.value.get(cursor.value.page + 1));
 
 /**
+ * Returns the page display text (e.g., "Page 2 of 2+").
+ */
+const pageDisplayText = computed<string>(() => {
+    if (!obStore.isSimplifiedPagination) return '';
+
+    const currentPage = cursor.value.page;
+    const hasMore = hasNextPage.value;
+
+    return `Page ${currentPage}${hasMore ? ' of ' + currentPage + '+' : ''}`;
+});
+
+/**
  * Handles download bucket action.
  */
 function onDownloadFolder(object: BrowserObject): void {
@@ -512,6 +529,9 @@ function refreshPage(): void {
 function onLimitChange(newLimit: number): void {
     obStore.setCursor({ page: 1, limit: newLimit });
     obStore.clearTokens();
+    if (obStore.isSimplifiedPagination) {
+        obStore.clearPageTokens();
+    }
     fetchFiles();
 }
 
@@ -659,6 +679,8 @@ function onFileClick(file: BrowserObject): void {
             const parentFile = allFiles.value.find(f => f.browserObject.Key === file.Key && f.browserObject.path === file.path);
             fileVersionsToPreview.value = parentFile?.browserObject?.Versions?.filter(v => !v.isDeleteMarker);
             previewDialog.value = true;
+
+            analyticsStore.eventTriggered(AnalyticsEvent.GALLERY_VIEW_CLICKED);
         });
     });
 }
@@ -759,6 +781,9 @@ obStore.$onAction(({ name, after }) => {
 
 watch(filePath, () => {
     obStore.clearTokens();
+    if (obStore.isSimplifiedPagination) {
+        obStore.clearPageTokens();
+    }
     fetchFiles();
 }, { immediate: true });
 watch(() => compProps.forceEmpty, v => !v && fetchFiles());
@@ -769,18 +794,3 @@ defineExpose({
     },
 });
 </script>
-
-<style scoped lang="scss">
-.browser-table {
-
-    &__loader-overlay :deep(.v-overlay__scrim) {
-        opacity: 1;
-        bottom: 0.8px;
-    }
-
-    &__file-guide :deep(.v-overlay__content) {
-        color: #fff !important;
-        background-color: rgb(var(--v-theme-primary)) !important;
-    }
-}
-</style>

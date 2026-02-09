@@ -502,21 +502,18 @@ type SMTPConfig struct {
 // single-brand deployments. When enabled (Name is set), this configuration takes precedence
 // over the multi-tenant TenantWhiteLabelConfig.
 //
-// This uses native YAML syntax (not a string), making it compatible with Helm charts.
-// Example:
+// This is configured directly in YAML without CLI flag support.
+// Example YAML:
 //
-//	console:
-//	  single-white-label:
-//	    name: "MyBrand"
-//	    tenant-id: "my-tenant"
-//	    logo-urls:
-//	      full-light: "https://..."
-//	    colors:
-//	      primary-light: "#FF0000"
-//	    support-url: "https://support.mybrand.com"
-type SingleWhiteLabelConfig struct {
-	WhiteLabelConfig
-}
+//	console.single-white-label:
+//	  name: "MyBrand"
+//	  logo-urls:
+//	    full-light: "https://..."
+//	    full-dark: "https://..."
+//	  colors:
+//	    primary-light: "#FF0000"
+//	  support-url: "https://support.mybrand.com"
+type SingleWhiteLabelConfig WhiteLabelConfig
 
 // Enabled returns true if single white label mode is enabled.
 func (s *SingleWhiteLabelConfig) Enabled() bool {
@@ -525,7 +522,7 @@ func (s *SingleWhiteLabelConfig) Enabled() bool {
 
 // ToWhiteLabelConfig returns the config as WhiteLabelConfig.
 func (s *SingleWhiteLabelConfig) ToWhiteLabelConfig() WhiteLabelConfig {
-	return s.WhiteLabelConfig
+	return WhiteLabelConfig(*s)
 }
 
 var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)

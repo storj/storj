@@ -11,7 +11,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode/console"
@@ -37,5 +36,4 @@ func Module(ball *mud.Ball, assets fs.FS) {
 		}
 		return NewServer(logger, assets, notifications, service, payout, listener), nil
 	})
-	mud.Tag[*Server](ball, modular.Service{})
 }

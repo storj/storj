@@ -17,6 +17,7 @@ import (
 type Claims struct {
 	ID         uuid.UUID `json:"id"`
 	Email      string    `json:"email,omitempty"`
+	ExternalID string    `json:"external_id,omitempty"`
 	Expiration time.Time `json:"expires,omitempty"`
 }
 

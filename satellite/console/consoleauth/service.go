@@ -43,14 +43,22 @@ type Signer interface {
 // CreateToken creates a new auth token.
 func (s *Service) CreateToken(ctx context.Context, id uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	claims := &Claims{
-		ID:         id,
-		Expiration: time.Now().Add(s.config.TokenExpirationTime),
-	}
+
+	claims := &Claims{ID: id}
 	if email != "" {
 		claims.Email = email
 	}
 
+	return s.CreateTokenWithClaims(ctx, claims)
+}
+
+// CreateTokenWithClaims creates a new auth token with provided claims.
+func (s *Service) CreateTokenWithClaims(ctx context.Context, claims *Claims) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if claims.Expiration.IsZero() {
+		claims.Expiration = time.Now().Add(s.config.TokenExpirationTime)
+	}
 	return s.createToken(ctx, claims)
 }
 

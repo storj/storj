@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io/fs"
 	"math/bits"
@@ -108,7 +109,11 @@ func (c *cmdRoot) Execute(ctx context.Context) (err error) {
 		_, _ = fmt.Fprintf(clingy.Stdout(ctx), "Processing %s...\n", file)
 		err := c.iterateRecords(ctx, file, c.fast, func(rec hashstore.Record) error {
 			ok, err := tcons.Append(ctx, rec)
-			if err != nil {
+			if errors.Is(err, hashstore.ErrCollision) {
+				// ignore collisions because logs may contain duplicate records from interrupted
+				// compactions, as well as repair putting a piece multiple times after it was
+				// garbage collected but still present in the log.
+			} else if err != nil {
 				return err
 			} else if !ok {
 				return errs.New("Table too small. Try again with `-s %d`", *c.slots+1)

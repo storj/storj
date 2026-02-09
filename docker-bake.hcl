@@ -67,8 +67,8 @@ target "satellite-modular" {
     BUILD_DATE    = "${BUILD_DATE}"
   }
 
-  dockerfile = "./satellite/satellite/Dockerfile"
   context    = "."
+  dockerfile = "./satellite/satellite/Dockerfile"
   contexts = {
     webui = "target:satellite-ui"
   }
@@ -92,8 +92,8 @@ target "satellite-ui" {
     BUILD_DATE    = "${BUILD_DATE}"
   }
 
-  dockerfile = "./web/satellite/Dockerfile"
-  context    = "."
+  context    = "./web/satellite"
+  dockerfile = "Dockerfile"
   target = "ui"
   cache-from = [
     {

@@ -180,7 +180,7 @@ func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL)
 	return nil
 }
 
-func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID, self signing.Signee, req *pb.SignedNodeTagSets) error {
+func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID, self signing.Signee, req *pb.SignedNodeTagSets) (isTrusted bool, err error) {
 	if req != nil {
 		tags := nodeselection.NodeTags{}
 		for _, t := range req.Tags {
@@ -192,6 +192,10 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 
 			ts := time.Unix(verifiedTags.SignedAt, 0)
 			for _, vt := range verifiedTags.Tags {
+				if vt.Name == "trusted_node" && string(vt.Value) == "true" && service.nodeTagAuthority.Include(signerID) {
+					isTrusted = true
+					continue
+				}
 				tags = append(tags, nodeselection.NodeTag{
 					NodeID:   nodeID,
 					Name:     vt.Name,
@@ -204,11 +208,11 @@ func (service *Service) processNodeTags(ctx context.Context, nodeID storj.NodeID
 		if len(tags) > 0 {
 			err := service.overlay.UpdateNodeTags(ctx, tags)
 			if err != nil {
-				return Error.Wrap(err)
+				return false, Error.Wrap(err)
 			}
 		}
 	}
-	return nil
+	return isTrusted, nil
 }
 
 func (service *Service) getHashstoreSettings(ctx context.Context, nodeID storj.NodeID) (settings *pb.HashstoreSettings, err error) {

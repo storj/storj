@@ -317,6 +317,10 @@ func TestGetNodes(t *testing.T) {
 					OfflineDQEnabled:         false,
 					OfflineSuspensionEnabled: true,
 				}
+				// Disable stray node disqualification because the test sets
+				// last_contact_success to 1 hour ago, which exceeds the test
+				// default MaxDurationWithoutContact of 5 minutes.
+				config.StrayNodes.EnableDQ = false
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -765,6 +769,7 @@ func TestUpdateCheckInNodeEventOnline(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.SendNodeEmails = true
 				config.Overlay.Node.OnlineWindow = 4 * time.Hour
+				config.StrayNodes.EnableDQ = false
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1062,4 +1067,88 @@ func TestAccountingNodeInfo(t *testing.T) {
 			require.Empty(t, cmp.Diff(infos[id], expect[i], cmpopts.EquateApproxTime(15*time.Second)))
 		}
 	})
+}
+
+// trustedNodeMockDB is a minimal mock implementation of overlay.DB for testing trusted node difficulty bypass.
+type trustedNodeMockDB struct {
+	overlay.Mockdb
+	nodes map[storj.NodeID]*overlay.NodeDossier
+}
+
+func newTrustedNodeMockDB() *trustedNodeMockDB {
+	return &trustedNodeMockDB{
+		nodes: make(map[storj.NodeID]*overlay.NodeDossier),
+	}
+}
+
+func (m *trustedNodeMockDB) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
+	node, ok := m.nodes[nodeID]
+	if !ok {
+		return nil, overlay.ErrNodeNotFound.New("node not found")
+	}
+	return node, nil
+}
+
+func (m *trustedNodeMockDB) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) error {
+	m.nodes[node.NodeID] = &overlay.NodeDossier{
+		Node: pb.Node{
+			Id:      node.NodeID,
+			Address: node.Address,
+		},
+	}
+	return nil
+}
+
+func TestUpdateCheckIn_TrustedNodeBypassesDifficulty(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	mockDB := newTrustedNodeMockDB()
+	log := zaptest.NewLogger(t)
+
+	service, err := overlay.NewService(log, mockDB, nil, nodeselection.TestPlacementDefinitions(), "", "", overlay.Config{
+		MinimumNewNodeIDDifficulty: 36, // High difficulty requirement
+		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
+			Staleness: time.Hour,
+		},
+	})
+	require.NoError(t, err)
+
+	// Create a low-difficulty node ID.
+	// Difficulty counts trailing zero bits starting from byte[30] (byte[31] is version).
+	// A NodeID like {0xFF, ..., 0xFF, 0xFF, version} has difficulty 0 (no trailing zeros).
+	lowDifficultyNodeID := storj.NodeID{
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+		0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, // last byte is version
+	}
+
+	info := overlay.NodeCheckInInfo{
+		NodeID: lowDifficultyNodeID,
+		Address: &pb.NodeAddress{
+			Address: "1.2.3.4:8080",
+		},
+		IsUp:       true,
+		IsTrusted:  false,
+		LastIPPort: "1.2.3.4:8080",
+		LastNet:    "1.2.3",
+		Version:    &pb.NodeVersion{Version: "v1.0.0"},
+		Operator:   &pb.NodeOperator{Wallet: "0x123"},
+	}
+
+	// Untrusted node with low difficulty should be rejected
+	_, err = service.UpdateCheckIn(ctx, info, time.Now())
+	require.Error(t, err)
+	require.True(t, overlay.ErrLowDifficulty.Has(err), "expected ErrLowDifficulty, got: %v", err)
+
+	// Trusted node with low difficulty should be accepted
+	info.IsTrusted = true
+	_, err = service.UpdateCheckIn(ctx, info, time.Now())
+	require.NoError(t, err)
+
+	// Verify the node was actually added
+	node, err := mockDB.Get(ctx, lowDifficultyNodeID)
+	require.NoError(t, err)
+	require.Equal(t, lowDifficultyNodeID, node.Id)
 }

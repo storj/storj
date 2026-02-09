@@ -139,6 +139,25 @@ export class AuthHttpApi implements UsersApi {
     }
 
     /**
+     * Used to verify SSO account linking code.
+     * @param code - the code to verify
+     */
+    public async verifySsoLink(code: string): Promise<TokenInfo> {
+        const response = await this.http.post('/sso/link/verify', JSON.stringify({ code }));
+        const result = await response.json();
+
+        if (response.ok) {
+            return new TokenInfo(result.token, new Date(result.expiresAt));
+        }
+
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Failed to verify SSO link',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
      * Used to logout user and delete auth cookie.
      *
      * @throws Error

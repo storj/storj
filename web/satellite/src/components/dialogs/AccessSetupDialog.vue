@@ -11,7 +11,7 @@
         persistent
         scrollable
     >
-        <v-card ref="innerContent">
+        <v-card>
             <v-sheet>
                 <v-card-item class="pa-6">
                     <v-card-title class="font-weight-bold mt-n1">
@@ -315,7 +315,6 @@ const { setPermissions, generateAccess } = useAccessGrantWorker();
 
 const model = defineModel<boolean>({ required: true });
 
-const innerContent = ref<VCard>();
 const isCreating = ref<boolean>(false);
 const isFetching = ref<boolean>(true);
 
@@ -587,7 +586,7 @@ async function createAPIKey(): Promise<void> {
     const projectID = projectsStore.state.selectedProject.id;
     const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(name.value, projectID);
 
-    if (route.name === ROUTES.Access.name) {
+    if (route.name === ROUTES.Access.name || route.name === ROUTES.ObjectMount.name) {
         agStore.getAccessGrants(1, projectID).catch(error => {
             notify.notifyError(error, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
         });
@@ -711,7 +710,7 @@ function sendApplicationsAnalytics(e: AnalyticsEvent): void {
  * Initializes the current step when it has changed.
  */
 watch(step, newStep => {
-    if (!innerContent.value) return;
+    if (!model.value) return;
 
     // Window items are lazy loaded, so the component may not exist yet
     let unwatch: WatchStopHandle | null = null;
@@ -742,8 +741,8 @@ watch(step, newStep => {
  * This is used instead of onMounted because the dialog remains mounted
  * even when hidden.
  */
-watch(innerContent, async (comp?: VCard): Promise<void> => {
-    if (!comp) {
+watch(model, async (val: boolean): Promise<void> => {
+    if (!val) {
         resets.forEach(reset => reset());
         return;
     }

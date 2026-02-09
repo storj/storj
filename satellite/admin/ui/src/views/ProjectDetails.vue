@@ -42,7 +42,8 @@
                     <v-icon :icon="ChevronDown" />
                 </template>
                 <ProjectActionsMenu
-                    :project-id="project.id" :owner="project.owner"
+                    :project-id="project.id"
+                    :owner-id="project.owner.id"
                     :active="project.status?.value === UserStatus.Active"
                     @update-limits="onUpdateLimitsClicked"
                     @update="updateDialog = true"
@@ -214,8 +215,8 @@
 
         <v-row>
             <v-col v-if="featureFlags.project.memberList">
-                <h3 class="my-4">Users</h3>
-                <UsersTableComponent />
+                <h3 class="my-4">Members</h3>
+                <MembersTableComponent :project="project" />
             </v-col>
         </v-row>
 
@@ -267,7 +268,7 @@ import { useProjectsStore } from '@/store/projects';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
 import BucketsTableComponent from '@/components/BucketsTableComponent.vue';
-import UsersTableComponent from '@/components/UsersTableComponent.vue';
+import MembersTableComponent from '@/components/MembersTableComponent.vue';
 import ProjectActionsMenu from '@/components/ProjectActionsMenu.vue';
 import ProjectUpdateLimitsDialog from '@/components/ProjectUpdateLimitsDialog.vue';
 import ProjectUpdateDialog from '@/components/ProjectUpdateDialog.vue';

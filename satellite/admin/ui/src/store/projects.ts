@@ -12,11 +12,13 @@ import {
     ProjectEntitlements,
     ProjectLimitsUpdateRequest,
     ProjectManagementHttpApiV1,
+    ProjectMembersPage,
     ProjectStatusInfo,
     UpdateProjectEntitlementsRequest,
     UpdateProjectRequest,
 } from '@/api/client.gen';
 import { ItemType } from '@/types/common';
+import { MembersCursor } from '@/types/project';
 
 class ProjectsState {
     currentProject: Project | null = null;
@@ -75,6 +77,12 @@ export const useProjectsStore = defineStore('projects', () => {
         return await changeHistoryApi.getChangeHistory(`${exact}`, ItemType.Project, projectID);
     }
 
+    async function getProjectMembers(projectID: string, cursor: MembersCursor): Promise<ProjectMembersPage> {
+        return await projectApi.getProjectMembers(projectID, cursor.search || '-', cursor.page.toString(), cursor.limit.toString(),
+            cursor.order.toString(), cursor.orderDirection.toString(),
+        );
+    }
+
     return {
         state,
         getProject,
@@ -86,5 +94,6 @@ export const useProjectsStore = defineStore('projects', () => {
         getProjectStatuses,
         updateEntitlements,
         getHistory,
+        getProjectMembers,
     };
 });

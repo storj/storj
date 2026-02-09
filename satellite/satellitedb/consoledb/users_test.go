@@ -476,6 +476,64 @@ func TestUpdateUser(t *testing.T) {
 	})
 }
 
+func TestUpdateExternalIDWithActivationCode(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		users := db.Console().Users()
+
+		userID := testrand.UUID()
+		activationCode := "123456"
+		_, err := users.Insert(ctx, &console.User{
+			ID:             userID,
+			FullName:       "Test User",
+			Email:          "sso.link@test.example",
+			PasswordHash:   []byte("testpassword"),
+			Status:         console.Inactive,
+			ActivationCode: activationCode,
+		})
+		require.NoError(t, err)
+
+		rows, err := users.UpdateExternalIDWithActivationCode(ctx, userID, activationCode, "general:sub-1")
+		require.NoError(t, err)
+		require.Equal(t, int64(1), rows)
+
+		updated, err := users.Get(ctx, userID)
+		require.NoError(t, err)
+		require.NotNil(t, updated.ExternalID)
+		require.Equal(t, "general:sub-1", *updated.ExternalID)
+		require.Empty(t, updated.ActivationCode)
+		require.Equal(t, console.Active, updated.Status)
+
+		rows, err = users.UpdateExternalIDWithActivationCode(ctx, userID, activationCode, "general:sub-1")
+		require.NoError(t, err)
+		require.Equal(t, int64(0), rows)
+
+		userID2 := testrand.UUID()
+		_, err = users.Insert(ctx, &console.User{
+			ID:             userID2,
+			FullName:       "Test User 2",
+			Email:          "sso.link2@test.example",
+			PasswordHash:   []byte("testpassword"),
+			Status:         console.Inactive,
+			ActivationCode: "654321",
+		})
+		require.NoError(t, err)
+
+		rows, err = users.UpdateExternalIDWithActivationCode(ctx, userID2, "000000", "general:sub-2")
+		require.NoError(t, err)
+		require.Equal(t, int64(0), rows)
+
+		ext := "general:existing"
+		extPtr := &ext
+		require.NoError(t, users.Update(ctx, userID2, console.UpdateUserRequest{
+			ExternalID: &extPtr,
+		}))
+
+		rows, err = users.UpdateExternalIDWithActivationCode(ctx, userID2, "654321", "general:sub-2")
+		require.NoError(t, err)
+		require.Equal(t, int64(0), rows)
+	})
+}
+
 func TestUpdateUserProjectLimits(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		limits := console.UsageLimits{Storage: rand.Int63(), Bandwidth: rand.Int63(), Segment: rand.Int63()}
@@ -634,12 +692,11 @@ func TestUserSettings(t *testing.T) {
 		t.Run("test notice dismissal", func(t *testing.T) {
 			id = testrand.UUID()
 			noticeDismissal := console.NoticeDismissal{
-				FileGuide:                        false,
-				ServerSideEncryption:             false,
-				PartnerUpgradeBanner:             false,
-				ProjectMembersPassphrase:         false,
-				UploadOverwriteWarning:           false,
-				ObjectMountConsultationRequested: false,
+				FileGuide:                false,
+				ServerSideEncryption:     false,
+				PartnerUpgradeBanner:     false,
+				ProjectMembersPassphrase: false,
+				UploadOverwriteWarning:   false,
 			}
 
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
@@ -652,7 +709,6 @@ func TestUserSettings(t *testing.T) {
 			noticeDismissal.PartnerUpgradeBanner = true
 			noticeDismissal.ProjectMembersPassphrase = true
 			noticeDismissal.UploadOverwriteWarning = true
-			noticeDismissal.ObjectMountConsultationRequested = true
 			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
 				NoticeDismissal: &noticeDismissal,
 			}))

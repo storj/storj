@@ -861,6 +861,191 @@ func TestProjectHasManagedPassphrase(t *testing.T) {
 	})
 }
 
+func TestGetProjectMembers(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		t.Run("non-existent project", func(t *testing.T) {
+			_, apiErr := service.GetProjectMembers(ctx, testrand.UUID(), "-", "1", "10", "1", "1")
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "project not found")
+		})
+
+		t.Run("invalid parameters", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "owner@test.test",
+				FullName: "Project Owner",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "test project")
+			require.NoError(t, err)
+
+			// Test invalid limit.
+			_, apiErr := service.GetProjectMembers(ctx, project.PublicID, "-", "1", "invalid", "1", "1")
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "invalid limit")
+
+			// Test invalid page.
+			_, apiErr = service.GetProjectMembers(ctx, project.PublicID, "-", "invalid", "10", "1", "1")
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "invalid page")
+
+			// Test invalid order.
+			_, apiErr = service.GetProjectMembers(ctx, project.PublicID, "-", "1", "10", "invalid", "1")
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "invalid order parameter")
+
+			// Test invalid direction.
+			_, apiErr = service.GetProjectMembers(ctx, project.PublicID, "-", "1", "10", "1", "invalid")
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "invalid order direction parameter")
+		})
+
+		t.Run("successful retrieval with pagination", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "project-owner@test.test",
+				FullName: "Project Owner",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, owner.ID, "project with members")
+			require.NoError(t, err)
+
+			// Add additional members.
+			member1, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "member1@test.test",
+				FullName: "Member One",
+			}, 1)
+			require.NoError(t, err)
+			member2, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "member2@test.test",
+				FullName: "Member Two",
+			}, 1)
+			require.NoError(t, err)
+			member3, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "member3@test.test",
+				FullName: "Member Three",
+			}, 1)
+			require.NoError(t, err)
+
+			_, err = consoleDB.ProjectMembers().Insert(ctx, member1.ID, project.ID, console.RoleMember)
+			require.NoError(t, err)
+			_, err = consoleDB.ProjectMembers().Insert(ctx, member2.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+			_, err = consoleDB.ProjectMembers().Insert(ctx, member3.ID, project.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			// Test getting all members (owner + 3 members = 4 total).
+			result, apiErr := service.GetProjectMembers(ctx, project.PublicID, "-", "1", "10", "1", "1")
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, result)
+
+			// Verify pagination info.
+			require.Equal(t, uint(10), result.Limit)
+			require.Equal(t, uint(1), result.CurrentPage)
+			require.Equal(t, uint64(4), result.TotalCount)
+
+			// Verify we have all 4 members.
+			require.Len(t, result.ProjectMembers, 4)
+
+			// Verify members are included.
+			emails := make(map[string]bool)
+			for _, pm := range result.ProjectMembers {
+				emails[pm.Email] = true
+				require.NotEqual(t, uuid.UUID{}, pm.UserID)
+				require.NotZero(t, pm.CreatedAt)
+			}
+			require.True(t, emails["project-owner@test.test"])
+			require.True(t, emails["member1@test.test"])
+			require.True(t, emails["member2@test.test"])
+			require.True(t, emails["member3@test.test"])
+		})
+
+		t.Run("pagination limits", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "pagination-owner@test.test",
+				FullName: "Pagination Owner",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, owner.ID, "pagination project")
+			require.NoError(t, err)
+
+			// Test with limit 0 (should default to 100).
+			result, apiErr := service.GetProjectMembers(ctx, project.PublicID, "-", "1", "0", "1", "1")
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, uint(100), result.Limit)
+
+			// Test with limit > 100 (should cap to 100).
+			result, apiErr = service.GetProjectMembers(ctx, project.PublicID, "-", "1", "200", "1", "1")
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, uint(100), result.Limit)
+
+			// Test with page 0 (should default to 1).
+			result, apiErr = service.GetProjectMembers(ctx, project.PublicID, "-", "0", "10", "1", "1")
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, uint(1), result.CurrentPage)
+		})
+
+		t.Run("search functionality", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "search-owner@test.test",
+				FullName: "Search Owner",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, owner.ID, "search project")
+			require.NoError(t, err)
+
+			searchMember, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "searchable@test.test",
+				FullName: "Searchable Member",
+			}, 1)
+			require.NoError(t, err)
+
+			_, err = consoleDB.ProjectMembers().Insert(ctx, searchMember.ID, project.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			// Test search with dash (should return all members).
+			result, apiErr := service.GetProjectMembers(ctx, project.PublicID, "-", "1", "10", "1", "1")
+			require.NoError(t, apiErr.Err)
+			require.Len(t, result.ProjectMembers, 2) // owner + searchMember
+
+			// Verify search field is empty when "-" is used.
+			require.Equal(t, "", result.Search)
+		})
+
+		t.Run("empty project", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				Email:    "lonely-owner@test.test",
+				FullName: "Lonely Owner",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, owner.ID, "empty project")
+			require.NoError(t, err)
+
+			// Should return at least the owner.
+			result, apiErr := service.GetProjectMembers(ctx, project.PublicID, "-", "1", "10", "1", "1")
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, result)
+
+			// Should have at least 1 member (the owner).
+			require.GreaterOrEqual(t, len(result.ProjectMembers), 1)
+		})
+	})
+}
+
 func TestDisableProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,

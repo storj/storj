@@ -191,6 +191,21 @@
                             >
                                 {{ configStore.isDefaultBrand ? 'Start your free trial' : 'Sign up' }}
                             </v-btn>
+
+                            <template v-if="generalSsoEnabled">
+                                <v-btn
+                                    v-for="provider in generalSsoProviders"
+                                    :key="provider"
+                                    color="secondary"
+                                    variant="outlined"
+                                    size="large"
+                                    block
+                                    class="mt-4"
+                                    @click="onGeneralSsoClick(provider)"
+                                >
+                                    Sign up with&nbsp;<span class="text-capitalize">{{ provider }}</span>
+                                </v-btn>
+                            </template>
                         </v-form>
                     </v-card-text>
                 </v-card>
@@ -384,6 +399,8 @@ const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
 const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
 
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
+const generalSsoEnabled = computed(() => configStore.state.config.generalSsoEnabled);
+const generalSsoProviders = computed(() => configStore.state.config.generalSsoProviders ?? []);
 
 const title = computed<string>(() => `Create your ${configStore.brandName} account.`);
 const termsLink = computed<string>(() => configStore.state.branding.termsOfServiceUrl);
@@ -602,6 +619,13 @@ async function onSignupClick(): Promise<void> {
         url.searchParams.set('email', email.value);
         window.open(url.toString(), '_self');
     }
+}
+
+function onGeneralSsoClick(provider: string): void {
+    if (!generalSsoEnabled.value || !provider) {
+        return;
+    }
+    window.open(`/sso/${provider}`, '_self');
 }
 
 /**

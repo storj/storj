@@ -601,6 +601,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
+					config.StrayNodes.EnableDQ = false
 				},
 				testplanet.ReconfigureRS(3, 4, 9, 9),
 			),
@@ -1728,7 +1729,12 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		StorageNodeCount: 10,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(3, 5, 7, 7),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.StrayNodes.EnableDQ = false
+				},
+			),
 		},
 		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1836,6 +1842,7 @@ func TestRepairTargetOverrides(t *testing.T) {
 						func(log *zap.Logger, index int, config *satellite.Config) {
 							config.Checker.RepairThresholdOverrides.Values[2] = tc.repairThreshold
 							config.Checker.RepairTargetOverrides.Values[2] = tc.repairTarget
+							config.StrayNodes.EnableDQ = false
 						},
 					),
 				},

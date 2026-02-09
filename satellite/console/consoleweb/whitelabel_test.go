@@ -701,11 +701,9 @@ func TestSingleWhiteLabelTenantContext(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// Configure SingleWhiteLabel mode - no multi-tenant config needed.
 				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
-					WhiteLabelConfig: console.WhiteLabelConfig{
-						TenantID:        singleTenantID,
-						Name:            singleTenantName,
-						ExternalAddress: singleExternalAddr,
-					},
+					TenantID:        singleTenantID,
+					Name:            singleTenantName,
+					ExternalAddress: singleExternalAddr,
 				}
 			},
 		},
@@ -778,13 +776,11 @@ func TestSingleWhiteLabelBranding(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
-					WhiteLabelConfig: console.WhiteLabelConfig{
-						TenantID:        singleTenantID,
-						Name:            singleTenantName,
-						ExternalAddress: singleExternalAddr,
-						SupportURL:      singleSupportURL,
-						DocsURL:         singleDocsURL,
-					},
+					TenantID:        singleTenantID,
+					Name:            singleTenantName,
+					ExternalAddress: singleExternalAddr,
+					SupportURL:      singleSupportURL,
+					DocsURL:         singleDocsURL,
 				}
 			},
 		},

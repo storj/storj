@@ -1,0 +1,23 @@
+<svg width="500px" height="486px" viewBox="0 0 500 486" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#ECF5FD" offset="0%"></stop>
+            <stop stop-color="#BDCBD9" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-2">
+            <stop stop-color="#FF4ED8" offset="0%"></stop>
+            <stop stop-color="#FF86EE" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-3">
+            <stop stop-color="#FF4ED8" offset="0%"></stop>
+            <stop stop-color="#CC1AB3" offset="100%"></stop>
+        </linearGradient>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="om">
+            <circle id="Oval" fill="url(#linearGradient-1)" cx="179" cy="179" r="179"></circle>
+            <path d="M470.332396,58.1018334 C476.476996,56.2436036 483.362305,56.9532815 489.226501,60.6339176 C495.930112,64.8414089 499.999487,72.2000499 499.999487,80.1146807 L499.999487,326.874094 C499.999487,347.558156 487.263537,366.107 467.959999,373.536927 L181.775794,483.689148 C166.313091,489.640738 148.953377,481.930457 143.001787,466.467755 C141.678247,463.029092 140.999487,459.376031 140.999487,455.691448 L140.999487,189.148454 C140.999487,172.579912 154.430945,159.148454 170.999487,159.148454 C176.059203,159.148454 465.203615,59.6528626 470.332396,58.1018334 Z" id="Path" fill="url(#linearGradient-2)"></path>
+            <path d="M340.79647,102.332425 C351.827889,125.571507 358,151.564967 358,179 C358,277.85897 277.85897,358 179,358 C165.959862,358 153.245403,356.605601 140.997594,353.957773 L140.999487,189.148454 C140.999487,172.579912 154.430945,159.148454 170.999487,159.148454 C173.731734,159.148454 259.303078,130.13554 338.258169,103.199427 Z" id="Combined-Shape" fill="url(#linearGradient-3)"></path>
+        </g>
+    </g>
+</svg>

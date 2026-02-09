@@ -445,10 +445,13 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 	}
-	// uplink can send empty metadata with not empty key/nonce
-	// we need to fix it on uplink side but that part will be
-	// needed for backward compatibility
-	if len(req.EncryptedMetadata) != 0 {
+
+	// Old uplinks may send an empty EncryptedMetadata with a non-empty EncryptedMetadataNonce
+	// and EncryptedMetadataEncryptedKey. To remain compatible with them, we should treat this
+	// case as if no nonce and key were provided. Otherwise, metabase will return an error
+	// because encryption parameters are not allowed to be included in a set of metadata that
+	// lacks any encrypted data.
+	if len(req.EncryptedMetadata) != 0 || len(req.EncryptedEtag) != 0 {
 		request.OverrideEncryptedMetadata = true
 		request.EncryptedMetadata = req.EncryptedMetadata
 		request.EncryptedETag = req.EncryptedEtag

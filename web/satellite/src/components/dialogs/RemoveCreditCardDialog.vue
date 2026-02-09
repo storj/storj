@@ -76,16 +76,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import {
-    VDialog,
-    VCard,
-    VCardItem,
-    VCardTitle,
-    VCardText,
-    VDivider,
-    VCardActions,
-    VRow,
-    VCol,
     VBtn,
+    VCard,
+    VCardActions,
+    VCardItem,
+    VCardText,
+    VCardTitle,
+    VCol,
+    VDialog,
+    VDivider,
+    VRow,
     VSheet,
 } from 'vuetify/components';
 import { Plus, X } from 'lucide-vue-next';
@@ -93,9 +93,10 @@ import { Plus, X } from 'lucide-vue-next';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { CreditCard } from '@/types/payments';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';
 import IconCard from '@/components/icons/IconCard.vue';
@@ -113,6 +114,7 @@ const emit = defineEmits<{
 
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
+const analyticsStore = useAnalyticsStore();
 
 const { isLoading, withLoading } = useLoading();
 const notify = useNotify();
@@ -123,6 +125,8 @@ async function onDelete(): Promise<void> {
     await withLoading(async () => {
         try {
             await billingStore.removeCreditCard(props.card.id);
+
+            analyticsStore.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
             notify.success('Credit card was successfully removed');
             model.value = false;
             attemptPayments();

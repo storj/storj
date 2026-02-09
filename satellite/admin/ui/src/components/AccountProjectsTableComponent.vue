@@ -4,7 +4,6 @@
 <template>
     <v-card variant="flat" :border="true" rounded="xlg">
         <v-data-table
-            v-model="selected"
             :sort-by="sortBy"
             :headers="headers"
             :items="projects"
@@ -27,7 +26,8 @@
                         width="24" height="24"
                     >
                         <ProjectActionsMenu
-                            :project-id="item.id" :owner="item.owner"
+                            :project-id="item.id"
+                            :owner-id="item.ownerID"
                             :active="item.active"
                             @update-limits="onUpdateLimitsClicked"
                             @update="onUpdateClicked"
@@ -129,7 +129,6 @@
 
             <template #item.active="{ item }: ProjectTableSlotProps">
                 <v-chip
-                    v-if="item.segment.percent !== null"
                     variant="tonal"
                     :color="item.active ? 'success' : 'error'"
                     size="small"
@@ -137,6 +136,18 @@
                     class="font-weight-bold"
                 >
                     {{ item.active ? 'YES' : 'NO' }}
+                </v-chip>
+            </template>
+
+            <template #item.ownerID="{ item }: ProjectTableSlotProps">
+                <v-chip
+                    variant="tonal"
+                    :color="item.ownerID === account.id ? 'success' : 'error'"
+                    size="small"
+                    rounded="lg"
+                    class="font-weight-bold"
+                >
+                    {{ item.ownerID === account.id ? 'YES' : 'NO' }}
                 </v-chip>
             </template>
 
@@ -188,7 +199,7 @@ import { AlertCircle, Box, MoreHorizontal, Search } from 'lucide-vue-next';
 import { useAppStore } from '@/store/app';
 import { sizeToBase10String } from '@/utils/memory';
 import { DataTableHeader, SortItem } from '@/types/common';
-import { Project, User, UserAccount } from '@/api/client.gen';
+import { Project, UserAccount } from '@/api/client.gen';
 import { useProjectsStore } from '@/store/projects';
 import { ROUTES } from '@/router';
 import { useLoading } from '@/composables/useLoading';
@@ -217,7 +228,7 @@ type ProjectTableItem = {
     download: RequiredUsageStats;
     segment: UsageStats;
     active: boolean;
-    owner: User;
+    ownerID: string;
     hasManagedPassphrase: boolean;
 };
 
@@ -231,7 +242,6 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const search = ref<string>('');
-const selected = ref<string[]>([]);
 const selectedProject = ref<Project>();
 const updateLimitsDialog = ref<boolean>(false);
 const updateProjectDialog = ref<boolean>(false);
@@ -244,6 +254,7 @@ const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 const headers: DataTableHeader[] = [
     { title: 'Name', key: 'name' },
     { title: 'Active?', key: 'active' },
+    { title: 'Owned By User?', key: 'ownerID' },
     { title: 'Passphrase Managed By', key: 'hasManagedPassphrase' },
     { title: 'Storage Used', key: 'storage.percent' },
     { title: 'Storage Used', key: 'storage.used' },
@@ -301,9 +312,9 @@ const projects = computed<ProjectTableItem[]>(() => {
         storage: makeUsageStats(project.storageUsed, project.storageLimit),
         download: makeUsageStats(project.bandwidthUsed, project.bandwidthLimit),
         segment: makeUsageStats(project.segmentUsed, project.segmentLimit),
-        owner: props.account,
         active: project.active,
         hasManagedPassphrase: project.hasManagedPassphrase,
+        ownerID: project.ownerID,
     }));
 });
 

@@ -156,8 +156,6 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*snversion.Chore](ball, func(log *zap.Logger, checker *checker.Service, notificationsService *notifications.Service, nodeID storj.NodeID) *snversion.Chore {
 			return snversion.NewChore(log, checker, notificationsService, nodeID, versionCheckInterval)
 		})
-
-		mud.Tag[*snversion.Chore, modular.Service](ball, modular.Service{})
 	}
 
 	{
@@ -265,7 +263,6 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*contact.Chore](ball, func(log *zap.Logger, contactConfig contact.Config, service *contact.Service) *contact.Chore {
 			return contact.NewChore(log, contactConfig.Interval, contactConfig.CheckInTimeout, service)
 		})
-		mud.Tag[*contact.Chore, modular.Service](ball, modular.Service{})
 
 		mud.Provide[*contact.Endpoint](ball, func(log *zap.Logger, trustSource trust.TrustedSatelliteSource, pingStats *contact.PingStats, srv *server.Server) (*contact.Endpoint, error) {
 			ep := contact.NewEndpoint(log, trustSource, pingStats)
@@ -274,14 +271,12 @@ func Module(ball *mud.Ball) {
 			}
 			return ep, nil
 		})
-		mud.Tag[*contact.Endpoint, modular.Service](ball, modular.Service{})
 	}
 
 	// setup bandwidth service
 	{
 		mud.Provide[*bandwidth.Cache](ball, bandwidth.NewCache)
 		mud.Provide[*bandwidth.Service](ball, bandwidth.NewService)
-		mud.Tag[*bandwidth.Service, modular.Service](ball, modular.Service{})
 	}
 
 	{ // setup storage
@@ -395,7 +390,6 @@ func Module(ball *mud.Ball) {
 			dialer.DialTimeout = config.SenderDialTimeout
 			return orders.NewService(log, dialer, ordersStore, trustSource, config)
 		})
-		mud.Tag[*orders.Service, modular.Service](ball, modular.Service{})
 	}
 
 	{ // setup payouts.
@@ -406,7 +400,6 @@ func Module(ball *mud.Ball) {
 	{ // setup reputation service.
 		mud.Provide[*reputation.Service](ball, reputation.NewService)
 		mud.Provide[*reputation.Chore](ball, reputation.NewChore)
-		mud.Tag[*reputation.Chore, modular.Service](ball, modular.Service{})
 	}
 
 	{ // setup node stats service
@@ -419,14 +412,12 @@ func Module(ball *mud.Ball) {
 			}
 		})
 		mud.Provide[*nodestats.Cache](ball, nodestats.NewCache)
-		mud.Tag[*nodestats.Cache, modular.Service](ball, modular.Service{})
 	}
 
 	{
 		mud.Provide[*collector.Service](ball, collector.NewService)
 		mud.Provide[collector.RunOnce](ball, collector.NewRunnerOnce)
 		config.RegisterConfig[collector.Config](ball, "collector")
-		mud.Tag[*collector.Service, modular.Service](ball, modular.Service{})
 	}
 	// TODO: there is much more elegant way to do this. But we have circular dependency between piecestore endpoint and Server
 	// (mainly, because everybody is interested about the actual server port)
@@ -439,7 +430,6 @@ func Module(ball *mud.Ball) {
 		}
 		return &EndpointRegistration{}, nil
 	})
-	mud.Tag[*EndpointRegistration, modular.Service](ball, modular.Service{})
 
 	signaturecheck.Module(ball)
 

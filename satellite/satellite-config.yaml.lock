@@ -91,17 +91,11 @@
 # the number of concurrent api requests that can be made
 # analytics.hub-spot.concurrent-sends: 4
 
-# the hubspot form URL for cunoFS beta
-# analytics.hub-spot.cuno-fs-beta-form-url: ""
-
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
 
 # the hubspot lifecycle stage for new accounts
 # analytics.hub-spot.life-cycle-stage: ""
-
-# the hubspot form URL for requesting object mount consultation
-# analytics.hub-spot.object-mount-consultation-form-url: ""
 
 # hubspot refresh token
 # analytics.hub-spot.refresh-token: ""
@@ -442,9 +436,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether CSRF protection is enabled for some of the endpoints
 # console.csrf-protection-enabled: false
 
-# whether prompt to join cunoFS beta is visible
-# console.cuno-fs-beta-enabled: false
-
 # days left before trial end notification
 # console.days-before-trial-end-notification: 3
 
@@ -601,9 +592,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether object lock UI should be shown, regardless of whether the feature is enabled
 # console.object-lock-ui-enabled: true
 
-# whether object mount consultation request form is visible
-# console.object-mount-consultation-enabled: false
-
 # enable open registration
 # console.open-registration-enabled: false
 
@@ -702,6 +690,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates whether the whether account activation is done using activation code
 # console.signup-activation-code-enabled: true
+
+# whether simplified native s3 pagination should be enabled in the object browser
+# console.simple-obj-browser-paging-enabled: false
 
 # path to static resources
 # console.static-dir: ""
@@ -1954,6 +1945,12 @@ server.private-address: 127.0.0.1:7778
 
 # whether SSO is enabled.
 # sso.enabled: false
+
+# require satellite email verification before linking existing users via general SSO.
+# sso.general-link-verification-enabled: false
+
+# semicolon-separated provider names for general SSO (opt-in, no email mapping). Must exist in oidc-provider-infos.
+# sso.general-providers: ""
 
 # semicolon-separated provider:client-id,client-secret,provider-url.
 # sso.oidc-provider-infos: ""

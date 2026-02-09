@@ -6,6 +6,7 @@ package stripe
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/stripe/stripe-go/v81"
@@ -109,6 +110,7 @@ func (invoices *invoices) Get(ctx context.Context, invoiceID string) (*payments.
 		Amount:      total,
 		Status:      convertStatus(inv.Status),
 		Link:        inv.InvoicePDF,
+		PayLink:     inv.HostedInvoiceURL,
 		Start:       time.Unix(inv.PeriodStart, 0),
 	}, nil
 }
@@ -150,9 +152,100 @@ func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID 
 			return Error.Wrap(err)
 		}
 	}
+
+	if len(stripeInvoices) == 0 {
+		return nil
+	}
+
+	// check if customer has Stripe credit balance and apply it to invoices
+	customer, err := invoices.service.stripeClient.Customers().Get(customerID, &stripe.CustomerParams{Params: stripe.Params{Context: ctx}})
+	if err != nil {
+		invoices.service.log.Error("error getting stripe customer", zap.String("customerID", customerID), zap.Error(err))
+		return Error.Wrap(err)
+	}
+
+	if customer.Balance < 0 {
+		// customer.Balance < 0 means the customer has credit
+		err = invoices.attemptPayOverdueInvoicesWithStripeBalance(ctx, customer, stripeInvoices)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		// get invoices again to see if any are still unpaid
+		stripeInvoices, err = invoices.service.getInvoices(ctx, customerID, time.Unix(0, 0))
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
 	if len(stripeInvoices) > 0 {
 		return invoices.attemptPayOverdueInvoicesWithCC(ctx, stripeInvoices)
 	}
+	return nil
+}
+
+// attemptPayOverdueInvoicesWithStripeBalance attempts to pay a user's open, overdue invoices with Stripe customer balance.
+func (invoices *invoices) attemptPayOverdueInvoicesWithStripeBalance(ctx context.Context, customer *stripe.Customer, stripeInvoices []stripe.Invoice) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	creditBalance := -customer.Balance
+
+	invoices.service.log.Info("applying stripe customer credit balance to invoices",
+		zap.String("customerID", customer.ID),
+		zap.Int64("creditBalance", creditBalance))
+
+	for _, inv := range stripeInvoices {
+		if creditBalance <= 0 {
+			break
+		}
+		if inv.AmountRemaining <= 0 {
+			// should not happen, but just in case
+			continue
+		}
+
+		amountToApply := creditBalance
+		if amountToApply > inv.AmountRemaining {
+			amountToApply = inv.AmountRemaining
+		}
+
+		_, err = invoices.service.stripeClient.CreditNotes().New(&stripe.CreditNoteParams{
+			Params:  stripe.Params{Context: ctx},
+			Invoice: stripe.String(inv.ID),
+			Lines: []*stripe.CreditNoteLineParams{{
+				Description: stripe.String("Stripe customer credit balance"),
+				Type:        stripe.String("custom_line_item"),
+				UnitAmount:  stripe.Int64(amountToApply),
+				Quantity:    stripe.Int64(1),
+			}},
+			Memo: stripe.String("Applied from Stripe customer credit balance"),
+		})
+		if err != nil {
+			invoices.service.log.Error("error creating credit note",
+				zap.String("customerID", customer.ID),
+				zap.String("invoiceID", inv.ID),
+				zap.Error(err))
+			continue
+		}
+
+		_, err = invoices.service.stripeClient.CustomerBalanceTransactions().New(&stripe.CustomerBalanceTransactionParams{
+			Params:      stripe.Params{Context: ctx},
+			Customer:    stripe.String(customer.ID),
+			Amount:      stripe.Int64(amountToApply), // positive = debit
+			Currency:    stripe.String(string(stripe.CurrencyUSD)),
+			Description: stripe.String(fmt.Sprintf("Applied to invoice %s", inv.ID)),
+		})
+		if err != nil {
+			invoices.service.log.Error("credit note created but failed to debit customer balance - customer received free credit",
+				zap.String("customerID", customer.ID),
+				zap.String("invoiceID", inv.ID),
+				zap.Int64("amount", amountToApply),
+				zap.Error(err))
+			continue
+		}
+
+		creditBalance -= amountToApply
+	}
+
 	return nil
 }
 
@@ -248,7 +341,9 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 			Amount:      total,
 			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
+			PayLink:     stripeInvoice.HostedInvoiceURL,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+			Failed:      invoices.isInvoiceFailed(stripeInvoice),
 		})
 	}
 
@@ -296,7 +391,9 @@ func (invoices *invoices) ListFailed(ctx context.Context, userID *uuid.UUID) (in
 				Amount:      total,
 				Status:      string(stripeInvoice.Status),
 				Link:        stripeInvoice.InvoicePDF,
+				PayLink:     stripeInvoice.HostedInvoiceURL,
 				Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+				Failed:      true,
 			})
 		}
 	}
@@ -306,6 +403,58 @@ func (invoices *invoices) ListFailed(ctx context.Context, userID *uuid.UUID) (in
 	}
 
 	return invoicesList, nil
+}
+
+// GetFirstFailed returns the first failed invoice for the user.
+func (invoices *invoices) GetFirstFailed(ctx context.Context, userID uuid.UUID) (invoice *payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	params := &stripe.InvoiceListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Status:     stripe.String(string(stripe.InvoiceStatusOpen)),
+		Customer:   &customerID,
+	}
+
+	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
+	for invoicesIterator.Next() {
+		stripeInvoice := invoicesIterator.Invoice()
+
+		if invoices.isInvoiceFailed(stripeInvoice) {
+			total := stripeInvoice.Total
+			for _, line := range stripeInvoice.Lines.Data {
+				// If amount is negative, this is a coupon or a credit line item.
+				// Add them to the total.
+				if line.Amount < 0 {
+					total -= line.Amount
+				}
+			}
+
+			invoice = &payments.Invoice{
+				ID:          stripeInvoice.ID,
+				CustomerID:  stripeInvoice.Customer.ID,
+				Description: stripeInvoice.Description,
+				Amount:      total,
+				Status:      string(stripeInvoice.Status),
+				Link:        stripeInvoice.InvoicePDF,
+				PayLink:     stripeInvoice.HostedInvoiceURL,
+				Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+				Failed:      true,
+			}
+
+			break
+		}
+	}
+
+	if err = invoicesIterator.Err(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return invoice, nil
 }
 
 func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, cursor payments.InvoiceCursor) (page *payments.InvoicePage, err error) {
@@ -385,8 +534,10 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 			Amount:      total,
 			Status:      string(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
+			PayLink:     stripeInvoice.HostedInvoiceURL,
 			Start:       start,
 			End:         end,
+			Failed:      invoices.isInvoiceFailed(stripeInvoice),
 		})
 	}
 
@@ -440,7 +591,9 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 			Amount:      total,
 			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
+			PayLink:     stripeInvoice.HostedInvoiceURL,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+			Failed:      invoices.isInvoiceFailed(stripeInvoice),
 		})
 
 		for _, dcAmt := range stripeInvoice.TotalDiscountAmounts {
@@ -522,6 +675,7 @@ func (invoices *invoices) Delete(ctx context.Context, id string) (_ *payments.In
 		Amount:      stripeInvoice.AmountDue,
 		Status:      convertStatus(stripeInvoice.Status),
 		Link:        stripeInvoice.InvoicePDF,
+		PayLink:     stripeInvoice.HostedInvoiceURL,
 		Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 	}, nil
 }

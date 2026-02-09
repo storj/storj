@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
@@ -1259,9 +1260,11 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 			Amount:      invoice.Amount,
 			Status:      invoice.Status,
 			Link:        invoice.Link,
+			PayLink:     invoice.PayLink,
 			End:         invoice.End,
 			Start:       invoice.Start,
 			Type:        Invoice,
+			Failed:      invoice.Failed,
 		})
 	}
 
@@ -1269,6 +1272,38 @@ func (payment Payments) InvoiceHistory(ctx context.Context, cursor payments.Invo
 		Items:    historyItems,
 		Next:     page.Next,
 		Previous: page.Previous,
+	}, nil
+}
+
+// GetFailedInvoice returns a single failed invoice.
+func (payment Payments) GetFailedInvoice(ctx context.Context) (_ *BillingHistoryItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "get failed invoices")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	invoice, err := payment.service.accounts.Invoices().GetFirstFailed(ctx, user.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if invoice == nil {
+		return nil, ErrNotFound.New("no failed invoices found")
+	}
+
+	return &BillingHistoryItem{
+		ID:          invoice.ID,
+		Description: invoice.Description,
+		Amount:      invoice.Amount,
+		Status:      invoice.Status,
+		Link:        invoice.Link,
+		PayLink:     invoice.PayLink,
+		Start:       invoice.Start,
+		End:         invoice.End,
+		Type:        Invoice,
+		Failed:      true,
 	}, nil
 }
 
@@ -1633,8 +1668,19 @@ func (s *Service) ShouldRequireSsoByUser(user *User) bool {
 	if !s.ssoEnabled {
 		return false
 	}
+	if user.ExternalID == nil || *user.ExternalID == "" {
+		return false
+	}
+	parts := strings.SplitN(*user.ExternalID, ":", 2)
+	if len(parts) == 0 || parts[0] == "" {
+		return false
+	}
+	provider := parts[0]
+	if s.ssoService != nil && s.ssoService.IsGeneralProvider(provider) {
+		return true
+	}
 	prov := s.ssoService.GetProviderByEmail(user.Email)
-	return user.ExternalID != nil && *user.ExternalID != "" && prov != ""
+	return prov != "" && prov == provider
 }
 
 // CreateSsoUser creates a user that has been authenticated by SSO provider.
@@ -1819,6 +1865,122 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 	defer mon.Task()(&ctx)(&err)
 
 	return s.tokens.CreateToken(ctx, id, email)
+}
+
+// InitiateSsoLinkVerification sends a verification code email and returns a signed link token.
+func (s *Service) InitiateSsoLinkVerification(ctx context.Context, user *User, externalID string) (token string, expiresAt time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if user == nil {
+		return "", time.Time{}, ErrValidation.New("user is required")
+	}
+	if externalID == "" {
+		return "", time.Time{}, ErrValidation.New("external ID is required")
+	}
+
+	verificationCode, err := generateVerificationCode()
+	if err != nil {
+		return "", time.Time{}, Error.Wrap(err)
+	}
+
+	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
+		ActivationCode: &verificationCode,
+	})
+	if err != nil {
+		return "", time.Time{}, Error.Wrap(err)
+	}
+
+	claims := &consoleauth.Claims{
+		ID:         user.ID,
+		Email:      user.Email,
+		ExternalID: externalID,
+	}
+	token, err = s.tokens.CreateTokenWithClaims(ctx, claims)
+	if err != nil {
+		return "", time.Time{}, Error.Wrap(err)
+	}
+
+	s.mailService.SendRenderedAsync(
+		ctx,
+		[]post.Address{{Address: user.Email, Name: user.FullName}},
+		&EmailAddressVerificationEmail{
+			VerificationCode: verificationCode,
+			Action:           "SSO account linking",
+		},
+	)
+
+	return token, claims.Expiration, nil
+}
+
+// VerifySsoLink validates the link token and verification code, then links the account.
+func (s *Service) VerifySsoLink(ctx context.Context, linkToken, code, ip, userAgent, anonymousID string) (_ *TokenInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if code == "" {
+		return nil, ErrValidation.New("verification code is required")
+	}
+
+	parsedToken, err := consoleauth.FromBase64URLString(linkToken)
+	if err != nil {
+		return nil, ErrTokenInvalid.Wrap(err)
+	}
+
+	valid, err := s.tokens.ValidateToken(parsedToken)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if !valid {
+		return nil, ErrTokenInvalid.New("incorrect signature")
+	}
+
+	claims, err := consoleauth.FromJSON(parsedToken.Payload)
+	if err != nil {
+		return nil, ErrTokenInvalid.New("JSON decoder: %w", err)
+	}
+	if time.Now().After(claims.Expiration) {
+		return nil, ErrTokenExpiration.New(activationTokenExpiredErrMsg)
+	}
+	if claims.ExternalID == "" {
+		return nil, ErrValidation.New("external ID is missing")
+	}
+
+	user, err := s.store.Users().Get(ctx, claims.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if claims.Email != "" && !strings.EqualFold(user.Email, claims.Email) {
+		return nil, ErrValidation.New("email does not match")
+	}
+	if subtle.ConstantTimeCompare([]byte(user.ActivationCode), []byte(code)) != 1 {
+		return nil, ErrActivationCode.New("verification code is incorrect")
+	}
+
+	rowsAffected, err := s.store.Users().UpdateExternalIDWithActivationCode(ctx, user.ID, code, claims.ExternalID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if rowsAffected == 0 {
+		updated, err := s.store.Users().Get(ctx, user.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if updated.ExternalID == nil || *updated.ExternalID == "" {
+			return nil, ErrActivationCode.New("verification code is incorrect")
+		}
+		if *updated.ExternalID != claims.ExternalID {
+			return nil, ErrValidation.New("user already linked to a different SSO account")
+		}
+	}
+
+	return s.GenerateSessionToken(ctx, SessionTokenRequest{
+		UserID:          user.ID,
+		TenantID:        user.TenantID,
+		Email:           user.Email,
+		IP:              ip,
+		UserAgent:       userAgent,
+		AnonymousID:     anonymousID,
+		HubspotObjectID: user.HubspotObjectID,
+	})
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token.
@@ -3901,51 +4063,6 @@ func (s *Service) GenGetUsersProjects(ctx context.Context) (ps []Project, httpEr
 	return
 }
 
-// JoinCunoFSBeta is a method for tracking user joined cunoFS beta.
-func (s *Service) JoinCunoFSBeta(ctx context.Context, data analytics.TrackJoinCunoFSBetaFields) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := s.getUserAndAuditLog(ctx, "join cunoFS beta")
-	if err != nil {
-		return ErrUnauthorized.Wrap(err)
-	}
-
-	if user.Status == PendingBotVerification {
-		return ErrBotUser.New(contactSupportErrMsg)
-	}
-
-	settings, err := s.store.Users().GetSettings(ctx, user.ID)
-	if err != nil {
-		if !errs.Is(err, sql.ErrNoRows) {
-			return Error.Wrap(err)
-		}
-	}
-
-	var noticeDismissal NoticeDismissal
-	betaJoined := false
-	if settings != nil {
-		betaJoined = settings.NoticeDismissal.CunoFSBetaJoined
-		noticeDismissal = settings.NoticeDismissal
-	}
-	if betaJoined {
-		return ErrConflict.New("user already joined cunoFS beta")
-	}
-
-	data.Email = user.Email
-
-	s.analytics.JoinCunoFSBeta(data)
-
-	noticeDismissal.CunoFSBetaJoined = true
-	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
-		NoticeDismissal: &noticeDismissal,
-	})
-	if err != nil {
-		return errs.Combine(Error.New("Your submission was successfully received, but something else went wrong"), err)
-	}
-
-	return nil
-}
-
 // SendUserFeedback is a method for tracking user feedback submission.
 func (s *Service) SendUserFeedback(ctx context.Context, data analytics.UserFeedbackFormData) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -4022,52 +4139,6 @@ func (s *Service) JoinPlacementWaitlist(ctx context.Context, data analytics.Trac
 	s.analytics.JoinPlacementWaitlist(data)
 
 	noticeDismissal.PlacementWaitlistsJoined = append(noticeDismissal.PlacementWaitlistsJoined, storj.PlacementConstraint(placement.ID))
-	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
-		NoticeDismissal: &noticeDismissal,
-	})
-	if err != nil {
-		return errs.Combine(Error.New("Your submission was successfully received, but something else went wrong"), err)
-	}
-
-	return nil
-}
-
-// RequestObjectMountConsultation is a method for tracking user requested object mount consultation.
-func (s *Service) RequestObjectMountConsultation(ctx context.Context, data analytics.TrackObjectMountConsultationFields) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := s.getUserAndAuditLog(ctx, "request object mount consultation")
-	if err != nil {
-		return ErrUnauthorized.Wrap(err)
-	}
-
-	if user.Status == PendingBotVerification {
-		return ErrBotUser.New(contactSupportErrMsg)
-	}
-
-	settings, err := s.store.Users().GetSettings(ctx, user.ID)
-	if err != nil {
-		if !errs.Is(err, sql.ErrNoRows) {
-			return Error.Wrap(err)
-		}
-	}
-
-	var noticeDismissal NoticeDismissal
-	requested := false
-	if settings != nil {
-		requested = settings.NoticeDismissal.ObjectMountConsultationRequested
-		noticeDismissal = settings.NoticeDismissal
-	}
-	if requested {
-		return ErrConflict.New("user already requested object mount consultation")
-	}
-
-	data.Email = user.Email
-	data.TenantID = user.TenantID
-
-	s.analytics.RequestObjectMountConsultation(data)
-
-	noticeDismissal.ObjectMountConsultationRequested = true
 	err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{
 		NoticeDismissal: &noticeDismissal,
 	})

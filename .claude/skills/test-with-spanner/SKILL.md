@@ -17,13 +17,21 @@ To run tests automatically `spanner_emulator` binary needs to be on PATH. Spanne
 
 1. **If test name is provided in arguments**:
    - Find the package containing the test using Grep
-   - Run the test with the auto-managed emulator
+   - Run the test with Spanner
 
 2. **If only package path is provided**:
-   - Run all tests in that package with the auto-managed emulator
+   - Run all tests in that package with Spanner
 
-3. **Command format**:
+3. **Determine the Spanner connection method**:
+   - First, check if `STORJ_TEST_SPANNER` is already set in the environment. If it is, do NOT pass `-spanner-test-db` — the test framework will pick it up automatically.
+   - Only if `STORJ_TEST_SPANNER` is not set, pass `-spanner-test-db 'run:spanner_emulator'` to auto-manage the emulator.
+
+4. **Command format**:
 ```bash
+# When STORJ_TEST_SPANNER is already set in the environment:
+go test -v ./package/path -run TestName
+
+# When STORJ_TEST_SPANNER is NOT set:
 go test -v ./package/path -run TestName -spanner-test-db 'run:spanner_emulator'
 ```
 
@@ -32,7 +40,7 @@ go test -v ./package/path -run TestName -spanner-test-db 'run:spanner_emulator'
    - Configure the connection for each test
    - Clean up and stop the emulator after tests complete
 
-4. **Report test results**:
+5. **Report test results**:
    - Show whether tests passed or failed
    - List all subtests that ran
    - If tests failed, offer to help investigate the failures
@@ -62,4 +70,3 @@ go test -v -timeout 10m ./satellite/metabase -run TestLoop -spanner-test-db 'run
 - Each test gets its own emulator instance that's automatically managed
 - No manual cleanup is required - the framework handles emulator lifecycle
 - The `run:` prefix is the recommended approach used in Storj's CI/CD (see Jenkinsfile.verify and Jenkinsfile.public)
-- Alternative: If `STORJ_TEST_SPANNER` is already set to a running emulator, tests will use that instead

@@ -39,6 +39,8 @@ type Invoices interface {
 	ListPaged(ctx context.Context, userID uuid.UUID, cursor InvoiceCursor) (*InvoicePage, error)
 	// ListFailed returns a list of failed invoices.
 	ListFailed(ctx context.Context, userID *uuid.UUID) ([]Invoice, error)
+	// GetFirstFailed returns the first failed invoice for the user.
+	GetFirstFailed(ctx context.Context, userID uuid.UUID) (*Invoice, error)
 	// ListWithDiscounts returns a list of invoices and coupon usages for a given payment account.
 	ListWithDiscounts(ctx context.Context, userID uuid.UUID) ([]Invoice, []CouponUsage, error)
 	// CheckPendingItems returns if pending invoice items for a given payment account exist.
@@ -59,8 +61,10 @@ type Invoice struct {
 	Amount      int64     `json:"amount"`
 	Status      string    `json:"status"`
 	Link        string    `json:"link"`
+	PayLink     string    `json:"payLink"`
 	Start       time.Time `json:"start"`
 	End         time.Time `json:"end"`
+	Failed      bool      `json:"failed"`
 }
 
 // InvoiceCursor holds info for invoices

@@ -77,6 +77,13 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 	if !s.config.Enabled {
 		return nil
 	}
+
+	for _, p := range s.GeneralProviders() {
+		if !s.IsProviderConfigured(p) {
+			return Error.New("general SSO provider %s is not configured in oidc-provider-infos", p)
+		}
+	}
+
 	verifierMap := make(map[string]OidcSetup)
 	for providerName, info := range s.config.OidcProviderInfos.Values {
 		callbackAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName, "callback")
@@ -121,6 +128,32 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 	s.initialized.Release()
 
 	return nil
+}
+
+// GeneralProviders returns configured general SSO provider names, if any.
+func (s *Service) GeneralProviders() []string {
+	return s.config.GeneralProviders.Values
+}
+
+// IsGeneralProvider returns true if provider matches a general SSO provider.
+func (s *Service) IsGeneralProvider(provider string) bool {
+	for _, p := range s.config.GeneralProviders.Values {
+		if p == provider {
+			return true
+		}
+	}
+	return false
+}
+
+// IsProviderConfigured returns true if provider exists in oidc-provider-infos.
+func (s *Service) IsProviderConfigured(provider string) bool {
+	_, ok := s.config.OidcProviderInfos.Values[provider]
+	return ok
+}
+
+// GeneralLinkVerificationEnabled returns true if general SSO linking requires email verification.
+func (s *Service) GeneralLinkVerificationEnabled() bool {
+	return s.config.GeneralLinkVerificationEnabled
 }
 
 // GetProviderByEmail returns the provider for the given email.
@@ -171,9 +204,10 @@ func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code stri
 	var claims OidcSsoClaims
 	if s.config.MockSso && s.config.MockEmail != "" {
 		claims = OidcSsoClaims{
-			Sub:   s.config.MockEmail,
-			Email: s.config.MockEmail,
-			Name:  "Mock User",
+			Sub:           s.config.MockEmail,
+			Email:         s.config.MockEmail,
+			EmailVerified: true,
+			Name:          "Mock User",
 		}
 	} else {
 		if err = idToken.Claims(&claims); err != nil {
@@ -192,17 +226,25 @@ func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code stri
 		claims.Email = strings.ToLower(claims.Email)
 	}
 
-	p := s.GetProviderByEmail(claims.Email)
-	if p != provider {
-		return nil, ErrInvalidEmail.New("email %s does not match provider %s", claims.Email, provider)
+	if claims.Email == "" {
+		return nil, ErrInvalidEmail.New("email is empty")
 	}
 
-	token, err := s.GetSsoEmailToken(claims.Email)
-	if err != nil {
-		return nil, Error.New("failed to get email token")
-	}
-	if emailToken != token {
-		return nil, Error.New("invalid email token")
+	if !s.IsGeneralProvider(provider) {
+		p := s.GetProviderByEmail(claims.Email)
+		if p != provider {
+			return nil, ErrInvalidEmail.New("email %s does not match provider %s", claims.Email, provider)
+		}
+
+		token, err := s.GetSsoEmailToken(claims.Email)
+		if err != nil {
+			return nil, Error.New("failed to get email token")
+		}
+		if emailToken != token {
+			return nil, Error.New("invalid email token")
+		}
+	} else if !claims.EmailVerified {
+		return nil, ErrInvalidEmail.New("email is not verified")
 	}
 
 	return &claims, nil
@@ -216,4 +258,14 @@ func (s *Service) GetSsoEmailToken(email string) (string, error) {
 		return "", Error.Wrap(err)
 	}
 	return base64.RawURLEncoding.EncodeToString(signed), nil
+}
+
+// TestSetGeneralLinkVerificationEnabled sets general link verification enabled for testing.
+func (s *Service) TestSetGeneralLinkVerificationEnabled(enabled bool) {
+	s.config.GeneralLinkVerificationEnabled = enabled
+}
+
+// TestSetMockEmail sets the mock email for testing.
+func (s *Service) TestSetMockEmail(email string) {
+	s.config.MockEmail = email
 }

@@ -432,16 +432,11 @@ func (p *Projects) GetMembersAndInvitations(w http.ResponseWriter, r *http.Reque
 	memberPage.Invitations = []Invitation{}
 
 	for _, m := range membersAndInvitations.ProjectMembers {
-		user, err := p.service.GetUser(ctx, m.MemberID)
-		if err != nil {
-			p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-			return
-		}
 		member := Member{
-			ID:        user.ID,
-			FullName:  user.FullName,
-			ShortName: user.ShortName,
-			Email:     user.Email,
+			ID:        m.MemberID,
+			FullName:  m.FullName,
+			ShortName: m.ShortName,
+			Email:     m.Email,
 			Role:      m.Role,
 			JoinedAt:  m.CreatedAt,
 		}

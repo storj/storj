@@ -4,7 +4,7 @@
 import { HttpClient } from '@/utils/httpClient';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APIError } from '@/utils/error';
-import { JoinCunoFSBetaForm, ObjectMountConsultationForm, UserFeedbackForm } from '@/types/analytics';
+import { UserFeedbackForm } from '@/types/analytics';
 
 /**
  * AnalyticsHttpApi is a console Analytics API.
@@ -13,27 +13,6 @@ import { JoinCunoFSBetaForm, ObjectMountConsultationForm, UserFeedbackForm } fro
 export class AnalyticsHttpApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/analytics';
-
-    /**
-     * Used to track user filled the form to join cunoFS beta.
-     *
-     * @param data - form data
-     * @param csrfProtectionToken - CSRF token
-     */
-    public async joinCunoFSBeta(data: JoinCunoFSBetaForm, csrfProtectionToken: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/join-cunofs-beta`;
-
-        const response = await this.http.post(path, JSON.stringify(data), { csrfProtectionToken });
-        if (!response.ok) {
-            const result = await response.json();
-
-            throw new APIError({
-                status: response.status,
-                message: result.error,
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
-    }
 
     /**
      * Used to track user filled the form to join placement waitlist.
@@ -65,27 +44,6 @@ export class AnalyticsHttpApi {
      */
     public async sendUserFeedback(data: UserFeedbackForm, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/send-feedback`;
-
-        const response = await this.http.post(path, JSON.stringify(data), { csrfProtectionToken });
-        if (!response.ok) {
-            const result = await response.json();
-
-            throw new APIError({
-                status: response.status,
-                message: result.error,
-                requestID: response.headers.get('x-request-id'),
-            });
-        }
-    }
-
-    /**
-     * Used to request a consultation for object mount.
-     *
-     * @param data - consultation request data
-     * @param csrfProtectionToken - CSRF token
-     */
-    public async requestObjectMountConsultation(data: ObjectMountConsultationForm, csrfProtectionToken: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/object-mount-consultation`;
 
         const response = await this.http.post(path, JSON.stringify(data), { csrfProtectionToken });
         if (!response.ok) {

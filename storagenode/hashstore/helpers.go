@@ -215,7 +215,7 @@ func newAtomicFile(name string) (*atomicFile, error) {
 
 	fh, err := platform.CreateFile(tmp)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, Error.New("creating file=%v: %w", tmp, err)
 	}
 
 	return &atomicFile{

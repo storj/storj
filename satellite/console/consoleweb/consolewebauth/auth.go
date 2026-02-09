@@ -22,15 +22,17 @@ type CookieAuth struct {
 	settings              CookieSettings
 	ssoStateSettings      CookieSettings
 	ssoEmailTokenSettings CookieSettings
+	ssoLinkSettings       CookieSettings
 	domain                string
 }
 
 // NewCookieAuth create new cookie authorization with provided settings.
-func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings CookieSettings, domain string) *CookieAuth {
+func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings, ssoLinkSettings CookieSettings, domain string) *CookieAuth {
 	return &CookieAuth{
 		settings:              settings,
 		ssoStateSettings:      ssoStateSettings,
 		ssoEmailTokenSettings: ssoEmailTokenSettings,
+		ssoLinkSettings:       ssoLinkSettings,
 		domain:                domain,
 	}
 }
@@ -122,6 +124,35 @@ func (auth *CookieAuth) RemoveSSOCookies(w http.ResponseWriter) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// SetSSOLinkCookie sets a short-lived cookie with the pending SSO link token.
+func (auth *CookieAuth) SetSSOLinkCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.ssoLinkSettings.Name,
+		Path:     auth.ssoLinkSettings.Path,
+		Value:    token,
+		HttpOnly: true,
+		Expires:  expiresAt,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// RemoveSSOLinkCookie removes the pending SSO link cookie.
+func (auth *CookieAuth) RemoveSSOLinkCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.ssoLinkSettings.Name,
+		Path:     auth.ssoLinkSettings.Path,
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+// GetSSOLinkCookieName returns the name of the cookie storing the SSO link token.
+func (auth *CookieAuth) GetSSOLinkCookieName() string {
+	return auth.ssoLinkSettings.Name
 }
 
 // GetSSOStateCookieName returns the name of the cookie storing the SSO state.

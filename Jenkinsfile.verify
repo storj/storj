@@ -51,27 +51,22 @@ pipeline {
             parallel {
                 stage('web/satellite') {
                     steps {
-                        sh './web/satellite/build-if-changed.sh'
-                    }
-                }
-                stage('wasm') {
-                    steps {
-                        sh './web/satellite/wasm/run-tests.sh'
+                        sh './web/satellite/check-and-build-if-changed.sh'
                     }
                 }
                 stage('web/storagenode') {
                     steps {
-                        sh './web/storagenode/build-if-changed.sh'
+                        sh './web/storagenode/check-and-build-if-changed.sh'
                     }
                 }
                 stage('web/multinode') {
                     steps {
-                        sh './web/multinode/build-if-changed.sh'
+                        sh './web/multinode/check-and-build-if-changed.sh'
                     }
                 }
                 stage('satellite/admin/legacy/ui') {
                     steps {
-                        sh './satellite/admin/legacy/ui/build-if-changed.sh'
+                        sh './satellite/admin/legacy/ui/check-and-build-if-changed.sh'
                     }
                 }
             }
@@ -149,7 +144,7 @@ pipeline {
                 }
 
                 sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
-                sh 'make test-satellite-ui'
+                sh 'make test/integration/ui'
             }
 
             post {

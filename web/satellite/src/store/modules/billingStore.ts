@@ -18,6 +18,7 @@ import {
     PaymentHistoryPage,
     PaymentHistoryParam,
     PaymentsApi,
+    PaymentsHistoryItem,
     PaymentStatus,
     PaymentWithConfirmations,
     PriceModelForPlacementRequest,
@@ -51,6 +52,7 @@ export class PaymentsState {
     public taxes: Tax[] = [];
     public pricingPlansAvailable: boolean = false;
     public pricingPlanInfo: PricingPlanInfo | null = null;
+    public failedInvoice: PaymentsHistoryItem | null = null;
 }
 
 export const useBillingStore = defineStore('billing', () => {
@@ -245,6 +247,10 @@ export const useBillingStore = defineStore('billing', () => {
         state.paymentsHistory = await api.paymentsHistory(params);
     }
 
+    async function getFailedInvoice(): Promise<void> {
+        state.failedInvoice = await api.getFailedInvoice();
+    }
+
     async function getNativePaymentsHistory(): Promise<void> {
         state.nativePaymentsHistory = await api.nativePaymentsHistory();
     }
@@ -352,6 +358,7 @@ export const useBillingStore = defineStore('billing', () => {
         state.billingInformation = null;
         state.pricingPlansAvailable = false;
         state.pricingPlanInfo = null;
+        state.failedInvoice = null;
     }
 
     return {
@@ -383,6 +390,7 @@ export const useBillingStore = defineStore('billing', () => {
         makeCardDefault,
         removeCreditCard,
         getPaymentsHistory,
+        getFailedInvoice,
         getNativePaymentsHistory,
         getProductUsageAndChargesCurrentRollup,
         startPaymentsPolling,

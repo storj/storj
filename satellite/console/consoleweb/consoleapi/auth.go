@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -183,6 +184,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + "/login?sso_failed=true"
 
 	provider := mux.Vars(r)["provider"]
+	isGeneralProvider := a.ssoService.IsGeneralProvider(provider)
 
 	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
 	if err != nil {
@@ -190,11 +192,16 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
+	emailToken := ""
 	emailTokenCookie, err := r.Cookie(a.cookieAuth.GetSSOEmailTokenCookieName())
 	if err != nil {
-		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email token cookie")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
-		return
+		if !isGeneralProvider {
+			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email token cookie")))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			return
+		}
+	} else {
+		emailToken = emailTokenCookie.Value
 	}
 
 	ssoState := r.URL.Query().Get("state")
@@ -224,7 +231,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := a.ssoService.VerifySso(ctx, provider, emailTokenCookie.Value, code)
+	claims, err := a.ssoService.VerifySso(ctx, provider, emailToken, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -240,6 +247,32 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userAgent := r.UserAgent()
+
+	if isGeneralProvider && a.ssoService.GeneralLinkVerificationEnabled() {
+		externalID := fmt.Sprintf("%s:%s", provider, claims.Sub)
+
+		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, claims.Email)
+		if err != nil && !console.ErrEmailNotFound.Has(err) {
+			a.log.Error("Error getting user for sso link verification", zap.Error(err))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			return
+		}
+		if existingUser != nil && (existingUser.ExternalID == nil || *existingUser.ExternalID == "") {
+			linkToken, expiresAt, err := a.service.InitiateSsoLinkVerification(ctx, existingUser, externalID)
+			if err != nil {
+				a.log.Error("Error initiating sso link verification", zap.Error(err))
+				http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+				return
+			}
+
+			a.cookieAuth.SetSSOLinkCookie(w, linkToken, expiresAt)
+
+			externalAddr := a.getExternalAddress(ctx)
+			linkAddr := strings.TrimSuffix(externalAddr, "/") + "/sso-link"
+			http.Redirect(w, r, linkAddr, http.StatusTemporaryRedirect)
+			return
+		}
+	}
 
 	user, err := a.service.GetUserForSsoAuth(ctx, *claims, provider, ip, userAgent)
 	if err != nil {
@@ -291,6 +324,55 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// VerifySsoLink verifies an email code and completes general SSO account linking.
+func (a *Auth) VerifySsoLink(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		Code string `json:"code"`
+	}
+	if err = json.NewDecoder(r.Body).Decode(&data); err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+	if len(data.Code) != 6 {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("the verification code must be 6 characters long"))
+		return
+	}
+
+	linkCookie, err := r.Cookie(a.cookieAuth.GetSSOLinkCookieName())
+	if err != nil {
+		a.serveJSONError(ctx, w, console.ErrValidation.New("missing SSO link token"))
+		return
+	}
+
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.VerifySsoLink(ctx, linkCookie.Value, data.Code, ip, r.UserAgent(), LoadAjsAnonymousID(r))
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
+		return
+	}
+
+	a.cookieAuth.RemoveSSOLinkCookie(w)
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()}); err != nil {
+		a.log.Error("could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+}
+
 // BeginSsoFlow starts the SSO flow by redirecting to the OIDC provider.
 func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -305,6 +387,8 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	provider := mux.Vars(r)["provider"]
+	isGeneralProvider := a.ssoService.IsGeneralProvider(provider)
+
 	oidcSetup := a.ssoService.GetOidcSetupByProvider(ctx, provider)
 	if oidcSetup == nil {
 		a.log.Error("invalid provider "+provider, zap.Error(console.ErrValidation.New("invalid provider")))
@@ -313,17 +397,20 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	email := r.URL.Query().Get("email")
-	if email == "" {
+	if email == "" && !isGeneralProvider {
 		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
 
-	emailToken, err := a.ssoService.GetSsoEmailToken(email)
-	if err != nil {
-		a.log.Error("failed to get security token", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
-		return
+	emailToken := ""
+	if email != "" {
+		emailToken, err = a.ssoService.GetSsoEmailToken(email)
+		if err != nil {
+			a.log.Error("failed to get security token", zap.Error(err))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			return
+		}
 	}
 
 	state, err := a.csrfService.GenerateSecurityToken()
@@ -1925,7 +2012,7 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "The MFA passcode is not valid or has expired"
 	case console.ErrMFARecoveryCode.Has(err):
 		return "The MFA recovery code is not valid or has been previously used"
-	case console.ErrLoginCredentials.Has(err):
+	case console.ErrLoginCredentials.Has(err), console.ErrSsoUserRestricted.Has(err):
 		return "Your login credentials are incorrect, please try again"
 	case console.ErrLoginRestricted.Has(err):
 		return "You can't be authenticated. Please contact support"

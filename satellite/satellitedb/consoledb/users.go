@@ -611,6 +611,47 @@ func (users *users) Update(ctx context.Context, userID uuid.UUID, updateRequest 
 	return err
 }
 
+// UpdateExternalIDWithActivationCode updates external_id and clears activation_code atomically.
+func (users *users) UpdateExternalIDWithActivationCode(ctx context.Context, userID uuid.UUID, activationCode, externalID string) (rowsAffected int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var result sql.Result
+	switch users.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		result, err = users.db.ExecContext(ctx, `
+			UPDATE users
+			SET external_id = $1,
+				activation_code = '',
+				status = CASE WHEN status = $2 THEN $3 ELSE status END
+			WHERE id = $4
+				AND activation_code = $5
+				AND (external_id IS NULL OR external_id = '' OR external_id = $1)
+		`, externalID, console.Inactive, console.Active, userID.Bytes(), activationCode)
+	case dbutil.Spanner:
+		result, err = users.db.ExecContext(ctx, `
+			UPDATE users
+			SET external_id = ?,
+				activation_code = '',
+				status = CASE WHEN status = ? THEN ? ELSE status END
+			WHERE id = ?
+				AND activation_code = ?
+				AND (external_id IS NULL OR external_id = '' OR external_id = ?)
+		`, externalID, console.Inactive, console.Active, userID.Bytes(), activationCode, externalID)
+	default:
+		return 0, errs.New("unsupported database dialect: %s", users.impl)
+	}
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	rowsAffected, err = result.RowsAffected()
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return rowsAffected, nil
+}
+
 // UpdatePaidTier sets whether the user is in the paid tier.
 func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int, upgradeTime *time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)

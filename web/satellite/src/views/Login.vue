@@ -147,6 +147,21 @@
                             >
                                 Continue
                             </v-btn>
+
+                            <template v-if="generalSsoEnabled">
+                                <v-btn
+                                    v-for="provider in generalSsoProviders"
+                                    :key="provider"
+                                    color="secondary"
+                                    variant="outlined"
+                                    size="large"
+                                    block
+                                    class="mt-4"
+                                    @click="onGeneralSsoClick(provider)"
+                                >
+                                    Sign in with&nbsp;<span class="text-capitalize">{{ provider }}</span>
+                                </v-btn>
+                            </template>
                         </v-form>
                     </v-card-text>
                 </v-card>
@@ -253,6 +268,8 @@ const emailRules: ((_: string) => boolean | string)[] = [
 const subtitle = computed<string>(() => `Log in to your ${configStore.brandName} account`);
 
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
+const generalSsoEnabled = computed(() => configStore.state.config.generalSsoEnabled);
+const generalSsoProviders = computed(() => configStore.state.config.generalSsoProviders ?? []);
 
 const csrfToken = computed<string>(() => configStore.state.config.csrfToken);
 
@@ -400,6 +417,13 @@ async function onLoginClick(): Promise<void> {
     }
 }
 
+function onGeneralSsoClick(provider: string): void {
+    if (!generalSsoEnabled.value || !provider) {
+        return;
+    }
+    window.open(`/sso/${provider}`, '_self');
+}
+
 /**
  * Performs login action.
  * Then changes location to project dashboard page.
@@ -435,7 +459,10 @@ async function login(): Promise<void> {
             return;
         }
 
-        if (error instanceof ErrorUnauthorized) {
+        if (
+            error instanceof ErrorUnauthorized ||
+            (error instanceof APIError && error.status === 403 && error.message.includes('login credentials'))
+        ) {
             isBadLoginMessageShown.value = true;
             isLoading.value = false;
             return;

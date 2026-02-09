@@ -208,7 +208,7 @@ function getFormattedDate(file: BrowserObject): string {
     return Time.formattedDate(file.LastModified);
 }
 
-function previewClicked() {
+function previewClicked(): void {
     if (filesBeingDeleted.value.has(props.item.browserObject.path + props.item.browserObject.Key)) {
         return;
     }

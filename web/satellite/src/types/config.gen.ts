@@ -74,15 +74,16 @@ export class FrontendConfig {
     noLimitsUiEnabled: boolean;
     altObjBrowserPagingEnabled: boolean;
     altObjBrowserPagingThreshold: number;
+    simplifiedObjBrowserPagingEnabled: boolean;
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
     versioningUIEnabled: boolean;
     objectLockUIEnabled: boolean;
     valdiSignUpURL: string;
     ssoEnabled: boolean;
+    generalSsoEnabled: boolean;
+    generalSsoProviders: string[] | null;
     selfServePlacementSelectEnabled: boolean;
-    cunoFSBetaEnabled: boolean;
-    objectMountConsultationEnabled: boolean;
     csrfToken: string;
     billingStripeCheckoutEnabled: boolean;
     maxAddFundsAmount: number;

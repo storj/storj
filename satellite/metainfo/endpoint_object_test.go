@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"github.com/zeebo/sudo"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -70,6 +71,307 @@ func assertRPCStatusCode(t *testing.T, actualError error, expectedStatusCode rpc
 	statusCode := rpcstatus.Code(actualError)
 	require.NotEqual(t, rpcstatus.Unknown, statusCode, "expected rpcstatus error, got \"%v\"", actualError)
 	require.Equal(t, expectedStatusCode, statusCode, "wrong %T, got %v", statusCode, actualError)
+}
+
+func TestCommitObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		up := planet.Uplinks[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+		apiKey := up.APIKey[sat.ID()]
+		projectID := up.Projects[0].ID
+
+		encParams := metabasetest.DefaultEncryption
+
+		requireNoCommittedObjects := func(t *testing.T, bucketName string) {
+			list, err := db.ListObjects(ctx, metabase.ListObjects{
+				ProjectID:  projectID,
+				BucketName: metabase.BucketName(bucketName),
+			})
+			require.NoError(t, err)
+			require.Empty(t, list.Objects)
+			require.False(t, list.More)
+		}
+
+		t.Run("Basic", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			})
+			require.NoError(t, err)
+
+			userData, err := randEncryptedUserData(encParams, 0)
+			require.NoError(t, err)
+
+			commitReq := &pb.CommitObjectRequest{
+				Header:                        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId:                      beginResp.StreamId,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedEtag:                 userData.EncryptedETag,
+			}
+
+			commitResp, err := endpoint.CommitObject(ctx, commitReq)
+			require.NoError(t, err)
+
+			object, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+				Version: 1,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, metabase.Object{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+					Version:    1,
+					StreamID:   object.StreamID,
+				},
+				CreatedAt:         object.CreatedAt,
+				Status:            metabase.CommittedUnversioned,
+				EncryptedUserData: userData,
+				Encryption:        encParams,
+			}, object)
+
+			expectedRespObj := pb.Object{
+				Bucket:                        []byte(bucketName),
+				EncryptedObjectKey:            []byte(objectKey),
+				ObjectVersion:                 object.StreamVersionID().Bytes(),
+				Status:                        pb.Object_Status(object.Status),
+				CreatedAt:                     object.CreatedAt,
+				EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(object.EncryptedMetadataNonce),
+				EncryptedMetadata:             object.EncryptedMetadata,
+				EncryptedEtag:                 object.EncryptedETag,
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			}
+
+			actualRespObj := *commitResp.Object
+
+			require.NotEmpty(t, actualRespObj.StreamId)
+			expectedRespObj.StreamId = actualRespObj.StreamId
+
+			require.Equal(t, expectedRespObj, actualRespObj)
+		})
+
+		t.Run("Use pending metadata", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			userData, err := randEncryptedUserData(encParams, 0)
+			require.NoError(t, err)
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedEtag:                 userData.EncryptedETag,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginResp.StreamId,
+			})
+			require.NoError(t, err)
+
+			object, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+				Version: 1,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, userData, object.EncryptedUserData)
+		})
+
+		t.Run("Overwrite pending metadata", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			userData, err := randEncryptedUserData(encParams, 0)
+			require.NoError(t, err)
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedEtag:                 userData.EncryptedETag,
+			})
+			require.NoError(t, err)
+
+			userData, err = randEncryptedUserData(encParams, 0)
+			require.NoError(t, err)
+
+			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:                        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId:                      beginResp.StreamId,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedEtag:                 userData.EncryptedETag,
+			})
+			require.NoError(t, err)
+
+			object, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+				Version: 1,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, userData, object.EncryptedUserData)
+		})
+
+		// This is a regression test that ensures that CommitObject applies the provided set of metadata
+		// to the object being committed if any encrypted data is provided. At one point, CommitObject
+		// only considered the provided set of metadata if the EncryptedMetadata field was set. This
+		// caused EncryptedETag to be ignored if EncryptedMetadata was omitted.
+		t.Run("ETag without EncryptedMetadata", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			})
+			require.NoError(t, err)
+
+			userData, err := randEncryptedUserData(encParams, 0)
+			require.NoError(t, err)
+			userData.EncryptedMetadata = nil
+
+			_, err = endpoint.CommitObject(ctx, &pb.CommitObjectRequest{
+				Header:                        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId:                      beginResp.StreamId,
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedEtag:                 userData.EncryptedETag,
+			})
+			require.NoError(t, err)
+
+			object, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(objectKey),
+				},
+				Version: 1,
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, userData, object.EncryptedUserData)
+		})
+
+		t.Run("Validate metadata size", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := testrand.Path()
+
+			beginResp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+					BlockSize:   int64(encParams.BlockSize),
+				},
+			})
+			require.NoError(t, err)
+
+			req := &pb.CommitObjectRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: beginResp.StreamId,
+			}
+
+			// Ensure that 5KiB metadata causes a failure because it's too large.
+			metadata, err := pb.Marshal(&pb.StreamMeta{
+				EncryptedStreamInfo: testrand.Bytes(5 * memory.KiB),
+			})
+			require.NoError(t, err)
+
+			req.EncryptedMetadata = metadata
+			req.EncryptedMetadataNonce = testrand.Nonce()
+			req.EncryptedMetadataEncryptedKey = randomEncryptedKey
+
+			_, err = endpoint.CommitObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			requireNoCommittedObjects(t, bucketName)
+
+			// Ensure that the ETag counts against the metadata size limit.
+			metadata, err = pb.Marshal(&pb.StreamMeta{
+				EncryptedStreamInfo: testrand.Bytes(1 * memory.KiB),
+			})
+			require.NoError(t, err)
+
+			req.EncryptedMetadata = metadata
+			req.EncryptedEtag = testrand.Bytes(5 * memory.KiB)
+
+			_, err = endpoint.CommitObject(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			requireNoCommittedObjects(t, bucketName)
+
+			// Ensure that 1KiB metadata does not cause a failure.
+			req.EncryptedEtag = nil
+			_, err = endpoint.CommitObject(ctx, req)
+			require.NoError(t, err)
+		})
+	})
 }
 
 func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
@@ -261,67 +563,6 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				require.Equal(t, item.Path, listItems[i].Key)
 				require.Equal(t, item.IsPrefix, listItems[i].IsPrefix)
 			}
-		})
-
-		// ensures that CommitObject returns an error when the metadata provided by the user is too large.
-		t.Run("validate metadata size for CommitObject", func(t *testing.T) {
-			defer ctx.Check(deleteBucket)
-
-			err = planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], bucketName)
-			require.NoError(t, err)
-
-			params := metaclient.BeginObjectParams{
-				Bucket:             []byte(bucketName),
-				EncryptedObjectKey: []byte("encrypted-path"),
-				Redundancy: storj.RedundancyScheme{
-					Algorithm:      storj.ReedSolomon,
-					ShareSize:      256,
-					RequiredShares: 1,
-					RepairShares:   1,
-					OptimalShares:  3,
-					TotalShares:    4,
-				},
-				EncryptionParameters: storj.EncryptionParameters{
-					BlockSize:   256,
-					CipherSuite: storj.EncNull,
-				},
-				ExpiresAt: time.Now().Add(24 * time.Hour),
-			}
-			beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
-			require.NoError(t, err)
-
-			// 5KiB metadata should fail because it is too large.
-			metadata, err := pb.Marshal(&pb.StreamMeta{
-				EncryptedStreamInfo: testrand.Bytes(5 * memory.KiB),
-				NumberOfSegments:    1,
-			})
-			require.NoError(t, err)
-			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-				StreamID: beginObjectResponse.StreamID,
-				EncryptedUserData: metaclient.EncryptedUserData{
-					EncryptedMetadata:             metadata,
-					EncryptedMetadataNonce:        testrand.Nonce(),
-					EncryptedMetadataEncryptedKey: randomEncryptedKey,
-				},
-			})
-			require.Error(t, err)
-			assertInvalidArgument(t, err, true)
-
-			// 1KiB metadata should not fail.
-			metadata, err = pb.Marshal(&pb.StreamMeta{
-				EncryptedStreamInfo: testrand.Bytes(1 * memory.KiB),
-				NumberOfSegments:    1,
-			})
-			require.NoError(t, err)
-			err = metainfoClient.CommitObject(ctx, metaclient.CommitObjectParams{
-				StreamID: beginObjectResponse.StreamID,
-				EncryptedUserData: metaclient.EncryptedUserData{
-					EncryptedMetadata:             metadata,
-					EncryptedMetadataNonce:        testrand.Nonce(),
-					EncryptedMetadataEncryptedKey: randomEncryptedKey,
-				},
-			})
-			require.NoError(t, err)
 		})
 
 		t.Run("validate metadata size for BeginObject", func(t *testing.T) {
@@ -7404,4 +7645,24 @@ func TestUploadWithNoPendingObject(t *testing.T) {
 			})
 		}
 	})
+}
+
+// randEncryptedUserData returns a random set of encrypted user data. The user data's encrypted metadata is safe to unmarshal.
+func randEncryptedUserData(encryption storj.EncryptionParameters, segmentCount int64) (metabase.EncryptedUserData, error) {
+	encryptedUserData := metabasetest.RandEncryptedUserData()
+	metadata, err := pb.Marshal(&pb.StreamMeta{
+		EncryptedStreamInfo: testrand.Bytes(32),
+		NumberOfSegments:    segmentCount,
+		EncryptionBlockSize: encryption.BlockSize,
+		EncryptionType:      int32(encryption.CipherSuite),
+		LastSegmentMeta: &pb.SegmentMeta{
+			EncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
+			KeyNonce:     encryptedUserData.EncryptedMetadataNonce,
+		},
+	})
+	if err != nil {
+		return metabase.EncryptedUserData{}, errs.Wrap(err)
+	}
+	encryptedUserData.EncryptedMetadata = metadata
+	return encryptedUserData, nil
 }

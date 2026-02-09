@@ -18,6 +18,7 @@ type OidcSsoClaims struct {
 	Oid               string `json:"oid"`
 	PreferredUsername string `json:"preferred_username"`
 	Email             string `json:"email"`
+	EmailVerified     bool   `json:"email_verified"`
 	Name              string `json:"name"`
 }
 

@@ -14,6 +14,9 @@ bump: ## Bump common and uplink dependencies in all modules
 	cd testsuite/storjscan;\
 		go get storj.io/common@main storj.io/uplink@main;\
 		go mod tidy;
+	cd web/satellite/wasm;\
+		go get storj.io/common@main storj.io/uplink@main storj.io/storj@latest;\
+		go mod tidy;
 
 .PHONY: protolock
 protolock: ## Update protolock state
