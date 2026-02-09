@@ -22,7 +22,10 @@ services:
     build:
       context: ../..
       dockerfile: testsuite/uplink-versions/Dockerfile
+      args:
+        GOPROXY: ${GOPROXY:-}
     environment:
+      - GOPROXY
       - STORJ_SIM_POSTGRES=postgres://postgres@postgres:5432/teststorj?sslmode=disable
       - STORJ_SIM_REDIS=redis:6379
       - GOCACHE=/go-cache/build

@@ -20,8 +20,11 @@ services:
     build:
       context: ../..
       dockerfile: testsuite/rolling-upgrade/Dockerfile
+      args:
+        GOPROXY: ${GOPROXY:-}
     environment:
       - BRANCH_NAME
+      - GOPROXY
       - STORJ_SIM_POSTGRES=cockroach://root@cockroach:26257/master?sslmode=disable
       - STORJ_SIM_REDIS=redis:6379
       - STORJ_MIGRATION_DB=cockroach://root@cockroach:26257/master?sslmode=disable
