@@ -11,7 +11,7 @@ var SupportedBinaries = []string{
 	"identity_linux_arm",
 	"identity_linux_arm64",
 	"identity_windows_amd64",
-"storagenode-updater_linux_amd64",
+	"storagenode-updater_linux_amd64",
 	"storagenode-updater_linux_arm",
 	"storagenode-updater_linux_arm64",
 	"storagenode-updater_windows_amd64",
