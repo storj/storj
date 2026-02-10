@@ -31,6 +31,15 @@ type TransactionOptions struct {
 type Shard interface {
 	CommitObject(ctx context.Context, opts CommitObject) (object Object, err error)
 	CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error)
+
+	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error)
+	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error)
+	GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error)
+	GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error)
+	GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (enabled bool, err error)
+	GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (enabled bool, err error)
+
+	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
 }
 
 // Adapter is a low level extension point to use datasource related queries.
@@ -46,27 +55,22 @@ type Adapter interface {
 	Implementation() dbutil.Implementation
 
 	BeginObjectNextVersion(context.Context, BeginObjectNextVersion, *Object) error
-	GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (Object, error)
+
 	IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) error
 	PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error)
 	CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) error
 	CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) error
 	BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error
 
-	GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error)
-	GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error)
 	SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) error
 	SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) error
 
-	GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (enabled bool, err error)
-	GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (enabled bool, err error)
 	SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) error
 	SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) error
 
 	GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error)
 	CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error)
 	UpdateTableStats(ctx context.Context) error
-	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
 
 	WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error
 
@@ -76,7 +80,7 @@ type Adapter interface {
 	GetSegmentByPositionForAudit(ctx context.Context, opts GetSegmentByPosition) (segment SegmentForAudit, aliasPieces AliasPieces, err error)
 	GetSegmentByPositionForRepair(ctx context.Context, opts GetSegmentByPosition) (segment SegmentForRepair, aliasPieces AliasPieces, err error)
 	CheckSegmentPiecesAlteration(ctx context.Context, streamID uuid.UUID, position SegmentPosition, aliasPieces AliasPieces) (altered bool, err error)
-	GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error)
+
 	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
 	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error)
 
