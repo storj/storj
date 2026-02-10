@@ -75,7 +75,7 @@ Update Jenkins job.
 
 If a revert is needed we proceed with next flow: 
 Ask developer to fix problem and push commit to main branch. After that cherry-pick fix to the release branch.
-Why we do use this flow but not revert from the release branch? It's to prevent the situation to fix bug in the main.
+Why we do use this flow but not revert from the release branch? It's to ensure that bug fixes are always applied to the `main` branch first.
 
 
 ## Where to find the release binaries
